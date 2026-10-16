@@ -1,7 +1,7 @@
 //! Source-level Scout review before measured-profile publication.
 use super::prompt::{RatingBuild, RATING_TEMPERATURE};
 use super::publish::{insert_stat_summary, record_ledger, LedgerSubject};
-use super::{create, record_rating_completed, RatingOutput};
+use super::{create, RatingOutput};
 use crate::harness::model::Inference;
 use crate::harness::plugin::PluginOutcome;
 use crate::harness::queue::publication::ClaimPublication;
@@ -15,7 +15,6 @@ use anyhow::{ensure, Result};
 use serde::Serialize;
 use serde_json::json;
 use sqlx::{PgConnection, PgPool};
-use std::time::Duration;
 
 const POLICY_VERSION: &str = "scout-source-v7-article-spectrum";
 
@@ -66,7 +65,6 @@ pub(crate) async fn structured_record(
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SourceKind {
     None,
-    Performance,
     Roster,
     Availability,
 }
@@ -141,107 +139,74 @@ pub(crate) async fn execute_with_backend(
 ) -> Result<PluginOutcome> {
     let entity_id = item.entity_id_i32()?;
     let sport = item.sport.to_uppercase();
-    let plugin_id = crate::plugins::scout::manifest::MANIFEST.id.as_str();
+    let plugin_id = super::manifest::MANIFEST.id.as_str();
     let sources = load_for_character(pool, plugin_id, &item.entity_type, entity_id, &sport).await?;
-    let Some(source) = sources.last() else {
-        let Some(publication) = ClaimPublication::begin(pool, item).await? else {
-            return Ok(PluginOutcome::Superseded);
-        };
-        publication.commit_final().await?;
-        return Ok(PluginOutcome::Committed);
+    let mut decisions = Vec::with_capacity(sources.len());
+    for source in &sources {
+        decisions.push(
+            decide(
+                &mut *pool.acquire().await?,
+                &item.entity_type,
+                entity_id,
+                &sport,
+                source,
+            )
+            .await?,
+        );
+    }
+    let now = crate::plugins::influencer::now();
+    let invalid = |source: &SourceContext| {
+        !source.published_at_epoch.is_some_and(|t| t <= now)
+            || super::super::influencer::prompt::source_disposition(&source.context).is_some()
     };
-    let name =
-        crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &sport).await?;
-    let decision = decide(
-        &mut *pool.acquire().await?,
-        &item.entity_type,
-        entity_id,
-        &sport,
-        source,
-    )
-    .await?;
-    let identity_resolved = decision.identity_resolved;
-    let corroborating_record = decision.structured_record;
-    // Preserve a complete attributed source unit; no model extracts a new quote.
-    let quote = &source.context;
-    let input_invalid = if !source
-        .published_at_epoch
-        .is_some_and(|date| date <= crate::plugins::influencer::now())
-    {
-        Some("Publication time unresolved")
-    } else if crate::plugins::influencer::prompt::source_disposition(&source.context).is_some()
-        || serde_json::to_vec(source)?.len() > 24000
-    {
-        Some("Complete source input unavailable or exceeds reading budget")
-    } else {
-        None
-    };
+    let overflow = serde_json::to_vec(&sources)?.len() > 24000;
+    let reporting: Vec<_> = sources
+        .iter()
+        .zip(&decisions)
+        .filter(|(s, d)| !invalid(s) && d.identity_resolved)
+        .map(|(s, _)| s.clone())
+        .collect();
+    let reporting_ids: Vec<_> = reporting.iter().map(|s| s.article_id).collect();
+    let stat_trigger = !item
+        .input_version
+        .as_deref()
+        .is_some_and(|v| v.starts_with(crate::plugins::classifier::CONTRACT));
+    let grounded_trigger = decisions
+        .iter()
+        .any(|d| d.identity_resolved && d.structured_record.is_some());
+    let trigger_payload = json!({"daily_sources":sources.iter().zip(&decisions).map(|(s,d)|json!({
+        "article_id":s.article_id,"classification_id":s.classification_id,
+        "identity_resolved":d.identity_resolved,"structured_record_id":d.structured_record,
+        "source_decision":d.provenance})).collect::<Vec<_>>()});
     let mut output: Option<RatingOutput> = None;
-    if input_invalid.is_none()
-        && identity_resolved
-        && (decision.kind == SourceKind::Performance || corroborating_record.is_some())
-    {
-        let season = current_season(pool, &sport).await?;
+    if !overflow && (stat_trigger || grounded_trigger) {
+        let name =
+            crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
+                .await?;
         let req = RatingReq {
             entity_type: item.entity_type.clone(),
             entity_id,
             entity_name: name,
             sport: sport.clone(),
-            trigger_type: "periodic".into(),
-            season: Some(season),
+            trigger_type: "daily".into(),
+            season: Some(current_season(pool, &sport).await?),
         };
         if let RatingBuild::Ready(mut assignment) =
             build_rating_request(pool, voice_num_ctx, &req, RATING_TEMPERATURE, false).await?
         {
+            assignment.parts.reporting = reporting;
+            assignment.built_prompt = assignment.parts.render();
             let mut components: serde_json::Value =
                 serde_json::from_str(&assignment.input_components)?;
-            components["classifier_trigger"] = json!({
-                "source_decision": decision.provenance,
-                "article_id": source.article_id,
-                "classification_id": source.classification_id,
-                "source_role": "attributed_reporting",
-                "scout_kind": match decision.kind { SourceKind::Performance => "performance", SourceKind::Roster => "roster", SourceKind::Availability => "availability", SourceKind::None => "none" },
-                "source_quote": quote,
-                "structured_record_id": corroborating_record,
-            });
-            assignment.parts.reporting = vec![source.clone()];
-            assignment.built_prompt = assignment.parts.render();
-            assignment.opts = assignment
-                .parts
-                .generation_options(voice_num_ctx, RATING_TEMPERATURE);
-            components["world"] =
-                serde_json::from_str::<serde_json::Value>(&assignment.built_prompt)?;
+            components["daily_source_decisions"] = trigger_payload.clone();
+            components["world"] = serde_json::from_str(&assignment.built_prompt)?;
             assignment.input_components = components.to_string();
             assignment.input_hash = crate::util::hash_components(&assignment.input_components);
             let mut generated = create(&Studio::new(backend), *assignment).await?;
-            generated.provenance.input_ids = vec![source.article_id];
+            generated.provenance.input_ids = reporting_ids;
             output = Some(generated);
         }
     }
-    let status = if output.is_some() { "used" } else { "held" };
-    let reason = if let Some(reason) = input_invalid {
-        Some(reason)
-    } else if !identity_resolved {
-        Some("No independently resolved article-to-entity link")
-    } else if decision.kind == SourceKind::None {
-        Some("Unavailable: no current performance predicate or applied source-linked roster/availability record")
-    } else if output.is_none() {
-        Some("No measured profile available for a rating")
-    } else {
-        None
-    };
-    let trigger_payload = json!({
-        "source_article_id": source.article_id,
-        "classification_id": source.classification_id,
-        "source_role": "attributed_reporting",
-        "identity_resolved": identity_resolved,
-        "structured_record_id": corroborating_record,
-        "scout_kind": match decision.kind {
-            SourceKind::None => "none", SourceKind::Performance => "performance",
-            SourceKind::Roster => "roster", SourceKind::Availability => "availability",
-        },
-        "evidence_quote": quote,
-    });
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
     };
@@ -251,97 +216,74 @@ pub(crate) async fn execute_with_backend(
         &item.entity_type,
         entity_id,
         &sport,
-        std::slice::from_ref(source),
+        &sources,
     )
     .await?;
-    ensure!(
-        decision
-            == decide(
+    for (source, decision) in sources.iter().zip(&decisions) {
+        ensure!(
+            *decision
+                == decide(
+                    publication.transaction(),
+                    &item.entity_type,
+                    entity_id,
+                    &sport,
+                    source
+                )
+                .await?,
+            "Scout trigger evidence changed during daily articulation"
+        );
+    }
+    let product_id = if let Some(out) = &output {
+        Some(
+            insert_stat_summary(
                 publication.transaction(),
                 &item.entity_type,
                 entity_id,
                 &sport,
-                source
+                "daily",
+                &trigger_payload,
+                out,
             )
             .await?,
-        "Scout trigger evidence changed during articulation"
-    );
-    let product_row_id = if let Some(out) = output.as_ref() {
-        let id = insert_stat_summary(
-            publication.transaction(),
-            &item.entity_type,
-            entity_id,
-            &sport,
-            "periodic",
-            &trigger_payload,
-            out,
         )
-        .await?;
-        record_rating_completed(publication.transaction(), item, true).await?;
-        Some(id)
     } else {
         None
     };
-    crate::plugins::classifier::delivery::settle(
-        publication.transaction(),
-        plugin_id,
-        &[source.classification_id],
-        status,
-        reason,
-        json!({
-            "source_article_id": source.article_id,
-            "source_role": "attributed_reporting",
-            "identity_resolved": identity_resolved,
-            "structured_record_id": corroborating_record,
-            "source_decision": decision.provenance,
-            "source_kind": match decision.kind {
-                SourceKind::None => "none", SourceKind::Performance => "performance",
-                SourceKind::Roster => "roster", SourceKind::Availability => "availability",
-            },
-            "source_quote": quote,
-            "stat_summary_id": product_row_id,
-        }),
-    )
-    .await?;
-    let remaining = crate::plugins::classifier::delivery::undelivered_count(
-        publication.transaction(),
-        plugin_id,
-        &item.entity_type,
-        entity_id,
-        &sport,
-    )
-    .await?;
-    if remaining > 0 {
-        publication.commit_progress().await?;
-        if let (Some(id), Some(out)) = (product_row_id, output.as_ref()) {
-            record_ledger(
-                pool,
-                &LedgerSubject {
-                    entity_type: &item.entity_type,
-                    entity_id,
-                    sport: &sport,
-                    trigger_type: "periodic",
-                    trigger_payload: &trigger_payload,
-                },
-                id,
-                out,
-            )
-            .await?;
-        }
-        return Ok(PluginOutcome::deferred(
-            format!("{remaining} Classifier source contexts remain for Scout"),
-            Duration::from_secs(1),
-        ));
+    for (source, decision) in sources.iter().zip(&decisions) {
+        let reason = if overflow {
+            Some("daily_package_exceeds_context_budget")
+        } else if invalid(source) {
+            Some("complete_source_unavailable")
+        } else if !decision.identity_resolved {
+            Some("unresolved_target_identity")
+        } else if decision.structured_record.is_none() {
+            Some("no_applied_source_linked_record")
+        } else if product_id.is_none() {
+            Some("no_measured_profile")
+        } else {
+            None
+        };
+        crate::plugins::classifier::delivery::settle(
+            publication.transaction(),
+            plugin_id,
+            &[source.classification_id],
+            if reason.is_none() { "used" } else { "held" },
+            reason,
+            json!({"stat_summary_id":product_id,"structured_record_id":decision.structured_record,
+                "source_quote":source.context,"source_decision":decision.provenance}),
+        )
+        .await?;
     }
+    super::record_rating_completed(publication.transaction(), item, product_id.is_some()).await?;
     publication.commit_final().await?;
-    if let (Some(id), Some(out)) = (product_row_id, output.as_ref()) {
+    if let (Some(id), Some(out)) = (product_id, output.as_ref()) {
         record_ledger(
             pool,
             &LedgerSubject {
                 entity_type: &item.entity_type,
                 entity_id,
                 sport: &sport,
-                trigger_type: "periodic",
+                trigger_type: "daily",
                 trigger_payload: &trigger_payload,
             },
             id,

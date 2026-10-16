@@ -456,7 +456,6 @@ fn world(
             supports_cross_season,
             comparisons,
         ),
-        memory: Default::default(),
     }
     .render()
 }
@@ -1456,7 +1455,7 @@ fn a_thin_sample_states_its_boundary_instead_of_describing_it() {
         .collect::<Vec<_>>()
         .join(" ");
     assert!(manual.contains("source coverage, not playing time"));
-    assert!(manual.contains("Missing comparison or measured history is unknown, not stability"));
+    assert!(manual.contains("Missing comparison is unknown, not stability"));
 
     p.sample.insert("appearances".to_string(), 10.0);
     assert!(supports_cross_season_comparison(&p));
@@ -1695,7 +1694,6 @@ fn scout_parts() -> crate::plugins::scout::prompt::Parts {
             supports_cross_season: false,
             limit: None,
         },
-        memory: Default::default(),
     }
 }
 

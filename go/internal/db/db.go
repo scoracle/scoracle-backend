@@ -413,21 +413,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
-		// Vibes leaderboard — the sport-wide CHARGE board (heat contract, drop 3b):
-		// each entity's LATEST scored row in the 48h window (DISTINCT ON), ranked by
-		// ABS(sentiment-50) DESC — emotional charge, not valence, so a 3-meltdown
-		// (charge 47) outranks a 90-euphoria (charge 40). heat serves the raw
-		// sentiment (1-100, the voice-native number); the rank expression alone owns
-		// the product semantics (a taste parameter — keep it here and only here). Joined
-		// to players/teams so the row carries name/image/team (one shape across every
-		// single-entity board the /leaderboard page renders). The inner scan reads
-		// rows regardless of sentiment nullability (the NULL drop happens in
-		// `latest`, so a newer unscored row correctly hides a stale scored one), so
-		// the partial idx_vibe_scores_sport_sentiment CANNOT serve it; the planner
-		// uses idx_vibe_scores_recent over the 48h window plus a small sort
-		// (measured 0.9ms at prod volume, 2026-07-16 — a sport-leading index was
-		// tried and measured slower; don't add one without re-measuring).
-		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
 		"vibes_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport,
 			       COALESCE($2::int, 50) AS lim,
@@ -438,26 +423,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($7::text, '') AS position_group,
 			       NULLIF($8::text, '') AS conference,
 			       NULLIF($9::text, '') AS division,
-			       -- The week archive (mig 237): the board serves that week's latest
-			       -- charge off the week stamps; live view keeps the 48h window.
-			       $10::int AS year, $11::int AS week
+			       $10::date AS reporting_date
 		),
-		-- Canonical latest-generation rule: take each
-		-- entity's latest vibe within the 48h window REGARDLESS of nullability
-		-- (latest_raw), then drop it if that latest generation is a no-corpus marker
-		-- (sentiment NULL) or carries no card title (hook NULL — the headline/body
-		-- contract, drop 2: boards serve the Influencer's HOOK as the row's headline).
-		-- A newer marker thus clears the entity from the board instead of leaving an
-		-- older scored row ranked.
 		latest_raw AS (
 			SELECT DISTINCT ON (vs.entity_type, vs.entity_id)
 			       vs.entity_type, vs.entity_id, vs.sentiment AS heat, vs.hook AS headline, vs.generated_at
 			FROM public.vibe_scores vs, req
 			WHERE vs.sport = req.sport
 			  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
-			  AND CASE WHEN req.year IS NULL
-			           THEN vs.generated_at > NOW() - INTERVAL '48 hours'
-			           ELSE vs.week_season = req.year AND vs.week_no = COALESCE(req.week, 1) END
+			  AND vs.reporting_date=COALESCE(req.reporting_date,(SELECT max(reporting_date) FROM public.vibe_scores WHERE sport=req.sport))
 			ORDER BY vs.entity_type, vs.entity_id, vs.generated_at DESC
 		),
 		latest AS (
@@ -534,9 +508,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($8::text, '') AS position_group,
 			       NULLIF($9::text, '') AS conference,
 			       NULLIF($10::text, '') AS division,
-			       -- The week archive (mig 237): year+week name a reporting week; the
-			       -- board serves that week's latest crowns off the week stamps.
-			       $11::int AS year, $12::int AS week
+			       $11::date AS reporting_date
 		),
 		-- Canonical latest-generation rule: take each
 		-- entity's latest synthesis REGARDLESS of nullability (latest_raw), then drop
@@ -549,30 +521,23 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		-- explicit ?season=N ranks that season's board exactly.
 		latest_raw AS (
 			SELECT DISTINCT ON (ss.entity_type, ss.entity_id)
-			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.headline, ss.reading, ss.generated_at
+			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.headline, ss.reading, ss.generated_at,ss.reporting_date
 			FROM public.sigil_synthesis ss, req
 			WHERE ss.sport = req.sport
+              AND ss.reporting_date=COALESCE(req.reporting_date,(SELECT max(reporting_date)
+                FROM public.sigil_synthesis WHERE sport=req.sport
+                  AND CASE WHEN req.want_season IS NULL THEN (season=req.cur_season OR season IS NULL)
+                      ELSE season=req.want_season END))
 			  AND (req.entity_type IS NULL OR ss.entity_type = req.entity_type)
-			  AND CASE WHEN req.year IS NOT NULL
-			           THEN ss.week_season = req.year AND ss.week_no = COALESCE(req.week, 1)
-			           WHEN req.want_season IS NULL
+			  AND CASE WHEN req.want_season IS NULL
 			           THEN (ss.season = req.cur_season OR ss.season IS NULL)
 			           ELSE ss.season = req.want_season END
 			ORDER BY ss.entity_type, ss.entity_id, ss.generated_at DESC
 		),
 		latest AS (
-			-- F7 (amended 2026-07-16): the board keeps the 72h freshness gate — a
-			-- leaderboard ranks what's CURRENT — but the entity_sigil profile no longer
-			-- shares it: the profile serves the latest real synthesis at any age,
-			-- timestamped (Scott's serve-latest ruling; see its vibe_cur CTE). The safe
-			-- direction of divergence: the board may omit a crown the profile still
-			-- shows — never crown one the profile denies — so the original F7
-			-- recap/score mismatch (board crowns, profile current:null) cannot return.
-			-- Explicit ?season=N keeps the no-window final-crown behavior.
 			SELECT lr.* FROM latest_raw lr, req
 			WHERE lr.score IS NOT NULL AND lr.reading IS NOT NULL AND lr.headline IS NOT NULL
-			  -- An archived week is never "fresh" — the 72h gate is a live-view affair.
-			  AND (req.year IS NOT NULL OR req.want_season IS NOT NULL OR lr.generated_at > NOW() - INTERVAL '72 hours')
+
 		),
 		ranked AS (
 			SELECT u.*, row_number() OVER (ORDER BY u.heat DESC, u.generated_at DESC) AS rank
@@ -800,67 +765,28 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT upper($1::text) AS sport,
 			       COALESCE($2::int, 50) AS lim,
 			       NULLIF(lower($3::text), '') AS entity_type,
-			       CASE NULLIF(lower($4::text), '')
-			         WHEN 'last_week' THEN 'last_week'
-			         WHEN 'two_weeks_ago' THEN 'two_weeks_ago'
-			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
-			         WHEN 'last_month' THEN 'last_month'
-			         ELSE 'current_week'
-			       END AS scope_key,
+			       $4::date AS reporting_date,
 			       $5::int AS league_id,
 			       $6::int AS team_id,
 			       NULLIF($7::text, '') AS position,
 			       NULLIF($8::text, '') AS position_group,
 			       NULLIF($9::text, '') AS conference,
-			       NULLIF($10::text, '') AS division,
-			       -- The week archive (mig 237): year+week override the rolling scope.
-			       $11::int AS year, $12::int AS week
+			       NULLIF($10::text, '') AS division
 		),
-		scope AS (
-			-- year+week (mig 237) override the rolling scope with a real reporting
-			-- week; a week the calendar doesn't know yields an empty window, never a
-			-- silent fallback. scope_key 'week' also disables the current-week
-			-- freshness gate below — archives don't age.
-			SELECT CASE WHEN req.year IS NOT NULL THEN 'week' ELSE scope_key END AS scope_key,
-			       CASE WHEN req.year IS NOT NULL THEN 'Week ' || COALESCE(req.week, 1)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN 'Last week'
-			              WHEN 'two_weeks_ago' THEN 'Two weeks ago'
-			              WHEN 'three_weeks_ago' THEN 'Three weeks ago'
-			              WHEN 'last_month' THEN 'Last month'
-			              ELSE 'Current week'
-			            END END AS label,
-			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.starts_at, 'epoch'::timestamptz)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
-			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
-			              WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
-			              ELSE NOW() - INTERVAL '7 days'
-			            END END AS starts_at,
-			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.ends_at, 'epoch'::timestamptz)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
-			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
-			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			              ELSE NOW()
-			            END END AS ends_at
-			FROM req
-			LEFT JOIN public.season_weeks sw
-			  ON sw.sport = req.sport AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1)
+        scope AS (
+            SELECT 'daily'::text scope_key,'Daily'::text label,report_day AS reporting_date,
+                report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
+                (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at
+            FROM (SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date)
+                FROM public.news_summaries WHERE sport=req.sport)) report_day FROM req) chosen
 		),
-		-- News is an archive-like product: a later no-narratives marker means "no new
-		-- story this run", not "erase this week's story". Pick the latest content
-		-- generation inside the selected scope; the current-week freshness gate below
-		-- still ages out cooling stories.
 		latest_gen AS (
 			SELECT ns.entity_type, ns.entity_id, max(ns.generated_at) AS gen
 			FROM public.news_summaries ns, req, scope
 			WHERE ns.sport = req.sport
 			  AND (req.entity_type IS NULL OR ns.entity_type = req.entity_type)
 			  AND ns.body IS NOT NULL AND ns.impact IS NOT NULL
-			  AND ns.generated_at >= scope.starts_at
-			  AND ns.generated_at < scope.ends_at
+			  AND ns.reporting_date=scope.reporting_date
 			GROUP BY ns.entity_type, ns.entity_id
 		),
 		latest AS (
@@ -881,9 +807,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			CROSS JOIN req
 			WHERE ns.sport = req.sport
 			  AND ns.body IS NOT NULL AND ns.impact IS NOT NULL
-			  AND ((SELECT scope_key FROM scope) <> 'current_week'
-			       OR COALESCE(ns.trajectory, 'developing_story') <> 'cooling_off'
-			       OR COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) > NOW() - INTERVAL '3 days')
 			ORDER BY ns.entity_type, ns.entity_id, ns.impact DESC
 		),
 		ranked AS (
@@ -937,55 +860,21 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		"transfers_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport,
 			       COALESCE($2::int, 50) AS lim,
-			       CASE NULLIF(lower($3::text), '')
-			         WHEN 'last_week' THEN 'last_week'
-			         WHEN 'two_weeks_ago' THEN 'two_weeks_ago'
-			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
-			         WHEN 'last_month' THEN 'last_month'
-			         ELSE 'current_week'
-			       END AS scope_key,
+			       $3::date AS reporting_date,
 			       NULLIF(lower($4::text), '') AS entity_type,
 			       $5::int AS league_id,
 			       $6::int AS team_id,
 			       NULLIF($7::text, '') AS position,
 			       NULLIF($8::text, '') AS position_group,
 			       NULLIF($9::text, '') AS conference,
-			       NULLIF($10::text, '') AS division,
-			       -- The week archive (mig 237): year+week override the rolling scope.
-			       $11::int AS year, $12::int AS week
+			       NULLIF($10::text, '') AS division
 		),
-		scope AS (
-			-- year+week (mig 237) override the rolling scope with a real reporting
-			-- week; a week the calendar doesn't know yields an empty window, never a
-			-- silent fallback. scope_key 'week' also disables the current-week
-			-- freshness gate below — archives don't age.
-			SELECT CASE WHEN req.year IS NOT NULL THEN 'week' ELSE scope_key END AS scope_key,
-			       CASE WHEN req.year IS NOT NULL THEN 'Week ' || COALESCE(req.week, 1)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN 'Last week'
-			              WHEN 'two_weeks_ago' THEN 'Two weeks ago'
-			              WHEN 'three_weeks_ago' THEN 'Three weeks ago'
-			              WHEN 'last_month' THEN 'Last month'
-			              ELSE 'Current week'
-			            END END AS label,
-			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.starts_at, 'epoch'::timestamptz)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
-			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
-			              WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
-			              ELSE NOW() - INTERVAL '7 days'
-			            END END AS starts_at,
-			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.ends_at, 'epoch'::timestamptz)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
-			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
-			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			              ELSE NOW()
-			            END END AS ends_at
-			FROM req
-			LEFT JOIN public.season_weeks sw
-			  ON sw.sport = req.sport AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1)
+        scope AS (
+            SELECT 'daily'::text scope_key,'Daily'::text label,report_day AS reporting_date,
+                report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
+                (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at
+            FROM (SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date)
+                FROM public.transfer_rumors WHERE sport=req.sport)) report_day FROM req) chosen
 		),
 		latest AS (
 			-- Newest row per pair regardless of verdict, so a fresh "cleared"
@@ -1007,8 +896,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       tr.generated_at
 			FROM public.transfer_rumors tr, req, scope
 			WHERE tr.sport = req.sport
-			  AND tr.generated_at >= scope.starts_at
-			  AND tr.generated_at < scope.ends_at
+			  AND tr.reporting_date=scope.reporting_date
 			ORDER BY tr.team_id, tr.subject_type, tr.player_id, tr.generated_at DESC
 		),
 		ranked AS (
@@ -1044,9 +932,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ((SELECT position_group FROM req) IS NULL OR COALESCE(pci.position_group, public.position_group(p.sport, pci.position)) = (SELECT position_group FROM req))
 				  AND ((SELECT conference FROM req) IS NULL OR current_team.conference = (SELECT conference FROM req) OR t.conference = (SELECT conference FROM req))
 				  AND ((SELECT division FROM req) IS NULL OR current_team.division = (SELECT division FROM req) OR t.division = (SELECT division FROM req))
-				  AND ((SELECT scope_key FROM scope) <> 'current_week'
-				       OR COALESCE(l.trajectory, 'developing_story') <> 'cooling_off'
-				       OR l.updated_at > NOW() - INTERVAL '3 days')
 			  AND NOT (
 			      (pci.team_id IS NOT NULL AND pci.team_id = l.team_id AND COALESCE(l.direction, '') = 'incoming')
 			      OR (pci.team_id IS NOT NULL AND pci.team_id <> l.team_id AND COALESCE(l.direction, '') = 'outgoing')
@@ -1109,58 +994,21 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// One self-contained product per card: /news (narratives), /transfers (the
 		// vetted rumor heat list), and /sigil (crown synthesis). Each card fetches
 		// its own product. $1 sport · $2 entity_type · $3 entity_id · $4 scope ·
-		// $5 year · $6 week (mig 237: a reporting week overrides the rolling scope).
+		// $4 is an optional Eastern reporting date.
 		"entity_news": `WITH req AS (
 			SELECT upper($1::text) AS sport,
 			       lower($2::text) AS entity_type,
 			       $3::int AS entity_id,
-			       CASE NULLIF(lower($4::text), '')
-			         WHEN 'last_week' THEN 'last_week'
-			         WHEN 'two_weeks_ago' THEN 'two_weeks_ago'
-			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
-			         WHEN 'last_month' THEN 'last_month'
-			         ELSE 'current_week'
-			       END AS scope_key,
-			       $5::int AS year, $6::int AS week
+			       $4::date AS reporting_date
 		),
-		scope AS (
-			-- year+week (mig 237) override the rolling scope with a real reporting
-			-- week; a week the calendar doesn't know yields an empty window, never a
-			-- silent fallback. scope_key 'week' also disables the current-week
-			-- freshness gate below — archives don't age.
-			SELECT CASE WHEN req.year IS NOT NULL THEN 'week' ELSE scope_key END AS scope_key,
-			       CASE WHEN req.year IS NOT NULL THEN 'Week ' || COALESCE(req.week, 1)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN 'Last week'
-			              WHEN 'two_weeks_ago' THEN 'Two weeks ago'
-			              WHEN 'three_weeks_ago' THEN 'Three weeks ago'
-			              WHEN 'last_month' THEN 'Last month'
-			              ELSE 'Current week'
-			            END END AS label,
-			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.starts_at, 'epoch'::timestamptz)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
-			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
-			              WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
-			              ELSE NOW() - INTERVAL '7 days'
-			            END END AS starts_at,
-			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.ends_at, 'epoch'::timestamptz)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
-			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
-			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			              ELSE NOW()
-			            END END AS ends_at
-			FROM req
-			LEFT JOIN public.season_weeks sw
-			  ON sw.sport = req.sport AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1)
+        scope AS (
+            SELECT 'daily'::text scope_key,'Daily'::text label,report_day AS reporting_date,
+                report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
+                (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at
+            FROM (SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date)
+                FROM public.news_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id)) report_day FROM req) chosen
 		),
 		narr AS (
-			-- News is an archive-like product: a later no-narratives marker means "no
-			-- new story this run", not "erase this week's story". Return the latest
-			-- content generation inside the selected scope; the current-week freshness
-			-- gate below still ages out cooling stories.
 			SELECT ns.narrative_title AS headline, ns.narrative_title, ns.body, ns.impact, ns.impact_components,
 			       ns.input_news_ids,
 			       COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) AS updated_at,
@@ -1180,16 +1028,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM public.news_summaries ns CROSS JOIN req CROSS JOIN scope
 			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
 			  AND ns.body IS NOT NULL
-			  AND (scope.scope_key <> 'current_week'
-			       OR COALESCE(ns.trajectory, 'developing_story') <> 'cooling_off'
-			       OR COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) > NOW() - INTERVAL '3 days')
 			  AND ns.generated_at = (
 			      SELECT max(generated_at) FROM public.news_summaries
 			      WHERE entity_type = (SELECT entity_type FROM req) AND entity_id = (SELECT entity_id FROM req)
 			        AND sport = (SELECT sport FROM req)
 			        AND body IS NOT NULL
-			        AND generated_at >= (SELECT starts_at FROM scope)
-			        AND generated_at < (SELECT ends_at FROM scope)
+			        AND reporting_date=(SELECT reporting_date FROM scope)
 			  )
 		)
 		SELECT json_build_object(
@@ -1220,47 +1064,14 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT upper($1::text) AS sport,
 			       lower($2::text) AS entity_type,
 			       $3::int AS entity_id,
-			       CASE NULLIF(lower($4::text), '')
-			         WHEN 'last_week' THEN 'last_week'
-			         WHEN 'two_weeks_ago' THEN 'two_weeks_ago'
-			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
-			         WHEN 'last_month' THEN 'last_month'
-			         ELSE 'current_week'
-			       END AS scope_key,
-			       $5::int AS year, $6::int AS week
+			       $4::date AS reporting_date
 		),
-		scope AS (
-			-- year+week (mig 237) override the rolling scope with a real reporting
-			-- week; a week the calendar doesn't know yields an empty window, never a
-			-- silent fallback. scope_key 'week' also disables the current-week
-			-- freshness gate below — archives don't age.
-			SELECT CASE WHEN req.year IS NOT NULL THEN 'week' ELSE scope_key END AS scope_key,
-			       CASE WHEN req.year IS NOT NULL THEN 'Week ' || COALESCE(req.week, 1)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN 'Last week'
-			              WHEN 'two_weeks_ago' THEN 'Two weeks ago'
-			              WHEN 'three_weeks_ago' THEN 'Three weeks ago'
-			              WHEN 'last_month' THEN 'Last month'
-			              ELSE 'Current week'
-			            END END AS label,
-			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.starts_at, 'epoch'::timestamptz)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
-			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
-			              WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
-			              ELSE NOW() - INTERVAL '7 days'
-			            END END AS starts_at,
-			       CASE WHEN req.year IS NOT NULL THEN COALESCE(sw.ends_at, 'epoch'::timestamptz)
-			            ELSE CASE scope_key
-			              WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
-			              WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
-			              WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
-			              ELSE NOW()
-			            END END AS ends_at
-			FROM req
-			LEFT JOIN public.season_weeks sw
-			  ON sw.sport = req.sport AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1)
+        scope AS (
+            SELECT 'daily'::text scope_key,'Daily'::text label,report_day AS reporting_date,
+                report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
+                (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at
+            FROM (SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date)
+                FROM public.transfer_rumors WHERE sport=req.sport AND ((req.entity_type='team' AND team_id=req.entity_id) OR (req.entity_type='player' AND player_id=req.entity_id AND subject_type='player')))) report_day FROM req) chosen
 		),
 		tr_latest AS (
 			-- subject_type is part of the pair key (mig 235): person/player id
@@ -1283,8 +1094,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			WHERE tr.sport = req.sport
 			  AND ( (req.entity_type = 'team'   AND tr.team_id   = req.entity_id)
 			     OR (req.entity_type = 'player' AND tr.player_id = req.entity_id AND tr.subject_type = 'player') )
-			  AND tr.generated_at >= scope.starts_at
-			  AND tr.generated_at < scope.ends_at
+			  AND tr.reporting_date=scope.reporting_date
 			ORDER BY tr.team_id, tr.subject_type, tr.player_id, tr.generated_at DESC
 		),
 		tr_ranked AS (
@@ -1303,9 +1113,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			LEFT JOIN public.teams   t ON (SELECT entity_type FROM req) = 'player' AND t.id = l.team_id   AND t.sport = (SELECT sport FROM req)
 			LEFT JOIN public.player_current_identity pci ON l.subject_type = 'player' AND pci.player_id = l.player_id AND pci.sport = (SELECT sport FROM req)
 			WHERE l.is_rumor IS TRUE AND l.heat > 0
-			  AND ((SELECT scope_key FROM scope) <> 'current_week'
-			       OR COALESCE(l.trajectory, 'developing_story') <> 'cooling_off'
-			       OR l.updated_at > NOW() - INTERVAL '3 days')
 			  AND NOT (
 			      (pci.team_id IS NOT NULL AND pci.team_id = l.team_id AND COALESCE(l.direction, '') = 'incoming')
 			      OR (pci.team_id IS NOT NULL AND pci.team_id <> l.team_id AND COALESCE(l.direction, '') = 'outgoing')
@@ -1356,31 +1163,21 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			                  trajectory, trajectory_label, trajectory_components, rank
 			           FROM tr_ranked WHERE rank <= 25) x), '[]'::json)
 		)`,
-		// The WEEK ARCHIVE (the card contract's index, 2026-08-24): every consumer
-		// seat's (score, headline, body) triples for one week of the year, merged
-		// and newest first. Week 1 is Jan 1–7 (Jan-1 blocks, Scott's spec — "week 1
-		// is the first of the year"), computed in the DB's timezone. Entries exist
-		// only where a generation carried a headline, so pre-mig-226/232 rows are
-		// simply absent rather than served blank. The Journalist's entry carries
-		// its storylines as `items` (title+body, impact-ranked); every other seat
-		// is a single body. The Scout's archive score is NULL — his card number is
-		// the rating, which is season-state, not a generation field.
-		// $1 sport · $2 entity_type · $3 entity_id · $4 week_season (NULL ⇒ current) ·
-		// $5 week_no. mig 237: the window is a season_weeks row — week 1 = the
-		// sport's opening day (ET) — never Jan-1 arithmetic. NULL params resolve
-		// to the week containing NOW(); the response echoes the resolved pair.
 		"entity_headlines": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id,
-			       $4::int AS year, $5::int AS week
+			       $4::date AS reporting_date
 		),
 		win AS (
-			SELECT sw.season AS year, sw.week_no AS week, sw.starts_at, sw.ends_at
-			FROM req, public.season_weeks sw
-			WHERE sw.sport = req.sport
-			  AND ( (req.year IS NOT NULL AND sw.season = req.year AND sw.week_no = COALESCE(req.week, 1))
-			     OR (req.year IS NULL AND NOW() >= sw.starts_at AND NOW() < sw.ends_at) )
-			ORDER BY sw.season DESC, sw.week_no DESC
-			LIMIT 1
+            SELECT report_day AS reporting_date,report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
+                (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at FROM (
+                SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date) FROM (
+                    SELECT reporting_date FROM public.news_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.vibe_scores WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.stat_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.insider_scores WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.momentum_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.sigil_synthesis WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                ) dates)) report_day FROM req) chosen
 		),
 		narr_gens AS (
 			SELECT ns.generated_at,
@@ -1391,89 +1188,55 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			         FILTER (WHERE ns.body IS NOT NULL) AS items
 			FROM public.news_summaries ns, req, win
 			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
-			  AND ns.generated_at >= win.starts_at AND ns.generated_at < win.ends_at
+			  AND ns.reporting_date=win.reporting_date
 			  AND ns.headline IS NOT NULL
 			GROUP BY ns.generated_at
 		),
-		entries AS (
+		entries_raw AS (
 			SELECT 'narratives' AS card, generated_at, score, headline, NULL::text AS body, items
 			FROM narr_gens
 			UNION ALL
 			SELECT 'transfers', s.generated_at, s.score::int, s.headline, s.read, NULL::json
 			FROM public.insider_scores s, req, win
 			WHERE s.entity_type = req.entity_type AND s.entity_id = req.entity_id AND s.sport = req.sport
-			  AND s.generated_at >= win.starts_at AND s.generated_at < win.ends_at
+			  AND s.reporting_date=win.reporting_date
 			  AND s.headline IS NOT NULL
 			UNION ALL
 			SELECT 'vibe', v.generated_at, v.sentiment::int, v.hook, v.prompt, NULL::json
 			FROM public.vibe_scores v, req, win
 			WHERE v.entity_type = req.entity_type AND v.entity_id = req.entity_id AND v.sport = req.sport
-			  AND v.generated_at >= win.starts_at AND v.generated_at < win.ends_at
+			  AND v.reporting_date=win.reporting_date
 			  AND v.hook IS NOT NULL
 			UNION ALL
 			SELECT 'momentum', m.generated_at, m.score::int, m.headline, m.blurb, NULL::json
 			FROM public.momentum_summaries m, req, win
 			WHERE m.entity_type = req.entity_type AND m.entity_id = req.entity_id AND m.sport = req.sport
-			  AND m.generated_at >= win.starts_at AND m.generated_at < win.ends_at
+			  AND m.reporting_date=win.reporting_date
 			  AND m.headline IS NOT NULL
 			UNION ALL
 			SELECT 'sigil', g.generated_at, g.score::int, g.headline, g.reading, NULL::json
 			FROM public.sigil_synthesis g, req, win
 			WHERE g.entity_type = req.entity_type AND g.entity_id = req.entity_id AND g.sport = req.sport
-			  AND g.generated_at >= win.starts_at AND g.generated_at < win.ends_at
+			  AND g.reporting_date=win.reporting_date
 			  AND g.headline IS NOT NULL
 			UNION ALL
 			SELECT 'scouting', st.generated_at, NULL::int, st.headline, st.body, NULL::json
 			FROM public.stat_summaries st, req, win
 			WHERE st.entity_type = req.entity_type AND st.entity_id = req.entity_id AND st.sport = req.sport
-			  AND st.generated_at >= win.starts_at AND st.generated_at < win.ends_at
+			  AND st.reporting_date=win.reporting_date
 			  AND st.headline IS NOT NULL
-		)
-		SELECT json_build_object(
-			'page', 'headlines',
+		),
+        entries AS (SELECT DISTINCT ON(card) * FROM entries_raw ORDER BY card,generated_at DESC)
+        SELECT json_build_object(
+            'page', 'headlines',
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
-			'year', (SELECT year FROM win),
-			'week', (SELECT week FROM win),
+			'date', (SELECT reporting_date FROM win),
 			'starts_at', (SELECT starts_at FROM win),
 			'ends_at', (SELECT ends_at FROM win),
 			'entries', COALESCE((SELECT json_agg(row_to_json(e) ORDER BY e.generated_at DESC)
 			     FROM entries e), '[]'::json)
-		)`,
-
-		// The sport's reporting calendar (mig 237): elapsed + current weeks,
-		// newest first. Week 1 = the season's opening day, 00:00 ET; the grid is
-		// derived from fixtures nightly (rebuild_season_weeks). Future weeks are
-		// withheld — there is nothing to browse ahead of the story.
-		// $1 sport · $2 season (NULL ⇒ all).
-		"sport_weeks": `WITH req AS (
-			SELECT upper($1::text) AS sport, $2::int AS want_season
-		),
-		weeks AS (
-			SELECT sw.season, sw.week_no,
-			       sw.starts_at, sw.ends_at,
-			       (NOW() >= sw.starts_at AND NOW() < sw.ends_at) AS is_current,
-			       EXISTS (SELECT 1 FROM public.week_seals ws
-			               WHERE ws.sport = sw.sport AND ws.week_season = sw.season
-			                 AND ws.week_no = sw.week_no) AS sealed
-			FROM public.season_weeks sw, req
-			WHERE sw.sport = req.sport
-			  AND (req.want_season IS NULL OR sw.season = req.want_season)
-			  AND sw.starts_at <= NOW()
-			  -- The nav lists the living archive, not deep history: the vendor-era
-			  -- fixture backfill anchors ~25 seasons of calendar, but cards carry
-			  -- headlines only since the mig 226/232 rollout. Newest two seasons.
-			  AND sw.season >= (SELECT COALESCE(MAX(s2.season), 0) - 1
-			                    FROM public.season_weeks s2 WHERE s2.sport = req.sport)
-		)
-		SELECT json_build_object(
-			'page', 'weeks',
-			'sport', lower((SELECT sport FROM req)),
-			'current', (SELECT json_build_object('season', season, 'week', week_no)
-			            FROM weeks WHERE is_current LIMIT 1),
-			'weeks', COALESCE((SELECT json_agg(row_to_json(wk)
-			            ORDER BY wk.season DESC, wk.week_no DESC) FROM weeks wk), '[]'::json)
 		)`,
 
 		// The Influencer's per-entity Vibe card, restored to its own route after
@@ -1491,22 +1254,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		-- so synthesizing an OLDER season can never become the current crown. An explicit
 		-- ?season=N selects that season exactly (its final crown).
 		vibe_cur AS (
-			-- The profile card serves the LATEST REAL synthesis, whatever its age
-			-- (Scott, 2026-07-16): the reading is timestamped client-side instead of
-			-- hidden behind a freshness window. Markers no longer clear the served
-			-- crown here — a marker means "nothing new to say", not "unsay the last
-			-- read"; only an entity never scored at all serves current: null.
-			-- DELIBERATE DIVERGENCE from sigil_leaderboard's 'latest' CTE, which keeps
-			-- the 72h crown gate: the board may omit a crown the profile still shows
-			-- (timestamped) — never the reverse — so the F7 recap/score mismatch
-			-- (board showing a crown the profile cleared) cannot reopen.
-			-- ONE product object (Session C, 2026-07-16): the row itself carries the
-			-- Oracle voice — reading/omen/voiced_* merged by mig 152, latest pre-merge
-			-- readings copied in by mig 153, so no oracle_readings read and no
-			-- COALESCE. voiced_at is the drawn-at the client timestamp prefers; on a
-			-- carried-forward voice it is older than generated_at by design. The
-			-- reading IS the served voice now (the crown fold retired the panel blurb +
-			-- disagreement/why_now, 2026-07-21).
 			SELECT vs.score, vs.convergence,
 			       vs.previous_score, vs.headline, vs.reading AS body, vs.omen, vs.voiced_at,
 			       vs.voice_model_version, vs.voice_prompt_version,
@@ -1539,17 +1286,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'current', (SELECT row_to_json(v) FROM (SELECT score AS heat, convergence, previous_score, headline, body, omen, voiced_at, voice_model_version, voice_prompt_version, model_version, prompt_version, generated_at FROM vibe_cur) v),
 			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
 		)`,
-		// Entity momentum summary — the GENERATED Momentum product: direction /
-		// score (-5..5) / blurb from momentum_summaries (Rust momentum stage; until
-		// now sigil was its only reader) plus the numeric slopes behind it from
-		// latest_momentum_scores_per_entity. Serves product rows directly — unlike
-		// the *_trends_page statements at /momentum, which re-derive raw stats per
-		// request. Season scope mirrors entity_sigil: no ?season ⇒ current-season
-		// live view behind the same 72h freshness gate; explicit ?season=N ⇒ that
-		// season's final row, ungated. `scores` is season-gated only on explicit
-		// requests (the matview keeps one latest row per entity, whatever its
-		// season). Missing rows serve as JSON nulls, not 404 — the card renders
-		// its empty state. $1 sport · $2 entity_type · $3 entity_id · $4 season.
 		"entity_momentum": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id,
 			       $4::int AS want_season,
@@ -1977,14 +1713,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				(SELECT COUNT(*)::int FROM football.team) AS team_profiles
 		) health`,
 
-		// Stories page (AppTray surface, 2026-08-12) — the first readers of the
-		// one-rail storylines/packets tables (mig 200/202). The list ranks open
-		// storylines by the cast's banked character scores ("the characters
-		// decide"): the Journalist's card_score is "how much story is here", the
-		// Influencer's sentiment is emotional heat — so a busy mid-table saga
-		// outranks a quiet big-club week. Subject-role cast scores win; a
-		// storyline with no subjects falls back to its whole active cast.
-		// $1 sport · $2 limit (NULL ⇒ 50, cap 200).
 		"story_list": `WITH req AS (
 			SELECT upper($1::text) AS sport, LEAST(COALESCE($2::int, 50), 200) AS lim
 		),

@@ -299,26 +299,6 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
             );
         }
     }
-    sqlx::query("UPDATE news_articles SET full_text='Transfer news. Sorry, this blog is currently unavailable. Back to Home.' WHERE id=$1")
-        .bind(ARTICLE).execute(&pool).await?;
-    sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
-        .bind(ARTICLE)
-        .bind(SPORT)
-        .execute(&pool)
-        .await?;
-    let unavailable = work::claim(&pool, manifest::ACQUIRE_TASK, 100)
-        .await?
-        .into_iter()
-        .find(|i| i.sport == SPORT)
-        .unwrap();
-    let error = acquire.execute(&unavailable).await.unwrap_err();
-    assert!(error.to_string().contains("no available article text"));
-    // Restore the discovery bytes for the remaining publication-fence checks.
-    sqlx::query("UPDATE news_articles SET full_text=$2 WHERE id=$1")
-        .bind(ARTICLE)
-        .bind(format!("{prose} Additional publisher update."))
-        .execute(&pool)
-        .await?;
     assert_ne!(source_ids[0], source_ids[1]);
     assert_ne!(source_ids[1], source_ids[2]);
     let count: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectra WHERE sport=$1")
@@ -511,8 +491,47 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
             },
         )
         .await;
-    assert!(result.err().is_some_and(|error| error.to_string().contains("publication date unavailable")),
-        "evaluation must see the Classifier-only source and report its unresolved date, not skip an empty legacy corpus");
+    let prepared = result?.expect("Classifier-only source remains visible to evaluation");
+    assert!(
+        !prepared.should_call,
+        "an unresolved publication date must never reach the model"
+    );
+    assert_eq!(
+        prepared.parts.as_ref().unwrap()["excluded"][0]["reason"],
+        "unknown_publication_time"
+    );
+    sqlx::query("UPDATE news_articles SET full_text='Transfer news. Sorry, this blog is currently unavailable. Back to Home.' WHERE id=$1")
+        .bind(ARTICLE).execute(&pool).await?;
+    sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
+        .bind(ARTICLE)
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+    let unavailable = work::claim(&pool, manifest::ACQUIRE_TASK, 100)
+        .await?
+        .into_iter()
+        .find(|i| i.sport == SPORT)
+        .unwrap();
+    assert!(matches!(
+        acquire.execute(&unavailable).await?,
+        crate::harness::plugin::PluginOutcome::Committed
+    ));
+    let reason: String = sqlx::query_scalar(
+        "SELECT reason FROM classifier_acquisitions WHERE article_id=$1 ORDER BY id DESC LIMIT 1",
+    )
+    .bind(ARTICLE)
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(reason, "unavailable");
+    let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='pending'")
+        .bind(SPORT).fetch_one(&pool).await?;
+    assert_eq!(
+        pending, 0,
+        "a terminal acquisition skip cannot strand character consumers on stale pending evidence"
+    );
+    let held: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='held' AND d.reason='acquisition_skipped:unavailable'")
+        .bind(SPORT).fetch_one(&pool).await?;
+    assert_eq!(held, 8);
     let mut shutdown = std::net::TcpStream::connect(address)?;
     shutdown.write_all(b"GET /shutdown HTTP/1.1\r\nHost: localhost\r\n\r\n")?;
     server.join().unwrap();

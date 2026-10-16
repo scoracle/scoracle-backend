@@ -1,6 +1,6 @@
-//! Verified fresh reporting and attributed history, with atomic publication.
+//! One daily fresh reporting package, with atomic publication.
+pub mod context;
 pub mod manifest;
-pub mod memories;
 mod parser;
 pub mod prompt;
 mod publish;
@@ -76,7 +76,7 @@ pub async fn create(
     use crate::harness::Parser;
     let world = assignment.parts.assemble();
     anyhow::ensure!(
-        world.len() <= prompt::SOURCE_BUDGET_BYTES + prompt::HISTORY_BUDGET_BYTES + 2400,
+        world.len() <= prompt::SOURCE_BUDGET_BYTES + 2400,
         "Influencer packet exceeds reading budget"
     );
     let input_hash = prompt::request_hash(backend, assignment, num_ctx)?;
@@ -86,7 +86,7 @@ pub async fn create(
         "packet":world,"input_components":assignment.parts,
         "request_body":backend.request_body(&world,&options)});
     if let Some(reason) = assignment.parts.hold_reason() {
-        receipt["reason"] = json!("incomplete_reporting_period");
+        receipt["reason"] = json!("incomplete_reporting_day");
         receipt["hold_reason"] = json!(reason);
         return Ok((None, receipt));
     }
@@ -124,7 +124,6 @@ pub async fn create(
         .parts
         .sources
         .iter()
-        .chain(&assignment.parts.history)
         .map(|s| s.article_id)
         .collect();
     source_ids.sort_unstable();
@@ -163,7 +162,7 @@ pub(crate) async fn execute_with_backend(
     let plugin_id = manifest::MANIFEST.id.as_str();
     let pending = load_for_character(pool, plugin_id, &item.entity_type, entity_id, &sport).await?;
     let unresolved = |source: &SourceContext| {
-        source.published_at_epoch.is_none()
+        !source.published_at_epoch.is_some_and(|date| date <= now())
             || source
                 .classifier_world
                 .as_ref()
@@ -186,6 +185,8 @@ pub(crate) async fn execute_with_backend(
         for source in &held {
             let reason = if source.published_at_epoch.is_none() {
                 "unknown_publication_time"
+            } else if source.published_at_epoch.is_some_and(|date| date > now()) {
+                "future_publication_time"
             } else {
                 "unresolved_target_identity"
             };
@@ -207,7 +208,7 @@ pub(crate) async fn execute_with_backend(
         publication.commit_progress().await?;
     }
     let pending: Vec<_> = pending.into_iter().filter(|s| !unresolved(s)).collect();
-    let Some(anchor) = pending.last() else {
+    let Some(_) = pending.last() else {
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
@@ -221,22 +222,22 @@ pub(crate) async fn execute_with_backend(
         entity_id,
         sport: sport.clone(),
     };
-    let (assignment, disposition) =
-        prompt::prepare_assignment(pool, subject, anchor, now()).await?;
+    let (assignment, disposition) = prompt::prepare_assignment(pool, subject, now()).await?;
     if assignment.parts.hold_reason().is_some() {
-        let period = &assignment.parts.period;
         let held: Vec<_> = pending
             .iter()
             .filter(|source| {
-                source.published_at_epoch.is_some_and(|date| {
-                    date >= period.start && date < period.end && date <= period.cutoff
-                })
+                assignment.parts.sources.contains(source)
+                    || assignment.parts.excluded.iter().any(|entry| {
+                        entry["in_day"] == true
+                            && entry["classification_id"] == source.classification_id
+                    })
             })
             .cloned()
             .collect();
         ensure!(
             !held.is_empty(),
-            "Influencer period hold covers no pending work"
+            "Influencer daily hold covers no pending work"
         );
         let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
@@ -256,7 +257,7 @@ pub(crate) async fn execute_with_backend(
             plugin_id,
             &ids,
             "held",
-            Some("incomplete_reporting_period"),
+            Some("incomplete_reporting_day"),
             json!({"model_called":false,"disposition":disposition}),
         )
         .await?;
@@ -271,7 +272,7 @@ pub(crate) async fn execute_with_backend(
         if remaining > 0 {
             publication.commit_progress().await?;
             return Ok(PluginOutcome::deferred(
-                "other reporting periods remain",
+                "other daily source obligations remain",
                 Duration::from_secs(1),
             ));
         }
@@ -309,7 +310,7 @@ pub(crate) async fn execute_with_backend(
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
     };
-    memories::validate(publication.transaction(), &assignment.parts).await?;
+    context::validate(publication.transaction(), &assignment.parts).await?;
     let product_id = if let Some(output) = &output {
         Some(persist_to_vibe_scores(publication.transaction(), item, &sport, output).await?)
     } else {
@@ -325,7 +326,7 @@ pub(crate) async fn execute_with_backend(
         .parts
         .excluded
         .iter()
-        .filter(|e| e["reason"] == "known_copy" && e["in_period"] == true)
+        .filter(|e| e["reason"] == "known_copy" && e["in_day"] == true)
         .filter_map(|e| e["classification_id"].as_i64())
         .collect();
     let covered: Vec<SourceContext> = pending
@@ -406,7 +407,7 @@ pub(crate) async fn execute_with_backend(
     }
     Ok(if remaining > 0 {
         PluginOutcome::deferred(
-            format!("{remaining} sources await another period packet"),
+            format!("{remaining} sources await another day packet"),
             Duration::from_secs(1),
         )
     } else {

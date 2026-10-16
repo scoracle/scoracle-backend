@@ -74,11 +74,11 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
     let voice_at = rendered.find(r#""voice":"#).unwrap();
     assert!(voice_at < fresh_at);
     let frame: serde_json::Value = serde_json::from_str(&rendered).unwrap();
-    assert_eq!(a.deferred_ids, vec![1]);
+    assert!(a.deferred_ids.is_empty());
     let next = prepared(vec![item(1, &text)]);
     let next_frame: serde_json::Value = serde_json::from_str(&prompt(&next)).unwrap();
     assert_eq!(next_frame["fresh"][0]["publisher_excerpt"], text);
-    assert_eq!(frame["fresh"].as_array().unwrap().len(), 1);
+    assert_eq!(frame["fresh"].as_array().unwrap().len(), 2);
     let result = EditionParser {
         assignment: &a,
         activity: &activity::reference(&a.selected, NOW),
@@ -86,7 +86,7 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
     .parse(&reply(&a))
     .unwrap()
     .unwrap();
-    assert_eq!(result.narratives.len(), 1);
+    assert_eq!(result.narratives.len(), 2);
     assert_eq!(result.narratives[0].source_names, vec!["Other Wire"]);
     assert_eq!(result.narratives[0].input_news_ids, vec![2]);
 }
@@ -118,7 +118,7 @@ fn dates_missing_material_and_oversized_reports_have_distinct_dispositions() {
         reasons,
         HashSet::from([
             "unknown_publication_time",
-            "outdated_report",
+            "daily_package_exceeds_context_budget",
             "future_publication_time",
             "missing_source_material",
             "complete_report_exceeds_context_budget"
@@ -126,7 +126,7 @@ fn dates_missing_material_and_oversized_reports_have_distinct_dispositions() {
     );
 }
 #[test]
-fn selected_reports_fit_the_context_budget_and_rest_remain_pending() {
+fn an_oversized_daily_package_is_held_without_partial_publication() {
     let a = prepared(
         (1..=4)
             .map(|id| {
@@ -140,10 +140,14 @@ fn selected_reports_fit_the_context_budget_and_rest_remain_pending() {
             })
             .collect(),
     );
-    assert_eq!(a.selected.len(), 1);
-    assert_eq!(a.deferred_ids.len(), 3);
+    assert!(a.selected.is_empty());
+    assert!(a.deferred_ids.is_empty());
     assert!(prompt(&a).len() <= SOURCE_BUDGET_BYTES);
-    assert!(a.dispositions.is_empty());
+    assert_eq!(a.dispositions.len(), 4);
+    assert!(a
+        .dispositions
+        .iter()
+        .all(|d| d.reason == "daily_package_exceeds_context_budget"));
 }
 #[test]
 fn prior_sourced_text_prevents_republication_without_becoming_new_evidence() {
@@ -398,8 +402,8 @@ fn budget_counts_the_actual_frame_including_metadata_and_json_escaping() {
         })
         .collect();
     let a = prepare(long_identity, reports, &[], NOW).unwrap();
-    assert!(!a.selected.is_empty());
-    assert!(!a.deferred_ids.is_empty());
+    assert_eq!(a.selected.len(), 4);
+    assert!(a.deferred_ids.is_empty());
     assert!(prompt(&a).len() <= SOURCE_BUDGET_BYTES);
 }
 

@@ -14,11 +14,10 @@ use std::collections::HashSet;
 
 pub const TASK: &str = "For each fresh report, write two or three short, attributed sentences, at most 1200 characters, only when the publisher text contains substantive news or analysis about the entity in meta. Use voice as tone and fresh as the only evidence. Preserve attribution, event dates, denials and qualifications. Never assign a player to the target team or infer a relationship from proximity, a query, or classifier scores. Scores measure article usefulness, not target relevance or verified facts. For unrelated reporting, rankings-only tables, schedules or navigation, decline that slot with null. Return only JSON mapping every supplied report_key to its report text or null.";
 
-pub const NARRATIVES_PROMPT_VERSION: &str = "n104-bounded-report";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n105-daily-fresh";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v13-bounded-slots";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
-pub const MAX_REPORTS: usize = 1;
 pub const SOURCE_BUDGET_BYTES: usize = 24000;
 
 #[derive(Clone, Debug)]
@@ -57,7 +56,7 @@ pub fn prepare(
     });
     let mut selected = Vec::new();
     let mut dispositions = Vec::new();
-    let mut deferred_ids = Vec::new();
+    let deferred_ids = Vec::new();
     let mut seen = published_reports
         .iter()
         .map(|r| {
@@ -89,8 +88,6 @@ pub fn prepare(
             Some("unknown_publication_time")
         } else if item.published_at_epoch.unwrap() > now {
             Some("future_publication_time")
-        } else if now.saturating_sub(item.published_at_epoch.unwrap()) > LOOKBACK_SECONDS {
-            Some("outdated_report")
         } else if seen.contains(&(
             item.context.clone(),
             item.classifier_world
@@ -115,14 +112,6 @@ pub fn prepare(
             });
             continue;
         }
-        let mut candidate = selected.clone();
-        candidate.push(item.clone());
-        if selected.len() == MAX_REPORTS
-            || assemble(&subject, &candidate).len() > SOURCE_BUDGET_BYTES
-        {
-            deferred_ids.push(item.id);
-            continue;
-        }
         seen.insert((
             item.context.clone(),
             item.classifier_world
@@ -130,6 +119,16 @@ pub fn prepare(
                 .map(serde_json::Value::to_string),
         ));
         selected.push(item);
+    }
+    if assemble(&subject, &selected).len() > SOURCE_BUDGET_BYTES
+        || dispositions
+            .iter()
+            .any(|d| d.reason == "complete_report_exceeds_context_budget")
+    {
+        dispositions.extend(selected.drain(..).map(|item| Disposition {
+            article_id: item.id,
+            reason: "daily_package_exceeds_context_budget",
+        }));
     }
     let rendered = assemble(&subject, &selected);
     let input_hash = crate::util::hash_components(
@@ -186,7 +185,7 @@ pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOpti
     GenerateOptions {
         system: Some(TASK.to_string()),
         temperature: Some(0.0),
-        num_predict: NUM_PREDICT,
+        num_predict: (assignment.selected.len() as i32 * 420).clamp(NUM_PREDICT, 8000),
         num_ctx: num_ctx.max(ARTICLE_NUM_CTX),
         json_mode: false,
         // Native shape validation stays in place without form instructions in the payload.
@@ -220,8 +219,7 @@ pub async fn load_narratives_material(
     )
     .await?;
     let fresh = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
-    let published = super::fresh::published_reports(pool, &subject, now).await?;
-    let assignment = prepare(subject, fresh, &published, now)?;
+    let assignment = prepare(subject, fresh, &[], now)?;
     let sources = sources
         .into_iter()
         .filter(|s| !assignment.deferred_ids.contains(&s.article_id))

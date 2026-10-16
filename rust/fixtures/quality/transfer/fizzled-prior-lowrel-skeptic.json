@@ -9,17 +9,18 @@
       "€",
       "million"
     ],
-    "transfer_stage": "speculation",
-    "transfer_is_rumor": true
+    "transfer_is_rumor": true,
+    "transfer_stage": "speculation"
   },
   "name": "fizzled-prior-lowrel-skeptic",
-  "prompt_version": "insider-source-v10-bounded-reports",
-  "task": "transfer",
-  "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Kai Sorensen\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"reports\":[{\"publisher\":\"TransferTavern\",\"headline\":\"Chelsea 'keeping tabs' on Sorensen — report\",\"publisher_excerpt\":\"A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.\",\"co_mentions\":[{\"name\":\"Chelsea\",\"entity_type\":\"team\"}]}]},\"memories\":{\"prior_reports\":[],\"source_records\":[{\"publisher\":\"TransferTavern\",\"confirmed\":2,\"tracked\":40,\"reliability\":14}]},\"voice\":\"Informed, alert, measured.\",\"form\":{\"keys\":[\"body\",\"findings\"],\"findings\":{\"type\":\"array\",\"item_keys\":[\"report_index\",\"counterparty\",\"status\",\"stage\",\"evidence_quote\"]},\"paragraphs\":\"concise\"}}",
+  "prompt_version": "insider-source-v11-daily-fresh",
   "review": [
     "Distinguish the proposed relationship from speculation, historical affiliation and unrelated people.",
-    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
   ],
-  "sport": "FOOTBALL"
+  "sport": "FOOTBALL",
+  "task": "transfer",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Kai Sorensen\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"reports\":[{\"publisher\":\"TransferTavern\",\"headline\":\"Chelsea 'keeping tabs' on Sorensen — report\",\"publisher_excerpt\":\"A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.\",\"co_mentions\":[{\"name\":\"Chelsea\",\"entity_type\":\"team\"}]}]},\"memories\":{\"prior_reports\":[],\"source_records\":[{\"publisher\":\"TransferTavern\",\"confirmed\":2,\"tracked\":40,\"reliability\":14}]},\"voice\":\"Informed, alert, measured.\",\"form\":{\"keys\":[\"body\",\"findings\"],\"findings\":{\"type\":\"array\",\"item_keys\":[\"report_index\",\"counterparty\",\"status\",\"stage\",\"evidence_quote\"]},\"paragraphs\":\"concise\"}}"
 }

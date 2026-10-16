@@ -187,7 +187,7 @@ impl<'a> ScopedWeb<'a> {
         self.check_grant(class, url)?;
         self.check_budget()?;
         let result = self.broker.fetcher.fetch(self.pool, url, policy).await;
-        result.map_err(|e| anyhow!("{e}"))
+        result.map_err(anyhow::Error::new)
     }
 
     /// Fetch one already-curated publisher article for a plugin with this grant.

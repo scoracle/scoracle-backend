@@ -662,6 +662,13 @@ fn budgeted_fetch_outcome(url: &str, e: &BudgetedFetchError) -> FetchOutcome {
             final_url,
             "source",
         ),
+        BudgetedFetchError::UnsupportedBody { final_url } => FetchOutcome::new(
+            "fetch_failed",
+            Some(url.to_string()),
+            Some(final_url.clone()),
+            domain_of(final_url),
+            e.to_string(),
+        ),
         BudgetedFetchError::Other(err) => FetchOutcome::new(
             "fetch_failed",
             Some(url.to_string()),

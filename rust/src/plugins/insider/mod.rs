@@ -11,7 +11,6 @@ use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
 use crate::harness::queue::publication::ClaimPublication;
 use crate::harness::queue::work::Item;
 use crate::harness::{Generation, GenerationCall, Studio};
-use crate::tools::memories::{HistoryItem, SourceRecord};
 use crate::tools::meta::EntityMeta;
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
@@ -71,12 +70,10 @@ pub async fn create(
     studio: &Studio<'_>,
     subject: &EntityMeta,
     reports: &[prompt::Report],
-    history: &[HistoryItem],
-    source_records: &[SourceRecord],
     num_ctx: i32,
 ) -> Result<Generation<Reply>> {
     ensure!(!reports.is_empty(), "Insider needs a verified source");
-    let world = prompt::assemble(subject, reports, history, source_records);
+    let world = prompt::assemble(subject, reports);
     ensure!(
         world.len() <= prompt::CONTEXT_BUDGET_BYTES,
         "Insider article package exceeds reading budget"
@@ -210,8 +207,6 @@ async fn execute_prepared(
         &Studio::new(backend),
         &material.subject,
         &material.reports,
-        &material.history,
-        &material.source_records,
         num_ctx,
     )
     .await
@@ -323,7 +318,7 @@ mod tests {
             }],
         };
         let fake = Fake(Mutex::new(0));
-        let generated = create(&Studio::new(&fake), &subject, &[report], &[], &[], 4096)
+        let generated = create(&Studio::new(&fake), &subject, &[report], 4096)
             .await
             .unwrap();
         assert_eq!(*fake.0.lock().unwrap(), 1);

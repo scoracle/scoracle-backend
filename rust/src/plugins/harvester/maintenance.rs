@@ -8,43 +8,22 @@ use tracing::{debug, error, info};
 
 pub fn operations(pool: PgPool) -> Vec<Arc<dyn ScheduledOperation>> {
     vec![
-        Arc::new(WeekSeal { pool: pool.clone() }),
+        Arc::new(StorylineDormancy { pool: pool.clone() }),
         Arc::new(ExactTitleDedup { pool }),
     ]
 }
 
-struct WeekSeal {
+struct StorylineDormancy {
     pool: PgPool,
 }
 
 #[async_trait]
-impl ScheduledOperation for WeekSeal {
+impl ScheduledOperation for StorylineDormancy {
     fn name(&self) -> &'static str {
-        "harvester.week-seal"
+        "harvester.storyline-dormancy"
     }
 
     async fn run(&self, cause: &'static str) -> Duration {
-        for sport in ["FOOTBALL", "NBA", "NFL"] {
-            match sqlx::query_as::<_, (i32, i32)>(
-                "SELECT closing_enqueued, weeks_sealed FROM public.seal_weeks($1)",
-            )
-            .bind(sport)
-            .fetch_one(&self.pool)
-            .await
-            {
-                Ok((enqueued, sealed)) if enqueued > 0 || sealed > 0 => info!(
-                    sport,
-                    closing_enqueued = enqueued,
-                    weeks_sealed = sealed,
-                    cause,
-                    "week seal advanced"
-                ),
-                Ok(_) => debug!(sport, cause, "week seal: nothing to close"),
-                Err(error) => {
-                    error!(sport, cause, error = %format!("{error:#}"), "week seal failed")
-                }
-            }
-        }
         // Retained presentation-group lifecycle; existing memberships are untouched.
         match sqlx::query("UPDATE public.storylines SET status='dormant' WHERE status='open' AND last_seen_at < NOW()-INTERVAL '14 days'")
             .execute(&self.pool).await {

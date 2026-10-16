@@ -7,13 +7,12 @@ use serde::Serialize;
 use super::parser::{self, RatingReply};
 use super::performance::{RatingExclusions, RatingTrajectory};
 use crate::harness::model::GenerateOptions;
-use crate::plugins::scout::memories::Selected;
 use crate::plugins::scout::performance::{self, Profile};
 use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
-use anyhow::{ensure, Context, Result};
+use anyhow::{ensure, Result};
 
-pub const RATING_PROMPT_VERSION: &str = "s71-article-spectrum";
+pub const RATING_PROMPT_VERSION: &str = "s72-daily-fresh";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -61,21 +60,18 @@ pub struct Assignment {
 /// Instructions accompanying every prepared Scout world.
 pub const TASK: &str = "\
 meta identifies the subject. fresh contains selected season measurements and
-their sample and limits. memories contains separate previous and current
-measurement windows and dated,
-attributed reports. voice sets tone; form sets output shape and limits.
+their sample and limits. reporting contains complete fresh attributed reports.
+voice sets tone; form sets output shape and limits.
 
 Describe what the supplied measurements establish in compact prose. Use only
 supplied numbers and reporting. A percentile is relative standing, not ability or
 the size of a difference. A prior percentile and standing_change apply only to
 that measure; supports_cross_season alone does not establish a comparison.
-Missing comparison or measured history is unknown, not stability. A composite
+Missing comparison is unknown, not stability. A composite
 is a standardized overall score with peer mean 50, not a percentile or a
 measure of any individual skill.
 
-Each measured window owns its dates, fixture count, measured count and per-match
-average. The supplied change compares current with previous, not seasons or
-individual games. Missing fixture measurements are unknown, not zero.
+Missing fixture measurements are unknown, not zero.
 
 Honor any limit. Sample counts describe source coverage, not playing time or
 when a season began. Keep reports attributed and dated; a withdrawal retracts
@@ -100,8 +96,6 @@ pub struct Parts {
     pub sport_name: String,
     pub season: i32,
     pub profile: Profile,
-    #[serde(default)]
-    pub memory: Selected,
 }
 
 impl Parts {
@@ -164,19 +158,13 @@ impl Parts {
     }
 
     /// Preserve the completed wire world and provenance in one debounce input.
-    pub fn input_components(&self, mut provenance: serde_json::Value) -> String {
-        provenance["measured_fixture_ids"] = serde_json::json!(self
-            .memory
-            .measured
-            .iter()
-            .map(|window| (&window.measure_label, &window.fixture_ids))
-            .collect::<Vec<_>>());
+    pub fn input_components(&self, provenance: serde_json::Value) -> String {
         serde_json::json!({"world": self.render(), "prompt_version": RATING_PROMPT_VERSION,
             "output_contract": parser::RATING_OUTPUT_CONTRACT_VERSION, "provenance": provenance})
         .to_string()
     }
 
-    /// Field order is the wire order. Optional memories are omitted, not empty.
+    /// Field order is the wire order; this package contains only current facts and fresh reporting.
     pub fn render(&self) -> String {
         #[derive(Serialize)]
         struct Meta<'a> {
@@ -195,8 +183,6 @@ impl Parts {
             fresh: &'a Profile,
             #[serde(skip_serializing_if = "Vec::is_empty")]
             reporting: Vec<serde_json::Value>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            memories: Option<&'a Selected>,
             voice: &'static str,
             form: Form<'a>,
         }
@@ -206,10 +192,6 @@ impl Parts {
         } else {
             self.sport_name.as_str()
         };
-        let memories = (!self.memory.measured.is_empty()
-            || !self.memory.reported.is_empty()
-            || !self.memory.coverage_limits.is_empty())
-        .then_some(&self.memory);
         serde_json::to_string(&Input {
             meta: Meta {
                 name: &self.subject.name,
@@ -228,7 +210,6 @@ impl Parts {
                     })
                 })
                 .collect(),
-            memories,
             voice: crate::plugins::scout::voice::VOICE,
             form: Form {
                 keys: &prose.keys,
@@ -304,7 +285,7 @@ pub async fn build_rating_request(
     .await?;
 
     // Keep the adjudicated records for provenance and select attributed memory from them.
-    let (personnel, changes, availability) = if with_enrichment && !historical {
+    let (personnel, _changes, _availability) = if with_enrichment && !historical {
         let (changes, total) = match crate::plugins::scout::sources::load_personnel_changes(
             pool,
             &req.sport,
@@ -371,11 +352,6 @@ pub async fn build_rating_request(
         serde_json::to_vec(&reporting)?.len() <= 24000,
         "Scout full reporting population exceeds reading budget"
     );
-    let reported_memory =
-        super::memories::reported_memory(&req.entity_type, &changes, &availability, &[])
-            .await
-            .context("analyze Scout reported memory with DuckDB")?;
-
     let comparisons = if with_enrichment && supports_cross_season {
         match performance::load_rating_profile(
             pool,
@@ -438,34 +414,6 @@ pub async fn build_rating_request(
         sport: req.sport.clone(),
         sport_name,
     };
-    let (measured_memory, coverage_limits) = match super::memories::measured_memory(
-        pool,
-        &subject,
-        req.entity_id,
-        &profile,
-        with_enrichment && !historical,
-    )
-    .await
-    {
-        Ok(parts) => parts,
-        Err(error) => {
-            // A failed study is not a study that found nothing. The difference
-            // matters: the second is a fact about the fixtures, the first is a
-            // fact about our ability to look. Recording it keeps the model from
-            // reading absence-of-trend as stability.
-            tracing::warn!(
-                entity_type = %req.entity_type,
-                entity_id = req.entity_id,
-                sport = %req.sport,
-                %error,
-                "rating: match-statistic study failed (continuing without measured memory)"
-            );
-            (
-                Vec::new(),
-                vec!["Recent-fixture measurement window unavailable for this read.".into()],
-            )
-        }
-    };
     let parts = crate::plugins::scout::prompt::Parts {
         reporting,
         subject: crate::tools::meta::EntityMeta {
@@ -480,12 +428,6 @@ pub async fn build_rating_request(
             &prompt_profile,
             supports_cross_season,
             comparisons.as_ref(),
-        ),
-        memory: crate::plugins::scout::memories::select(
-            &crate::plugins::scout::memories::Selection::rated(),
-            measured_memory,
-            reported_memory,
-            coverage_limits,
         ),
     };
     let built_prompt = parts.render();
@@ -580,54 +522,13 @@ mod tests {
         let baseline = hash(&parts, 1);
         assert_eq!(baseline, hash(&parts.clone(), 1));
         assert_ne!(baseline, hash(&parts, 2));
-        let mut changed = parts.clone();
-        changed
-            .memory
-            .measured
-            .push(crate::plugins::scout::memories::Measured {
-                measure_label: "Blocks".into(),
-                unit: "count".into(),
-                previous: crate::plugins::scout::memories::Window {
-                    from: "2026-08-12".into(),
-                    before: "2026-09-01".into(),
-                    fixtures: 3,
-                    measured: 2,
-                    per_match: Some(1.0),
-                },
-                current: crate::plugins::scout::memories::Window {
-                    from: "2026-09-01".into(),
-                    before: "2026-09-20".into(),
-                    fixtures: 3,
-                    measured: 2,
-                    per_match: Some(2.0),
-                },
-                per_match_change: None,
-                percent_change: None,
-                fixture_ids: vec![1, 2, 3],
-            });
-        assert_ne!(baseline, hash(&changed, 1));
-        let measured = hash(&changed, 1);
-        changed.memory.measured[0].current.per_match = Some(3.0);
-        assert_ne!(measured, hash(&changed, 1));
-        let current_changed = hash(&changed, 1);
-        changed.memory.measured[0].previous.before = "2026-08-31".into();
-        assert_ne!(current_changed, hash(&changed, 1));
-        let bounds_changed = hash(&changed, 1);
-        let rendered = changed.render();
-        changed.memory.measured[0].fixture_ids.push(4);
-        assert_eq!(rendered, changed.render());
-        assert_ne!(bounds_changed, hash(&changed, 1));
-        let world: serde_json::Value = serde_json::from_str(&rendered).unwrap();
-        assert!(world["memories"]["measured"][0]
-            .get("fixture_ids")
-            .is_none());
-        changed = parts.clone();
-        changed
-            .memory
-            .coverage_limits
-            .push("One fixture has no measurement".into());
-        assert_ne!(baseline, hash(&changed, 1));
-        changed = parts;
+        let legacy = serde_json::to_value(&parts).unwrap();
+        let mut injected = legacy.clone();
+        injected["memory"] = json!({"reported":[{"reported_headline":"Old memory"}]});
+        let fresh: Parts = serde_json::from_value(injected).unwrap();
+        assert_eq!(fresh.render(), parts.render());
+        assert!(!fresh.render().contains("memories"));
+        let mut changed = parts;
         changed.profile.limit = Some(Limit::ThinSample {
             appearances: 3.0,
             minimum: 10.0,

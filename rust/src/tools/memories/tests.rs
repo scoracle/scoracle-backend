@@ -181,7 +181,7 @@ async fn duckdb_memory_runner_preserves_samples_records_and_quotes() {
             reliability: 17
         }]
     );
-    let reported: Vec<crate::plugins::scout::memories::Reported> = run(&serde_json::json!({
+    let reported: Vec<serde_json::Value> = run(&serde_json::json!({
         "kind":"scout_records","version":"scout-records-v1","entity_type":"player","max_reports":4,
         "personnel":[],
         "availability":[{"kind":"reverted","date_label":"2026-10-05T10:00:00Z",
@@ -189,30 +189,17 @@ async fn duckdb_memory_runner_preserves_samples_records_and_quotes() {
         "claims":[{"source":"Wire","fact":"Synthetic Player is not injured.","published_at":1791194400}]
     })).await.unwrap();
     assert_eq!(reported.len(), 2);
-    assert_eq!(reported[0].withdrawn, Some(true));
-    assert!(reported[0]
-        .reported_headline
+    assert_eq!(reported[0]["withdrawn"], true);
+    assert!(reported[0]["reported_headline"]
+        .as_str()
+        .unwrap()
         .contains("not evidence of a return"));
-    assert_eq!(reported[1].publisher, "Wire");
+    assert_eq!(reported[1]["publisher"], "Wire");
     assert_eq!(
-        reported[1].reported_headline,
+        reported[1]["reported_headline"],
         "Synthetic Player is not injured."
     );
-    assert_eq!(reported[1].disputed, None);
-    let scores: ScoreHistory = run(&serde_json::json!({
-        "kind":"score_history","version":"score-history-v1","before":2000000,"rating_weeks":3,
-        "observations":[
-            {"id":1,"rail":"rating","observed_at":100,"week_start":0,"value":10},
-            {"id":2,"rail":"rating","observed_at":200,"week_start":0,"value":30},
-            {"id":3,"rail":"rating","observed_at":700000,"week_start":604800,"value":30},
-            {"id":1,"rail":"vibe","observed_at":100,"week_start":0,"value":null}
-        ]
-    }))
-    .await
-    .unwrap();
-    assert_eq!(scores.rating_slope, Some(10.0));
-    assert_eq!(scores.rating_samples, 3);
-    assert_eq!(scores.vibe_slope, None);
+    assert_eq!(reported[1].get("disputed"), None);
 }
 
 /// Smoke the live export schemas and helper boundary without mutating history.
@@ -236,11 +223,6 @@ async fn live_memory_exports_are_read_only() {
         .await
         .unwrap();
     assert_eq!(readonly, "on");
-    let scores = score_history(&pool, "team", 7, "NFL").await.unwrap();
-    println!(
-        "live score samples: Scout={}, Influencer={}",
-        scores.rating_samples, scores.vibe_samples
-    );
     let publisher: Option<(String, String)> = sqlx::query_as(
         "SELECT sport,source FROM transfer_rumors CROSS JOIN LATERAL unnest(source_names) AS s(source) WHERE subject_type='player' AND is_rumor IS TRUE ORDER BY id DESC LIMIT 1")
         .fetch_optional(&pool).await.unwrap();
@@ -249,22 +231,4 @@ async fn live_memory_exports_are_read_only() {
         assert!(records.iter().all(|r| r.confirmed <= r.tracked));
         println!("live publisher records: {}", records.len());
     }
-    use crate::plugins::scout::{memories, sources};
-    let (changes, _) = sources::load_personnel_changes(&pool, "FOOTBALL", "team", 3)
-        .await
-        .unwrap();
-    let (availability, _) = sources::load_availability_changes(&pool, "FOOTBALL", "team", 3)
-        .await
-        .unwrap();
-    let claims = sources::load_scout_reports(&pool, "team", 3, "FOOTBALL")
-        .await
-        .unwrap();
-    let reported = memories::reported_memory("team", &changes, &availability, &[])
-        .await
-        .unwrap();
-    println!(
-        "live Scout record observations: {}, complete Classifier reports: {}",
-        reported.len(),
-        claims.len()
-    );
 }

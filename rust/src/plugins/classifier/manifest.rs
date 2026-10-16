@@ -16,7 +16,7 @@ pub const MANIFEST: PluginManifest = PluginManifest {
 pub const ACQUIRE_MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.internal.classifier.source"),
     task: ACQUIRE_TASK,
-    claim_policy: ClaimPolicy::RANKED_ARTICLES,
+    claim_policy: ClaimPolicy::FRESH_ARTICLES,
     inference_routes: &[],
     resources: ResourceProfile::unbounded_batch(4).batched(4),
     tools: &[ToolGrant::WebFetch(&[DomainClass::CuratedArticles])],

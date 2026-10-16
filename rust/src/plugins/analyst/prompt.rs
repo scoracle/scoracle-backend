@@ -9,9 +9,9 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s36-concise-body";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s38-daily-fresh";
 
-pub const MOMENTUM_SYSTEM_PROMPT: &str = "Synthesize the supplied finished performance and mood readings for this entity. Explain whether they reinforce each other, diverge, or leave the current picture unresolved. The dated trajectory study compares reporting-week means of the named stored scores, within its own window and sample. Scout notability measures distinctiveness, not skill; do not merge different windows or infer a cause. A missing reading or study is unknown, not a neutral signal. Do not forecast. Write only the declared JSON blurb.";
+pub const MOMENTUM_SYSTEM_PROMPT: &str = "Synthesize the supplied finished performance and mood readings for this entity. Explain whether they reinforce each other, diverge, or leave the current picture unresolved. Scout notability measures distinctiveness, not skill; do not merge different windows or infer a cause. A missing daily reading is unknown, not a neutral signal. Do not forecast. Write only the declared JSON blurb.";
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
@@ -34,7 +34,21 @@ pub struct Mood {
     pub input_hash: Option<String>,
 }
 
-pub use crate::tools::memories::ScoreHistory as Snapshot;
+/// One explicitly dated trajectory study. It is supporting evidence for the two finished
+/// readings, not a second set of overlapping labels or a pre-written Analyst verdict.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Snapshot {
+    pub vibe_slope: Option<f64>,
+    pub vibe_samples: i32,
+    pub vibe_window_start: Option<String>,
+    pub vibe_window_end: Option<String>,
+    pub rating_slope: Option<f64>,
+    pub rating_samples: i32,
+    pub rating_window_start: Option<String>,
+    pub rating_window_end: Option<String>,
+    pub momentum_score: Option<f64>,
+    pub generated_at: Option<String>,
+}
 
 impl Snapshot {
     pub fn empty(&self) -> bool {
@@ -183,15 +197,6 @@ impl MomentumContext {
 
 type ScoutReadingRow = (String, Option<String>, Option<i32>, String, Option<String>);
 type InfluencerReadingRow = (String, Option<String>, Option<i16>, String, Option<String>);
-pub async fn load_momentum_snapshot(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-) -> Result<Snapshot> {
-    crate::tools::memories::score_history(pool, entity_type, entity_id, sport).await
-}
-
 async fn load_scout_reading(
     pool: &PgPool,
     entity_type: &str,
@@ -205,7 +210,8 @@ async fn load_scout_reading(
           FROM (
             SELECT body, headline, season, generated_at, input_hash
               FROM public.stat_summaries
-             WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
+             WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+           AND reporting_date=public.character_reporting_date() AND season = $4
              ORDER BY generated_at DESC, id DESC
              LIMIT 1
           ) latest
@@ -241,6 +247,7 @@ async fn load_influencer_reading(
         SELECT prompt, hook, sentiment, generated_at::date::text, input_hash
           FROM public.vibe_scores
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+           AND reporting_date=public.character_reporting_date()
            AND prompt IS NOT NULL AND btrim(prompt) <> ''
          ORDER BY generated_at DESC, id DESC
          LIMIT 1
@@ -270,12 +277,16 @@ pub async fn load_momentum_context(
     sport: &str,
 ) -> Result<MomentumContext> {
     let season = oracle::resolve_season(pool, sport, None).await?;
-    let (rating, vibe, snapshot) = tokio::try_join!(
+    let (rating, vibe) = tokio::try_join!(
         load_scout_reading(pool, entity_type, entity_id, sport, season),
         load_influencer_reading(pool, entity_type, entity_id, sport),
-        load_momentum_snapshot(pool, entity_type, entity_id, sport),
     )?;
-    Ok(MomentumContext::new(season, rating, vibe, snapshot))
+    Ok(MomentumContext::new(
+        season,
+        rating,
+        vibe,
+        Snapshot::default(),
+    ))
 }
 
 /// Preserve the current voice-window reservation; all adapters use these same options.
@@ -301,61 +312,19 @@ struct Reading<'a> {
 }
 
 #[derive(Serialize)]
-struct Rail<'a> {
-    measure: &'static str,
-    slope: f64,
-    samples: i32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    from: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    through: Option<&'a str>,
-}
-
-#[derive(Serialize)]
-struct Study<'a> {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    computed_at: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    form: Option<Rail<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    mood: Option<Rail<'a>>,
-}
-
-#[derive(Serialize)]
 struct Fresh<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     scout: Option<Reading<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     influencer: Option<Reading<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    trajectory: Option<Study<'a>>,
 }
 
 pub fn assemble(
     subject: &EntityMeta,
     scout: Option<&Form>,
     influencer: Option<&Mood>,
-    snapshot: &Snapshot,
+    _snapshot: &Snapshot,
 ) -> String {
-    let form = snapshot.rating_slope.map(|slope| Rail {
-        measure: "Scout notability score",
-        slope,
-        samples: snapshot.rating_samples,
-        from: snapshot.rating_window_start.as_deref(),
-        through: snapshot.rating_window_end.as_deref(),
-    });
-    let mood = snapshot.vibe_slope.map(|slope| Rail {
-        measure: "Influencer sentiment score",
-        slope,
-        samples: snapshot.vibe_samples,
-        from: snapshot.vibe_window_start.as_deref(),
-        through: snapshot.vibe_window_end.as_deref(),
-    });
-    let trajectory = (form.is_some() || mood.is_some()).then_some(Study {
-        computed_at: snapshot.generated_at.as_deref(),
-        form,
-        mood,
-    });
     #[derive(Serialize)]
     struct Input<'a> {
         meta: crate::tools::meta::WritingIdentity<'a>,
@@ -376,7 +345,6 @@ pub fn assemble(
                 season: None,
                 generated_at: r.generated_at.as_deref(),
             }),
-            trajectory,
         },
         voice: crate::plugins::analyst::voice::VOICE,
         form: prose().form(),
@@ -419,7 +387,7 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
         assert!(world.starts_with(r#"{"meta":"#));
         assert_eq!(value["fresh"]["scout"]["body"], scout.body);
-        assert_eq!(value["fresh"]["trajectory"]["form"]["samples"], 4);
+        assert!(value["fresh"].get("trajectory").is_none());
         assert!(value["fresh"].get("influencer").is_none());
         assert!(world.find("hidden").is_none());
         assert!(world.find("momentum_score").is_none());

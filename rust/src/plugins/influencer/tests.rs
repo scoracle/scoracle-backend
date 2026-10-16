@@ -38,7 +38,7 @@ impl Inference for Model {
 }
 
 #[tokio::test]
-async fn period_card_contract() {
+async fn day_card_contract() {
     let source = |id, text: &str| SourceContext {
         classifier_world: None,
         classification_id: id,
@@ -55,18 +55,15 @@ async fn period_card_contract() {
             entity_id: 7,
             sport: "NBA".into(),
         },
-        period: prompt::Period {
-            season: 2024,
-            week: 1,
+        day: prompt::Day {
             start: 1709164700,
-            end: 1709769500,
+            end: 1709251100,
             cutoff: 1709164900,
         },
         sources: vec![
             source(1, "Morgan was hopeful."),
             source(2, "Ellis disagreed. No other supporters were interviewed."),
         ],
-        history: vec![],
         excluded: vec![],
     })
     .unwrap();
@@ -96,7 +93,7 @@ async fn period_card_contract() {
         .get("classification_id")
         .is_none());
     let mut changed = a.parts.clone();
-    changed.period.cutoff += 1;
+    changed.day.cutoff += 1;
     assert_eq!(
         a.input_hash,
         Assignment::from_parts(changed.clone()).unwrap().input_hash
@@ -140,10 +137,15 @@ async fn period_card_contract() {
     ))
     .unwrap();
     let receipt = &retained["receipt"];
-    let assignment = Assignment::from_parts(
-        serde_json::from_value(receipt["input_components"].clone()).unwrap(),
-    )
-    .unwrap();
+    let mut retained_parts = receipt["input_components"].clone();
+    retained_parts["day"] = retained_parts["period"].clone();
+    let mut daily: prompt::Parts = serde_json::from_value(retained_parts).unwrap();
+    assert!(
+        Assignment::from_parts(daily.clone()).is_err(),
+        "weekly generation is retired"
+    );
+    daily.day.end = daily.day.start + 86400;
+    let assignment = Assignment::from_parts(daily).unwrap();
     let backend = crate::harness::providers::llama::LlamaClient::new(
         "http://localhost:8080",
         receipt["model_version"].as_str().unwrap(),
@@ -151,7 +153,7 @@ async fn period_card_contract() {
         Some(false),
     )
     .unwrap();
-    assert_eq!(assignment.parts.assemble(), receipt["packet"]);
+    assert_ne!(assignment.parts.assemble(), receipt["packet"]);
     assert_ne!(
         prompt::request_hash(&backend, &assignment, 4096).unwrap(),
         receipt["input_hash"]
@@ -170,16 +172,16 @@ async fn period_card_contract() {
 }
 
 #[tokio::test]
-async fn an_incomplete_period_never_calls_the_model() {
-    let mut parts: prompt::Parts = serde_json::from_value(
-        serde_json::from_str::<Value>(include_str!(
-            "../../../fixtures/influencer/period-card-v19-smollm3.jsonl"
-        ))
-        .unwrap()["receipt"]["input_components"]
-            .clone(),
-    )
-    .unwrap();
-    parts.excluded.push(json!({"article_id":999,"classification_id":999,"in_period":true,"reason":"packet_budget_exceeded"}));
+async fn an_incomplete_day_never_calls_the_model() {
+    let mut captured = serde_json::from_str::<Value>(include_str!(
+        "../../../fixtures/influencer/period-card-v19-smollm3.jsonl"
+    ))
+    .unwrap()["receipt"]["input_components"]
+        .clone();
+    captured["day"] = captured["period"].clone();
+    let mut parts: prompt::Parts = serde_json::from_value(captured).unwrap();
+    parts.day.end = parts.day.start + 86400;
+    parts.excluded.push(json!({"article_id":999,"classification_id":999,"in_day":true,"reason":"packet_budget_exceeded"}));
     let model = Model {
         calls: AtomicUsize::new(0),
         reply: "must not be used",
@@ -189,7 +191,7 @@ async fn an_incomplete_period_never_calls_the_model() {
         .unwrap();
     assert!(output.is_none());
     assert_eq!(model.calls.load(Ordering::Relaxed), 0);
-    assert_eq!(receipt["reason"], "incomplete_reporting_period");
+    assert_eq!(receipt["reason"], "incomplete_reporting_day");
 }
 
 #[test]

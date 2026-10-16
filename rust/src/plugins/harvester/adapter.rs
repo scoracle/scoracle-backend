@@ -247,7 +247,7 @@ async fn store_headline_gates(
 }
 
 /// Keep unique exact name-surface matches visible in the headline or delivered
-/// publisher opening as candidate identity evidence. Graph must see the same
+/// publisher opening as candidate identity evidence. Consumers must see the same
 /// text that grounded the match. This does not write authoritative links.
 async fn record_identity_candidates(
     tx: &mut Transaction<'_, Postgres>,
@@ -342,7 +342,7 @@ async fn record_resolved_links(
     .bind(opening_sha256)
     .execute(&mut **tx)
     .await?;
-    // The shared graph and Investigator maintenance jobs consume this generic
+    // Investigator maintenance consumes this generic
     // authoritative link table. Publish only links that passed Harvester's
     // exact-source canonical-name resolution, within the same fenced claim.
     sqlx::query(
@@ -544,7 +544,7 @@ async fn publish(
         delivery_characters()?
     };
     // Identity extraction is grounded in a publisher opening that passed the
-    // entity gate. Unrelated Google results cannot nominate graph identities.
+    // entity gate. Unrelated Google results cannot nominate identities.
     if !shadow_mode {
         if let Some(relevant_context) = contexts.iter().find(|c| {
             c.predicate_scores
@@ -733,44 +733,6 @@ async fn publish(
                 }
             }
         }
-    }
-    // Graph receives exact name-surface candidates as well as historical
-    // resolved links, then makes its own evidence decision.
-    if shadow_mode
-        || !contexts.iter().any(|c| {
-            c.predicate_scores
-                .get("article_relevance")
-                .is_some_and(|p| *p >= crate::plugins::editor::prompt::RELEVANCE_THRESHOLD)
-        })
-    {
-        publication.commit_final().await?;
-        return Ok(PluginOutcome::Committed);
-    }
-    let has_identity_candidates: bool = sqlx::query_scalar(
-        "SELECT EXISTS (SELECT 1 FROM public.news_article_entities WHERE article_id=$1 AND sport=$2) \
-         OR EXISTS (SELECT 1 FROM public.harvester_entity_mentions WHERE article_id=$1 AND sport=$2)",
-    )
-    .bind(item.entity_id)
-    .bind(&item.sport)
-    .fetch_one(&mut **tx)
-    .await?;
-    if has_identity_candidates {
-        crate::harness::queue::work::enqueue(
-            &mut **tx,
-            &Item {
-                stage: crate::plugins::graph::manifest::TASK,
-                entity_type: "article".into(),
-                entity_id: item.entity_id,
-                sport: item.sport.clone(),
-                input_version: Some(format!(
-                    "g:{}",
-                    hex::encode(Sha256::digest(body.as_bytes()))
-                )),
-                attempts: 0,
-                claim_token: None,
-            },
-        )
-        .await?;
     }
     publication.commit_final().await?;
     Ok(PluginOutcome::Committed)

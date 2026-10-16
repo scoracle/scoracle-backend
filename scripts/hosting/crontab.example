@@ -77,13 +77,10 @@ TZ=America/New_York
 30 1,7,13,19 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode data >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-data.log 2>&1
 
 # ---------------------------------------------------------------------------
-# Narrative-graph co-mention refresh — daily, after ingest (mig 154)
+# Reporting maintenance — daily
 # ---------------------------------------------------------------------------
-# Recomputes narrative_links co_mention edges from the vetted news rail. Pure
-# set-based SQL, sub-second per sport, no model calls. Runs 45 min after the
-# daily ingest so the cognition daemon has read the sweep; each link's
-# heating_up/cooling_off is its strength delta vs the previous run — the
-# cadence IS the trajectory baseline, so cadence changes change the semantics.
+# Refresh source outcomes and existing-entity metadata.
+# Historical wrapper filename retained for installed cron compatibility.
 45 2 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-narrative-links.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/narrative-links.log 2>&1
 
 # ---------------------------------------------------------------------------

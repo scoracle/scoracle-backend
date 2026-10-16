@@ -44,6 +44,40 @@ the units, restarts the API + the Rust daemon, and verifies `/health/db`. All
 seven binaries are built before any is placed, so a failed build can never leave
 the cron binaries or the daemon on a different commit than the API.
 
+## Daily fresh packages (not deployed)
+
+The local daily-only change requires migrations 309–310 before matching Go and
+Rust binaries. The shared scheduling boundary is disabled by default. Weekly
+packets, weekly sealing and character memory lookups are retired; stored history
+is retained. Reporting APIs accept `date=YYYY-MM-DD`, reject weekly reporting
+filters, and retire `/weeks`.
+
+Do not enable the coverage schedule yet: phase-aware ingestion, the frozen Scout
+measurement snapshot and both local GPU endpoints still need qualification. See
+[the current plan](../../rust/docs/PLAN-continuous-coverage-daily-characters.md).
+
+## Graph retirement
+
+Deployed October 16, 2026: migrations 307–308 and the matching Archbox worker are live. The Mac worker was updated and remains paused. See the [deployment record](../../rust/docs/graph-retirement-deployment-2026-10-16.md) for verification and recovery locations.
+
+Graph inference and relationship maintenance are retired. Unknown entity search
+is deferred to a future Investigator change. Keep the historical evidence tables;
+DuckDB and older reporting readers can still use retained records.
+
+For the coordinated release, stop cognition and source workers and their restart
+watchers on every enrolled host. Apply migrations through 308, remove `graph` from
+`COGNITION_STAGES` in `.env.local` and other worker configurations, and remove
+`COGNITION_ROUTE_EMOTIONAL_NEWS_*` overrides. Install the matching Graph-free binary
+before restarting previously active workers and watchers. An old binary still
+tries to enqueue Graph from acquisition and will fail against migration 308.
+
+Migration 308 removes outstanding Graph claims, fencing late publications, and
+rejects new Graph queue rows. It retains sources, extractions, candidates, persons,
+relationships and story history. The existing `cron-narrative-links.sh` filename
+remains valid, but now runs only source-outcome, existing-entity and calendar
+maintenance; it no longer refreshes relationships or promotes legacy discoveries.
+`verify-classifier.sh` requires the retirement migration and queue constraint.
+
 ## Classifier cutover with cognition paused
 
 The replacement is prepared on main. Production activation is a separate action.
@@ -56,7 +90,7 @@ On the deployment host, after a backup and checkout of the intended commit:
 
 ```bash
 set -a; source .env.local; set +a
-sql/migrate.sh                         # apply 291–298 before matching binaries
+sql/migrate.sh                         # apply through 310 before matching binaries
 scripts/hosting/verify-classifier.sh  # read-only schema and durable work report
 scripts/hosting/release.sh --keep-cognition-paused
 ```
@@ -68,7 +102,7 @@ units without enabling them. For an isolated build, use both `RELEASE_BIN_DIR=<s
 and `--build-only`; build-only without redirection still replaces live files.
 
 Update `.env.local` so `COGNITION_STAGES` matches the new cognition unit: classifier,
-graph, investigate_entity, fixture_boxscore and the six existing character task names.
+investigate_entity, fixture_boxscore and the six existing character task names.
 Acquisition is owned by the separate source unit. To enable the Classifier, set
 `CLASSIFIER_URL` to the llama.cpp server exposing `/v1/systemone` (the Kev decision model);
 the daemon refuses to start the classifier stage without it. The spectrum, questions and gate
@@ -163,7 +197,7 @@ Runnable checks: `python3 scripts/hosting/test-classifier-release.py` and
 | `../systemd/cloudflared.service` | CF Tunnel runner |
 | `release.sh` | single release command — build all 7 binaries (4 Go + 3 Rust) from one commit, install, restart, verify |
 | `cron-pipeline.sh` | wrapper for the Go ingestion binary (`-mode ingest` — the only data ingestion layer; RSS sweep, Rust curates) |
-| `cron-narrative-links.sh` | nightly narrative-graph co-mention refresh (pure SQL, mig 154) |
+| `cron-narrative-links.sh` | reporting maintenance: source outcomes, existing-entity refresh and reporting calendar |
 | `cron-rust-statcommentary.sh` | wrapper for the Rust stats-rail rating batch (the post Step-3 cutover path) |
 | `cron-stat-matchups.sh` | nightly stat-matchup refresh (pure SQL, mig 156) |
 | `cron-vibesynth.sh` | wrapper for nightly Sigil reconciliation (DB-only enqueue) |

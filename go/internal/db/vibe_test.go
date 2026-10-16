@@ -35,7 +35,7 @@ func TestEntityVibeCurrent(t *testing.T) {
             sentiment smallint, hook text, prompt text, input_news_ids bigint[],
             trigger_type text DEFAULT 'periodic', generated_at timestamptz,
             model_version text DEFAULT 'fixture', prompt_version text DEFAULT 'fixture',
-            input_hash text, scoring_version text, source_references jsonb, week_season int, week_no int,
+            input_hash text, scoring_version text, source_references jsonb, reporting_date date,
             reporting_start timestamptz, reporting_end timestamptz, evidence_cutoff timestamptz
         );
         CREATE TEMP TABLE news_articles (id bigint, source text, url text, published_at timestamptz);
@@ -47,13 +47,14 @@ func TestEntityVibeCurrent(t *testing.T) {
             (4,'team',7,'NFL',90,'Incomplete replacement',NULL,ARRAY[99],NOW()),
             (5,'team',7,'NFL',90,repeat('x',141),'Overlong replacement.',ARRAY[99],NOW()),
             (6,'team',8,'NFL',90,'Other entity','Other reading.',ARRAY[99],NOW());
+        UPDATE vibe_scores SET reporting_date=(generated_at AT TIME ZONE 'America/Detroit')::date;
     `)
 	if err != nil {
 		t.Fatal(err)
 	}
 	statement := strings.NewReplacer("public.vibe_scores", "pg_temp.vibe_scores", "public.news_articles", "pg_temp.news_articles").Replace(entityVibeStatement)
 	var payload []byte
-	if err := tx.QueryRow(ctx, statement, "nfl", "team", 7, nil, nil).Scan(&payload); err != nil {
+	if err := tx.QueryRow(ctx, statement, "nfl", "team", 7, nil).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {
@@ -79,14 +80,17 @@ func TestEntityVibeCurrent(t *testing.T) {
 	if c.GeneratedAt.After(time.Now().Add(-9*24*time.Hour)) || len(c.Sources) != 1 || c.Sources[0].ID != 42 || c.Sources[0].URL != "https://example.com/42" {
 		t.Fatalf("lost original date or source binding: %s", payload)
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO vibe_scores(id,entity_type,entity_id,sport,sentiment,hook,prompt,generated_at,week_season,week_no,reporting_start,reporting_end) VALUES
-        (7,'team',7,'NFL',0,'A difficult week','A coherent zero score.',NOW(),2026,1,'2026-09-01','2026-09-08'),
-        (8,'team',7,'NFL',75,'A hopeful week','A different period.',NOW(),2026,2,'2026-09-08','2026-09-15')`)
+	_, err = tx.Exec(ctx, `INSERT INTO vibe_scores(id,entity_type,entity_id,sport,sentiment,hook,prompt,generated_at,reporting_date,reporting_start,reporting_end) VALUES
+        (7,'team',7,'NFL',0,'A difficult day','A coherent zero score.',NOW(),'2026-09-01','2026-09-01','2026-09-02'),
+        (8,'team',7,'NFL',75,'A hopeful day','A different period.',NOW(),'2026-09-02','2026-09-02','2026-09-03')`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, period := range []struct{ week, want int }{{1, 7}, {2, 8}, {3, 0}} {
-		if err := tx.QueryRow(ctx, statement, "nfl", "team", 7, 2026, period.week).Scan(&payload); err != nil {
+	for _, period := range []struct {
+		date string
+		want int
+	}{{"2026-09-01", 7}, {"2026-09-02", 8}, {"2026-09-03", 0}} {
+		if err := tx.QueryRow(ctx, statement, "nfl", "team", 7, period.date).Scan(&payload); err != nil {
 			t.Fatal(err)
 		}
 		if err := json.Unmarshal(payload, &result); err != nil {
@@ -100,13 +104,13 @@ func TestEntityVibeCurrent(t *testing.T) {
 			if result.Current == nil || result.Current.ID != period.want {
 				t.Fatalf("wrong period: %s", payload)
 			}
-			if period.week == 1 && (result.Current.Heat == nil || *result.Current.Heat != 0) {
+			if period.date == "2026-09-01" && (result.Current.Heat == nil || *result.Current.Heat != 0) {
 				t.Fatalf("zero lost: %s", payload)
 			}
 		}
 	}
 
-	if err := tx.QueryRow(ctx, statement, "nfl", "team", 999, nil, nil).Scan(&payload); err != nil {
+	if err := tx.QueryRow(ctx, statement, "nfl", "team", 999, nil).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}
 	if err := json.Unmarshal(payload, &result); err != nil {

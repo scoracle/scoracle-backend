@@ -38,11 +38,10 @@ paths:
       summary: API root info
       tags:
       - meta
-  /{sport}/{entityType}/{id}/headlines:
+  /{sport}/{entityType}/{id}/articulator/{kind}:
     get:
-      description: Every character card's (score, headline, body) entries for one
-        week of the year, merged newest-first. Week 1 = Jan 1–7. Defaults to the current
-        week.
+      description: Returns a byte-stable compact JSON string composed from precomputed
+        entity products. kind is p1 through p8; p6 also returns followup_data.
       parameters:
       - description: Sport
         enum:
@@ -66,13 +65,69 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 'Calendar year (default: current)'
-        in: query
-        name: year
-        type: integer
-      - description: 'Week of the year, 1-53, Jan-1 anchored (default: current)'
-        in: query
-        name: week
+      - description: Training slice
+        enum:
+        - p1
+        - p2
+        - p3
+        - p4
+        - p5
+        - p6
+        - p7
+        - p8
+        in: path
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get an on-device Articulator DATA slice
+      tags:
+      - data
+  /{sport}/{entityType}/{id}/headlines:
+    get:
+      description: One reporting day of character outputs. Historical grouping belongs
+        to clients.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
         type: integer
       produces:
       - application/json
@@ -90,7 +145,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get the entity week archive (all seats' headlines)
+      summary: Get the entity daily character outputs
       tags:
       - data
   /{sport}/{entityType}/{id}/meta:
@@ -272,10 +327,9 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 'News scope: current_week, last_week, two_weeks_ago, three_weeks_ago,
-          last_month'
+      - description: Eastern reporting date (YYYY-MM-DD; default latest)
         in: query
-        name: scope
+        name: date
         type: string
       produces:
       - application/json
@@ -483,10 +537,9 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 'Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago,
-          last_month'
+      - description: Eastern reporting date (YYYY-MM-DD; default latest)
         in: query
-        name: scope
+        name: date
         type: string
       produces:
       - application/json
@@ -509,10 +562,13 @@ paths:
       - data
   /{sport}/{entityType}/{id}/vibe:
     get:
-      description: The entity's Vibe card — the Influencer's headline and body with
-        her sentiment score (1-100), plus the last 7 days of snapshots. `current`
-        is null when the entity has never been scored; the response is still 200.
+      description: Latest saved daily Vibe card, or a requested date. Empty days return
+        current:null.
       parameters:
+      - description: Eastern reporting date (YYYY-MM-DD; default latest)
+        in: query
+        name: date
+        type: string
       - description: Sport
         enum:
         - nba
@@ -551,7 +607,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get the entity Vibe (The Influencer's emotional read)
+      summary: Get the entity Vibe
       tags:
       - data
   /{sport}/autofill:
@@ -651,9 +707,9 @@ paths:
         in: query
         name: board
         type: string
-      - description: 'Rating scope: rating (default) or fantasy'
+      - description: Eastern reporting date (YYYY-MM-DD; default latest)
         in: query
-        name: scope
+        name: date
         type: string
       - description: Season year (defaults to the latest rated season)
         in: query
@@ -802,10 +858,9 @@ paths:
         in: query
         name: entity_type
         type: string
-      - description: 'News scope: current_week, last_week, two_weeks_ago, three_weeks_ago,
-          last_month'
+      - description: Eastern reporting date (YYYY-MM-DD; default latest)
         in: query
-        name: scope
+        name: date
         type: string
       - description: Filter to a league
         in: query
@@ -942,10 +997,9 @@ paths:
         in: query
         name: limit
         type: integer
-      - description: 'Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago,
-          last_month'
+      - description: Eastern reporting date (YYYY-MM-DD; default latest)
         in: query
-        name: scope
+        name: date
         type: string
       - description: 'Filter: player or team (default both)'
         in: query
@@ -1358,62 +1412,6 @@ paths:
       summary: Get a story page
       tags:
       - data
-  /{sport}/team/{id}/articulator/{kind}:
-    get:
-      description: Returns a byte-stable compact JSON string composed from precomputed
-        team products. kind is p1 through p8; p6 also returns followup_data.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: Team ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Training slice
-        enum:
-        - p1
-        - p2
-        - p3
-        - p4
-        - p5
-        - p6
-        - p7
-        - p8
-        in: path
-        name: kind
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get an on-device Articulator DATA slice
-      tags:
-      - data
   /{sport}/team/{id}/results:
     get:
       description: Returns the team's list of finalized fixtures (status completed/seeded)
@@ -1505,35 +1503,6 @@ paths:
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
       summary: Get team roster (rating)
-      tags:
-      - data
-  /api/v1/{sport}/weeks:
-    get:
-      description: Elapsed + current weeks for the sport (week 1 = opening day, ET),
-        newest first, with the current marker and seal state. Optional season filter.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: Limit to one season
-        in: query
-        name: season
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get the sport's reporting-week calendar
       tags:
       - data
   /api/v1/auth/device:

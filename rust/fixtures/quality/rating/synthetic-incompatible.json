@@ -1,13 +1,7 @@
 {
+  "expect": {},
   "name": "synthetic-incompatible",
-  "task": "rating",
-  "prompt_version": "s71-article-spectrum",
   "parts": {
-    "memory": {
-      "coverage_limits": [
-        "The prior season was in a different competition; no compatible comparison is supplied."
-      ]
-    },
     "profile": {
       "composite": 64.0,
       "observed_at": "2026-09-29",
@@ -45,11 +39,13 @@
       "sport": "NBA"
     }
   },
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\"}],\"composite\":64.0,\"supports_cross_season\":true},\"memories\":{\"coverage_limits\":[\"The prior season was in a different competition; no compatible comparison is supplied.\"]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"paragraphs\":\"concise\"}}",
-  "temperature": 0,
-  "expect": {},
+  "prompt_version": "s72-daily-fresh",
   "review": [
     "The prior competition is incompatible. Describe current standing without inventing a comparison, stability or recent form.",
-    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
-  ]
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "task": "rating",
+  "temperature": 0,
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\"}],\"composite\":64.0,\"supports_cross_season\":true},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"paragraphs\":\"concise\"}}"
 }

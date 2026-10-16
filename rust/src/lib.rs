@@ -11,7 +11,7 @@
 //! - The Journalist (`narratives`), The Insider (`transfers`) and The Influencer (`vibe`) read
 //!   the news material.
 //! - The Oracle (`sigil`) reads the other five cards and renders the verdict.
-//! - Four internal capabilities: Harvester, Investigator, Graph, and deterministic Boxscore retrieval.
+//! - Four internal capabilities: acquisition, Classifier, Investigator, and deterministic Boxscore retrieval.
 //!
 //! Those groupings describe which material a seat reads. Routing uses plugin-owned route keys.
 //!

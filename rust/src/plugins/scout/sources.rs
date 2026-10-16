@@ -1,6 +1,6 @@
 //! Structured personnel changes and attributed availability reports for current evidence.
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 use sqlx::PgPool;
 
 /// An adjudicated absence, return or withdrawal. Withdrawing an incorrect
@@ -288,82 +288,19 @@ pub async fn load_availability_changes(
     Ok((changes, total))
 }
 
-/// How many attributed current reports reach the brief. Six matches the
-/// personnel cap so news cannot crowd measurements out of the 4,096 window.
-const MAX_SCOUT_CLAIMS: usize = 6;
-/// Current reporting needs enough room to survive a quiet week between fixtures. This matches
-/// the transfer corpus freshness boundary while the claim cap continues to bind prompt size.
-const SCOUT_REPORT_LOOKBACK_HOURS: i64 = 14 * 24;
-
-/// Previously accepted native reporting; structured claims remain tied to applied records.
+/// Fresh Classifier obligations are the reporting part of the daily package.
 pub async fn load_scout_reports(
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
 ) -> Result<Vec<crate::tools::source::SourceContext>> {
-    let now = crate::plugins::influencer::now();
-    let plugin = super::manifest::MANIFEST.id.as_str();
-    let sources = crate::plugins::classifier::delivery::load_used(
+    crate::plugins::classifier::delivery::load_for_character(
         pool,
-        plugin,
+        super::manifest::MANIFEST.id.as_str(),
         entity_type,
         entity_id,
         sport,
-        now - SCOUT_REPORT_LOOKBACK_HOURS * 3600,
-        now + 1,
     )
-    .await?;
-    let mut accepted = Vec::new();
-    for mut source in sources {
-        if !source
-            .published_at_epoch
-            .is_some_and(|date| date >= now - SCOUT_REPORT_LOOKBACK_HOURS * 3600 && date <= now)
-        {
-            continue;
-        }
-        let product:serde_json::Value=sqlx::query_scalar("SELECT product_ref FROM classifier_spectrum_deliveries WHERE spectrum_id=$1 AND character=$2")
-            .bind(source.classification_id).bind(crate::plugins::classifier::delivery::character_key(plugin)?).fetch_one(pool).await?;
-        let kind = match product["source_kind"].as_str() {
-            Some("performance") => super::delivery::SourceKind::Performance,
-            Some("roster") => super::delivery::SourceKind::Roster,
-            Some("availability") => super::delivery::SourceKind::Availability,
-            _ => anyhow::bail!("Scout accepted source kind unavailable"),
-        };
-        if kind != super::delivery::SourceKind::Performance {
-            let id = product["structured_record_id"]
-                .as_i64()
-                .context("Scout structured reference missing")?;
-            let query = if kind == super::delivery::SourceKind::Availability {
-                "SELECT status='applied' AND reverted_at IS NULL,reverted_at IS NOT NULL
-                    FROM player_availability WHERE id=$1 AND sport=$2 AND source_article_id=$5
-                    AND (($3='player' AND player_id=$4) OR ($3='team' AND team_id=$4))"
-            } else {
-                "SELECT status='applied' AND reverted_at IS NULL,reverted_at IS NOT NULL
-                    FROM transfer_identity_applications WHERE id=$1 AND sport=$2
-                    AND evidence->'identity_evidence_article_ids' @> jsonb_build_array($5::bigint)
-                    AND (($3='player' AND player_id=$4) OR ($3='team' AND $4 IN (old_team_id,new_team_id)))"
-            };
-            let (applied, withdrawn): (bool, bool) = sqlx::query_as(query)
-                .bind(id)
-                .bind(sport)
-                .bind(entity_type)
-                .bind(entity_id)
-                .bind(source.article_id)
-                .fetch_optional(pool)
-                .await?
-                .context("Scout structured ownership changed")?;
-            source
-                .classifier_world
-                .as_mut()
-                .context("Scout world missing")?["structured_record"] =
-                serde_json::json!({"currently_applied":applied,"withdrawn":withdrawn});
-        }
-        accepted.push(source);
-    }
-    ensure!(
-        accepted.len() <= MAX_SCOUT_CLAIMS,
-        "Scout complete reporting population exceeds limit"
-    );
-    Ok(accepted)
+    .await
 }

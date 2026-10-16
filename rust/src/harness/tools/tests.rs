@@ -119,7 +119,7 @@ async fn wikimedia_grant_cannot_be_spent_on_other_hosts() {
 async fn production_article_provider_refuses_a_plugin_without_the_curated_grant() {
     let broker = WebBroker::new(4).unwrap();
     let pool = lazy_pool();
-    let web = scope(&broker, &pool, &crate::harness::fleet::GRAPH);
+    let web = scope(&broker, &pool, &crate::harness::fleet::JOURNALIST);
 
     let error = web
         .fetch_curated_article("https://example.com/article")

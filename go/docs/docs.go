@@ -163,47 +163,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/{sport}/weeks": {
-            "get": {
-                "description": "Elapsed + current weeks for the sport (week 1 = opening day, ET), newest first, with the current marker and seal state. Optional season filter.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "data"
-                ],
-                "summary": "Get the sport's reporting-week calendar",
-                "parameters": [
-                    {
-                        "enum": [
-                            "nba",
-                            "nfl",
-                            "football"
-                        ],
-                        "type": "string",
-                        "description": "Sport",
-                        "name": "sport",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit to one season",
-                        "name": "season",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/entities": {
             "get": {
                 "description": "Cross-sport text-only directory of players and teams for home-page search.",
@@ -451,8 +410,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Rating scope: rating (default) or fantasy",
-                        "name": "scope",
+                        "description": "Eastern reporting date (YYYY-MM-DD; default latest)",
+                        "name": "date",
                         "in": "query"
                     },
                     {
@@ -665,8 +624,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "News scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month",
-                        "name": "scope",
+                        "description": "Eastern reporting date (YYYY-MM-DD; default latest)",
+                        "name": "date",
                         "in": "query"
                     },
                     {
@@ -867,8 +826,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month",
-                        "name": "scope",
+                        "description": "Eastern reporting date (YYYY-MM-DD; default latest)",
+                        "name": "date",
                         "in": "query"
                     },
                     {
@@ -1461,83 +1420,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/{sport}/team/{id}/articulator/{kind}": {
-            "get": {
-                "description": "Returns a byte-stable compact JSON string composed from precomputed team products. kind is p1 through p8; p6 also returns followup_data.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "data"
-                ],
-                "summary": "Get an on-device Articulator DATA slice",
-                "parameters": [
-                    {
-                        "enum": [
-                            "nba",
-                            "nfl",
-                            "football"
-                        ],
-                        "type": "string",
-                        "description": "Sport",
-                        "name": "sport",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Team ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "p1",
-                            "p2",
-                            "p3",
-                            "p4",
-                            "p5",
-                            "p6",
-                            "p7",
-                            "p8"
-                        ],
-                        "type": "string",
-                        "description": "Training slice",
-                        "name": "kind",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/{sport}/team/{id}/results": {
             "get": {
                 "description": "Returns the team's list of finalized fixtures (status completed/seeded) for a season, framed from the team's perspective with opponent identity and W/L/D.",
@@ -1670,16 +1552,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/{sport}/{entityType}/{id}/headlines": {
+        "/{sport}/{entityType}/{id}/articulator/{kind}": {
             "get": {
-                "description": "Every character card's (score, headline, body) entries for one week of the year, merged newest-first. Week 1 = Jan 1–7. Defaults to the current week.",
+                "description": "Returns a byte-stable compact JSON string composed from precomputed entity products. kind is p1 through p8; p6 also returns followup_data.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Get the entity week archive (all seats' headlines)",
+                "summary": "Get an on-device Articulator DATA slice",
                 "parameters": [
                     {
                         "enum": [
@@ -1712,16 +1594,92 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "integer",
-                        "description": "Calendar year (default: current)",
-                        "name": "year",
-                        "in": "query"
+                        "enum": [
+                            "p1",
+                            "p2",
+                            "p3",
+                            "p4",
+                            "p5",
+                            "p6",
+                            "p7",
+                            "p8"
+                        ],
+                        "type": "string",
+                        "description": "Training slice",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/{entityType}/{id}/headlines": {
+            "get": {
+                "description": "One reporting day of character outputs. Historical grouping belongs to clients.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get the entity daily character outputs",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "player",
+                            "team"
+                        ],
+                        "type": "string",
+                        "description": "Entity type",
+                        "name": "entityType",
+                        "in": "path",
+                        "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "Week of the year, 1-53, Jan-1 anchored (default: current)",
-                        "name": "week",
-                        "in": "query"
+                        "description": "Entity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -2003,8 +1961,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "News scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month",
-                        "name": "scope",
+                        "description": "Eastern reporting date (YYYY-MM-DD; default latest)",
+                        "name": "date",
                         "in": "query"
                     }
                 ],
@@ -2299,8 +2257,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month",
-                        "name": "scope",
+                        "description": "Eastern reporting date (YYYY-MM-DD; default latest)",
+                        "name": "date",
                         "in": "query"
                     }
                 ],
@@ -2329,15 +2287,21 @@ const docTemplate = `{
         },
         "/{sport}/{entityType}/{id}/vibe": {
             "get": {
-                "description": "The entity's Vibe card — the Influencer's headline and body with her sentiment score (1-100), plus the last 7 days of snapshots. ` + "`" + `current` + "`" + ` is null when the entity has never been scored; the response is still 200.",
+                "description": "Latest saved daily Vibe card, or a requested date. Empty days return current:null.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Get the entity Vibe (The Influencer's emotional read)",
+                "summary": "Get the entity Vibe",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Eastern reporting date (YYYY-MM-DD; default latest)",
+                        "name": "date",
+                        "in": "query"
+                    },
                     {
                         "enum": [
                             "nba",

@@ -39,7 +39,7 @@ async fn discovery(pool: &PgPool, item: &Item) -> Result<Source> {
         item.entity_type == "article",
         "Classifier requires an article claim"
     );
-    let article = sqlx::query("SELECT url,title,COALESCE(source,'') AS source,published_at::text AS published_at,full_text,duplicate_of FROM public.news_articles WHERE id=$1")
+    let article = sqlx::query("SELECT url,title,COALESCE(source,'') AS source,published_at::text AS published_at,full_text,duplicate_of,public.classifier_acquisition_key(id) AS acquisition_key FROM public.news_articles WHERE id=$1")
         .bind(item.entity_id).fetch_one(pool).await.context("load Classifier source")?;
     let queries = sqlx::query("SELECT p.entity_type,p.entity_id,p.sport,p.feed_rank,t.name FROM public.harvester_query_provenance p LEFT JOIN public.teams t ON p.entity_type='team' AND t.id=p.entity_id AND t.sport=p.sport WHERE p.article_id=$1 AND p.sport=$2 ORDER BY p.entity_type,p.entity_id")
         .bind(item.entity_id).bind(&item.sport).fetch_all(pool).await?;
@@ -74,6 +74,7 @@ async fn discovery(pool: &PgPool, item: &Item) -> Result<Source> {
         provenance: [
             ("url".into(), json!(article.get::<String, _>("url"))),
             ("title".into(), json!(article.get::<String, _>("title"))),
+            ("acquisition_key".into(), json!(article.get::<String, _>("acquisition_key"))),
             (
                 "duplicate_of".into(),
                 json!(article.get::<Option<i64>, _>("duplicate_of")),
@@ -84,10 +85,13 @@ async fn discovery(pool: &PgPool, item: &Item) -> Result<Source> {
 }
 
 fn input_hash(source: &Source) -> Result<String> {
-    Ok(hash(&serde_json::to_string(source)?))
+    let mut input = source.clone();
+    // Acquisition policy metadata must not invalidate retained Classifier request identities.
+    input.provenance.remove("acquisition_key");
+    Ok(hash(&serde_json::to_string(&input)?))
 }
 
-async fn fence_source(
+pub(super) async fn fence_source(
     pool: &PgPool,
     item: &Item,
     expected: &Source,
@@ -127,48 +131,21 @@ impl StudioPlugin for AcquireHandler {
         );
         let before = discovery(&self.pool, item).await?;
         let key = input_hash(&before)?;
-        let mut source = before.clone();
-        if source.body.trim().is_empty() {
-            let url = before.provenance["url"].as_str().context("publisher URL")?;
-            // Budgeted fetch: per-domain spacing, 429/Retry-After holds and a circuit breaker,
-            // instead of hammering a publisher that is throttling us.
-            let fetched = self
-                .web
-                .scope(&self.pool, self.manifest())
-                .fetch_for_class(
-                    crate::harness::tools::DomainClass::CuratedArticles,
-                    url,
-                    &crate::tools::fetch::FetchPolicy::default(),
+        let started = std::time::Instant::now();
+        let prepared = super::acquisition::prepare(&self.pool, &self.web, item, &before).await?;
+        let mut source = match prepared {
+            super::acquisition::Prepared::Ready(source) => source,
+            other => {
+                return super::acquisition::finish(
+                    &self.pool,
+                    item,
+                    &before,
+                    other,
+                    started.elapsed().as_millis(),
                 )
-                .await?;
-            source.body =
-                crate::tools::fetch::extract_article_text(&fetched.body).replace('\0', "");
-            source
-                .provenance
-                .insert("publisher_url".into(), json!(fetched.final_url));
-            source
-                .provenance
-                .insert("publisher_domain".into(), json!(fetched.domain));
-        }
-        if source.body.trim_start().starts_with('<') {
-            source.body = crate::tools::fetch::extract_article_text(&source.body).replace('\0', "");
-        }
-        if before.body.trim().is_empty() {
-            ensure!(
-                !source
-                    .provenance
-                    .get("publisher_domain")
-                    .is_some_and(|domain| domain == "news.google.com")
-                    && crate::tools::fetch::count_words(&source.body)
-                        >= crate::tools::fetch::ARTICLE_MIN_WORDS,
-                "publisher acquisition requires article prose, not a wrapper or unavailable page"
-            );
-        }
-        ensure!(
-            !source.body.trim().is_empty()
-                && !crate::tools::fetch::article_unavailable(&source.body),
-            "publisher acquisition yielded no available article text"
-        );
+                .await
+            }
+        };
         let identities =
             super::identity::candidates(&mut *self.pool.acquire().await?, &item.sport, &source)
                 .await?;
@@ -217,26 +194,23 @@ impl StudioPlugin for AcquireHandler {
             FROM jsonb_array_elements($4::jsonb) c")
             .bind(item.entity_id).bind(&item.sport).bind(source_id).bind(&source.provenance["identity_candidates"])
             .execute(&mut **publication.transaction()).await?;
-        // Source-bound investigation nominations need acquired text, not calibrated scores.
-        for (stage, version) in [
-            (super::manifest::TASK, source_id.to_string()),
-            (
-                crate::plugins::graph::manifest::TASK,
-                format!("classifier-source:{source_id}"),
-            ),
-        ] {
-            work::enqueue(
-                &mut **publication.transaction(),
-                &Item {
-                    stage,
-                    input_version: Some(version),
-                    claim_token: None,
-                    attempts: 0,
-                    ..item.clone()
-                },
-            )
-            .await?;
-        }
+        work::enqueue(
+            &mut **publication.transaction(),
+            &Item {
+                stage: super::manifest::TASK,
+                input_version: Some(source_id.to_string()),
+                claim_token: None,
+                attempts: 0,
+                ..item.clone()
+            },
+        )
+        .await?;
+        super::acquisition::record(&mut publication, item, &before, "acquired", "article_body", json!({
+            "source_id":source_id,"elapsed_ms":started.elapsed().as_millis(),
+            "body_bytes":source.body.len(),"reused":source.provenance.get("acquisition_reused"),
+            "publisher_url":source.provenance.get("publisher_url"),"cache_hit":source.provenance.get("fetch_cache_hit"),
+            "fetch_elapsed_ms":source.provenance.get("fetch_elapsed_ms"),"extract_elapsed_ms":source.provenance.get("extract_elapsed_ms")
+        })).await?;
         publication.commit_final().await?;
         Ok(PluginOutcome::Committed)
     }
@@ -464,7 +438,7 @@ pub async fn execute_spectrum(
     .execute(&mut **publication.transaction())
     .await?;
     // One authoritative article measurement; entity rows are delivery projections of that receipt.
-    // Only RSS query subjects receive work. Other canonical mentions remain retained Graph evidence.
+    // Only RSS query subjects receive work. Other canonical mentions remain retained source context.
     for target in std::iter::once(&article_target).chain(before.query_entities.iter()) {
         let spectrum_id: i64 = sqlx::query_scalar("INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt)
             VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13::jsonb)

@@ -68,13 +68,7 @@ SELECT (SELECT count(*) FROM canary) AS canary_articles,
        (SELECT count(*) FROM public.harvester_resolved_links l
          JOIN canary x ON x.article_id=l.article_id AND x.sport=l.sport) AS resolved_links,
        (SELECT count(*) FROM public.harvester_unresolved_names n
-         JOIN canary x ON x.article_id=n.article_id AND x.sport=n.sport) AS unresolved_names,
-       (SELECT count(*) FROM public.pipeline_work g
-         JOIN canary x ON x.article_id=g.entity_id AND x.sport=g.sport
-         WHERE g.stage='graph' AND g.entity_type='article') AS graph_work_rows,
-       (SELECT count(*) FROM public.graph_extractions g
-         JOIN canary x ON x.article_id=g.article_id AND x.sport=g.sport
-        WHERE g.extracted_at>=x.enqueued_at) AS graph_receipts;
+         JOIN canary x ON x.article_id=n.article_id AND x.sport=n.sport) AS unresolved_names;
 
 WITH canary AS (
     SELECT article_id,sport FROM public.harvester_live_canary_items

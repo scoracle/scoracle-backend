@@ -248,6 +248,7 @@ pub(super) async fn commit_claimed(
                         | "missing_source_material"
                         | "source_instruction_override"
                         | "complete_report_exceeds_context_budget"
+                        | "daily_package_exceeds_context_budget"
                 )
             );
             let status = if unresolved {

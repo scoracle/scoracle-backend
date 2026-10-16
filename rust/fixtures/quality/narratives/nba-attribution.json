@@ -23,11 +23,12 @@
       "sport": "NBA"
     }
   },
-  "prompt_version": "n104-bounded-report",
+  "prompt_version": "n105-daily-fresh",
   "review": [
     "The identity part says basketball, not NBA: the sport, not the competition namespace.",
     "Keep the question mark on Reed's availability; the source says questionable, not ruled out.",
-    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
   ],
   "system": "",
   "task": "narratives",

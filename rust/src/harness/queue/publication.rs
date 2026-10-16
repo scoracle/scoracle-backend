@@ -26,6 +26,11 @@ impl<'a> ClaimPublication<'a> {
                 .context("close superseded claim publication")?;
             return Ok(None);
         }
+        sqlx::query("SELECT set_config('scoracle.claim_token',$1,true)")
+            .bind(item.require_claim_token()?)
+            .execute(&mut *tx)
+            .await
+            .context("bind daily publication to its queue lease")?;
         Ok(Some(Self { tx, item }))
     }
 

@@ -227,7 +227,7 @@ def benchmark(dsn, directory, output, rounds):
                 result["study_examples"] = [
                     {"status": "retrieval probe; entity links not approved for articulation",
                      "entity": {"sport": row[0], "type": row[1], "id": row[2], "name": row[3]},
-                     "study": {"kind": "recorded_reporting_change", "scope": "Distinct articles and publisher labels linked by Graph extraction; not total media coverage or independent corroboration",
+                     "study": {"kind": "recorded_reporting_change", "scope": "Distinct articles and publisher labels in retained historical event links; not total media coverage or independent corroboration",
                                "current_window": {"from_inclusive": manifest["as_of"] - 7 * 86400, "to_exclusive": manifest["as_of"], "articles": row[4], "publisher_labels": row[6]},
                                "previous_window": {"from_inclusive": manifest["as_of"] - 14 * 86400, "to_exclusive": manifest["as_of"] - 7 * 86400, "articles": row[5], "publisher_labels": row[7]},
                                "article_count_change": row[4] - row[5]},

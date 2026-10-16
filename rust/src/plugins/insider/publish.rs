@@ -554,8 +554,6 @@ mod tests {
             },
             sources: vec![],
             reports: vec![],
-            history: vec![],
-            source_records: vec![],
             mentions: vec![vec![Match {
                 name: "Test Club".into(),
                 entity_type: "team".into(),

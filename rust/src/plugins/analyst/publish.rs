@@ -26,6 +26,10 @@ async fn persist_momentum_summary(
     out: &MomentumOutput,
 ) -> Result<i64> {
     let trigger_payload = serde_json::json!({});
+    let measured = serde_json::from_str::<serde_json::Value>(&out.input_components_json)?
+        .get("momentum_score")
+        .and_then(serde_json::Value::as_f64)
+        .is_some();
     let row = sqlx::query(
         r#"
         INSERT INTO public.momentum_summaries (
@@ -41,8 +45,8 @@ async fn persist_momentum_summary(
     .bind(sport)
     .bind(out.season)
     .bind(&trigger_payload)
-    .bind(&out.direction)
-    .bind(out.score as i16)
+    .bind(measured.then_some(&out.direction))
+    .bind(measured.then_some(out.score as i16))
     .bind(&out.blurb)
     .bind(&out.headline)
     .bind(&out.input_components_json)

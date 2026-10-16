@@ -605,16 +605,13 @@ async fn run_one_fixture(
         }
     }
     if let Some(j) = judge {
-        // Voice axis (judge-v2): cast stages — every LensTask on its own character role — are
-        // judged in character via the registry's identity; utility tasks (graph, still on the
-        // shared crate::plugins::graph::manifest::ROUTE) keep the three-axis rubric.
+        // Each remaining task carries its registered character identity.
         let params = task.parameters();
         let voice_spec = VoiceSpec {
             character: params.operator,
             mandate: params.mandate,
         };
-        let voice = (task.role() != scoracle_cognition::plugins::graph::manifest::ROUTE)
-            .then_some(&voice_spec);
+        let voice = Some(&voice_spec);
         match scoracle_cognition::evaluation::judge::judge_reply(
             j.as_ref(),
             task.name(),
@@ -695,7 +692,6 @@ impl JudgeAgg {
 }
 
 /// Count authored assertions when generation/parsing fails. Parsing is counted separately.
-/// Graph candidate types are preparation inputs, not assertions.
 fn expected_property_count(x: &Expect) -> usize {
     let mut n = 0usize;
     n += x.body_includes.as_ref().map_or(0, Vec::len);
@@ -709,12 +705,6 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.reading_excludes.as_ref().map_or(0, Vec::len);
     n += x.reading_min_sentences.is_some() as usize;
     n += x.reading_max_sentences.is_some() as usize;
-    // One check for the whole synonym set, not one per word.
-    // The graph axes.
-    n += x.relations_exclude.as_ref().map_or(0, Vec::len);
-    n += x.relations_max.is_some() as usize;
-    n += x.persons_include.as_ref().map_or(0, Vec::len);
-    n += x.persons_exclude.as_ref().map_or(0, Vec::len);
     // The investigator's prose axes (ip1).
     n += x.subject_kind_is.is_some() as usize;
     n += x.evidence_includes.as_ref().map_or(0, Vec::len);
@@ -1225,11 +1215,8 @@ fn parse_entity(s: &str) -> Result<EntitySpec> {
         ));
     }
     let entity_type = parts[0].to_lowercase();
-    // Graph live evaluations use article:<id>:<SPORT> rather than an entity key.
-    if entity_type != "player" && entity_type != "team" && entity_type != "article" {
-        return Err(anyhow!(
-            "bad entity_type in {s:?}; want player|team|article"
-        ));
+    if entity_type != "player" && entity_type != "team" {
+        return Err(anyhow!("bad entity_type in {s:?}; want player|team"));
     }
     let entity_id: i32 = parts[1]
         .parse()
@@ -1485,7 +1472,7 @@ mod tests {
         let x = Expect {
             body_includes: Some(vec!["PEAK".into(), "Vibe".into()]),
             reading_min_sentences: Some(2),
-            relations_max: Some(3),
+            subject_kind_is: Some("coach".into()),
             ..Default::default()
         };
         // Two from the include list plus one each for the two scalar axes.

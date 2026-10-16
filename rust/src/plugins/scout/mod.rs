@@ -5,7 +5,6 @@
 
 pub(crate) mod delivery;
 pub mod manifest;
-pub mod memories;
 pub mod parser;
 pub mod performance;
 pub mod prompt;
@@ -280,6 +279,15 @@ impl StudioPlugin for RatingHandler {
             .input_version
             .as_deref()
             .is_some_and(|version| version.starts_with(crate::plugins::classifier::CONTRACT))
+            || !crate::plugins::classifier::delivery::load_for_character(
+                &self.pool,
+                manifest::MANIFEST.id.as_str(),
+                &item.entity_type,
+                item.entity_id_i32()?,
+                &item.sport.to_uppercase(),
+            )
+            .await?
+            .is_empty()
         {
             let backend = self.models.inference(manifest::ROUTE)?;
             return delivery::execute_with_backend(

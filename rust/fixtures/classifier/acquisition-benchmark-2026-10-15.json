@@ -1,0 +1,156 @@
+{
+  "date_local": "2026-10-15",
+  "hardware": "Archbox i7-7700, native Rust development build, four acquisition channels",
+  "policy": "article-acquisition-v1",
+  "archive": "/mnt/data/backup/scoracle/acquisition-benchmark/2026-10-16-run1",
+  "source_daily_sweep": {
+    "sweep": {
+      "started_at": "2026-10-15T02:00:00.90607-04:00",
+      "finished_at": "2026-10-15T02:22:42.88472-04:00"
+    },
+    "new_articles": 6582,
+    "google_wrappers": 6582,
+    "retained_full_text": 0,
+    "published_before_48h": 0
+  },
+  "cohort": {
+    "articles": 192,
+    "sports": {
+      "FOOTBALL": 72,
+      "NBA": 54,
+      "NFL": 66
+    },
+    "publishers": 98,
+    "selection": "proportional by sport; deterministic MD5 order within sport; all new discoveries from latest completed daily sweep",
+    "initial_cached_documents": 0,
+    "initial_resolved_urls": 0,
+    "initial_retained_bodies": 0
+  },
+  "started_at_utc": "2026-10-16T03:20:46Z",
+  "bulk_intake_finished_at": "2026-10-15T23:33:33.737549-04:00",
+  "finished_at": "2026-10-15T23:37:16.527847-04:00",
+  "active_intake_seconds": 767.737549,
+  "whole_cohort_seconds_including_retry_tail": 990.527847,
+  "acquired": 73,
+  "skipped": 118,
+  "failed_articles": 1,
+  "failed_attempts": 5,
+  "retryable_fetch_attempts": 2,
+  "skips_by_reason": {
+    "http_rejected": 19,
+    "poor_extraction": 97,
+    "retry_exhausted": 2
+  },
+  "outcomes_by_sport": [
+    {
+      "n": 30,
+      "sport": "FOOTBALL",
+      "reason": "article_body",
+      "status": "acquired"
+    },
+    {
+      "n": 10,
+      "sport": "FOOTBALL",
+      "reason": "http_rejected",
+      "status": "skipped"
+    },
+    {
+      "n": 31,
+      "sport": "FOOTBALL",
+      "reason": "poor_extraction",
+      "status": "skipped"
+    },
+    {
+      "n": 16,
+      "sport": "NBA",
+      "reason": "article_body",
+      "status": "acquired"
+    },
+    {
+      "n": 3,
+      "sport": "NBA",
+      "reason": "http_rejected",
+      "status": "skipped"
+    },
+    {
+      "n": 35,
+      "sport": "NBA",
+      "reason": "poor_extraction",
+      "status": "skipped"
+    },
+    {
+      "n": 27,
+      "sport": "NFL",
+      "reason": "article_body",
+      "status": "acquired"
+    },
+    {
+      "n": 2,
+      "sport": "NFL",
+      "reason": "fetch_deferred",
+      "status": "retryable_error"
+    },
+    {
+      "n": 6,
+      "sport": "NFL",
+      "reason": "http_rejected",
+      "status": "skipped"
+    },
+    {
+      "n": 31,
+      "sport": "NFL",
+      "reason": "poor_extraction",
+      "status": "skipped"
+    },
+    {
+      "n": 2,
+      "sport": "NFL",
+      "reason": "retry_exhausted",
+      "status": "skipped"
+    }
+  ],
+  "median_successful_fetch_ms": 15922,
+  "median_successful_extraction_ms": 42,
+  "planning_articles_per_day": 8500,
+  "projected_acquired_one_hour_range": [
+    265.31308614486636,
+    342.30447676071657
+  ],
+  "projected_acquired_two_hour_range": [
+    530.6261722897327,
+    684.6089535214331
+  ],
+  "projected_daily_share_one_hour_percent": [
+    3.121330425233722,
+    4.027111491302548
+  ],
+  "projected_daily_share_two_hour_percent": [
+    6.242660850467444,
+    8.054222982605095
+  ],
+  "range_definition": "lower: whole cohort including final Retry-After tail; upper: active bulk intake before the queue became idle awaiting that retry; not a confidence interval",
+  "cold_link_ceiling_per_hour": 900,
+  "google_spacing_seconds": 2,
+  "google_requests_per_new_link": 2,
+  "failed_response_fix": {
+    "article_id": 942135,
+    "baseline": "NUL-bearing publisher response failed source_documents text insertion five times",
+    "probe": "same URL now produces a terminal unsupported_response skip; no infrastructure error",
+    "probe_seconds": 0.209315106,
+    "whole_cohort_rerun_after_fix": false
+  },
+  "production_service_after": "active",
+  "production_resumed_at_utc": "2026-10-16T03:38:01Z",
+  "sha256": {
+    "acquisition_bench": "41ba91295689b059c913a614184d2db8bfb36816dbd60930360c0e870fc93c95",
+    "cohort.csv": "7877b4d50dbb1cfc36271b64da3391ff6fe4e1df5cb8978b6c002348f0eee61b",
+    "acquisition-bench-code-20261016.tgz": "9147aa4a4c4eec5443c4d22c27c30ca43412faa5f073274c2eeedd6bb894bdf5"
+  },
+  "limits": [
+    "192 articles from one daily discovery cohort, not a measured full one/two-hour or multi-day run",
+    "accepted extraction is not verified complete reporting, unique-story coverage or downstream character usefulness",
+    "temporary PostgreSQL instance copied production schema/reference data; no production publication",
+    "one known baseline failure remains in timings; fix verified separately",
+    "all cohort first attempts completed before a final five-minute rate-limit retry; the original runner was stopped once only a dead-letter remained"
+  ]
+}

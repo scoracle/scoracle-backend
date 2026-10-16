@@ -17,60 +17,24 @@ pub async fn load_for_character(
     entity_id: i32,
     sport: &str,
 ) -> Result<Vec<SourceContext>> {
-    load_on(
+    load_for_character_on(
         &mut *pool.acquire().await?,
         plugin,
         entity_type,
         entity_id,
         sport,
-        Population::Pending,
     )
     .await
 }
 
-pub async fn load_used(
-    pool: &PgPool,
+pub(crate) async fn load_for_character_on(
+    connection: &mut PgConnection,
     plugin: &str,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-    from: i64,
-    before: i64,
 ) -> Result<Vec<SourceContext>> {
-    load_on(
-        &mut *pool.acquire().await?,
-        plugin,
-        entity_type,
-        entity_id,
-        sport,
-        Population::Used(from, before),
-    )
-    .await
-}
-
-/// Accepted reporting for one period, including previously consumed historical evidence.
-pub async fn load_accepted(
-    connection: &mut PgConnection,
-    subject: &crate::tools::meta::EntityMeta,
-    from: i64,
-    before: i64,
-    cutoff: i64,
-) -> Result<Vec<SourceContext>> {
-    load_on(
-        connection,
-        INFLUENCER,
-        &subject.entity_type,
-        subject.entity_id,
-        &subject.sport,
-        Population::Accepted(from, before, cutoff),
-    )
-    .await
-}
-
-enum Population {
-    Pending,
-    Used(i64, i64),
-    Accepted(i64, i64, i64),
+    load_on(connection, plugin, entity_type, entity_id, sport).await
 }
 
 /// The routing-gate character key for a plugin id.
@@ -129,39 +93,23 @@ async fn load_on(
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-    population: Population,
 ) -> Result<Vec<SourceContext>> {
-    let (mode, from, before, cutoff) = match population {
-        Population::Pending => ("pending", None, None, None),
-        Population::Used(from, before) => ("used", Some(from), Some(before), None),
-        Population::Accepted(from, before, cutoff) => {
-            ("accepted", Some(from), Some(before), Some(cutoff))
-        }
-    };
     let character = character_key(plugin)?;
-    let rows=sqlx::query("SELECT x.id,x.spectrum::text AS spectrum,x.gate::text AS gate,x.clean_text,d.status,
+    let rows=sqlx::query("SELECT x.id,x.spectrum::text AS spectrum,x.gate::text AS gate,x.clean_text,
         EXTRACT(EPOCH FROM (s.source->>'published_at')::timestamptz)::bigint AS published_at_epoch,
         s.source::text AS source,
-        CASE WHEN d.status='pending' THEN
-            COALESCE(s.discovery_version=public.classifier_discovery_version(s.article_id,s.sport),false)
+        COALESCE(s.discovery_version=public.classifier_discovery_version(s.article_id,s.sport),false)
             AND EXISTS(SELECT 1 FROM classifier_source_heads h WHERE h.article_id=s.article_id AND h.sport=s.sport AND h.source_id=s.id)
-            ELSE true END AS current_source
+            AS current_source
         FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
         JOIN classifier_sources s ON s.id=x.source_id
         WHERE d.character=$1 AND x.sport=$4
         AND x.target->>'entity_type'=$2 AND x.target->>'entity_id'=$3::text
-        AND ($5<>'accepted' OR s.source->'identity_candidates' @>
-            jsonb_build_array(jsonb_build_object('entity_type',$2::text,'entity_id',$3::integer)))
-        AND (($5='pending' AND d.status='pending')
-            OR ($5='used' AND d.status='used' AND d.updated_at>=to_timestamp($6::double precision)
-                AND d.updated_at<to_timestamp($7::double precision))
-            OR ($5='accepted' AND d.status IN ('pending','used','abstained')
-                AND floor(extract(epoch FROM x.created_at))<=$8
-                AND (s.source->>'published_at')::timestamptz>=to_timestamp($6::double precision)
-                AND (s.source->>'published_at')::timestamptz<to_timestamp($7::double precision)))
+        AND d.status='pending'
+        AND public.coverage_spectrum_selected(d.character,$2,$3::bigint,$4,x.id)
         ORDER BY published_at_epoch DESC NULLS LAST,x.id DESC LIMIT 20001")
         .bind(character).bind(entity_type).bind(entity_id.to_string()).bind(sport)
-        .bind(mode).bind(from).bind(before).bind(cutoff).fetch_all(&mut *connection).await?;
+        .fetch_all(&mut *connection).await?;
     ensure!(
         rows.len() <= 20000,
         "Classifier character population exceeds bound"
@@ -169,20 +117,14 @@ async fn load_on(
     let mut sources = Vec::with_capacity(rows.len());
     let mut articles = std::collections::HashSet::new();
     for row in rows {
-        let status: String = row.get("status");
         ensure!(
-            status != "pending" || row.get::<bool, _>("current_source"),
+            row.get::<bool, _>("current_source"),
             "Classifier delivery source changed; acquisition must reconcile it"
         );
         let id: i64 = row.get("id");
         let source: Source = serde_json::from_str(row.get::<&str, _>("source"))?;
-        if status == "pending" {
-            ensure!(
-                super::identity::candidates(connection, sport, &source).await?
-                    == source.provenance["identity_candidates"],
-                "Classifier canonical identity changed"
-            );
-        }
+        ensure!(super::identity::candidates(connection,sport,&source).await?
+            ==source.provenance["identity_candidates"],"Classifier canonical identity changed");
         if !articles.insert(source.article_id) {
             continue;
         }
@@ -222,15 +164,7 @@ pub async fn validate_for_publication(
         let native = load_spectrum_source_on(tx, source.classification_id).await?;
         super::identity::validate(tx, sport, &native).await?;
     }
-    let current = load_on(
-        tx,
-        plugin,
-        entity_type,
-        entity_id,
-        sport,
-        Population::Pending,
-    )
-    .await?;
+    let current = load_on(tx, plugin, entity_type, entity_id, sport).await?;
     ensure!(
         sources.iter().all(|s| current.contains(s)),
         "Classifier evidence or delivery changed during articulation"
@@ -279,6 +213,7 @@ pub async fn undelivered_count(
 ) -> Result<i64> {
     Ok(sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
         WHERE d.character=$1 AND d.status='pending' AND x.sport=$4
-        AND x.target->>'entity_type'=$2 AND x.target->>'entity_id'=$3::text")
+        AND x.target->>'entity_type'=$2 AND x.target->>'entity_id'=$3::text
+        AND public.coverage_spectrum_selected(d.character,$2,$3::bigint,$4,x.id)")
         .bind(character_key(plugin)?).bind(entity_type).bind(entity_id.to_string()).bind(sport).fetch_one(&mut **tx).await?)
 }

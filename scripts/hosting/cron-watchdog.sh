@@ -17,11 +17,13 @@ if [ -z "$MODE" ]; then
 fi
 case "$MODE" in paused|acquire|classifier) ;; *) echo "watchdog: invalid WATCHDOG_MODE=$MODE" >&2; exit 2 ;; esac
 STAMP="$(date '+%Y-%m-%dT%H:%M:%S%z')"
-RESULT="$(psql "$DB" -X -q -A -t -F'|' -v ON_ERROR_STOP=1 -v mode="$MODE" -v stages="${COGNITION_STAGES-graph,investigate_entity,fixture_boxscore,rating,vibe,narratives,transfers,momentum,sigil}" <<'SQL'
+RESULT="$(psql "$DB" -X -q -A -t -F'|' -v ON_ERROR_STOP=1 -v mode="$MODE" -v stages="${COGNITION_STAGES-investigate_entity,fixture_boxscore,rating,vibe,narratives,transfers,momentum,sigil}" <<'SQL'
 WITH active_work AS (
     SELECT * FROM pipeline_work WHERE
-      (:'mode'='acquire' AND stage='classifier_acquire') OR
-      (:'mode'='classifier' AND (stage='classifier_acquire' OR stage=ANY(regexp_split_to_array(lower(btrim(:'stages')),'\s*,\s*'))))
+      ((:'mode'='acquire' AND stage='classifier_acquire') OR
+      (:'mode'='classifier' AND (stage='classifier_acquire' OR stage=ANY(regexp_split_to_array(lower(btrim(:'stages')),'\s*,\s*')))))
+      AND (public.coverage_claimable(stage,entity_type,entity_id,sport)
+        OR (status='running' AND public.coverage_publishable(stage,entity_type,entity_id,sport)))
 ), queue AS (
     SELECT count(*) FILTER(WHERE status IN ('pending','failed') AND attempts<5 AND available_at<=now()) AS ready,
         count(*) FILTER(WHERE status='failed' AND attempts>=5) AS dead,
@@ -41,6 +43,10 @@ WITH active_work AS (
 )
 SELECT 'ingest_recency',CASE WHEN max(fetched_at)>now()-interval '26 hours' THEN 'OK' ELSE 'ALARM' END,
     'newest discovery '||coalesce(max(fetched_at)::text,'none') FROM news_articles
+UNION ALL SELECT 'coverage_cycle',CASE WHEN NOT enabled THEN 'INFO'
+    WHEN last_tick_at>now()-interval '2 minutes' THEN 'OK' ELSE 'ALARM' END,
+    CASE WHEN enabled THEN phase||'; last tick '||coalesce(last_tick_at::text,'never') ELSE 'disabled' END
+    FROM coverage_schedule
 UNION ALL SELECT 'worker_mode','INFO',:'mode'
 UNION ALL SELECT 'queue_depth','INFO',ready||' claimable; retained backlog is expected' FROM queue
 UNION ALL SELECT 'held_deliveries','INFO',count(*)||' held; no automatic policy promotion'

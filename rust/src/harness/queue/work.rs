@@ -42,6 +42,7 @@ pub enum ClaimOrder {
     #[default]
     Fifo,
     RankedArticles,
+    FreshArticles,
     TeamsFirst,
 }
 
@@ -51,6 +52,11 @@ impl ClaimOrder {
             ClaimOrder::Fifo => "available_at",
             ClaimOrder::RankedArticles => {
                 "(SELECT a.feed_rank FROM public.news_articles a WHERE a.id = pipeline_work.entity_id) \
+                 ASC NULLS LAST, available_at"
+            }
+            ClaimOrder::FreshArticles => {
+                "(SELECT a.published_at FROM public.news_articles a WHERE a.id = pipeline_work.entity_id) \
+                 DESC NULLS LAST, (SELECT a.feed_rank FROM public.news_articles a WHERE a.id = pipeline_work.entity_id) \
                  ASC NULLS LAST, available_at"
             }
             ClaimOrder::TeamsFirst => {
@@ -72,6 +78,7 @@ pub struct ClaimPolicy {
 impl ClaimPolicy {
     pub const FIFO: Self = Self::new(ClaimOrder::Fifo);
     pub const RANKED_ARTICLES: Self = Self::new(ClaimOrder::RankedArticles);
+    pub const FRESH_ARTICLES: Self = Self::new(ClaimOrder::FreshArticles);
     pub const TEAMS_FIRST: Self = Self::new(ClaimOrder::TeamsFirst);
 
     pub const fn new(order: ClaimOrder) -> Self {
@@ -133,6 +140,10 @@ impl Item {
 /// happens before this short transaction; the lock is held only across publication bookkeeping.
 pub(super) async fn lock_claim(tx: &mut Transaction<'_, Postgres>, it: &Item) -> Result<bool> {
     let claim_token = it.require_claim_token()?;
+    sqlx::query("SELECT public.coverage_lock()")
+        .execute(&mut **tx)
+        .await
+        .context("lock coverage publication boundary")?;
     let owned: Option<bool> = sqlx::query_scalar(
         r#"
         SELECT TRUE
@@ -141,6 +152,7 @@ pub(super) async fn lock_claim(tx: &mut Transaction<'_, Postgres>, it: &Item) ->
            AND status = 'running'
            AND claim_token = $5::uuid
            AND running_input_version IS NOT DISTINCT FROM $6
+           AND public.coverage_publishable(stage,entity_type,entity_id,sport)
          FOR UPDATE
         "#,
     )
@@ -231,6 +243,11 @@ pub async fn claim_with_policy(
     policy: ClaimPolicy,
     limit: i64,
 ) -> Result<Vec<Item>> {
+    let mut tx = pool.begin().await.context("begin coverage-aware claim")?;
+    sqlx::query("SELECT public.coverage_lock()")
+        .execute(&mut *tx)
+        .await
+        .context("lock coverage claim boundary")?;
     let rows: Vec<(String, i64, String, Option<String>, i32, String)> = sqlx::query_as(&format!(
         r#"
         WITH ready AS (
@@ -239,6 +256,10 @@ pub async fn claim_with_policy(
             WHERE stage = $1
               AND status IN ('pending', 'failed')
               AND available_at <= NOW()
+              -- Evaluate a paused stage once rather than walking its entire backlog.
+              AND (SELECT public.coverage_stage_open($1))
+              AND (NOT (SELECT enabled FROM public.coverage_schedule)
+                   OR public.coverage_claimable(stage,entity_type,entity_id,sport))
               -- Dependency eligibility is shared across hosts, not implied by a
               -- process-local registration order. Only this entity is blocked.
               AND NOT EXISTS (
@@ -281,9 +302,10 @@ pub async fn claim_with_policy(
     .bind(limit)
     .bind(policy.upstream_tasks)
     .bind(policy.pending_event_kinds)
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await
     .with_context(|| format!("claim {stage}"))?;
+    tx.commit().await.context("commit coverage-aware claim")?;
 
     Ok(rows
         .into_iter()
@@ -566,6 +588,9 @@ mod postgres_claim_fencing_tests {
     }
 
     async fn claim_registered(pool: &PgPool, stage: TaskKey, limit: i64) -> Result<Vec<Item>> {
+        if stage.as_str() == "test_article" {
+            return claim(pool, stage, limit).await;
+        }
         let policy = crate::harness::fleet::ALL
             .iter()
             .find(|manifest| manifest.task == stage)
@@ -592,7 +617,7 @@ mod postgres_claim_fencing_tests {
         for id in 9_100_100..9_100_120 {
             enqueue(
                 &first,
-                &pending(crate::plugins::graph::manifest::TASK, id, sport, "v1"),
+                &pending(TaskKey::new("test_article"), id, sport, "v1"),
             )
             .await
             .unwrap();
@@ -604,8 +629,8 @@ mod postgres_claim_fencing_tests {
                 .unwrap();
         }
         let (a, b) = tokio::join!(
-            claim(&first, crate::plugins::graph::manifest::TASK, 10),
-            claim(&second, crate::plugins::graph::manifest::TASK, 10)
+            claim(&first, TaskKey::new("test_article"), 10),
+            claim(&second, TaskKey::new("test_article"), 10)
         );
         let a = a.unwrap();
         let b = b.unwrap();
@@ -614,7 +639,7 @@ mod postgres_claim_fencing_tests {
         for job in &a {
             assert!(!b.iter().any(|other| other.entity_id == job.entity_id));
         }
-        assert!(claim(&second, crate::plugins::graph::manifest::TASK, 1)
+        assert!(claim(&second, TaskKey::new("test_article"), 1)
             .await
             .unwrap()
             .is_empty());
@@ -726,18 +751,13 @@ mod postgres_claim_fencing_tests {
         let sport = "ZZ_RUST_STALE_CLAIM";
         clean(&pool, sport).await;
 
-        let offered = pending(
-            crate::plugins::graph::manifest::TASK,
-            9_100_001,
-            sport,
-            "v1",
-        );
+        let offered = pending(TaskKey::new("test_article"), 9_100_001, sport, "v1");
         enqueue(&pool, &offered).await.expect("enqueue v1");
-        let old = one_claim(&pool, crate::plugins::graph::manifest::TASK).await;
+        let old = one_claim(&pool, TaskKey::new("test_article")).await;
 
         sqlx::query(
             "UPDATE pipeline_work SET updated_at = NOW() - INTERVAL '1 hour' \
-             WHERE stage = 'graph' AND entity_id = $1 AND sport = $2",
+             WHERE stage = 'test_article' AND entity_id = $1 AND sport = $2",
         )
         .bind(offered.entity_id)
         .bind(sport)
@@ -750,7 +770,7 @@ mod postgres_claim_fencing_tests {
                 .expect("recover old claim"),
             1
         );
-        let current = one_claim(&pool, crate::plugins::graph::manifest::TASK).await;
+        let current = one_claim(&pool, TaskKey::new("test_article")).await;
         assert_ne!(old.claim_token, current.claim_token);
 
         assert!(!complete(&pool, &old).await.expect("stale complete"));
@@ -821,12 +841,12 @@ mod claim_order_tests {
         ] {
             assert_eq!(manifest.claim_policy.order, ClaimOrder::TeamsFirst);
         }
-        // Ranked ingestion still drains best-first because source rank beats entity grain there.
+        // Acquisition favors fresh reporting; Classifier scoring retains feed-rank ordering.
         assert_eq!(
             crate::plugins::classifier::manifest::ACQUIRE_MANIFEST
                 .claim_policy
                 .order,
-            ClaimOrder::RankedArticles
+            ClaimOrder::FreshArticles
         );
     }
 }

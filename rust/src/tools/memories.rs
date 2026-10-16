@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 mod postgres;
-pub use postgres::{reporting_scope, score_history, source_records};
+pub use postgres::{reporting_scope, source_records};
 use std::process::Stdio;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -70,22 +70,6 @@ pub mod statistic {
     /// The initial statistic adapter is team match totals in one competition and
     /// season. A plugin must request a registered measure, not infer units from prose.
     pub use super::postgres::team_matches;
-}
-
-/// One explicitly dated trajectory study. It is supporting evidence for the two finished
-/// readings, not a second set of overlapping labels or a pre-written Analyst verdict.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct ScoreHistory {
-    pub vibe_slope: Option<f64>,
-    pub vibe_samples: i32,
-    pub vibe_window_start: Option<String>,
-    pub vibe_window_end: Option<String>,
-    pub rating_slope: Option<f64>,
-    pub rating_samples: i32,
-    pub rating_window_start: Option<String>,
-    pub rating_window_end: Option<String>,
-    pub momentum_score: Option<f64>,
-    pub generated_at: Option<String>,
 }
 
 pub const VERSION: &str = "reporting-frequency-v1";

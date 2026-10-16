@@ -1,22 +1,21 @@
-//! Complete source preparation, linked mentions, measured history and model requests.
+//! Daily fresh source preparation, linked mentions and model requests.
 use crate::harness::route::RouteKey;
 pub const MODEL: RouteKey = RouteKey::new("transfer-logic", "TRANSFER_LOGIC");
-// Reserve room for a bounded full article, instructions, history and output.
+// Reserve room for a bounded full article, instructions and output.
 pub const ARTICLE_NUM_CTX: i32 = 32768;
 pub const CONTEXT_BUDGET_BYTES: usize = 24000;
 use crate::harness::model::GenerateOptions;
 use crate::harness::queue::work::Item;
 use crate::plugins::classifier::{delivery::load_for_character, delivery::load_spectrum_source};
-use crate::tools::memories::{self as study, HistoryItem, ReportingHistory, SourceRecord};
 use crate::tools::meta::EntityMeta;
 use crate::tools::source::SourceContext;
 use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-const SYSTEM: &str = "Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Each report carries article-level classifier spectrum scores — routing measurements of the complete article, which do not establish relevance to the named entity, not proof; unmeasured criteria stay unresolved. Read the scores with the complete publisher text. Use prior reports only as history; weigh measured publisher records with their tracked sample sizes, and do not treat missing records as poor reliability. Return one JSON object with body and findings. Keep the body to two or three short sentences, at most 1200 characters, and return at most two of the most significant supported findings. The body must name the exact target from meta.name, even when no move is supported. If these reports do not support a move involving that target, explain that evidence limit and return findings as []; do not retell another subject's move. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.";
+const SYSTEM: &str = "Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Each report carries article-level classifier spectrum scores — routing measurements of the complete article, which do not establish relevance to the named entity, not proof; unmeasured criteria stay unresolved. Read the scores with the complete publisher text. Return one JSON object with body and findings. Keep the body to two or three short sentences, at most 1200 characters, and return at most two of the most significant supported findings. The body must name the exact target from meta.name, even when no move is supported. If these reports do not support a move involving that target, explain that evidence limit and return findings as []; do not retell another subject's move. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.";
 
-pub const PROMPT_VERSION: &str = "insider-source-v10-bounded-reports";
+pub const PROMPT_VERSION: &str = "insider-source-v11-daily-fresh";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v3-bounded";
 pub const NUM_PREDICT: i32 = 1400;
 pub const BODY_MAX_CHARS: usize = 1200;
@@ -87,13 +86,6 @@ pub fn options_for_reports(
     options
 }
 
-const HISTORY: ReportingHistory = ReportingHistory {
-    lookback_seconds: 90 * 24 * 60 * 60,
-    max_reports: 6,
-    budget_bytes: 1800,
-    grouped: false,
-};
-
 #[derive(Clone)]
 pub(super) struct Match {
     pub(super) name: String,
@@ -106,8 +98,6 @@ pub(super) struct Material {
     pub(super) sources: Vec<SourceContext>,
     pub(super) reports: Vec<Report>,
     pub(super) mentions: Vec<Vec<Match>>,
-    pub(super) history: Vec<HistoryItem>,
-    pub(super) source_records: Vec<study::SourceRecord>,
     pub(super) held: Vec<(SourceContext, &'static str)>,
 }
 
@@ -179,19 +169,11 @@ pub(super) async fn load_material(pool: &PgPool, item: &Item) -> Result<Material
         });
         mentions.push(found);
     }
-    let history = load_history(pool, &subject, &sources).await?;
-    let publishers = sources
-        .iter()
-        .map(|source| source.source.clone())
-        .collect::<Vec<_>>();
-    let source_records = study::source_records(pool, &sport, &publishers).await?;
     let mut material = Material {
         subject,
         sources,
         reports,
         mentions,
-        history,
-        source_records,
         held: Vec::new(),
     };
     material.pack(crate::plugins::influencer::now());
@@ -200,28 +182,21 @@ pub(super) async fn load_material(pool: &PgPool, item: &Item) -> Result<Material
 
 impl Material {
     fn pack(&mut self, now: i64) {
-        // Process oldest first so later batches cannot overwrite newer movement with old news.
+        let sources = std::mem::take(&mut self.sources);
         let reports = std::mem::take(&mut self.reports);
         let mentions = std::mem::take(&mut self.mentions);
-        let sources = std::mem::take(&mut self.sources);
-        for ((source, report), mentions) in sources.into_iter().zip(reports).zip(mentions).rev() {
+        for ((source, report), mentions) in sources.into_iter().zip(reports).zip(mentions) {
             let reason = if source
                 .classifier_world
                 .as_ref()
-                .is_some_and(|world| world["target_identity_resolved"] == false)
+                .is_some_and(|w| w["target_identity_resolved"] == false)
             {
                 Some("unresolved_target_identity")
-            } else if !source.published_at_epoch.is_some_and(|date| date <= now) {
+            } else if !source.published_at_epoch.is_some_and(|t| t <= now) {
                 Some("unresolved_publication_time")
             } else if crate::tools::source::contains_instruction_override(&source.context) {
                 Some("source_instruction_override")
-            } else if assemble(
-                &self.subject,
-                std::slice::from_ref(&report),
-                &self.history,
-                &self.source_records,
-            )
-            .len()
+            } else if assemble(&self.subject, std::slice::from_ref(&report)).len()
                 > CONTEXT_BUDGET_BYTES
             {
                 Some("complete_report_exceeds_context_budget")
@@ -232,29 +207,25 @@ impl Material {
                 self.held.push((source, reason));
                 continue;
             }
-            if !self.sources.is_empty() {
-                break;
-            }
-            self.reports.push(report);
-            if assemble(
-                &self.subject,
-                &self.reports,
-                &self.history,
-                &self.source_records,
-            )
-            .len()
-                > CONTEXT_BUDGET_BYTES
-            {
-                self.reports.pop();
-                break;
-            }
             self.sources.push(source);
+            self.reports.push(report);
             self.mentions.push(mentions);
         }
-        // Publication and finding indices use newest-first order within the selected batch.
-        self.sources.reverse();
-        self.reports.reverse();
-        self.mentions.reverse();
+        // A daily reading cannot omit a complete report that could qualify or deny another.
+        if assemble(&self.subject, &self.reports).len() > CONTEXT_BUDGET_BYTES
+            || self
+                .held
+                .iter()
+                .any(|(_, reason)| *reason == "complete_report_exceeds_context_budget")
+        {
+            self.held.extend(
+                self.sources
+                    .drain(..)
+                    .map(|s| (s, "daily_package_exceeds_context_budget")),
+            );
+            self.reports.clear();
+            self.mentions.clear();
+        }
     }
 }
 
@@ -276,53 +247,10 @@ pub(crate) async fn preview(
     let material = load_material(pool, &item).await?;
     Ok((!material.sources.is_empty()).then(|| {
         (
-            assemble(
-                &material.subject,
-                &material.reports,
-                &material.history,
-                &material.source_records,
-            ),
+            assemble(&material.subject, &material.reports),
             options_for_reports(0, &material.subject, &material.reports),
         )
     }))
-}
-
-async fn load_history(
-    pool: &PgPool,
-    subject: &EntityMeta,
-    sources: &[SourceContext],
-) -> Result<Vec<HistoryItem>> {
-    if sources.is_empty() || subject.entity_type == "person" {
-        return Ok(Vec::new());
-    }
-    let before = sources.iter().filter_map(|s| s.published_at_epoch).min();
-    let Some(before) = before else {
-        return Ok(Vec::new());
-    };
-    let excluded: Vec<i64> = sources.iter().map(|s| s.article_id).collect();
-    let prior: Vec<i64> = sqlx::query_scalar(
-        "SELECT DISTINCT u.article_id FROM public.transfer_rumors r \
-         CROSS JOIN LATERAL unnest(r.input_news_ids) AS u(article_id) \
-         WHERE r.sport=$1 AND r.is_rumor IS NOT NULL \
-           AND (($2='team' AND r.team_id=$3) OR ($2='player' AND r.subject_type='player' AND r.player_id=$3)) \
-         ORDER BY u.article_id LIMIT 200"
-    ).bind(&subject.sport).bind(&subject.entity_type).bind(subject.entity_id).fetch_all(pool).await?;
-    if prior.is_empty() {
-        return Ok(Vec::new());
-    }
-    let report = study::reporting_scope(
-        pool,
-        subject,
-        before - HISTORY.lookback_seconds,
-        before,
-        &excluded,
-        HISTORY.max_reports,
-        2,
-        &prior,
-        None,
-    )
-    .await?;
-    HISTORY.select(&report, subject, Some(before), &excluded, |_| true)
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -343,31 +271,17 @@ pub struct Report {
     pub co_mentions: Vec<Mention>,
 }
 
-pub fn assemble(
-    subject: &EntityMeta,
-    reports: &[Report],
-    history: &[HistoryItem],
-    source_records: &[SourceRecord],
-) -> String {
+pub fn assemble(subject: &EntityMeta, reports: &[Report]) -> String {
     #[derive(Serialize)]
     struct Input<'a> {
         meta: crate::tools::meta::WritingIdentity<'a>,
         fresh: serde_json::Value,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        memories: Option<serde_json::Value>,
         voice: &'static str,
         form: serde_json::Value,
     }
-    let memories = (!history.is_empty() || !source_records.is_empty()).then(|| {
-        serde_json::json!({
-            "prior_reports": history,
-            "source_records": source_records,
-        })
-    });
     serde_json::to_string(&Input {
         meta: subject.for_writing(),
         fresh: serde_json::json!({ "reports": reports }),
-        memories,
         voice: crate::plugins::insider::voice::VOICE,
         form: serde_json::json!({
             "keys": ["body", "findings"],
@@ -416,7 +330,6 @@ mod tests {
                 co_mentions: vec![],
             })
             .collect();
-        let original = sources[2].context.clone();
         let mut material = Material {
             subject: EntityMeta {
                 name: "Cedar".into(),
@@ -427,34 +340,15 @@ mod tests {
             sources,
             reports,
             mentions: vec![vec![]; 5],
-            history: vec![],
-            source_records: vec![],
             held: vec![],
         };
         material.pack(200);
-        assert_eq!(
-            material
-                .sources
-                .iter()
-                .map(|s| s.article_id)
-                .collect::<Vec<_>>(),
-            vec![1]
-        );
-        assert_eq!(material.reports[0].publisher_excerpt, original);
-        assert_eq!(material.held[0].0.article_id, -1);
-        assert_eq!(material.held[0].1, "unresolved_target_identity");
-        assert_eq!(material.held[1].0.article_id, 0);
-        assert_eq!(material.held[1].1, "complete_report_exceeds_context_budget");
-        assert!(
-            assemble(
-                &material.subject,
-                &material.reports,
-                &material.history,
-                &material.source_records
-            )
-            .len()
-                <= CONTEXT_BUDGET_BYTES
-        );
+        assert!(material.sources.is_empty());
+        assert_eq!(material.held.len(), 5);
+        assert!(material
+            .held
+            .iter()
+            .any(|(_, r)| *r == "daily_package_exceeds_context_budget"));
     }
 
     #[test]
@@ -476,7 +370,7 @@ mod tests {
                 entity_type: "team".into(),
             }],
         };
-        let world = assemble(&subject, &[report], &[], &[]);
+        let world = assemble(&subject, &[report]);
         let fresh_at = world.find(r#""fresh":"#).unwrap();
         let voice_at = world.find(r#""voice":"#).unwrap();
         let form_at = world.find(r#""form":"#).unwrap();
@@ -503,30 +397,6 @@ mod tests {
                 "evidence_quote"
             ])
         );
-    }
-
-    #[test]
-    fn measured_source_record_keeps_its_sample_size() {
-        let subject = EntityMeta {
-            name: "Jordan Sample".into(),
-            entity_type: "player".into(),
-            entity_id: 7,
-            sport: "NFL".into(),
-        };
-        let world = assemble(
-            &subject,
-            &[],
-            &[],
-            &[SourceRecord {
-                publisher: "Wire".into(),
-                confirmed: 2,
-                tracked: 3,
-                reliability: 25,
-            }],
-        );
-        let value: serde_json::Value = serde_json::from_str(&world).unwrap();
-        assert_eq!(value["memories"]["source_records"][0]["tracked"], 3);
-        assert_eq!(value["memories"]["source_records"][0]["reliability"], 25);
     }
 
     #[test]

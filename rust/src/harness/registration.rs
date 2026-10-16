@@ -10,7 +10,6 @@ use crate::harness::queue::work;
 use crate::harness::tools::WebBroker;
 use crate::plugins::analyst;
 use crate::plugins::fixture_boxscore::adapter as boxscore;
-use crate::plugins::graph::adapter as graph;
 use crate::plugins::influencer;
 use crate::plugins::insider;
 use crate::plugins::journalist;
@@ -86,8 +85,8 @@ fn known_stages() -> Vec<&'static str> {
 
 /// Construct the enabled first-party fleet with application dependencies bound.
 ///
-/// Registration order is deliberate: Graph uses the acquisition rail, and the
-/// voice stages follow their product dependency order. Scheduling caps and task ownership
+/// Registration order is deliberate: intake precedes the voice stages, which
+/// follow their product dependency order. Scheduling caps and task ownership
 /// still come from each plugin's Studio manifest once the fleet reaches the worker.
 pub fn build(
     pool: PgPool,
@@ -111,13 +110,6 @@ pub fn build(
         ));
     }
 
-    // Graph reviews publisher text without Editor-derived evidence.
-    if enabled.contains("graph") {
-        handlers.push(Arc::new(graph::GraphHandler::new(
-            pool.clone(),
-            models.capabilities(&crate::plugins::graph::manifest::MANIFEST)?,
-        )));
-    }
     // Structured discovery uses only the scoped web broker.
     if enabled.contains("investigate_entity") {
         let web = shared_web_workspace(&mut web_workspace)?;
@@ -228,11 +220,10 @@ mod tests {
     #[test]
     fn configured_stages_normalize_and_dedupe() {
         let stages = enabled_from_config(Some(
-            " Graph, fixture_boxscore, rating, momentum, vibe, VIBE ,,sigil ",
+            " fixture_boxscore, rating, momentum, vibe, VIBE ,,sigil ",
         ))
         .unwrap();
-        assert_eq!(stages.len(), 6);
-        assert!(stages.contains("graph"));
+        assert_eq!(stages.len(), 5);
         assert!(!stages.contains("editor"));
         assert!(stages.contains("fixture_boxscore"));
         assert!(stages.contains("rating"));
@@ -246,6 +237,7 @@ mod tests {
         let err = enabled_from_config(Some("graph,headlinez,scrub,oracle,editor"))
             .unwrap_err()
             .to_string();
+        assert!(err.contains("graph"));
         assert!(err.contains("headlinez"));
         assert!(!err.contains("unknown COGNITION_STAGES value(s): editor"));
         assert!(err.contains("scrub"));

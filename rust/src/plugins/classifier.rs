@@ -1,4 +1,5 @@
 //! Native Classifier: the retained source contract and the decision-model spectrum.
+mod acquisition;
 pub mod adapter;
 pub mod decision;
 pub mod delivery;
@@ -32,6 +33,9 @@ fn hash(body: &str) -> String {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod acquisition_tests;
 
 #[cfg(test)]
 pub(crate) mod plumbing_tests;

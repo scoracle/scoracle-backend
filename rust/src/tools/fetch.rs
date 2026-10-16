@@ -382,6 +382,78 @@ pub fn extract_article_text(html: &str) -> String {
     compact_reading(&clean_html_with_paragraphs(&doc))
 }
 
+/// Cheap acquisition accepts an article container or structured body, never whole-page fallback.
+pub fn extract_article_text_strict(html: &str) -> Option<String> {
+    fn article_body(value: &serde_json::Value) -> Option<&str> {
+        match value {
+            serde_json::Value::Array(items) => items
+                .iter()
+                .filter_map(article_body)
+                .max_by_key(|s| s.len()),
+            serde_json::Value::Object(object) => {
+                let is_article = |kind: &str| {
+                    matches!(
+                        kind,
+                        "Article" | "NewsArticle" | "ReportageNewsArticle" | "BlogPosting"
+                    )
+                };
+                let kind = &value["@type"];
+                if kind.as_str().is_some_and(is_article)
+                    || kind.as_array().is_some_and(|types| {
+                        types.iter().filter_map(|v| v.as_str()).any(is_article)
+                    })
+                {
+                    if let Some(body) = object.get("articleBody").and_then(|v| v.as_str()) {
+                        return Some(body);
+                    }
+                }
+                object.get("@graph").and_then(article_body)
+            }
+            _ => None,
+        }
+    }
+    let mut position = 0;
+    while let Some(start) = find_ascii_ci(html, "<script", position) {
+        let open_end = html[start..].find('>')? + start + 1;
+        let end = find_ascii_ci(html, "</script>", open_end)?;
+        if html[start..open_end]
+            .to_ascii_lowercase()
+            .contains("application/ld+json")
+        {
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(&html[open_end..end]) {
+                if let Some(body) = article_body(&value) {
+                    let text = compact_reading(&clean_html_with_paragraphs(body));
+                    if count_words(&text) >= ARTICLE_MIN_WORDS && !article_unavailable(&text) {
+                        return Some(text);
+                    }
+                }
+            }
+        }
+        position = end + "</script>".len();
+    }
+    let mut doc = html.to_string();
+    for tag in NON_CONTENT_TAGS {
+        doc = strip_element_blocks(&doc, tag);
+    }
+    for tag in ["article", "main"] {
+        if let Some(inner) = largest_element_inner(&doc, tag) {
+            let text = compact_reading(&clean_html_with_paragraphs(&inner));
+            let words = count_words(&text);
+            let unlinked = count_words(&clean_html_with_paragraphs(&strip_element_blocks(
+                &inner, "a",
+            )));
+            if has_open_tag(&inner, "p")
+                && words >= ARTICLE_MIN_WORDS
+                && unlinked * 2 >= words
+                && !article_unavailable(&text)
+            {
+                return Some(text);
+            }
+        }
+    }
+    None
+}
+
 /// compact_reading strips what the tag pass cannot see: furniture that lives INSIDE the article
 /// element. Order matters — dedupe first so a repeated promo cannot hide the marker that ends the
 /// story, then cut the tail.
@@ -662,6 +734,8 @@ pub enum BudgetedFetchError {
     DomainSkipped { domain: String, until_secs: u64 },
     /// HTTP-level rejection (non-2xx). 429 also arms a hold on the domain.
     Http { status: u16, final_url: String },
+    /// PostgreSQL text provenance cannot retain binary/NUL-bearing publisher responses.
+    UnsupportedBody { final_url: String },
     /// Transport / build / DB failure.
     Other(anyhow::Error),
 }
@@ -673,7 +747,19 @@ impl std::fmt::Display for BudgetedFetchError {
                 write!(f, "domain {domain} skipped (retry in {until_secs}s)")
             }
             Self::Http { status, final_url } => write!(f, "HTTP {status} from {final_url}"),
+            Self::UnsupportedBody { final_url } => {
+                write!(f, "response contains NUL bytes: {final_url}")
+            }
             Self::Other(e) => write!(f, "{e:#}"),
+        }
+    }
+}
+
+impl std::error::Error for BudgetedFetchError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Other(error) => Some(error.as_ref()),
+            _ => None,
         }
     }
 }
@@ -725,9 +811,7 @@ impl DomainState {
 /// per-domain async mutex is what makes "concurrency 1 per domain" structural — a second
 /// task on the same domain queues on the lock rather than racing the spacing check.
 ///
-/// `Clone` produces an independent budget ledger (fresh domain map). It exists so a
-/// plugin face can re-materialize its handler without sharing circuit state across
-/// two live copies; production adapters still own exactly one fetcher each.
+/// Clones share the same domain ledger, so all brokered requests honor one budget.
 #[derive(Clone)]
 pub struct BudgetedFetcher {
     client: reqwest::Client,
@@ -766,10 +850,20 @@ impl BudgetedFetcher {
         url: &str,
         policy: &FetchPolicy,
     ) -> std::result::Result<SourceFetch, BudgetedFetchError> {
-        let fetched = self.fetch_request(pool, url, policy, None).await?;
         let Some(article_id) = google_news_article_id(url) else {
-            return Ok(fetched);
+            return self.fetch_request(pool, url, policy, None).await;
         };
+        let publisher: Option<String> = sqlx::query_scalar(
+            "SELECT publisher_url FROM source_url_resolutions WHERE wrapper_url=$1",
+        )
+        .bind(url)
+        .fetch_optional(pool)
+        .await
+        .map_err(|error| BudgetedFetchError::Other(error.into()))?;
+        if let Some(publisher) = publisher {
+            return self.fetch_request(pool, &publisher, policy, None).await;
+        }
+        let fetched = self.fetch_request(pool, url, policy, None).await?;
         // Resolve the wrapper under Google's budget, then spend the publisher's own budget.
         let payload = google_news_wrapper_payload(article_id, &fetched.body)
             .map_err(BudgetedFetchError::Other)?;
@@ -780,6 +874,10 @@ impl BudgetedFetcher {
             .filter(|url| domain_of(url).as_deref() != Some("news.google.com"))
             .context("Google News resolver returned no publisher URL")
             .map_err(BudgetedFetchError::Other)?;
+        sqlx::query("INSERT INTO source_url_resolutions(wrapper_url,publisher_url) VALUES($1,$2)
+            ON CONFLICT(wrapper_url) DO UPDATE SET publisher_url=EXCLUDED.publisher_url,resolved_at=now()")
+            .bind(url).bind(&publisher).execute(pool).await
+            .map_err(|error| BudgetedFetchError::Other(error.into()))?;
         self.fetch_request(pool, &publisher, policy, None).await
     }
 
@@ -815,6 +913,8 @@ impl BudgetedFetcher {
         }
 
         let sent_at = Instant::now();
+        // A cancelled request still spends the domain's spacing budget.
+        state.last_request_at = Some(sent_at);
         let request = match form_payload {
             Some(payload) => self.client.post(url).form(&[("f.req", payload)]),
             None => self.client.get(url),
@@ -832,8 +932,7 @@ impl BudgetedFetcher {
         let status = resp.status();
         if !status.is_success() {
             let retry_after = (status.as_u16() == 429)
-                .then(|| parse_retry_after(resp.headers()))
-                .flatten();
+                .then(|| parse_retry_after(resp.headers()).unwrap_or(Duration::from_secs(60)));
             state.record_failure(sent_at, retry_after);
             return Err(BudgetedFetchError::Http {
                 status: status.as_u16(),
@@ -853,6 +952,10 @@ impl BudgetedFetcher {
         };
         state.record_success(sent_at);
         drop(state);
+
+        if body.contains('\0') {
+            return Err(BudgetedFetchError::UnsupportedBody { final_url });
+        }
 
         let hash = content_hash(&body);
         let title = html_title(&body);
@@ -1121,6 +1224,12 @@ mod tests {
             final_url text,domain text,fetched_at timestamptz NOT NULL DEFAULT now(),content_hash text,
             http_status integer,title text,retained_excerpt text,headers jsonb NOT NULL DEFAULT '{}'::jsonb)")
             .execute(&pool).await?;
+        sqlx::raw_sql(
+            "CREATE TABLE IF NOT EXISTS source_url_resolutions(wrapper_url text PRIMARY KEY,
+            publisher_url text NOT NULL,resolved_at timestamptz NOT NULL DEFAULT now())",
+        )
+        .execute(&pool)
+        .await?;
         Ok(pool)
     }
 
@@ -1251,6 +1360,53 @@ mod tests {
         assert!(!article_unavailable(
             "The blog was unavailable yesterday; the club announced a signing today."
         ));
+    }
+
+    #[test]
+    fn strict_extraction_preserves_prose_and_late_corrections_without_page_fallback() {
+        let body = format!(
+            "{} Later correction: no transfer happened.",
+            "İstanbul reported the club update. ".repeat(25).trim_end()
+        );
+        let html = format!("<nav>Buy tickets</nav><ARTICLE><p>{body}</p></ARTICLE>");
+        assert_eq!(
+            extract_article_text_strict(&html).as_deref(),
+            Some(body.as_str())
+        );
+        assert!(extract_article_text_strict(&format!("<div>{body}</div>")).is_none());
+        assert!(extract_article_text_strict(&format!(
+            "<main><p><a href='/related'>{body}</a></p></main>"
+        ))
+        .is_none());
+        assert!(extract_article_text_strict("<main><p>Enable JavaScript</p></main>").is_none());
+    }
+
+    #[test]
+    fn strict_extraction_reads_json_ld_articles_and_ignores_other_structured_text() {
+        let body = format!(
+            "{} The player denied the report.",
+            "The club published an update. ".repeat(25).trim_end()
+        );
+        for kind in [json!("NewsArticle"), json!(["Thing", "Article"])] {
+            let data = json!({"@graph":[{"@type":"WebSite","articleBody":"wrong"},{"@type":kind,"articleBody":body}]});
+            let html = format!("<script type='application/ld+json'>{data}</script>");
+            assert_eq!(
+                extract_article_text_strict(&html).as_deref(),
+                Some(body.as_str())
+            );
+        }
+        let data = json!({"@type":"WebSite","articleBody":body});
+        assert!(extract_article_text_strict(&format!(
+            "<script type='application/ld+json'>{data}</script>"
+        ))
+        .is_none());
+        let html = format!(
+            "<script type='application/ld+json'>not JSON</script><article><p>{body}</p></article>"
+        );
+        assert_eq!(
+            extract_article_text_strict(&html).as_deref(),
+            Some(body.as_str())
+        );
     }
 
     #[test]

@@ -23,6 +23,9 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
         DO $fixture$ BEGIN IF to_regprocedure('public.nrm(text)') IS NULL THEN
             EXECUTE 'CREATE FUNCTION public.nrm(text) RETURNS text LANGUAGE sql IMMUTABLE AS $body$SELECT lower($1)$body$';
         END IF; END $fixture$;
+        CREATE TABLE IF NOT EXISTS source_documents(id bigserial PRIMARY KEY,url text NOT NULL,
+            final_url text,domain text,fetched_at timestamptz NOT NULL DEFAULT now(),content_hash text,
+            http_status integer,title text,retained_excerpt text,headers jsonb NOT NULL DEFAULT '{}'::jsonb);
         CREATE TABLE IF NOT EXISTS sports(id text PRIMARY KEY,display_name text,current_season integer);
         CREATE TABLE IF NOT EXISTS news_article_entities(article_id bigint REFERENCES news_articles(id) ON DELETE CASCADE,
             entity_type text,entity_id integer,sport text,created_at timestamptz DEFAULT now(),PRIMARY KEY(article_id,entity_type,entity_id,sport));")
@@ -119,6 +122,18 @@ pub(crate) async fn setup_disposable(pool: &sqlx::PgPool) -> Result<()> {
         (
             "306_pipeline_stage_progress",
             include_str!("../../../../sql/migrations/306_pipeline_stage_progress.sql"),
+        ),
+        (
+            "307_classifier_bounded_acquisition",
+            include_str!("../../../../sql/migrations/307_classifier_bounded_acquisition.sql"),
+        ),
+        (
+            "308_retire_graph",
+            include_str!("../../../../sql/migrations/308_retire_graph.sql"),
+        ),
+        (
+            "309_continuous_coverage",
+            include_str!("../../../../sql/migrations/309_continuous_coverage.sql"),
         ),
     ] {
         let applied: bool =

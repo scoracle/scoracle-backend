@@ -49,10 +49,6 @@ fn production_resource_policy_matches_the_deployment_contract() {
         (1, Some(mac))
     );
     assert_eq!(
-        (GRAPH.resources.rotation_batch, GRAPH.resources.slot_group),
-        (8, Some(mac))
-    );
-    assert_eq!(
         (
             CLASSIFIER.resources.max_in_flight,
             CLASSIFIER.resources.rotation_batch,
@@ -86,7 +82,6 @@ fn durable_task_identifiers_remain_compatible() {
     assert_eq!(ORACLE.task.as_str(), "sigil");
     assert_eq!(INVESTIGATOR.task.as_str(), "investigate_entity");
     assert_eq!(FIXTURE_BOXSCORE.task.as_str(), "fixture_boxscore");
-    assert_eq!(GRAPH.task.as_str(), "graph");
 }
 
 #[test]
@@ -135,7 +130,10 @@ fn classifier_replaces_retired_intake_in_the_deployable_fleet() {
     assert_eq!(CLASSIFIER_ACQUIRE.task.as_str(), "classifier_acquire");
     assert!(!ALL
         .iter()
-        .any(|m| matches!(m.task.as_str(), "harvester" | "editor")));
+        .any(|m| matches!(m.task.as_str(), "harvester" | "editor" | "graph")));
+    assert!(inference_routes()
+        .iter()
+        .all(|r| r.env_suffix() != "EMOTIONAL_NEWS"));
     assert!(ALL.iter().any(|m| m.id == CLASSIFIER.id));
     assert!(ALL.iter().any(|m| m.id == CLASSIFIER_ACQUIRE.id));
     assert!(crate::harness::registration::enabled_from_config(Some("harvester,editor")).is_err());

@@ -377,6 +377,7 @@ impl Worker {
     /// Run until SIGINT/SIGTERM. Drains on start, on NOTIFY, and on the safety-net
     /// tick — all delivered as coalesced tick requests from the supervisor task.
     pub async fn run(&self) -> Result<()> {
+        super::coverage::start(self.pool.clone(), self.shutdown.clone())?;
         let stages: Vec<&'static str> = self
             .fleet
             .plugins()
@@ -796,11 +797,11 @@ fn note_supervisor_exit(exit: std::result::Result<(), tokio::task::JoinError>) {
 #[cfg(test)]
 mod test_support {
     use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile};
-    use crate::harness::queue::work::ClaimPolicy;
+    use crate::harness::queue::work::{ClaimPolicy, TaskKey};
 
-    pub(super) static GRAPH_TEST_MANIFEST: PluginManifest = PluginManifest {
-        id: PluginId::new("test.graph"),
-        task: crate::plugins::graph::manifest::TASK,
+    pub(super) static TEST_MANIFEST: PluginManifest = PluginManifest {
+        id: PluginId::new("test.article"),
+        task: TaskKey::new("test_article"),
         claim_policy: ClaimPolicy::FIFO,
         inference_routes: &[],
         resources: ResourceProfile::unbounded_batch(1),
@@ -832,20 +833,10 @@ mod tests {
         ));
     }
 
-    /// Production's shape after the 2026-08-20 consolidation: every model stage shares the
-    /// archbox card — Graph at the full group budget, the four voices capped
-    /// at 2 within it — then the single-slot stages (investigate/transfers/momentum).
-    ///
-    /// The ceiling arithmetic below is unchanged in KIND (a group still counts once, at its
-    /// budget). The single-slot roster here trails production by one — main.rs also registers
-    /// `fixture_boxscore` — so the ceiling this asserts is one stage BELOW the live ceiling:
-    /// still a valid lower-bound regression check, noted so nobody scores it as exact
-    /// (2026-08-10 audit).
+    /// Representative shared model budget with three independent stages.
     const CARD: Option<(&'static str, usize)> = Some(ARCHBOX_SLOTS);
-    /// Grouped caps mirror production's `max_in_flight()`, DERIVED from `ARCHBOX_SLOTS.1` where
-    /// production derives, so a re-size of the card's slot budget cannot strand this fixture.
-    const LIVE_CAPS: &[StageCap] = &[
-        (ARCHBOX_SLOTS.1, CARD), // graph
+    const TEST_CAPS: &[StageCap] = &[
+        (ARCHBOX_SLOTS.1, CARD), // shared model
         (1, None),               // investigate_entity
         (1, None),               // transfers
         (2, CARD),               // narratives
@@ -861,7 +852,7 @@ mod tests {
         // change with membership, only who may use it. Summing the grouped stages would admit
         // claims the host cannot run.
         assert_eq!(
-            resolve_drain_concurrency(None, LIVE_CAPS),
+            resolve_drain_concurrency(None, TEST_CAPS),
             ARCHBOX_SLOTS.1 + 3
         );
     }
@@ -871,10 +862,10 @@ mod tests {
         // The property that matters: with the ceiling unset, every stage can reach its own cap
         // simultaneously. If this ever fails, some stage is being starved by the global number.
         // Grouped stages count once, at the group budget — that IS the most they can hold at once.
-        let budget = resolve_drain_concurrency(None, LIVE_CAPS);
+        let budget = resolve_drain_concurrency(None, TEST_CAPS);
         let mut total = 0usize;
         let mut seen: Vec<&str> = Vec::new();
-        for (cap, group) in LIVE_CAPS {
+        for (cap, group) in TEST_CAPS {
             match group {
                 Some((name, b)) => {
                     if !seen.contains(name) {
@@ -895,32 +886,32 @@ mod tests {
     fn a_shared_group_lends_idle_slots_and_takes_them_back() {
         let (_, budget) = ARCHBOX_SLOTS;
 
-        // Graph idle: another grouped stage may take the whole card.
+        // Peer idle: another grouped stage may take the whole card.
         let group_running = 0;
         assert_eq!(
             stage_room(budget, 0, 10).min(budget - group_running),
             budget
         );
 
-        // Graph holding 2: another grouped stage is held to the remainder, never oversubscribing the host.
+        // Peer holding 2: another grouped stage is held to the remainder, never oversubscribing the host.
         let group_running = 2;
         assert_eq!(
             stage_room(budget, 0, 10).min(budget - group_running),
             budget - 2
         );
 
-        // Graph holding the whole card: another grouped stage waits rather than deepening the host's queue.
+        // Peer holding the whole card: another grouped stage waits rather than deepening the host's queue.
         let group_running = budget;
         assert_eq!(stage_room(budget, 0, 10).min(budget - group_running), 0);
     }
 
     #[test]
     fn an_explicit_ceiling_overrides_the_caps_and_can_throttle() {
-        assert_eq!(resolve_drain_concurrency(Some(3), LIVE_CAPS), 3);
+        assert_eq!(resolve_drain_concurrency(Some(3), TEST_CAPS), 3);
         // 1 is the documented rollback: the old strictly-sequential drain.
-        assert_eq!(resolve_drain_concurrency(Some(1), LIVE_CAPS), 1);
+        assert_eq!(resolve_drain_concurrency(Some(1), TEST_CAPS), 1);
         // 0 would wedge the drain forever, so it clamps.
-        assert_eq!(resolve_drain_concurrency(Some(0), LIVE_CAPS), 1);
+        assert_eq!(resolve_drain_concurrency(Some(0), TEST_CAPS), 1);
     }
 
     #[test]
@@ -930,7 +921,7 @@ mod tests {
 
     #[test]
     fn stage_room_stops_one_stage_owning_the_budget() {
-        // graph at cap 2 with nothing running may take 2 of a wide-open budget -- NOT the 8 its
+        // shared model at cap 2 with nothing running may take 2 of a wide-open budget -- NOT the 8 its
         // rotation_batch asks for, which is what starved every stage behind it.
         assert_eq!(stage_room(2, 0, 10), 2);
         // One already running leaves one.
@@ -968,14 +959,14 @@ mod tests {
         assert_eq!(activity, "idle");
     }
 
-    use super::test_support::GRAPH_TEST_MANIFEST;
+    use super::test_support::TEST_MANIFEST;
 
     struct PreparedHandler(Option<PluginOutcome>);
 
     #[async_trait::async_trait]
     impl StudioPlugin for PreparedHandler {
         fn manifest(&self) -> &'static crate::harness::plugin::PluginManifest {
-            &GRAPH_TEST_MANIFEST
+            &TEST_MANIFEST
         }
         async fn execute(&self, item: &work::Item) -> Result<PluginOutcome> {
             assert_eq!(item.claim_token.as_deref(), Some("exact-lease"));
@@ -1004,7 +995,7 @@ mod tests {
 
     fn prepared_claim() -> work::Item {
         work::Item {
-            stage: crate::plugins::graph::manifest::TASK,
+            stage: TaskKey::new("test_article"),
             entity_type: "article".into(),
             entity_id: 1,
             sport: "NBA".into(),
@@ -1052,7 +1043,7 @@ mod tests {
 
 #[cfg(test)]
 mod postgres_recovery_rehearsal {
-    use super::test_support::GRAPH_TEST_MANIFEST;
+    use super::test_support::TEST_MANIFEST;
     use super::*;
     use crate::harness::plugin::{PluginOutcome, StudioPlugin};
     use crate::harness::queue::work::Item;
@@ -1234,7 +1225,7 @@ mod postgres_recovery_rehearsal {
     #[async_trait::async_trait]
     impl StudioPlugin for Blocked {
         fn manifest(&self) -> &'static crate::harness::plugin::PluginManifest {
-            &GRAPH_TEST_MANIFEST
+            &TEST_MANIFEST
         }
         async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
             self.entered.notify_one();
@@ -1271,12 +1262,9 @@ mod postgres_recovery_rehearsal {
             Duration::ZERO,
             Some(1),
         );
-        work::enqueue(
-            &pool,
-            &item(crate::plugins::graph::manifest::TASK, sport, 9_600_101),
-        )
-        .await
-        .unwrap();
+        work::enqueue(&pool, &item(TaskKey::new("test_article"), sport, 9_600_101))
+            .await
+            .unwrap();
         let pulse = Pulse::new();
         let drain = worker.drain_all("busy", &pulse);
         let tick = Notify::new();
@@ -1293,7 +1281,7 @@ mod postgres_recovery_rehearsal {
                 .unwrap();
             tx.commit().await.unwrap();
             tick.notified().await;
-            let counts: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM application_outbox WHERE sport=$1), (SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='sigil' AND status='pending'), (SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='graph' AND status='running')")
+            let counts: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM application_outbox WHERE sport=$1), (SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='sigil' AND status='pending'), (SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='test_article' AND status='running')")
                 .bind(sport).fetch_one(&pool).await.unwrap();
             assert_eq!(counts, (0, 1, 1));
         };

@@ -2,7 +2,6 @@
 mod activity;
 pub mod fresh;
 pub mod manifest;
-pub mod memories;
 mod parser;
 pub mod prompt;
 mod publish;

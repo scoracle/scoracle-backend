@@ -257,7 +257,7 @@ mod tests {
     fn shares_one_backend_per_distinct_model() {
         let mut roles = HashMap::new();
         roles.insert(
-            crate::plugins::graph::manifest::ROUTE,
+            crate::plugins::journalist::manifest::ROUTE,
             spec("local-news:latest"),
         );
         roles.insert(
@@ -276,16 +276,16 @@ mod tests {
         let router = Router::from_config(&cfg, Duration::from_secs(60), 1).unwrap();
 
         assert!(Arc::ptr_eq(
-            &router.for_route(crate::plugins::graph::manifest::ROUTE),
+            &router.for_route(crate::plugins::journalist::manifest::ROUTE),
             &router.for_route(crate::plugins::scout::manifest::ROUTE),
         ));
         assert!(!Arc::ptr_eq(
-            &router.for_route(crate::plugins::graph::manifest::ROUTE),
+            &router.for_route(crate::plugins::journalist::manifest::ROUTE),
             &router.for_route(crate::plugins::oracle::manifest::ROUTE),
         ));
         assert_eq!(
             router
-                .for_route(crate::plugins::graph::manifest::ROUTE)
+                .for_route(crate::plugins::journalist::manifest::ROUTE)
                 .model(),
             "local-news:latest"
         );
@@ -343,7 +343,7 @@ mod tests {
         )
         .unwrap();
         assert!(router
-            .candidate_for(crate::plugins::graph::manifest::ROUTE)
+            .candidate_for(crate::plugins::journalist::manifest::ROUTE)
             .is_none());
     }
 
@@ -355,7 +355,7 @@ mod tests {
             .collect();
         let mut candidates = HashMap::new();
         candidates.insert(
-            crate::plugins::graph::manifest::ROUTE,
+            crate::plugins::journalist::manifest::ROUTE,
             spec("candidate-news:latest"),
         );
         let router = Router::from_config(
@@ -370,14 +370,14 @@ mod tests {
         .unwrap();
         assert_eq!(
             router
-                .candidate_for(crate::plugins::graph::manifest::ROUTE)
+                .candidate_for(crate::plugins::journalist::manifest::ROUTE)
                 .unwrap()
                 .model(),
             "candidate-news:latest"
         );
         assert!(router
             .candidate_for(crate::plugins::scout::manifest::ROUTE)
-            .is_none()); // only EmotionalNews has one
+            .is_none()); // only Journalist has one
     }
 
     // --- GPU governor (GovernedInference) ------------------------------------------------

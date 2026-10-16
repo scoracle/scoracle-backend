@@ -9,10 +9,6 @@ use crate::harness::route::RouteKey;
 use crate::harness::Parser;
 use crate::plugins::analyst::parser::parse_momentum_reply;
 use crate::plugins::analyst::prompt::load_momentum_context;
-use crate::plugins::graph::adapter::load_graph_article_context;
-use crate::plugins::graph::cognition::{
-    build_graph_prompt, graph_opts, GraphCandidate, GraphParser, GRAPH_PROMPT_VERSION,
-};
 use crate::plugins::influencer::{prompt::VIBE_NUM_PREDICT, VibeParser};
 use crate::plugins::insider::prompt::preview as preview_insider;
 use crate::plugins::insider::prompt::{
@@ -72,7 +68,7 @@ pub struct LensParameters {
 }
 
 /// lens_parameters is the code home for the lens taxonomy — the six public characters plus the
-/// two evaluated internal seats (investigator, graph). `operator` carries the character identity
+/// evaluated Investigator seat. `operator` carries the character identity
 /// (the cast locked in wiki/Characters.md, 2026-07-21); the junction's system prompt is that
 /// character's voice, so a voice change is a prompt change, never a rename here.
 ///
@@ -80,7 +76,7 @@ pub struct LensParameters {
 /// lenses would eventually route by model family — and its own doc admitted roles were the serving
 /// primitive "until evals prove a split". The split never came: routing is per route
 /// (`COGNITION_ROUTE_<ROLE>`), and the real topology is two HOSTS, not two rails. It had also gone
-/// wrong on its own terms, filing the Editor, the Investigator and graph under "emotional/news"
+/// wrong on its own terms, filing the retired Editor and the Investigator under "emotional/news"
 /// because a two-rail world had nowhere else to put a seat that reads text.
 pub fn lens_parameters(name: &str) -> Option<LensParameters> {
     match name {
@@ -118,11 +114,6 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
             operator: "The Investigator",
             mandate: "Read one Wikipedia page summary and quote verbatim what it says about a name the news wrote differently — the connecting name form, the occupation phrase, the teams — so code can verify every quote by containment and decide.",
             credibility_guard: "Copy, never conclude: a field that is not a contiguous run of page text is discarded by the gate; only this page, never model knowledge of the person.",
-        }),
-        "graph" => Some(LensParameters {
-            operator: "narrative archivist",
-            mandate: "Extract the typed relations and person discoveries one vetted article actually states into the graph.",
-            credibility_guard: "Closed candidate list only; attach each relation to the true counterparty; an empty extraction beats an invented one.",
         }),
         _ => None,
     }
@@ -175,7 +166,7 @@ pub struct Expect {
     // `total_sentences_max`, `transfer_direction`, `subject_excludes`,
     // `confidence_min`/`confidence_max`, `skill_includes`/`skill_excludes`, `prose_includes`,
     // `prose_includes_any`, `prose_excludes`, `prose_min_words`/`prose_max_words`,
-    // `relations_include`. Word floors/caps, sentence counts, score bands and style-vocabulary
+    // Word floors/caps, sentence counts, score bands and style-vocabulary
     // any-of groups are owned by the form+prompt, not the gate.
     /// Grounding: at least one returned body contains each string (names the who/what/where).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -201,25 +192,6 @@ pub struct Expect {
     pub summary_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary_excludes: Option<Vec<String>>,
-    // graph typed-extraction rubric (number-level: N = the fixture prompt's candidate numbering).
-    /// The fixture prompt's candidate list as entity TYPES by number ("player"/"team") — evaluate
-    /// reconstructs the GraphParser's candidate list from this (ids = the 1-based number), so the
-    /// REAL production parser runs and the checks assert on its resolved output.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub graph_candidate_types: Option<Vec<String>>,
-    /// The object-attachment pin: no parsed relation may match any of these triples (same syntax) —
-    /// e.g. the g2-measured Rogers→Arsenal slip where Chelsea was the counterparty.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub relations_exclude: Option<Vec<String>>,
-    /// Over-extraction guard: at most this many relations (0 pins the clean-empty case).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub relations_max: Option<i32>,
-    /// Person discovery: each "Name:kind" (kind optional) must appear in the parsed persons.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub persons_include: Option<Vec<String>>,
-    /// No player leakage / no invention: no parsed person name may contain any of these.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub persons_exclude: Option<Vec<String>>,
     // The Investigator's prose contract (`ip1`) axes — verbatim-quote fields, checked as
     // fragments of what the model copied (containment against the page is the GATE's job;
     // the fixture asserts the model quoted the right things at all).
@@ -434,7 +406,6 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
         "transfer" => Some(Box::new(TransferTask)),
         "rating" => Some(Box::new(RatingTask)),
         "momentum" => Some(Box::new(MomentumTask)),
-        "graph" => Some(Box::new(GraphTask)),
         "investigator" => Some(Box::new(InvestigatorTask)),
         _ => None,
     }
@@ -451,7 +422,6 @@ pub fn all_task_names() -> &'static [&'static str] {
         "transfer",
         "rating",
         "momentum",
-        "graph",
         "investigator",
     ]
 }
@@ -643,7 +613,7 @@ impl LensTask for VibeTask {
             &subject.sport,
         )
         .await?;
-        let Some(source) = sources.iter().rev().find(|source| {
+        let Some(_) = sources.iter().rev().find(|source| {
             !source
                 .classifier_world
                 .as_ref()
@@ -654,7 +624,6 @@ impl LensTask for VibeTask {
         let (assignment, _) = crate::plugins::influencer::prompt::prepare_assignment(
             pool,
             subject,
-            source,
             crate::plugins::influencer::now(),
         )
         .await?;
@@ -1208,158 +1177,6 @@ fn product_name_check(prose: &str) -> PropertyCheck {
 // (fold_for_match moved to `crate::guards` with the ban vocabularies — imported above.)
 
 // ---------------------------------------------------------------------------
-// Graph — the typed-extraction lens (junction rollout step 5). Fixture-gated BEFORE the
-// queue stage wires in: the fixtures pin the g2 probe's measured residuals (the
-// object-attachment slip, person-discovery misses, over-extraction). Live mode takes
-// `article:<id>:<SPORT>` specs and builds the exact production prompt via the shared
-// `load_graph_article_context` loader.
-// ---------------------------------------------------------------------------
-
-pub struct GraphTask;
-
-#[async_trait]
-impl LensTask for GraphTask {
-    fn name(&self) -> &'static str {
-        "graph"
-    }
-    fn role(&self) -> RouteKey {
-        crate::plugins::graph::manifest::ROUTE
-    }
-    fn prompt_version(&self) -> &'static str {
-        GRAPH_PROMPT_VERSION
-    }
-    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        let mut o = graph_opts();
-        o.temperature = Some(temperature);
-        Ok(o)
-    }
-    async fn build_request(
-        &self,
-        pool: &sqlx::PgPool,
-        _models: &Models,
-        e: &EntitySpec,
-    ) -> Result<Option<Prepared>> {
-        if e.entity_type != "article" {
-            anyhow::bail!(
-                "graph evals are article-keyed: use article:<id>:<SPORT> (got {})",
-                e.entity_type
-            );
-        }
-        let sport = e.sport.to_uppercase();
-        let Some((article, candidates)) =
-            load_graph_article_context(pool, i64::from(e.entity_id), &sport).await?
-        else {
-            return Ok(None);
-        };
-        Ok(Some(Prepared::captured(
-            build_graph_prompt(
-                &article.source,
-                &article.published,
-                &article.title,
-                &article.description,
-                &candidates,
-            ),
-            self.gen_options_for(0.0, e)?,
-        )))
-    }
-    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        // Reconstruct the fixture's candidate list from `graph_candidate_types` (entity
-        // ids = the 1-based prompt numbers) so the REAL production parser runs and the
-        // triple checks read directly in prompt-number terms.
-        let types: Vec<String> = expect
-            .and_then(|x| x.graph_candidate_types.clone())
-            .unwrap_or_default();
-        let candidates: Vec<GraphCandidate> = types
-            .iter()
-            .enumerate()
-            .map(|(i, t)| GraphCandidate {
-                entity_type: t.clone(),
-                entity_id: (i + 1) as i32,
-                descriptor: format!("candidate {}", i + 1),
-            })
-            .collect();
-        let parsed = GraphParser {
-            candidates: &candidates,
-        }
-        .parse(raw)
-        .ok()
-        .flatten();
-        let Some(g) = parsed else {
-            return CaseVerdict {
-                parsed: false,
-                abs_err: None,
-                checks: Vec::new(),
-                display: "unparseable (fail-closed)".into(),
-            };
-        };
-
-        // Relation extraction is unavailable; generated relations are never admitted.
-        let persons_detail = || {
-            format!(
-                "persons={:?}",
-                g.persons
-                    .iter()
-                    .map(|p| format!("{}[{}]", p.name, p.kind))
-                    .collect::<Vec<_>>()
-            )
-        };
-
-        let mut checks = Vec::new();
-        if let Some(x) = expect {
-            if let Some(excl) = &x.relations_exclude {
-                for spec in excl {
-                    checks.push(PropertyCheck {
-                        name: format!("relation_absent[{spec}]"),
-                        pass: true,
-                        detail: "relations=[]".into(),
-                    });
-                }
-            }
-            if let Some(max) = x.relations_max {
-                checks.push(PropertyCheck {
-                    name: "relations_le".into(),
-                    pass: 0 <= max,
-                    detail: format!("0 ≤ {max}"),
-                });
-            }
-            if let Some(incl) = &x.persons_include {
-                for spec in incl {
-                    let (name, kind) = match spec.split_once(':') {
-                        Some((n, k)) => (n, Some(k)),
-                        None => (spec.as_str(), None),
-                    };
-                    checks.push(PropertyCheck {
-                        name: format!("person_present[{spec}]"),
-                        pass: g.persons.iter().any(|p| {
-                            p.name.eq_ignore_ascii_case(name) && kind.is_none_or(|k| p.kind == k)
-                        }),
-                        detail: persons_detail(),
-                    });
-                }
-            }
-            if let Some(excl) = &x.persons_exclude {
-                for frag in excl {
-                    checks.push(PropertyCheck {
-                        name: format!("person_absent[{frag}]"),
-                        pass: !g
-                            .persons
-                            .iter()
-                            .any(|p| p.name.to_lowercase().contains(&frag.to_lowercase())),
-                        detail: persons_detail(),
-                    });
-                }
-            }
-        }
-        CaseVerdict {
-            parsed: true,
-            abs_err: None,
-            checks,
-            display: format!("0 relation(s), {} person(s)", g.persons.len()),
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // investigator — the prose-triage contract (`ip1`), fixture-driven (D-T46)
 // ---------------------------------------------------------------------------
 
@@ -1487,6 +1304,8 @@ mod tests {
             assert!(lens_parameters(n).is_some(), "{n} has no lens parameters");
         }
         assert!(resolve_task("nope").is_none());
+        assert!(resolve_task("graph").is_none());
+        assert!(lens_parameters("graph").is_none());
     }
 
     /// Every arm of `resolve_task` must appear in `all_task_names`, so a new task cannot be
@@ -1500,7 +1319,6 @@ mod tests {
             "transfer",
             "rating",
             "momentum",
-            "graph",
             "investigator",
         ] {
             assert!(resolve_task(name).is_some(), "{name} does not resolve");
@@ -1549,26 +1367,6 @@ mod tests {
             pair_player_id: Some(237),
         };
         assert_eq!(e.key(), "team:14:player:237:NBA");
-    }
-
-    #[test]
-    fn graph_eval_preserves_zero_relation_expectations() {
-        for max in [0, -1] {
-            let expect = Expect {
-                relations_exclude: Some(vec!["1:*:-".into()]),
-                relations_max: Some(max),
-                ..Default::default()
-            };
-            let verdict = GraphTask.evaluate(
-                r#"{"relations":[{"subject":1,"predicate":"injury"}],"persons":[]}"#,
-                None,
-                Some(&expect),
-            );
-            assert!(verdict.parsed);
-            assert!(verdict.checks[0].pass);
-            assert_eq!(verdict.checks[1].pass, max >= 0);
-            assert_eq!(verdict.display, "0 relation(s), 0 person(s)");
-        }
     }
 
     // --- crown (Oracle) eval: reading -------------------------------------
@@ -2035,15 +1833,7 @@ mod tests {
                 })
                 .collect();
             // Index-aligned with `reports`, exactly as production attaches it.
-            let slot = crate::plugins::journalist::memories::Selected {
-                items: vec![crate::tools::memories::HistoryItem {
-                    group: None,
-                    publisher: "Old Wire".into(),
-                    published_at: "2026-09-20T00:00:00Z".into(),
-                    reported_headline: "Cedar won earlier".into(),
-                }],
-                groups: vec![],
-            };
+            let slot = serde_json::json!({"items":[{"reported_headline":"Cedar won earlier"}]});
             let memory = reports
                 .iter()
                 .enumerate()

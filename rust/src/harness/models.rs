@@ -118,7 +118,7 @@ mod tests {
             .inference(crate::plugins::insider::manifest::ROUTE)
             .is_ok());
         assert!(capabilities
-            .inference(crate::plugins::graph::manifest::ROUTE)
+            .inference(crate::plugins::journalist::manifest::ROUTE)
             .is_err());
     }
 }

@@ -27,7 +27,7 @@ EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
 # EnvironmentFile overrides Environment; keep COGNITION_STAGES in .env.local
 # aligned with this set. The separate source service forces acquisition-only.
 # Keep DERIVE_WORKER_ENABLED=false so Go never claims these stages.
-Environment=COGNITION_STAGES=classifier,graph,investigate_entity,fixture_boxscore,rating,momentum,transfers,narratives,vibe,sigil
+Environment=COGNITION_STAGES=classifier,investigate_entity,fixture_boxscore,rating,momentum,transfers,narratives,vibe,sigil
 ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
 Restart=always
 RestartSec=3

@@ -1,13 +1,7 @@
 {
+  "expect": {},
   "name": "synthetic-source-trigger",
-  "task": "rating",
-  "prompt_version": "s71-article-spectrum",
   "parts": {
-    "memory": {
-      "coverage_limits": [
-        "Recent-fixture measurement windows are not part of this read's scope."
-      ]
-    },
     "profile": {
       "composite": null,
       "limit": {
@@ -39,11 +33,13 @@
       "sport": "ZZ_HARVESTER_SMOKE"
     }
   },
-  "user_prompt": "{\"meta\":{\"name\":\"Harvester Test Club\",\"entity_type\":\"team\",\"sport\":\"Harvester smoke\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Scoring\",\"measure\":\"points\",\"value\":20.0,\"percentile\":80.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"unknown_sample\",\"minimum\":10.0}},\"memories\":{\"coverage_limits\":[\"Recent-fixture measurement windows are not part of this read's scope.\"]},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"paragraphs\":\"concise\"}}",
-  "temperature": 0,
-  "expect": {},
+  "prompt_version": "s72-daily-fresh",
   "review": [
     "The sample count is unknown. The minimum of 10 is an appearance threshold, not a points threshold or observed sample. No stability or recent form is established.",
-    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified."
-  ]
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "task": "rating",
+  "temperature": 0,
+  "user_prompt": "{\"meta\":{\"name\":\"Harvester Test Club\",\"entity_type\":\"team\",\"sport\":\"Harvester smoke\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Scoring\",\"measure\":\"points\",\"value\":20.0,\"percentile\":80.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"unknown_sample\",\"minimum\":10.0}},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"paragraphs\":\"concise\"}}"
 }

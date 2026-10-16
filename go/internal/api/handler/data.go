@@ -36,7 +36,7 @@ var validEntityTypes = map[string]struct{}{
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entity_type query string false "Board type: player (default) or team"
 // @Param board query string false "Board: rating (default), vibes, sigil, news, transfers, momentum (trending legacy alias)"
-// @Param scope query string false "Rating scope: rating (default) or fantasy"
+// @Param date query string false "Eastern reporting date (YYYY-MM-DD; default latest)"
 // @Param season query int false "Season year (defaults to the latest rated season)"
 // @Param position query string false "Filter to a position (player boards only)"
 // @Param position_group query string false "Filter to a normalized position group (player boards only)"
@@ -135,6 +135,10 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/leaderboard/vibes [get]
 func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
+	date, ok := optionalReportingDate(w, r)
+	if !ok {
+		return
+	}
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -159,17 +163,8 @@ func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
 	conference := optionalTextQuery(r, "conference")
 	division := optionalTextQuery(r, "division")
 
-	year, ok := optionalIntQuery(w, r, "year")
-	if !ok {
-		return
-	}
-	week, ok := optionalIntQuery(w, r, "week")
-	if !ok {
-		return
-	}
-
 	h.serveStatementJSON(w, r, "vibes_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, leagueID, teamID, position, positionGroup, conference, division, year, week)
+		sport, limit, entityType, leagueID, teamID, position, positionGroup, conference, division, date)
 }
 
 // GetSigilLeaderboard returns the sport-wide Sigil board: entities ranked by their
@@ -195,6 +190,10 @@ func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/leaderboard/sigil [get]
 func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
+	date, ok := optionalReportingDate(w, r)
+	if !ok {
+		return
+	}
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -224,17 +223,8 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	year, ok := optionalIntQuery(w, r, "year")
-	if !ok {
-		return
-	}
-	week, ok := optionalIntQuery(w, r, "week")
-	if !ok {
-		return
-	}
-
 	h.serveStatementJSON(w, r, "sigil_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, season, leagueID, teamID, position, positionGroup, conference, division, year, week)
+		sport, limit, entityType, season, leagueID, teamID, position, positionGroup, conference, division, date)
 }
 
 // GetTrendingLeaderboard returns the sport-wide Momentum board — the movers: entities
@@ -304,7 +294,7 @@ func (h *Handler) GetTrendingLeaderboard(w http.ResponseWriter, r *http.Request)
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entity_type query string false "Filter: player or team (default both)"
-// @Param scope query string false "News scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
+// @Param date query string false "Eastern reporting date (YYYY-MM-DD; default latest)"
 // @Param league_id query int false "Filter to a league"
 // @Param team_id query int false "Filter to a team"
 // @Param position query string false "Filter current player position"
@@ -317,6 +307,10 @@ func (h *Handler) GetTrendingLeaderboard(w http.ResponseWriter, r *http.Request)
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/leaderboard/news [get]
 func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
+	date, ok := optionalReportingDate(w, r)
+	if !ok {
+		return
+	}
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -328,7 +322,6 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entityType := optionalTextQuery(r, "entity_type")
-	scope := optionalTextQuery(r, "scope")
 	leagueID, ok := optionalIntQuery(w, r, "league_id")
 	if !ok {
 		return
@@ -345,17 +338,9 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 	// Two-rail model: the news board is now the hottest NARRATIVES (ranked by
 	// per-narrative impact), not raw mention counts. narratives_leaderboard
 	// supersedes the old news_leaderboard (which read news_article_entities).
-	year, ok := optionalIntQuery(w, r, "year")
-	if !ok {
-		return
-	}
-	week, ok := optionalIntQuery(w, r, "week")
-	if !ok {
-		return
-	}
 
 	h.serveStatementJSON(w, r, "narratives_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, scope, leagueID, teamID, position, positionGroup, conference, division, year, week)
+		sport, limit, entityType, date, leagueID, teamID, position, positionGroup, conference, division)
 }
 
 // GetTransfersLeaderboard returns the sport-wide transfer board: model-vetted
@@ -366,7 +351,7 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param limit query int false "Max rows (default 50)"
-// @Param scope query string false "Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
+// @Param date query string false "Eastern reporting date (YYYY-MM-DD; default latest)"
 // @Param entity_type query string false "Filter: player or team (default both)"
 // @Param league_id query int false "Filter to a league"
 // @Param team_id query int false "Filter to a team"
@@ -379,6 +364,10 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/leaderboard/transfers [get]
 func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request) {
+	date, ok := optionalReportingDate(w, r)
+	if !ok {
+		return
+	}
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -388,7 +377,6 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	scope := optionalTextQuery(r, "scope")
 	entityType := optionalTextQuery(r, "entity_type")
 	leagueID, ok := optionalIntQuery(w, r, "league_id")
 	if !ok {
@@ -403,17 +391,8 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 	conference := optionalTextQuery(r, "conference")
 	division := optionalTextQuery(r, "division")
 
-	year, ok := optionalIntQuery(w, r, "year")
-	if !ok {
-		return
-	}
-	week, ok := optionalIntQuery(w, r, "week")
-	if !ok {
-		return
-	}
-
 	h.serveStatementJSON(w, r, "transfers_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, scope, entityType, leagueID, teamID, position, positionGroup, conference, division, year, week)
+		sport, limit, date, entityType, leagueID, teamID, position, positionGroup, conference, division)
 }
 
 // GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.
@@ -593,12 +572,16 @@ func (h *Handler) GetRoster(w http.ResponseWriter, r *http.Request) {
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entityType path string true "Entity type" Enums(player, team)
 // @Param id path int true "Entity ID"
-// @Param scope query string false "News scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
+// @Param date query string false "Eastern reporting date (YYYY-MM-DD; default latest)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/news [get]
 func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
+	date, ok := optionalReportingDate(w, r)
+	if !ok {
+		return
+	}
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -611,16 +594,7 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	scope := optionalTextQuery(r, "scope")
-	year, ok := optionalIntQuery(w, r, "year")
-	if !ok {
-		return
-	}
-	week, ok := optionalIntQuery(w, r, "week")
-	if !ok {
-		return
-	}
-	h.serveStatementJSON(w, r, "entity_news", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope, year, week)
+	h.serveStatementJSON(w, r, "entity_news", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
 }
 
 // GetEntityTransfers returns the entity's TRANSFERS product — the vetted rumor
@@ -633,12 +607,16 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entityType path string true "Entity type" Enums(player, team)
 // @Param id path int true "Entity ID"
-// @Param scope query string false "Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
+// @Param date query string false "Eastern reporting date (YYYY-MM-DD; default latest)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/transfers [get]
 func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
+	date, ok := optionalReportingDate(w, r)
+	if !ok {
+		return
+	}
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -651,37 +629,26 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	scope := optionalTextQuery(r, "scope")
-	year, ok := optionalIntQuery(w, r, "year")
-	if !ok {
-		return
-	}
-	week, ok := optionalIntQuery(w, r, "week")
-	if !ok {
-		return
-	}
-	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope, year, week)
+	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
 }
 
-// GetEntityHeadlines returns the WEEK ARCHIVE — every consumer seat's
-// (score, headline, body) triples for one week, merged newest-first (the card
-// contract's index, 2026-08-24). Week 1 is Jan 1–7 (Jan-1 blocks); year and
-// week default to today's. Entries exist only where a generation carried a
-// headline, so the archive begins where mig 226/232 rollout reached each seat.
-// @Summary Get the entity week archive (all seats' headlines)
-// @Description Every character card's (score, headline, body) entries for one week of the year, merged newest-first. Week 1 = Jan 1–7. Defaults to the current week.
+// GetEntityHeadlines returns the latest output from each character for one reporting day.
+// @Summary Get the entity daily character outputs
+// @Description One reporting day of character outputs. Historical grouping belongs to clients.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entityType path string true "Entity type" Enums(player, team)
 // @Param id path int true "Entity ID"
-// @Param year query int false "Calendar year (default: current)"
-// @Param week query int false "Week of the year, 1-53, Jan-1 anchored (default: current)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/headlines [get]
 func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
+	date, ok := optionalReportingDate(w, r)
+	if !ok {
+		return
+	}
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -694,50 +661,13 @@ func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	year, ok := optionalIntQuery(w, r, "year")
-	if !ok {
-		return
-	}
-	week, ok := optionalIntQuery(w, r, "week")
-	if !ok {
-		return
-	}
-	// mig 237: nil year/week resolve IN SQL to the sport's current week on the
-	// season_weeks calendar (week 1 = opening day, ET). The old Jan-1 block
-	// arithmetic retired with the Jan-1 window — the response's year/week echo
-	// the RESOLVED sport-season week, so clients navigate on real weeks.
-	h.serveStatementJSON(w, r, "entity_headlines", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, year, week)
+	h.serveStatementJSON(w, r, "entity_headlines", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
 }
 
-// GetSportWeeks returns the sport's reporting calendar (mig 237): every elapsed
-// and current week — week 1 anchored at each season's opening day — plus which
-// one is current and which are sealed. This is the frontend week-nav's data
-// source; the Jan-1 week arithmetic it replaces lived client-side.
-// @Summary Get the sport's reporting-week calendar
-// @Description Elapsed + current weeks for the sport (week 1 = opening day, ET), newest first, with the current marker and seal state. Optional season filter.
-// @Tags data
-// @Produce json
-// @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param season query int false "Limit to one season"
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/{sport}/weeks [get]
-func (h *Handler) GetSportWeeks(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-	season, ok := optionalIntQuery(w, r, "season")
-	if !ok {
-		return
-	}
-	h.serveStatementJSON(w, r, "sport_weeks", dataCacheKey(r), cache.TTLNews, false, sport, season)
-}
-
-// GetEntityVibe serves saved current or reporting-period cards without inference.
+// GetEntityVibe serves saved daily cards without inference.
 // @Summary Get the entity Vibe
-// @Description Latest saved Vibe card, or latest revision for season/week. Empty periods return current:null. score and legacy heat belong to the same output.
-// @Param season query int false "Reporting season (requires week)"
-// @Param week query int false "Reporting week, 1-60 (requires season)"
+// @Description Latest saved daily Vibe card, or a requested date. Empty days return current:null.
+// @Param date query string false "Eastern reporting date (YYYY-MM-DD; default latest)"
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -748,6 +678,14 @@ func (h *Handler) GetSportWeeks(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/vibe [get]
 func (h *Handler) GetEntityVibe(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Has("season") {
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", "Use date=YYYY-MM-DD for daily reporting")
+		return
+	}
+	date, ok := optionalReportingDate(w, r)
+	if !ok {
+		return
+	}
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -760,19 +698,7 @@ func (h *Handler) GetEntityVibe(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	season, ok := optionalIntQuery(w, r, "season")
-	if !ok {
-		return
-	}
-	week, ok := optionalIntQuery(w, r, "week")
-	if !ok {
-		return
-	}
-	if (season == nil) != (week == nil) || (week != nil && (week.(int) < 1 || week.(int) > 60)) {
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", "season and week (1-60) must be supplied together")
-		return
-	}
-	h.serveStatementJSON(w, r, "entity_vibe", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, season, week)
+	h.serveStatementJSON(w, r, "entity_vibe", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
 }
 
 // GetEntitySigil returns the entity's SIGIL product — ONE `current` object
@@ -1364,4 +1290,22 @@ func dataCacheKey(r *http.Request) string {
 		return "data:" + r.URL.Path
 	}
 	return "data:" + r.URL.Path + "?" + r.URL.RawQuery
+}
+
+func optionalReportingDate(w http.ResponseWriter, r *http.Request) (any, bool) {
+	for _, key := range []string{"year", "week", "scope"} {
+		if _, exists := r.URL.Query()[key]; exists {
+			respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", "Weekly reporting scopes are retired; use date=YYYY-MM-DD")
+			return nil, false
+		}
+	}
+	date := strings.TrimSpace(r.URL.Query().Get("date"))
+	if date == "" {
+		return nil, true
+	}
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", "date must be YYYY-MM-DD")
+		return nil, false
+	}
+	return date, true
 }

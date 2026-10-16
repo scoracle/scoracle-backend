@@ -124,7 +124,7 @@ ORDER BY obligation,status;
 SELECT stage,status,count(*) AS total,
        min(updated_at) AS oldest_updated_at
   FROM public.pipeline_work
- WHERE stage IN ('editor','harvester','graph','narratives','vibe','transfers','rating')
+ WHERE stage IN ('editor','harvester','narratives','vibe','transfers','rating')
    AND (stage='editor' OR updated_at >= now() - interval '48 hours')
  GROUP BY stage,status
  ORDER BY stage,status;

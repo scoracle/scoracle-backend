@@ -1,5 +1,50 @@
 # Scoracle Classifier Plugin
 
+## Current production state — October 15, 2026
+
+This section supersedes the dated launch plans and paused-state notes below. The
+release record is [four-score calibration, deployment and audit resolution](classifier-four-score-calibration-2026-10-15.md).
+See the [hosting runbook](../../scripts/hosting/README.md) for configuration,
+model replacement, schema checks and recovery.
+
+- **Classifier:** native Kev on Archbox's GTX 1070 Ti, four concurrent article
+  workers sharing eight llama.cpp decision slots. One complete article produces
+  independent Journalist, Influencer, Scout and Insider usefulness scores. Current
+  provisional cutoffs are 60, 50, 60 and 70 respectively. These are routing scores;
+  they are not demonstrated probabilities of correctness or factual evidence.
+- **Characters:** native SmolLM3 on the Mac, with four shared generation slots.
+  `classifier,narratives,vibe,rating,transfers` are enabled on the Archbox worker;
+  acquisition runs independently. Graph remains disabled and RSS remains daily.
+  The retired Laya Python service and candle inference path are absent from this
+  production approach.
+- **Model replacement:** the Classifier contract is independent of Kev. A replacement
+  must support the native typed-probability protocol, exact complete-input admission
+  and artifact fingerprinting, then receive its own prompt/cutoff calibration.
+  d1 remains an evaluated challenger; Kev remains deployed.
+- **Durability:** immutable sources and exact attempt receipts, transactional
+  delivery/product/outbox completion, source and claim fencing, explicit holds,
+  bounded complete-article packets and native output limits are enforced. Successful
+  progress is monitored separately per stage. Migrations 302–306 are required.
+- **Measured capacity:** selected native scoring projects 66.4 minutes per 8,500
+  articles; a short deployed scoring window projects 70.7 minutes. Neither includes
+  acquisition and character completion or establishes sustained daily throughput.
+- **Audit closure:** `ebe05a4c` and `f25a6f65` implement all five scoped findings;
+  `bd5b5c05` records deployment verification. Validation passed 385 library tests,
+  17 binary tests, focused database integration and native replay. Production
+  artifact/source hashes and private evidence are retained on Archbox under
+  `/mnt/data/backup/scoracle/classifier-calibration/2026-10-15`.
+
+Open limits are publisher extraction quality, independently reviewed calibration,
+sustained throughput and Graph qualification. Oversized/inaccessible sources and
+unresolved identities remain visible. Two Insider entities reached the existing
+publisher-history export limit; their failures are retained. Holds and rejected
+model replies are review candidates, not negative labels or ground truth.
+
+## Historical launch planning and investigation
+
+The dated sections below preserve earlier decisions and experiments. Use the
+current production state above and the linked release record for operations.
+
 ## Launch concept: measure a spectrum, then let characters express it
 
 **Status — October 9, 2026:** The current build is deployed from `04169fff4c12`. All seven Archbox binaries were rebuilt and placed; the running API reports that commit and is healthy. The matching Mac standby worker is installed, with its embedded commit and fresh-only prompt verified. The user explicitly chose to wait for a reliable Classifier before new consumer output. Migrations 291–298 remain verified, and daily RSS continues. No Classifier/extractor combination has passed qualification. Journalist's existing source-bound delivery gate remains intact; inference workers, acquisition and full-backlog drain stay paused while the next model work proceeds.

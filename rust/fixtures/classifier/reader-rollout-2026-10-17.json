@@ -1,0 +1,337 @@
+{
+  "activation": {
+    "activated_at": "2026-10-17T21:56:20.011737+00:00",
+    "binary_sha256": "6b4b1c9f670ac9eff0ec50d90bcf6cefb84b778fb29bb2d3bae98869ea56d7b4",
+    "criteria_version": "classification-criteria-v6-subject",
+    "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+    "reader": "jina-content-v1"
+  },
+  "bounded_ablations": [
+    {
+      "cases": 36,
+      "condition": "raw-baseline",
+      "errors": 26,
+      "labels": 144
+    },
+    {
+      "cases": 36,
+      "condition": "article-baseline",
+      "errors": 26,
+      "labels": 144
+    },
+    {
+      "cases": 36,
+      "condition": "article-examples",
+      "errors": 27,
+      "labels": 144
+    },
+    {
+      "cases": 36,
+      "condition": "identity-baseline",
+      "errors": 31,
+      "labels": 144
+    },
+    {
+      "cases": 36,
+      "condition": "identity-examples",
+      "errors": 30,
+      "labels": 144
+    }
+  ],
+  "checks": [
+    "Classifier: 9 passed including 2 PostgreSQL integrations",
+    "Reader: 2 passed",
+    "Network: 4 passed",
+    "Cache-integrity PostgreSQL check: passed",
+    "Public proxy checks: passed",
+    "Hosting release checks: passed",
+    "Production schema verification: passed",
+    "Linux binary build: passed",
+    "Fallback reader-cache exclusion: passed"
+  ],
+  "cutoffs": {
+    "availability": 0.9,
+    "emotion": 0.15,
+    "movement": 0.8,
+    "subject": 0.55
+  },
+  "figjam": "https://www.figma.com/board/H6DjvzZjQOsDsoNr3R5W6p",
+  "limits": [
+    "Diagnostic sample with provisional agent labels; not an independent holdout.",
+    "112 labels means 28 article-subject cases, four topics each, across 14 articles.",
+    "Reader errors 24 versus paired raw errors 20; no accuracy improvement established.",
+    "Article/main selection can omit tables or widgets outside the selected element.",
+    "Unchanged discovery inputs reuse accepted text; unchanged URLs are not polled for corrections.",
+    "24 KB intake cap does not guarantee native context fit including metadata.",
+    "Long-term durability and sustained production throughput remain unmeasured.",
+    "Full repository suite and live rollback were not run."
+  ],
+  "live_isolated_canary": {
+    "article_id": 999910017,
+    "characters_executed": 0,
+    "complete_source_verified": true,
+    "database": "classifier_test_reader_20261017",
+    "reader": "jina-content-v1",
+    "subjects": [
+      {
+        "gate": {
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true,
+            "scout": false
+          },
+          "coverage": "complete",
+          "scope": "subject"
+        },
+        "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+        "spectrum": {
+          "availability": 85.07006029391655,
+          "emotion": 7.203439316660598,
+          "influencer": 7.203439316660598,
+          "insider": 84.12161758670865,
+          "journalist": 95.31982656259986,
+          "movement": 84.12161758670865,
+          "scout": 85.07006029391655,
+          "subject": 95.31982656259986
+        },
+        "target": {
+          "entity_id": 11,
+          "entity_type": "team",
+          "sport": "NBA"
+        }
+      },
+      {
+        "gate": {
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true,
+            "scout": false
+          },
+          "coverage": "complete",
+          "scope": "subject"
+        },
+        "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+        "spectrum": {
+          "availability": 59.04102586683004,
+          "emotion": 8.41074403596342,
+          "influencer": 8.41074403596342,
+          "insider": 69.57294378389199,
+          "journalist": 92.60405442683889,
+          "movement": 69.57294378389199,
+          "scout": 59.04102586683004,
+          "subject": 92.60405442683889
+        },
+        "target": {
+          "entity_id": 14,
+          "entity_type": "team",
+          "sport": "NBA"
+        }
+      }
+    ]
+  },
+  "network_canary": {
+    "checked": "Actual rendered browser and curl paths, forced public egress proxy.",
+    "private_network_hits": 0,
+    "reader_response": 451
+  },
+  "paired_reader_comparison": {
+    "raw": {
+      "brier": 0.16219198922072195,
+      "cases": 28,
+      "gate": {
+        "errors": 4,
+        "fn": 2,
+        "fp": 2,
+        "precision": 0.8181818181818182,
+        "recall": 0.8181818181818182,
+        "tn": 15,
+        "tp": 9
+      },
+      "label_errors": 20,
+      "labels": 112,
+      "per_topic": {
+        "availability": {
+          "errors": 5,
+          "fn": 4,
+          "fp": 1,
+          "precision": 0.75,
+          "recall": 0.42857142857142855,
+          "tn": 20,
+          "tp": 3
+        },
+        "emotion": {
+          "errors": 4,
+          "fn": 3,
+          "fp": 1,
+          "precision": 0.8333333333333334,
+          "recall": 0.625,
+          "tn": 19,
+          "tp": 5
+        },
+        "movement": {
+          "errors": 3,
+          "fn": 2,
+          "fp": 1,
+          "precision": 0.75,
+          "recall": 0.6,
+          "tn": 22,
+          "tp": 3
+        },
+        "subject": {
+          "errors": 8,
+          "fn": 0,
+          "fp": 8,
+          "precision": 0.6190476190476191,
+          "recall": 1.0,
+          "tn": 7,
+          "tp": 13
+        }
+      },
+      "source_groups": 14
+    },
+    "reader": {
+      "brier": 0.16548464944907101,
+      "cases": 28,
+      "gate": {
+        "errors": 8,
+        "fn": 4,
+        "fp": 4,
+        "precision": 0.6363636363636364,
+        "recall": 0.6363636363636364,
+        "tn": 13,
+        "tp": 7
+      },
+      "label_errors": 24,
+      "labels": 112,
+      "per_topic": {
+        "availability": {
+          "errors": 5,
+          "fn": 4,
+          "fp": 1,
+          "precision": 0.75,
+          "recall": 0.42857142857142855,
+          "tn": 20,
+          "tp": 3
+        },
+        "emotion": {
+          "errors": 5,
+          "fn": 2,
+          "fp": 3,
+          "precision": 0.6666666666666666,
+          "recall": 0.75,
+          "tn": 17,
+          "tp": 6
+        },
+        "movement": {
+          "errors": 3,
+          "fn": 3,
+          "fp": 0,
+          "precision": 1.0,
+          "recall": 0.4,
+          "tn": 23,
+          "tp": 2
+        },
+        "subject": {
+          "errors": 11,
+          "fn": 0,
+          "fp": 11,
+          "precision": 0.5416666666666666,
+          "recall": 1.0,
+          "tn": 4,
+          "tp": 13
+        }
+      },
+      "source_groups": 14
+    }
+  },
+  "postflight": {
+    "binary_sha256": "6b4b1c9f670ac9eff0ec50d90bcf6cefb84b778fb29bb2d3bae98869ea56d7b4",
+    "checked_at": "2026-10-17T22:10:33.272958+00:00",
+    "coverage": {
+      "edition_date": null,
+      "enabled": true,
+      "last_tick_at": "2026-10-17T18:10:33.398498-04:00",
+      "phase": "coverage"
+    },
+    "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+    "production_receipts": {
+      "character_alias": true,
+      "count": 20,
+      "exact_reader_body": true,
+      "ids": [
+        42237,
+        42238,
+        42239,
+        42240,
+        42241,
+        42242,
+        42243,
+        42244,
+        42245,
+        42246,
+        42247,
+        42248,
+        42249,
+        42250,
+        42251,
+        42252,
+        42253,
+        42254,
+        42255,
+        42256
+      ],
+      "model": [
+        "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402"
+      ],
+      "native_four_topics": true,
+      "reader_version": true,
+      "subject_identity": true
+    },
+    "services": {
+      "scoracle-classifier-source.service": "active",
+      "scoracle-cognition.service": "active",
+      "scoracle-kev.service": "active",
+      "scoracle-reader.service": "active"
+    },
+    "stale_idle_transactions_over_one_hour": 0,
+    "temporary_d1_port_closed": true
+  },
+  "private_archive": "/mnt/data/backup/scoracle/classifier-calibration/2026-10-17-reader-rollout",
+  "reader_reliability": {
+    "concurrency": 2,
+    "excluded_google_wrappers": 4,
+    "final_fallback_two_pass_benchmark": false,
+    "main_fallback_additional_success": true,
+    "median_success_seconds": 5.347885170718655,
+    "observed_unique_url_coverage_with_fallback": "14/14",
+    "passes": 2,
+    "requests": 28,
+    "seconds": 112.15407078666613,
+    "successes": 26,
+    "sustained_8500_per_day_proven": false,
+    "unique_urls": 14
+  },
+  "recorded_at": "2026-10-17T22:13:32.293826+00:00",
+  "rollback": {
+    "binary_sha256": "81b2aacfe95b044c9783d548486712b1c7910a0292cf27e74df5b70ad15b8260",
+    "directory": "/mnt/data/backup/scoracle/reader-rollout/2026-10-17",
+    "dry_run_command": "python3 /mnt/data/backup/scoracle/reader-rollout/2026-10-17/rollback.py",
+    "full_production_rollback_executed": false
+  },
+  "runtime": {
+    "application_setting": "ARTICLE_READER_URL=http://127.0.0.1:8301/",
+    "bind": "127.0.0.1:8301",
+    "browser": "Chrome 147.0.7727.57",
+    "node": "22.23.3",
+    "node_linux_x64_tar_xz_sha256": "df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de",
+    "overrides": {
+      "koffi": "2.16.3"
+    },
+    "revision": "1574bfd380d249c86c82db4dace0d9c8fe17e2b1",
+    "upstream": "https://github.com/jina-ai/reader"
+  },
+  "source_manifest_sha256": "8c039a62c207f9359701e4cd5f1900f1b2b25f70aefbdee1dddd9b15fb111111",
+  "status": "deployed"
+}

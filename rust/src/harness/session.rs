@@ -55,8 +55,19 @@ pub(super) async fn extract_with_backend<T, P: Parser<T>>(
                     return Err(error);
                 };
                 tracing::warn!(%error, "plugin-requested output correction");
-                built_prompt.push_str("\nOutput correction: ");
-                built_prompt.push_str(&instruction);
+                match serde_json::from_str::<serde_json::Value>(&built_prompt) {
+                    Ok(mut package) if package["task"].is_string() => {
+                        package["task"] = serde_json::json!(format!(
+                            "{}\nOutput correction: {instruction}",
+                            package["task"].as_str().unwrap()
+                        ));
+                        built_prompt = package.to_string();
+                    }
+                    _ => {
+                        built_prompt.push_str("\nOutput correction: ");
+                        built_prompt.push_str(&instruction);
+                    }
+                }
                 continue;
             }
             Err(error) => return Err(error),
@@ -122,6 +133,38 @@ mod surface_tests {
             crate::tools::form::validate_body(raw)?;
             Ok(Some(raw.to_string()))
         }
+    }
+
+    #[tokio::test]
+    async fn character_rewrites_remain_one_json_document_with_unchanged_evidence() {
+        let package = serde_json::json!({
+            "meta":{"name":"Club"}, "task":"Read the fresh evidence.",
+            "fresh":{"report":"Full reporting, including the qualification."}, "voice":"Restrained"
+        });
+        let backend = Backend(Mutex::new(vec![
+            " ".into(),
+            "length".into(),
+            "A grounded reading.".into(),
+        ]));
+        let result = extract_with_backend(
+            &backend,
+            &package.to_string(),
+            &GenerateOptions::default(),
+            &BodyParser,
+            publishing_correction,
+        )
+        .await
+        .unwrap();
+        let rewritten: serde_json::Value = serde_json::from_str(&result.built_prompt).unwrap();
+        assert_eq!(rewritten.as_object().unwrap().len(), 4);
+        for key in ["meta", "fresh", "voice"] {
+            assert_eq!(rewritten[key], package[key]);
+        }
+        let task = rewritten["task"].as_str().unwrap();
+        assert!(task.starts_with(package["task"].as_str().unwrap()));
+        assert_eq!(task.matches("Output correction:").count(), 2);
+        assert_eq!(result.request_body["prompt"], result.built_prompt);
+        assert!(backend.0.lock().unwrap().is_empty());
     }
 
     #[tokio::test]

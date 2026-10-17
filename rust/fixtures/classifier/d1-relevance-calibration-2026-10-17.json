@@ -1,0 +1,266 @@
+{
+  "analyzer_sha256": "4f4c74ff7f504ef4ccd4b9569974fd281815f7627819b8cf54522d55b694bbfa",
+  "bank_sha256": {
+    "concise-v2": "cd61bfd4a57dd0a07b9a8f29454f194fb35ace4cbb3a7f2069be9f195b91d04b",
+    "reporting-v3": "dde7046e4d2857978d3ec42450b17eeb9e25fa7d67a5692e5a3355cb91166b04"
+  },
+  "candidate_sha256": "1052ce12f75fd6af18988a81131c1b85627696892e8b09fad2d3faf3c18f5e5b",
+  "character_changes": false,
+  "confirmation": {
+    "articles": 18,
+    "cases": 36,
+    "independently_human_reviewed": false,
+    "label_count": 144,
+    "label_provenance": "Provisional coding-agent labels assigned before inference; not independent human adjudication.",
+    "maximum_shingle_overlap": [
+      0.34744707347447074,
+      "5937-incidental",
+      "r2-5976-incidental"
+    ],
+    "sports_articles": {
+      "FOOTBALL": 6,
+      "NBA": 6,
+      "NFL": 6
+    }
+  },
+  "confirmation_latency_seconds": {
+    "median": 3.3518036699388176,
+    "p95": 7.1956467451527715
+  },
+  "confirmation_results": [
+    {
+      "bank": "concise-v2",
+      "cutoffs": {
+        "availability": 0.85,
+        "emotion": 0.15,
+        "movement": 0.75,
+        "subject": 0.5
+      },
+      "metrics": {
+        "brier": 0.15275517039362796,
+        "cases": 36,
+        "gate": {
+          "errors": 6,
+          "fn": 2,
+          "fp": 4,
+          "precision": 0.7333333333333333,
+          "recall": 0.8461538461538461,
+          "tn": 19,
+          "tp": 11
+        },
+        "label_errors": 27,
+        "labels": 144,
+        "per_topic": {
+          "availability": {
+            "errors": 4,
+            "fn": 3,
+            "fp": 1,
+            "precision": 0.8,
+            "recall": 0.5714285714285714,
+            "tn": 28,
+            "tp": 4
+          },
+          "emotion": {
+            "errors": 6,
+            "fn": 4,
+            "fp": 2,
+            "precision": 0.7142857142857143,
+            "recall": 0.5555555555555556,
+            "tn": 25,
+            "tp": 5
+          },
+          "movement": {
+            "errors": 5,
+            "fn": 3,
+            "fp": 2,
+            "precision": 0.6666666666666666,
+            "recall": 0.5714285714285714,
+            "tn": 27,
+            "tp": 4
+          },
+          "subject": {
+            "errors": 12,
+            "fn": 0,
+            "fp": 12,
+            "precision": 0.5714285714285714,
+            "recall": 1.0,
+            "tn": 8,
+            "tp": 16
+          }
+        },
+        "source_groups": 18
+      },
+      "policy": "original"
+    },
+    {
+      "bank": "concise-v2",
+      "cutoffs": {
+        "availability": 0.9,
+        "emotion": 0.15,
+        "movement": 0.8,
+        "subject": 0.55
+      },
+      "metrics": {
+        "brier": 0.15275517039362796,
+        "cases": 36,
+        "gate": {
+          "errors": 7,
+          "fn": 3,
+          "fp": 4,
+          "precision": 0.7142857142857143,
+          "recall": 0.7692307692307693,
+          "tn": 19,
+          "tp": 10
+        },
+        "label_errors": 26,
+        "labels": 144,
+        "per_topic": {
+          "availability": {
+            "errors": 5,
+            "fn": 4,
+            "fp": 1,
+            "precision": 0.75,
+            "recall": 0.42857142857142855,
+            "tn": 28,
+            "tp": 3
+          },
+          "emotion": {
+            "errors": 6,
+            "fn": 4,
+            "fp": 2,
+            "precision": 0.7142857142857143,
+            "recall": 0.5555555555555556,
+            "tn": 25,
+            "tp": 5
+          },
+          "movement": {
+            "errors": 5,
+            "fn": 3,
+            "fp": 2,
+            "precision": 0.6666666666666666,
+            "recall": 0.5714285714285714,
+            "tn": 27,
+            "tp": 4
+          },
+          "subject": {
+            "errors": 10,
+            "fn": 0,
+            "fp": 10,
+            "precision": 0.6153846153846154,
+            "recall": 1.0,
+            "tn": 10,
+            "tp": 16
+          }
+        },
+        "source_groups": 18
+      },
+      "policy": "recalibrated"
+    }
+  ],
+  "context": "Actual tools/meta.rs subject identity and identity-record snapshots; metadata identifies the subject but is not article evidence.",
+  "data_sha256": {
+    "confirmation": "908bf43e12f5eb50d5a7104fe22345731af0e1341aadc25ec3beae579e3c420a",
+    "development": "284c2181e7912ce055ce02b563ee50ccb66173b6619715de2f20c1e0db5f302a"
+  },
+  "date": "2026-10-17",
+  "development": {
+    "cached_exact_matching_native_responses": 72,
+    "cases": 72,
+    "prior_holdout_status": "The entire previous 72-case corpus is development in this round. Its former evaluation set is no longer held out.",
+    "real_articles": 19,
+    "source_groups": 53
+  },
+  "development_candidates": [
+    {
+      "bank": "concise-v2",
+      "brier": 0.08635211457940843,
+      "cutoffs": {
+        "availability": 0.9,
+        "emotion": 0.15,
+        "movement": 0.8,
+        "subject": 0.55
+      },
+      "label_errors": 17
+    },
+    {
+      "bank": "reporting-v3",
+      "brier": 0.09708908867795053,
+      "cutoffs": {
+        "availability": 0.8,
+        "emotion": 0.15,
+        "movement": 0.75,
+        "subject": 0.5
+      },
+      "label_errors": 24
+    }
+  ],
+  "evaluator_sha256": "1b2725538f32df719e42a7dbf5b249fbc2b07ef6b6a8919dfa2737e68ab8b07a",
+  "excluded_before_inference": [
+    {
+      "reason": "Incomplete main report; mostly linked headlines and a stub.",
+      "source_id": 5935
+    },
+    {
+      "reason": "Statistics/fixture page without a reporting body.",
+      "source_id": 5476
+    }
+  ],
+  "failed_native_requests": 0,
+  "freeze_sha256": "3a73c70e9c452f72a8b34d4209b7f177e860acb1fb12204461c9a9419112c74b",
+  "limitations": [
+    "18 selected previously unscored article bodies; two subject judgments per source are correlated.",
+    "Coding-agent labels; boundaries such as routine motivation, substantive offseason analysis and contract guarantee decisions need human review.",
+    "Shared publisher furniture can overlap across otherwise different articles; this is not a held-out-publisher evaluation.",
+    "This round evaluates team subjects and complete retained text, not reader durability or representative production accuracy.",
+    "No model tuning after confirmation inference; a worse candidate is retained as a failed challenger, not promoted.",
+    "Balanced paired subjects and mixed real/synthetic development data do not represent production RSS prevalence.",
+    "The 18 articles were new to scoring, drawn from a retained text pool; they were not newly fetched production URLs.",
+    "Throughput, reader durability, player/person subjects and production routing remain untested. Latency includes live Kev activity and warm inputs.",
+    "Native score reliability was not calibrated; only empirical decision thresholds were selected."
+  ],
+  "meta_rs_source_sha256": "19a532f9668988a2b57ba8f2144cec13e5f8a12f7c004ad646277808bc031797",
+  "metadata_exporter_change": "Reject canonical name/ID mismatches instead of silently substituting another subject name.",
+  "metadata_exporter_sha256": "77b0c96783cf16bd0bfda5e65969fcdfbd51a0d754fa8efe0030451a32d933b6",
+  "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+  "native_endpoint": "llama.cpp /v1/systemone",
+  "new_native_requests": 108,
+  "private_archive": "/mnt/data/backup/scoracle/classifier-calibration/2026-10-17-d1-refinement",
+  "procedure": "Equal FP and FN cost. Per-topic thresholds minimize FP+FN over 10..90 by 5; ties closest to 50 then lower cutoff. Bank chosen by total four-topic errors, then Brier.",
+  "production_changes": false,
+  "qualitative_findings": [
+    "The simpler concise-v2 question bank beat reporting-v3 on development: 17 versus 24 four-topic errors.",
+    "Fresh confirmation was weaker than the first pilot: 26 of 144 four-topic labels wrong after recalibration versus 27 with the original thresholds.",
+    "Raising availability from 0.85 to 0.90 added one miss; raising subject relevance from 0.50 to 0.55 removed two false positives. Movement and emotion decisions were unchanged.",
+    "Passing opponents, old affiliations, fixture listings and related-story links still triggered relevance.",
+    "Some current injury/return reporting, emotional reactions, contract decisions and movement denials were missed.",
+    "The combined experimental gate worsened from 4 false positives and 2 misses to 4 false positives and 3 misses; neither policy is established as a reliable acquisition gate."
+  ],
+  "raw_private_report_sha256": "a6a8a06deccaa2cbfb4a403c09a18528c7333e251cd44abdff3a9a25685e5aad",
+  "reader_changes": false,
+  "recommendation": {
+    "hard_gate_ready": false,
+    "model": "d1 remains an offline candidate based on the earlier matched model comparison; this round did not rerun Kev or Laya.",
+    "next_step": "Independently review labels and test the shared reader with fixed questions and thresholds before production routing.",
+    "reason": "Recalibrated entity relevance had 10 false positives among 20 negatives, despite retaining all 16 positives.",
+    "threshold_policy": "Retain both frozen policies as references; the recalibrated candidate reduced topic errors by one but worsened the experimental gate."
+  },
+  "round": 2,
+  "runtime": {
+    "completed_topic_slots": 432,
+    "concurrency": 1,
+    "context_size": 8192,
+    "maximum_logged_slot_tokens": 3014,
+    "observed_version": "0.6.0-dev, commit f2cc728",
+    "quantization": "Q4_K_M",
+    "truncated_slots": 0
+  },
+  "validation": [
+    "108 new native requests: zero failures; all four probabilities and model fingerprints validated.",
+    "72 cached baseline responses verified against exact request and metadata hashes.",
+    "Frozen corpus, bank, evaluator and analyzer checks passed before confirmation reporting.",
+    "cargo test --example relevance_meta: one passed.",
+    "python3 examples/relevance_calibration.py --self-test: passed.",
+    "rustfmt --edition 2021 --check examples/relevance_meta.rs: passed.",
+    "Read-only metadata integration: a deliberately mismatched subject name and ID was rejected before any case was exported."
+  ]
+}

@@ -12,9 +12,8 @@ use crate::plugins::analyst::prompt::load_momentum_context;
 use crate::plugins::influencer::{prompt::VIBE_NUM_PREDICT, VibeParser};
 use crate::plugins::insider::prompt::preview as preview_insider;
 use crate::plugins::insider::prompt::{
-    options as insider_options, PROMPT_VERSION as INSIDER_PROMPT_VERSION,
+    Parts as InsiderParts, PROMPT_VERSION as INSIDER_PROMPT_VERSION,
 };
-use crate::plugins::insider::Reply;
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
@@ -805,10 +804,30 @@ impl LensTask for TransferTask {
     fn prompt_version(&self) -> &'static str {
         INSIDER_PROMPT_VERSION
     }
-    fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        let mut options = insider_options(0);
-        options.temperature = Some(temperature);
-        Ok(options)
+    fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
+        anyhow::bail!("Insider options require prepared report parts")
+    }
+    fn stores_parts(&self) -> bool {
+        true
+    }
+    fn assemble(&self, parts: &serde_json::Value) -> Result<Prepared> {
+        let selected: InsiderParts = serde_json::from_value(parts.clone())?;
+        let user_prompt =
+            crate::plugins::insider::prompt::assemble(&selected.subject, &selected.reports);
+        anyhow::ensure!(
+            user_prompt.len() <= crate::plugins::insider::prompt::CONTEXT_BUDGET_BYTES,
+            "Insider article package exceeds reading budget"
+        );
+        Ok(Prepared {
+            user_prompt,
+            options: crate::plugins::insider::prompt::options_for_reports(
+                0,
+                &selected.subject,
+                &selected.reports,
+            ),
+            parts: Some(parts.clone()),
+            should_call: !selected.reports.is_empty(),
+        })
     }
     async fn build_request(
         &self,
@@ -823,15 +842,31 @@ impl LensTask for TransferTask {
         };
         Ok(preview_insider(pool, entity_type, entity_id, &e.sport)
             .await?
-            .map(|(prompt, options)| Prepared::captured(prompt, options)))
+            .map(|parts| self.assemble(&serde_json::to_value(parts)?))
+            .transpose()?)
     }
-    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let Ok(reply) = serde_json::from_str::<Reply>(raw) else {
-            return rejected("unparseable Insider reading and findings");
+    fn evaluate(&self, _raw: &str, _label: Option<f64>, _expect: Option<&Expect>) -> CaseVerdict {
+        rejected("Insider evaluation requires prepared report parts")
+    }
+    fn evaluate_prepared(
+        &self,
+        request: &Prepared,
+        raw: &str,
+        _label: Option<f64>,
+        expect: Option<&Expect>,
+    ) -> CaseVerdict {
+        let Some(parts) = request
+            .parts
+            .as_ref()
+            .and_then(|parts| serde_json::from_value::<InsiderParts>(parts.clone()).ok())
+        else {
+            return rejected("Insider evaluation requires prepared report parts");
         };
-        if reply.body.trim().is_empty() {
-            return rejected("empty Insider reading");
-        }
+        let reply = match parts.parse(raw) {
+            Ok(Some(reply)) => reply,
+            Ok(None) => return rejected("Insider returned no reply"),
+            Err(error) => return rejected(&format!("{error:#}")),
+        };
         let mut checks = vec![product_name_check(&reply.body)];
         if let Some(x) = expect {
             if let Some(want) = x.transfer_is_rumor {
@@ -1430,6 +1465,19 @@ mod tests {
 
     // --- one-response Insider reading and source-linked findings ------------------
 
+    fn transfer_request(name: &str) -> Prepared {
+        TransferTask.assemble(&serde_json::json!({
+            "subject":{"name":name,"entity_type":"player","entity_id":1,"sport":"FOOTBALL"},
+            "reports":[
+                {"publisher":"TV2","headline":"Everton denied talks for Lina Foss",
+                 "publisher_excerpt":"Everton denied talks for Lina Foss. Everton are in advanced talks to sign Lina Foss",
+                 "co_mentions":[{"name":"Everton","entity_type":"team"}]},
+                {"publisher":"TV2","headline":"Earlier link","publisher_excerpt":"Everton considered Lina Foss",
+                 "co_mentions":[{"name":"Everton","entity_type":"team"}]}
+            ]
+        })).unwrap()
+    }
+
     const TRUE_TRANSFER: &str = r#"{"body":"Lina Foss is the subject of Everton talks, according to TV2, but a deal is not final.","findings":[{"report_index":0,"counterparty":"Everton","status":"reported","stage":"advanced_talks","evidence_quote":"Everton are in advanced talks to sign Lina Foss"}]}"#;
 
     #[test]
@@ -1441,14 +1489,19 @@ mod tests {
             summary_includes: Some(vec!["Everton".into()]),
             ..Default::default()
         };
-        let v = TransferTask.evaluate(TRUE_TRANSFER, None, Some(&x));
+        let v = TransferTask.evaluate_prepared(
+            &transfer_request("Lina Foss"),
+            TRUE_TRANSFER,
+            None,
+            Some(&x),
+        );
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
     }
 
     #[test]
     fn transfer_options_declare_one_body_and_findings_reply() {
-        let options = TransferTask.gen_options(0.0).unwrap();
+        let options = transfer_request("Lina Foss").options;
         assert_eq!(
             options.format_schema.unwrap()["required"],
             serde_json::json!(["body", "findings"])
@@ -1463,7 +1516,7 @@ mod tests {
             subject_includes: Some(vec!["Mika Salo".into()]),
             ..Default::default()
         };
-        let v = TransferTask.evaluate(raw, None, Some(&x));
+        let v = TransferTask.evaluate_prepared(&transfer_request("Mika Salo"), raw, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
     }
@@ -1476,7 +1529,7 @@ mod tests {
             subject_includes: Some(vec!["Lina Foss".into()]),
             ..Default::default()
         };
-        let v = TransferTask.evaluate(raw, None, Some(&x));
+        let v = TransferTask.evaluate_prepared(&transfer_request("Lina Foss"), raw, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
     }
@@ -1488,7 +1541,9 @@ mod tests {
             transfer_is_rumor: Some(false),
             ..Default::default()
         };
-        assert!(TransferTask.evaluate(raw, None, Some(&x)).all_checks_pass());
+        assert!(TransferTask
+            .evaluate_prepared(&transfer_request("Lina Foss"), raw, None, Some(&x))
+            .all_checks_pass());
     }
 
     #[test]
@@ -1498,7 +1553,9 @@ mod tests {
             summary_excludes: Some(vec!["£12m".into()]),
             ..Default::default()
         };
-        assert!(!TransferTask.evaluate(raw, None, Some(&x)).all_checks_pass());
+        assert!(!TransferTask
+            .evaluate_prepared(&transfer_request("Lina Foss"), raw, None, Some(&x))
+            .all_checks_pass());
     }
 
     #[test]
@@ -1507,6 +1564,32 @@ mod tests {
             !TransferTask
                 .evaluate("looks like a rumor", None, None)
                 .parsed
+        );
+    }
+
+    #[test]
+    fn insider_evaluation_rejects_fabricated_evidence_and_requires_parts() {
+        let request = transfer_request("Lina Foss");
+        for (field, value) in [
+            ("report_index", serde_json::json!(9999)),
+            ("counterparty", serde_json::json!("Invented Club")),
+            ("evidence_quote", serde_json::json!("An invented quotation")),
+        ] {
+            let mut reply: serde_json::Value = serde_json::from_str(TRUE_TRANSFER).unwrap();
+            reply["findings"][0][field] = value;
+            assert!(
+                !TransferTask
+                    .evaluate_prepared(&request, &reply.to_string(), None, None)
+                    .parsed,
+                "{field}"
+            );
+        }
+        assert!(!TransferTask.evaluate(TRUE_TRANSFER, None, None).parsed);
+        assert!(TransferTask.gen_options(0.0).is_err());
+        let schema = request.options.format_schema.unwrap();
+        assert_eq!(
+            schema["properties"]["findings"]["items"]["properties"]["report_index"]["maximum"],
+            1
         );
     }
 
@@ -1703,6 +1786,21 @@ mod tests {
                     path.display()
                 );
                 assert!(!fx.user_prompt.trim().is_empty());
+                if name != "investigator" {
+                    let request = task.prepare_fixture(&fx).unwrap();
+                    assert!(
+                        request.options.system.is_none(),
+                        "{name} has a second instruction input"
+                    );
+                    let package: serde_json::Value =
+                        serde_json::from_str(&request.user_prompt).unwrap();
+                    assert_eq!(package.as_object().unwrap().len(), 4, "{name}");
+                    for field in ["meta", "task", "fresh", "voice"] {
+                        assert!(package.get(field).is_some(), "{name}: missing {field}");
+                    }
+                    assert!(package["task"].as_str().is_some_and(|s| !s.is_empty()));
+                    assert!(package["meta"].get("task").is_none());
+                }
                 assert!(!fx.review.is_empty());
                 assert!(fx
                     .review

@@ -240,7 +240,9 @@ fn normalize_whitespace(s: &str) -> String {
 }
 
 fn letter_count(s: &str) -> usize {
-    s.chars().filter(|character| character.is_alphabetic()).count()
+    s.chars()
+        .filter(|character| character.is_alphabetic())
+        .count()
 }
 
 /// Decode entities and drop furniture, keeping a map to the retained source.
@@ -283,7 +285,9 @@ pub fn scrub(body: &str) -> Scrub {
         }
         let clean_start = scrub.text.len();
         scrub.text.push_str(&normalized);
-        scrub.spans.push((clean_start, scrub.text.len(), start, end));
+        scrub
+            .spans
+            .push((clean_start, scrub.text.len(), start, end));
     }
     if scrub.text.is_empty() && letter_count(&normalized_body) >= 3 {
         // Never store empty evidence for a body that had prose: fall back to the normalized body.

@@ -1,17 +1,16 @@
-//! Resolve, fetch, and clean publisher pages for Harvester and Investigator.
-//! `ARTICLE_READ_CHROME_ENABLED` remains the deployed name of the Chrome fallback switch.
+//! Resolve, fetch, and clean public publisher pages.
 //!
 //! Acquisition infrastructure used by application adapters; it does not depend on seat logic.
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
 use sqlx::Row;
-use std::process::Command;
+pub(crate) mod http;
+use http::{checked_url, read_body, MAX_RESPONSE_BYTES};
 use std::time::Duration;
 
 const ARTICLE_FETCH_TIMEOUT: Duration = Duration::from_secs(20);
-/// The floor under which a fetched body is not worth a model call — and the threshold that
-/// triggers the headless-Chrome fallback inside [`fetch_article`].
+/// The floor under which a fetched body is not worth a model call.
 pub const ARTICLE_MIN_WORDS: usize = 80;
 
 /// Publisher status text is not article evidence, even when surrounding menus clear the word floor.
@@ -25,92 +24,6 @@ const ARTICLE_FETCH_USER_AGENT: &str =
 const GOOGLE_NEWS_BATCH_URL: &str =
     "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je";
 
-#[derive(Debug)]
-pub struct FetchedArticle {
-    pub final_url: String,
-    pub final_domain: Option<String>,
-    pub text: String,
-}
-
-#[derive(Debug)]
-pub struct ArticleHttpStatus {
-    pub status: reqwest::StatusCode,
-    pub final_url: String,
-}
-
-impl ArticleHttpStatus {
-    pub fn is_access_denied(&self) -> bool {
-        matches!(self.status.as_u16(), 401 | 402 | 403 | 451)
-    }
-}
-
-impl std::fmt::Display for ArticleHttpStatus {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "article HTTP {}", self.status.as_u16())
-    }
-}
-
-impl std::error::Error for ArticleHttpStatus {}
-
-pub async fn fetch_article(raw_url: &str) -> Result<FetchedArticle> {
-    let client = reqwest::Client::builder()
-        .timeout(ARTICLE_FETCH_TIMEOUT)
-        .redirect(reqwest::redirect::Policy::limited(10))
-        .user_agent(ARTICLE_FETCH_USER_AGENT)
-        .build()
-        .context("build article fetch client")?;
-
-    let fetch_url = resolve_google_news_article_url(&client, raw_url)
-        .await?
-        .unwrap_or_else(|| raw_url.to_string());
-
-    let resp = client
-        .get(&fetch_url)
-        .send()
-        .await
-        .context("fetch article")?;
-    let final_url = resp.url().to_string();
-    let status = resp.status();
-    if !status.is_success() {
-        return Err(ArticleHttpStatus { status, final_url }.into());
-    }
-    let html = resp.text().await.context("read article body")?;
-    let mut text = extract_article_text(&html);
-    if count_words(&text) < ARTICLE_MIN_WORDS {
-        if let Some(rendered) = fetch_with_chrome(&fetch_url) {
-            let rendered_text = extract_article_text(&rendered);
-            if count_words(&rendered_text) > count_words(&text) {
-                text = rendered_text;
-            }
-        }
-    }
-    Ok(FetchedArticle {
-        final_domain: domain_of(&final_url),
-        final_url,
-        text,
-    })
-}
-
-fn fetch_with_chrome(raw_url: &str) -> Option<String> {
-    if std::env::var("ARTICLE_READ_CHROME_ENABLED").ok().as_deref() != Some("1") {
-        return None;
-    }
-    let output = Command::new("timeout")
-        .arg("20s")
-        .arg("google-chrome-stable")
-        .arg("--headless=new")
-        .arg("--disable-gpu")
-        .arg("--no-sandbox")
-        .arg("--dump-dom")
-        .arg(raw_url)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    String::from_utf8(output.stdout).ok()
-}
-
 pub fn content_hash(text: &str) -> String {
     crate::util::hash_components(&normalize_space(text))
 }
@@ -120,53 +33,6 @@ pub fn domain_of(raw_url: &str) -> Option<String> {
         u.host_str()
             .map(|h| h.trim_start_matches("www.").to_lowercase())
     })
-}
-
-async fn resolve_google_news_article_url(
-    client: &reqwest::Client,
-    raw_url: &str,
-) -> Result<Option<String>> {
-    let Some(article_id) = google_news_article_id(raw_url) else {
-        return Ok(None);
-    };
-
-    let response = client
-        .get(raw_url)
-        .send()
-        .await
-        .context("fetch google news wrapper")?;
-    let status = response.status();
-    if !status.is_success() {
-        return Err(ArticleHttpStatus {
-            status,
-            final_url: response.url().to_string(),
-        }
-        .into());
-    }
-    let html = response.text().await.context("read google news wrapper")?;
-    let payload = google_news_wrapper_payload(article_id, &html)?;
-    let response = client
-        .post(GOOGLE_NEWS_BATCH_URL)
-        .header(
-            reqwest::header::CONTENT_TYPE,
-            "application/x-www-form-urlencoded;charset=utf-8",
-        )
-        .form(&[("f.req", payload)])
-        .send()
-        .await
-        .context("post google news resolver")?;
-    let status = response.status();
-    if !status.is_success() {
-        return Err(ArticleHttpStatus {
-            status,
-            final_url: response.url().to_string(),
-        }
-        .into());
-    }
-    let body = response.text().await.context("read google news resolver")?;
-    parse_google_news_resolver_response(&body)
-        .map(Some)
-        .ok_or_else(|| anyhow!("Google News resolver returned no publisher URL"))
 }
 
 fn google_news_article_id(raw_url: &str) -> Option<String> {
@@ -734,7 +600,7 @@ pub enum BudgetedFetchError {
     DomainSkipped { domain: String, until_secs: u64 },
     /// HTTP-level rejection (non-2xx). 429 also arms a hold on the domain.
     Http { status: u16, final_url: String },
-    /// PostgreSQL text provenance cannot retain binary/NUL-bearing publisher responses.
+    /// Binary/NUL-bearing or oversized publisher responses cannot be retained.
     UnsupportedBody { final_url: String },
     /// Transport / build / DB failure.
     Other(anyhow::Error),
@@ -748,7 +614,10 @@ impl std::fmt::Display for BudgetedFetchError {
             }
             Self::Http { status, final_url } => write!(f, "HTTP {status} from {final_url}"),
             Self::UnsupportedBody { final_url } => {
-                write!(f, "response contains NUL bytes: {final_url}")
+                write!(
+                    f,
+                    "response is binary or exceeds its byte budget: {final_url}"
+                )
             }
             Self::Other(e) => write!(f, "{e:#}"),
         }
@@ -815,27 +684,40 @@ impl DomainState {
 #[derive(Clone)]
 pub struct BudgetedFetcher {
     client: reqwest::Client,
+    reader: Option<super::reader::Reader>,
     domains:
         std::sync::Arc<Mutex<HashMap<String, std::sync::Arc<tokio::sync::Mutex<DomainState>>>>>,
 }
 
 impl BudgetedFetcher {
     pub fn new() -> Result<Self> {
-        let client = reqwest::Client::builder()
-            .timeout(ARTICLE_FETCH_TIMEOUT)
-            .redirect(reqwest::redirect::Policy::limited(10))
-            .user_agent(ARTICLE_FETCH_USER_AGENT)
-            .build()
-            .context("build budgeted fetch client")?;
+        let client = http::builder().build()?;
         Ok(Self {
             client,
+            reader: super::reader::Reader::from_env()?,
             domains: std::sync::Arc::new(Mutex::new(HashMap::new())),
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_publisher(address: std::net::SocketAddr) -> Result<Self> {
+        Ok(Self {
+            client: http::builder().resolve("publisher.test", address).build()?,
+            reader: None,
+            domains: Default::default(),
         })
     }
 
     fn domain_state(&self, domain: &str) -> std::sync::Arc<tokio::sync::Mutex<DomainState>> {
         let mut map = self.domains.lock().expect("domain budget map poisoned");
         std::sync::Arc::clone(map.entry(domain.to_string()).or_default())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_reader(address: std::net::SocketAddr) -> Result<Self> {
+        let mut fetcher = Self::test_publisher(address)?;
+        fetcher.reader = Some(super::reader::Reader::new(&format!("http://{address}"))?);
+        Ok(fetcher)
     }
 
     /// Fetch one URL under the domain budget, recording provenance into `source_documents`.
@@ -850,8 +732,101 @@ impl BudgetedFetcher {
         url: &str,
         policy: &FetchPolicy,
     ) -> std::result::Result<SourceFetch, BudgetedFetchError> {
+        let publisher = self.publisher_url(pool, url, policy).await?;
+        self.fetch_request(pool, &publisher, policy, None).await
+    }
+
+    pub fn reader_enabled(&self) -> bool {
+        self.reader.is_some()
+    }
+
+    /// Browser-read once; all character consumers share the retained complete article.
+    pub async fn read_article(
+        &self,
+        pool: &sqlx::PgPool,
+        url: &str,
+        policy: &FetchPolicy,
+    ) -> std::result::Result<SourceFetch, BudgetedFetchError> {
+        let Some(reader) = &self.reader else {
+            return self.fetch(pool, url, policy).await;
+        };
+        let publisher = self.publisher_url(pool, url, policy).await?;
+        checked_url(&publisher).map_err(BudgetedFetchError::Other)?;
+        if let Some(hit) = self
+            .cached(pool, &publisher, policy.cache_ttl, super::reader::VERSION)
+            .await
+            .map_err(BudgetedFetchError::Other)?
+        {
+            return Ok(hit);
+        }
+        let domain = domain_of(&publisher)
+            .context("publisher domain")
+            .map_err(BudgetedFetchError::Other)?;
+        let state = self.domain_state(&domain);
+        let mut state = state.lock().await;
+        if let Some(until_secs) = state.held_for(Instant::now()) {
+            return Err(BudgetedFetchError::DomainSkipped { domain, until_secs });
+        }
+        tokio::time::sleep(state.spacing_wait(Instant::now(), policy.min_spacing)).await;
+        let sent_at = Instant::now();
+        state.last_request_at = Some(sent_at);
+        let article = match reader.read(&publisher).await {
+            Ok(article) => article,
+            Err(error) => {
+                let status = error
+                    .downcast_ref::<reqwest::Error>()
+                    .and_then(|e| e.status());
+                state.record_failure(
+                    sent_at,
+                    (status.map(|s| s.as_u16()) == Some(429)).then_some(Duration::from_secs(60)),
+                );
+                return Err(match status {
+                    Some(status) => BudgetedFetchError::Http {
+                        status: status.as_u16(),
+                        final_url: publisher,
+                    },
+                    None => BudgetedFetchError::Other(error),
+                });
+            }
+        };
+        state.record_success(sent_at);
+        drop(state);
+        let hash = content_hash(&article.body);
+        let document_id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO source_documents
+            (url,final_url,domain,content_hash,http_status,title,retained_excerpt,headers)
+            VALUES($1,$2,$3,$4,200,$5,$6,$7::jsonb) RETURNING id",
+        )
+        .bind(&publisher)
+        .bind(&article.url)
+        .bind(domain_of(&article.url))
+        .bind(&hash)
+        .bind(&article.title)
+        .bind(&article.body)
+        .bind(json!({"reader":super::reader::VERSION,"selector":article.selector}).to_string())
+        .fetch_one(pool)
+        .await
+        .map_err(|e| BudgetedFetchError::Other(e.into()))?;
+        Ok(SourceFetch {
+            document_id,
+            url: publisher,
+            final_url: article.url.clone(),
+            domain: domain_of(&article.url),
+            http_status: 200,
+            content_hash: hash,
+            body: article.body,
+            from_cache: false,
+        })
+    }
+
+    async fn publisher_url(
+        &self,
+        pool: &sqlx::PgPool,
+        url: &str,
+        policy: &FetchPolicy,
+    ) -> std::result::Result<String, BudgetedFetchError> {
         let Some(article_id) = google_news_article_id(url) else {
-            return self.fetch_request(pool, url, policy, None).await;
+            return Ok(url.to_string());
         };
         let publisher: Option<String> = sqlx::query_scalar(
             "SELECT publisher_url FROM source_url_resolutions WHERE wrapper_url=$1",
@@ -861,7 +836,7 @@ impl BudgetedFetcher {
         .await
         .map_err(|error| BudgetedFetchError::Other(error.into()))?;
         if let Some(publisher) = publisher {
-            return self.fetch_request(pool, &publisher, policy, None).await;
+            return Ok(publisher);
         }
         let fetched = self.fetch_request(pool, url, policy, None).await?;
         // Resolve the wrapper under Google's budget, then spend the publisher's own budget.
@@ -878,7 +853,7 @@ impl BudgetedFetcher {
             ON CONFLICT(wrapper_url) DO UPDATE SET publisher_url=EXCLUDED.publisher_url,resolved_at=now()")
             .bind(url).bind(&publisher).execute(pool).await
             .map_err(|error| BudgetedFetchError::Other(error.into()))?;
-        self.fetch_request(pool, &publisher, policy, None).await
+        Ok(publisher)
     }
 
     async fn fetch_request(
@@ -888,11 +863,12 @@ impl BudgetedFetcher {
         policy: &FetchPolicy,
         form_payload: Option<&str>,
     ) -> std::result::Result<SourceFetch, BudgetedFetchError> {
+        let target = checked_url(url).map_err(BudgetedFetchError::Other)?;
         let domain = domain_of(url).unwrap_or_else(|| "unknown".to_string());
 
         if form_payload.is_none() && policy.cache_ttl > Duration::ZERO {
             if let Some(hit) = self
-                .cached(pool, url, policy.cache_ttl)
+                .cached(pool, url, policy.cache_ttl, "")
                 .await
                 .map_err(BudgetedFetchError::Other)?
             {
@@ -916,8 +892,8 @@ impl BudgetedFetcher {
         // A cancelled request still spends the domain's spacing budget.
         state.last_request_at = Some(sent_at);
         let request = match form_payload {
-            Some(payload) => self.client.post(url).form(&[("f.req", payload)]),
-            None => self.client.get(url),
+            Some(payload) => self.client.post(target).form(&[("f.req", payload)]),
+            None => self.client.get(target),
         };
         let resp = match request.send().await {
             Ok(resp) => resp,
@@ -941,7 +917,10 @@ impl BudgetedFetcher {
         }
 
         let headers = provenance_headers(resp.headers());
-        let body = match resp.text().await {
+        let body = match read_body(resp, MAX_RESPONSE_BYTES).await {
+            Err(error) if error.is::<http::ResponseTooLarge>() => {
+                return Err(BudgetedFetchError::UnsupportedBody { final_url });
+            }
             Ok(b) => b,
             Err(e) => {
                 state.record_failure(sent_at, None);
@@ -999,12 +978,14 @@ impl BudgetedFetcher {
         pool: &sqlx::PgPool,
         url: &str,
         ttl: Duration,
+        reader: &str,
     ) -> Result<Option<SourceFetch>> {
         let row = sqlx::query(
             r#"
             SELECT id, final_url, domain, content_hash, http_status, retained_excerpt
             FROM public.source_documents
             WHERE url = $1
+              AND COALESCE(headers->>'reader','') = $3
               AND fetched_at > NOW() - make_interval(secs => $2)
               AND http_status BETWEEN 200 AND 299
             ORDER BY fetched_at DESC
@@ -1013,6 +994,7 @@ impl BudgetedFetcher {
         )
         .bind(url)
         .bind(ttl.as_secs_f64())
+        .bind(reader)
         .fetch_optional(pool)
         .await
         .context("probe source_documents cache")?;
@@ -1195,14 +1177,23 @@ mod tests {
             .execute(&pool).await?;
         let fetcher = BudgetedFetcher::new()?;
         assert!(fetcher
-            .cached(&pool, url, Duration::from_secs(60))
+            .cached(
+                &pool,
+                url,
+                Duration::from_secs(60),
+                crate::tools::reader::VERSION
+            )
+            .await?
+            .is_none());
+        assert!(fetcher
+            .cached(&pool, url, Duration::from_secs(60), "")
             .await?
             .is_none());
         sqlx::query("UPDATE source_documents SET retained_excerpt='Complete article. Later correction.' WHERE url=$1")
             .bind(url).execute(&pool).await?;
         assert_eq!(
             fetcher
-                .cached(&pool, url, Duration::from_secs(60))
+                .cached(&pool, url, Duration::from_secs(60), "")
                 .await?
                 .unwrap()
                 .body,
@@ -1254,10 +1245,16 @@ mod tests {
         let measured = crate::plugins::classifier::decision::Decision::new(std::env::var(
             "TEST_CLASSIFIER_URL",
         )?)?
-        .spectrum(&scrubbed.text, "Arsenal")
+        .spectrum(&scrubbed.text, "FOOTBALL", &json!({"identity":{
+            "name":"Arsenal","entity_type":"team","entity_id":19,"sport":"FOOTBALL"},
+            "identity_record":crate::tools::meta::load_identity_record(&pool,"team",19,"FOOTBALL").await?,
+            "origin":"canonical_meta_rs","evidence_scope":"Subject identity only; not article evidence."}))
         .await?;
-        assert_eq!(measured.spectrum.len(), 6);
-        assert_eq!(measured.receipt["request"]["state"]["body"], scrubbed.text);
+        assert_eq!(measured.spectrum.len(), 4);
+        assert_eq!(
+            measured.receipt["request"]["state"]["article"]["body"],
+            scrubbed.text
+        );
         eprintln!(
             "{}",
             json!({"publisher":fetched.domain,"source_bytes":scrubbed.text.len(),

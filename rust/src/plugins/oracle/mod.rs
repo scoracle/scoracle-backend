@@ -1,4 +1,5 @@
 //! Oracle execution, completion barrier and SQL-derived crown fields.
+pub mod fresh;
 pub mod manifest;
 mod parser;
 pub mod prompt;

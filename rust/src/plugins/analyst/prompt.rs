@@ -9,9 +9,9 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s38-daily-fresh";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s39-single-json";
 
-pub const MOMENTUM_SYSTEM_PROMPT: &str = "Synthesize the supplied finished performance and mood readings for this entity. Explain whether they reinforce each other, diverge, or leave the current picture unresolved. Scout notability measures distinctiveness, not skill; do not merge different windows or infer a cause. A missing daily reading is unknown, not a neutral signal. Do not forecast. Write only the declared JSON blurb.";
+pub const MOMENTUM_SYSTEM_PROMPT: &str = "Synthesize the supplied finished performance and mood readings for this entity. Explain whether they reinforce each other, diverge, or leave the current picture unresolved. Scout notability measures distinctiveness, not skill; do not merge different windows or infer a cause. A missing daily reading is unknown, not a neutral signal. Do not forecast. Return only a JSON object with one key, blurb, containing concise prose.";
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
@@ -292,7 +292,7 @@ pub async fn load_momentum_context(
 /// Preserve the current voice-window reservation; all adapters use these same options.
 pub fn generation_options(voice_num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
+        system: None,
         temperature: Some(MOMENTUM_TEMPERATURE),
         num_predict: MOMENTUM_NUM_PREDICT,
         num_ctx: voice_num_ctx,
@@ -300,23 +300,6 @@ pub fn generation_options(voice_num_ctx: i32) -> GenerateOptions {
         format_schema: Some(prose().schema()),
         format_schema_raw: None,
     }
-}
-
-#[derive(Serialize)]
-struct Reading<'a> {
-    body: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    season: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    generated_at: Option<&'a str>,
-}
-
-#[derive(Serialize)]
-struct Fresh<'a> {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    scout: Option<Reading<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    influencer: Option<Reading<'a>>,
 }
 
 pub fn assemble(
@@ -328,26 +311,15 @@ pub fn assemble(
     #[derive(Serialize)]
     struct Input<'a> {
         meta: crate::tools::meta::WritingIdentity<'a>,
-        fresh: Fresh<'a>,
+        task: &'static str,
+        fresh: super::fresh::Fresh<'a>,
         voice: &'static str,
-        form: serde_json::Value,
     }
     serde_json::to_string(&Input {
         meta: subject.for_writing(),
-        fresh: Fresh {
-            scout: scout.map(|r| Reading {
-                body: &r.body,
-                season: r.season,
-                generated_at: r.generated_at.as_deref(),
-            }),
-            influencer: influencer.map(|r| Reading {
-                body: &r.body,
-                season: None,
-                generated_at: r.generated_at.as_deref(),
-            }),
-        },
+        task: MOMENTUM_SYSTEM_PROMPT,
+        fresh: super::fresh::readings(scout, influencer),
         voice: crate::plugins::analyst::voice::VOICE,
-        form: prose().form(),
     })
     .expect("analyst world serializes")
 }

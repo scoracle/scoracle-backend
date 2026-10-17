@@ -1,0 +1,9 @@
+{
+  "version": "relevance-literal-v1",
+  "questions": {
+    "emotion": {"type": "noul", "instructions": "Does this article express emotions about {subject}?"},
+    "movement": {"type": "noul", "instructions": "Does this article discuss transfers, trades, signings, departures or contract talks involving {subject}?"},
+    "availability": {"type": "noul", "instructions": "Does this article discuss injury, suspension, fitness or playing availability involving {subject}?"},
+    "subject": {"type": "noul", "instructions": "Is this article about {subject}?"}
+  }
+}

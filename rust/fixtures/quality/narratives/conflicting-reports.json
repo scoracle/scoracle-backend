@@ -30,7 +30,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n105-daily-fresh",
+  "prompt_version": "n106-single-json",
   "review": [
     "Two keyed slots, two source positions. Neither may be merged into one settled fact.",
     "Both reports are unconfirmed; the reading must not resolve the contradiction for the reader.",
@@ -40,5 +40,5 @@
   "system": "",
   "task": "narratives",
   "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Club Bulletin\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United denied agreeing a fee for Alex Stone. A club spokesperson said discussions had not begun.\"},{\"report_key\":\"report_2\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United agreed a fee for Alex Stone, City Wire reports, citing an unnamed source. The club has not confirmed the report.\"}]}"
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"task\":\"For each fresh report, write two or three short, attributed sentences, at most 1200 characters, only when the publisher text contains substantive news or analysis about the entity in meta. Use voice as tone and fresh as the only evidence. Preserve attribution, event dates, denials and qualifications. Never assign a player to the target team or infer a relationship from proximity, a query, or classifier scores. Scores measure article usefulness, not target relevance or verified facts. For unrelated reporting, rankings-only tables, schedules or navigation, decline that slot with null. Return only JSON mapping every supplied report_key to its report text or null.\",\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Club Bulletin\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United denied agreeing a fee for Alex Stone. A club spokesperson said discussions had not begun.\"},{\"report_key\":\"report_2\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United agreed a fee for Alex Stone, City Wire reports, citing an unnamed source. The club has not confirmed the report.\"}]}"
 }

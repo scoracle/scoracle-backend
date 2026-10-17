@@ -36,7 +36,7 @@
       "sport": "NBA"
     }
   },
-  "prompt_version": "s72-daily-fresh",
+  "prompt_version": "s73-single-json",
   "review": [
     "Zero turnovers is measured; assists are unknown. Low turnovers do not establish defensive performance or forcing opponent turnovers.",
     "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
@@ -44,5 +44,5 @@
   ],
   "task": "rating",
   "temperature": 0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Turnovers\",\"measure\":\"turnovers per game\",\"value\":0.0,\"percentile\":99.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":null,\"percentile\":null}],\"composite\":64.0,\"supports_cross_season\":true},\"voice\":\"Observant, direct, specific to the sport and restrained.\",\"form\":{\"keys\":[\"body\"],\"paragraphs\":\"concise\"}}"
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"task\":\"meta identifies the subject. fresh contains selected season measurements and\\ntheir sample and limits. fresh.reporting contains complete fresh attributed reports.\\nvoice sets tone. Return only JSON with body as concise prose or null.\\n\\nDescribe what the supplied measurements establish in compact prose. Use only\\nsupplied numbers and reporting. A percentile is relative standing, not ability or\\nthe size of a difference. A prior percentile and standing_change apply only to\\nthat measure; supports_cross_season alone does not establish a comparison.\\nMissing comparison is unknown, not stability. A composite\\nis a standardized overall score with peer mean 50, not a percentile or a\\nmeasure of any individual skill.\\n\\nMissing fixture measurements are unknown, not zero.\\n\\nHonor any limit. Sample counts describe source coverage, not playing time or\\nwhen a season began. Keep reports attributed and dated; a withdrawal retracts\\nits claim and does not establish recovery. Do not infer a cause, role, tactics,\\nfitness or future outcome from a measurement or report. A short or null body is\\nvalid when the evidence does not support more. reporting preserves complete publisher text and its article-level classifier spectrum scores, including unknowns; these scores do not establish relevance to the named entity. These reports do not establish a completed move, fitness outcome or cause. Keep reported content distinct from measured facts.\",\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Turnovers\",\"measure\":\"turnovers per game\",\"value\":0.0,\"percentile\":99.0,\"band\":\"elite\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":null,\"percentile\":null}],\"composite\":64.0,\"supports_cross_season\":true},\"voice\":\"Observant, direct, specific to the sport and restrained.\"}"
 }

@@ -1,0 +1,23 @@
+sequenceDiagram
+  title Production URL to relevant fresh context
+  participant RSS
+  participant Acquisition
+  participant Reader
+  participant Publisher
+  participant Postgres
+  participant Classifier
+  participant NativeD1
+  participant CharacterPlugins
+  RSS->>Acquisition: URL and query subjects
+  Acquisition->>Reader: Resolved publisher URL
+  Reader->>Publisher: Sandboxed public browser request
+  Publisher-->>Reader: Rendered page
+  Reader-->>Acquisition: Headline and article body
+  Acquisition->>Postgres: Retain body and provenance
+  Classifier->>Postgres: Load body and subject records
+  Postgres-->>Classifier: Article and canonical identity
+  Classifier->>NativeD1: Article plus meta per subject
+  NativeD1-->>Classifier: Subject emotion availability movement
+  Classifier->>Postgres: Receipt and gated obligations
+  CharacterPlugins->>Postgres: Load eligible fresh sources
+  Postgres-->>CharacterPlugins: Same retained reader body

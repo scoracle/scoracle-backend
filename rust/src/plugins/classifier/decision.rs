@@ -1,11 +1,12 @@
 //! Classifier stage 1: a System-1 decision model over llama.cpp `/v1/systemone`.
-//! One call per article scores four provisional character needs; characters unpack nuance.
+//! One call per RSS subject scores relevance and three independent topics.
 use anyhow::{ensure, Context, Result};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
-const CRITERIA: &str = include_str!("../../../fixtures/classifier/classification-criteria-v1.json");
-pub const CRITERIA_VERSION: &str = "classification-criteria-v5-article";
+const CRITERIA: &str =
+    include_str!("../../../fixtures/classifier/classification-criteria-v6-subject.json");
+pub const CRITERIA_VERSION: &str = "classification-criteria-v6-subject";
 
 pub struct Measurement {
     pub spectrum: BTreeMap<String, f64>,
@@ -68,9 +69,9 @@ impl Decision {
         Ok(model_identity(&json!({"model":models[0]["id"]}))?.to_string())
     }
 
-    /// Score one complete article, independent of candidate target count. Returns `criterion -> 0..100`.
-    pub async fn spectrum(&self, body: &str, sport: &str) -> Result<Measurement> {
-        let payload = request(body, sport)?;
+    /// Score the complete article for one canonical subject. Returns `criterion -> 0..100`.
+    pub async fn spectrum(&self, body: &str, sport: &str, meta: &Value) -> Result<Measurement> {
+        let payload = request(body, sport, meta)?;
         let started = std::time::Instant::now();
         let response = self
             .client
@@ -99,9 +100,24 @@ impl Decision {
     }
 }
 
-pub(crate) fn request(body: &str, sport: &str) -> Result<Value> {
-    let criteria: Value = serde_json::from_str(CRITERIA)?;
-    Ok(json!({"state":{"sport":sport,"body":body},"questions":criteria["questions"]}))
+pub(crate) fn request(body: &str, sport: &str, meta: &Value) -> Result<Value> {
+    let entity: crate::tools::meta::EntityMeta = serde_json::from_value(meta["identity"].clone())?;
+    ensure!(
+        entity.sport == sport && entity.entity_id > 0 && !entity.name.trim().is_empty(),
+        "invalid Classifier subject metadata"
+    );
+    let mut criteria: Value = serde_json::from_str(CRITERIA)?;
+    for question in criteria["questions"]
+        .as_object_mut()
+        .context("questions")?
+        .values_mut()
+    {
+        question["instructions"] = json!(format!("Use subject metadata only to identify the entity. Judge evidence from the article only. {}",
+            question["instructions"].as_str().context("instructions")?.replace("{subject}", &entity.reference())));
+    }
+    Ok(
+        json!({"state":{"subject_meta":meta,"article":{"sport":sport,"body":body}},"questions":criteria["questions"]}),
+    )
 }
 
 fn model_identity(response: &Value) -> Result<&str> {
@@ -149,6 +165,22 @@ fn decode(response: &Value) -> Result<BTreeMap<String, f64>> {
         .collect()
 }
 
+/// Preserve the existing source contract on character hosts while native receipts retain four topics.
+pub(crate) fn consumer_spectrum(spectrum: &BTreeMap<String, f64>) -> Value {
+    let mut result = json!(spectrum);
+    for (role, topic) in [
+        ("journalist", "subject"),
+        ("influencer", "emotion"),
+        ("scout", "availability"),
+        ("insider", "movement"),
+    ] {
+        if let Some(score) = spectrum.get(topic) {
+            result[role] = json!(score);
+        }
+    }
+    result
+}
+
 /// Evaluate the routing gate over a spectrum (0..100). `character -> fires`.
 pub fn gate(spectrum: &BTreeMap<String, f64>) -> Result<BTreeMap<String, bool>> {
     let criteria: Value = serde_json::from_str(CRITERIA)?;
@@ -189,22 +221,26 @@ mod tests {
     #[test]
     fn gate_fires_per_bucket() {
         let mut spectrum = BTreeMap::new();
-        spectrum.insert("influencer".to_string(), 50.0);
-        spectrum.insert("scout".to_string(), 60.0);
-        spectrum.insert("journalist".to_string(), 70.0);
+        spectrum.insert("subject".to_string(), 55.0);
+        spectrum.insert("emotion".to_string(), 15.0);
+        spectrum.insert("availability".to_string(), 90.0);
+
         let gate = gate(&spectrum).unwrap();
-        assert!(gate["influencer"], "Influencer 50 >= 50");
-        assert!(gate["scout"], "Scout 60 >= 60");
-        assert!(gate["journalist"], "Journalist 70 >= 60");
-        assert!(!gate["insider"], "no Insider score");
-        spectrum.insert("insider".to_string(), 69.9);
+        assert!(gate["influencer"], "subject relevance and emotion");
+        assert!(gate["scout"], "subject relevance and availability");
+        assert!(
+            gate["journalist"],
+            "neutral subject reporting remains available"
+        );
+        assert!(!gate["insider"], "no movement score");
+        spectrum.insert("movement".to_string(), 79.9);
         assert!(!super::gate(&spectrum).unwrap()["insider"]);
-        spectrum.insert("insider".to_string(), 70.0);
+        spectrum.insert("movement".to_string(), 80.0);
         assert!(super::gate(&spectrum).unwrap()["insider"]);
     }
 
     #[test]
-    fn criteria_declares_four_article_questions() {
+    fn criteria_declares_four_subject_questions() {
         let criteria: Value = serde_json::from_str(CRITERIA).unwrap();
         assert_eq!(criteria["questions"].as_object().unwrap().len(), 4);
         assert_eq!(criteria["version"], CRITERIA_VERSION);
@@ -220,21 +256,50 @@ mod tests {
             .map(|key| (key.clone(), json!({"type":"noul", "noul":0.75})))
             .collect();
         let response = json!({"answers":answers});
-        assert_eq!(decode(&response).unwrap()["insider"], 75.0);
+        assert_eq!(decode(&response).unwrap()["movement"], 75.0);
         for invalid in [json!(null), json!(-0.1), json!(1.1), json!("0.75")] {
             let mut response = response.clone();
-            response["answers"]["insider"]["noul"] = invalid;
+            response["answers"]["movement"]["noul"] = invalid;
             assert!(decode(&response).is_err());
         }
         let mut missing = response.clone();
         missing["answers"]
             .as_object_mut()
             .unwrap()
-            .remove("insider");
+            .remove("movement");
         assert!(decode(&missing).is_err());
         let mut wrong_type = response;
-        wrong_type["answers"]["insider"]["type"] = json!("choice");
+        wrong_type["answers"]["movement"]["type"] = json!("choice");
         assert!(decode(&wrong_type).is_err());
+    }
+
+    #[test]
+    fn relevance_is_required_and_neutral_reporting_reaches_journalist() {
+        let mut spectrum = BTreeMap::from([
+            ("subject".into(), 55.0),
+            ("emotion".into(), 0.0),
+            ("movement".into(), 0.0),
+            ("availability".into(), 0.0),
+        ]);
+        let compatibility = consumer_spectrum(&spectrum);
+        assert_eq!(compatibility["journalist"], 55.0);
+        assert_eq!(compatibility["scout"], compatibility["availability"]);
+        let routed = gate(&spectrum).unwrap();
+        assert!(routed["journalist"]);
+        assert!(!routed["influencer"] && !routed["insider"] && !routed["scout"]);
+        spectrum.insert("subject".into(), 54.9);
+        spectrum.insert("emotion".into(), 100.0);
+        spectrum.insert("movement".into(), 100.0);
+        spectrum.insert("availability".into(), 100.0);
+        assert!(gate(&spectrum).unwrap().values().all(|fires| !fires));
+        let meta = json!({"identity":{"name":"Cedar FC","sport":"FOOTBALL","entity_id":1,"entity_type":"team"},"identity_record":"Captain injured; new coach on record."});
+        let request = request("A neutral report.", "FOOTBALL", &meta).unwrap();
+        assert_eq!(request["state"]["article"]["body"], "A neutral report.");
+        assert_eq!(request["state"]["subject_meta"], meta);
+        assert!(request["questions"]["subject"]["instructions"]
+            .as_str()
+            .unwrap()
+            .contains("Cedar FC, the FOOTBALL team"));
     }
 
     #[test]

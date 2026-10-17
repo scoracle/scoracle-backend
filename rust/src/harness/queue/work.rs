@@ -278,6 +278,8 @@ pub async fn claim_with_policy(
                     AND handoff.entity_id = pipeline_work.entity_id
                     AND handoff.sport = pipeline_work.sport
                     AND handoff.kind = ANY($4)
+                    AND (NOT (SELECT enabled FROM public.coverage_schedule)
+                         OR handoff.edition_date=(SELECT edition_date FROM public.coverage_schedule))
               )
             ORDER BY {}
             FOR UPDATE SKIP LOCKED

@@ -1,0 +1,120 @@
+{
+  "reviewer": "Codex comparison against the saved prompt; no independent judge",
+  "scope": "Fictional fixture smoke tests, first attempt only. Mechanical acceptance does not establish factual quality. The first twelve are recorded in 01\u201312; the supplemental Scout fresh-report case is in scout-fresh/01.",
+  "cases": [
+    {
+      "case": 1,
+      "assessment": "provisionally_usable",
+      "notes": [
+        "Preserves the correction: no contract offered and no deal reached.",
+        "Mostly repeats the source rather than paraphrasing it."
+      ]
+    },
+    {
+      "case": 2,
+      "assessment": "provisionally_usable",
+      "notes": [
+        "Preserves unnamed sourcing, no agreement, and declined comment."
+      ]
+    },
+    {
+      "case": 3,
+      "assessment": "not_usable",
+      "notes": [
+        "Source only says supporters cheered a win and were delighted.",
+        "Output invents a hard-fought match, stadium atmosphere, banners, chants, social-media posts, relief, and future optimism."
+      ]
+    },
+    {
+      "case": 4,
+      "assessment": "not_usable",
+      "notes": [
+        "Source only announces Tuesday training and Friday travel; it provides no emotions.",
+        "Expected abstention. Output invents excitement, relief, confidence, preparation, talented players, and a promising season."
+      ]
+    },
+    {
+      "case": 5,
+      "assessment": "not_usable",
+      "notes": [
+        "The supplied cohort is 30 peers, not top 30 percent of the league.",
+        "Literal numeric containment did not catch the changed meaning/unit."
+      ]
+    },
+    {
+      "case": 6,
+      "assessment": "not_usable",
+      "notes": [
+        "Repeats the cohort-size-to-percentage error from case 5.",
+        "Despite its filename, this saved fixture contains no reporting; it cannot test handling of a withdrawn report. A supplemental case supplies a real fresh-report field."
+      ]
+    },
+    {
+      "case": 7,
+      "assessment": "not_usable",
+      "notes": [
+        "The body preserves the denial, but the structured finding marks it reported/speculation instead of denied/null.",
+        "The existing fixture check catches this inconsistency."
+      ]
+    },
+    {
+      "case": 8,
+      "assessment": "not_usable",
+      "notes": [
+        "The body omits the target Andrade.",
+        "Both findings use speculation despite the supplied active talks and agreed personal terms. Existing fixture checks reject these errors."
+      ]
+    },
+    {
+      "case": 9,
+      "assessment": "not_usable",
+      "notes": [
+        "Invents a coach and external influences absent from both supplied peer cards.",
+        "The coach is described as decisive and economical, which comes from the voice instruction, not evidence."
+      ]
+    },
+    {
+      "case": 10,
+      "assessment": "not_usable",
+      "notes": [
+        "Turns the decisive/economical voice instruction into a claim about the player's game.",
+        "Adds career foundations and potential continued growth, beyond the two current peer readings."
+      ]
+    },
+    {
+      "case": 11,
+      "assessment": "needs_revision",
+      "notes": [
+        "Largely preserves the conflict between stable performance and a worsening mood.",
+        "Presents a reported trade-demand story as an escalating trade demand, weakening attribution and certainty."
+      ]
+    },
+    {
+      "case": 12,
+      "assessment": "not_usable",
+      "notes": [
+        "Repeats internal source-count/source-age metadata and names the journalist in the served reading.",
+        "Explains that its own tone is mystical instead of expressing an evidence-grounded reading."
+      ]
+    },
+    {
+      "case": 13,
+      "record": "scout-fresh/01/result.json",
+      "assessment": "not_usable",
+      "notes": [
+        "This supplemental case actually includes the complete correction in fresh.reporting.",
+        "The production parser rejects the rebounding description strong because the supplied band is elite.",
+        "The prose also describes the 75th percentile as slightly below the top 25 percent, adds a need for improvement, and asserts no effect on performance metrics. These interpretations are not established by the evidence.",
+        "No recovery or return-to-training claim was made; that narrow correction distinction was preserved."
+      ]
+    }
+  ],
+  "summary": {
+    "reviewed": 13,
+    "provisionally_usable": 2,
+    "needs_revision": 1,
+    "not_usable": 10,
+    "mechanically_accepted": 10,
+    "mechanically_rejected": 3
+  }
+}

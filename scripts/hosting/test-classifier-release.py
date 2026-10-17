@@ -29,6 +29,7 @@ case "$*" in
   *is-active*scoracle-cognition.service*) exit "${COGNITION_STATE:-1}" ;;
   *is-active*scoracle-cognition.path*) exit "${WATCHER_STATE:-1}" ;;
   *is-active*scoracle-classifier-source.service*) exit "${SOURCE_STATE:-1}" ;;
+  *is-active*scoracle-coverage.service*) exit "${COVERAGE_STATE:-1}" ;;
   *is-active*scoracle-api.path*) exit 1 ;;
 esac''',
     }
@@ -53,9 +54,17 @@ esac''',
     source_unit = (root / "units/scoracle-classifier-source.service").read_text()
     assert "/usr/bin/env COGNITION_STAGES=classifier_acquire" in source_unit
     assert "__SCORACLE_REPO_ROOT__" not in source_unit
+    coverage_unit = (root / "units/scoracle-coverage.service").read_text()
+    assert str(root / "go/bin/pipeline") + " -mode monitor" in coverage_unit
+    assert "__SCORACLE_REPO_ROOT__" not in coverage_unit
+    assert "start scoracle-coverage" not in calls and "restart scoracle-coverage" not in calls
     assert len(list((root / "bins").iterdir())) == 7
     calls = run(["--keep-cognition-paused"], 0, {"SOURCE_STATE": "0"})
     assert "restart scoracle-classifier-source.service" in calls and "restart scoracle-cognition.service" not in calls
+    calls = run([], 0, {"COVERAGE_STATE": "0"})
+    assert "restart scoracle-coverage.service" in calls and "--quiet is-active scoracle-coverage.service" in calls
+    calls = run(["--build-only"], 0, {"COVERAGE_STATE": "0"})
+    assert "restart scoracle-coverage.service" not in calls
     for overrides, code in [({"COGNITION_STATE": "0"}, 1), ({"WATCHER_STATE": "0"}, 1),
                             ({"FAIL_SCHEMA": "3"}, 3), ({"FAIL_BUILD": "2"}, 2)]:
         calls = run(["--keep-cognition-paused"], code, overrides)
@@ -70,12 +79,15 @@ esac''',
     native.chmod(0o755)
     for settings, model, name in [
         ({}, str(root / "models/Kev-0.8B-Q8_0.gguf"), "ggml-org/Kev-0.8B-GGUF"),
-        ({"CLASSIFIER_MODEL_FILE": "/models/new model.gguf", "CLASSIFIER_MODEL_NAME": "LiquidAI/d1-3B-GGUF"},
+        ({"CLASSIFIER_MODEL_FILE": "/models/new model.gguf", "CLASSIFIER_MODEL_NAME": "LiquidAI/d1-3B-GGUF", "CLASSIFIER_CONTEXT_SIZE":"32768", "CLASSIFIER_PARALLEL":"4"},
          "/models/new model.gguf", "LiquidAI/d1-3B-GGUF"),
     ]:
-        clean_env = {k: v for k, v in env.items() if k not in ("CLASSIFIER_MODEL_FILE", "CLASSIFIER_MODEL_NAME")}
+        clean_env = {k: v for k, v in env.items() if k not in ("CLASSIFIER_MODEL_FILE", "CLASSIFIER_MODEL_NAME", "CLASSIFIER_CONTEXT_SIZE", "CLASSIFIER_PARALLEL")}
         result = subprocess.run(["bash", str(root / "scripts/hosting/run-classifier-model.sh")],
                                 env={**clean_env, "HOME": str(root), **settings}, capture_output=True, text=True, check=True)
-        assert result.stdout.splitlines()[:4] == ["-m", model, "--alias", name + "@sha256:fixturehash"]
+        args = result.stdout.splitlines()
+        assert args[:4] == ["-m", model, "--alias", name + "@sha256:fixturehash"]
+        assert args[args.index("--ctx-size")+1] == settings.get("CLASSIFIER_CONTEXT_SIZE","65536")
+        assert args[args.index("--parallel")+1] == settings.get("CLASSIFIER_PARALLEL","8")
     assert "EnvironmentFile=-%h/.config/scoracle/classifier-model.env" in (root / "units/scoracle-kev.service").read_text()
 print("Model swap/default launcher, paused/source-only release, preflight/build failure, active restart and build-only checks pass.")

@@ -25,7 +25,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -37,7 +40,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "ingest", "ingest (RSS sweep) | data (stats gap-fill) | headshots (provider-image repair)")
+	mode := flag.String("mode", "ingest", "monitor (hourly RSS during coverage) | ingest (RSS sweep) | data (stats gap-fill) | headshots (provider-image repair)")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (default all)")
 	season := flag.Int("season", 0, "[data/headshots] one season only (0 = current + next / all stored NFL seasons)")
 	// 100 is one page: Google News RSS returns at most 100 items per request, so this takes
@@ -46,10 +49,8 @@ func main() {
 	// most news (Arsenal returns 100, kept 12) -- it exclusively starved the biggest stories,
 	// which are the ones this product exists to tell.
 	//
-	// Keeping a number rather than 0 is deliberate: the fetch loop's early exit stops querying
-	// alias lanes once the cap is reached, so a busy club is satisfied by its primary query
-	// alone while a quiet one still runs every lane looking for the little that exists. 0 would
-	// disable that and make every entity pay for all three.
+	// Each alias lane runs before the result cap; duplicate discoveries do not
+	// reset acquisition work. The monitor reuses this same bounded sweep.
 	rssLimit := flag.Int("rss-limit", 100, "[sweep] max articles per entity, one Google News page; 0 = no truncation")
 	rssPauseMs := flag.Int("rss-pause-ms", 100, "[sweep] pause between team RSS calls (polite to Google News)")
 	logLevel := flag.String("log-level", "info", "debug | info | warn | error; debug adds the per-team fetch funnel")
@@ -69,8 +70,8 @@ func main() {
 		logger.Error("config load failed", "error", err)
 		os.Exit(1)
 	}
-	if *mode != "ingest" && *mode != "data" && *mode != "headshots" {
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; supported modes are ingest, data, and headshots\n", *mode)
+	if *mode != "monitor" && *mode != "ingest" && *mode != "data" && *mode != "headshots" {
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; supported modes are monitor, ingest, data, and headshots\n", *mode)
 		os.Exit(2)
 	}
 
@@ -81,13 +82,19 @@ func main() {
 	}
 	defer pool.Close()
 
+	if *mode == "monitor" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		os.Exit(runMonitor(ctx, pool, cfg.DatabaseURL, *sport, *rssLimit, *rssPauseMs, logger))
+	}
+
 	if *mode == "data" {
 		os.Exit(runData(pool, cfg.DatabaseURL, *season, logger))
 	}
 	if *mode == "headshots" {
 		os.Exit(runHeadshots(pool, cfg.DatabaseURL, *sport, *season, logger))
 	}
-	os.Exit(runIngestOnly(pool, cfg.DatabaseURL, *sport, *rssLimit, *rssPauseMs, logger))
+	os.Exit(runIngestOnly(context.Background(), pool, cfg.DatabaseURL, *sport, *rssLimit, *rssPauseMs, logger))
 }
 
 // runHeadshots repairs the two US-league image columns from stable provider
@@ -227,12 +234,11 @@ func runData(pool *pgxpool.Pool, dbURL string, season int, logger *slog.Logger) 
 	return exit
 }
 
-func runIngestOnly(pool *pgxpool.Pool, dbURL, sportArg string, rssLimit, rssPauseMs int, logger *slog.Logger) int {
+func runIngestOnly(ctx context.Context, pool *pgxpool.Pool, dbURL, sportArg string, rssLimit, rssPauseMs int, logger *slog.Logger) int {
 	sports := []string{"NBA", "NFL", "FOOTBALL"}
 	if s := strings.ToLower(strings.TrimSpace(sportArg)); s != "" && s != "all" {
 		sports = []string{strings.ToUpper(sportArg)}
 	}
-	ctx := context.Background()
 
 	// The durable run record + overlap lock (jobrun) — dropped by mistake in the
 	// lean sweep (f4c9556), which left pipeline_runs_latest showing the LAST
@@ -250,12 +256,14 @@ func runIngestOnly(pool *pgxpool.Pool, dbURL, sportArg string, rssLimit, rssPaus
 	}
 	defer run.Close()
 
-	ok, fail := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
+	ok, fail, sweepErr := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
 	logger.Info("pipeline ingest: complete", "sports", sports, "rss_ok", ok, "rss_fail", fail)
 
 	status, exit := jobrun.StatusSuccess, 0
 	var runErr error
 	switch {
+	case sweepErr != nil:
+		status, exit, runErr = jobrun.StatusPartial, 3, sweepErr
 	case ok == 0 && fail > 0:
 		status, exit = jobrun.StatusFailed, 1
 		runErr = fmt.Errorf("every RSS sweep failed (%d)", fail)
@@ -263,7 +271,9 @@ func runIngestOnly(pool *pgxpool.Pool, dbURL, sportArg string, rssLimit, rssPaus
 		status, exit = jobrun.StatusPartial, 3
 		runErr = fmt.Errorf("%d RSS sweep(s) failed (retryable next run)", fail)
 	}
-	if ferr := run.Finish(ctx, status, jobrun.Counts{Attempted: ok + fail, Succeeded: ok, Failed: fail}, runErr); ferr != nil {
+	finishCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if ferr := run.Finish(finishCtx, status, jobrun.Counts{Attempted: ok + fail, Succeeded: ok, Failed: fail}, runErr); ferr != nil {
 		logger.Warn("pipeline ingest: record run failed", "error", ferr)
 	}
 	return exit

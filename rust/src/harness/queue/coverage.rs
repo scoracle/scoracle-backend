@@ -7,6 +7,41 @@ use std::sync::{
 use std::time::Duration;
 use tracing::{error, info};
 
+pub(super) async fn tick(pool: &PgPool, at: Option<&str>) -> anyhow::Result<String> {
+    let mut retries = 2;
+    loop {
+        let result: anyhow::Result<String> = async {
+            let mut tx = pool.begin().await?;
+            sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+                .execute(&mut *tx)
+                .await?;
+            let phase: String = sqlx::query_scalar(
+                "SELECT public.coverage_tick(COALESCE($1::text::timestamptz,clock_timestamp()))",
+            )
+            .bind(at)
+            .fetch_one(&mut *tx)
+            .await?;
+            if phase == "characters" {
+                crate::plugins::scout::snapshot::freeze(&mut tx).await?;
+            }
+            tx.commit().await?;
+            Ok(phase)
+        }
+        .await;
+        let conflict = result
+            .as_ref()
+            .err()
+            .and_then(|error| error.downcast_ref::<sqlx::Error>())
+            .and_then(sqlx::Error::as_database_error)
+            .is_some_and(|error| error.code().as_deref() == Some("40001"));
+        if conflict && retries > 0 {
+            retries -= 1;
+            continue;
+        }
+        return result;
+    }
+}
+
 pub(super) fn start(pool: PgPool, shutdown: Arc<AtomicBool>) -> anyhow::Result<()> {
     match std::env::var("COGNITION_COVERAGE_CONTROLLER").as_deref() {
         Err(std::env::VarError::NotPresent) | Ok("false") => return Ok(()),
@@ -22,12 +57,7 @@ pub(super) fn start(pool: PgPool, shutdown: Arc<AtomicBool>) -> anyhow::Result<(
             if shutdown.load(Ordering::Acquire) {
                 return;
             }
-            match tokio::time::timeout(
-                Duration::from_secs(10),
-                sqlx::query_scalar::<_, String>("SELECT public.coverage_tick()").fetch_one(&pool),
-            )
-            .await
-            {
+            match tokio::time::timeout(Duration::from_secs(120), tick(&pool, None)).await {
                 Ok(Ok(phase)) => {
                     if phase != previous {
                         info!(phase, "coverage controller phase");

@@ -1,0 +1,49 @@
+SMOLLM3 SINGLE-JSON BASELINE — 2026-10-16
+
+13 first-pass fictional-control outputs covering all six characters.
+Mechanical checks: 10 accepted, 3 rejected. All 13 reached EOS with exact input coverage.
+Evidence review: 2 provisionally usable, 1 needs revision, 10 not usable.
+These are per-case judgments, not a general model accuracy measurement.
+
+Journalist (1–2): preserves the supplied correction, uncertainty and denials;
+mostly copies the source. Provisionally usable on these two small cases.
+
+Influencer (3–4): invents specific reactions and settings. A training/travel
+announcement with no emotions should have produced an abstention. Both passed
+mechanical checks despite the unsupported content.
+
+Scout (5–6): converts cohort size 30 into top 30 percent. The older withdrawal
+fixture had no reporting and duplicates case 5; it provides no withdrawal test.
+The supplemental case (13, scout-fresh/01) includes a fresh correction. It avoids
+claiming recovery, but fails the band guard and adds unsupported interpretations.
+
+Insider (7–8): denial prose contradicts reported/speculation findings; the active
+talks case omits the target name and labels the move speculation. Fixture checks
+reject both. No publication-time evidence gate was run.
+
+Analyst (9–10): leaks voice instructions into claims about a coach or player,
+adds external causes and future growth absent from the supplied peer readings.
+
+Oracle (11–12): the fuller case loses reporting qualifications; the sparse case
+repeats internal source metadata and explains its mystical tone in the output.
+
+Files:
+- outputs.txt: the model readings, including failures.
+- review.json: evidence-review notes per case.
+- results.jsonl and summary.json: mechanical results for the first 12 cases.
+- scout-fresh/: supplemental fresh-report Scout run.
+- Each numbered folder: fixture, prompt, tokenized preparation, native request,
+  raw provider response, model output, and result receipt.
+- run.json: model, settings and input manifest.
+
+Conditions: current loaded alibayram/smollm3, 32K context, thinking disabled,
+fixture temperature zero, sequential requests, no retries. The server was shared
+with active work; these timings are not an isolated throughput benchmark.
+No production rows were read or written for these tests. No live model,
+production prompt, worker configuration, or publication state was changed.
+Real-source capture awaits approval after automatic approval review rejected
+copying private production news/classifier data into this checkout.
+
+Next useful iteration: improve source-only discipline, unknown/abstention behavior,
+number meaning, denial status, and separation of voice from evidence before
+expanding context or promoting a larger model.

@@ -15,7 +15,7 @@ use sqlx::PgPool;
 
 const SYSTEM: &str = "Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Each report carries article-level classifier spectrum scores — routing measurements of the complete article, which do not establish relevance to the named entity, not proof; unmeasured criteria stay unresolved. Read the scores with the complete publisher text. Return one JSON object with body and findings. Keep the body to two or three short sentences, at most 1200 characters, and return at most two of the most significant supported findings. The body must name the exact target from meta.name, even when no move is supported. If these reports do not support a move involving that target, explain that evidence limit and return findings as []; do not retell another subject's move. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.";
 
-pub const PROMPT_VERSION: &str = "insider-source-v11-daily-fresh";
+pub const PROMPT_VERSION: &str = "insider-source-v12-single-json";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v3-bounded";
 pub const NUM_PREDICT: i32 = 1400;
 pub const BODY_MAX_CHARS: usize = 1200;
@@ -24,7 +24,7 @@ pub const EVIDENCE_QUOTE_MAX_CHARS: usize = 500;
 
 pub fn options(num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(SYSTEM.into()),
+        system: None,
         temperature: Some(0.3),
         num_predict: NUM_PREDICT,
         num_ctx: num_ctx.max(ARTICLE_NUM_CTX),
@@ -234,7 +234,7 @@ pub(crate) async fn preview(
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-) -> Result<Option<(String, GenerateOptions)>> {
+) -> Result<Option<Parts>> {
     let item = Item {
         stage: crate::plugins::insider::manifest::TASK,
         entity_type: entity_type.into(),
@@ -245,52 +245,44 @@ pub(crate) async fn preview(
         claim_token: None,
     };
     let material = load_material(pool, &item).await?;
-    Ok((!material.sources.is_empty()).then(|| {
-        (
-            assemble(&material.subject, &material.reports),
-            options_for_reports(0, &material.subject, &material.reports),
-        )
+    Ok((!material.sources.is_empty()).then_some(Parts {
+        subject: material.subject,
+        reports: material.reports,
     }))
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct Mention {
-    pub name: String,
-    pub entity_type: String,
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Parts {
+    pub subject: EntityMeta,
+    pub reports: Vec<Report>,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct Report {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub classifier_world: Option<serde_json::Value>,
-    pub publisher: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub published_at: Option<String>,
-    pub headline: String,
-    pub publisher_excerpt: String,
-    pub co_mentions: Vec<Mention>,
+impl Parts {
+    pub fn parse(&self, raw: &str) -> Result<Option<super::Reply>> {
+        use crate::harness::Parser;
+        super::parser::ReplyParser {
+            subject: &self.subject,
+            reports: &self.reports,
+        }
+        .parse(raw)
+    }
 }
+
+pub use super::fresh::{Mention, Report};
 
 pub fn assemble(subject: &EntityMeta, reports: &[Report]) -> String {
     #[derive(Serialize)]
     struct Input<'a> {
         meta: crate::tools::meta::WritingIdentity<'a>,
+        task: &'static str,
         fresh: serde_json::Value,
         voice: &'static str,
-        form: serde_json::Value,
     }
     serde_json::to_string(&Input {
         meta: subject.for_writing(),
+        task: SYSTEM,
         fresh: serde_json::json!({ "reports": reports }),
         voice: crate::plugins::insider::voice::VOICE,
-        form: serde_json::json!({
-            "keys": ["body", "findings"],
-            "paragraphs": "concise",
-            "findings": {
-                "type": "array",
-                "item_keys": ["report_index", "counterparty", "status", "stage", "evidence_quote"]
-            }
-        }),
     })
     .expect("insider world serializes")
 }
@@ -373,8 +365,7 @@ mod tests {
         let world = assemble(&subject, &[report]);
         let fresh_at = world.find(r#""fresh":"#).unwrap();
         let voice_at = world.find(r#""voice":"#).unwrap();
-        let form_at = world.find(r#""form":"#).unwrap();
-        assert!(world.starts_with(r#"{"meta":"#) && fresh_at < voice_at && voice_at < form_at);
+        assert!(world.starts_with(r#"{"meta":"#) && fresh_at < voice_at);
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
         assert_eq!(value["meta"]["sport"], "American football");
         assert_eq!(
@@ -383,20 +374,8 @@ mod tests {
         );
         assert!(value["meta"].get("entity_id").is_none());
         assert!(value.get("memories").is_none());
-        assert_eq!(
-            value["form"]["keys"],
-            serde_json::json!(["body", "findings"])
-        );
-        assert_eq!(
-            value["form"]["findings"]["item_keys"],
-            serde_json::json!([
-                "report_index",
-                "counterparty",
-                "status",
-                "stage",
-                "evidence_quote"
-            ])
-        );
+        assert_eq!(value["task"], SYSTEM);
+        assert!(value.get("form").is_none());
     }
 
     #[test]

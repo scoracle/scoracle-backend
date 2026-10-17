@@ -1,11 +1,11 @@
 {
   "expect": {},
   "name": "near-empty-quiet-wire",
-  "prompt_version": "or27-concise-body",
-  "task": "oracle",
-  "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Venezia\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"journalist\":[{\"title\":\"Venezia reports back for preseason\",\"body\":\"The squad returned for preseason testing this week; no further detail has surfaced.\",\"trajectory\":\"developing_story...\",\"source_count\":1,\"source_age_days\":1}]},\"voice\":\"Mystic, arcane, knowing, restrained.\",\"form\":{\"keys\":[\"reading\"],\"paragraphs\":\"concise\"}}",
+  "prompt_version": "or28-single-json",
   "review": [
     "Make a restrained reading of sparse material; missing pillars do not become negative findings."
-  ]
+  ],
+  "task": "oracle",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Venezia\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"task\":\"Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.\",\"fresh\":{\"journalist\":[{\"title\":\"Venezia reports back for preseason\",\"body\":\"The squad returned for preseason testing this week; no further detail has surfaced.\",\"trajectory\":\"developing_story...\",\"source_count\":1,\"source_age_days\":1}]},\"voice\":\"Mystic, arcane, knowing, restrained.\"}"
 }

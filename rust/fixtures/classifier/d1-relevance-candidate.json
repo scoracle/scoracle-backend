@@ -1,0 +1,30 @@
+{
+  "confirmation_receipt": "d1-relevance-calibration-2026-10-17.json",
+  "context": "Use relevance_meta.rs snapshots and relevance_calibration.py request(): EntityMeta.reference() names each subject; identity and identity_record are separate from article evidence.",
+  "context_version": "meta.rs-v1",
+  "cutoffs": {
+    "availability": 0.9,
+    "emotion": 0.15,
+    "movement": 0.8,
+    "subject": 0.55
+  },
+  "error_cost": {
+    "false_negative": 1,
+    "false_positive": 1
+  },
+  "experimental_gate": "subject AND (emotion OR movement OR availability)",
+  "freeze_sha256": "3a73c70e9c452f72a8b34d4209b7f177e860acb1fb12204461c9a9419112c74b",
+  "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+  "native_endpoint": "/v1/systemone",
+  "next_step": "Independently review labels and test the shared reader with fixed questions and thresholds before production routing.",
+  "positive_when": "score >= cutoff",
+  "private_archive": "/mnt/data/backup/scoracle/classifier-calibration/2026-10-17-d1-refinement",
+  "production_enabled": false,
+  "question_bank": "relevance-concise-v2.json",
+  "question_bank_sha256": "cd61bfd4a57dd0a07b9a8f29454f194fb35ace4cbb3a7f2069be9f195b91d04b",
+  "routing_limit": "Neutral subject reporting must be considered separately; the experimental topic gate is not a universal relevance rule.",
+  "score_units": "0..1 native scores; empirical decision cutoffs, not validated confidence estimates",
+  "selection": "Frozen on 72 development cases before the 36-case confirmation replay; no tuning after confirmation.",
+  "status": "experimental; insufficient accuracy for a hard acquisition gate",
+  "version": "d1-relevance-calibration-r2"
+}

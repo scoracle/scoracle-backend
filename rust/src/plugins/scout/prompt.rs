@@ -12,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::{ensure, Result};
 
-pub const RATING_PROMPT_VERSION: &str = "s72-daily-fresh";
+pub const RATING_PROMPT_VERSION: &str = "s73-single-json";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -23,7 +23,7 @@ pub const RATING_NUM_PREDICT: i32 = 700;
 /// Subject of a Scout assignment. Durable identifiers and trigger policy stay in the application.
 /// `sport_name` is the curated sport display name (e.g. "Football (Soccer)") so the model is
 /// never left to guess what a sport id means; empty falls back to the raw id.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct Subject {
     pub entity_type: String,
     pub entity_name: String,
@@ -33,11 +33,13 @@ pub struct Subject {
 
 /// Application-prepared Scout work. No storage row, queue lease, or concrete model host enters
 /// this contract.
+#[derive(Serialize, serde::Deserialize)]
 pub enum RatingBuild {
     NoStats { season: i32 },
     Ready(Box<Assignment>),
 }
 
+#[derive(Serialize, serde::Deserialize)]
 pub struct Assignment {
     pub subject: Subject,
     pub season: i32,
@@ -47,6 +49,7 @@ pub struct Assignment {
     pub input_components: String,
     pub input_hash: String,
     pub exclusions: RatingExclusions,
+    #[serde(skip)]
     pub opts: GenerateOptions,
     /// The prepared world, rendered once. This is what the model reads; it is
     /// rendered here rather than in `create` so the package measured, hashed and
@@ -60,8 +63,8 @@ pub struct Assignment {
 /// Instructions accompanying every prepared Scout world.
 pub const TASK: &str = "\
 meta identifies the subject. fresh contains selected season measurements and
-their sample and limits. reporting contains complete fresh attributed reports.
-voice sets tone; form sets output shape and limits.
+their sample and limits. fresh.reporting contains complete fresh attributed reports.
+voice sets tone. Return only JSON with body as concise prose or null.
 
 Describe what the supplied measurements establish in compact prose. Use only
 supplied numbers and reporting. A percentile is relative standing, not ability or
@@ -83,7 +86,7 @@ valid when the evidence does not support more. reporting preserves complete publ
 pub fn correction(error: &anyhow::Error) -> Option<String> {
     (error.is::<crate::tools::form::SurfaceError>()
         || crate::harness::model::is_incomplete_output(error))
-    .then(|| format!("{error:#} Return the complete requested JSON within the supplied form limits. Preserve the supplied qualifications and use only the prepared evidence."))
+    .then(|| format!("{error:#} Return the complete requested JSON within the declared output limits. Preserve the supplied qualifications and use only the prepared evidence."))
 }
 
 /// Fixture-replayable selected world. Wire order is the field order of [`Input`].
@@ -115,7 +118,7 @@ impl Parts {
         temperature: f64,
     ) -> crate::harness::model::GenerateOptions {
         crate::harness::model::GenerateOptions {
-            system: Some(TASK.into()),
+            system: None,
             temperature: Some(temperature),
             num_predict: RATING_NUM_PREDICT,
             num_ctx: if self.reporting.is_empty() {
@@ -167,54 +170,25 @@ impl Parts {
     /// Field order is the wire order; this package contains only current facts and fresh reporting.
     pub fn render(&self) -> String {
         #[derive(Serialize)]
-        struct Meta<'a> {
-            name: &'a str,
-            entity_type: &'a str,
-            sport: &'a str,
-        }
-        #[derive(Serialize)]
-        struct Form<'a> {
-            keys: &'a [String],
-            paragraphs: &'static str,
-        }
-        #[derive(Serialize)]
         struct Input<'a> {
-            meta: Meta<'a>,
-            fresh: &'a Profile,
-            #[serde(skip_serializing_if = "Vec::is_empty")]
-            reporting: Vec<serde_json::Value>,
+            meta: crate::tools::meta::WritingIdentity<'a>,
+            task: &'static str,
+            fresh: super::fresh::Evidence<'a>,
             voice: &'static str,
-            form: Form<'a>,
         }
-        let prose = parser::prose();
-        let sport = if self.sport_name.trim().is_empty() {
-            self.subject.sport.as_str()
-        } else {
-            self.sport_name.as_str()
-        };
+        let mut meta = self.subject.for_writing();
+        if !self.sport_name.trim().is_empty() {
+            meta = crate::tools::meta::WritingIdentity::new(
+                &self.subject.name,
+                &self.subject.entity_type,
+                &self.sport_name,
+            );
+        }
         serde_json::to_string(&Input {
-            meta: Meta {
-                name: &self.subject.name,
-                entity_type: &self.subject.entity_type,
-                sport,
-            },
-            fresh: &self.profile,
-            reporting: self
-                .reporting
-                .iter()
-                .map(|source| {
-                    serde_json::json!({
-                        "headline":source.headline,"publisher":source.source,
-                        "published_at":source.published_at_epoch.map(crate::util::utc_timestamp),
-                        "publisher_text":source.context,"classifier_world":source.classifier_world
-                    })
-                })
-                .collect(),
-            voice: crate::plugins::scout::voice::VOICE,
-            form: Form {
-                keys: &prose.keys,
-                paragraphs: "concise",
-            },
+            meta,
+            task: TASK,
+            fresh: super::fresh::evidence(&self.profile, &self.reporting),
+            voice: super::voice::VOICE,
         })
         .expect("scout world serializes")
     }
@@ -239,8 +213,26 @@ pub async fn build_rating_request(
     temperature: f64,
     with_enrichment: bool,
 ) -> Result<RatingBuild> {
+    let mut connection = pool.acquire().await?;
+    build_rating_request_on(
+        &mut connection,
+        voice_num_ctx,
+        req,
+        temperature,
+        with_enrichment,
+    )
+    .await
+}
+
+pub(crate) async fn build_rating_request_on(
+    connection: &mut sqlx::PgConnection,
+    voice_num_ctx: i32,
+    req: &RatingReq,
+    temperature: f64,
+    with_enrichment: bool,
+) -> Result<RatingBuild> {
     let Some(mut profile) = performance::load_rating_profile(
-        pool,
+        connection,
         &req.entity_type,
         req.entity_id,
         &req.sport,
@@ -264,8 +256,11 @@ pub async fn build_rating_request(
 
     let base_components = performance::input_components(&profile);
     // Old-season profiles must not inherit present employment or availability.
-    let historical =
-        profile.season != performance::current_season(pool, &req.sport.to_uppercase()).await?;
+    let historical = profile.season
+        != sqlx::query_scalar::<_, i32>("SELECT current_season FROM public.sports WHERE id=$1")
+            .bind(req.sport.to_uppercase())
+            .fetch_one(&mut *connection)
+            .await?;
     let supports_cross_season = performance::supports_cross_season_comparison(&profile);
     let (notability, notability_components) = performance::compute_notability(&profile);
     let exclusions = RatingExclusions {
@@ -276,7 +271,7 @@ pub async fn build_rating_request(
         thin_sample_omitted_stat_labels: performance::thin_sample_omitted_stat_labels(&profile),
     };
     let rating_trajectory = performance::load_rating_trajectory(
-        pool,
+        connection,
         &req.entity_type,
         req.entity_id,
         &req.sport,
@@ -284,62 +279,10 @@ pub async fn build_rating_request(
     )
     .await?;
 
-    // Keep the adjudicated records for provenance and select attributed memory from them.
-    let (personnel, _changes, _availability) = if with_enrichment && !historical {
-        let (changes, total) = match crate::plugins::scout::sources::load_personnel_changes(
-            pool,
-            &req.sport,
-            &req.entity_type,
-            req.entity_id,
-        )
-        .await
-        {
-            Ok(loaded) => loaded,
-            Err(error) => {
-                tracing::warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %req.sport,
-                    %error,
-                    "rating: personnel-change load failed (continuing without the block)"
-                );
-                (Vec::new(), 0)
-            }
-        };
-        let (availability, availability_total) =
-            match crate::plugins::scout::sources::load_availability_changes(
-                pool,
-                &req.sport,
-                &req.entity_type,
-                req.entity_id,
-            )
-            .await
-            {
-                Ok(loaded) => loaded,
-                Err(error) => {
-                    tracing::warn!(
-                        entity_type = %req.entity_type,
-                        entity_id = req.entity_id,
-                        sport = %req.sport,
-                        %error,
-                        "rating: availability load failed (continuing without those lines)"
-                    );
-                    (Vec::new(), 0)
-                }
-            };
-        (
-            serde_json::json!({"changes": changes, "availability": availability,
-                "total_changes": total, "total_availability": availability_total}),
-            changes,
-            availability,
-        )
-    } else {
-        (serde_json::Value::Null, Vec::new(), Vec::new())
-    };
-
     let reporting = if with_enrichment && !historical {
-        crate::plugins::scout::sources::load_scout_reports(
-            pool,
+        crate::plugins::classifier::delivery::load_on(
+            connection,
+            super::manifest::MANIFEST.id.as_str(),
             &req.entity_type,
             req.entity_id,
             &req.sport,
@@ -354,7 +297,7 @@ pub async fn build_rating_request(
     );
     let comparisons = if with_enrichment && supports_cross_season {
         match performance::load_rating_profile(
-            pool,
+            connection,
             &req.entity_type,
             req.entity_id,
             &req.sport,
@@ -385,25 +328,13 @@ pub async fn build_rating_request(
     };
     let prompt_profile =
         performance::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
-    let form_trend = if with_enrichment {
-        rating_trajectory.label.as_ref().map(|label| {
-            format!(
-                "{label}; {} scored events",
-                rating_trajectory.components["sample_size"]
-            )
-        })
-    } else {
-        None
-    };
     let mut components: serde_json::Value = serde_json::from_str(&base_components)?;
     components["skill_changes"] = serde_json::json!(comparisons);
-    components["personnel"] = serde_json::json!(personnel);
     components["current_reports"] = serde_json::json!(reporting);
-    components["recent_form"] = serde_json::json!(form_trend);
     let sport_name: String =
         sqlx::query_scalar("SELECT display_name FROM public.sports WHERE id = $1")
             .bind(&req.sport)
-            .fetch_optional(pool)
+            .fetch_optional(&mut *connection)
             .await
             .ok()
             .flatten()

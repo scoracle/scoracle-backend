@@ -1,0 +1,37 @@
+{
+  "version": "relevance-explicit-v2",
+  "questions": {
+    "emotion": {
+      "type": "noul",
+      "instructions": "Does this article contain emotional charge concerning {subject}?",
+      "criteria": {
+        "true": "The reporting expresses joy, hope, pride, confidence, excitement, anger, frustration, fear, worry, disappointment, grief or relief concerning the subject. Expressed feelings, emotional descriptions and reactions qualify without needing a direct quote.",
+        "false": "There is only neutral factual reporting, statistics, an ordinary prediction or an emotion about another subject. Do not infer feelings from a win, defeat, injury or signing alone. Ignore advertisements, navigation and related-story links."
+      }
+    },
+    "movement": {
+      "type": "noul",
+      "instructions": "Does this article contain current personnel movement reporting involving {subject}?",
+      "criteria": {
+        "true": "The reporting concerns a transfer, trade, loan, signing, departure, release, contract negotiation or coaching appointment or dismissal involving the subject. Rumours, negotiations and explicit denials count.",
+        "false": "There is no such reporting about the subject. Past moves supplied only as background, fantasy-team transactions, substitutions, movement on the pitch, navigation and related-story links do not count."
+      }
+    },
+    "availability": {
+      "type": "noul",
+      "instructions": "Does this article report current or upcoming playing availability involving {subject}?",
+      "criteria": {
+        "true": "The reporting concerns injury, illness, fitness, suspension, eligibility, registration, rest, ruled-out status, absence or return affecting participation by the subject or its players. Explicit denials and confirmed fitness count.",
+        "false": "There is no current availability information about the subject. An old injury only supplied as background, routine tactical lineup choices or substitutions, unrelated players, navigation and related-story links do not count."
+      }
+    },
+    "subject": {
+      "type": "noul",
+      "instructions": "Is {subject} substantively involved in this article's reporting?",
+      "criteria": {
+        "true": "The reporting supplies meaningful information about the named subject, including its players, personnel, results, analysis or reactions. A substantively discussed opponent or directly affected club also qualifies.",
+        "false": "The named subject is absent, or appears only in a passing comparison, a historical aside, a fixture listing, statistics-only page, navigation, advertising or related-story link. Another club's story is not relevant just because the subject is listed nearby."
+      }
+    }
+  }
+}

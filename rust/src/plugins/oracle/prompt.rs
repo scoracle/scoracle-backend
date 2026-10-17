@@ -9,9 +9,9 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-pub const ORACLE_PROMPT_VERSION: &str = "or27-concise-body";
+pub const ORACLE_PROMPT_VERSION: &str = "or28-single-json";
 
-pub const ORACLE_SYSTEM_PROMPT: &str = "Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Write only the declared JSON reading.";
+pub const ORACLE_SYSTEM_PROMPT: &str = "Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.";
 
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;
@@ -21,7 +21,7 @@ pub const ORACLE_NUM_PREDICT: i32 = 700;
 
 pub fn generation_options(temperature: f64, num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
+        system: None,
         temperature: Some(temperature),
         num_predict: ORACLE_NUM_PREDICT,
         num_ctx,
@@ -480,53 +480,7 @@ pub(super) async fn load_assignment(
     })
 }
 
-#[derive(Serialize)]
-struct Narrative<'a> {
-    title: &'a str,
-    body: &'a str,
-    trajectory: &'a str,
-    source_count: i32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    source_age_days: Option<i32>,
-}
-
-#[derive(Serialize)]
-struct Reading<'a> {
-    body: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    direction: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    generated_at: Option<&'a str>,
-}
-
-#[derive(Serialize)]
-struct Fresh<'a> {
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    journalist: Vec<Narrative<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    scout: Option<Reading<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    influencer: Option<Reading<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    analyst: Option<Reading<'a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    insider: Option<Reading<'a>>,
-}
-
 pub fn assemble(subject: &Subject, cards: &Cards) -> String {
-    let mut narratives: Vec<&SynthNarrative> = cards.narratives.iter().collect();
-    narratives.sort_by(|a, b| b.impact.total_cmp(&a.impact));
-    let journalist = narratives
-        .into_iter()
-        .take(3)
-        .map(|n| Narrative {
-            title: &n.title,
-            body: &n.body,
-            trajectory: &n.trajectory,
-            source_count: n.source_count,
-            source_age_days: n.source_age_days,
-        })
-        .collect();
     let meta = crate::tools::meta::EntityMeta {
         name: subject.entity_name.clone(),
         entity_type: subject.entity_type.clone(),
@@ -536,37 +490,15 @@ pub fn assemble(subject: &Subject, cards: &Cards) -> String {
     #[derive(Serialize)]
     struct Input<'a> {
         meta: crate::tools::meta::WritingIdentity<'a>,
-        fresh: Fresh<'a>,
+        task: &'static str,
+        fresh: super::fresh::Fresh<'a>,
         voice: &'static str,
-        form: serde_json::Value,
     }
     serde_json::to_string(&Input {
         meta: meta.for_writing(),
-        fresh: Fresh {
-            journalist,
-            scout: cards.rating.as_ref().map(|r| Reading {
-                body: &r.body,
-                direction: Some(&r.rating_trajectory),
-                generated_at: None,
-            }),
-            influencer: cards.vibe.as_ref().map(|r| Reading {
-                body: &r.prompt,
-                direction: None,
-                generated_at: None,
-            }),
-            analyst: cards.momentum.blurb.as_deref().map(|body| Reading {
-                body,
-                direction: cards.momentum.direction.as_deref(),
-                generated_at: None,
-            }),
-            insider: cards.insider.as_ref().map(|r| Reading {
-                body: &r.body,
-                direction: None,
-                generated_at: r.generated_at.as_deref(),
-            }),
-        },
+        task: ORACLE_SYSTEM_PROMPT,
+        fresh: super::fresh::readings(cards),
         voice: crate::plugins::oracle::voice::VOICE,
-        form: prose().form(),
     })
     .expect("oracle world serializes")
 }

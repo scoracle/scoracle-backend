@@ -19,6 +19,10 @@ async fn setup() -> Result<PgPool> {
     );
     sqlx::raw_sql("UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
         TRUNCATE pipeline_work,application_outbox,coverage_assignments,coverage_editions;
+        INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_COVERAGE','Coverage test',2026)
+            ON CONFLICT(id) DO UPDATE SET current_season=2026;
+        DELETE FROM team_stats WHERE sport='ZZ_COVERAGE';
+        DELETE FROM teams WHERE sport='ZZ_COVERAGE';
         UPDATE coverage_schedule SET enrolled_at=NULL,cutoff='00:00',drain_limit=interval '15 minutes',
             character_limit=interval '6 hours';").execute(&pool).await?;
     Ok(pool)
@@ -47,12 +51,12 @@ async fn enroll(pool: &PgPool) -> Result<()> {
 }
 
 async fn tick(pool: &PgPool, seconds: f64) -> Result<String> {
-    Ok(
-        sqlx::query_scalar("SELECT coverage_tick(clock_timestamp()+make_interval(secs=>$1))")
+    let instant: String =
+        sqlx::query_scalar("SELECT (clock_timestamp()+make_interval(secs=>$1))::text")
             .bind(seconds)
             .fetch_one(pool)
-            .await?,
-    )
+            .await?;
+    super::coverage::tick(pool, Some(&instant)).await
 }
 
 fn item(stage: &'static str, id: i64, version: &str) -> Item {
@@ -138,18 +142,43 @@ async fn cutoff_freezes_claims_coalesces_offers_and_recovers_at_deadline() -> Re
     );
     for stage in ["narratives", "vibe", "transfers"] {
         for current in claim(&pool, stage).await? {
-            ClaimPublication::begin(&pool, &current)
-                .await?
-                .unwrap()
-                .commit_final()
+            let mut publication = ClaimPublication::begin(&pool, &current).await?.unwrap();
+            if stage == "vibe" {
+                super::outbox::record(
+                    publication.transaction(),
+                    &current,
+                    super::outbox::NewEvent {
+                        kind: "vibe_completed",
+                        entity_type: "team",
+                        entity_id: 101,
+                        source_input_version: None,
+                    },
+                )
                 .await?;
+            }
+            publication.commit_final().await?;
         }
     }
-    let analyst = claim(&pool, "momentum").await?.remove(0);
+    let policy = crate::plugins::analyst::manifest::MANIFEST.claim_policy;
+    assert!(
+        work::claim_with_policy(&pool, TaskKey::new("momentum"), policy, 1)
+            .await?
+            .is_empty(),
+        "current edition handoff blocks its dependent"
+    );
+    sqlx::query("DELETE FROM application_outbox WHERE edition_date IS NOT NULL")
+        .execute(&pool)
+        .await?;
+    sqlx::query("INSERT INTO application_outbox(kind,source_stage,source_claim_token,entity_type,entity_id,sport)
+        VALUES('vibe_completed','vibe',gen_random_uuid(),'team',101,'ZZ_COVERAGE')").execute(&pool).await?;
+    let analyst = work::claim_with_policy(&pool, TaskKey::new("momentum"), policy, 1)
+        .await?
+        .remove(0);
     assert!(
         claim(&pool, "sigil").await?.is_empty(),
         "Oracle waits for current Analyst"
     );
+    work::enqueue(&pool, &item("momentum", 101, "fresh-peers-v2")).await?;
     assert_eq!(tick(&pool, 902.0).await?, "characters");
     assert_eq!(tick(&pool, 22600.0).await?, "coverage");
     assert!(
@@ -178,6 +207,15 @@ async fn cutoff_freezes_claims_coalesces_offers_and_recovers_at_deadline() -> Re
     .fetch_one(&pool)
     .await?;
     assert_eq!(carried, "stats-v3");
+    let carried: String = sqlx::query_scalar(
+        "SELECT input_version FROM pipeline_work WHERE stage='momentum' AND entity_id=101",
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(
+        carried, "fresh-peers-v2",
+        "expired work keeps its newer input"
+    );
     assert_eq!(claim(&pool, "classifier_acquire").await?.len(), 1);
     finish(&pool).await?;
     Ok(())
@@ -224,6 +262,7 @@ async fn transition_waits_for_publication_and_failed_work_cannot_fake_fresh_peer
     sqlx::query("UPDATE pipeline_work SET attempts=5 WHERE stage='rating'")
         .execute(&pool)
         .await?;
+    work::enqueue(&pool, &item("rating", 101, "stats-v3")).await?;
     assert_eq!(tick(&pool, 0.0).await?, "characters");
     assert!(
         claim(&pool, "momentum").await?.is_empty(),
@@ -235,31 +274,125 @@ async fn transition_waits_for_publication_and_failed_work_cannot_fake_fresh_peer
             .fetch_one(&pool)
             .await?;
     assert_eq!(failed, "failed");
+    let carried: (String, String, i32, bool) = sqlx::query_as(
+        "SELECT input_version,status,attempts,available_at<=now() FROM pipeline_work WHERE stage='rating'")
+        .fetch_one(&pool).await?;
+    assert_eq!(carried, ("stats-v3".into(), "pending".into(), 0, true));
+    sqlx::query("UPDATE coverage_schedule SET enrolled_at=clock_timestamp()-interval '2 days'")
+        .execute(&pool)
+        .await?;
+    assert_eq!(tick(&pool, 86400.0).await?, "draining");
+    assert_eq!(tick(&pool, 86400.0).await?, "characters");
+    assert_eq!(
+        claim(&pool, "rating").await?.len(),
+        1,
+        "next edition gets a fresh attempt budget"
+    );
     finish(&pool).await?;
     Ok(())
 }
 
 #[tokio::test]
 #[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
-async fn empty_editions_finish_early_and_outbox_retries_remain_visible() -> Result<()> {
+async fn only_current_edition_outbox_events_delay_completion() -> Result<()> {
     let pool = setup().await?;
     enroll(&pool).await?;
     assert_eq!(tick(&pool, 0.0).await?, "draining");
     assert_eq!(tick(&pool, 0.0).await?, "characters");
-    sqlx::query("INSERT INTO application_outbox(kind,source_stage,source_claim_token,
-        entity_type,entity_id,sport) VALUES('vibe_completed','vibe',gen_random_uuid(),'team',101,'NBA')")
-        .execute(&pool).await?;
+    sqlx::query(
+        "INSERT INTO application_outbox(kind,source_stage,source_claim_token,
+        entity_type,entity_id,sport,edition_date)
+        SELECT 'vibe_completed','vibe',gen_random_uuid(),'team',101,'NBA',edition_date
+        FROM coverage_schedule",
+    )
+    .execute(&pool)
+    .await?;
     assert_eq!(tick(&pool, 0.0).await?, "characters");
-    sqlx::query("DELETE FROM application_outbox")
+    sqlx::query(
+        "INSERT INTO application_outbox(kind,source_stage,source_claim_token,
+        entity_type,entity_id,sport,available_at)
+        VALUES('vibe_completed','vibe',gen_random_uuid(),'team',999,'NBA',now()+interval '1 day')",
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query("DELETE FROM application_outbox WHERE edition_date IS NOT NULL")
         .execute(&pool)
         .await?;
     assert_eq!(tick(&pool, 0.0).await?, "coverage");
+    let remaining: i64 = sqlx::query_scalar("SELECT count(*) FROM application_outbox")
+        .fetch_one(&pool)
+        .await?;
+    assert_eq!(
+        remaining, 1,
+        "unrelated event stays durable without blocking this edition"
+    );
     let status: String = sqlx::query_scalar("SELECT status FROM coverage_editions")
         .fetch_one(&pool)
         .await?;
     assert_eq!(status, "complete");
     assert_eq!(tick(&pool, 0.0).await?, "coverage");
     finish(&pool).await?;
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
+async fn scout_retries_use_frozen_measurements_even_after_data_ingestion() -> Result<()> {
+    use crate::plugins::scout::{prompt::RatingBuild, snapshot};
+    let pool = setup().await?;
+    sqlx::raw_sql("INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_COVERAGE','Coverage test',2026) ON CONFLICT DO NOTHING;
+        INSERT INTO teams(id,sport,name) VALUES(101,'ZZ_COVERAGE','Cedar'),(102,'ZZ_COVERAGE','Maple') ON CONFLICT DO NOTHING;
+        INSERT INTO team_stats(team_id,sport,season,rating_score,rating_breakdown)
+        VALUES(101,'ZZ_COVERAGE',2026,75,'[{\"measure\":\"corners\",\"label\":\"Corners\",\"value\":20,\"pct\":75,\"in_comp\":true,\"sign\":1,\"cohort\":30}]')
+        ON CONFLICT(team_id,sport,season,league_id) DO UPDATE SET rating_score=75,rating_breakdown=EXCLUDED.rating_breakdown;")
+        .execute(&pool).await?;
+    work::enqueue(&pool, &item("rating", 101, "measured-v1")).await?;
+    work::enqueue(&pool, &item("rating", 102, "no-stats")).await?;
+    enroll(&pool).await?;
+    assert_eq!(tick(&pool, 0.0).await?, "draining");
+    assert_eq!(tick(&pool, 0.0).await?, "characters");
+    let mut claimed = claim(&pool, "rating").await?;
+    let first = claimed.remove(
+        claimed
+            .iter()
+            .position(|item| item.entity_id == 101)
+            .unwrap(),
+    );
+    let no_stats = claimed.pop().unwrap();
+    let Some(RatingBuild::Ready(original)) = snapshot::load(&pool, &first, 4096).await? else {
+        panic!("measured profile was not frozen");
+    };
+    assert_eq!(original.parts.profile.values[0].percentile, Some(75.0));
+    sqlx::raw_sql(
+        "UPDATE team_stats SET rating_score=5 WHERE sport='ZZ_COVERAGE';
+        INSERT INTO team_stats(team_id,sport,season,rating_score) VALUES(102,'ZZ_COVERAGE',2026,60);
+        UPDATE teams SET name='Changed after cutoff' WHERE sport='ZZ_COVERAGE';
+        UPDATE sports SET current_season=2027 WHERE id='ZZ_COVERAGE';",
+    )
+    .execute(&pool)
+    .await?;
+    work::fail(&pool, &first, "temporary model failure", Duration::ZERO, 5).await?;
+    let retried = claim(&pool, "rating").await?.remove(0);
+    let Some(RatingBuild::Ready(frozen)) = snapshot::load(&pool, &retried, 8192).await? else {
+        panic!("retry lost its frozen measurements");
+    };
+    assert_eq!(frozen.parts.season, 2026);
+    assert_eq!(frozen.subject.entity_name, "Cedar");
+    assert_eq!(frozen.built_prompt, original.built_prompt);
+    assert_eq!(frozen.input_hash, original.input_hash);
+    assert_eq!(frozen.opts.num_ctx, 8192);
+    assert!(matches!(
+        snapshot::load(&pool, &no_stats, 4096).await?,
+        Some(RatingBuild::NoStats { .. })
+    ));
+    finish(&pool).await?;
+    sqlx::raw_sql(
+        "DELETE FROM team_stats WHERE sport='ZZ_COVERAGE';
+        DELETE FROM teams WHERE sport='ZZ_COVERAGE';
+        UPDATE sports SET current_season=2026 WHERE id='ZZ_COVERAGE';",
+    )
+    .execute(&pool)
+    .await?;
     Ok(())
 }
 

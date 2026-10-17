@@ -304,5 +304,4 @@ mod postgres_publication_fencing_tests {
         assert_eq!(counts(&pool).await, (1, 1, 0));
         clean(&pool).await;
     }
-
 }

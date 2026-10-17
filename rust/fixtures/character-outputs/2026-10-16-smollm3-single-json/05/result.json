@@ -1,0 +1,35 @@
+{
+  "case": 5,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/rating/synthetic-strong.json",
+  "generation_wall_ms": 10892,
+  "input_tokens": 510,
+  "name": "synthetic-strong",
+  "output_limit": 700,
+  "output_tokens": 82,
+  "parsed": true,
+  "prompt_version": "s73-single-json",
+  "reading": "In the 2026 season, the Cedar Comets had 25 games played, averaging 48 rebounds per game, placing them in the 90th percentile among the top 30% of the league, and 23 assists per game, holding their position at the 75th percentile. Their overall composite score was 64, indicating a strong performance relative to their peers.",
+  "request_bytes": 2027,
+  "review": [
+    "Rebounding standing rose; assist standing held. Do not infer ability, tactics, health or recent form from these comparisons.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 10927
+}

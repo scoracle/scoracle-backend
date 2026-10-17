@@ -20,6 +20,7 @@ const SPORT: &str = "ZZ_ACQUISITION";
 
 struct Publisher {
     url: String,
+    address: std::net::SocketAddr,
     requests: Arc<Mutex<Vec<String>>>,
     stop: Arc<AtomicBool>,
     thread: Option<std::thread::JoinHandle<()>>,
@@ -28,7 +29,8 @@ struct Publisher {
 impl Publisher {
     fn new() -> Result<Self> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
-        let url = format!("http://{}", listener.local_addr()?);
+        let address = listener.local_addr()?;
+        let url = format!("http://publisher.test:{}", address.port());
         listener.set_nonblocking(true)?;
         let requests = Arc::new(Mutex::new(Vec::new()));
         let recorded = requests.clone();
@@ -55,6 +57,10 @@ impl Publisher {
                 let path = request.split_whitespace().nth(1).unwrap().to_string();
                 recorded.lock().unwrap().push(path.clone());
                 let (status, body) = match path.as_str() {
+                    "/https://publisher.example/reader" => ("200 OK", serde_json::json!({"code":200,"data":{
+                        "url":"https://publisher.example/reader","title":"Cedar FC reporting",
+                        "content":format!("{} Later correction: the player is available.","Complete publisher evidence. ".repeat(40))
+                    }}).to_string()),
                     "/blocked" => ("403 Forbidden", "Access denied".into()),
                     "/busy" => ("503 Service Unavailable", "Try later".into()),
                     "/limited" => ("429 Too Many Requests", "Try later".into()),
@@ -67,6 +73,7 @@ impl Publisher {
         });
         Ok(Self {
             url,
+            address,
             requests,
             stop,
             thread: Some(thread),
@@ -94,7 +101,7 @@ impl Drop for Publisher {
 }
 
 async fn seed(pool: &PgPool, id: i64, url: &str, body: Option<&str>, age_hours: i32) -> Result<()> {
-    sqlx::query("INSERT INTO news_articles(id,url,title,source,full_text,published_at) VALUES($1,$2,'Cedar FC news','Fixture Wire',$3,now()-make_interval(hours=>$4))")
+    sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,full_text,published_at) VALUES($1,$2,md5($2),'Cedar FC news','Fixture Wire',$3,now()-make_interval(hours=>$4))")
         .bind(id).bind(url).bind(body).bind(age_hours).execute(pool).await?;
     sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport,feed_rank) VALUES($1,'team',920001,$2,10)")
         .bind(id).bind(SPORT).execute(pool).await?;
@@ -138,6 +145,8 @@ async fn acquisition_is_bounded_reusable_and_claim_fenced() -> Result<()> {
     sqlx::query("DELETE FROM news_articles WHERE id BETWEEN 920001 AND 920020")
         .execute(&pool)
         .await?;
+    sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,'Acquisition test',2026) ON CONFLICT DO NOTHING")
+        .bind(SPORT).execute(&pool).await?;
     sqlx::query(
         "INSERT INTO teams(id,sport,name) VALUES(920001,$1,'Cedar FC') ON CONFLICT DO NOTHING",
     )
@@ -145,7 +154,7 @@ async fn acquisition_is_bounded_reusable_and_claim_fenced() -> Result<()> {
     .execute(&pool)
     .await?;
     let publisher = Publisher::new()?;
-    let broker = Arc::new(WebBroker::new(0)?);
+    let broker = Arc::new(WebBroker::test_publisher(publisher.address)?);
     let handler = adapter::AcquireHandler::new(pool.clone(), broker);
 
     seed(&pool, 920001, &format!("{}/clean", publisher.url), None, 0).await?;
@@ -239,7 +248,10 @@ async fn acquisition_is_bounded_reusable_and_claim_fenced() -> Result<()> {
         );
     }
     // A separate broker keeps the preceding fixture's real rate-limit hold isolated.
-    let handler = adapter::AcquireHandler::new(pool.clone(), Arc::new(WebBroker::new(0)?));
+    let handler = adapter::AcquireHandler::new(
+        pool.clone(),
+        Arc::new(WebBroker::test_publisher(publisher.address)?),
+    );
     seed(
         &pool,
         920006,
@@ -384,5 +396,56 @@ async fn acquisition_is_bounded_reusable_and_claim_fenced() -> Result<()> {
         0,
         "skips and acquisition never invent model scores"
     );
+    // A URL reader replaces stale RSS text, then shares the exact retained read on reconciliation.
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM source_documents WHERE url='https://publisher.example/reader'")
+        .execute(&pool)
+        .await?;
+    let reader = adapter::AcquireHandler::new(
+        pool.clone(),
+        Arc::new(WebBroker::test_reader(publisher.address)?),
+    );
+    seed(
+        &pool,
+        920019,
+        "https://publisher.example/reader",
+        Some("Stale RSS body."),
+        0,
+    )
+    .await?;
+    let item = claim(&pool, 920019).await?;
+    reader.execute(&item).await?;
+    let source: Value = sqlx::query_scalar(
+        "SELECT source FROM classifier_sources WHERE article_id=920019 ORDER BY id DESC LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(source["reader_version"], crate::tools::reader::VERSION);
+    assert!(source["body"]
+        .as_str()
+        .unwrap()
+        .starts_with("Cedar FC reporting"));
+    assert!(source["body"]
+        .as_str()
+        .unwrap()
+        .ends_with("the player is available."));
+    assert!(!source["body"].as_str().unwrap().contains("Stale RSS"));
+    sqlx::query("UPDATE harvester_query_provenance SET feed_rank=3 WHERE article_id=920019")
+        .execute(&pool)
+        .await?;
+    let item = claim(&pool, 920019).await?;
+    reader.execute(&item).await?;
+    assert_eq!(
+        publisher.count("/https://publisher.example/reader"),
+        1,
+        "identical reads are retained across metadata reconciliation"
+    );
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
     Ok(())
 }

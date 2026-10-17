@@ -1,8 +1,8 @@
 # Continuous coverage, one daily fresh package
 
-October 16, 2026. The daily package changes and disabled scheduling boundary are
-implemented locally. Production still uses the previously deployed schedule.
-Migrations 309–310 and these binaries have not been deployed.
+Deployed October 16, 2026, at approximately 23:24 Eastern. Migrations 309–311,
+continuous Archbox coverage and the six-stage Mac character worker are live.
+See the [deployment and verification record](daily-pipeline-deployment-2026-10-16.md).
 
 The backend prepares one fresh package per character, canonical subject, sport
 and reporting day. Memories are a separate, deferred layer. Weekly packets,
@@ -19,7 +19,7 @@ build longer reporting views over stored daily outputs later.
 3. Freeze the day's finite assignments. Journalist, Insider and Influencer each
    receive one fresh reporting package; Scout receives the current measured
    profile and fresh reporting. Late-acquired reports retain their actual dates.
-4. Run characters on independent local endpoints on Archbox and Mac. Analyst
+4. Run all characters on the Mac endpoint. Analyst
    waits for that day's Scout and Influencer; Oracle waits for the five peers.
    Missing or failed peers cannot be replaced by yesterday's cards.
 5. Reopen coverage when the edition and required handoffs finish. Allow at most
@@ -59,17 +59,24 @@ Its publication guard requires the current queue lease and prevents a second
 publication transaction for the same daily assignment. Character context readers,
 daily API reads and generated API documentation use the simplified contract.
 
+Migration 311 carries deferred work forward after failures, resets retries for each
+edition, and scopes outbox completion to the edition that produced the event.
+The controller freezes Scout's selected measurements in its edition-opening
+transaction, using one repeatable-read database snapshot. Retries read that stored
+input, including explicit no-measurement outcomes; data ingestion can continue.
+
 Tests cover competing claims, cutoff and publication races, coalesced offers,
 failed work, outbox completion, restart recovery, DST dates, daily publication
 uniqueness and package overflow. Offline fixture prompts are rebuilt through
 production assemblers; this does not qualify model fidelity.
 
-## Remaining before activation
+## Remaining qualification
 
-Finish phase-aware RSS/data ingestion and immediate catch-up, freeze the Scout's
-prepared measurement snapshot, and qualify the Archbox/Mac model handoff. Update
-cron and both host configurations together, then benchmark a real frozen edition.
-The controller flag or migration alone must not enable the live schedule.
+The phase-aware RSS monitor, cron replacement and both host configurations are
+deployed; see [daily packages and monitoring](daily-character-packages.md).
+The isolated daily handoff tests and both hosts' connectivity checks pass.
+The first natural frozen edition, its duration and output quality remain to be
+observed at midnight Eastern on October 17.
 
 With six hours reserved for characters, examining 8,500 discoveries requires
 roughly 472 links per coverage hour before handoff overhead. The
@@ -78,5 +85,5 @@ roughly 472 links per coverage hour before handoff overhead. The
 remain unmeasured. Track discovery-to-ready delay, oldest unfinished work,
 accepted/skipped acquisition, daily holds, useful outputs and edition duration.
 
-The [Graph retirement deployment](graph-retirement-deployment-2026-10-16.md)
-remains the current production baseline and recovery record.
+The [daily pipeline deployment](daily-pipeline-deployment-2026-10-16.md)
+is the current production baseline and recovery record.

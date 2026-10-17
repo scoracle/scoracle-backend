@@ -124,3 +124,19 @@ mod tests {
         assert!(!parts.assemble().contains("RELEVANT HISTORY"));
     }
 }
+
+/// Reporting bounds and complete evidence for one daily character call.
+#[derive(serde::Serialize)]
+pub(super) struct Evidence<'a> {
+    reporting_start: String,
+    reporting_end: String,
+    reports: Vec<crate::tools::fresh::Report<'a>>,
+}
+
+pub(super) fn evidence(parts: &Parts) -> Evidence<'_> {
+    Evidence {
+        reporting_start: crate::util::utc_timestamp(parts.day.start),
+        reporting_end: crate::util::utc_timestamp(parts.day.end),
+        reports: crate::tools::fresh::reports(&parts.sources),
+    }
+}

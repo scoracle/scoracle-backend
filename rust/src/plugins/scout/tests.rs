@@ -495,7 +495,7 @@ fn profile_player() -> RatingProfile {
 }
 
 #[test]
-fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
+fn serialized_request_is_one_self_contained_json_document() {
     let prompt = world(
         &req("NBA", "player", "Test Player"),
         &profile_player(),
@@ -509,21 +509,18 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
         None,
     )
     .unwrap();
-    let request = client.request_body(
-        &prompt,
-        &crate::harness::model::GenerateOptions {
-            system: Some(crate::plugins::scout::prompt::TASK.to_string()),
-            ..Default::default()
-        },
-    );
-    let system = request["messages"][0]["content"].as_str().unwrap();
-    let evidence = request["messages"][1]["content"].as_str().unwrap();
-    assert!(system.contains("Describe what the supplied measurements establish"));
-    // The package carries the evidence and the declared form, and nothing else.
+    let options = scout_parts().generation_options(32768, 0.0);
+    assert!(options.system.is_none());
+    let request = client.request_body(&prompt, &options);
+    assert_eq!(request["messages"].as_array().unwrap().len(), 1);
+    assert!(request.get("tools").is_none());
+    let evidence = request["messages"][0]["content"].as_str().unwrap();
     let package: serde_json::Value = serde_json::from_str(evidence).unwrap();
-    for part in ["meta", "fresh", "voice", "form"] {
+    assert_eq!(package.as_object().unwrap().len(), 4);
+    for part in ["meta", "task", "fresh", "voice"] {
         assert!(package.get(part).is_some(), "package is missing {part}");
     }
+    assert_eq!(package["task"], crate::plugins::scout::prompt::TASK);
     let values = fresh(evidence);
     assert_eq!(
         measure_with(&values, "value")["label"],
@@ -537,7 +534,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
         measure_with(&values, "value")["band"],
         serde_json::json!("elite")
     );
-    assert_eq!(package["form"]["keys"], serde_json::json!(["body"]));
+    assert!(package.get("form").is_none());
     for retired in [
         "strengths and limitations",
         "strengths, limitations and tensions",
@@ -552,10 +549,7 @@ fn serialized_request_has_evidence_and_form_but_no_editorial_outline() {
         "Strengths:",
         "Summary:",
     ] {
-        assert!(
-            !system.contains(retired) && !evidence.contains(retired),
-            "{retired}"
-        );
+        assert!(!evidence.contains(retired), "{retired}");
     }
 }
 
@@ -775,26 +769,19 @@ fn a_players_world_is_byte_stable() {
         None,
         &RatingExclusions::default(),
     );
-    assert!(
-        world.starts_with(concat!(
-            r#"{"meta":{"name":"Test Player","entity_type":"player","sport":"NBA"},"#,
-            r#""fresh":{"season":2025,"values":["#,
-            r#"{"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite"},"#,
-            r#"{"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average"}"#,
-            r#"],"supports_cross_season":false,"limit":{"kind":"unknown_sample","minimum":10.0}},"#,
-            r#""voice":""#,
-        )),
-        "the world through the evidence parts is byte-stable: {world}"
+    let expected = serde_json::json!({
+        "meta": {"name":"Test Player", "entity_type":"player", "sport":"basketball"},
+        "task":crate::plugins::scout::prompt::TASK,
+        "fresh": {"season":2025, "values":[
+            {"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite"},
+            {"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average"}],
+            "supports_cross_season":false, "limit":{"kind":"unknown_sample","minimum":10.0}},
+        "voice":crate::plugins::scout::voice::VOICE
+    });
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&world).unwrap(),
+        expected
     );
-    // The voice and form tails are the plugin's own, so they are asserted
-    // separately rather than pasted into the byte fixture above.
-    let tail = world.split(r#""voice":""#).nth(1).unwrap();
-    assert!(tail.starts_with("Observant, direct, specific to the sport and restrained."));
-    assert!(tail.contains(r#""form":{"keys":["body"],"paragraphs":"concise"}"#));
-    assert!(crate::plugins::scout::parser::prose()
-        .form()
-        .get("paragraph_max_chars")
-        .is_none());
 }
 
 #[test]
@@ -1651,7 +1638,7 @@ fn assignment() -> Assignment {
         input_hash: "prepared-hash".to_string(),
         exclusions: RatingExclusions::default(),
         opts: GenerateOptions {
-            system: Some(crate::plugins::scout::prompt::TASK.to_string()),
+            system: None,
             temperature: Some(RATING_TEMPERATURE),
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 4096,

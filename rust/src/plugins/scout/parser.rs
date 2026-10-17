@@ -47,7 +47,7 @@ pub struct RatingParser;
 /// prose guards remain in [`RatingParser`]; this layer catches contradictions
 /// that can only be judged against this entity's selected comparison evidence.
 pub struct RatingRequestParser<'a> {
-    prompt: &'a str,
+    prompt: String,
     directions: &'a BTreeMap<String, RelativeDirection>,
     bands: &'a BTreeMap<String, String>,
 }
@@ -58,8 +58,13 @@ impl<'a> RatingRequestParser<'a> {
         directions: &'a BTreeMap<String, RelativeDirection>,
         bands: &'a BTreeMap<String, String>,
     ) -> Self {
+        // Instructions and voice are never evidence for response validation.
+        let evidence = serde_json::from_str::<serde_json::Value>(prompt)
+            .ok()
+            .and_then(|p| p.get("fresh").cloned())
+            .map(|fresh| serde_json::json!({"fresh": fresh}).to_string());
         Self {
-            prompt,
+            prompt: evidence.unwrap_or_else(|| prompt.to_string()),
             directions,
             bands,
         }
@@ -68,11 +73,7 @@ impl<'a> RatingRequestParser<'a> {
 
 impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
-        // The declared surface is the shared keyed prose map, so decoding routes
-        // through the shared validator over this plugin's own keys. That is what
-        // makes the `form` part a contract rather than decoration: the grammar
-        // offered to the model and the surface actually accepted come from one
-        // declaration, and an undeclared field or a dropped slot is refused.
+        // The grammar and validator share this plugin's declared output keys.
         let prose = prose();
         let map = crate::tools::form::decode_prose_map(raw, &prose.keys)?;
         // A declined body is this plugin's abstention. It is distinct from a
@@ -130,7 +131,7 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
         if let Some(error) = first_measure_association_error(&reply.body) {
             return Err(crate::tools::form::SurfaceError(error.into()).into());
         }
-        if let Some(error) = first_source_shape_error(&reply.body, self.prompt, self.bands) {
+        if let Some(error) = first_source_shape_error(&reply.body, &self.prompt, self.bands) {
             return Err(crate::tools::form::SurfaceError(error.into()).into());
         }
         if let Some((label, stated, expected)) = first_band_contradiction(&reply.body, self.bands) {
@@ -139,13 +140,13 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
             ))
             .into());
         }
-        if let Some(height) = first_unsupported_height(&reply.body, self.prompt) {
+        if let Some(height) = first_unsupported_height(&reply.body, &self.prompt) {
             return Err(crate::tools::form::SurfaceError(format!(
                 "Body invents height {height:?}, which is absent from the retained evidence. Remove it."
             ))
             .into());
         }
-        if let Some(number) = first_unsupported_number(&reply.body, self.prompt) {
+        if let Some(number) = first_unsupported_number(&reply.body, &self.prompt) {
             return Err(crate::tools::form::SurfaceError(format!(
                 "Body uses numeric value {number}, which is absent from the retained evidence. Remove it or use the exact supplied measurement."
             ))
@@ -159,7 +160,12 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
 /// the exact prepared assignment. Comparing parsed values admits harmless formatting differences
 /// such as `95` versus `95.0`, while rejecting invented ratings, deltas and percentiles.
 fn first_unsupported_number(body: &str, prompt: &str) -> Option<String> {
-    let supplied = numeric_literals(prompt);
+    let package = serde_json::from_str::<serde_json::Value>(prompt).ok();
+    let evidence = package
+        .as_ref()
+        .and_then(|p| p.get("fresh"))
+        .map(serde_json::Value::to_string);
+    let supplied = numeric_literals(evidence.as_deref().unwrap_or(prompt));
     numeric_literals(body)
         .into_iter()
         .find(|(_, value)| {
@@ -586,4 +592,19 @@ pub(super) fn clean_commentary(raw: &str) -> String {
     s = s.trim_matches('`');
     s = s.trim();
     crate::tools::guards::clean_served_prose(s)
+}
+
+#[cfg(test)]
+mod package_tests {
+    #[test]
+    fn task_numbers_cannot_substitute_for_measured_evidence() {
+        let package =
+            serde_json::json!({"meta":{"name":"Club"},"task":"Peer mean 50","fresh":{"value":24}})
+                .to_string();
+        assert!(super::first_unsupported_number("Measured 24", &package).is_none());
+        assert_eq!(
+            super::first_unsupported_number("Measured 50", &package),
+            Some("50".into())
+        );
+    }
 }

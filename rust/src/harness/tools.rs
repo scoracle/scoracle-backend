@@ -109,10 +109,29 @@ pub struct WebBroker {
 }
 
 impl WebBroker {
+    pub fn reader_enabled(&self) -> bool {
+        self.fetcher.reader_enabled()
+    }
     pub fn new(max_calls: u32) -> Result<Self> {
         Ok(Self {
             fetcher: BudgetedFetcher::new()?,
             max_calls,
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_publisher(address: std::net::SocketAddr) -> Result<Self> {
+        Ok(Self {
+            fetcher: BudgetedFetcher::test_publisher(address)?,
+            max_calls: 0,
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_reader(address: std::net::SocketAddr) -> Result<Self> {
+        Ok(Self {
+            fetcher: BudgetedFetcher::test_reader(address)?,
+            max_calls: 0,
         })
     }
 
@@ -136,6 +155,16 @@ pub struct ScopedWeb<'a> {
 }
 
 impl<'a> ScopedWeb<'a> {
+    /// One curated URL interface, shared by acquisition and retained character evidence.
+    pub async fn read_article(&self, url: &str, policy: &FetchPolicy) -> Result<SourceFetch> {
+        self.check_grant(DomainClass::CuratedArticles, url)?;
+        self.check_budget()?;
+        self.broker
+            .fetcher
+            .read_article(self.pool, url, policy)
+            .await
+            .map_err(anyhow::Error::new)
+    }
     fn check_grant(&self, class: DomainClass, url: &str) -> Result<()> {
         if !self.plugin.grants_web(class) {
             return Err(anyhow!(
@@ -188,18 +217,6 @@ impl<'a> ScopedWeb<'a> {
         self.check_budget()?;
         let result = self.broker.fetcher.fetch(self.pool, url, policy).await;
         result.map_err(anyhow::Error::new)
-    }
-
-    /// Fetch one already-curated publisher article for a plugin with this grant.
-    /// The provider implementation is intentionally unchanged; this boundary adds the
-    /// manifest gate and run budget around it.
-    pub async fn fetch_curated_article(
-        &self,
-        url: &str,
-    ) -> Result<crate::tools::fetch::FetchedArticle> {
-        self.check_grant(DomainClass::CuratedArticles, url)?;
-        self.check_budget()?;
-        crate::tools::fetch::fetch_article(url).await
     }
 }
 

@@ -1,0 +1,1166 @@
+{
+  "character_changes": false,
+  "context": "Actual tools/meta.rs EntityMeta, reference() and load_identity_record() snapshots, separate from article evidence. Synthetic controls use explicitly marked fixture identities.",
+  "date": "2026-10-17",
+  "development_candidates": [
+    {
+      "bank": "literal-v1",
+      "brier": 0.2392461239234767,
+      "cutoffs": {
+        "availability": 0.75,
+        "emotion": 0.85,
+        "movement": 0.6,
+        "subject": 0.8
+      },
+      "failures": 0,
+      "label_errors": 23,
+      "model": "kev"
+    },
+    {
+      "bank": "concise-v2",
+      "brier": 0.22121573020043644,
+      "cutoffs": {
+        "availability": 0.75,
+        "emotion": 0.7,
+        "movement": 0.5,
+        "subject": 0.45
+      },
+      "failures": 0,
+      "label_errors": 27,
+      "model": "kev"
+    },
+    {
+      "bank": "explicit-v2",
+      "brier": 0.20599059081090035,
+      "cutoffs": {
+        "availability": 0.45,
+        "emotion": 0.65,
+        "movement": 0.4,
+        "subject": 0.1
+      },
+      "failures": 0,
+      "label_errors": 26,
+      "model": "kev"
+    },
+    {
+      "bank": "literal-v1",
+      "brier": 0.14346803192783658,
+      "cutoffs": {
+        "availability": 0.4,
+        "emotion": 0.65,
+        "movement": 0.25,
+        "subject": 0.75
+      },
+      "failures": 0,
+      "label_errors": 19,
+      "model": "laya"
+    },
+    {
+      "bank": "concise-v2",
+      "brier": 0.20372222465740797,
+      "cutoffs": {
+        "availability": 0.55,
+        "emotion": 0.5,
+        "movement": 0.35,
+        "subject": 0.75
+      },
+      "failures": 0,
+      "label_errors": 32,
+      "model": "laya"
+    },
+    {
+      "bank": "explicit-v2",
+      "brier": 0.22093203884704637,
+      "cutoffs": {
+        "availability": 0.6,
+        "emotion": 0.65,
+        "movement": 0.6,
+        "subject": 0.35
+      },
+      "failures": 0,
+      "label_errors": 27,
+      "model": "laya"
+    },
+    {
+      "bank": "literal-v1",
+      "brier": 0.07897440863477667,
+      "cutoffs": {
+        "availability": 0.5,
+        "emotion": 0.15,
+        "movement": 0.45,
+        "subject": 0.7
+      },
+      "failures": 0,
+      "label_errors": 8,
+      "model": "d1"
+    },
+    {
+      "bank": "concise-v2",
+      "brier": 0.07418975561559898,
+      "cutoffs": {
+        "availability": 0.85,
+        "emotion": 0.15,
+        "movement": 0.75,
+        "subject": 0.5
+      },
+      "failures": 0,
+      "label_errors": 8,
+      "model": "d1"
+    },
+    {
+      "bank": "explicit-v2",
+      "brier": 0.09676921198225767,
+      "cutoffs": {
+        "availability": 0.75,
+        "emotion": 0.15,
+        "movement": 0.85,
+        "subject": 0.5
+      },
+      "failures": 0,
+      "label_errors": 8,
+      "model": "d1"
+    }
+  ],
+  "development_majority_baseline": {
+    "metrics": {
+      "all": {
+        "brier": 0.2564102564102564,
+        "cases": 39,
+        "gate": {
+          "errors": 18,
+          "fn": 18,
+          "fp": 0,
+          "precision": null,
+          "recall": 0.0,
+          "tn": 21,
+          "tp": 0
+        },
+        "label_errors": 40,
+        "labels": 156,
+        "per_topic": {
+          "availability": {
+            "errors": 11,
+            "fn": 11,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 28,
+            "tp": 0
+          },
+          "emotion": {
+            "errors": 9,
+            "fn": 9,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 30,
+            "tp": 0
+          },
+          "movement": {
+            "errors": 7,
+            "fn": 7,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 32,
+            "tp": 0
+          },
+          "subject": {
+            "errors": 13,
+            "fn": 0,
+            "fp": 13,
+            "precision": 0.6666666666666666,
+            "recall": 1.0,
+            "tn": 0,
+            "tp": 26
+          }
+        },
+        "source_groups": 28
+      },
+      "retained-source": {
+        "brier": 0.3068181818181818,
+        "cases": 22,
+        "gate": {
+          "errors": 9,
+          "fn": 9,
+          "fp": 0,
+          "precision": null,
+          "recall": 0.0,
+          "tn": 13,
+          "tp": 0
+        },
+        "label_errors": 27,
+        "labels": 88,
+        "per_topic": {
+          "availability": {
+            "errors": 6,
+            "fn": 6,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 16,
+            "tp": 0
+          },
+          "emotion": {
+            "errors": 7,
+            "fn": 7,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 15,
+            "tp": 0
+          },
+          "movement": {
+            "errors": 3,
+            "fn": 3,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 19,
+            "tp": 0
+          },
+          "subject": {
+            "errors": 11,
+            "fn": 0,
+            "fp": 11,
+            "precision": 0.5,
+            "recall": 1.0,
+            "tn": 0,
+            "tp": 11
+          }
+        },
+        "source_groups": 11
+      },
+      "synthetic": {
+        "brier": 0.19117647058823528,
+        "cases": 17,
+        "gate": {
+          "errors": 9,
+          "fn": 9,
+          "fp": 0,
+          "precision": null,
+          "recall": 0.0,
+          "tn": 8,
+          "tp": 0
+        },
+        "label_errors": 13,
+        "labels": 68,
+        "per_topic": {
+          "availability": {
+            "errors": 5,
+            "fn": 5,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 12,
+            "tp": 0
+          },
+          "emotion": {
+            "errors": 2,
+            "fn": 2,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 15,
+            "tp": 0
+          },
+          "movement": {
+            "errors": 4,
+            "fn": 4,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 13,
+            "tp": 0
+          },
+          "subject": {
+            "errors": 2,
+            "fn": 0,
+            "fp": 2,
+            "precision": 0.8823529411764706,
+            "recall": 1.0,
+            "tn": 0,
+            "tp": 15
+          }
+        },
+        "source_groups": 17
+      }
+    },
+    "policy": {
+      "availability": false,
+      "emotion": false,
+      "movement": false,
+      "subject": true
+    }
+  },
+  "evaluation_predictions_inspected_at_freeze": false,
+  "evaluation_results": [
+    {
+      "bank": "concise-v2",
+      "cases": 39,
+      "cutoffs": {
+        "availability": 0.85,
+        "emotion": 0.15,
+        "movement": 0.75,
+        "subject": 0.5
+      },
+      "failed_cases": 0,
+      "fingerprint": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "latency_seconds": {
+        "median": 1.8838843707926571,
+        "p95": 4.951411947142333
+      },
+      "metadata_evidence_control": {
+        "expected": {
+          "availability": false,
+          "emotion": false,
+          "movement": false,
+          "subject": true
+        },
+        "passed": true,
+        "predicted": {
+          "availability": false,
+          "emotion": false,
+          "movement": false,
+          "subject": true
+        },
+        "scores": {
+          "availability": 0.1884362527401521,
+          "emotion": 0.04591251806096315,
+          "movement": 0.06572618988093955,
+          "subject": 0.7578857300892852
+        }
+      },
+      "metrics": {
+        "all": {
+          "brier": 0.09664334139493949,
+          "cases": 39,
+          "gate": {
+            "errors": 3,
+            "fn": 0,
+            "fp": 3,
+            "precision": 0.8571428571428571,
+            "recall": 1.0,
+            "tn": 18,
+            "tp": 18
+          },
+          "label_errors": 13,
+          "labels": 156,
+          "per_topic": {
+            "availability": {
+              "errors": 3,
+              "fn": 2,
+              "fp": 1,
+              "precision": 0.9,
+              "recall": 0.8181818181818182,
+              "tn": 27,
+              "tp": 9
+            },
+            "emotion": {
+              "errors": 5,
+              "fn": 2,
+              "fp": 3,
+              "precision": 0.7,
+              "recall": 0.7777777777777778,
+              "tn": 27,
+              "tp": 7
+            },
+            "movement": {
+              "errors": 2,
+              "fn": 0,
+              "fp": 2,
+              "precision": 0.7777777777777778,
+              "recall": 1.0,
+              "tn": 30,
+              "tp": 7
+            },
+            "subject": {
+              "errors": 3,
+              "fn": 0,
+              "fp": 3,
+              "precision": 0.896551724137931,
+              "recall": 1.0,
+              "tn": 10,
+              "tp": 26
+            }
+          },
+          "source_groups": 28
+        },
+        "retained-source": {
+          "brier": 0.1260023198626725,
+          "cases": 22,
+          "gate": {
+            "errors": 1,
+            "fn": 0,
+            "fp": 1,
+            "precision": 0.9,
+            "recall": 1.0,
+            "tn": 12,
+            "tp": 9
+          },
+          "label_errors": 8,
+          "labels": 88,
+          "per_topic": {
+            "availability": {
+              "errors": 2,
+              "fn": 2,
+              "fp": 0,
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "tn": 16,
+              "tp": 4
+            },
+            "emotion": {
+              "errors": 3,
+              "fn": 2,
+              "fp": 1,
+              "precision": 0.8333333333333334,
+              "recall": 0.7142857142857143,
+              "tn": 14,
+              "tp": 5
+            },
+            "movement": {
+              "errors": 1,
+              "fn": 0,
+              "fp": 1,
+              "precision": 0.75,
+              "recall": 1.0,
+              "tn": 18,
+              "tp": 3
+            },
+            "subject": {
+              "errors": 2,
+              "fn": 0,
+              "fp": 2,
+              "precision": 0.8461538461538461,
+              "recall": 1.0,
+              "tn": 9,
+              "tp": 11
+            }
+          },
+          "source_groups": 11
+        },
+        "synthetic": {
+          "brier": 0.05864936926022618,
+          "cases": 17,
+          "gate": {
+            "errors": 2,
+            "fn": 0,
+            "fp": 2,
+            "precision": 0.8181818181818182,
+            "recall": 1.0,
+            "tn": 6,
+            "tp": 9
+          },
+          "label_errors": 5,
+          "labels": 68,
+          "per_topic": {
+            "availability": {
+              "errors": 1,
+              "fn": 0,
+              "fp": 1,
+              "precision": 0.8333333333333334,
+              "recall": 1.0,
+              "tn": 11,
+              "tp": 5
+            },
+            "emotion": {
+              "errors": 2,
+              "fn": 0,
+              "fp": 2,
+              "precision": 0.5,
+              "recall": 1.0,
+              "tn": 13,
+              "tp": 2
+            },
+            "movement": {
+              "errors": 1,
+              "fn": 0,
+              "fp": 1,
+              "precision": 0.8,
+              "recall": 1.0,
+              "tn": 12,
+              "tp": 4
+            },
+            "subject": {
+              "errors": 1,
+              "fn": 0,
+              "fp": 1,
+              "precision": 0.9375,
+              "recall": 1.0,
+              "tn": 1,
+              "tp": 15
+            }
+          },
+          "source_groups": 17
+        }
+      },
+      "model": "d1"
+    },
+    {
+      "bank": "literal-v1",
+      "cases": 39,
+      "cutoffs": {
+        "availability": 0.75,
+        "emotion": 0.85,
+        "movement": 0.6,
+        "subject": 0.8
+      },
+      "failed_cases": 0,
+      "fingerprint": "ggml-org/Kev-0.8B-GGUF@sha256:27278f34eb3273bceea4c053dc50dd61a5161da21a718c4aacdf8fd5830771d0",
+      "latency_seconds": {
+        "median": 0.3085090247914195,
+        "p95": 0.7445077947340906
+      },
+      "metadata_evidence_control": {
+        "expected": {
+          "availability": false,
+          "emotion": false,
+          "movement": false,
+          "subject": true
+        },
+        "passed": true,
+        "predicted": {
+          "availability": false,
+          "emotion": false,
+          "movement": false,
+          "subject": true
+        },
+        "scores": {
+          "availability": 0.6877276176963235,
+          "emotion": 0.5313492887768868,
+          "movement": 0.48633187911389164,
+          "subject": 0.9110640201875138
+        }
+      },
+      "metrics": {
+        "all": {
+          "brier": 0.23652627987074615,
+          "cases": 39,
+          "gate": {
+            "errors": 14,
+            "fn": 7,
+            "fp": 7,
+            "precision": 0.6111111111111112,
+            "recall": 0.6111111111111112,
+            "tn": 14,
+            "tp": 11
+          },
+          "label_errors": 39,
+          "labels": 156,
+          "per_topic": {
+            "availability": {
+              "errors": 9,
+              "fn": 5,
+              "fp": 4,
+              "precision": 0.6,
+              "recall": 0.5454545454545454,
+              "tn": 24,
+              "tp": 6
+            },
+            "emotion": {
+              "errors": 7,
+              "fn": 7,
+              "fp": 0,
+              "precision": 1.0,
+              "recall": 0.2222222222222222,
+              "tn": 30,
+              "tp": 2
+            },
+            "movement": {
+              "errors": 9,
+              "fn": 0,
+              "fp": 9,
+              "precision": 0.4375,
+              "recall": 1.0,
+              "tn": 23,
+              "tp": 7
+            },
+            "subject": {
+              "errors": 14,
+              "fn": 5,
+              "fp": 9,
+              "precision": 0.7,
+              "recall": 0.8076923076923077,
+              "tn": 4,
+              "tp": 21
+            }
+          },
+          "source_groups": 28
+        },
+        "retained-source": {
+          "brier": 0.3189555219386114,
+          "cases": 22,
+          "gate": {
+            "errors": 8,
+            "fn": 1,
+            "fp": 7,
+            "precision": 0.5333333333333333,
+            "recall": 0.8888888888888888,
+            "tn": 6,
+            "tp": 8
+          },
+          "label_errors": 28,
+          "labels": 88,
+          "per_topic": {
+            "availability": {
+              "errors": 6,
+              "fn": 2,
+              "fp": 4,
+              "precision": 0.5,
+              "recall": 0.6666666666666666,
+              "tn": 12,
+              "tp": 4
+            },
+            "emotion": {
+              "errors": 6,
+              "fn": 6,
+              "fp": 0,
+              "precision": 1.0,
+              "recall": 0.14285714285714285,
+              "tn": 15,
+              "tp": 1
+            },
+            "movement": {
+              "errors": 8,
+              "fn": 0,
+              "fp": 8,
+              "precision": 0.2727272727272727,
+              "recall": 1.0,
+              "tn": 11,
+              "tp": 3
+            },
+            "subject": {
+              "errors": 8,
+              "fn": 0,
+              "fp": 8,
+              "precision": 0.5789473684210527,
+              "recall": 1.0,
+              "tn": 3,
+              "tp": 11
+            }
+          },
+          "source_groups": 11
+        },
+        "synthetic": {
+          "brier": 0.1298531430770382,
+          "cases": 17,
+          "gate": {
+            "errors": 6,
+            "fn": 6,
+            "fp": 0,
+            "precision": 1.0,
+            "recall": 0.3333333333333333,
+            "tn": 8,
+            "tp": 3
+          },
+          "label_errors": 11,
+          "labels": 68,
+          "per_topic": {
+            "availability": {
+              "errors": 3,
+              "fn": 3,
+              "fp": 0,
+              "precision": 1.0,
+              "recall": 0.4,
+              "tn": 12,
+              "tp": 2
+            },
+            "emotion": {
+              "errors": 1,
+              "fn": 1,
+              "fp": 0,
+              "precision": 1.0,
+              "recall": 0.5,
+              "tn": 15,
+              "tp": 1
+            },
+            "movement": {
+              "errors": 1,
+              "fn": 0,
+              "fp": 1,
+              "precision": 0.8,
+              "recall": 1.0,
+              "tn": 12,
+              "tp": 4
+            },
+            "subject": {
+              "errors": 6,
+              "fn": 5,
+              "fp": 1,
+              "precision": 0.9090909090909091,
+              "recall": 0.6666666666666666,
+              "tn": 1,
+              "tp": 10
+            }
+          },
+          "source_groups": 17
+        }
+      },
+      "model": "kev"
+    },
+    {
+      "bank": "literal-v1",
+      "cases": 39,
+      "cutoffs": {
+        "availability": 0.4,
+        "emotion": 0.65,
+        "movement": 0.25,
+        "subject": 0.75
+      },
+      "failed_cases": 0,
+      "fingerprint": "ggml-org/Laya-GGUF@sha256:edeea94939cd1575c1f984c28982170c0e47caab66e4b80993fed992519573b4",
+      "latency_seconds": {
+        "median": 0.753802128136158,
+        "p95": 2.4880110560916364
+      },
+      "metadata_evidence_control": {
+        "expected": {
+          "availability": false,
+          "emotion": false,
+          "movement": false,
+          "subject": true
+        },
+        "passed": false,
+        "predicted": {
+          "availability": true,
+          "emotion": false,
+          "movement": false,
+          "subject": false
+        },
+        "scores": {
+          "availability": 0.4074724236702327,
+          "emotion": 0.10027678624453795,
+          "movement": 0.10691799034504945,
+          "subject": 0.7295035429879105
+        }
+      },
+      "metrics": {
+        "all": {
+          "brier": 0.16636342415183078,
+          "cases": 39,
+          "gate": {
+            "errors": 14,
+            "fn": 10,
+            "fp": 4,
+            "precision": 0.6666666666666666,
+            "recall": 0.4444444444444444,
+            "tn": 17,
+            "tp": 8
+          },
+          "label_errors": 47,
+          "labels": 156,
+          "per_topic": {
+            "availability": {
+              "errors": 12,
+              "fn": 4,
+              "fp": 8,
+              "precision": 0.4666666666666667,
+              "recall": 0.6363636363636364,
+              "tn": 20,
+              "tp": 7
+            },
+            "emotion": {
+              "errors": 8,
+              "fn": 8,
+              "fp": 0,
+              "precision": 1.0,
+              "recall": 0.1111111111111111,
+              "tn": 30,
+              "tp": 1
+            },
+            "movement": {
+              "errors": 11,
+              "fn": 3,
+              "fp": 8,
+              "precision": 0.3333333333333333,
+              "recall": 0.5714285714285714,
+              "tn": 24,
+              "tp": 4
+            },
+            "subject": {
+              "errors": 16,
+              "fn": 12,
+              "fp": 4,
+              "precision": 0.7777777777777778,
+              "recall": 0.5384615384615384,
+              "tn": 9,
+              "tp": 14
+            }
+          },
+          "source_groups": 28
+        },
+        "retained-source": {
+          "brier": 0.20212978001987325,
+          "cases": 22,
+          "gate": {
+            "errors": 6,
+            "fn": 3,
+            "fp": 3,
+            "precision": 0.6666666666666666,
+            "recall": 0.6666666666666666,
+            "tn": 10,
+            "tp": 6
+          },
+          "label_errors": 29,
+          "labels": 88,
+          "per_topic": {
+            "availability": {
+              "errors": 9,
+              "fn": 3,
+              "fp": 6,
+              "precision": 0.3333333333333333,
+              "recall": 0.5,
+              "tn": 10,
+              "tp": 3
+            },
+            "emotion": {
+              "errors": 7,
+              "fn": 7,
+              "fp": 0,
+              "precision": null,
+              "recall": 0.0,
+              "tn": 15,
+              "tp": 0
+            },
+            "movement": {
+              "errors": 7,
+              "fn": 0,
+              "fp": 7,
+              "precision": 0.3,
+              "recall": 1.0,
+              "tn": 12,
+              "tp": 3
+            },
+            "subject": {
+              "errors": 6,
+              "fn": 3,
+              "fp": 3,
+              "precision": 0.7272727272727273,
+              "recall": 0.7272727272727273,
+              "tn": 8,
+              "tp": 8
+            }
+          },
+          "source_groups": 11
+        },
+        "synthetic": {
+          "brier": 0.12007755185201109,
+          "cases": 17,
+          "gate": {
+            "errors": 8,
+            "fn": 7,
+            "fp": 1,
+            "precision": 0.6666666666666666,
+            "recall": 0.2222222222222222,
+            "tn": 7,
+            "tp": 2
+          },
+          "label_errors": 18,
+          "labels": 68,
+          "per_topic": {
+            "availability": {
+              "errors": 3,
+              "fn": 1,
+              "fp": 2,
+              "precision": 0.6666666666666666,
+              "recall": 0.8,
+              "tn": 10,
+              "tp": 4
+            },
+            "emotion": {
+              "errors": 1,
+              "fn": 1,
+              "fp": 0,
+              "precision": 1.0,
+              "recall": 0.5,
+              "tn": 15,
+              "tp": 1
+            },
+            "movement": {
+              "errors": 4,
+              "fn": 3,
+              "fp": 1,
+              "precision": 0.5,
+              "recall": 0.25,
+              "tn": 12,
+              "tp": 1
+            },
+            "subject": {
+              "errors": 10,
+              "fn": 9,
+              "fp": 1,
+              "precision": 0.8571428571428571,
+              "recall": 0.4,
+              "tn": 1,
+              "tp": 6
+            }
+          },
+          "source_groups": 17
+        }
+      },
+      "model": "laya"
+    }
+  ],
+  "freeze": {
+    "analysis_script_sha256": "fda2f2aa3cf35293f74ba35e892e5e3e9843b8bc3980ba00895e6eaf5d6d167a",
+    "bank_sha256": {
+      "concise-v2": "cd61bfd4a57dd0a07b9a8f29454f194fb35ace4cbb3a7f2069be9f195b91d04b",
+      "explicit-v2": "581feacccbe42f271167adde5450025c7b3c9f574693c78935f2bac7da2e901a",
+      "literal-v1": "afdd635238c6d7c8687d9c143fe4f60479a4731099279d99f09590539e796dd8"
+    },
+    "cases": {
+      "development": {
+        "cases": 33,
+        "real_articles": 8,
+        "real_cases": 16,
+        "source_groups": 25
+      },
+      "evaluation": {
+        "cases": 39,
+        "real_articles": 11,
+        "real_cases": 22,
+        "source_groups": 28
+      }
+    },
+    "created_at": "2026-10-17T20:27:29.182158+00:00",
+    "dataset_sha256": {
+      "development": "88ce58cda235cca4bd04af2b0d9632a17a6a82753ddb6f06c9f106fed895b324",
+      "evaluation": "e5e7c78bc6931b7fb9fb888ed73c81a70f2208ee1d1f1cb5fea0b7b4f302a479"
+    },
+    "evaluator_sha256": "1b2725538f32df719e42a7dbf5b249fbc2b07ef6b6a8919dfa2737e68ab8b07a",
+    "gate": "subject AND (emotion OR movement OR availability); neutral relevant reporting is not admitted by this experimental gate.",
+    "labels": "Coding-agent provisional article/subject judgments; synthetic diagnostics plus selected retained sources. No independent human adjudication.",
+    "metadata_exporter_sha256": "63f39a8f35c00a29c242d29c11b5e93668a9ac59c879aa01656d0a7e76cf3be7",
+    "selection": "Per-topic cutoffs minimize FP+FN on development; grid 10..90 by 5; ties closest to 50 then lower cutoff. Select bank per model by total four-topic errors, then Brier score, then bank name. Each error costs one."
+  },
+  "freeze_sha256": "9623a043e90adb1b86c22079e0fea0e67288579d34914abfbc0cc47bab713f9c",
+  "limitations": [
+    "19 selected real source articles, not a representative RSS sample; paired subject judgments are correlated.",
+    "Coding-agent labels, not independent human ground truth; 34 synthetic controls are diagnostics.",
+    "Model/bank/threshold selection used development only; no further tuning after evaluation.",
+    "Timing includes live production activity and warm inputs; this is not an isolated throughput or daily-capacity benchmark.",
+    "The literal bank omits detailed exclusions on purpose; all candidates are judged against the same labels.",
+    "Unregistered diagnostic targets were replaced by registered candidates before the canonical-metadata benchmark; name-only diagnostics are not a matched metadata ablation.",
+    "Entity metadata identifies the subject; active metadata facts cannot count as new article evidence.",
+    "Real subjects in this pilot are canonical teams; player and person subjects are untested."
+  ],
+  "meta_rs_source_sha256": "19a532f9668988a2b57ba8f2144cec13e5f8a12f7c004ad646277808bc031797",
+  "native_endpoint": "llama.cpp /v1/systemone",
+  "private_archive": "/mnt/data/backup/scoracle/classifier-calibration/2026-10-17-relevance-meta",
+  "production_changes": false,
+  "qualitative_findings": [
+    "All models received the same frozen metadata snapshots and complete article bodies. Questions name the subject using EntityMeta.reference().",
+    "d1 passed the metadata-only evidence control; Laya failed it. Passing one control does not guarantee resistance to metadata leakage.",
+    "d1 still nominated a related Liverpool signing headline and a passing historical opponent as relevant; article furniture remains a reader-stage quality target.",
+    "d1 missed emotion or availability within some longer reporting even when its combined gate admitted the article.",
+    "The experimental combined gate requires subject relevance plus a topic. Neutral subject reporting must be considered separately before production routing, including Journalist coverage."
+  ],
+  "raw_private_report_sha256": "d9f7bb3a79ee1940ba3938339130f1fc0eaefdb2ffbdf213cdd99561755aa26b",
+  "reader_changes": false,
+  "recommendation": {
+    "candidate": "LiquidAI/d1-3B-GGUF Q4_K_M",
+    "production_model": "Kev unchanged",
+    "reason": "Fewest four-topic and subject-relevance errors in this frozen pilot. Carry into reader evaluation; no production promotion."
+  },
+  "runtime": {
+    "binary": "/mnt/data/backup/scoracle/llamacpp-decision-20261011/llama.cpp/build-cuda/bin/llama-server",
+    "binary_sha256": "bdfa668ca2d6852190ec70863546bf3612ad82ac8c469b31436278dc5d254545",
+    "experimental_concurrency": 1,
+    "gpu": "NVIDIA GeForce GTX 1070 Ti, 580.178.04, 8192 MiB",
+    "observed_version": "0.6.0-dev, commit f2cc728, GNU 13.4.0 Linux x86_64",
+    "production_kev_service_unchanged": true,
+    "servers": {
+      "d1": {
+        "data": [
+          {
+            "aliases": [
+              "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402"
+            ],
+            "architecture": {
+              "input_modalities": [
+                "text"
+              ],
+              "output_modalities": [
+                "decisions"
+              ]
+            },
+            "created": 1792268902,
+            "id": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+            "meta": {
+              "ftype": "Q4_K - Medium",
+              "n_ctx": 8192,
+              "n_ctx_train": 32768,
+              "n_embd": 2048,
+              "n_params": 2697198592,
+              "n_vocab": 128000,
+              "size": 1666215936,
+              "vocab_type": 2
+            },
+            "object": "model",
+            "owned_by": "llamacpp",
+            "tags": []
+          }
+        ],
+        "models": [
+          {
+            "capabilities": [
+              "completion"
+            ],
+            "description": "",
+            "details": {
+              "families": [
+                ""
+              ],
+              "family": "",
+              "format": "gguf",
+              "parameter_size": "",
+              "parent_model": "",
+              "quantization_level": ""
+            },
+            "digest": "",
+            "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+            "modified_at": "",
+            "name": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+            "parameters": "",
+            "size": "",
+            "tags": [
+              ""
+            ],
+            "type": "model"
+          }
+        ],
+        "object": "list"
+      },
+      "kev": {
+        "data": [
+          {
+            "aliases": [
+              "ggml-org/Kev-0.8B-GGUF@sha256:27278f34eb3273bceea4c053dc50dd61a5161da21a718c4aacdf8fd5830771d0"
+            ],
+            "architecture": {
+              "input_modalities": [
+                "text"
+              ],
+              "output_modalities": [
+                "decisions"
+              ]
+            },
+            "created": 1792268902,
+            "id": "ggml-org/Kev-0.8B-GGUF@sha256:27278f34eb3273bceea4c053dc50dd61a5161da21a718c4aacdf8fd5830771d0",
+            "meta": {
+              "ftype": "Q8_0",
+              "n_ctx": 8192,
+              "n_ctx_train": 262144,
+              "n_embd": 1024,
+              "n_params": 752917824,
+              "n_vocab": 248320,
+              "size": 801441024,
+              "vocab_type": 2
+            },
+            "object": "model",
+            "owned_by": "llamacpp",
+            "tags": []
+          }
+        ],
+        "models": [
+          {
+            "capabilities": [
+              "completion"
+            ],
+            "description": "",
+            "details": {
+              "families": [
+                ""
+              ],
+              "family": "",
+              "format": "gguf",
+              "parameter_size": "",
+              "parent_model": "",
+              "quantization_level": ""
+            },
+            "digest": "",
+            "model": "ggml-org/Kev-0.8B-GGUF@sha256:27278f34eb3273bceea4c053dc50dd61a5161da21a718c4aacdf8fd5830771d0",
+            "modified_at": "",
+            "name": "ggml-org/Kev-0.8B-GGUF@sha256:27278f34eb3273bceea4c053dc50dd61a5161da21a718c4aacdf8fd5830771d0",
+            "parameters": "",
+            "size": "",
+            "tags": [
+              ""
+            ],
+            "type": "model"
+          }
+        ],
+        "object": "list"
+      },
+      "laya": {
+        "data": [
+          {
+            "aliases": [
+              "ggml-org/Laya-GGUF@sha256:edeea94939cd1575c1f984c28982170c0e47caab66e4b80993fed992519573b4"
+            ],
+            "architecture": {
+              "input_modalities": [
+                "text"
+              ],
+              "output_modalities": [
+                "decisions"
+              ]
+            },
+            "created": 1792268902,
+            "id": "ggml-org/Laya-GGUF@sha256:edeea94939cd1575c1f984c28982170c0e47caab66e4b80993fed992519573b4",
+            "meta": {
+              "ftype": "BF16",
+              "n_ctx": 8192,
+              "n_ctx_train": 8192,
+              "n_embd": 1024,
+              "n_params": 421029889,
+              "n_vocab": 50368,
+              "size": 842242052,
+              "vocab_type": 2
+            },
+            "object": "model",
+            "owned_by": "llamacpp",
+            "tags": []
+          }
+        ],
+        "models": [
+          {
+            "capabilities": [
+              "completion"
+            ],
+            "description": "",
+            "details": {
+              "families": [
+                ""
+              ],
+              "family": "",
+              "format": "gguf",
+              "parameter_size": "",
+              "parent_model": "",
+              "quantization_level": ""
+            },
+            "digest": "",
+            "model": "ggml-org/Laya-GGUF@sha256:edeea94939cd1575c1f984c28982170c0e47caab66e4b80993fed992519573b4",
+            "modified_at": "",
+            "name": "ggml-org/Laya-GGUF@sha256:edeea94939cd1575c1f984c28982170c0e47caab66e4b80993fed992519573b4",
+            "parameters": "",
+            "size": "",
+            "tags": [
+              ""
+            ],
+            "type": "model"
+          }
+        ],
+        "object": "list"
+      }
+    }
+  },
+  "score_units": "Probabilities and cutoffs are 0..1. Each false positive and false negative costs one.",
+  "validation": [
+    "cargo test --example relevance_meta: 1 passed",
+    "python3 examples/relevance_calibration.py --self-test: passed",
+    "414 metadata-backed native requests: 0 failed, every requested probability validated",
+    "Frozen request, metadata, model fingerprint, bank, corpus and label checks passed"
+  ]
+}

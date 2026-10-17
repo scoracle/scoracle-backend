@@ -90,7 +90,7 @@ For the full CI runtime checks, create an **empty disposable PostgreSQL 18 datab
 (the tests write destructive fixtures) and run:
 
 ```bash
-./scripts/check.sh 'postgres://postgres:postgres@localhost:5432/scoracle_test?sslmode=disable'
+./scripts/check.sh 'postgres://postgres:postgres@localhost:5432/classifier_test_coverage?sslmode=disable'
 ```
 
 This restores the checked-in baseline, verifies zero pending migrations, builds the

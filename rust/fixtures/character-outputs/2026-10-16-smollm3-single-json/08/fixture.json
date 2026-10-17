@@ -1,0 +1,30 @@
+{
+  "expect": {
+    "subject_includes": [
+      "Andrade"
+    ],
+    "summary_excludes": [
+      "$",
+      "£",
+      "€",
+      "million"
+    ],
+    "summary_includes": [
+      "Bayern",
+      "Flamengo"
+    ],
+    "transfer_is_rumor": true,
+    "transfer_stage": "advanced_talks"
+  },
+  "name": "reliable-source-heating-steam",
+  "prompt_version": "insider-source-v12-single-json",
+  "review": [
+    "Distinguish the proposed relationship from speculation, historical affiliation and unrelated people.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "sport": "FOOTBALL",
+  "task": "transfer",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Mateus Andrade\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\"},\"task\":\"Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Each report carries article-level classifier spectrum scores — routing measurements of the complete article, which do not establish relevance to the named entity, not proof; unmeasured criteria stay unresolved. Read the scores with the complete publisher text. Return one JSON object with body and findings. Keep the body to two or three short sentences, at most 1200 characters, and return at most two of the most significant supported findings. The body must name the exact target from meta.name, even when no move is supported. If these reports do not support a move involving that target, explain that evidence limit and return findings as []; do not retell another subject's move. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.\",\"fresh\":{\"reports\":[{\"publisher\":\"Fabrizio Romano\",\"headline\":\"Bayern in active talks with Flamengo for Andrade\",\"publisher_excerpt\":\"Bayern and Flamengo are negotiating the fee, with personal terms already agreed on a five-year deal for the winger.\",\"co_mentions\":[{\"name\":\"Bayern Munich\",\"entity_type\":\"team\"},{\"name\":\"Flamengo\",\"entity_type\":\"team\"}]},{\"publisher\":\"Kicker\",\"headline\":\"Bayern make Andrade their priority, open formal talks\",\"publisher_excerpt\":\"Bayern's board have opened formal negotiations with Flamengo and see the Brazilian as their top target.\",\"co_mentions\":[{\"name\":\"Bayern Munich\",\"entity_type\":\"team\"},{\"name\":\"Flamengo\",\"entity_type\":\"team\"}]}]},\"voice\":\"Informed, alert, measured.\"}"
+}

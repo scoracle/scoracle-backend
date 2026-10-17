@@ -196,10 +196,7 @@ impl OpenAiClient {
                     truncate(&raw, 200)
                 )
             })?;
-            crate::harness::model::validate_completion(
-                choice.finish_reason.as_deref(),
-                None,
-            )?;
+            crate::harness::model::validate_completion(choice.finish_reason.as_deref(), None)?;
             let completion_reason = choice.finish_reason.clone();
             let content = choice.message.content;
 

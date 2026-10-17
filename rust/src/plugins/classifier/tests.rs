@@ -98,7 +98,7 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
         assert!(same, "identity prefilter changed canonical matches");
     }
     drop(connection);
-    sqlx::query("INSERT INTO news_articles(id,url,title,source,full_text,published_at) VALUES($1,'https://example.invalid/kev','Cedar FC injury','Fixture Wire',$2,now())")
+    sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,full_text,published_at) VALUES($1,'https://example.invalid/kev',md5('https://example.invalid/kev'),'Cedar FC injury','Fixture Wire',$2,now())")
         .bind(ARTICLE).bind(html).execute(&pool).await?;
     sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES($1,'team',910415,$2)")
         .bind(ARTICLE).bind(SPORT).execute(&pool).await?;
@@ -151,24 +151,22 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
                 assert!(n > 0);
                 bytes.extend_from_slice(&buffer[..n]);
             }
-            requests
-                .send(
-                    serde_json::from_slice::<Value>(&bytes[header_end..header_end + length])
-                        .unwrap(),
-                )
-                .unwrap();
+            let payload =
+                serde_json::from_slice::<Value>(&bytes[header_end..header_end + length]).unwrap();
+            let unrelated = payload["state"]["subject_meta"]["identity"]["entity_id"] == 910417;
+            requests.send(payload).unwrap();
             let questions: Value = serde_json::from_str(include_str!(
-                "../../../fixtures/classifier/classification-criteria-v1.json"
+                "../../../fixtures/classifier/classification-criteria-v6-subject.json"
             ))
             .unwrap();
             let answers: serde_json::Map<String, Value> = questions["questions"]
                 .as_object()
                 .unwrap()
                 .keys()
-                .map(|key| (key.clone(), serde_json::json!({"type":"noul","noul":0.75})))
+                .map(|key| (key.clone(), serde_json::json!({"type":"noul","noul":if key == "subject" && unrelated {0.1} else {0.95}})))
                 .collect();
             let body = serde_json::json!({"model":format!("{MODEL_ID}@sha256:{}", "0".repeat(64)),"answers":answers}).to_string();
-            let status = if request_number == 1 {
+            let status = if request_number == 2 {
                 "500 Internal Server Error"
             } else {
                 "200 OK"
@@ -236,21 +234,28 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
                 received.try_recv().is_err(),
                 "RSS metadata changes must reuse the exact article measurement"
             );
-            let receipt: String = sqlx::query_scalar("SELECT receipt::text FROM classifier_spectra WHERE source_id=$1 AND target->>'entity_type'='article'")
+            let receipt: String = sqlx::query_scalar("SELECT receipt::text FROM classifier_spectra WHERE source_id=$1 AND target->>'entity_type'='team' AND target->>'entity_id'='910415'")
                 .bind(item.input_version.as_deref().unwrap().parse::<i64>()?).fetch_one(&pool).await?;
             let receipt: Value = serde_json::from_str(&receipt)?;
             assert_eq!(receipt["cache_hit"], true);
             receipt["request"].clone()
         } else {
-            received.recv_timeout(std::time::Duration::from_secs(10))?
+            let first = received.recv_timeout(std::time::Duration::from_secs(10))?;
+            let second = received.recv_timeout(std::time::Duration::from_secs(10))?;
+            assert_ne!(
+                first["state"]["subject_meta"]["identity"],
+                second["state"]["subject_meta"]["identity"]
+            );
+            assert_eq!(first["state"]["article"], second["state"]["article"]);
+            first
         };
         assert_eq!(request["questions"].as_object().unwrap().len(), 4);
-        assert_eq!(request["state"]["sport"], SPORT);
+        assert_eq!(request["state"]["article"]["sport"], SPORT);
         assert!(
-            request["state"].get("target").is_none(),
-            "article inference must not depend on a target"
+            request["state"]["subject_meta"]["identity"]["name"] == "Cedar FC",
+            "each RSS subject gets its own canonical metadata"
         );
-        let sent = request["state"]["body"].as_str().unwrap();
+        let sent = request["state"]["article"]["body"].as_str().unwrap();
         assert!(sent.contains("A final correction says the player is available."));
         assert!(!sent.contains('<') && !sent.contains("tracking()") && !sent.contains("Buy now"));
         let loaded = delivery::load_for_character(
@@ -263,6 +268,22 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
         .await?;
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].context, sent);
+        assert_eq!(
+            loaded[0].classifier_world.as_ref().unwrap()["spectrum"]["scout"],
+            95.0
+        );
+        assert!(
+            delivery::load_for_character(
+                &pool,
+                crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+                "team",
+                910417,
+                SPORT
+            )
+            .await?
+            .is_empty(),
+            "an unrelated RSS subject cannot receive a character obligation"
+        );
         if revision == 0 {
             work::enqueue(
                 &pool,
@@ -287,10 +308,7 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
                     .bind(SPORT)
                     .fetch_one(&pool)
                     .await?;
-            assert_eq!(
-                count, 3,
-                "one article spectrum and two RSS-subject projections"
-            );
+            assert_eq!(count, 2, "one native measurement per RSS subject");
             let player_deliveries: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND x.target->>'entity_type'='player'")
                 .bind(SPORT).fetch_one(&pool).await?;
             assert_eq!(
@@ -305,10 +323,7 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
         .bind(SPORT)
         .fetch_one(&pool)
         .await?;
-    assert_eq!(
-        count, 9,
-        "changed sources retain article measurements and projections"
-    );
+    assert_eq!(count, 6, "changed sources retain both subject measurements");
     use sqlx::Row;
     let rows = sqlx::query(
         "SELECT receipt::text,request_hash,clean_text,model FROM classifier_spectra WHERE sport=$1",
@@ -319,7 +334,7 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
     for row in rows {
         let receipt: Value = serde_json::from_str(row.get::<&str, _>("receipt"))?;
         assert_eq!(
-            receipt["request"]["state"]["body"],
+            receipt["request"]["state"]["article"]["body"],
             row.get::<String, _>("clean_text")
         );
         assert_eq!(receipt["response"]["model"], row.get::<String, _>("model"));
@@ -345,13 +360,13 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
         .as_str()
         .unwrap()
         .contains("answers"));
-    assert!(failure["request"]["state"]["body"]
+    assert!(failure["request"]["state"]["article"]["body"]
         .as_str()
         .unwrap()
         .ends_with("Additional publisher update."));
     let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='pending'").bind(SPORT).fetch_one(&pool).await?;
     assert_eq!(
-        pending, 8,
+        pending, 4,
         "only the newest spectrum can dispatch each character"
     );
     let invalid = sqlx::query("INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt)
@@ -531,9 +546,13 @@ async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> 
     );
     let held: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='held' AND d.reason='acquisition_skipped:unavailable'")
         .bind(SPORT).fetch_one(&pool).await?;
-    assert_eq!(held, 8);
+    assert_eq!(held, 4);
     let mut shutdown = std::net::TcpStream::connect(address)?;
     shutdown.write_all(b"GET /shutdown HTTP/1.1\r\nHost: localhost\r\n\r\n")?;
     server.join().unwrap();
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
     Ok(())
 }

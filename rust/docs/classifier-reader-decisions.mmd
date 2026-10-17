@@ -1,0 +1,38 @@
+flowchart LR
+  subgraph calibration ["1  Choose the decision setup"]
+    compare["Compare Kev Laya d1"]
+    choose["Choose native d1"]
+    ablate["Test four levers"]
+    keep["Keep concise questions"]
+    compare -->|"Fewest sampled errors"| choose
+    choose --> ablate
+    ablate -->|"No accuracy gain"| keep
+  end
+  subgraph reading ["2  Choose the reader"]
+    hosted["Try hosted Jina"]
+    local["Run Jina locally"]
+    defaults["Inspect default output"]
+    semantic["Select article then main"]
+    complete["Keep headline and ending"]
+    hosted -->|"Network blocked 401"| local
+    local --> defaults
+    defaults -->|"Navigation remained"| semantic
+    semantic --> complete
+  end
+  subgraph release ["3  Ship and preserve evidence"]
+    protect["Guard public network"]
+    paired["Replay identical subjects"]
+    record["Record 24 of 112"]
+    deploy["Deploy reversible release"]
+    verify["Verify live receipts"]
+    protect --> paired
+    paired --> record
+    record -->|"Provisional accuracy"| deploy
+    deploy --> verify
+  end
+  keep --> hosted
+  complete -->|"Reject oversized output"| protect
+  style calibration fill:#DCCCFF,stroke:#874FFF
+  style reading fill:#C2E5FF,stroke:#3DADFF
+  style release fill:#CDF4D3,stroke:#66D575
+  style record fill:#FFECBD,stroke:#FFC943

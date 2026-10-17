@@ -20,9 +20,15 @@ version="$(psql "$TEST_DATABASE_URL" -X -Atv ON_ERROR_STOP=1 -c 'SHOW server_ver
     echo "PostgreSQL 18 disposable server required" >&2; exit 1;
 }
 
+database="$(psql "$TEST_DATABASE_URL" -X -Atv ON_ERROR_STOP=1 -c 'SELECT current_database()')"
+[[ "$database" == classifier_test_coverage* ]] || {
+    echo "Dedicated empty classifier_test_coverage database required" >&2; exit 1;
+}
+
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
 ./sql/build.sh "$TEST_DATABASE_URL"
+./sql/migrate.sh "$TEST_DATABASE_URL"
 ./sql/migrate.sh "$TEST_DATABASE_URL" | tee "$SCRATCH/migrations.log"
 grep -q 'done — 0 migration(s) applied' "$SCRATCH/migrations.log"
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/253_rating_evidence_contract.sql
@@ -42,8 +48,8 @@ export SCORACLE_MEMORY_STUDY_BIN="$SCRATCH/scoracle-memory-study"
 )
 cargo fmt --manifest-path rust/Cargo.toml -- --check
 cargo test --manifest-path rust/Cargo.toml --lib --bins
-# Real-model replays require a local llama-server and private sample corpora.
-cargo test --manifest-path rust/Cargo.toml --lib --bins -- --ignored --skip local_real_model --test-threads=1
+# Live model, publisher and private-data replays require explicit operator execution.
+cargo test --manifest-path rust/Cargo.toml --lib --bins -- --ignored --skip local_real_model --skip live_ --test-threads=1
 (
     cd go
     go run ./cmd/validate-stmts -db "$TEST_DATABASE_URL"

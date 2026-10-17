@@ -4,12 +4,14 @@
 //! Publication transactions and receipts belong to `publish.rs`.
 
 pub(crate) mod delivery;
+pub mod fresh;
 pub mod manifest;
 pub mod parser;
 pub mod performance;
 pub mod prompt;
 mod publish;
 pub mod reports;
+pub(crate) mod snapshot;
 pub mod sources;
 pub mod voice;
 

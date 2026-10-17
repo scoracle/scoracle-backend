@@ -1,9 +1,10 @@
 //! One daily fresh reporting package, with atomic publication.
-pub mod context;
+pub mod fresh;
 pub mod manifest;
 mod parser;
 pub mod prompt;
 mod publish;
+pub mod voice;
 
 use crate::harness::model::Inference;
 use crate::harness::models::ExecutionCapabilities;
@@ -310,7 +311,7 @@ pub(crate) async fn execute_with_backend(
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(PluginOutcome::Superseded);
     };
-    context::validate(publication.transaction(), &assignment.parts).await?;
+    fresh::validate(publication.transaction(), &assignment.parts).await?;
     let product_id = if let Some(output) = &output {
         Some(persist_to_vibe_scores(publication.transaction(), item, &sport, output).await?)
     } else {

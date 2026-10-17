@@ -180,22 +180,32 @@ pub(crate) async fn execute_with_backend(
         "source_decision":d.provenance})).collect::<Vec<_>>()});
     let mut output: Option<RatingOutput> = None;
     if !overflow && (stat_trigger || grounded_trigger) {
-        let name =
-            crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
-                .await?;
-        let req = RatingReq {
-            entity_type: item.entity_type.clone(),
-            entity_id,
-            entity_name: name,
-            sport: sport.clone(),
-            trigger_type: "daily".into(),
-            season: Some(current_season(pool, &sport).await?),
+        let prepared = match super::snapshot::load(pool, item, voice_num_ctx).await? {
+            Some(prepared) => prepared,
+            None => {
+                let req = RatingReq {
+                    entity_name: crate::tools::meta::lookup_entity_name(
+                        pool,
+                        &item.entity_type,
+                        entity_id,
+                        &sport,
+                    )
+                    .await?,
+                    entity_type: item.entity_type.clone(),
+                    entity_id,
+                    sport: sport.clone(),
+                    trigger_type: "daily".into(),
+                    season: Some(current_season(pool, &sport).await?),
+                };
+                build_rating_request(pool, voice_num_ctx, &req, RATING_TEMPERATURE, false).await?
+            }
         };
-        if let RatingBuild::Ready(mut assignment) =
-            build_rating_request(pool, voice_num_ctx, &req, RATING_TEMPERATURE, false).await?
-        {
+        if let RatingBuild::Ready(mut assignment) = prepared {
             assignment.parts.reporting = reporting;
             assignment.built_prompt = assignment.parts.render();
+            assignment.opts = assignment
+                .parts
+                .generation_options(voice_num_ctx, RATING_TEMPERATURE);
             let mut components: serde_json::Value =
                 serde_json::from_str(&assignment.input_components)?;
             components["daily_source_decisions"] = trigger_payload.clone();

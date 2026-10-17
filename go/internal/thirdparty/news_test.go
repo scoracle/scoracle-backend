@@ -267,7 +267,7 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	var database string
 	if err := pool.QueryRow(ctx, "SELECT current_database()").Scan(&database); err != nil {
 		t.Fatal(err)
@@ -290,7 +290,7 @@ func TestClassifierRSSAcquisition(t *testing.T) {
     `); err != nil {
 		t.Fatal(err)
 	}
-	for _, migration := range []string{"102_pipeline_work.sql", "109_pipeline_work_article_stage.sql", "256_pipeline_work_claim_fencing.sql", "291_classifier_plumbing.sql", "292_classifier_acquisition_intake.sql"} {
+	for _, migration := range []string{"102_pipeline_work.sql", "109_pipeline_work_article_stage.sql", "256_pipeline_work_claim_fencing.sql", "291_classifier_plumbing.sql", "292_classifier_acquisition_intake.sql", "309_continuous_coverage.sql"} {
 		version := strings.TrimSuffix(migration, ".sql")
 		var applied bool
 		if err := pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)", version).Scan(&applied); err != nil {
@@ -310,6 +310,57 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	t.Cleanup(func() {
+		pool.Exec(ctx, "UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL")
+	})
+	// The transition lock must win even if a fetch started while coverage was open.
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(1935896421,1)"); err != nil {
+		t.Fatal(err)
+	}
+	blocked := make(chan error, 1)
+	go func() {
+		_, _, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1,
+			[]Article{{URL: "https://example.test/late-discovery", Title: "Must not persist"}})
+		blocked <- err
+	}()
+	select {
+	case err := <-blocked:
+		t.Fatalf("discovery crossed the held transition lock: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	if _, err := tx.Exec(ctx, "UPDATE coverage_schedule SET enabled=true,enrolled_at=now(),phase='draining',edition_date=current_date"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-blocked:
+		if err == nil || !strings.Contains(err.Error(), "coverage closed") {
+			t.Fatalf("late discovery accepted: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("discovery stayed blocked after transition")
+	}
+	var late int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM news_articles WHERE url='https://example.test/late-discovery'").Scan(&late); err != nil || late != 0 {
+		t.Fatalf("late discovery persisted: %d %v", late, err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE coverage_schedule SET phase='characters'"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1, nil); err == nil {
+		t.Fatal("character phase accepted discovery")
+	}
+	if _, err := pool.Exec(ctx, "UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL"); err != nil {
+		t.Fatal(err)
+	}
+
 	article := Article{URL: "https://example.test/classifier-intake", Title: "Test Club report", Source: "Example", FeedRank: 3}
 	cleanup := func() {
 		pool.Exec(ctx, "DELETE FROM pipeline_work WHERE sport='INTAKE_TEST'")

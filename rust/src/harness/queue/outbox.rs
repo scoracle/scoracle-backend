@@ -29,8 +29,9 @@ pub(crate) async fn record(
         r#"
         INSERT INTO application_outbox (
             kind, source_stage, source_claim_token,
-            entity_type, entity_id, sport, source_input_version
-        ) VALUES ($1, $2, $3::uuid, $4, $5, $6, $7)
+            entity_type, entity_id, sport, source_input_version, edition_date
+        ) VALUES ($1, $2, $3::uuid, $4, $5, $6, $7,
+            (SELECT edition_date FROM public.coverage_schedule WHERE enabled AND phase='characters'))
         ON CONFLICT DO NOTHING
         "#,
     )

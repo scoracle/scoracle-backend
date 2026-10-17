@@ -122,7 +122,11 @@ async fn production_article_provider_refuses_a_plugin_without_the_curated_grant(
     let web = scope(&broker, &pool, &crate::harness::fleet::JOURNALIST);
 
     let error = web
-        .fetch_curated_article("https://example.com/article")
+        .fetch_for_class(
+            DomainClass::CuratedArticles,
+            "https://example.com/article",
+            &no_cache_policy(),
+        )
         .await
         .unwrap_err();
     assert!(error.to_string().contains("not granted"), "{error}");

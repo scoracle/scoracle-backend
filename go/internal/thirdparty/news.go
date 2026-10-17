@@ -227,6 +227,18 @@ func (s *NewsService) persistArticles(
 	}
 	defer tx.Rollback(ctx)
 
+	// Fence discovery against the same transition used by queue claims/publication.
+	if _, err := tx.Exec(ctx, "SELECT public.coverage_lock()"); err != nil {
+		return nil, 0, err
+	}
+	var open bool
+	if err := tx.QueryRow(ctx, "SELECT NOT enabled OR phase='coverage' FROM public.coverage_schedule").Scan(&open); err != nil {
+		return nil, 0, err
+	}
+	if !open {
+		return nil, 0, fmt.Errorf("coverage closed before discovery persistence; retry on reopen")
+	}
+
 	sportUpper := strings.ToUpper(sport)
 
 	var discovered []int64

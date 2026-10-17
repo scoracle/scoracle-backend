@@ -87,7 +87,7 @@ pub async fn load_spectrum_source(pool: &PgPool, spectrum_id: i64) -> Result<Sou
     load_spectrum_source_on(&mut *pool.acquire().await?, spectrum_id).await
 }
 
-async fn load_on(
+pub(crate) async fn load_on(
     connection: &mut PgConnection,
     plugin: &str,
     entity_type: &str,
@@ -123,8 +123,11 @@ async fn load_on(
         );
         let id: i64 = row.get("id");
         let source: Source = serde_json::from_str(row.get::<&str, _>("source"))?;
-        ensure!(super::identity::candidates(connection,sport,&source).await?
-            ==source.provenance["identity_candidates"],"Classifier canonical identity changed");
+        ensure!(
+            super::identity::candidates(connection, sport, &source).await?
+                == source.provenance["identity_candidates"],
+            "Classifier canonical identity changed"
+        );
         if !articles.insert(source.article_id) {
             continue;
         }

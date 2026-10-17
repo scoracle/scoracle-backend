@@ -307,7 +307,7 @@ fn declined_slots_preserve_the_following_reports_source_identity() {
 #[test]
 fn natural_paraphrase_preserves_native_output_contract_and_plugin_metadata() {
     let a = prepared(vec![item(1, "Cedar United won 2–1 on Sunday.")]);
-    assert_eq!(generation_options(&a, 4096).system.as_deref(), Some(TASK));
+    assert_eq!(generation_options(&a, 4096).system, None);
     let raw = r#"{"report_1":"Wire reports that Cedar United secured a 2–1 victory on Sunday."}"#;
     let p = EditionParser {
         assignment: &a,
@@ -356,8 +356,8 @@ fn fresh_frame_separates_reported_evidence_from_headlines_and_identity() {
     let fresh = serde_json::to_value(fresh::reports(&a.selected)).unwrap();
     assert_eq!(fresh, frame["fresh"]);
     assert_eq!(fresh.as_array().unwrap().len(), 1);
-    // Only the three active puzzle pieces reach the model.
-    assert_eq!(frame.as_object().unwrap().len(), 3);
+    // Instructions and the three active context parts reach the model.
+    assert_eq!(frame.as_object().unwrap().len(), 4);
     assert!(frame.get("form").is_none());
     assert!(frame.get("memories").is_none());
     assert!(frame.get("history").is_none());
@@ -425,7 +425,7 @@ fn stored_history_is_ignored_and_replay_matches_production() {
     let parts: Parts = serde_json::from_value(stored).unwrap();
     assert_eq!(parts.assemble(), prompt(&a));
     assert!(!parts.assemble().contains("Invented old claim"));
-    assert_eq!(generation_options(&a, 4096).system.as_deref(), Some(TASK));
+    assert_eq!(generation_options(&a, 4096).system, None);
     let product = EditionParser {
         assignment: &a,
         activity: &activity::reference(&a.selected, NOW),

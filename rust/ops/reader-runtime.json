@@ -1,0 +1,10 @@
+{
+  "upstream": "https://github.com/jina-ai/reader",
+  "revision": "1574bfd380d249c86c82db4dace0d9c8fe17e2b1",
+  "node": "22.23.3",
+  "node_linux_x64_tar_xz_sha256": "df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de",
+  "overrides": {"koffi": "2.16.3"},
+  "browser": "Chrome 147.0.7727.57",
+  "bind": "127.0.0.1:8301",
+  "application_setting": "ARTICLE_READER_URL=http://127.0.0.1:8301/"
+}

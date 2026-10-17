@@ -1,4 +1,5 @@
 //! Insider execution: read verified source packages and publish under the queue claim.
+pub mod fresh;
 pub mod manifest;
 mod parser;
 pub mod prompt;

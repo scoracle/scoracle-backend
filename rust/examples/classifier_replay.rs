@@ -12,6 +12,7 @@ struct Case {
     id: String,
     sport: String,
     body: String,
+    meta: serde_json::Value,
     #[serde(default)]
     expected: BTreeMap<String, bool>,
 }
@@ -39,7 +40,7 @@ async fn main() -> Result<()> {
         let model = model.clone();
         async move {
             let started = Instant::now();
-            let spectrum = model.spectrum(&case.body, &case.sport).await;
+            let spectrum = model.spectrum(&case.body, &case.sport, &case.meta).await;
             (case, spectrum, started.elapsed().as_secs_f64())
         }
     }))

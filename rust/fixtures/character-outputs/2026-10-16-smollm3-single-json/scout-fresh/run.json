@@ -1,0 +1,16 @@
+{
+  "base_url": "http://127.0.0.1:8080",
+  "concurrency": 1,
+  "context": 32768,
+  "database_access": false,
+  "fixtures": [
+    "fixtures/quality/rating/synthetic-daily-withdrawal.json"
+  ],
+  "model": "alibayram/smollm3",
+  "publishes": false,
+  "qualification": "first-pass fixture outputs; human review required",
+  "retries": 0,
+  "shared_server": true,
+  "started_epoch": 1792182317,
+  "thinking": false
+}

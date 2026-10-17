@@ -133,12 +133,7 @@ async fn main() -> Result<()> {
                 .iter()
                 .map(|&think| {
                     Ok(RecordedModel {
-                        inner: LlamaClient::new(
-                            url,
-                            model,
-                            Duration::from_secs(120),
-                            think,
-                        )?,
+                        inner: LlamaClient::new(url, model, Duration::from_secs(120), think)?,
                         unconstrained,
                         calls: Mutex::new(Vec::new()),
                     })

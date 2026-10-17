@@ -1,0 +1,9 @@
+{
+  "version": "relevance-reporting-v3",
+  "questions": {
+    "emotion": {"type": "noul", "instructions": "Does the reporting express feelings or emotional reactions concerning {subject}, such as joy, hope, anger, worry, frustration or relief? Read all reporting sections. Ignore emotions in metadata, navigation and linked stories, and do not infer feelings from results alone."},
+    "movement": {"type": "noul", "instructions": "Does the reporting discuss current transfers, trades, loans, signings, departures, contract decisions or coaching changes involving {subject}? Rumours and explicit denials qualify. Ignore past career background, hypothetical fantasy transactions, navigation and linked stories."},
+    "availability": {"type": "noul", "instructions": "Does any reporting section provide current injury, illness, suspension, fitness, rest, eligibility, absence or return information for {subject} or its players? Check late injury updates too. Ignore metadata facts, historical injuries, ordinary tactical substitutions and linked stories."},
+    "subject": {"type": "noul", "instructions": "Does the reporting provide substantive information about {subject} or its players? A substantively discussed opponent also qualifies. A name appearing only in metadata, navigation, a linked headline, a fixture listing or passing historical background does not qualify."}
+  }
+}

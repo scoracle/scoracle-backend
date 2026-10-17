@@ -85,11 +85,11 @@ async fn day_card_contract() {
         2
     );
     let world: Value = serde_json::from_str(&a.parts.assemble()).unwrap();
-    assert!(world["FRESH EVIDENCE"][1]["publisher_text"]
+    assert!(world["fresh"]["reports"][1]["publisher_text"]
         .as_str()
         .unwrap()
         .ends_with("No other supporters were interviewed."));
-    assert!(world["FRESH EVIDENCE"][0]
+    assert!(world["fresh"]["reports"][0]
         .get("classification_id")
         .is_none());
     let mut changed = a.parts.clone();
@@ -165,7 +165,7 @@ async fn day_card_contract() {
     let with_world = Assignment::from_parts(changed).unwrap();
     let packet: Value = serde_json::from_str(&with_world.parts.assemble()).unwrap();
     assert_eq!(
-        packet["FRESH EVIDENCE"][0]["classifier_world"]["qualified_claims"][0]["target_relation"],
+        packet["fresh"]["reports"][0]["classifier_world"]["qualified_claims"][0]["target_relation"],
         "unknown"
     );
     assert_ne!(with_world.input_hash, assignment.input_hash);

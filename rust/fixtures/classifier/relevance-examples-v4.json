@@ -1,0 +1,21 @@
+{
+  "version": "relevance-examples-v4",
+  "questions": {
+    "emotion": {
+      "type": "noul",
+      "instructions": "Does the article express feelings or emotional reactions about {subject}, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Ignore navigation, ads and related-story links. Examples: a player's relief about this team's win: yes; an unrelated club's anger: no."
+    },
+    "movement": {
+      "type": "noul",
+      "instructions": "Does the article report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving {subject}? Include rumours and denials. Exclude historical background, fantasy trades, navigation and related-story links. Examples: this club denies a planned coaching change: yes; a player's old transfer in career background: no."
+    },
+    "availability": {
+      "type": "noul",
+      "instructions": "Does the article report injury, illness, fitness, suspension, eligibility, rest, absence or return affecting whether {subject} or its players can participate? Exclude historical background, ordinary tactical substitutions, navigation and related-story links. Examples: this team's player is returning from injury now: yes; an injury mentioned only from last season: no."
+    },
+    "subject": {
+      "type": "noul",
+      "instructions": "Is {subject} substantively involved in the article's reporting? An opponent or directly affected club can qualify. A passing historical comparison, navigation entry, ad or related-story link alone does not qualify. Examples: reporting this team's current injury update: yes; naming it only as a future fixture or historical comparison: no."
+    }
+  }
+}

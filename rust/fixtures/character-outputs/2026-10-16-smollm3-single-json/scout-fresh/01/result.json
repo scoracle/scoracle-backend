@@ -1,0 +1,40 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "Body calls Rebounds strong, but its supplied percentile band is elite. Use the supplied band.",
+      "name": "production_acceptance",
+      "pass": false
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/rating/synthetic-daily-withdrawal.json",
+  "generation_wall_ms": 8025,
+  "input_tokens": 589,
+  "name": "synthetic-daily-withdrawal",
+  "output_limit": 700,
+  "output_tokens": 118,
+  "parsed": false,
+  "prompt_version": "s73-single-json",
+  "reading": "The Cedar Comets' season performance, as measured in the 2026 season, shows a strong rebounding effort with 48 rebounds per game, placing them in the top 10% of the league. However, their assist per game average of 23.0 is slightly below the top 25%, indicating a need for improvement in that area. The composite score of 64.0 suggests a balanced but not exceptional overall performance. The team's retracting of a training notice indicates a minor administrative error, but does not affect their measured performance metrics.",
+  "request_bytes": 2379,
+  "review": [
+    "The fresh report is a correction to an erroneous notice; it does not establish recovery or a return to training.",
+    "Preserve the measured profile without treating cohort size 30 as a percentile or an improvement magnitude.",
+    "A concise measured reading may omit this report if it adds no supported playing characteristic."
+  ],
+  "status": "rejected",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 8045
+}

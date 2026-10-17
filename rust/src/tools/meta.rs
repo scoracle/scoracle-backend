@@ -171,6 +171,16 @@ pub async fn load_identity_record(
     Ok(Some(card))
 }
 
+impl<'a> WritingIdentity<'a> {
+    pub fn new(name: &'a str, entity_type: &'a str, sport: &'a str) -> Self {
+        Self {
+            name,
+            entity_type,
+            sport,
+        }
+    }
+}
+
 impl EntityMeta {
     pub fn for_writing(&self) -> WritingIdentity<'_> {
         // Storage keeps the competition namespace used by adapters. Articulation

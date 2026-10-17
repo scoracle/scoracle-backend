@@ -1,4 +1,5 @@
 //! Analyst execution, deterministic product fields and queue invalidation.
+pub mod fresh;
 pub mod manifest;
 pub mod parser;
 pub mod prompt;

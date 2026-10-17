@@ -1,0 +1,34 @@
+{
+  "case": 9,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/momentum/mixed-peak-up-vibe-down.json",
+  "generation_wall_ms": 8770,
+  "input_tokens": 246,
+  "name": "mixed-peak-up-vibe-down",
+  "output_limit": 700,
+  "output_tokens": 108,
+  "parsed": true,
+  "prompt_version": "momentum-s39-single-json",
+  "reading": "Jalen Rowe's performance is trending upward, marked by enhanced efficiency in creating opportunities, which aligns with the cooling mood surrounding him. While his statistical improvements suggest a positive trajectory, the mood shift indicates a potential shift in perception or external factors affecting his standing. The combination of these two readings leaves the current picture somewhat unresolved, as the statistical gains do not fully explain the cooling mood. The coach's decisive and economical approach remains a key factor, but the external influences contributing to the mood change are unclear.",
+  "request_bytes": 813,
+  "review": [
+    "Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 8781
+}

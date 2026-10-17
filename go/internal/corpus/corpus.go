@@ -3,6 +3,7 @@ package corpus
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -37,7 +38,7 @@ type Team struct {
 // Debug. The per-sport line is deliberately emitted before the run total: a
 // sweep that is killed mid-flight — which has happened — still leaves evidence
 // of where its articles went.
-func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, rssPauseMs int, logger *slog.Logger) (ok, fail int) {
+func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, rssPauseMs int, logger *slog.Logger) (ok, fail int, err error) {
 	news := thirdparty.NewNewsService(pool, logger)
 	runStart := time.Now().UTC()
 	fresh := 0 // articles handed to the Editor this run
@@ -48,6 +49,7 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 		teams, err := LoadTeams(ctx, pool, sport)
 		if err != nil {
 			logger.Error("corpus: load teams failed", "sport", sport, "error", err)
+			fail++
 			continue
 		}
 		logger.Info("corpus: rss sweep starting", "sport", sport, "teams", len(teams))
@@ -60,7 +62,15 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 				logSportFunnel(logger, sport, len(teams), i, sportFunnel, zeroAdmitted)
 				runFunnel.Add(sportFunnel)
 				logRunFunnel(logger, runFunnel)
-				return ok, fail
+				return ok, fail, ctx.Err()
+			}
+			var open bool
+			if err := pool.QueryRow(ctx, "SELECT NOT enabled OR phase='coverage' FROM public.coverage_schedule").Scan(&open); err != nil || !open {
+				logger.Info("corpus: coverage closed; unfinished discovery retries on reopen", "error", err)
+				if err != nil {
+					return ok, fail, err
+				}
+				return ok, fail, fmt.Errorf("coverage closed; discovery sweep interrupted")
 			}
 			tctx, cancel := context.WithTimeout(ctx, sweepTimeout)
 			ids, funnel, err := news.GetEntityNews(tctx, "team", t.ID, t.Name, t.Sport, rssLimit, t.Aliases)
@@ -100,7 +110,7 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 		"reads_withheld", runFunnel.ReadsWithheld,
 		"elapsed", time.Since(runStart).Round(time.Second))
 	logRunFunnel(logger, runFunnel)
-	return ok, fail
+	return ok, fail, nil
 }
 
 // sweepProgressEvery is how often the running per-sport funnel is echoed at Info

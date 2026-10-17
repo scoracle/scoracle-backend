@@ -71,23 +71,38 @@ pub(super) async fn prepare(
         });
     }
     let mut source = before.clone();
+    if web.reader_enabled() {
+        // Existing RSS/full_text bytes do not establish that the URL was browser-read.
+        source.body.clear();
+    }
     if source.body.trim().is_empty() {
         // shortcut: unchanged discovery keys reuse text indefinitely, add expiry if correction polling is required.
         let retained: Option<Value> = sqlx::query_scalar(
             "SELECT s.source FROM classifier_source_heads h
             JOIN classifier_sources s ON s.id=h.source_id WHERE h.article_id=$1 AND h.sport=$2
-            AND s.source->>'acquisition_policy'=$3 AND s.source->'acquisition_key'=$4::jsonb",
+            AND s.source->>'acquisition_policy'=$3 AND s.source->'acquisition_key'=$4::jsonb
+            AND COALESCE(s.source->>'reader_version','')=$5",
         )
         .bind(item.entity_id)
         .bind(&item.sport)
         .bind(POLICY)
         .bind(&before.provenance["acquisition_key"])
+        .bind(if web.reader_enabled() {
+            crate::tools::reader::VERSION
+        } else {
+            ""
+        })
         .fetch_optional(pool)
         .await?;
         if let Some(retained) = retained {
             let retained: Source = serde_json::from_value(retained)?;
             source.body = retained.body;
-            for key in ["publisher_url", "publisher_domain"] {
+            for key in [
+                "publisher_url",
+                "publisher_domain",
+                "reader_version",
+                "source_document_id",
+            ] {
                 if let Some(value) = retained.provenance.get(key) {
                     source.provenance.insert(key.into(), value.clone());
                 }
@@ -112,14 +127,7 @@ pub(super) async fn prepare(
         let scoped = web.scope(pool, &super::manifest::ACQUIRE_MANIFEST);
         let policy = FetchPolicy::default();
         let started = std::time::Instant::now();
-        let fetched = match scoped
-            .fetch_for_class(
-                crate::harness::tools::DomainClass::CuratedArticles,
-                url,
-                &policy,
-            )
-            .await
-        {
+        let fetched = match scoped.read_article(url, &policy).await {
             Err(error) => {
                 let detail = format!("{error:#}");
                 let delay = match error.downcast_ref::<BudgetedFetchError>() {
@@ -188,7 +196,16 @@ pub(super) async fn prepare(
             .provenance
             .insert("fetch_cache_hit".into(), json!(fetched.from_cache));
         let started = std::time::Instant::now();
-        let Some(text) = fetch::extract_article_text_strict(&fetched.body) else {
+        let text = if web.reader_enabled() {
+            source.provenance.insert(
+                "reader_version".into(),
+                json!(crate::tools::reader::VERSION),
+            );
+            Some(fetched.body)
+        } else {
+            fetch::extract_article_text_strict(&fetched.body)
+        };
+        let Some(text) = text else {
             return Ok(Prepared::Skipped {
                 reason: "poor_extraction",
                 detail: "No usable structured article body or article container".into(),

@@ -14,7 +14,7 @@ use std::collections::HashSet;
 
 pub const TASK: &str = "For each fresh report, write two or three short, attributed sentences, at most 1200 characters, only when the publisher text contains substantive news or analysis about the entity in meta. Use voice as tone and fresh as the only evidence. Preserve attribution, event dates, denials and qualifications. Never assign a player to the target team or infer a relationship from proximity, a query, or classifier scores. Scores measure article usefulness, not target relevance or verified facts. For unrelated reporting, rankings-only tables, schedules or navigation, decline that slot with null. Return only JSON mapping every supplied report_key to its report text or null.";
 
-pub const NARRATIVES_PROMPT_VERSION: &str = "n105-daily-fresh";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n106-single-json";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v13-bounded-slots";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
@@ -166,11 +166,13 @@ pub fn assemble(subject: &EntityMeta, reports: &[CorpusItem]) -> String {
     #[derive(Serialize)]
     struct Input<'a> {
         meta: crate::tools::meta::WritingIdentity<'a>,
+        task: &'static str,
         voice: &'static str,
         fresh: Vec<super::fresh::Report<'a>>,
     }
     serde_json::to_string(&Input {
         meta: subject.for_writing(),
+        task: TASK,
         voice: super::voice::VOICE,
         fresh: super::fresh::reports(reports),
     })
@@ -183,7 +185,7 @@ pub fn prompt(assignment: &Assignment) -> String {
 
 pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(TASK.to_string()),
+        system: None,
         temperature: Some(0.0),
         num_predict: (assignment.selected.len() as i32 * 420).clamp(NUM_PREDICT, 8000),
         num_ctx: num_ctx.max(ARTICLE_NUM_CTX),

@@ -343,10 +343,7 @@ mod tests {
         // The budget is looked up by the spec's base_url, so both sides must normalize the
         // same way -- otherwise a trailing slash silently drops the host to the default budget.
         let m = parse_backend_concurrency("http://mac-mini:8080/=2");
-        assert_eq!(
-            m.get(&normalize_base_url("http://mac-mini:8080")),
-            Some(&2)
-        );
+        assert_eq!(m.get(&normalize_base_url("http://mac-mini:8080")), Some(&2));
     }
 
     #[test]

@@ -124,14 +124,14 @@ pub struct RateStandout {
     pub pct: f64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RatingTrajectory {
     pub key: String,
     pub label: Option<String>,
     pub components: serde_json::Value,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct RatingExclusions {
     pub budget_truncated_stat_labels: Vec<String>,
     /// Breakdown labels dropped because their facet is the other side of the ball from the
@@ -747,7 +747,7 @@ fn limit_for(profile: &RatingProfile, supports_cross_season: bool) -> Option<Lim
 /// are cast to float8 and JSONB to text for sqlx/serde decoding.
 /// Returns `None` when there is no rating row at all.
 pub async fn load_rating_profile(
-    pool: &PgPool,
+    connection: &mut sqlx::PgConnection,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
@@ -821,7 +821,7 @@ pub async fn load_rating_profile(
         .bind(entity_id)
         .bind(season)
         .bind(entity_type)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *connection)
         .await
         .context("load rating profile")?
     else {
@@ -893,7 +893,7 @@ fn parse_rate_modes(raw: &str) -> HashMap<String, Vec<RatingDatapoint>> {
 }
 
 pub async fn load_rating_trajectory(
-    pool: &PgPool,
+    connection: &mut sqlx::PgConnection,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
@@ -1006,7 +1006,7 @@ pub async fn load_rating_trajectory(
     .bind(sport)
     .bind(profile.season)
     .bind(entity_type)
-    .fetch_one(pool)
+    .fetch_one(&mut *connection)
     .await
     .with_context(|| format!("load rating trajectory {entity_type}/{entity_id}"))?;
 

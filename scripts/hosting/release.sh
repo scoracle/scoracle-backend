@@ -48,6 +48,7 @@ BUILD_ONLY=0
 KEEP_COGNITION_PAUSED=0
 COGNITION_WAS_ACTIVE=0
 SOURCE_WAS_ACTIVE=0
+COVERAGE_WAS_ACTIVE=0
 for arg in "$@"; do
     case "$arg" in
         --build-only) BUILD_ONLY=1 ;;
@@ -62,6 +63,7 @@ done
 if [ "$BUILD_ONLY" -eq 0 ]; then
     if systemctl --user -q is-active scoracle-cognition.service; then COGNITION_WAS_ACTIVE=1; fi
     if systemctl --user -q is-active scoracle-classifier-source.service; then SOURCE_WAS_ACTIVE=1; fi
+    if systemctl --user -q is-active scoracle-coverage.service; then COVERAGE_WAS_ACTIVE=1; fi
     if [ "$KEEP_COGNITION_PAUSED" -eq 1 ] && [ "$COGNITION_WAS_ACTIVE" -eq 1 ]; then
         echo "release.sh: stop cognition before requesting a paused release" >&2; exit 1
     fi
@@ -239,6 +241,10 @@ fi
 # verification above — the API is healthy and serving from precomputed tables; a
 # failed cognition daemon is logged loudly and aborts THIS script so a 1-success-
 # followed-by-silent-cognition-down state can't pass silently.
+if [ "$COVERAGE_WAS_ACTIVE" -eq 1 ]; then
+    systemctl --user restart scoracle-coverage.service
+    systemctl --user --quiet is-active scoracle-coverage.service
+fi
 if [ "$SOURCE_WAS_ACTIVE" -eq 1 ]; then
     systemctl --user restart scoracle-classifier-source.service
     systemctl --user --quiet is-active scoracle-classifier-source.service

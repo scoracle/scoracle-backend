@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict 8tHKYMi7fxTpOOyEqtgGIhed2dCUY5cVESH0wdTH53kFIvkBQ3hMZRP2EKSxu9k
+\restrict a26OVrXaedeP4cVhThNmywZcmNZJT5CV09uk1f47kFSHMxhEHhBMEItPtuuc9mc
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1687,6 +1687,246 @@ $$;
 
 
 --
+-- Name: character_reporting_date(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.character_reporting_date() RETURNS date
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT COALESCE((e.cutoff_at AT TIME ZONE 'America/Detroit')::date-1,
+        (current_timestamp AT TIME ZONE 'America/Detroit')::date)
+    FROM public.coverage_schedule s LEFT JOIN public.coverage_editions e
+        ON s.enabled AND s.phase='characters' AND e.edition_date=s.edition_date
+$$;
+
+
+--
+-- Name: classifier_acquisition_key(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_acquisition_key(article bigint) RETURNS text
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT md5(jsonb_build_array(url,title,COALESCE(full_text,''),extract(epoch FROM published_at))::text)
+    FROM public.news_articles WHERE id=article
+$$;
+
+
+--
+-- Name: classifier_discovery_version(bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_discovery_version(article bigint, league text) RETURNS text
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT md5(jsonb_build_array(a.url,a.title,COALESCE(a.source,''),
+        extract(epoch FROM a.published_at),COALESCE(a.full_text,''),a.duplicate_of,
+        public.classifier_identity_candidates(league,a.title,COALESCE(NULLIF(a.full_text,''),
+            (SELECT s.source->>'body' FROM public.classifier_source_heads h JOIN public.classifier_sources s ON s.id=h.source_id
+             WHERE h.article_id=a.id AND h.sport=league AND s.source->>'url'=a.url),'')),
+        jsonb_agg(jsonb_build_array(p.entity_type,p.entity_id,p.sport,p.feed_rank,t.name)
+            ORDER BY p.entity_type,p.entity_id))::text)
+    FROM public.news_articles a
+    JOIN public.harvester_query_provenance p ON p.article_id=a.id AND p.sport=league
+    LEFT JOIN public.teams t ON p.entity_type='team' AND t.id=p.entity_id AND t.sport=p.sport
+    WHERE a.id=article
+    GROUP BY a.id
+$$;
+
+
+--
+-- Name: classifier_dispatch_delivery(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_dispatch_delivery() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    target_type text;
+    target_id integer;
+    league text;
+    revision text;
+    destination text;
+BEGIN
+    IF NEW.status <> 'pending' OR NOT NEW.production_eligible THEN RETURN NEW; END IF;
+    IF TG_OP = 'UPDATE' THEN
+        IF OLD.status = 'pending' AND OLD.production_eligible
+            AND OLD.policy_version = NEW.policy_version AND OLD.selection IS NOT DISTINCT FROM NEW.selection THEN RETURN NEW; END IF;
+    END IF;
+    destination := CASE NEW.plugin_id
+        WHEN 'scoracle.character.narrative' THEN 'narratives'
+        WHEN 'scoracle.character.vibe' THEN 'vibe'
+        WHEN 'scoracle.character.transfers' THEN 'transfers'
+        WHEN 'scoracle.character.rating' THEN 'rating' END;
+    IF destination IS NULL THEN
+        RAISE EXCEPTION 'Classifier delivery plugin is not wired: %', NEW.plugin_id;
+    END IF;
+    SELECT m.receipt->'target'->>'entity_type', (m.receipt->'target'->>'entity_id')::integer, m.sport
+      INTO target_type,target_id,league FROM public.classifier_measurements m
+      WHERE m.id=NEW.measurement_id AND m.status='source_bound_provisional';
+    IF target_type IS NULL OR (target_type NOT IN ('team','player') AND NOT (destination='transfers' AND target_type='person')) OR target_id IS NULL OR target_id <= 0 THEN
+        RAISE EXCEPTION 'Classifier delivery requires a canonical team/player target';
+    END IF;
+    revision := 'classifier-qualified-claims-v1:' || NEW.policy_version || ':m' || NEW.measurement_id || ':' || md5(COALESCE(NEW.selection::text,''));
+    INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
+    VALUES(destination,target_type,target_id,league,revision)
+    ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET
+        status='pending',attempts=0,input_version=EXCLUDED.input_version,
+        available_at=CASE WHEN pipeline_work.status='pending' THEN pipeline_work.available_at ELSE now() END,
+        updated_at=now(),last_error=NULL,running_input_version=NULL,claim_token=NULL
+    WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version;
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: classifier_enqueue_acquisition(bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_enqueue_acquisition(article bigint, league text) RETURNS boolean
+    LANGUAGE sql
+    AS $$
+    WITH revision AS (SELECT public.classifier_discovery_version(article,league) AS version),
+    queued AS (
+        INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
+        SELECT 'classifier_acquire','article',article,league,version FROM revision
+        WHERE version IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM public.classifier_sources s
+            WHERE s.article_id=article AND s.sport=league AND s.discovery_version=version)
+        AND NOT EXISTS (
+            SELECT 1 FROM public.classifier_acquisitions a
+            WHERE a.article_id=article AND a.sport=league
+            AND a.acquisition_key=public.classifier_acquisition_key(article)
+            AND a.policy_version='article-acquisition-v1' AND a.status='skipped')
+        ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET
+            status='pending',attempts=0,input_version=EXCLUDED.input_version,
+            available_at=CASE WHEN pipeline_work.status='pending' THEN pipeline_work.available_at ELSE now() END,
+            updated_at=now(),last_error=NULL,running_input_version=NULL,claim_token=NULL
+        WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+        RETURNING 1
+    ) SELECT EXISTS(SELECT 1 FROM queued)
+$$;
+
+
+--
+-- Name: classifier_identity_candidates(text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_identity_candidates(league text, headline text, body text) RETURNS jsonb
+    LANGUAGE sql STABLE
+    AS $$
+    WITH input AS MATERIALIZED (
+        SELECT ' '||public.nrm(headline||' '||body)||' ' AS text
+    ), words AS MATERIALIZED (
+        SELECT DISTINCT unnest(string_to_array(input.text,' ')) AS word FROM input
+    ), matching_names AS MATERIALIZED (
+        SELECT s.entity_type,s.entity_id,s.norm FROM public.entity_name_surfaces s
+        JOIN words ON words.word=split_part(s.norm,' ',1) CROSS JOIN input
+        WHERE s.sport=league AND s.surface_kind='name' AND s.norm<>''
+        AND strpos(input.text,' '||s.norm||' ')>0
+    ), unique_names AS (
+        SELECT s.* FROM matching_names s
+        WHERE NOT EXISTS(SELECT 1 FROM public.entity_name_surfaces other
+            WHERE other.sport=league AND other.norm=s.norm
+            AND (other.entity_type,other.entity_id)<>(s.entity_type,s.entity_id))
+    ), candidates AS (
+        SELECT DISTINCT n.entity_type,n.entity_id,COALESCE(t.name,p.name,pp.full_name) AS name
+        FROM unique_names n
+        LEFT JOIN public.teams t ON n.entity_type='team' AND t.id=n.entity_id AND t.sport=league
+        LEFT JOIN public.players p ON n.entity_type='player' AND p.id=n.entity_id AND p.sport=league
+        LEFT JOIN public.persons pp ON n.entity_type='person' AND pp.id=n.entity_id AND pp.sport=league AND pp.kind='coach'
+        WHERE n.norm=public.nrm(COALESCE(t.name,p.name,pp.full_name))
+    ) SELECT COALESCE(jsonb_agg(jsonb_build_object('entity_type',entity_type,'entity_id',entity_id,
+        'sport',league,'name',name,'identity_method','unique_canonical_name_v1')
+        ORDER BY entity_type,entity_id) FILTER(WHERE name IS NOT NULL),'[]'::jsonb) FROM candidates
+$$;
+
+
+--
+-- Name: classifier_replay_acquisition(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_replay_acquisition(batch_limit integer DEFAULT 1000) RETURNS bigint
+    LANGUAGE sql
+    AS $$
+    WITH candidates AS MATERIALIZED (
+        SELECT DISTINCT p.article_id,p.sport FROM public.harvester_query_provenance p
+        JOIN public.news_articles a ON a.id=p.article_id
+        WHERE a.published_at IS NULL OR a.published_at >= now()-interval '48 hours'
+        OR EXISTS (SELECT 1 FROM public.classifier_source_heads h WHERE h.article_id=p.article_id AND h.sport=p.sport)
+    ), missing AS MATERIALIZED (
+        SELECT c.*,public.classifier_discovery_version(c.article_id,c.sport) AS version
+        FROM candidates c WHERE NOT EXISTS (
+            SELECT 1 FROM public.classifier_acquisitions a
+            WHERE a.article_id=c.article_id AND a.sport=c.sport
+            AND a.acquisition_key=public.classifier_acquisition_key(c.article_id)
+            AND a.policy_version='article-acquisition-v1' AND a.status='skipped')
+    ), batch AS MATERIALIZED (
+        SELECT m.article_id,m.sport FROM missing m JOIN public.news_articles a ON a.id=m.article_id
+        WHERE m.version IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM public.classifier_sources s
+            WHERE s.article_id=m.article_id AND s.sport=m.sport AND s.discovery_version=m.version)
+        AND NOT EXISTS (SELECT 1 FROM public.pipeline_work w
+            WHERE w.stage='classifier_acquire' AND w.entity_type='article'
+            AND w.entity_id=m.article_id AND w.sport=m.sport AND w.input_version=m.version)
+        ORDER BY a.published_at DESC NULLS LAST,a.feed_rank ASC NULLS LAST,m.article_id,m.sport
+        LIMIT GREATEST(batch_limit,0)
+    ) SELECT count(*) FILTER (WHERE public.classifier_enqueue_acquisition(article_id,sport)) FROM batch
+$$;
+
+
+--
+-- Name: FUNCTION classifier_replay_acquisition(batch_limit integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.classifier_replay_acquisition(batch_limit integer) IS 'Idempotent retained RSS replay; never resets unchanged active leases or failed attempts.';
+
+
+--
+-- Name: classifier_spectrum_dispatch(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_spectrum_dispatch() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    target_type text;
+    target_id integer;
+    league text;
+    work_stage text;
+    revision text;
+BEGIN
+    IF NEW.status <> 'pending' THEN RETURN NEW; END IF;
+    work_stage := CASE NEW.character
+        WHEN 'journalist' THEN 'narratives'
+        WHEN 'insider' THEN 'transfers'
+        WHEN 'scout' THEN 'rating'
+        WHEN 'influencer' THEN 'vibe'
+        ELSE NULL END;
+    IF work_stage IS NULL THEN
+        RAISE EXCEPTION 'Classifier spectrum character is not wired: %', NEW.character;
+    END IF;
+    SELECT x.target->>'entity_type', (x.target->>'entity_id')::integer, x.sport
+      INTO target_type, target_id, league
+      FROM public.classifier_spectra x WHERE x.id = NEW.spectrum_id;
+    IF target_type IS NULL OR target_type NOT IN ('team','player') OR target_id IS NULL OR target_id <= 0 THEN
+        RAISE EXCEPTION 'Classifier spectrum delivery requires a canonical team/player target';
+    END IF;
+    revision := 'classifier-spectrum-v1:' || NEW.character || ':s' || NEW.spectrum_id;
+    INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
+    VALUES(work_stage,target_type,target_id,league,revision)
+    ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET
+        status='pending',attempts=0,input_version=EXCLUDED.input_version,
+        available_at=CASE WHEN pipeline_work.status='pending' THEN pipeline_work.available_at ELSE now() END,
+        updated_at=now(),last_error=NULL,running_input_version=NULL,claim_token=NULL
+    WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version;
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: collapse_exact_title_duplicates(interval, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2183,6 +2423,286 @@ CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_subject_id int
         END,
         COALESCE((SELECT array_agg(item_id::bigint) FROM corpus WHERE kind='news'), '{}')
     FROM fin;
+$$;
+
+
+--
+-- Name: coverage_claimable(text, text, bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_claimable(task text, subject_type text, subject_id bigint, league text) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT NOT s.enabled OR CASE s.phase
+        WHEN 'coverage' THEN NOT public.coverage_is_character(task)
+        WHEN 'draining' THEN task = 'classifier' AND clock_timestamp() < e.drain_deadline
+        WHEN 'characters' THEN clock_timestamp() < e.character_deadline AND EXISTS (
+            SELECT 1 FROM public.coverage_assignments a
+            WHERE a.edition_date=s.edition_date AND a.stage=task
+              AND a.entity_type=subject_type AND a.entity_id=subject_id AND a.sport=league
+              AND a.outcome='pending'
+        ) AND NOT EXISTS (
+            SELECT 1 FROM public.coverage_assignments upstream
+            WHERE upstream.edition_date=s.edition_date AND upstream.entity_type=subject_type
+              AND upstream.entity_id=subject_id AND upstream.sport=league
+              AND upstream.outcome<>'completed' AND upstream.stage=ANY(CASE task
+                  WHEN 'momentum' THEN ARRAY['rating','vibe']
+                  WHEN 'sigil' THEN ARRAY['narratives','rating','vibe','momentum','transfers']
+                  ELSE ARRAY[]::text[] END)
+        ) ELSE false END
+    FROM public.coverage_schedule s
+    LEFT JOIN public.coverage_editions e USING (edition_date)
+$$;
+
+
+--
+-- Name: coverage_completed(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_completed() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF OLD.status='running' THEN
+        UPDATE public.coverage_assignments a SET outcome='completed',finished_at=clock_timestamp()
+        FROM public.coverage_schedule s
+        WHERE s.enabled AND s.phase='characters' AND a.edition_date=s.edition_date
+          AND a.stage=OLD.stage AND a.entity_type=OLD.entity_type AND a.entity_id=OLD.entity_id
+          AND a.sport=OLD.sport AND a.input_version IS NOT DISTINCT FROM OLD.running_input_version
+          AND a.outcome='pending';
+    END IF;
+    RETURN OLD;
+END;
+$$;
+
+
+--
+-- Name: coverage_is_character(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_is_character(task text) RETURNS boolean
+    LANGUAGE sql IMMUTABLE PARALLEL SAFE
+    AS $$
+    SELECT task IN ('narratives','vibe','rating','transfers','momentum','sigil')
+$$;
+
+
+--
+-- Name: coverage_lock(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_lock() RETURNS void
+    LANGUAGE sql
+    AS $$
+    SELECT pg_advisory_xact_lock_shared(1935896421, 1)
+$$;
+
+
+--
+-- Name: coverage_offer(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_offer() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE s public.coverage_schedule;
+BEGIN
+    PERFORM public.coverage_lock();
+    SELECT * INTO s FROM public.coverage_schedule;
+    IF s.enabled AND s.phase='characters' AND public.coverage_is_character(NEW.stage) THEN
+        UPDATE public.coverage_assignments SET deferred_versions = CASE
+            WHEN NEW.input_version IS NULL OR NEW.input_version=ANY(deferred_versions)
+                THEN deferred_versions ELSE array_append(deferred_versions,NEW.input_version) END
+        WHERE edition_date=s.edition_date AND stage=NEW.stage AND entity_type=NEW.entity_type
+          AND entity_id=NEW.entity_id AND sport=NEW.sport;
+        -- Required handoffs must not replace or reopen a frozen assignment.
+        IF FOUND THEN RETURN NULL; END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: coverage_publishable(text, text, bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_publishable(task text, subject_type text, subject_id bigint, league text) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT NOT s.enabled OR CASE
+        WHEN public.coverage_is_character(task) THEN
+            s.phase='characters' AND clock_timestamp() < e.character_deadline AND EXISTS (
+                SELECT 1 FROM public.coverage_assignments a
+                WHERE a.edition_date=s.edition_date AND a.stage=task
+                  AND a.entity_type=subject_type AND a.entity_id=subject_id AND a.sport=league
+                  AND a.outcome='pending')
+        ELSE s.phase='coverage' OR (s.phase='draining' AND clock_timestamp() < e.drain_deadline)
+        END
+    FROM public.coverage_schedule s
+    LEFT JOIN public.coverage_editions e USING (edition_date)
+$$;
+
+
+--
+-- Name: coverage_spectrum_selected(text, text, bigint, text, bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_spectrum_selected(character_name text, subject_type text, subject_id bigint, league text, spectrum_id bigint) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT NOT s.enabled OR s.phase<>'characters' OR EXISTS (
+        SELECT 1 FROM public.coverage_assignments a
+        WHERE a.edition_date=s.edition_date AND a.stage=CASE character_name
+            WHEN 'journalist' THEN 'narratives' WHEN 'influencer' THEN 'vibe'
+            WHEN 'scout' THEN 'rating' WHEN 'insider' THEN 'transfers' END
+          AND a.entity_type=subject_type AND a.entity_id=subject_id AND a.sport=league
+          AND spectrum_id=ANY(a.spectrum_ids))
+    FROM public.coverage_schedule s
+$$;
+
+
+--
+-- Name: coverage_stage_open(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_stage_open(task text) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT NOT s.enabled OR CASE s.phase
+        WHEN 'coverage' THEN NOT public.coverage_is_character(task)
+        WHEN 'draining' THEN task='classifier' AND clock_timestamp()<e.drain_deadline
+        WHEN 'characters' THEN public.coverage_is_character(task) AND clock_timestamp()<e.character_deadline
+        ELSE false END
+    FROM public.coverage_schedule s LEFT JOIN public.coverage_editions e USING (edition_date)
+$$;
+
+
+--
+-- Name: coverage_tick(timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_tick(at_time timestamp with time zone DEFAULT clock_timestamp()) RETURNS text
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    s public.coverage_schedule;
+    e public.coverage_editions;
+    local_day date;
+    boundary timestamptz;
+    deadline boolean;
+BEGIN
+    PERFORM pg_advisory_xact_lock(1935896421,1);
+    SELECT * INTO s FROM public.coverage_schedule FOR UPDATE;
+    IF NOT s.enabled THEN RETURN 'disabled'; END IF;
+    UPDATE public.coverage_schedule SET last_tick_at=at_time;
+    IF s.phase='coverage' THEN
+        local_day := (at_time AT TIME ZONE s.timezone)::date;
+        boundary := (local_day+s.cutoff) AT TIME ZONE s.timezone;
+        IF boundary > at_time THEN
+            local_day := local_day-1;
+            boundary := (local_day+s.cutoff) AT TIME ZONE s.timezone;
+        END IF;
+        IF boundary < s.enrolled_at OR EXISTS (
+            SELECT 1 FROM public.coverage_editions WHERE edition_date=local_day
+        ) THEN RETURN 'coverage'; END IF;
+        -- A long outage records a partial edition instead of starting an obsolete night.
+        IF at_time >= boundary+s.drain_limit+s.character_limit THEN
+            INSERT INTO public.coverage_editions
+                (edition_date,cutoff_at,drain_deadline,finished_at,status,reason)
+            VALUES (local_day,boundary,boundary+s.drain_limit,at_time,'partial','controller_missed_window');
+            RETURN 'coverage';
+        END IF;
+        INSERT INTO public.coverage_editions(edition_date,cutoff_at,drain_deadline,status)
+        VALUES(local_day,boundary,boundary+s.drain_limit,'draining');
+        UPDATE public.coverage_schedule SET phase='draining',edition_date=local_day,updated_at=at_time;
+        RETURN 'draining';
+    END IF;
+
+    SELECT * INTO STRICT e FROM public.coverage_editions WHERE edition_date=s.edition_date FOR UPDATE;
+    IF s.phase='draining' THEN
+        IF at_time >= e.cutoff_at+s.drain_limit+s.character_limit THEN
+            UPDATE public.pipeline_work SET status='pending',claim_token=NULL,running_input_version=NULL,
+                updated_at=at_time WHERE status='running';
+            UPDATE public.coverage_editions SET status='partial',finished_at=at_time,
+                reason='controller_missed_window' WHERE edition_date=e.edition_date;
+            UPDATE public.coverage_schedule SET phase='coverage',edition_date=NULL,updated_at=at_time;
+            PERFORM pg_notify('pipeline_work_ready','coverage:open');
+            RETURN 'coverage';
+        END IF;
+        IF at_time < e.drain_deadline AND EXISTS (
+            SELECT 1 FROM public.pipeline_work WHERE
+                (stage='classifier_acquire' AND status='running') OR
+                (stage='classifier' AND (status='running' OR
+                    (status IN ('pending','failed') AND attempts<5 AND available_at<=at_time)))
+        ) THEN RETURN 'draining'; END IF;
+        -- Publication holds the shared transition lock. Anything left now loses its lease.
+        UPDATE public.pipeline_work SET status='pending',claim_token=NULL,running_input_version=NULL,
+            updated_at=at_time
+        WHERE status='running';
+        INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
+        SELECT DISTINCT downstream,w.entity_type,w.entity_id,w.sport,
+            CASE WHEN downstream='transfers' THEN 'classifier-spectrum-v1:daily:'||e.edition_date
+                 WHEN downstream='rating' THEN 'daily-rating:'||e.edition_date
+                 ELSE 'coverage:'||e.edition_date END
+        FROM public.pipeline_work w CROSS JOIN
+            unnest(ARRAY['narratives','vibe','rating','transfers','momentum','sigil']) downstream
+        WHERE public.coverage_is_character(w.stage) AND w.entity_type IN ('team','player')
+        ON CONFLICT(stage,entity_type,entity_id,sport) DO NOTHING;
+        UPDATE public.pipeline_work SET status='pending',attempts=0,available_at=clock_timestamp(),
+            claim_token=NULL,running_input_version=NULL,last_error=NULL,updated_at=at_time
+        WHERE public.coverage_is_character(stage);
+        INSERT INTO public.coverage_assignments(edition_date,stage,entity_type,entity_id,sport,input_version,spectrum_ids)
+        SELECT e.edition_date,w.stage,w.entity_type,w.entity_id,w.sport,w.input_version,
+            COALESCE((SELECT array_agg(x.id ORDER BY x.id) FROM public.classifier_spectrum_deliveries d
+                JOIN public.classifier_spectra x ON x.id=d.spectrum_id
+                WHERE d.status='pending' AND x.sport=w.sport
+                  AND x.target->>'entity_type'=w.entity_type
+                  AND x.target->>'entity_id'=w.entity_id::text
+                  AND d.character=CASE w.stage WHEN 'narratives' THEN 'journalist'
+                    WHEN 'vibe' THEN 'influencer' WHEN 'rating' THEN 'scout'
+                    WHEN 'transfers' THEN 'insider' END),'{}'::bigint[])
+        FROM public.pipeline_work w WHERE public.coverage_is_character(w.stage);
+        UPDATE public.coverage_editions SET status='characters',frozen_at=at_time,
+            character_deadline=LEAST(at_time+s.character_limit,e.cutoff_at+s.drain_limit+s.character_limit)
+        WHERE edition_date=e.edition_date;
+        UPDATE public.coverage_schedule SET phase='characters',updated_at=at_time;
+        PERFORM pg_notify('pipeline_work_ready','coverage:characters');
+        RETURN 'characters';
+    END IF;
+
+    UPDATE public.coverage_assignments a SET outcome='failed',finished_at=at_time,detail=w.last_error
+    FROM public.pipeline_work w
+    WHERE a.edition_date=e.edition_date AND a.outcome='pending' AND w.stage=a.stage
+      AND w.entity_type=a.entity_type AND w.entity_id=a.entity_id AND w.sport=a.sport
+      AND w.status='failed' AND w.attempts>=5;
+    deadline := at_time >= e.character_deadline;
+    IF NOT deadline AND (EXISTS (SELECT 1 FROM public.coverage_assignments
+            WHERE edition_date=e.edition_date AND outcome='pending') OR
+        EXISTS (SELECT 1 FROM public.application_outbox WHERE edition_date=e.edition_date)) THEN RETURN 'characters'; END IF;
+    UPDATE public.coverage_assignments SET outcome='expired',finished_at=at_time,detail='character_deadline'
+    WHERE edition_date=e.edition_date AND outcome='pending';
+    UPDATE public.pipeline_work w SET status='pending',claim_token=NULL,running_input_version=NULL,
+        updated_at=at_time
+    FROM public.coverage_assignments a
+    WHERE a.edition_date=e.edition_date AND w.stage=a.stage AND w.entity_type=a.entity_type
+      AND w.entity_id=a.entity_id AND w.sport=a.sport AND w.status='running';
+    UPDATE public.coverage_editions SET finished_at=at_time,
+        status=CASE WHEN deadline OR EXISTS (SELECT 1 FROM public.coverage_assignments
+            WHERE edition_date=e.edition_date AND outcome IN ('failed','expired')) THEN 'partial' ELSE 'complete' END,
+        reason=CASE WHEN deadline THEN 'character_deadline' ELSE NULL END
+    WHERE edition_date=e.edition_date;
+    UPDATE public.coverage_schedule SET phase='coverage',edition_date=NULL,updated_at=at_time;
+    INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
+    SELECT stage,entity_type,entity_id,sport,deferred_versions[cardinality(deferred_versions)]
+    FROM public.coverage_assignments WHERE edition_date=e.edition_date
+        AND cardinality(deferred_versions)>0
+    ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET
+        input_version=EXCLUDED.input_version,status='pending',attempts=0,
+        claim_token=NULL,running_input_version=NULL,available_at=clock_timestamp(),updated_at=at_time,last_error=NULL;
+    PERFORM pg_notify('pipeline_work_ready','coverage:open');
+    RETURN 'coverage';
+END;
 $$;
 
 
@@ -2694,6 +3214,41 @@ $$;
 
 
 --
+-- Name: guard_daily_character_publication(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.guard_daily_character_publication() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE task text; saved bigint;
+BEGIN
+    PERFORM public.coverage_lock();
+    IF NOT (SELECT enabled FROM public.coverage_schedule) THEN RETURN NEW; END IF;
+    task:=CASE TG_TABLE_NAME WHEN 'news_summaries' THEN 'narratives' WHEN 'vibe_scores' THEN 'vibe'
+        WHEN 'stat_summaries' THEN 'rating' WHEN 'insider_scores' THEN 'transfers'
+        WHEN 'momentum_summaries' THEN 'momentum' WHEN 'sigil_synthesis' THEN 'sigil' END;
+    IF NOT EXISTS(SELECT 1 FROM public.pipeline_work w WHERE w.stage=task
+        AND w.entity_type=NEW.entity_type AND w.entity_id=NEW.entity_id AND w.sport=NEW.sport
+        AND w.status='running' AND w.claim_token::text=current_setting('scoracle.claim_token',true)) THEN
+        RAISE EXCEPTION 'Daily character publication requires its current queue lease';
+    END IF;
+    IF NOT public.coverage_publishable(task,NEW.entity_type,NEW.entity_id,NEW.sport)
+        OR NEW.reporting_date<>public.character_reporting_date() THEN
+        RAISE EXCEPTION 'Character publication is outside its daily assignment';
+    END IF;
+    INSERT INTO public.character_daily_publications(reporting_date,stage,entity_type,entity_id,sport,publication_txid)
+    VALUES(NEW.reporting_date,task,NEW.entity_type,NEW.entity_id,NEW.sport,txid_current())
+    ON CONFLICT(reporting_date,stage,entity_type,entity_id,sport) DO UPDATE
+        SET publication_txid=EXCLUDED.publication_txid
+        WHERE character_daily_publications.publication_txid=EXCLUDED.publication_txid
+    RETURNING publication_txid INTO saved;
+    IF saved IS NULL THEN RAISE EXCEPTION 'Daily character output already published'; END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: harvester_collapse_exact_title_duplicates(interval, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2855,28 +3410,6 @@ $$;
 
 
 --
--- Name: momentum_week_window(text); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.momentum_week_window(p_sport text) RETURNS integer
-    LANGUAGE sql IMMUTABLE PARALLEL SAFE
-    AS $$
-    SELECT CASE upper(p_sport)
-        WHEN 'NBA' THEN 3
-        WHEN 'NFL' THEN 2
-        ELSE 4
-    END;
-$$;
-
-
---
--- Name: FUNCTION momentum_week_window(p_sport text); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.momentum_week_window(p_sport text) IS 'The momentum rating lookback in REPORTING WEEKS (mig 242): NBA 3 / NFL 2 / FOOTBALL 4 — season_bridge_window''s ~10%-of-season schedule restated on the season_weeks grid. Weeks without events drop out of the window (the mig 130 bye-week rule).';
-
-
---
 -- Name: normalize_pipeline_work_claim(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3020,6 +3553,21 @@ $$;
 --
 
 COMMENT ON FUNCTION public.nrm(t text) IS 'The single name normalizer: lower, unaccent, fold punctuation to spaces, collapse whitespace. Used by entity_name_surfaces, its indexes, and every resolver query. Do NOT reimplement in Rust or Go -- two normalizers that disagree is the failure mode mig 198 exists to avoid.';
+
+
+--
+-- Name: pipeline_record_completion(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.pipeline_record_completion() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    INSERT INTO public.pipeline_stage_progress(stage,completed_at) VALUES(OLD.stage,clock_timestamp())
+    ON CONFLICT(stage) DO UPDATE SET completed_at=EXCLUDED.completed_at;
+    RETURN OLD;
+END;
+$$;
 
 
 --
@@ -3546,95 +4094,6 @@ CREATE FUNCTION public.rating_score(p_value numeric, p_mean numeric, p_sd numeri
     AS $$
     SELECT CASE WHEN p_value IS NULL OR p_sd IS NULL OR p_sd = 0 THEN NULL
                 ELSE ROUND(LEAST(99.0, GREATEST(1.0, 50 + 10.0 * (p_value - p_mean) / p_sd))::numeric, 1) END;
-$$;
-
-
---
--- Name: rebuild_season_weeks(text); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.rebuild_season_weeks(p_sport text) RETURNS integer
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_rows integer := 0;
-    v_clock integer;
-BEGIN
-    SELECT clock_league_id INTO v_clock FROM public.sports WHERE id = p_sport;
-
-    DELETE FROM public.season_weeks WHERE sport = p_sport;
-
-    WITH clock AS (
-        -- The nominated league's own opening day (mig 250). Same >= 30 real-
-        -- population floor as `bound`: a junk cluster never mints a season, and
-        -- a league with a partial fixture import falls through to the old
-        -- rules rather than anchoring the sport on three friendlies.
-        SELECT f.season, MIN(f.start_time) AS opens
-        FROM public.fixtures f
-        WHERE f.sport = p_sport
-          AND v_clock IS NOT NULL
-          AND f.league_id = v_clock
-        GROUP BY f.season
-        HAVING COUNT(*) >= 30
-    ),
-    bound AS (
-        SELECT f.season, MIN(f.start_time) AS opens
-        FROM public.fixtures f
-        WHERE f.sport = p_sport
-          AND EXISTS (SELECT 1 FROM public.entity_external_ids x
-                      WHERE x.entity_type = 'fixture' AND x.entity_id = f.id)
-        GROUP BY f.season
-        HAVING COUNT(*) >= 30
-    ),
-    unbound AS (
-        SELECT f.season, MIN(f.start_time) AS opens
-        FROM public.fixtures f
-        WHERE f.sport = p_sport
-        GROUP BY f.season
-        HAVING COUNT(*) >= 100
-    ),
-    -- Every season any rule can speak for. The FULL OUTER JOIN chain mig 240
-    -- used doesn't extend to a third source without the join keys going
-    -- ambiguous, so the season universe is built once and the three rules are
-    -- LEFT JOINed onto it in priority order.
-    seasons AS (
-        SELECT season FROM clock
-        UNION SELECT season FROM bound
-        UNION SELECT season FROM unbound
-    ),
-    anchors AS (
-        -- The Monday (ET) of the week containing opening day (mig 240),
-        -- where "opening day" is now the CLOCK league's, falling back to the
-        -- schedule-authoritative population and then to all fixtures.
-        SELECT s.season,
-               date_trunc('week',
-                   COALESCE(c.opens, b.opens, u.opens) AT TIME ZONE 'America/New_York')
-                   AT TIME ZONE 'America/New_York' AS opens_at
-        FROM seasons s
-        LEFT JOIN clock   c ON c.season = s.season
-        LEFT JOIN bound   b ON b.season = s.season
-        LEFT JOIN unbound u ON u.season = s.season
-    ),
-    spans AS (
-        SELECT season, opens_at,
-               COALESCE(LEAD(opens_at) OVER (ORDER BY season),
-                        opens_at + interval '53 weeks') AS closes_at
-        FROM anchors
-    ),
-    weeks AS (
-        SELECT s.season,
-               gs.n::integer AS week_no,
-               s.opens_at + (gs.n - 1) * interval '7 days' AS starts_at
-        FROM spans s
-        CROSS JOIN LATERAL generate_series(1, 60) gs(n)
-        WHERE s.opens_at + (gs.n - 1) * interval '7 days' < s.closes_at
-    )
-    INSERT INTO public.season_weeks (sport, season, week_no, starts_at, ends_at)
-    SELECT p_sport, season, week_no, starts_at, starts_at + interval '7 days'
-    FROM weeks;
-    GET DIAGNOSTICS v_rows = ROW_COUNT;
-    RETURN v_rows;
-END;
 $$;
 
 
@@ -4778,132 +5237,36 @@ COMMENT ON FUNCTION public.refresh_entity_name_surfaces() IS 'Full rebuild of en
 CREATE FUNCTION public.refresh_momentum_scores(p_sport text DEFAULT NULL::text) RETURNS integer
     LANGUAGE plpgsql
     AS $$
-DECLARE
-    inserted_count INTEGER;
+DECLARE inserted_count integer;
 BEGIN
-    -- Single-flight: the NOTIFY listener and the catch-up ticker can race a
-    -- drain for the same sport. The loser returns NULL (NOT 0) — the Go drain
-    -- leaves the dirty marker in place on NULL so the refresh is retried,
-    -- never double-appended and never silently lost.
-    IF NOT pg_try_advisory_xact_lock(hashtext('refresh_momentum_scores')) THEN
-        RETURN NULL;
-    END IF;
-
+    IF NOT pg_try_advisory_xact_lock(hashtext('refresh_momentum_scores')) THEN RETURN NULL; END IF;
     WITH target_sports AS (
-        SELECT id AS sport, current_season
-        FROM public.sports
-        WHERE p_sport IS NULL OR id = upper(p_sport)
-    ),
-    -- The vibe window: the current reporting week + its two predecessors (the
-    -- old 21 calendar days, aligned to the grid). Sentiment flows through the
-    -- offseason, so this clock never pauses with the fixture calendar.
-    recent_weeks AS (
-        SELECT sw.sport, sw.season, sw.week_no, sw.starts_at
-        FROM public.season_weeks sw
-        JOIN target_sports ts ON ts.sport = sw.sport
-        WHERE sw.starts_at <= NOW()
-          AND sw.ends_at > NOW() - INTERVAL '21 days'
-    ),
-    vibe_weekly AS (
-        SELECT v.entity_type, v.entity_id, v.sport,
-               rw.starts_at AS wk_start,
-               avg(v.sentiment)::numeric AS wk_avg,
-               count(*)::int AS n,
-               min(v.generated_at) AS wmin,
-               max(v.generated_at) AS wmax
-        FROM public.vibe_scores v
-        JOIN recent_weeks rw
-          ON rw.sport = v.sport AND rw.season = v.week_season AND rw.week_no = v.week_no
-        WHERE v.sentiment IS NOT NULL
-        GROUP BY v.entity_type, v.entity_id, v.sport, rw.starts_at
-    ),
-    vibe AS (
-        SELECT entity_type, entity_id, sport,
-               ((array_agg(wk_avg ORDER BY wk_start DESC))[1]
-                - (array_agg(wk_avg ORDER BY wk_start ASC))[1])::numeric AS vibe_slope,
-               sum(n)::int AS vibe_samples,
-               min(wmin) AS vibe_window_start,
-               max(wmax) AS vibe_window_end
-        FROM vibe_weekly
-        GROUP BY entity_type, entity_id, sport
-        HAVING sum(n) >= 3 AND count(*) >= 2
-    ),
-    -- The rating lookback: the entity's last momentum_week_window(sport)
-    -- reporting weeks WITH events, averaged per week, across (current,
-    -- previous) seasons so the lookback closes at a season's end and resumes
-    -- at the next season's first game.
-    player_week AS (
-        SELECT e.player_id AS entity_id, e.sport, e.season,
-               sw.starts_at AS wk_start,
-               avg(e.rating_pct)::numeric AS wk_avg,
-               count(*)::int AS n,
-               min(f.start_time) AS wmin,
-               max(f.start_time) AS wmax
-        FROM public.event_box_scores e
-        JOIN public.fixtures f ON f.id = e.fixture_id
-        JOIN target_sports ts ON ts.sport = e.sport
-        JOIN public.season_weeks sw
-          ON sw.sport = e.sport AND f.start_time >= sw.starts_at AND f.start_time < sw.ends_at
-        WHERE e.rating_pct IS NOT NULL
-          AND e.season IN (ts.current_season, ts.current_season - 1)
-        GROUP BY e.player_id, e.sport, e.season, sw.starts_at
-    ),
-    player_ranked AS (
-        SELECT pw.*,
-               row_number() OVER (PARTITION BY pw.entity_id, pw.sport ORDER BY pw.wk_start DESC) AS rn
-        FROM player_week pw
-    ),
-    team_week AS (
-        SELECT e.team_id AS entity_id, e.sport, e.season,
-               sw.starts_at AS wk_start,
-               avg(e.rating_pct)::numeric AS wk_avg,
-               count(*)::int AS n,
-               min(f.start_time) AS wmin,
-               max(f.start_time) AS wmax
-        FROM public.event_team_stats e
-        JOIN public.fixtures f ON f.id = e.fixture_id
-        JOIN target_sports ts ON ts.sport = e.sport
-        JOIN public.season_weeks sw
-          ON sw.sport = e.sport AND f.start_time >= sw.starts_at AND f.start_time < sw.ends_at
-        WHERE e.rating_pct IS NOT NULL
-          AND e.season IN (ts.current_season, ts.current_season - 1)
-        GROUP BY e.team_id, e.sport, e.season, sw.starts_at
-    ),
-    team_ranked AS (
-        SELECT tw.*,
-               row_number() OVER (PARTITION BY tw.entity_id, tw.sport ORDER BY tw.wk_start DESC) AS rn
-        FROM team_week tw
-    ),
-    player_rating AS (
-        SELECT 'player'::text AS entity_type, pr.entity_id, pr.sport,
-               max(pr.season) AS season,
-               ((array_agg(pr.wk_avg ORDER BY pr.wk_start DESC))[1]
-                - (array_agg(pr.wk_avg ORDER BY pr.wk_start ASC))[1])::numeric AS rating_slope,
-               sum(pr.n)::int AS rating_samples,
-               min(pr.wmin) AS rating_window_start,
-               max(pr.wmax) AS rating_window_end
-        FROM player_ranked pr
-        WHERE pr.rn <= public.momentum_week_window(pr.sport)
-        GROUP BY pr.entity_id, pr.sport
-        HAVING count(*) >= 2
-    ),
-    team_rating AS (
-        SELECT 'team'::text AS entity_type, tr.entity_id, tr.sport,
-               max(tr.season) AS season,
-               ((array_agg(tr.wk_avg ORDER BY tr.wk_start DESC))[1]
-                - (array_agg(tr.wk_avg ORDER BY tr.wk_start ASC))[1])::numeric AS rating_slope,
-               sum(tr.n)::int AS rating_samples,
-               min(tr.wmin) AS rating_window_start,
-               max(tr.wmax) AS rating_window_end
-        FROM team_ranked tr
-        WHERE tr.rn <= public.momentum_week_window(tr.sport)
-        GROUP BY tr.entity_id, tr.sport
-        HAVING count(*) >= 2
-    ),
-    rating AS (
-        SELECT * FROM player_rating
+        SELECT id AS sport,current_season FROM sports WHERE p_sport IS NULL OR id=upper(p_sport)
+    ), observations AS (
+        SELECT 'rating' rail,s.entity_type,s.entity_id,s.sport,s.id,s.generated_at,s.reporting_date,
+            s.notability::numeric value FROM stat_summaries s JOIN target_sports t ON t.sport=s.sport
         UNION ALL
-        SELECT * FROM team_rating
+        SELECT 'vibe',s.entity_type,s.entity_id,s.sport,s.id,s.generated_at,s.reporting_date,
+            s.sentiment::numeric FROM vibe_scores s JOIN target_sports t ON t.sport=s.sport
+    ), daily AS (
+        SELECT DISTINCT ON(rail,entity_type,entity_id,sport,reporting_date) * FROM observations
+        WHERE generated_at<=now() AND reporting_date >= (now() AT TIME ZONE 'America/Detroit')::date-21
+        ORDER BY rail,entity_type,entity_id,sport,reporting_date,generated_at DESC,id DESC
+    ), ranked AS (
+        SELECT *,row_number() OVER(PARTITION BY rail,entity_type,entity_id,sport ORDER BY reporting_date DESC) rank
+        FROM daily WHERE value IS NOT NULL
+    ), studied AS (
+        SELECT rail,entity_type,entity_id,sport,
+            (array_agg(value ORDER BY reporting_date DESC))[1]-(array_agg(value ORDER BY reporting_date))[1] slope,
+            count(*)::int samples,min(generated_at) window_start,max(generated_at) window_end
+        FROM ranked WHERE rank<=2 GROUP BY rail,entity_type,entity_id,sport HAVING count(*)=2
+    ), vibe AS (
+        SELECT entity_type,entity_id,sport,slope vibe_slope,samples vibe_samples,
+            window_start vibe_window_start,window_end vibe_window_end FROM studied WHERE rail='vibe'
+    ), rating AS (
+        SELECT s.entity_type,s.entity_id,s.sport,t.current_season season,s.slope rating_slope,s.samples rating_samples,
+            s.window_start rating_window_start,s.window_end rating_window_end
+        FROM studied s JOIN target_sports t ON t.sport=s.sport WHERE rail='rating'
     ),
     entity_scores AS (
         SELECT COALESCE(v.entity_type, r.entity_type) AS entity_type,
@@ -5473,51 +5836,6 @@ $$;
 
 
 --
--- Name: restamp_card_weeks(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.restamp_card_weeks() RETURNS integer
-    LANGUAGE plpgsql
-    AS $_$
-DECLARE
-    t text;
-    v_total integer := 0;
-    v_rows integer;
-BEGIN
-    FOREACH t IN ARRAY ARRAY[
-        'news_summaries', 'vibe_scores', 'insider_scores', 'transfer_rumors',
-        'momentum_summaries', 'stat_summaries', 'sigil_synthesis',
-        'rating_history', 'momentum_scores'
-    ] LOOP
-        EXECUTE format($f$
-            UPDATE public.%I x
-               SET week_season = sw.season, week_no = sw.week_no
-              FROM public.season_weeks sw
-             WHERE sw.sport = x.sport
-               AND x.generated_at >= sw.starts_at AND x.generated_at < sw.ends_at
-               AND (x.week_season IS DISTINCT FROM sw.season
-                    OR x.week_no IS DISTINCT FROM sw.week_no)
-        $f$, t);
-        GET DIAGNOSTICS v_rows = ROW_COUNT;
-        v_total := v_total + v_rows;
-        EXECUTE format($f$
-            UPDATE public.%I x
-               SET week_season = NULL, week_no = NULL
-             WHERE x.week_no IS NOT NULL
-               AND NOT EXISTS (
-                   SELECT 1 FROM public.season_weeks sw
-                   WHERE sw.sport = x.sport
-                     AND x.generated_at >= sw.starts_at AND x.generated_at < sw.ends_at)
-        $f$, t);
-        GET DIAGNOSTICS v_rows = ROW_COUNT;
-        v_total := v_total + v_rows;
-    END LOOP;
-    RETURN v_total;
-END;
-$_$;
-
-
---
 -- Name: revert_applied_transfer_identity(bigint, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5636,113 +5954,6 @@ $$;
 --
 
 COMMENT ON FUNCTION public.seal_storylines(p_sport text) IS 'Nightly ground-truth resolve for storylines (mig 219; successor to seal_narrative_threads, mig 181): an open storyline with a transfer-flavored member and an applied ground-truth move since it opened resolves, and D5 closes every other active part in the same sweep (winner = the move''s player). Returns the number of storylines resolved. Fading needs no SQL: mark_dormant() (14d, worker) takes a quiet storyline out of the candidate set and the open-only memory card. Cron order: seal_storylines -> promote_established_parts.';
-
-
---
--- Name: seal_weeks(text); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.seal_weeks(p_sport text) RETURNS TABLE(closing_enqueued integer, weeks_sealed integer)
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_enqueued integer := 0;
-    v_sealed integer := 0;
-    v_week RECORD;
-BEGIN
-    -- (1) The closing pass: the current week, inside its final six hours, not
-    -- yet passed. One pass per week — closing_enqueued_at is the idempotence key.
-    SELECT sw.season, sw.week_no, sw.starts_at, sw.ends_at
-      INTO v_week
-      FROM public.season_weeks sw
-     WHERE sw.sport = p_sport
-       AND NOW() >= sw.ends_at - interval '6 hours'
-       AND NOW() < sw.ends_at
-       AND NOT EXISTS (
-           SELECT 1 FROM public.week_seals ws
-           WHERE ws.sport = p_sport AND ws.week_season = sw.season
-             AND ws.week_no = sw.week_no AND ws.closing_enqueued_at IS NOT NULL)
-     LIMIT 1;
-
-    IF FOUND THEN
-        WITH seats AS (
-            -- Every (stage, entity) that generated inside the closing week. The
-            -- stage names mirror the seat→table map the archive uses.
-            SELECT 'narratives' AS stage, entity_type, entity_id FROM public.news_summaries
-             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
-            UNION
-            SELECT 'vibe', entity_type, entity_id FROM public.vibe_scores
-             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
-            UNION
-            SELECT 'transfers', entity_type, entity_id FROM public.insider_scores
-             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
-            UNION
-            SELECT 'momentum', entity_type, entity_id FROM public.momentum_summaries
-             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
-            UNION
-            SELECT 'sigil', entity_type, entity_id FROM public.sigil_synthesis
-             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
-            UNION
-            SELECT 'rating', entity_type, entity_id FROM public.stat_summaries
-             WHERE sport = p_sport AND week_season = v_week.season AND week_no = v_week.week_no
-        ),
-        enq AS (
-            INSERT INTO public.pipeline_work
-                (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
-            SELECT s.stage, s.entity_type, s.entity_id, p_sport, 'pending',
-                   'seal:' || v_week.season || '-' || v_week.week_no, NOW(), NOW()
-              FROM seats s
-             WHERE s.entity_type IN ('player', 'team')
-            ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
-                status        = 'pending',
-                attempts      = 0,
-                available_at  = CASE WHEN public.pipeline_work.status = 'pending'
-                                     THEN public.pipeline_work.available_at
-                                     ELSE NOW() END,
-                updated_at    = NOW(),
-                last_error    = NULL,
-                input_version = EXCLUDED.input_version
-            WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
-               OR public.pipeline_work.status = 'failed'
-            RETURNING entity_id
-        )
-        SELECT COUNT(*)::integer INTO v_enqueued FROM enq;
-
-        INSERT INTO public.week_seals (sport, week_season, week_no, closing_enqueued_at, entities_resealed)
-        VALUES (p_sport, v_week.season, v_week.week_no, NOW(), v_enqueued)
-        ON CONFLICT (sport, week_season, week_no) DO UPDATE SET
-            closing_enqueued_at = COALESCE(public.week_seals.closing_enqueued_at, NOW()),
-            entities_resealed   = EXCLUDED.entities_resealed;
-
-        IF v_enqueued > 0 THEN
-            PERFORM pg_notify('pipeline_work_ready', '');
-        END IF;
-    END IF;
-
-    -- (2) The boundary: every fully-elapsed week seals. History and empty weeks
-    -- included — closed is closed.
-    WITH sealed AS (
-        INSERT INTO public.week_seals (sport, week_season, week_no, sealed_at)
-        SELECT sw.sport, sw.season, sw.week_no, NOW()
-          FROM public.season_weeks sw
-         WHERE sw.sport = p_sport AND sw.ends_at <= NOW()
-        ON CONFLICT (sport, week_season, week_no) DO UPDATE SET
-            sealed_at = COALESCE(public.week_seals.sealed_at, NOW())
-        WHERE public.week_seals.sealed_at IS NULL
-        RETURNING 1
-    )
-    SELECT COUNT(*)::integer INTO v_sealed FROM sealed;
-
-    RETURN QUERY SELECT v_enqueued, v_sealed;
-END;
-$$;
-
-
---
--- Name: FUNCTION seal_weeks(p_sport text); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.seal_weeks(p_sport text) IS 'The B3 seal, hourly from the Desk: inside a week''s final 6 hours, re-enqueue every seat that generated that week (seal:SEASON-WK input_version; content debounce skips the unchanged); at the boundary, stamp sealed_at for every elapsed week. Idempotent on both phases.';
 
 
 --
@@ -5899,17 +6110,26 @@ COMMENT ON FUNCTION public.source_reliability_for_pair(p_sport text, p_player_id
 
 
 --
--- Name: stamp_card_week(); Type: FUNCTION; Schema: public; Owner: -
+-- Name: stamp_card_day(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.stamp_card_week() RETURNS trigger
+CREATE FUNCTION public.stamp_card_day() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
+DECLARE cutoff_at timestamptz;
 BEGIN
-    IF NEW.week_no IS NULL THEN
-        SELECT w.week_season, w.week_no INTO NEW.week_season, NEW.week_no
-        FROM public.week_of(NEW.sport, COALESCE(NEW.generated_at, NOW())) w;
+    IF NEW.reporting_date IS NULL THEN
+        IF to_jsonb(NEW)->>'reporting_start' IS NOT NULL THEN
+            NEW.reporting_date:=((to_jsonb(NEW)->>'reporting_start')::timestamptz AT TIME ZONE 'America/Detroit')::date;
+        ELSE
+            SELECT e.cutoff_at INTO cutoff_at FROM public.coverage_schedule s
+            JOIN public.coverage_editions e USING(edition_date) WHERE s.enabled AND s.phase='characters';
+            NEW.reporting_date:=COALESCE((cutoff_at AT TIME ZONE 'America/Detroit')::date-1,
+                (NEW.generated_at AT TIME ZONE 'America/Detroit')::date);
+        END IF;
     END IF;
+    NEW.week_season:=NULL;
+    NEW.week_no:=NULL;
     RETURN NEW;
 END;
 $$;
@@ -6194,21 +6414,6 @@ CREATE FUNCTION public.upsert_fixture(p_external_id integer, p_sport text, p_lea
         seed_delay_hours = EXCLUDED.seed_delay_hours,
         updated_at = NOW()
     RETURNING id;
-$$;
-
-
---
--- Name: week_of(text, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.week_of(p_sport text, p_ts timestamp with time zone) RETURNS TABLE(week_season integer, week_no integer)
-    LANGUAGE sql STABLE
-    AS $$
-    SELECT sw.season, sw.week_no
-    FROM public.season_weeks sw
-    WHERE sw.sport = p_sport AND p_ts >= sw.starts_at AND p_ts < sw.ends_at
-    ORDER BY sw.season DESC, sw.week_no DESC
-    LIMIT 1;
 $$;
 
 
@@ -7302,6 +7507,7 @@ CREATE TABLE public.application_outbox (
     available_at timestamp with time zone DEFAULT now() NOT NULL,
     last_error text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    edition_date date,
     CONSTRAINT application_outbox_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT application_outbox_kind_stage_check CHECK ((((kind = 'vibe_completed'::text) AND (source_stage = 'vibe'::text)) OR ((kind = 'momentum_completed'::text) AND (source_stage = 'momentum'::text)) OR ((kind = 'rating_completed'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'rating_debounced'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'narratives_completed'::text) AND (source_stage = 'narratives'::text)) OR ((kind = 'transfer_published'::text) AND (source_stage = 'transfers'::text)) OR ((kind = 'transfer_identity_applied'::text) AND (source_stage = 'transfers'::text))))
 );
@@ -7440,6 +7646,260 @@ COMMENT ON TABLE public.candidate_mentions IS 'One row per candidate/article wit
 
 
 --
+-- Name: character_daily_publications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.character_daily_publications (
+    reporting_date date NOT NULL,
+    stage text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id bigint NOT NULL,
+    sport text NOT NULL,
+    publication_txid bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL
+);
+
+
+--
+-- Name: classifier_acquisitions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.classifier_acquisitions (
+    id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    acquisition_key text NOT NULL,
+    discovery_version text NOT NULL,
+    policy_version text NOT NULL,
+    status text NOT NULL,
+    reason text NOT NULL,
+    receipt jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT classifier_acquisitions_status_check CHECK ((status = ANY (ARRAY['acquired'::text, 'skipped'::text, 'retryable_error'::text])))
+);
+
+
+--
+-- Name: TABLE classifier_acquisitions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.classifier_acquisitions IS 'Claim-fenced acquisition outcomes; skipped is unknown evidence, never a negative Classifier score.';
+
+
+--
+-- Name: classifier_acquisitions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.classifier_acquisitions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.classifier_acquisitions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: classifier_deliveries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.classifier_deliveries (
+    measurement_id bigint NOT NULL,
+    plugin_id text NOT NULL,
+    policy_version text NOT NULL,
+    status text DEFAULT 'held'::text NOT NULL,
+    reason text,
+    production_eligible boolean DEFAULT false NOT NULL,
+    product_ref jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    selection jsonb,
+    CONSTRAINT classifier_deliveries_check CHECK (((status <> ALL (ARRAY['pending'::text, 'used'::text, 'abstained'::text, 'redundant'::text])) OR production_eligible)),
+    CONSTRAINT classifier_deliveries_status_check CHECK ((status = ANY (ARRAY['held'::text, 'pending'::text, 'used'::text, 'abstained'::text, 'redundant'::text, 'superseded'::text]))),
+    CONSTRAINT classifier_scout_selection CHECK (((plugin_id <> 'scoracle.character.rating'::text) OR (NOT production_eligible) OR (status = ANY (ARRAY['held'::text, 'superseded'::text])) OR COALESCE(((jsonb_typeof(selection) = 'object'::text) AND ((selection ->> 'kind'::text) = ANY (ARRAY['performance'::text, 'roster'::text, 'availability'::text]))), false)))
+);
+
+
+--
+-- Name: TABLE classifier_deliveries; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.classifier_deliveries IS 'Versioned native character obligations; measurement scores never implicitly release unassessed evidence.';
+
+
+--
+-- Name: classifier_measurements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.classifier_measurements (
+    id bigint NOT NULL,
+    source_id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    request_hash text NOT NULL,
+    status text NOT NULL,
+    receipt jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT classifier_measurements_check CHECK (((receipt ->> 'status'::text) = status)),
+    CONSTRAINT classifier_measurements_receipt_check CHECK ((((receipt ->> 'production_eligible'::text))::boolean = false)),
+    CONSTRAINT classifier_measurements_status_check CHECK ((status = ANY (ARRAY['source_bound_provisional'::text, 'error'::text])))
+);
+
+
+--
+-- Name: TABLE classifier_measurements; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.classifier_measurements IS 'Immutable model requests, replies, source-bound claims and failures; calibration is separate.';
+
+
+--
+-- Name: classifier_measurements_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.classifier_measurements ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.classifier_measurements_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: classifier_source_heads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.classifier_source_heads (
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    source_id bigint NOT NULL
+);
+
+
+--
+-- Name: classifier_sources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.classifier_sources (
+    id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    input_hash text NOT NULL,
+    body_sha256 text NOT NULL,
+    source jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    discovery_version text,
+    identity_hash text DEFAULT ''::text NOT NULL
+);
+
+
+--
+-- Name: TABLE classifier_sources; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.classifier_sources IS 'Complete native publisher-source snapshots, independent of model admission.';
+
+
+--
+-- Name: classifier_sources_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.classifier_sources ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.classifier_sources_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: classifier_spectra; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.classifier_spectra (
+    id bigint NOT NULL,
+    source_id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    target jsonb NOT NULL,
+    model text NOT NULL,
+    criteria_version text NOT NULL,
+    scrub_version text NOT NULL,
+    clean_text text NOT NULL,
+    clean_sha256 text NOT NULL,
+    spectrum jsonb NOT NULL,
+    gate jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    request_hash text DEFAULT ''::text NOT NULL,
+    receipt jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+--
+-- Name: TABLE classifier_spectra; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.classifier_spectra IS 'Immutable source-bound native measurements. v6 scores each RSS subject with canonical metadata; historical article spectra remain retained.';
+
+
+--
+-- Name: classifier_spectra_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.classifier_spectra ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.classifier_spectra_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: classifier_spectrum_deliveries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.classifier_spectrum_deliveries (
+    id bigint NOT NULL,
+    spectrum_id bigint NOT NULL,
+    "character" text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    reason text,
+    product_ref jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT classifier_spectrum_deliveries_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'used'::text, 'abstained'::text, 'superseded'::text, 'held'::text, 'redundant'::text])))
+);
+
+
+--
+-- Name: TABLE classifier_spectrum_deliveries; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.classifier_spectrum_deliveries IS 'Character obligations projected from a spectrum gate; the spectrum row remains authoritative.';
+
+
+--
+-- Name: classifier_spectrum_deliveries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.classifier_spectrum_deliveries ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.classifier_spectrum_deliveries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: cognition_ledger; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7534,6 +7994,72 @@ CREATE SEQUENCE public.cognition_ledger_id_seq
 --
 
 ALTER SEQUENCE public.cognition_ledger_id_seq OWNED BY public.cognition_ledger.id;
+
+
+--
+-- Name: coverage_assignments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.coverage_assignments (
+    edition_date date NOT NULL,
+    stage text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id bigint NOT NULL,
+    sport text NOT NULL,
+    input_version text,
+    spectrum_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    deferred_versions text[] DEFAULT '{}'::text[] NOT NULL,
+    outcome text DEFAULT 'pending'::text NOT NULL,
+    finished_at timestamp with time zone,
+    detail text,
+    prepared_input jsonb,
+    CONSTRAINT coverage_assignments_outcome_check CHECK ((outcome = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'expired'::text]))),
+    CONSTRAINT coverage_assignments_stage_check CHECK ((stage = ANY (ARRAY['narratives'::text, 'vibe'::text, 'rating'::text, 'transfers'::text, 'momentum'::text, 'sigil'::text])))
+);
+
+
+--
+-- Name: coverage_editions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.coverage_editions (
+    edition_date date NOT NULL,
+    cutoff_at timestamp with time zone NOT NULL,
+    drain_deadline timestamp with time zone NOT NULL,
+    frozen_at timestamp with time zone,
+    character_deadline timestamp with time zone,
+    finished_at timestamp with time zone,
+    status text NOT NULL,
+    reason text,
+    CONSTRAINT coverage_editions_check CHECK ((drain_deadline > cutoff_at)),
+    CONSTRAINT coverage_editions_status_check CHECK ((status = ANY (ARRAY['draining'::text, 'characters'::text, 'complete'::text, 'partial'::text])))
+);
+
+
+--
+-- Name: coverage_schedule; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.coverage_schedule (
+    singleton boolean DEFAULT true NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    enrolled_at timestamp with time zone,
+    timezone text DEFAULT 'America/Detroit'::text NOT NULL,
+    cutoff time without time zone DEFAULT '00:00:00'::time without time zone NOT NULL,
+    drain_limit interval DEFAULT '00:15:00'::interval NOT NULL,
+    character_limit interval DEFAULT '06:00:00'::interval NOT NULL,
+    phase text DEFAULT 'coverage'::text NOT NULL,
+    edition_date date,
+    last_tick_at timestamp with time zone,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT coverage_schedule_character_limit_check CHECK ((character_limit > '00:00:00'::interval)),
+    CONSTRAINT coverage_schedule_check CHECK (((NOT enabled) OR (enrolled_at IS NOT NULL))),
+    CONSTRAINT coverage_schedule_check1 CHECK (((phase = 'coverage'::text) = (edition_date IS NULL))),
+    CONSTRAINT coverage_schedule_drain_limit_check CHECK ((drain_limit > '00:00:00'::interval)),
+    CONSTRAINT coverage_schedule_phase_check CHECK ((phase = ANY (ARRAY['coverage'::text, 'draining'::text, 'characters'::text]))),
+    CONSTRAINT coverage_schedule_singleton_check CHECK (singleton),
+    CONSTRAINT coverage_schedule_timezone_check CHECK ((timezone = 'America/Detroit'::text))
+);
 
 
 --
@@ -8582,6 +9108,7 @@ CREATE TABLE public.insider_scores (
     headline text,
     week_season integer,
     week_no integer,
+    reporting_date date NOT NULL,
     CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 99)))),
     CONSTRAINT insider_scores_score_check CHECK (((score >= 1) AND (score <= 99)))
@@ -8763,6 +9290,7 @@ CREATE TABLE public.momentum_scores (
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     week_season integer,
     week_no integer,
+    reporting_date date NOT NULL,
     CONSTRAINT momentum_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
 );
 
@@ -8884,6 +9412,7 @@ CREATE TABLE public.momentum_summaries (
     headline text,
     week_season integer,
     week_no integer,
+    reporting_date date NOT NULL,
     CONSTRAINT momentum_summaries_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text])))),
     CONSTRAINT momentum_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT momentum_summaries_score_check CHECK (((score IS NULL) OR ((score >= '-5'::integer) AND (score <= 5))))
@@ -9165,6 +9694,7 @@ CREATE TABLE public.news_article_entities (
     entity_id integer NOT NULL,
     sport text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    classifier_source_id bigint,
     CONSTRAINT news_article_entities_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))
 );
 
@@ -9173,7 +9703,7 @@ CREATE TABLE public.news_article_entities (
 -- Name: TABLE news_article_entities; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.news_article_entities IS 'Authoritative article/entity links. Editor historically cleared and rewrote its resolved links. Harvester now replaces each article/sport link set with only unique canonical-name links grounded in the retained publisher headline or opening, with body/offset provenance in harvester_resolved_links. Google query provenance and Laya decisions are not links.';
+COMMENT ON TABLE public.news_article_entities IS 'Canonical article/entity mentions. Classifier acquisition replaces each article/sport set with unique current canonical-name matches over complete retained publisher text. classifier_source_id owns the immutable source and identity evidence. RSS candidates, model signals, roles, transfers and other event claims are not identity links. Historical pre-Classifier links remain provenance-null until reacquired.';
 
 
 --
@@ -9295,11 +9825,12 @@ CREATE TABLE public.news_summaries (
     headline text,
     week_season integer,
     week_no integer,
+    reporting_date date NOT NULL,
     CONSTRAINT news_summaries_card_score_check CHECK (((card_score IS NULL) OR ((card_score >= 1) AND (card_score <= 99)))),
     CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
     CONSTRAINT news_summaries_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
-    CONSTRAINT news_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text])))
+    CONSTRAINT news_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text, 'classifier'::text])))
 );
 
 
@@ -9731,6 +10262,16 @@ CREATE VIEW public.pipeline_runs_latest AS
 
 
 --
+-- Name: pipeline_stage_progress; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pipeline_stage_progress (
+    stage text NOT NULL,
+    completed_at timestamp with time zone NOT NULL
+);
+
+
+--
 -- Name: pipeline_stats; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9786,7 +10327,8 @@ CREATE TABLE public.pipeline_work (
     input_version text,
     running_input_version text,
     claim_token uuid,
-    CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'fixture'::text, 'candidate'::text]))),
+    CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'fixture'::text, 'candidate'::text, 'person'::text]))),
+    CONSTRAINT pipeline_work_graph_retired CHECK ((stage <> 'graph'::text)),
     CONSTRAINT pipeline_work_running_claim_check CHECK (((status = 'running'::text) = (claim_token IS NOT NULL))),
     CONSTRAINT pipeline_work_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'failed'::text])))
 );
@@ -10105,6 +10647,7 @@ CREATE TABLE public.rating_history (
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     week_season integer,
     week_no integer,
+    reporting_date date NOT NULL,
     CONSTRAINT rating_history_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT rating_history_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['seed'::text, 'in_season'::text, 'season_close'::text, 'recompute'::text, 'manual'::text])))
 );
@@ -10190,7 +10733,7 @@ CREATE TABLE public.season_weeks (
 -- Name: TABLE season_weeks; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.season_weeks IS 'The reporting calendar. Week 1 = the Monday 00:00 ET of the week containing opening day (mig 240), where opening day is the sport''s clock league''s first fixture when it nominates one (sports.clock_league_id, mig 250) and its first fixture overall otherwise; 7-day blocks round-the-year until the next season re-anchors. Derived data — rebuilt nightly by rebuild_season_weeks(); never hand-edited.';
+COMMENT ON TABLE public.season_weeks IS 'Retained historical reporting calendar. Daily outputs do not read or rebuild it. Fixture and NFL week facts remain in their original tables.';
 
 
 --
@@ -10222,6 +10765,7 @@ CREATE TABLE public.sigil_synthesis (
     headline text,
     week_season integer,
     week_no integer,
+    reporting_date date NOT NULL,
     CONSTRAINT sigil_synthesis_convergence_check CHECK (((convergence IS NULL) OR ((convergence >= 1) AND (convergence <= 100)))),
     CONSTRAINT sigil_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT sigil_synthesis_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
@@ -10324,6 +10868,17 @@ CREATE TABLE public.source_performance (
 --
 
 COMMENT ON TABLE public.source_performance IS 'DRIVER (write): refresh_source_performance(), which has NO Rust or Go caller — it is invoked from a psql heredoc in scripts/hosting/cron-narrative-links.sh, cron 45 */6 * * *. That path is invisible to a Rust grep, a Go grep AND a repo grep for the table name. DRIVER (read): source_reliability_for_pair(), called per pair by the Insider (rust/src/junctions/insider/mod.rs). Refresh is DELETE-then-INSERT per sport, so high n_tup_del is normal churn, not deletion of live data.';
+
+
+--
+-- Name: source_url_resolutions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.source_url_resolutions (
+    wrapper_url text NOT NULL,
+    publisher_url text NOT NULL,
+    resolved_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -10461,6 +11016,7 @@ CREATE TABLE public.stat_summaries (
     headline text,
     week_season integer,
     week_no integer,
+    reporting_date date NOT NULL,
     CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
     CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
@@ -10820,12 +11376,13 @@ CREATE TABLE public.transfer_rumors (
     subject_type text DEFAULT 'player'::text NOT NULL,
     week_season integer,
     week_no integer,
+    reporting_date date NOT NULL,
     CONSTRAINT transfer_rumors_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['incoming'::text, 'outgoing'::text, 'unclear'::text])))),
     CONSTRAINT transfer_rumors_heat_check CHECK (((heat IS NULL) OR ((heat >= 0) AND (heat <= 100)))),
     CONSTRAINT transfer_rumors_stage_check CHECK (((stage IS NULL) OR (stage = ANY (ARRAY['speculation'::text, 'concrete_interest'::text, 'advanced_talks'::text, 'here_we_go'::text])))),
     CONSTRAINT transfer_rumors_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'person'::text]))),
     CONSTRAINT transfer_rumors_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
-    CONSTRAINT transfer_rumors_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text, 'harvester'::text])))
+    CONSTRAINT transfer_rumors_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text, 'harvester'::text, 'classifier'::text])))
 );
 
 
@@ -11021,7 +11578,7 @@ CREATE TABLE public.vibe_scores (
     evidence_cutoff timestamp with time zone,
     scoring_version text,
     source_references jsonb,
-    CONSTRAINT vibe_period_card_check CHECK (((scoring_version IS NULL) OR ((sentiment IS NOT NULL) AND (hook IS NOT NULL) AND ((length(btrim(hook)) >= 1) AND (length(btrim(hook)) <= 140)) AND (prompt IS NOT NULL) AND (length(btrim(prompt)) > 0) AND (reporting_start IS NOT NULL) AND (reporting_end IS NOT NULL) AND (reporting_start < reporting_end) AND (evidence_cutoff IS NOT NULL) AND (input_hash IS NOT NULL) AND (week_season IS NOT NULL) AND (week_no IS NOT NULL)))),
+    reporting_date date NOT NULL,
     CONSTRAINT vibe_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT vibe_scores_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 0) AND (sentiment <= 100)))),
     CONSTRAINT vibe_scores_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['milestone'::text, 'manual'::text, 'periodic'::text, 'news_spike'::text])))
@@ -11105,7 +11662,7 @@ CREATE TABLE public.week_seals (
 -- Name: TABLE week_seals; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.week_seals IS 'The culmination ledger (mig 237): one row per closed (sport, week). Written by the Desk''s seal task after it enqueues the wrap-up pass; idempotence key for the hourly check. An empty week seals as a no-op — nothing generated, nothing to close, the week renders empty by design.';
+COMMENT ON TABLE public.week_seals IS 'Retained historical weekly closure receipts. Weekly wrap generation is retired.';
 
 
 --
@@ -11420,7 +11977,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 8tHKYMi7fxTpOOyEqtgGIhed2dCUY5cVESH0wdTH53kFIvkBQ3hMZRP2EKSxu9k
+\unrestrict a26OVrXaedeP4cVhThNmywZcmNZJT5CV09uk1f47kFSHMxhEHhBMEItPtuuc9mc
 
 
 \ir reference-data.sql
@@ -11428,10 +11985,10 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict jj5iJrsBWRwSKEq6QDfHwufMjjdj792Uyb7eq5swtrHE4R43nTFTBqUNwL5Ag55
+\restrict SGi1SpvW8BxRpzGNSzSvcDzpnSX4cy1crerfqczGrVnGoSKhEdewGSdKeJ52EZP
 
--- Dumped from database version 18.6
--- Dumped by pg_dump version 18.6
+-- Dumped from database version 18.6 (Homebrew)
+-- Dumped by pg_dump version 18.6 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -11520,11 +12077,131 @@ ALTER TABLE ONLY public.candidate_mentions
 
 
 --
+-- Name: character_daily_publications character_daily_publications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.character_daily_publications
+    ADD CONSTRAINT character_daily_publications_pkey PRIMARY KEY (reporting_date, stage, entity_type, entity_id, sport);
+
+
+--
+-- Name: classifier_acquisitions classifier_acquisitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_acquisitions
+    ADD CONSTRAINT classifier_acquisitions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: classifier_deliveries classifier_deliveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_deliveries
+    ADD CONSTRAINT classifier_deliveries_pkey PRIMARY KEY (measurement_id, plugin_id);
+
+
+--
+-- Name: classifier_measurements classifier_measurements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_measurements
+    ADD CONSTRAINT classifier_measurements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: classifier_source_heads classifier_source_heads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_source_heads
+    ADD CONSTRAINT classifier_source_heads_pkey PRIMARY KEY (article_id, sport);
+
+
+--
+-- Name: classifier_sources classifier_sources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_sources
+    ADD CONSTRAINT classifier_sources_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: classifier_spectra classifier_spectra_complete_receipt; Type: CHECK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.classifier_spectra
+    ADD CONSTRAINT classifier_spectra_complete_receipt CHECK (COALESCE((((gate ->> 'coverage'::text) = 'complete'::text) AND (COALESCE((receipt #>> '{request,state,article,body}'::text[]), (receipt #>> '{request,state,body}'::text[])) = clean_text) AND ((receipt #>> '{response,model}'::text[]) = model) AND (request_hash <> ''::text)), false)) NOT VALID;
+
+
+--
+-- Name: classifier_spectra classifier_spectra_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_spectra
+    ADD CONSTRAINT classifier_spectra_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: classifier_spectra classifier_spectra_revision_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_spectra
+    ADD CONSTRAINT classifier_spectra_revision_key UNIQUE (source_id, target, model, criteria_version, scrub_version, request_hash);
+
+
+--
+-- Name: classifier_spectrum_deliveries classifier_spectrum_deliveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_spectrum_deliveries
+    ADD CONSTRAINT classifier_spectrum_deliveries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: classifier_spectrum_deliveries classifier_spectrum_deliveries_spectrum_id_character_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_spectrum_deliveries
+    ADD CONSTRAINT classifier_spectrum_deliveries_spectrum_id_character_key UNIQUE (spectrum_id, "character");
+
+
+--
 -- Name: cognition_ledger cognition_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.cognition_ledger
     ADD CONSTRAINT cognition_ledger_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: coverage_assignments coverage_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.coverage_assignments
+    ADD CONSTRAINT coverage_assignments_pkey PRIMARY KEY (edition_date, stage, entity_type, entity_id, sport);
+
+
+--
+-- Name: coverage_editions coverage_editions_cutoff_at_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.coverage_editions
+    ADD CONSTRAINT coverage_editions_cutoff_at_key UNIQUE (cutoff_at);
+
+
+--
+-- Name: coverage_editions coverage_editions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.coverage_editions
+    ADD CONSTRAINT coverage_editions_pkey PRIMARY KEY (edition_date);
+
+
+--
+-- Name: coverage_schedule coverage_schedule_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.coverage_schedule
+    ADD CONSTRAINT coverage_schedule_pkey PRIMARY KEY (singleton);
 
 
 --
@@ -11936,6 +12613,14 @@ ALTER TABLE ONLY public.pipeline_runs
 
 
 --
+-- Name: pipeline_stage_progress pipeline_stage_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pipeline_stage_progress
+    ADD CONSTRAINT pipeline_stage_progress_pkey PRIMARY KEY (stage);
+
+
+--
 -- Name: pipeline_stats pipeline_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12077,6 +12762,14 @@ ALTER TABLE ONLY public.source_documents
 
 ALTER TABLE ONLY public.source_performance
     ADD CONSTRAINT source_performance_pkey PRIMARY KEY (sport, source);
+
+
+--
+-- Name: source_url_resolutions source_url_resolutions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.source_url_resolutions
+    ADD CONSTRAINT source_url_resolutions_pkey PRIMARY KEY (wrapper_url);
 
 
 --
@@ -12264,6 +12957,14 @@ ALTER TABLE ONLY public.vibe_card_attempts
 
 
 --
+-- Name: vibe_scores vibe_daily_card_check; Type: CHECK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.vibe_scores
+    ADD CONSTRAINT vibe_daily_card_check CHECK (((scoring_version IS NULL) OR ((sentiment IS NOT NULL) AND (hook IS NOT NULL) AND ((length(btrim(hook)) >= 1) AND (length(btrim(hook)) <= 140)) AND (prompt IS NOT NULL) AND (length(btrim(prompt)) > 0) AND (input_hash IS NOT NULL) AND (evidence_cutoff IS NOT NULL) AND (reporting_start IS NOT NULL) AND (reporting_end IS NOT NULL) AND (reporting_start = ((reporting_date)::timestamp without time zone AT TIME ZONE 'America/Detroit'::text)) AND (reporting_end = (((reporting_date + 1))::timestamp without time zone AT TIME ZONE 'America/Detroit'::text))))) NOT VALID;
+
+
+--
 -- Name: vibe_scores vibe_scores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12319,6 +13020,62 @@ CREATE UNIQUE INDEX application_outbox_completion_claim_unique ON public.applica
 --
 
 CREATE UNIQUE INDEX application_outbox_transfer_target_unique ON public.application_outbox USING btree (kind, source_stage, source_claim_token, entity_type, entity_id, sport) WHERE (kind = ANY (ARRAY['transfer_published'::text, 'transfer_identity_applied'::text]));
+
+
+--
+-- Name: classifier_acquisition_outcome; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classifier_acquisition_outcome ON public.classifier_acquisitions USING btree (article_id, sport, acquisition_key, policy_version, status);
+
+
+--
+-- Name: classifier_article_identity_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classifier_article_identity_source ON public.news_article_entities USING btree (classifier_source_id) WHERE (classifier_source_id IS NOT NULL);
+
+
+--
+-- Name: classifier_delivery_pending; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classifier_delivery_pending ON public.classifier_deliveries USING btree (plugin_id, measurement_id) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: classifier_measurement_reuse; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classifier_measurement_reuse ON public.classifier_measurements USING btree (article_id, sport, request_hash) WHERE (status = 'source_bound_provisional'::text);
+
+
+--
+-- Name: classifier_source_discovery; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classifier_source_discovery ON public.classifier_sources USING btree (article_id, sport, discovery_version);
+
+
+--
+-- Name: classifier_source_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX classifier_source_identity ON public.classifier_sources USING btree (article_id, sport, input_hash, body_sha256, identity_hash);
+
+
+--
+-- Name: classifier_spectra_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classifier_spectra_target ON public.classifier_spectra USING btree (article_id, sport, target);
+
+
+--
+-- Name: classifier_spectrum_deliveries_pending; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classifier_spectrum_deliveries_pending ON public.classifier_spectrum_deliveries USING btree ("character", status);
 
 
 --
@@ -12616,6 +13373,13 @@ CREATE INDEX idx_fixtures_sport_date ON public.fixtures USING btree (sport, star
 
 
 --
+-- Name: idx_insider_scores_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_insider_scores_day ON public.insider_scores USING btree (sport, reporting_date);
+
+
+--
 -- Name: idx_insider_scores_week; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12651,6 +13415,13 @@ CREATE INDEX idx_leagues_sport ON public.leagues USING btree (sport);
 
 
 --
+-- Name: idx_momentum_scores_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_momentum_scores_day ON public.momentum_scores USING btree (sport, reporting_date);
+
+
+--
 -- Name: idx_momentum_scores_read; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12662,6 +13433,13 @@ CREATE INDEX idx_momentum_scores_read ON public.momentum_scores USING btree (spo
 --
 
 CREATE INDEX idx_momentum_scores_week ON public.momentum_scores USING btree (sport, week_season, week_no);
+
+
+--
+-- Name: idx_momentum_summaries_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_momentum_summaries_day ON public.momentum_summaries USING btree (sport, reporting_date);
 
 
 --
@@ -12837,6 +13615,13 @@ CREATE INDEX idx_news_entities_by_article ON public.news_article_entities USING 
 --
 
 CREATE INDEX idx_news_entities_lookup_created ON public.news_article_entities USING btree (entity_type, entity_id, sport, created_at);
+
+
+--
+-- Name: idx_news_summaries_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_summaries_day ON public.news_summaries USING btree (sport, reporting_date);
 
 
 --
@@ -13057,6 +13842,13 @@ CREATE INDEX idx_provider_seasons_lookup ON public.provider_seasons USING btree 
 
 
 --
+-- Name: idx_rating_history_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_rating_history_day ON public.rating_history USING btree (sport, reporting_date);
+
+
+--
 -- Name: idx_rating_history_entity_recent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13075,6 +13867,13 @@ CREATE INDEX idx_rating_history_week ON public.rating_history USING btree (sport
 --
 
 CREATE INDEX idx_season_weeks_lookup ON public.season_weeks USING btree (sport, starts_at);
+
+
+--
+-- Name: idx_sigil_synthesis_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sigil_synthesis_day ON public.sigil_synthesis USING btree (sport, reporting_date);
 
 
 --
@@ -13117,6 +13916,13 @@ CREATE INDEX idx_stat_matchups_effect ON public.stat_matchups USING btree (sport
 --
 
 CREATE INDEX idx_stat_matchups_object ON public.stat_matchups USING btree (sport, object_type, object_id, stat_key);
+
+
+--
+-- Name: idx_stat_summaries_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stat_summaries_day ON public.stat_summaries USING btree (sport, reporting_date);
 
 
 --
@@ -13302,6 +14108,13 @@ CREATE INDEX idx_transfer_identity_applications_source_rumor ON public.transfer_
 
 
 --
+-- Name: idx_transfer_rumors_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_rumors_day ON public.transfer_rumors USING btree (sport, reporting_date);
+
+
+--
 -- Name: idx_transfer_rumors_pair_recent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13355,6 +14168,13 @@ CREATE INDEX idx_user_follows_entity ON public.user_follows USING btree (entity_
 --
 
 CREATE INDEX idx_user_follows_user ON public.user_follows USING btree (user_id);
+
+
+--
+-- Name: idx_vibe_scores_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vibe_scores_day ON public.vibe_scores USING btree (sport, reporting_date);
 
 
 --
@@ -13442,17 +14262,38 @@ CREATE INDEX vibe_card_attempt_input ON public.vibe_card_attempts USING btree (i
 
 
 --
--- Name: vibe_card_period; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX vibe_card_period ON public.vibe_scores USING btree (sport, entity_type, entity_id, week_season, week_no, generated_at DESC);
-
-
---
 -- Name: application_outbox application_outbox_notify_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER application_outbox_notify_insert AFTER INSERT ON public.application_outbox FOR EACH ROW EXECUTE FUNCTION public.notify_application_outbox_ready();
+
+
+--
+-- Name: classifier_deliveries classifier_delivery_dispatch; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER classifier_delivery_dispatch AFTER INSERT OR UPDATE OF status, production_eligible, policy_version, selection ON public.classifier_deliveries FOR EACH ROW EXECUTE FUNCTION public.classifier_dispatch_delivery();
+
+
+--
+-- Name: classifier_spectrum_deliveries classifier_spectrum_delivery_dispatch; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER classifier_spectrum_delivery_dispatch AFTER INSERT ON public.classifier_spectrum_deliveries FOR EACH ROW EXECUTE FUNCTION public.classifier_spectrum_dispatch();
+
+
+--
+-- Name: pipeline_work coverage_completed; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER coverage_completed AFTER DELETE ON public.pipeline_work FOR EACH ROW EXECUTE FUNCTION public.coverage_completed();
+
+
+--
+-- Name: pipeline_work coverage_offer; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER coverage_offer BEFORE INSERT ON public.pipeline_work FOR EACH ROW EXECUTE FUNCTION public.coverage_offer();
 
 
 --
@@ -13484,6 +14325,13 @@ CREATE TRIGGER mark_momentum_refresh_vibe_scores AFTER INSERT OR UPDATE OF senti
 
 
 --
+-- Name: pipeline_work pipeline_record_completion; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER pipeline_record_completion AFTER DELETE ON public.pipeline_work FOR EACH ROW WHEN ((old.status = 'running'::text)) EXECUTE FUNCTION public.pipeline_record_completion();
+
+
+--
 -- Name: pipeline_work pipeline_work_claim_identity; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -13505,66 +14353,66 @@ CREATE TRIGGER pipeline_work_notify_update AFTER UPDATE ON public.pipeline_work 
 
 
 --
--- Name: insider_scores stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+-- Name: insider_scores stamp_day_on_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.insider_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
-
-
---
--- Name: momentum_scores stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.momentum_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+CREATE TRIGGER stamp_day_on_insert BEFORE INSERT ON public.insider_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_card_day();
 
 
 --
--- Name: momentum_summaries stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+-- Name: momentum_scores stamp_day_on_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.momentum_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
-
-
---
--- Name: news_summaries stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.news_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+CREATE TRIGGER stamp_day_on_insert BEFORE INSERT ON public.momentum_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_card_day();
 
 
 --
--- Name: rating_history stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+-- Name: momentum_summaries stamp_day_on_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.rating_history FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
-
-
---
--- Name: sigil_synthesis stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.sigil_synthesis FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+CREATE TRIGGER stamp_day_on_insert BEFORE INSERT ON public.momentum_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_day();
 
 
 --
--- Name: stat_summaries stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+-- Name: news_summaries stamp_day_on_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.stat_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
-
-
---
--- Name: transfer_rumors stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.transfer_rumors FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+CREATE TRIGGER stamp_day_on_insert BEFORE INSERT ON public.news_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_day();
 
 
 --
--- Name: vibe_scores stamp_week_on_insert; Type: TRIGGER; Schema: public; Owner: -
+-- Name: rating_history stamp_day_on_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER stamp_week_on_insert BEFORE INSERT ON public.vibe_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_card_week();
+CREATE TRIGGER stamp_day_on_insert BEFORE INSERT ON public.rating_history FOR EACH ROW EXECUTE FUNCTION public.stamp_card_day();
+
+
+--
+-- Name: sigil_synthesis stamp_day_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_day_on_insert BEFORE INSERT ON public.sigil_synthesis FOR EACH ROW EXECUTE FUNCTION public.stamp_card_day();
+
+
+--
+-- Name: stat_summaries stamp_day_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_day_on_insert BEFORE INSERT ON public.stat_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_card_day();
+
+
+--
+-- Name: transfer_rumors stamp_day_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_day_on_insert BEFORE INSERT ON public.transfer_rumors FOR EACH ROW EXECUTE FUNCTION public.stamp_card_day();
+
+
+--
+-- Name: vibe_scores stamp_day_on_insert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_day_on_insert BEFORE INSERT ON public.vibe_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_card_day();
 
 
 --
@@ -13624,6 +14472,48 @@ CREATE TRIGGER trg_percentile_changed_team_stats AFTER UPDATE OF percentiles ON 
 
 
 --
+-- Name: insider_scores zz_guard_daily_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER zz_guard_daily_publication BEFORE INSERT ON public.insider_scores FOR EACH ROW EXECUTE FUNCTION public.guard_daily_character_publication();
+
+
+--
+-- Name: momentum_summaries zz_guard_daily_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER zz_guard_daily_publication BEFORE INSERT ON public.momentum_summaries FOR EACH ROW EXECUTE FUNCTION public.guard_daily_character_publication();
+
+
+--
+-- Name: news_summaries zz_guard_daily_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER zz_guard_daily_publication BEFORE INSERT ON public.news_summaries FOR EACH ROW EXECUTE FUNCTION public.guard_daily_character_publication();
+
+
+--
+-- Name: sigil_synthesis zz_guard_daily_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER zz_guard_daily_publication BEFORE INSERT ON public.sigil_synthesis FOR EACH ROW EXECUTE FUNCTION public.guard_daily_character_publication();
+
+
+--
+-- Name: stat_summaries zz_guard_daily_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER zz_guard_daily_publication BEFORE INSERT ON public.stat_summaries FOR EACH ROW EXECUTE FUNCTION public.guard_daily_character_publication();
+
+
+--
+-- Name: vibe_scores zz_guard_daily_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER zz_guard_daily_publication BEFORE INSERT ON public.vibe_scores FOR EACH ROW EXECUTE FUNCTION public.guard_daily_character_publication();
+
+
+--
 -- Name: acquisition_runs acquisition_runs_candidate_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -13645,6 +14535,14 @@ ALTER TABLE ONLY public.analytics_cohort_publication
 
 ALTER TABLE ONLY public.analytics_entity_context
     ADD CONSTRAINT analytics_entity_context_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: application_outbox application_outbox_edition_date_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.application_outbox
+    ADD CONSTRAINT application_outbox_edition_date_fkey FOREIGN KEY (edition_date) REFERENCES public.coverage_editions(edition_date);
 
 
 --
@@ -13685,6 +14583,94 @@ ALTER TABLE ONLY public.candidate_mentions
 
 ALTER TABLE ONLY public.candidate_mentions
     ADD CONSTRAINT candidate_mentions_candidate_id_fkey FOREIGN KEY (candidate_id) REFERENCES public.entity_candidates(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classifier_acquisitions classifier_acquisitions_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_acquisitions
+    ADD CONSTRAINT classifier_acquisitions_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classifier_deliveries classifier_deliveries_measurement_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_deliveries
+    ADD CONSTRAINT classifier_deliveries_measurement_id_fkey FOREIGN KEY (measurement_id) REFERENCES public.classifier_measurements(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classifier_measurements classifier_measurements_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_measurements
+    ADD CONSTRAINT classifier_measurements_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classifier_measurements classifier_measurements_source_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_measurements
+    ADD CONSTRAINT classifier_measurements_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.classifier_sources(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classifier_source_heads classifier_source_heads_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_source_heads
+    ADD CONSTRAINT classifier_source_heads_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classifier_source_heads classifier_source_heads_source_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_source_heads
+    ADD CONSTRAINT classifier_source_heads_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.classifier_sources(id);
+
+
+--
+-- Name: classifier_sources classifier_sources_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_sources
+    ADD CONSTRAINT classifier_sources_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classifier_spectra classifier_spectra_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_spectra
+    ADD CONSTRAINT classifier_spectra_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classifier_spectra classifier_spectra_source_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_spectra
+    ADD CONSTRAINT classifier_spectra_source_id_fkey FOREIGN KEY (source_id) REFERENCES public.classifier_sources(id) ON DELETE CASCADE;
+
+
+--
+-- Name: classifier_spectrum_deliveries classifier_spectrum_deliveries_spectrum_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_spectrum_deliveries
+    ADD CONSTRAINT classifier_spectrum_deliveries_spectrum_id_fkey FOREIGN KEY (spectrum_id) REFERENCES public.classifier_spectra(id) ON DELETE CASCADE;
+
+
+--
+-- Name: coverage_assignments coverage_assignments_edition_date_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.coverage_assignments
+    ADD CONSTRAINT coverage_assignments_edition_date_fkey FOREIGN KEY (edition_date) REFERENCES public.coverage_editions(edition_date);
 
 
 --
@@ -14136,6 +15122,14 @@ ALTER TABLE ONLY public.news_article_entities
 
 
 --
+-- Name: news_article_entities news_article_entities_classifier_source_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.news_article_entities
+    ADD CONSTRAINT news_article_entities_classifier_source_id_fkey FOREIGN KEY (classifier_source_id) REFERENCES public.classifier_sources(id) ON DELETE CASCADE;
+
+
+--
 -- Name: news_article_entities news_article_entities_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14570,4 +15564,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict jj5iJrsBWRwSKEq6QDfHwufMjjdj792Uyb7eq5swtrHE4R43nTFTBqUNwL5Ag55
+\unrestrict SGi1SpvW8BxRpzGNSzSvcDzpnSX4cy1crerfqczGrVnGoSKhEdewGSdKeJ52EZP

@@ -77,7 +77,15 @@ Only the reader and Classifier changes were overlaid onto a snapshot of Archbox'
 
 At 22:10 UTC, all four services were active. The latest 20 production spectra, IDs 42237–42256, all had reader provenance, matching subject IDs, four native topic answers, compatible role aliases, and exact equality between retained body and decision input. Coverage was enabled and processing. A live reader/d1 canary also passed in the isolated `classifier_test_reader_20261017` database, with two independently measured subjects and zero character executions.
 
-Focused checks passed: nine Classifier checks including two real PostgreSQL integration tests, two reader tests, four network checks, the cache-integrity database test, proxy checks, release-script checks, schema verification and the Linux binary build. The fallback cache test additionally proved that legacy fetching ignores reader rows. The full repository suite and a full production rollback were not run.
+Focused checks passed: nine Classifier checks including two real PostgreSQL integration tests, two reader tests, four network checks, the cache-integrity database test, proxy checks, release-script checks, schema verification and the Linux binary build. The fallback cache test additionally proved that legacy fetching ignores reader rows. At cutover, the full repository suite and a full production rollback had not been run. The later full-suite result is recorded below; production rollback remains unrehearsed.
+
+## Full suite validation after the checkpoint
+
+At the user's request, the complete `scripts/check.sh` passed on October 17 against a new isolated PostgreSQL 18.6 UTF-8 database. It restored the checked-in schema, confirmed migration no-op behavior, checked SQL rating semantics, ran Go formatting/vet/build, Rust formatting, **390 Rust unit/CLI tests**, **57 additional integration checks**, prepared SQL statement validation, and `go test ./... -race`. `cargo check --all-targets`, ShellCheck and shell syntax, the reader proxy test, release-script checks and calibration self-test also passed.
+
+This exposed two bootstrap issues that were corrected before pushing: CI used a database name rejected by the disposable-database guard, and the schema baseline stopped at migration 290. The baseline was recaptured from a separate clean database with all 314 migration files applied through migration 312. Fresh restoration also needed the coverage singleton, which is runtime state and therefore excluded from the snapshot; `sql/build.sh` now creates it with enrollment disabled in the restore transaction. The complete suite passed from an empty database with these fixes. Production services and enrollment were not changed.
+
+The standard suite excludes live-model, publisher and private-corpus replays. Those were not rerun for this push; the earlier rollout receipts remain their evidence.
 
 Deployment encountered an existing database session idle in a transaction for nearly 18 hours, blocking 46 sessions. After checking the exact PID, start time, last statement and lack of table write locks, we terminated that abandoned transaction. Coverage and DDL resumed without a manual phase override. The postflight found no idle transaction older than one hour. Its original cause remains unresolved.
 

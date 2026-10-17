@@ -16,5 +16,13 @@ empty="$(psql "$TGT" -X -v ON_ERROR_STOP=1 -Atc "SELECT NOT EXISTS(SELECT 1 FROM
 psql "$TGT" -X -v ON_ERROR_STOP=1 --single-transaction \
   -c 'DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '\''web_user'\'') THEN CREATE ROLE web_user NOLOGIN; END IF; END $$;' \
   -f "$BASE/schema.sql" \
-  -c "\copy public.schema_migrations(version) FROM '$BASE/applied-migrations.txt'"
+  -c "\copy public.schema_migrations(version) FROM '$BASE/applied-migrations.txt'" \
+  -f - <<'SQL'
+-- Runtime schedules are excluded from snapshots; fresh installs start disabled.
+DO $$ BEGIN
+  IF to_regclass('public.coverage_schedule') IS NOT NULL THEN
+    EXECUTE 'INSERT INTO public.coverage_schedule(singleton) VALUES (true) ON CONFLICT DO NOTHING';
+  END IF;
+END $$;
+SQL
 printf 'Baseline restored. Apply later changes with sql/migrate.sh.\n'

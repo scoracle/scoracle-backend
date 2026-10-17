@@ -24,7 +24,7 @@ Use PostgreSQL 18 tooling and an empty target database with a bootstrap administ
 ./sql/migrate.sh "$NEW_ENV_URL"
 ```
 
-Build verifies checksums, restores the complete baseline in one transaction and installs its applied ledger. It refuses a nonempty target. Reference data contains product configuration, not users, acquired content or generated products. Historical migrations are not an empty-database installer.
+Build verifies checksums, restores the complete baseline in one transaction and installs its applied ledger. Runtime coverage state is excluded from the snapshot; fresh installs create its required singleton with enrollment disabled. It refuses a nonempty target. Reference data contains product configuration, not users, acquired content or generated products. Historical migrations are not an empty-database installer.
 
 For a change, copy `migration_template.sql` to the next unused migration filename. Derive existing definitions from the verified schema/deployed catalog. Keep DDL and its ledger entry in the same transaction. Release compatible consumers before destructive changes; preserve and restore-test historical data before retiring its table. Never use `CASCADE` to avoid understanding dependencies.
 

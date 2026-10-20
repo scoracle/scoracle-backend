@@ -18,7 +18,7 @@
 		<string>--port</string>
 		<string>8081</string>
 		<string>--ctx-size</string>
-		<string>32768</string>
+		<string>40960</string>
 		<string>--parallel</string>
 		<string>4</string>
 		<string>--n-gpu-layers</string>

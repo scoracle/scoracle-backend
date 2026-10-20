@@ -300,5 +300,14 @@ mod context_tests {
             (6310, 2100, 7900)
         );
         assert!(error.to_string().contains("no source was clipped"));
+        let larger = GenerateOptions {
+            num_ctx: 10000,
+            ..options.clone()
+        };
+        assert!(prepared.verify_input("complete evidence", &larger).is_err());
+        let mut resized = prepared;
+        resized.coverage.as_mut().unwrap().context = 10240;
+        assert!(resized.verify_input("complete evidence", &larger).is_ok());
+        assert!(resized.verify_input("complete evidence", &options).is_err());
     }
 }

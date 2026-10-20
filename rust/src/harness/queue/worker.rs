@@ -586,16 +586,33 @@ impl Worker {
                     .rotation_batch
                     .max(STAGE_ROTATION_BATCH)
                     .min(room as i64);
-                let items =
-                    match work::claim_with_policy(&self.pool, stage, manifest.claim_policy, batch)
-                        .await
-                    {
-                        Ok(items) => items,
-                        Err(e) => {
-                            error!(error = %format!("{e:#}"), %stage, cause, "claim failed");
-                            break;
+                let claim =
+                    work::claim_with_policy(&self.pool, stage, manifest.claim_policy, batch);
+                tokio::pin!(claim);
+                // A claim can wait on coverage while publication holds its shared lock.
+                // Keep polling that publication, and never cancel a possibly committed claim.
+                let result = loop {
+                    tokio::select! {
+                        result = &mut claim => break result,
+                        Some(done) = inflight.next(), if !inflight.is_empty() => {
+                            if let Some(n) = per_stage.get_mut(done) {
+                                *n = n.saturating_sub(1);
+                            }
+                            if let Some((name, _)) = group_of.get(done) {
+                                if let Some(n) = per_group.get_mut(name) {
+                                    *n = n.saturating_sub(1);
+                                }
+                            }
                         }
-                    };
+                    }
+                };
+                let items = match result {
+                    Ok(items) => items,
+                    Err(e) => {
+                        error!(error = %format!("{e:#}"), %stage, cause, "claim failed");
+                        break;
+                    }
+                };
                 if items.is_empty() {
                     continue;
                 }
@@ -1215,6 +1232,111 @@ mod postgres_recovery_rehearsal {
                 "a continuously ready earlier stage monopolized capacity: {order:?}"
             );
         }
+    }
+
+    struct PublicationHeld {
+        pool: PgPool,
+        ready: tokio::sync::mpsc::UnboundedSender<i64>,
+        release: [Arc<Notify>; 2],
+    }
+    static PUBLICATION_HELD: crate::harness::plugin::PluginManifest = {
+        let mut manifest =
+            test_manifest("test.publication-held", TaskKey::new("test_article"), false);
+        manifest.resources.max_in_flight = 2;
+        manifest.resources.rotation_batch = 2;
+        manifest
+    };
+    #[async_trait::async_trait]
+    impl StudioPlugin for PublicationHeld {
+        fn manifest(&self) -> &'static crate::harness::plugin::PluginManifest {
+            &PUBLICATION_HELD
+        }
+        async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
+            let mut tx = self.pool.begin().await?;
+            assert!(work::lock_claim(&mut tx, item).await?);
+            self.ready.send(item.entity_id)?;
+            self.release[(item.entity_id - 1) as usize].notified().await;
+            assert!(work::complete_in_transaction(&mut tx, item).await?);
+            tx.commit().await?;
+            Ok(PluginOutcome::Committed)
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
+    async fn coverage_transition_cannot_stop_polling_an_inflight_publication() {
+        let sport = "ZZ_CLAIM_COVERAGE_LOCK";
+        let pool = fixture(sport).await;
+        let (ready, mut entered) = tokio::sync::mpsc::unbounded_channel();
+        let release = [Arc::new(Notify::new()), Arc::new(Notify::new())];
+        for id in [1, 2] {
+            work::enqueue(&pool, &item(PUBLICATION_HELD.task, sport, id))
+                .await
+                .unwrap();
+        }
+        let worker = Worker::new(
+            pool.clone(),
+            vec![Arc::new(PublicationHeld {
+                pool: pool.clone(),
+                ready,
+                release: release.clone(),
+            })],
+            crate::harness::queue::outbox::ReactionRegistry::empty(),
+            Duration::from_secs(60),
+            Duration::from_secs(1800),
+            Duration::ZERO,
+            Duration::ZERO,
+            Some(2),
+        );
+        let prove = async {
+            entered.recv().await.unwrap();
+            entered.recv().await.unwrap();
+            let mut transition = pool.begin().await.unwrap();
+            let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                .fetch_one(&mut *transition)
+                .await
+                .unwrap();
+            let controller = tokio::spawn(async move {
+                sqlx::query("SELECT pg_advisory_xact_lock(1935896421,1)")
+                    .execute(&mut *transition)
+                    .await
+                    .unwrap();
+                transition.commit().await.unwrap();
+            });
+            loop {
+                let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE pid=$1 AND locktype='advisory' AND NOT granted)")
+                    .bind(pid).fetch_one(&pool).await.unwrap();
+                if waiting {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            release[1].notify_one();
+            // Its replacement claim queues behind the controller, which awaits the first publication.
+            loop {
+                let waiting: i64 = sqlx::query_scalar("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND classid=1935896421 AND objid=1 AND NOT granted")
+                    .fetch_one(&pool).await.unwrap();
+                if waiting >= 2 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            release[0].notify_one();
+            controller.await.unwrap();
+        };
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let pulse = Pulse::new();
+            tokio::join!(worker.drain_all("coverage contention", &pulse), prove);
+        })
+        .await
+        .expect("claiming stopped polling the publication that must release coverage");
+        let remaining: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport=$1")
+                .bind(sport)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(remaining, 0);
     }
 
     struct Blocked {

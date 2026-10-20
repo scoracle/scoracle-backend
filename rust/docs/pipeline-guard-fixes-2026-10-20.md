@@ -14,7 +14,8 @@ and a 7,900-token ceiling including reserved output.
   Historical headlines must also match the current target before entering memory.
 - Insider quotes must name both parties and state a move. Denials require explicit
   move-denial wording. The native schema couples denied status with a null stage
-  and reported status with a valid stage. Missing evidence produces no structured finding.
+  and reported status with a valid stage. An explicit denial example also distinguishes
+  the source reporting a denial from a reported move. Missing evidence produces no structured finding.
 - Journalist production and evaluation share the same named-fact guard. A number
   cannot be reassigned to a named person by combining unrelated citations.
 - Analyst produces an explicit missing-peer reading without inference when either

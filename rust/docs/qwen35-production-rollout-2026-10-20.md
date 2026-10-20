@@ -18,7 +18,7 @@ factual-prose qualification or independent real-news gold.
 Deployment testing found a material request difference: the screen supplied a
 score-first JSON schema, while Rust alphabetized properties and decoded prose
 first. Five identical-prompt controls all abstained with the screened order and
-all invented a reading with the alphabetized order. The native adapter now
+all failed to abstain with the alphabetized order. The native adapter now
 preserves the explicitly supplied schema bytes, verifies semantic agreement with
 the declared schema, and retains the exact wire body in ordered-schema receipts.
 Other calls keep their existing serialization.

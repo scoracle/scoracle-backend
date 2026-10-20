@@ -8,20 +8,20 @@ See `run_docs/RUNBOOK.md` for the operations runbook (release/rollback, backup/r
 jobs, durable work queue, incident quick-reference) and `../../../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md`
 for the original strategy + rationale.
 
-## Current headline plumbing release
+## Current production release
 
-The [October 19 release](../../rust/docs/headline-plumbing-deployment-2026-10-19.md)
-is live with migrations 313–314. Archbox runs headline-only Classifier work and
-hourly RSS monitoring; the Mac runs the existing character stages. d1, SmolLM3,
-model routes, voices and writing metadata are unchanged. Bounded historical
-headline backscoring is enabled. Acquisition and browser-reader services are
-disabled, and cognition's legacy reader dependency was removed.
+The [October 20 release](../../rust/docs/headline-qwen35-deployment-2026-10-20.md)
+is live from commit `e4fa9bd3`, with migration 315 and matching Go/Rust binaries.
+Archbox runs known-entity headline scoring and hourly team RSS; the Mac runs the
+six character stages. Influencer uses Qwen3.5-4B Q4_K_M with compact instructions
+and score-first decoding. Other character routes retain SmolLM3; d1 is unchanged.
+The retired source-worker and browser-reader units were removed.
 
-Current operation and recovery are documented in that deployment record and the
-[headline corpus contract](../../rust/docs/headline-corpus.md). Older reader,
-admission-only and initial scheduling notes below describe preceding releases.
-Apply 313 and 314 together with matching workers during coverage; 313 no longer
-rescans old bodies to preserve the retired reader handoff.
+The release record includes verification and coordinated recovery. The
+[headline corpus](../../rust/docs/headline-corpus.md) and
+[entity pipeline contract](../../rust/docs/headline-entity-pipeline.md) describe
+current evidence and identity handling. Older deployment notes below retain
+their original historical context.
 
 ## Install
 
@@ -59,16 +59,13 @@ the units, restarts the API + the Rust daemon, and verifies `/health/db`. All
 seven binaries are built before any is placed, so a failed build can never leave
 the cron binaries or the daemon on a different commit than the API.
 
-## Current source cleanup (not deployed)
+## Headline entity cleanup
 
-The working tree requires migration 315 and matching Go/Rust binaries. Stop the
-workers between daily editions before migration. Headline extraction now includes
-known players and all canonical person roles; reporting APIs accept `person`.
-The browser reader and source worker are removed. Remove their installed units
-and legacy reader dependencies before restarting the new workers. Unknown-person
-discovery remains a subsequent session task.
-
-See [the entity pipeline change](../../rust/docs/headline-entity-pipeline.md).
+Migration 315 and matching Go/Rust binaries are deployed. Headline extraction
+includes known players and all canonical person roles; reporting APIs accept
+`person`. The browser reader and source worker are removed. Unknown-person
+discovery remains a subsequent session task. See the
+[entity pipeline change](../../rust/docs/headline-entity-pipeline.md).
 
 ## Graph retirement
 

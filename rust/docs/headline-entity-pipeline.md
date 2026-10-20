@@ -1,6 +1,6 @@
 # Headline entity pipeline cleanup
 
-Implementation after the October 20 audit; not a production deployment record.
+Implementation after the October 20 audit. Activated in the [October 20 production release](headline-qwen35-deployment-2026-10-20.md); this document describes the source contract and original validation.
 
 ## Contract
 

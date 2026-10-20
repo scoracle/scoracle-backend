@@ -7,7 +7,8 @@ it is not a 40k prompt. Actual short packets remain short. Thinking and context
 shifting stay disabled; source completeness, exact token admission and output
 validation remain active. The 24 KB reporting-packet bound remains unchanged.
 
-The Rust runtime and memory helper are unchanged from the guard-fix release.
+The capacity change initially retained the guard-fix runtime. The memory cleanup
+below is now deployed as runtime `31d4ba335e5a`, with the same model configuration.
 `VOICE_NUM_CTX=10000` explicitly overrides the safe 7,900-token code default.
 The regression check verifies that raising only the logical cap still fails on
 an 8,192-token physical slot, and that both bounds must admit the whole packet.
@@ -189,7 +190,7 @@ lack receipts. Publication normalization and semantic quality were not qualified
 Do not revive the rejected production-clone/worker-stop plan merely to benchmark;
 use the retained read-only inputs for tuning first.
 
-## Local cleanup checkpoint
+## Memory cleanup and production activation
 
 The [memory contract](memory-studies.md) now records the intended boundary:
 Postgres stores durable data, DuckDB analyzes source snapshots for plugins,
@@ -197,16 +198,43 @@ and plugins publish products back to Postgres for the API. Memories remain
 compact dated context, including reported stories, emotions, movement and injuries.
 The active DuckDB headline and cohort calculations are retained.
 
-The local cleanup removes unused historical memory-study modes and their Rust
+The cleanup removes unused historical memory-study modes and their Rust
 adapters, skips Journalist history loading when no fresh reports are usable,
 and fixes Articulator's stale arguments to the daily news/vibe/transfer queries.
 Rust library/binary tests, seven classifier/memory integration tests, Go
 API/database/DuckDB checks, all-target Rust checking and Go package builds passed.
 Before/after helper comparison preserved all three character rankings on the
 same bounded sample. This is not model-quality or nightly throughput qualification.
-No deployment or production database change was performed by this cleanup.
+Runtime commit `31d4ba335e5af1315a952d79d28fa477b642fc86` was pushed to main
+and deployed on 20 October at 22:07 UTC. Archbox's API, acquisition binaries,
+Classifier, batch binaries and memory helper were built from that commit; the
+managed Mac character worker and its bundled helper match. DuckDB remains on
+engine 1.5.5 through Go driver v2.10505.0. No schema or model configuration changed.
 
-## Deployment and recovery
+Post-deployment checks passed:
+
+- [CI for the deployed commit](https://github.com/scoracle/scoracle-backend/actions/runs/39505504829):
+  runtime/database contracts, schema checks and shell checks all passed.
+- Local and public API/CORS smoke: 18/18 each.
+- All eight Articulator slices for both a team and player: 16/16 valid responses.
+- Both helper startup probes returned the expected nonempty ranking; the managed
+  Mac worker logged successful helper verification before starting its queue.
+- Both workers and the API reported the deployed commit. All six Mac character
+  routes retained Qwen3.5-4B, the 10,000-token cap and four 10,240-token slots.
+- DuckDB cohort refresh completed with 50 unchanged cohorts. Coverage retained
+  the midnight Detroit cutoff, 15-minute drain and six-hour safety limit, with a
+  fresh controller heartbeat and no long lock waiters. Classifier shutdown left
+  no captured claims requiring recovery.
+
+Private binary backups, unchanged environments, prior service states, hashes and
+verification receipts are retained in `lean-memory-20261020-31d4ba33` under
+`/Users/scotty/scoracle-worker/releases/` and Archbox's
+`/mnt/data/backup/scoracle/releases/`. To roll back this cleanup, stop the managed
+workers and binary watchers, restore the saved Archbox binaries and Mac launcher,
+then restore only previously active services/watchers. The prior Mac release is
+retained intact. No database or model rollback is needed for this cleanup.
+
+## Earlier capacity trial and recovery
 
 Private trial and rollback receipts are retained at
 `/Users/scotty/scoracle-worker/releases/qwen-10k-20261020-922e3b22/`.

@@ -49,10 +49,13 @@ echo "==> rendering systemd units into $USER_SYSTEMD_DIR"
 mkdir -p "$USER_SYSTEMD_DIR"
 for unit in scoracle-api.service scoracle-api-restart.service scoracle-api.path \
             scoracle-cognition.service scoracle-cognition-restart.service scoracle-cognition.path \
-            scoracle-classifier-source.service scoracle-kev.service scoracle-coverage.service \
+            scoracle-kev.service scoracle-coverage.service \
             cloudflared.service; do
     render_unit "$REPO_ROOT/scripts/systemd/$unit" "$USER_SYSTEMD_DIR/$unit"
 done
+
+# This unit belonged to the retired article-reading worker.
+rm -f "$USER_SYSTEMD_DIR/scoracle-classifier-source.service"
 
 echo "==> ensuring logs directory exists"
 mkdir -p "$REPO_ROOT/logs"
@@ -87,7 +90,7 @@ cat <<EOF
        systemctl --user status scoracle-api
 
 2b. (GPU box only) Start the Rust Cognition Harness daemon. In the Step-3 cutover
-      it owns scrub, transfers, narratives, vibe, and sigil; keep
+      it owns headline scoring, transfers, narratives, vibe, and sigil; keep
       DERIVE_WORKER_ENABLED=false in .env.local so the Go API does not also claim
       the queue. The systemd units are rendered ABOVE; the binaries are deployed
       by the standard release flow (scripts/hosting/release.sh builds both the

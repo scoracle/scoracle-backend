@@ -228,10 +228,11 @@ pub async fn lookup_entity_name(
     entity_id: i32,
     sport: &str,
 ) -> Result<String> {
-    let query = if entity_type == "player" {
-        "SELECT name FROM players WHERE id = $1 AND sport = $2"
-    } else {
-        "SELECT name FROM teams WHERE id = $1 AND sport = $2"
+    let query = match entity_type {
+        "player" => "SELECT name FROM players WHERE id = $1 AND sport = $2",
+        "team" => "SELECT name FROM teams WHERE id = $1 AND sport = $2",
+        "person" => "SELECT full_name FROM persons WHERE id = $1 AND sport = $2",
+        _ => bail!("unsupported entity type {entity_type}"),
     };
     let name: String = sqlx::query_scalar(query)
         .bind(entity_id)

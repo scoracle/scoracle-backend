@@ -1,3 +1,4 @@
+use super::fresh::prepare;
 use super::prompt::*;
 use super::*;
 use crate::harness::Parser;
@@ -25,18 +26,11 @@ fn prepared(items: Vec<CorpusItem>) -> Assignment {
     prepare(subject(), items, &[], NOW).unwrap()
 }
 fn reply(a: &Assignment) -> String {
-    // The keyed surface is a flat map of this plugin's own report slots.
-    json!(a
-        .selected
-        .iter()
-        .enumerate()
-        .map(|(index, s)| (
-            format!("report_{}", index + 1),
-            json!(format!("{} reports: {}", s.source, s.context))
-        ))
-        .collect::<serde_json::Map<_, _>>())
-    .to_string()
+    json!({"narratives":a.selected.iter().take(3).enumerate().map(|(index,s)|
+        json!({"headline":s.title,"body":format!("{} reports: {}",s.source,s.context),"report_keys":[format!("report_{}",index+1)]})
+    ).collect::<Vec<_>>()}).to_string()
 }
+
 #[test]
 fn exact_duplicates_do_not_inflate_activity_and_source_ids_are_plugin_owned() {
     let a = prepared(vec![item(1, "Cedar won 2–1."), item(2, "Cedar won 2–1.")]);
@@ -74,7 +68,6 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
     let voice_at = rendered.find(r#""voice":"#).unwrap();
     assert!(voice_at < fresh_at);
     let frame: serde_json::Value = serde_json::from_str(&rendered).unwrap();
-    assert!(a.deferred_ids.is_empty());
     let next = prepared(vec![item(1, &text)]);
     let next_frame: serde_json::Value = serde_json::from_str(&prompt(&next)).unwrap();
     assert_eq!(next_frame["fresh"][0]["publisher_excerpt"], text);
@@ -141,7 +134,6 @@ fn an_oversized_daily_package_is_held_without_partial_publication() {
             .collect(),
     );
     assert!(a.selected.is_empty());
-    assert!(a.deferred_ids.is_empty());
     assert!(prompt(&a).len() <= SOURCE_BUDGET_BYTES);
     assert_eq!(a.dispositions.len(), 4);
     assert!(a
@@ -171,32 +163,23 @@ fn an_rss_target_without_canonical_source_identity_is_held_before_generation() {
 }
 
 #[test]
-fn classifier_relationships_survive_preparation_and_invalidate_exact_copy_reuse() {
+fn duplicate_headlines_ignore_urls_and_routing_metadata_but_keep_publishers() {
     let mut report = item(1, "Cedar denied the move.");
-    report.classifier_world = Some(json!({"qualified_claims":[{
-        "publisher_text":"Cedar denied the move.","kind":"report_denial",
-        "target_relation":"unknown","time_scope":"unknown",
-        "qualifiers":{"negation":["denied"],"speaker":null}}],"signals_unassessed":true}));
-    let original = prepared(vec![report.clone()]);
-    let packet: serde_json::Value = serde_json::from_str(&prompt(&original)).unwrap();
-    assert_eq!(
-        packet["fresh"][0]["classifier_world"],
-        report.classifier_world.clone().unwrap()
+    report.title = report.context.clone();
+    report.classifier_world = Some(
+        json!({"evidence_scope":"headline","url":"https://example.invalid/one","spectrum":{"subject":95}}),
     );
-    let published = vec![report.clone()];
-    assert!(prepare(subject(), vec![report.clone()], &published, NOW)
-        .unwrap()
-        .selected
-        .is_empty());
-    report.classifier_world.as_mut().unwrap()["qualified_claims"][0]["target_relation"] =
-        json!("direct_subject");
-    let changed = prepare(subject(), vec![report], &published, NOW).unwrap();
-    assert_eq!(
-        changed.selected.len(),
-        1,
-        "changed relationships are new material even when source text is unchanged"
-    );
-    assert_ne!(original.input_hash, changed.input_hash);
+    let mut copy = report.clone();
+    copy.id = 2;
+    copy.classifier_world.as_mut().unwrap()["url"] = json!("https://example.invalid/two");
+    copy.classifier_world.as_mut().unwrap()["spectrum"]["subject"] = json!(90);
+    let mut other_publisher = copy.clone();
+    other_publisher.id = 3;
+    other_publisher.source = "Another Wire".into();
+    let result = prepared(vec![report, copy, other_publisher]);
+    assert_eq!(result.selected.len(), 2);
+    assert_eq!(result.dispositions.len(), 1);
+    assert_eq!(result.dispositions[0].reason, "already_reported_exact_text");
 }
 #[test]
 fn identity_content_attribution_and_date_are_fingerprinted() {
@@ -243,7 +226,7 @@ fn articulation_cannot_supply_scores_ids_or_change_report_count() {
         .is_err());
         raw.as_object_mut().unwrap().remove(key);
     }
-    raw["report_1"] = json!([]);
+    raw["narratives"][0]["body"] = json!([]);
     assert!(EditionParser {
         assignment: &a,
         activity: &activity::reference(&a.selected, NOW)
@@ -259,56 +242,34 @@ fn articulation_cannot_supply_scores_ids_or_change_report_count() {
 }
 
 #[test]
-fn articulation_cannot_change_request_local_source_mapping() {
-    // Retained multi-report packets must still enforce their original source mapping.
-    let mut a = prepared(vec![item(1, "First report.")]);
-    a.selected.push(item(2, "Second report."));
-    // A report renamed out of its slot is a source-mapping violation: the key
-    // is what binds returned prose to a selected report.
-    let raw = json!({"report_1":"First report.","report_3":"Second report."});
-    assert!(EditionParser {
+fn narratives_group_headlines_and_keep_their_exact_source_provenance() {
+    let a = prepared(vec![
+        item(1, "Cedar United linked with a player."),
+        item(2, "Cedar United denied talks."),
+    ]);
+    let parser = EditionParser {
         assignment: &a,
         activity: &activity::reference(&a.selected, NOW),
-    }
-    .parse(&raw.to_string())
-    .is_err());
-    // Reordering the slots is likewise refused.
-    let swapped = json!({"report_2":"Second report.","report_1":"First report."});
-    assert!(EditionParser {
-        assignment: &a,
-        activity: &activity::reference(&a.selected, NOW),
-    }
-    .parse(&swapped.to_string())
-    .is_ok());
+    };
+    let product=parser.parse(r#"{"narratives":[{"headline":"Transfer links meet a denial","body":"Wire first linked Cedar United with a player, then reported a denial of talks.","report_keys":["report_2","report_1"]}]}"#).unwrap().unwrap();
+    assert_eq!(product.narratives.len(), 1);
+    assert_eq!(product.narratives[0].input_news_ids, vec![1, 2]);
+    assert_eq!(product.narratives[0].source_count, 2);
+    assert_eq!(product.narratives[0].source_names, vec!["Wire"]);
+    assert!(parser.parse(r#"{"narratives":[{"headline":"Invalid","body":"Reading.","report_keys":["report_3"]}]}"#).is_err());
+    assert!(parser
+        .parse(r#"{"narratives":[]}"#)
+        .unwrap()
+        .unwrap()
+        .narratives
+        .is_empty());
 }
 
-#[test]
-fn declined_slots_preserve_the_following_reports_source_identity() {
-    let mut assignment = prepared(vec![item(1, "Unrelated reporting.")]);
-    assignment
-        .selected
-        .push(item(2, "Cedar United denied the move."));
-    let parser = EditionParser {
-        assignment: &assignment,
-        activity: &activity::reference(&assignment.selected, NOW),
-    };
-    let product = parser
-        .parse(r#"{"report_1":null,"report_2":"Wire reports that Cedar United denied the move."}"#)
-        .unwrap()
-        .unwrap();
-    assert_eq!(product.narratives.len(), 1);
-    assert_eq!(product.narratives[0].input_news_ids, vec![2]);
-    let empty = parser
-        .parse(r#"{"report_1":null,"report_2":null}"#)
-        .unwrap()
-        .unwrap();
-    assert!(empty.narratives.is_empty());
-}
 #[test]
 fn natural_paraphrase_preserves_native_output_contract_and_plugin_metadata() {
     let a = prepared(vec![item(1, "Cedar United won 2–1 on Sunday.")]);
     assert_eq!(generation_options(&a, 4096).system, None);
-    let raw = r#"{"report_1":"Wire reports that Cedar United secured a 2–1 victory on Sunday."}"#;
+    let raw = r#"{"narratives":[{"headline":"Cedar United secure victory","body":"Wire reports that Cedar United secured a 2–1 victory on Sunday.","report_keys":["report_1"]}]}"#;
     let p = EditionParser {
         assignment: &a,
         activity: &activity::reference(&a.selected, NOW),
@@ -322,7 +283,7 @@ fn natural_paraphrase_preserves_native_output_contract_and_plugin_metadata() {
     let options = generation_options(&a, 4096);
     assert_eq!(
         options.format_schema.unwrap()["required"],
-        json!(["report_1"])
+        json!(["narratives"])
     );
 }
 
@@ -357,9 +318,9 @@ fn fresh_frame_separates_reported_evidence_from_headlines_and_identity() {
     assert_eq!(fresh, frame["fresh"]);
     assert_eq!(fresh.as_array().unwrap().len(), 1);
     // Instructions and the three active context parts reach the model.
-    assert_eq!(frame.as_object().unwrap().len(), 4);
+    assert_eq!(frame.as_object().unwrap().len(), 5);
     assert!(frame.get("form").is_none());
-    assert!(frame.get("memories").is_none());
+    assert_eq!(frame["memories"], serde_json::json!([]));
     assert!(frame.get("history").is_none());
     assert!(frame.get("history_groups").is_none());
     assert!(report.get("history").is_none());
@@ -403,7 +364,6 @@ fn budget_counts_the_actual_frame_including_metadata_and_json_escaping() {
         .collect();
     let a = prepare(long_identity, reports, &[], NOW).unwrap();
     assert_eq!(a.selected.len(), 4);
-    assert!(a.deferred_ids.is_empty());
     assert!(prompt(&a).len() <= SOURCE_BUDGET_BYTES);
 }
 
@@ -435,6 +395,6 @@ fn stored_history_is_ignored_and_replay_matches_production() {
     .unwrap();
     assert_eq!(
         product.memory_provenance,
-        json!({"receipt":null,"selected":[]})
+        json!({"version":"headline-archive-v1","selected":[]})
     );
 }

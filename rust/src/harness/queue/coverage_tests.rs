@@ -88,14 +88,14 @@ async fn cutoff_freezes_claims_coalesces_offers_and_recovers_at_deadline() -> Re
         .commit_final()
         .await?;
 
-    work::enqueue(&pool, &item("classifier_acquire", 201, "source-v1")).await?;
-    let prep = claim(&pool, "classifier_acquire").await?.remove(0);
+    work::enqueue(&pool, &item("fixture_boxscore", 201, "source-v1")).await?;
+    let prep = claim(&pool, "fixture_boxscore").await?.remove(0);
     work::enqueue(&pool, &item("classifier", 202, "source-v2")).await?;
     work::enqueue(&pool, &item("rating", 101, "stats-v2")).await?;
     enroll(&pool).await?;
     assert!(claim(&pool, "rating").await?.is_empty());
     assert_eq!(tick(&pool, 0.0).await?, "draining");
-    assert!(claim(&pool, "classifier_acquire").await?.is_empty());
+    assert!(claim(&pool, "fixture_boxscore").await?.is_empty());
     assert!(ClaimPublication::begin(&pool, &prep).await?.is_some());
     assert_eq!(claim(&pool, "classifier").await?.len(), 1);
     assert_eq!(tick(&pool, 0.0).await?, "draining");
@@ -216,7 +216,7 @@ async fn cutoff_freezes_claims_coalesces_offers_and_recovers_at_deadline() -> Re
         carried, "fresh-peers-v2",
         "expired work keeps its newer input"
     );
-    assert_eq!(claim(&pool, "classifier_acquire").await?.len(), 1);
+    assert_eq!(claim(&pool, "fixture_boxscore").await?.len(), 1);
     finish(&pool).await?;
     Ok(())
 }
@@ -516,7 +516,7 @@ async fn fresh_package_uses_local_days_without_a_reporting_week_or_memory_study(
                 .bind(instant)
                 .fetch_one(&pool)
                 .await?;
-        let (assignment, _) = crate::plugins::influencer::prompt::prepare_assignment(
+        let (assignment, _) = crate::plugins::influencer::fresh::prepare_assignment(
             &pool,
             crate::tools::meta::EntityMeta {
                 name: "Cedar".into(),
@@ -535,6 +535,66 @@ async fn fresh_package_uses_local_days_without_a_reporting_week_or_memory_study(
         assert!(!packet.contains("HISTORY"));
         assert!(!packet.contains("week"));
     }
+    finish(&pool).await?;
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
+async fn people_receive_reporting_assignments_and_publish_under_the_same_daily_fence() -> Result<()>
+{
+    let pool = setup().await?;
+    let person = Item {
+        entity_type: "person".into(),
+        ..item("narratives", 901, "classifier-spectrum-v1:person")
+    };
+    work::enqueue(&pool, &person).await?;
+    enroll(&pool).await?;
+    assert_eq!(tick(&pool, 0.0).await?, "draining");
+    assert_eq!(tick(&pool, 0.0).await?, "characters");
+    let stages: Vec<String>=sqlx::query_scalar("SELECT stage FROM coverage_assignments WHERE entity_type='person' AND entity_id=901 ORDER BY stage").fetch_all(&pool).await?;
+    assert_eq!(stages, vec!["narratives", "transfers", "vibe"]);
+    assert!(
+        !crate::plugins::analyst::enqueue_momentum_if_needed(&pool, "person", 901, "ZZ_COVERAGE")
+            .await?
+    );
+    assert!(
+        !crate::plugins::oracle::enqueue_oracle_if_pillars_settled(
+            &pool,
+            "person",
+            901,
+            "ZZ_COVERAGE",
+            None
+        )
+        .await?
+    );
+    for (stage,sql) in [
+        ("narratives","INSERT INTO news_summaries(entity_type,entity_id,sport,trigger_type,narrative_title,body) VALUES('person',901,'ZZ_COVERAGE','classifier','Person story','Wire reports a development.')"),
+        ("vibe","INSERT INTO vibe_scores(entity_type,entity_id,sport,trigger_type,model_version,prompt_version,sentiment,hook,prompt) VALUES('person',901,'ZZ_COVERAGE','manual','fixture','fixture',75,'Person hope','Wire reports hope.')"),
+        ("transfers","INSERT INTO insider_scores(entity_type,entity_id,sport,score,read,headline,prompt_version) VALUES('person',901,'ZZ_COVERAGE',40,'Wire reports interest.','Person talks','fixture')"),
+    ] {
+        let claimed=claim(&pool,stage).await?.remove(0);
+        assert_eq!(claimed.entity_type,"person");
+        let mut publication=ClaimPublication::begin(&pool,&claimed).await?.unwrap();
+        sqlx::query(sql).execute(&mut **publication.transaction()).await?;
+        let kind = match stage {
+            "narratives" => crate::plugins::journalist::NARRATIVES_COMPLETED,
+            "vibe" => crate::plugins::influencer::VIBE_COMPLETED,
+            _ => crate::plugins::insider::TRANSFER_PUBLISHED,
+        };
+        super::outbox::record(publication.transaction(), &claimed, super::outbox::NewEvent {
+            kind, entity_type:"person", entity_id:901, source_input_version:claimed.input_version.as_deref(),
+        }).await?;
+        publication.commit_final().await?;
+    }
+    let complete:i64=sqlx::query_scalar("SELECT count(*) FROM coverage_assignments WHERE entity_type='person' AND entity_id=901 AND outcome='completed'").fetch_one(&pool).await?;
+    assert_eq!(complete, 3);
+    let reactions = crate::harness::registration::build_reactions(pool.clone())?;
+    assert_eq!(super::outbox::drain(&pool, &reactions, 10).await?, 3);
+    let statistical_jobs:i64=sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE entity_type='person' AND stage IN ('rating','momentum','sigil')").fetch_one(&pool).await?;
+    assert_eq!(statistical_jobs, 0);
+    assert_eq!(tick(&pool, 0.0).await?, "coverage");
+    sqlx::raw_sql("DELETE FROM news_summaries WHERE entity_type='person' AND sport='ZZ_COVERAGE'; DELETE FROM vibe_scores WHERE entity_type='person' AND sport='ZZ_COVERAGE'; DELETE FROM insider_scores WHERE entity_type='person' AND sport='ZZ_COVERAGE';").execute(&pool).await?;
     finish(&pool).await?;
     Ok(())
 }

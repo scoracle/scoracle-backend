@@ -843,9 +843,9 @@ mod claim_order_tests {
         ] {
             assert_eq!(manifest.claim_policy.order, ClaimOrder::TeamsFirst);
         }
-        // Acquisition favors fresh reporting; Classifier scoring retains feed-rank ordering.
+        // Classifier prioritizes fresh headlines, then feed rank.
         assert_eq!(
-            crate::plugins::classifier::manifest::ACQUIRE_MANIFEST
+            crate::plugins::classifier::manifest::MANIFEST
                 .claim_policy
                 .order,
             ClaimOrder::FreshArticles

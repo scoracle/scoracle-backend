@@ -31,9 +31,6 @@ pub enum DomainClass {
     NewsRss,
     /// The registered box-score sources configured in `boxscore_sources`.
     BoxscoreSources,
-    /// Article bodies behind already-curated URLs (the scoped re-read path for the
-    /// news characters). Not a license to follow arbitrary links.
-    CuratedArticles,
 }
 
 impl DomainClass {
@@ -42,7 +39,6 @@ impl DomainClass {
             DomainClass::Wikimedia => "wikimedia",
             DomainClass::NewsRss => "news_rss",
             DomainClass::BoxscoreSources => "boxscore_sources",
-            DomainClass::CuratedArticles => "curated_articles",
         }
     }
 
@@ -109,29 +105,10 @@ pub struct WebBroker {
 }
 
 impl WebBroker {
-    pub fn reader_enabled(&self) -> bool {
-        self.fetcher.reader_enabled()
-    }
     pub fn new(max_calls: u32) -> Result<Self> {
         Ok(Self {
             fetcher: BudgetedFetcher::new()?,
             max_calls,
-        })
-    }
-
-    #[cfg(test)]
-    pub(crate) fn test_publisher(address: std::net::SocketAddr) -> Result<Self> {
-        Ok(Self {
-            fetcher: BudgetedFetcher::test_publisher(address)?,
-            max_calls: 0,
-        })
-    }
-
-    #[cfg(test)]
-    pub(crate) fn test_reader(address: std::net::SocketAddr) -> Result<Self> {
-        Ok(Self {
-            fetcher: BudgetedFetcher::test_reader(address)?,
-            max_calls: 0,
         })
     }
 
@@ -155,16 +132,6 @@ pub struct ScopedWeb<'a> {
 }
 
 impl<'a> ScopedWeb<'a> {
-    /// One curated URL interface, shared by acquisition and retained character evidence.
-    pub async fn read_article(&self, url: &str, policy: &FetchPolicy) -> Result<SourceFetch> {
-        self.check_grant(DomainClass::CuratedArticles, url)?;
-        self.check_budget()?;
-        self.broker
-            .fetcher
-            .read_article(self.pool, url, policy)
-            .await
-            .map_err(anyhow::Error::new)
-    }
     fn check_grant(&self, class: DomainClass, url: &str) -> Result<()> {
         if !self.plugin.grants_web(class) {
             return Err(anyhow!(

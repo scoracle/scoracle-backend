@@ -1,0 +1,13 @@
+{
+  "version": "classification-criteria-v8-admission",
+  "questions": {
+    "subject": {
+      "type": "noul",
+      "instructions": "Is {subject} substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison, navigation entry, ad or related-story link alone does not qualify."
+    }
+  },
+  "admission": {
+    "subject": 55
+  },
+  "note": "Relevance-only RSS admission. Publisher disambiguates the subject; no character selection, body reading or topic scoring."
+}

@@ -1,0 +1,564 @@
+{
+  "origin": "Read-only export of six existing production news_articles and RSS query candidates, scored by the unchanged d1 model. Exact original headlines, publishers, URLs and publication times; no invented labels.",
+  "criteria_version": "classification-criteria-v9-headlines",
+  "records": [
+    {
+      "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxQU3pvXzhaRC1aRm45MEV0NzF4dmx1VjZZQnI4T09GbU1iTFZQdlZ1SXFfZmpnTXdMQ2NxVHRkdEdSTXQ0SFl1YjB1NXUzNGRaQ0VETC1UZVBQaVczWE5aQkRBd3Y0Q3BRUlFWekZJR1lpU0h3VzJfem1tX3AtOUt6WEhNUno?oc=5",
+      "subject": {
+        "name": "New York Knicks",
+        "sport": "NBA",
+        "entity_id": 20,
+        "entity_type": "team"
+      },
+      "headline": "1 Knicks player in danger of losing starting job in 2026-27 training camp",
+      "publisher": "Yahoo Sports",
+      "article_id": 936298,
+      "published_at": "2026-10-15T03:16:00Z",
+      "published_at_epoch": 1792034160,
+      "receipt": {
+        "request": {
+          "questions": {
+            "availability": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report injury, illness, fitness, suspension, eligibility, rest, absence or return affecting whether New York Knicks, the NBA team or its players can participate? Exclude historical background and ordinary tactical substitutions.",
+              "type": "noul"
+            },
+            "clickbait": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline use sensationalism, exaggerated certainty, a misleading tease or withheld key information to entice clicks? Judge the headline's wording, not the publisher's reputation. A surprising concrete claim or an attributed quotation alone is not clickbait. This score cannot establish whether the underlying claim is true.",
+              "type": "noul"
+            },
+            "emotion": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline express feelings or emotional reactions about New York Knicks, the NBA team, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Do not infer feelings from a result alone.",
+              "type": "noul"
+            },
+            "movement": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving New York Knicks, the NBA team? Include rumours and denials. Exclude historical background and fantasy trades.",
+              "type": "noul"
+            },
+            "subject": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Is New York Knicks, the NBA team substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison alone does not qualify.",
+              "type": "noul"
+            }
+          },
+          "state": {
+            "article": {
+              "headline": "1 Knicks player in danger of losing starting job in 2026-27 training camp",
+              "publisher": "Yahoo Sports",
+              "sport": "NBA"
+            },
+            "subject_meta": {
+              "evidence_scope": "Subject identity only; not article evidence.",
+              "identity": {
+                "entity_id": 20,
+                "entity_type": "team",
+                "name": "New York Knicks",
+                "sport": "NBA"
+              },
+              "origin": "canonical production team and RSS query provenance"
+            }
+          }
+        },
+        "response": {
+          "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+          "answers": {
+            "availability": {
+              "type": "noul",
+              "noul": 0.7604352886836501
+            },
+            "clickbait": {
+              "type": "noul",
+              "noul": 0.16477485977407963
+            },
+            "emotion": {
+              "type": "noul",
+              "noul": 0.02348857527939262
+            },
+            "movement": {
+              "type": "noul",
+              "noul": 0.5608747231356294
+            },
+            "subject": {
+              "type": "noul",
+              "noul": 0.953931408196286
+            }
+          },
+          "usage": {
+            "input_tokens": 1181,
+            "output_tokens": 0
+          }
+        }
+      },
+      "spectrum": {
+        "availability": 76.043528868365,
+        "clickbait": 16.477485977407962,
+        "emotion": 2.3488575279392623,
+        "movement": 56.087472313562934,
+        "subject": 95.3931408196286
+      }
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxOTGVsUC1NSXpTM3N4TTV4ZzQ5RHBUc2V5X3ZfbDQwTzQxZWU0SkNBN0xsVzFFdTE3T1lORTJ4WDRsQldURW5QOFc5RHdNamZEVkVvU1h5WU9RRm5mdzd3MUlraXZwY0NMeVRicFFFdDNjQ2ZkajA5TmsyV2ZDcUJuX2ZITG1RZ20xN29XMXB6REg0aWxaSU9YVVpwQnJPYTcwdjYtSDBkSVh2WmRKclBJRg?oc=5",
+      "subject": {
+        "name": "New York Knicks",
+        "sport": "NBA",
+        "entity_id": 20,
+        "entity_type": "team"
+      },
+      "headline": "Mike Brown: Knicks Jalen Brunson top NBA leader because ‘he walks the talk’",
+      "publisher": "Saratogian",
+      "article_id": 945308,
+      "published_at": "2026-10-16T03:56:15Z",
+      "published_at_epoch": 1792122975,
+      "receipt": {
+        "request": {
+          "questions": {
+            "availability": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report injury, illness, fitness, suspension, eligibility, rest, absence or return affecting whether New York Knicks, the NBA team or its players can participate? Exclude historical background and ordinary tactical substitutions.",
+              "type": "noul"
+            },
+            "clickbait": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline use sensationalism, exaggerated certainty, a misleading tease or withheld key information to entice clicks? Judge the headline's wording, not the publisher's reputation. A surprising concrete claim or an attributed quotation alone is not clickbait. This score cannot establish whether the underlying claim is true.",
+              "type": "noul"
+            },
+            "emotion": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline express feelings or emotional reactions about New York Knicks, the NBA team, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Do not infer feelings from a result alone.",
+              "type": "noul"
+            },
+            "movement": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving New York Knicks, the NBA team? Include rumours and denials. Exclude historical background and fantasy trades.",
+              "type": "noul"
+            },
+            "subject": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Is New York Knicks, the NBA team substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison alone does not qualify.",
+              "type": "noul"
+            }
+          },
+          "state": {
+            "article": {
+              "headline": "Mike Brown: Knicks Jalen Brunson top NBA leader because ‘he walks the talk’",
+              "publisher": "Saratogian",
+              "sport": "NBA"
+            },
+            "subject_meta": {
+              "evidence_scope": "Subject identity only; not article evidence.",
+              "identity": {
+                "entity_id": 20,
+                "entity_type": "team",
+                "name": "New York Knicks",
+                "sport": "NBA"
+              },
+              "origin": "canonical production team and RSS query provenance"
+            }
+          }
+        },
+        "response": {
+          "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+          "answers": {
+            "availability": {
+              "type": "noul",
+              "noul": 0.020015583139868214
+            },
+            "clickbait": {
+              "type": "noul",
+              "noul": 0.04805494904245332
+            },
+            "emotion": {
+              "type": "noul",
+              "noul": 0.027410129846201756
+            },
+            "movement": {
+              "type": "noul",
+              "noul": 0.03516529024766573
+            },
+            "subject": {
+              "type": "noul",
+              "noul": 0.9256085594651411
+            }
+          },
+          "usage": {
+            "input_tokens": 1191,
+            "output_tokens": 0
+          }
+        }
+      },
+      "spectrum": {
+        "availability": 2.0015583139868216,
+        "clickbait": 4.805494904245331,
+        "emotion": 2.7410129846201756,
+        "movement": 3.516529024766573,
+        "subject": 92.56085594651411
+      }
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMifEFVX3lxTE5XRFVaekRTa0JKZllmNmhKZXpWelBYVVdFQnIxdHFUX0hpazNCdXN5dXYtRkw1QWZFdzV3dWV4cGZweXRsbmhjNTlxSnFhSXVWRzd5QjdaYWRSQmxUSFRvMDZIcHhvY3M3ZFZKT3liaEMtU0ZGNk9tdFJlQlc?oc=5",
+      "subject": {
+        "name": "New York Knicks",
+        "sport": "NBA",
+        "entity_id": 20,
+        "entity_type": "team"
+      },
+      "headline": "‘They’re Not Getting Out of the East’ — 17-Year NBA Veteran Makes Bold Prediction About Knicks’ Title Chances",
+      "publisher": "Yahoo Sports",
+      "article_id": 964833,
+      "published_at": "2026-10-17T03:07:00Z",
+      "published_at_epoch": 1792206420,
+      "receipt": {
+        "request": {
+          "questions": {
+            "availability": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report injury, illness, fitness, suspension, eligibility, rest, absence or return affecting whether New York Knicks, the NBA team or its players can participate? Exclude historical background and ordinary tactical substitutions.",
+              "type": "noul"
+            },
+            "clickbait": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline use sensationalism, exaggerated certainty, a misleading tease or withheld key information to entice clicks? Judge the headline's wording, not the publisher's reputation. A surprising concrete claim or an attributed quotation alone is not clickbait. This score cannot establish whether the underlying claim is true.",
+              "type": "noul"
+            },
+            "emotion": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline express feelings or emotional reactions about New York Knicks, the NBA team, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Do not infer feelings from a result alone.",
+              "type": "noul"
+            },
+            "movement": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving New York Knicks, the NBA team? Include rumours and denials. Exclude historical background and fantasy trades.",
+              "type": "noul"
+            },
+            "subject": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Is New York Knicks, the NBA team substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison alone does not qualify.",
+              "type": "noul"
+            }
+          },
+          "state": {
+            "article": {
+              "headline": "‘They’re Not Getting Out of the East’ — 17-Year NBA Veteran Makes Bold Prediction About Knicks’ Title Chances",
+              "publisher": "Yahoo Sports",
+              "sport": "NBA"
+            },
+            "subject_meta": {
+              "evidence_scope": "Subject identity only; not article evidence.",
+              "identity": {
+                "entity_id": 20,
+                "entity_type": "team",
+                "name": "New York Knicks",
+                "sport": "NBA"
+              },
+              "origin": "canonical production team and RSS query provenance"
+            }
+          }
+        },
+        "response": {
+          "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+          "answers": {
+            "availability": {
+              "type": "noul",
+              "noul": 0.04398944332227438
+            },
+            "clickbait": {
+              "type": "noul",
+              "noul": 0.19275828888677515
+            },
+            "emotion": {
+              "type": "noul",
+              "noul": 0.0473839271733527
+            },
+            "movement": {
+              "type": "noul",
+              "noul": 0.030830270692698933
+            },
+            "subject": {
+              "type": "noul",
+              "noul": 0.9170821743455483
+            }
+          },
+          "usage": {
+            "input_tokens": 1241,
+            "output_tokens": 0
+          }
+        }
+      },
+      "spectrum": {
+        "availability": 4.398944332227438,
+        "clickbait": 19.275828888677516,
+        "emotion": 4.73839271733527,
+        "movement": 3.0830270692698933,
+        "subject": 91.70821743455483
+      }
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxQQTJVeVRrMzFucFFMRWdialBrNGhGQW1SV3ljRTZpbzRuOG1QSGJtWmZweVZZdE1Kc0VwekFKVUJmZjY5dnVJMFJheVA1eXRET29TdnozQTZxYXBaYk9IZFdZWFR6b2lyZmdoY3pneTZpbW5KUnIzbEJQU3FxY25mUjV1ZHFWMVdFWmFOczA1RE9hSTZfSjQ1bmhlVS1aQnVBeUJmQVN2cw?oc=5",
+      "subject": {
+        "name": "New York Knicks",
+        "sport": "NBA",
+        "entity_id": 20,
+        "entity_type": "team"
+      },
+      "headline": "Miles McBride’s agent leaves door open for future talks with Knicks",
+      "publisher": "New York Post",
+      "article_id": 975329,
+      "published_at": "2026-10-18T02:35:00Z",
+      "published_at_epoch": 1792290900,
+      "receipt": {
+        "request": {
+          "questions": {
+            "availability": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report injury, illness, fitness, suspension, eligibility, rest, absence or return affecting whether New York Knicks, the NBA team or its players can participate? Exclude historical background and ordinary tactical substitutions.",
+              "type": "noul"
+            },
+            "clickbait": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline use sensationalism, exaggerated certainty, a misleading tease or withheld key information to entice clicks? Judge the headline's wording, not the publisher's reputation. A surprising concrete claim or an attributed quotation alone is not clickbait. This score cannot establish whether the underlying claim is true.",
+              "type": "noul"
+            },
+            "emotion": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline express feelings or emotional reactions about New York Knicks, the NBA team, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Do not infer feelings from a result alone.",
+              "type": "noul"
+            },
+            "movement": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving New York Knicks, the NBA team? Include rumours and denials. Exclude historical background and fantasy trades.",
+              "type": "noul"
+            },
+            "subject": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Is New York Knicks, the NBA team substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison alone does not qualify.",
+              "type": "noul"
+            }
+          },
+          "state": {
+            "article": {
+              "headline": "Miles McBride’s agent leaves door open for future talks with Knicks",
+              "publisher": "New York Post",
+              "sport": "NBA"
+            },
+            "subject_meta": {
+              "evidence_scope": "Subject identity only; not article evidence.",
+              "identity": {
+                "entity_id": 20,
+                "entity_type": "team",
+                "name": "New York Knicks",
+                "sport": "NBA"
+              },
+              "origin": "canonical production team and RSS query provenance"
+            }
+          }
+        },
+        "response": {
+          "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+          "answers": {
+            "availability": {
+              "type": "noul",
+              "noul": 0.02008322453085367
+            },
+            "clickbait": {
+              "type": "noul",
+              "noul": 0.07128513951148821
+            },
+            "emotion": {
+              "type": "noul",
+              "noul": 0.017266031682099545
+            },
+            "movement": {
+              "type": "noul",
+              "noul": 0.8858229807175183
+            },
+            "subject": {
+              "type": "noul",
+              "noul": 0.8808867649878019
+            }
+          },
+          "usage": {
+            "input_tokens": 1171,
+            "output_tokens": 0
+          }
+        }
+      },
+      "spectrum": {
+        "availability": 2.008322453085367,
+        "clickbait": 7.128513951148821,
+        "emotion": 1.7266031682099545,
+        "movement": 88.58229807175184,
+        "subject": 88.08867649878019
+      }
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxPODRVREhJQlUwcE15U3dlbHRkYXZNaXZ2QlZTU2MxWVNtYjQ4bEs3VnFBUTFaQnVxeGJjTmF3TXFFZVFsX1FGbGpYaXJRQ08xMWw1bVNMY3dEYmRKRUdJYzN1dUJxb0JJQ3EweGphMHRCRkFTMkFBS2twSkNvMTEtWGJ4SGZ5RUVKaVA0MlMzWndRTFJ6V0dDSDBvZUJpV1Q5RUE?oc=5",
+      "subject": {
+        "name": "New York Knicks",
+        "sport": "NBA",
+        "entity_id": 20,
+        "entity_type": "team"
+      },
+      "headline": "Knicks Bulletin: ‘I talked to our guys about this’",
+      "publisher": "Posting and Toasting",
+      "article_id": 982658,
+      "published_at": "2026-10-18T14:47:22Z",
+      "published_at_epoch": 1792334842,
+      "receipt": {
+        "request": {
+          "questions": {
+            "availability": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report injury, illness, fitness, suspension, eligibility, rest, absence or return affecting whether New York Knicks, the NBA team or its players can participate? Exclude historical background and ordinary tactical substitutions.",
+              "type": "noul"
+            },
+            "clickbait": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline use sensationalism, exaggerated certainty, a misleading tease or withheld key information to entice clicks? Judge the headline's wording, not the publisher's reputation. A surprising concrete claim or an attributed quotation alone is not clickbait. This score cannot establish whether the underlying claim is true.",
+              "type": "noul"
+            },
+            "emotion": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline express feelings or emotional reactions about New York Knicks, the NBA team, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Do not infer feelings from a result alone.",
+              "type": "noul"
+            },
+            "movement": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving New York Knicks, the NBA team? Include rumours and denials. Exclude historical background and fantasy trades.",
+              "type": "noul"
+            },
+            "subject": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Is New York Knicks, the NBA team substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison alone does not qualify.",
+              "type": "noul"
+            }
+          },
+          "state": {
+            "article": {
+              "headline": "Knicks Bulletin: ‘I talked to our guys about this’",
+              "publisher": "Posting and Toasting",
+              "sport": "NBA"
+            },
+            "subject_meta": {
+              "evidence_scope": "Subject identity only; not article evidence.",
+              "identity": {
+                "entity_id": 20,
+                "entity_type": "team",
+                "name": "New York Knicks",
+                "sport": "NBA"
+              },
+              "origin": "canonical production team and RSS query provenance"
+            }
+          }
+        },
+        "response": {
+          "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+          "answers": {
+            "availability": {
+              "type": "noul",
+              "noul": 0.07715590224594064
+            },
+            "clickbait": {
+              "type": "noul",
+              "noul": 0.15634777498145655
+            },
+            "emotion": {
+              "type": "noul",
+              "noul": 0.024575293515702215
+            },
+            "movement": {
+              "type": "noul",
+              "noul": 0.17558638585484007
+            },
+            "subject": {
+              "type": "noul",
+              "noul": 0.9387495782208649
+            }
+          },
+          "usage": {
+            "input_tokens": 1166,
+            "output_tokens": 0
+          }
+        }
+      },
+      "spectrum": {
+        "availability": 7.715590224594064,
+        "clickbait": 15.634777498145654,
+        "emotion": 2.4575293515702215,
+        "movement": 17.558638585484008,
+        "subject": 93.87495782208649
+      }
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQOXo1MGhIcWRVM2ZKUXhfTXEtWGtvSWNiN0VFcW84c01ja1N6bk1QLU44eTIyQzR4S1Z0ZHZnSjRfZzhUd2ljQl9zazFycUcwQkN4Wk4tVTFCV2YwYnk3VzRoTWRJcmFvVjFPUk5xUnF2T3pRTzhZRW16Ung0Z1k3bm9SZUZ4Q3Izb2Itc3ZOZzlzdUk?oc=5",
+      "subject": {
+        "name": "New York Knicks",
+        "sport": "NBA",
+        "entity_id": 20,
+        "entity_type": "team"
+      },
+      "headline": "Jason of Beverly Hills Drops Cryptic Knicks Ring Night Tease Ahead of Championship Ceremony",
+      "publisher": "Complex",
+      "article_id": 982741,
+      "published_at": "2026-10-18T15:20:31Z",
+      "published_at_epoch": 1792336831,
+      "receipt": {
+        "request": {
+          "questions": {
+            "availability": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report injury, illness, fitness, suspension, eligibility, rest, absence or return affecting whether New York Knicks, the NBA team or its players can participate? Exclude historical background and ordinary tactical substitutions.",
+              "type": "noul"
+            },
+            "clickbait": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline use sensationalism, exaggerated certainty, a misleading tease or withheld key information to entice clicks? Judge the headline's wording, not the publisher's reputation. A surprising concrete claim or an attributed quotation alone is not clickbait. This score cannot establish whether the underlying claim is true.",
+              "type": "noul"
+            },
+            "emotion": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline express feelings or emotional reactions about New York Knicks, the NBA team, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Do not infer feelings from a result alone.",
+              "type": "noul"
+            },
+            "movement": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Does the headline report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving New York Knicks, the NBA team? Include rumours and denials. Exclude historical background and fantasy trades.",
+              "type": "noul"
+            },
+            "subject": {
+              "instructions": "Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. Is New York Knicks, the NBA team substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison alone does not qualify.",
+              "type": "noul"
+            }
+          },
+          "state": {
+            "article": {
+              "headline": "Jason of Beverly Hills Drops Cryptic Knicks Ring Night Tease Ahead of Championship Ceremony",
+              "publisher": "Complex",
+              "sport": "NBA"
+            },
+            "subject_meta": {
+              "evidence_scope": "Subject identity only; not article evidence.",
+              "identity": {
+                "entity_id": 20,
+                "entity_type": "team",
+                "name": "New York Knicks",
+                "sport": "NBA"
+              },
+              "origin": "canonical production team and RSS query provenance"
+            }
+          }
+        },
+        "response": {
+          "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+          "answers": {
+            "availability": {
+              "type": "noul",
+              "noul": 0.03718534108515319
+            },
+            "clickbait": {
+              "type": "noul",
+              "noul": 0.4215946107731147
+            },
+            "emotion": {
+              "type": "noul",
+              "noul": 0.02555557011530048
+            },
+            "movement": {
+              "type": "noul",
+              "noul": 0.04479972259648405
+            },
+            "subject": {
+              "type": "noul",
+              "noul": 0.8650471618951651
+            }
+          },
+          "usage": {
+            "input_tokens": 1191,
+            "output_tokens": 0
+          }
+        }
+      },
+      "spectrum": {
+        "availability": 3.7185341085153185,
+        "clickbait": 42.15946107731147,
+        "emotion": 2.555557011530048,
+        "movement": 4.479972259648405,
+        "subject": 86.5047161895165
+      }
+    }
+  ]
+}

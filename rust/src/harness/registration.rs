@@ -43,7 +43,7 @@ pub fn enabled_from_config(raw: Option<&str>) -> Result<HashSet<String>> {
         // stages. Intake replacements require explicit enablement while cognition is paused.
         return Ok(known
             .into_iter()
-            .filter(|s| !matches!(*s, "classifier" | "classifier_acquire"))
+            .filter(|s| *s != "classifier")
             .map(str::to_owned)
             .collect());
     };
@@ -96,17 +96,12 @@ pub fn build(
     let mut handlers: Vec<Arc<dyn StudioPlugin>> = Vec::new();
     let mut web_workspace: Option<Arc<WebBroker>> = None;
 
-    if enabled.contains("classifier_acquire") {
-        let web = shared_web_workspace(&mut web_workspace)?;
-        handlers.push(Arc::new(
-            crate::plugins::classifier::adapter::AcquireHandler::new(pool.clone(), web),
-        ));
-    }
     if enabled.contains("classifier") {
-        // CLASSIFIER_URL points at the llama.cpp decision-model server (/v1/systemone).
-        let decision = crate::plugins::classifier::decision::Decision::from_env()?;
         handlers.push(Arc::new(
-            crate::plugins::classifier::adapter::ClassifierHandler::new(pool.clone(), decision),
+            crate::plugins::classifier::adapter::ClassifierHandler::new(
+                pool.clone(),
+                crate::plugins::classifier::decision::Decision::from_env()?,
+            ),
         ));
     }
 
@@ -204,17 +199,12 @@ mod tests {
     #[test]
     fn unset_configuration_keeps_classifier_opt_in() {
         let stages = enabled_from_config(None).unwrap();
-        assert_eq!(stages.len() + 2, known_stages().len());
+        assert_eq!(stages.len() + 1, known_stages().len());
         for stage in known_stages() {
-            assert_eq!(
-                stages.contains(stage),
-                !matches!(stage, "classifier" | "classifier_acquire")
-            );
+            assert_eq!(stages.contains(stage), stage != "classifier");
         }
         assert!(enabled_from_config(Some("harvester,editor")).is_err());
-        assert!(enabled_from_config(Some("classifier_acquire"))
-            .unwrap()
-            .contains("classifier_acquire"));
+        assert!(enabled_from_config(Some("classifier_acquire")).is_err());
     }
 
     #[test]

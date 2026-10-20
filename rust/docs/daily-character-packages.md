@@ -1,23 +1,33 @@
 # Daily character packages
 
+The new [headline corpus](headline-corpus.md) replaces article reading with scored
+headlines and a compact dated headline memory view for reporting characters.
+The [October 19 plumbing release](headline-plumbing-deployment-2026-10-19.md)
+activated migration 314 and matching workers on both hosts.
+The deployment notes below describe the preceding release.
+
 These packages and daily scheduling were deployed October 16, 2026. Archbox owns
 coverage and Classifier work; the Mac owns the six character stages. The existing
 SmolLM3 model is unchanged. See the [deployment record](daily-pipeline-deployment-2026-10-16.md).
 
-Each character receives one self-contained JSON document. Its `prompt.rs` owns
-the task instructions and assembles four fields:
+Each character receives one self-contained JSON document. For Journalist,
+Influencer and Insider, `fresh.rs` prepares the selected headline evidence and
+`prompt.rs` owns the task instructions and assembles five fields:
 
 - `meta`: canonical target entity metadata, presented by `tools/meta.rs`.
 - `task`: that plugin's instructions, stored in its `prompt.rs`.
-- `fresh`: complete fresh reporting, current measurements or that day's finished
-  peer cards, prepared by the plugin's `fresh.rs`. Publisher rendering is shared
-  in `tools/fresh.rs`.
+- `fresh`: Classifier-selected headlines, publishers, publication dates, URLs and
+  spectra, prepared by the plugin's `fresh.rs`. Shared publisher presentation
+  lives in `tools/fresh.rs`; character-specific report keys and co-mentions stay
+  in each character's `fresh.rs`.
+- `memories`: earlier attributed headlines selected through the same character lens.
 - `voice`: that plugin's own `voice.rs`, including Influencer.
 
 The call has no separate system instruction and exposes no tools. Bounded
 validation retries append their correction inside `task`, keeping one JSON
-document and leaving entity metadata and evidence unchanged. Form
-and memory context are absent. Native output schemas, response parsers, evidence
+document and leaving entity metadata and evidence unchanged. Form instructions
+are absent. Scout keeps structured measurements in `fresh`; Analyst and Oracle
+keep their existing peer-product inputs. Native output schemas, response parsers, evidence
 validation, complete-source budgets and claim-fenced publication remain active.
 Reporting bounds belong to fresh evidence, not entity metadata. Scout's numeric
 validation reads fresh evidence only; numbers in task instructions cannot prove

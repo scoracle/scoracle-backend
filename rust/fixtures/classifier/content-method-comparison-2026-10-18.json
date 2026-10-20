@@ -1,0 +1,202 @@
+{
+  "date": "2026-10-18",
+  "decision": "recommend existing shared Jina reader for first usable release; no new HTTP/browser fallback",
+  "requested_target_flow": [
+    "Decision model gates relevance and selects downstream characters using discovery evidence",
+    "Admitted URLs are read once by shared reader; retain one version",
+    "Selected character plugins consume retained content in daily fresh packages"
+  ],
+  "implementation_status": "recommendation only; production remains v6/312; local v8/313 is relevance-only and needs pre-read character routing before activation",
+  "cohort": {
+    "articles": 6,
+    "sports": 3,
+    "publishers": 6,
+    "selection": "all six accepted article IDs in prior frozen canary, linked to successful v8 relevance-only receipts",
+    "independent_holdout": false,
+    "admission_calls_this_run": 0,
+    "cohort_sha256": "ca33a3451d85abdd324448777c7a981678dd474a76d887dc09ba610b560acd55"
+  },
+  "component_results": {
+    "reader_bodies": 6,
+    "extracted_bodies": 6,
+    "within_24kb_cap": {
+      "reader": 6,
+      "extraction": 6
+    },
+    "reviewed_key_reporting_retained": {
+      "reader": 6,
+      "extraction": 6
+    },
+    "reader_http_requests": 7,
+    "direct_http_requests": 6,
+    "publisher_wire_requests_inside_reader": "not instrumented",
+    "reader": {
+      "median_seconds": 16.088577640497533,
+      "p95_nearest_rank_seconds": 20.177339722999022,
+      "min_seconds": 2.6458618309989106,
+      "max_seconds": 20.177339722999022,
+      "sum_seconds": 87.85493121299078
+    },
+    "http_fetch_extract": {
+      "median_seconds": 0.6096423009948163,
+      "p95_nearest_rank_seconds": 6.622781974995869,
+      "min_seconds": 0.3875824139971234,
+      "max_seconds": 6.622781974995869,
+      "sum_seconds": 10.37646129498761
+    },
+    "observed_extraction_duplicate_paragraphs": 2,
+    "source_review": "agent review of both returned bodies against retained reference; key reporting/attribution/negation/late paragraphs, not independent full-source completeness or output fidelity"
+  },
+  "prior_separate_six_article_diagnostic": {
+    "receipt": "fixtures/character-outputs/2026-10-17-reader-throughput.json",
+    "reader_successes": 6,
+    "http_extractions": 5,
+    "http_extractions_within_24kb": 4,
+    "limits": "different selected cohort and timing conditions; HTTP 402 on one publisher and 28666-byte extraction versus 17649-byte live reader result on another; do not pool as production yield"
+  },
+  "runtime_observation": {
+    "service": "scoracle-reader.service",
+    "active": true,
+    "restarts_since_start": 0,
+    "active_since": "2026-10-17 22:58:18 America/Detroit",
+    "memory_current_bytes": 7535042560,
+    "memory_peak_bytes": 8217047040,
+    "host_available_memory_mib": 20952,
+    "interpretation": "point-in-time service/cgroup memory including children, not an isolated request-memory benchmark or proof of leak/stability"
+  },
+  "results": [
+    {
+      "article_id": 971290,
+      "publisher": "FC St. Pauli",
+      "sport": "FOOTBALL",
+      "admission_receipt_id": "production/971290/353",
+      "reader_seconds": 20.177339722999022,
+      "http_fetch_extract_seconds": 6.622781974995869,
+      "reader_attempts": 2,
+      "reader_selector": "main",
+      "reader_bytes": 3135,
+      "extracted_bytes": 3071,
+      "reader_body_sha256": "c33a8f17cbb7a3993c37a03e1ddc1993e1e03e95f7dc16f19238b076c94a939a",
+      "extracted_body_sha256": "fb4450421abf8ad8aa04bae26a8a92cda4e131bf23d08a9645dc38bf863ded5a",
+      "reviewed_key_reporting_retained": {
+        "reader": true,
+        "extraction": true
+      },
+      "review_note": "Both preserve all six speaker sections, attribution, draw context and the final Hartel quote. Reader has breadcrumb/footer furniture; extraction adds a trailing player-name list."
+    },
+    {
+      "article_id": 965988,
+      "publisher": "Midland Reporter-Telegram",
+      "sport": "NFL",
+      "admission_receipt_id": "production/965988/22",
+      "reader_seconds": 2.6458618309989106,
+      "http_fetch_extract_seconds": 1.6113513260034364,
+      "reader_attempts": 1,
+      "reader_selector": "article",
+      "reader_bytes": 1441,
+      "extracted_bytes": 1058,
+      "reader_body_sha256": "4727404945649c832570223d4a8c7fb2211fb2d7d6f3e8794bcecbe2dc6677a6",
+      "extracted_body_sha256": "812a8bd3428803a6df43fe5d27cfde680e24f26b5fbf7fbc2ea5403fd636e2db",
+      "reviewed_key_reporting_retained": {
+        "reader": true,
+        "extraction": true
+      },
+      "review_note": "Both preserve distinct IR placements and activation, the four-game minimum and expected season absence. Extraction flattens paragraphs; reader includes a photo caption and ad placeholders."
+    },
+    {
+      "article_id": 965679,
+      "publisher": "Hoops Wire",
+      "sport": "NBA",
+      "admission_receipt_id": "production/965679/29",
+      "reader_seconds": 19.022599518997595,
+      "http_fetch_extract_seconds": 0.3875824139971234,
+      "reader_attempts": 1,
+      "reader_selector": "article",
+      "reader_bytes": 1371,
+      "extracted_bytes": 1361,
+      "reader_body_sha256": "cf1d5f4e294e2749c50b3a81eda0689b179e9a8429b166b9c55237e94cc9dece",
+      "extracted_body_sha256": "1ba67997bed4a8ef787af5d244d5876a2071083d765842872309692b9d75958e",
+      "reviewed_key_reporting_retained": {
+        "reader": true,
+        "extraction": true
+      },
+      "review_note": "Both preserve waiver-claim attribution, current versus historical transactions and uncertain role. Both retain some social promotion; extraction also includes category/share labels."
+    },
+    {
+      "article_id": 963450,
+      "publisher": "Sports Illustrated",
+      "sport": "NBA",
+      "admission_receipt_id": "production/963450/30",
+      "reader_seconds": 15.840640843998699,
+      "http_fetch_extract_seconds": 0.5434405559948063,
+      "reader_attempts": 1,
+      "reader_selector": "article",
+      "reader_bytes": 3013,
+      "extracted_bytes": 3872,
+      "reader_body_sha256": "c81f7524c5c554cde2b176d679a98f0c739457c2c222a9085e8a96e98e68fecf",
+      "extracted_body_sha256": "d1f3115226a28c9214987fb98c17b04dd463b31b208a7be4cccae4814b9dc7af",
+      "reviewed_key_reporting_retained": {
+        "reader": true,
+        "extraction": true
+      },
+      "review_note": "Both preserve the contract distinction, 50-game rule, upgrade qualification and history. Extraction duplicates many paragraphs and produces a partial repeated statistic. Reader preserves paragraphs and captions."
+    },
+    {
+      "article_id": 973704,
+      "publisher": "Coventry Telegraph",
+      "sport": "FOOTBALL",
+      "admission_receipt_id": "production/973704/20000000",
+      "reader_seconds": 13.831974859000184,
+      "http_fetch_extract_seconds": 0.6758440459948263,
+      "reader_attempts": 1,
+      "reader_selector": "article",
+      "reader_bytes": 3904,
+      "extracted_bytes": 3653,
+      "reader_body_sha256": "2916c7c56ba59b1f550b19d1d4741cb615a83485c7074b0a1722cc91735f02a1",
+      "extracted_body_sha256": "60dddfedbc7473fe516178c242378845a552e60f30ba98b79f90fb636a24ceb6",
+      "reviewed_key_reporting_retained": {
+        "reader": true,
+        "extraction": true
+      },
+      "review_note": "Both preserve young-player identities, loan context, Lampard attribution and final support/outside-pressure quotes. Extraction flattens paragraphs. Both retain an inline publisher promotion."
+    },
+    {
+      "article_id": 975522,
+      "publisher": "Sports Illustrated",
+      "sport": "NBA",
+      "admission_receipt_id": "production/975522/22",
+      "reader_seconds": 16.336514436996367,
+      "http_fetch_extract_seconds": 0.5354609780015487,
+      "reader_attempts": 1,
+      "reader_selector": "article",
+      "reader_bytes": 3273,
+      "extracted_bytes": 3821,
+      "reader_body_sha256": "69a7bd7db0136bab448a8b6a3f4e069873cf3cf5dd80e88e4e31bf1056a4548a",
+      "extracted_body_sha256": "f5d73a825d3699552f5e25a221356007a1b3a68fa7e61385e694dc2b5b41c155",
+      "reviewed_key_reporting_retained": {
+        "reader": true,
+        "extraction": true
+      },
+      "review_note": "Both preserve uncertain Wagner availability, separate Richardson/Penda statuses, Jason Beede attribution and conditional replacement. Extraction duplicates paragraphs and omits the embedded tweet, whose key injury facts are also in prose. Both retain new late paragraphs absent from the frozen reference; reader retains tweet formatting."
+    }
+  ],
+  "limitations": [
+    "No application cache or database access; x-no-cache/HTTP no-cache requested; browser/CDN/OS warmth remains uncontrolled.",
+    "Direct accepted publisher URLs; Google resolution, queue spacing/retries, database retention/restart and character outputs were not rerun.",
+    "Selected small development cohort; no sustained daily throughput, unique-story coverage, material table case or independently verified correction case.",
+    "Reader still includes occasional furniture and can miss content outside article/main.",
+    "Unchanged acquisition keys currently reuse retained text indefinitely; discovering separate reports is supported, same-URL correction refresh needs its own policy.",
+    "Current v8 admission does not choose characters; target routing is a requested change, not a measured/implemented capability."
+  ],
+  "production_database_writes": 0,
+  "character_model_calls": 0,
+  "production_configuration_changed": false,
+  "private_evidence_directory": "/private/tmp/scoracle-content-choice-20261018",
+  "upstream_documentation": "https://github.com/jina-ai/reader",
+  "validation": [
+    "Probe Python compilation and bounded runtime assertions passed.",
+    "All 12 method/article pairs accounted for; all bodies fit existing intake limits.",
+    "Existing extractor reproduced all six archived comparison bodies exactly.",
+    "Repository application code unchanged; runtime test suite not rerun."
+  ]
+}

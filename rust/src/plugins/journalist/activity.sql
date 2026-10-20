@@ -1,5 +1,5 @@
 -- Operate only on the reports already admitted and selected by the plugin.
--- Slot zero is the whole edition; later slots retain selected report order.
+-- Measure only the selected edition or cited narrative group.
 WITH reports AS (
     SELECT publisher, published_at, slot
     FROM unnest($1::text[], $2::bigint[]) WITH ORDINALITY
@@ -8,8 +8,6 @@ WITH reports AS (
     SELECT 0::bigint AS slot, count(*) AS article_count,
            count(DISTINCT publisher COLLATE "C") AS distinct_sources, max(published_at) AS newest
     FROM reports
-    UNION ALL
-    SELECT slot, 1::bigint, 1::bigint, published_at FROM reports
 ), components AS (
     SELECT slot, article_count, distinct_sources,
            60.0::float8 * (1.0::float8 - exp(-(article_count::float8) / 5.0::float8)) AS volume,

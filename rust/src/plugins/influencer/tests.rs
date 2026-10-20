@@ -49,6 +49,7 @@ async fn day_card_contract() {
         published_at_epoch: Some(1709164800),
     };
     let a = Assignment::from_parts(prompt::Parts {
+        memories: vec![],
         subject: EntityMeta {
             name: "Club".into(),
             entity_type: "team".into(),

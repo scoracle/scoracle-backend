@@ -11,7 +11,8 @@ use std::{collections::BTreeMap, time::Instant};
 struct Case {
     id: String,
     sport: String,
-    body: String,
+    headline: String,
+    publisher: String,
     meta: serde_json::Value,
     #[serde(default)]
     expected: BTreeMap<String, bool>,
@@ -23,7 +24,13 @@ async fn main() -> Result<()> {
     let path = args
         .next()
         .context("usage: classifier_replay CASES.jsonl [concurrency]")?;
-    let concurrency: usize = args.next().as_deref().unwrap_or("1").parse()?;
+    let mode = args.next();
+    let export = mode.as_deref() == Some("--requests-only");
+    let concurrency: usize = if export {
+        1
+    } else {
+        mode.as_deref().unwrap_or("1").parse()?
+    };
     ensure!(
         concurrency > 0 && args.next().is_none(),
         "positive concurrency required"
@@ -34,13 +41,25 @@ async fn main() -> Result<()> {
         .map(serde_json::from_str)
         .collect::<std::result::Result<_, _>>()?;
     ensure!(!cases.is_empty(), "empty calibration set");
+    if export {
+        for case in cases {
+            println!(
+                "{}",
+                json!({"id":case.id,"headline":case.headline,"publisher":case.publisher,"meta":case.meta,"sport":case.sport,"expected":case.expected,
+                "request":decision::request(&case.headline,&case.publisher,&case.sport,&case.meta)?})
+            );
+        }
+        return Ok(());
+    }
     let model = Decision::from_env()?;
     let started = Instant::now();
     let mut pending = stream::iter(cases.into_iter().map(|case| {
         let model = model.clone();
         async move {
             let started = Instant::now();
-            let spectrum = model.spectrum(&case.body, &case.sport, &case.meta).await;
+            let spectrum = model
+                .spectrum(&case.headline, &case.publisher, &case.sport, &case.meta)
+                .await;
             (case, spectrum, started.elapsed().as_secs_f64())
         }
     }))
@@ -52,7 +71,7 @@ async fn main() -> Result<()> {
         match result {
             Ok(measurement) => {
                 let spectrum = measurement.spectrum;
-                let gate = decision::gate(&spectrum)?;
+                let gate = decision::admitted(&spectrum)?;
                 for (key, expected) in &case.expected {
                     let probability = spectrum
                         .get(key)
@@ -67,7 +86,7 @@ async fn main() -> Result<()> {
                 println!(
                     "{}",
                     json!({"id":case.id,"sport":case.sport,"seconds":elapsed,
-                    "spectrum":spectrum,"gate":gate,"expected":case.expected,
+                    "spectrum":spectrum,"admitted":gate,"expected":case.expected,
                     "model":measurement.model,"request_hash":measurement.request_hash})
                 );
             }
@@ -87,7 +106,7 @@ async fn main() -> Result<()> {
         json!({"criteria_version":decision::CRITERIA_VERSION,"concurrency":concurrency,
         "completed":completed,"failed":failed,"seconds":elapsed,"requests_per_second":completed as f64 / elapsed,
         "p95_seconds":latencies.get((latencies.len() * 95).div_ceil(100).saturating_sub(1)),
-        "labels":labels,"mistakes_at_50":mistakes,
+        "labels":labels,"mistakes_at_50_percent":mistakes,
         "brier":if labels > 0 { Some(squared_error / labels as f64) } else { None }})
     );
     ensure!(failed == 0, "{failed} replay requests failed");

@@ -116,14 +116,14 @@ async fn wikimedia_grant_cannot_be_spent_on_other_hosts() {
 }
 
 #[tokio::test]
-async fn production_article_provider_refuses_a_plugin_without_the_curated_grant() {
+async fn headline_character_cannot_fetch_sources() {
     let broker = WebBroker::new(4).unwrap();
     let pool = lazy_pool();
     let web = scope(&broker, &pool, &crate::harness::fleet::JOURNALIST);
 
     let error = web
         .fetch_for_class(
-            DomainClass::CuratedArticles,
+            DomainClass::NewsRss,
             "https://example.com/article",
             &no_cache_policy(),
         )

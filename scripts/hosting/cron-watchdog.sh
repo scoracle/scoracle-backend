@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Data freshness and durable Classifier work. A deliberate pause is not starvation.
-# WATCHDOG_MODE=paused|acquire|classifier overrides detection for a remote worker.
+# WATCHDOG_MODE=paused|classifier overrides detection for a remote worker.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
@@ -12,16 +12,14 @@ DB="${1:-${DATABASE_PRIVATE_URL:-${DATABASE_URL:-}}}"
 MODE="${WATCHDOG_MODE:-}"
 if [ -z "$MODE" ]; then
     MODE=paused
-    if systemctl --user -q is-active scoracle-classifier-source.service; then MODE=acquire; fi
     if systemctl --user -q is-active scoracle-cognition.service; then MODE=classifier; fi
 fi
-case "$MODE" in paused|acquire|classifier) ;; *) echo "watchdog: invalid WATCHDOG_MODE=$MODE" >&2; exit 2 ;; esac
+case "$MODE" in paused|classifier) ;; *) echo "watchdog: invalid WATCHDOG_MODE=$MODE" >&2; exit 2 ;; esac
 STAMP="$(date '+%Y-%m-%dT%H:%M:%S%z')"
-RESULT="$(psql "$DB" -X -q -A -t -F'|' -v ON_ERROR_STOP=1 -v mode="$MODE" -v stages="${COGNITION_STAGES-investigate_entity,fixture_boxscore,rating,vibe,narratives,transfers,momentum,sigil}" <<'SQL'
+RESULT="$(psql "$DB" -X -q -A -t -F'|' -v ON_ERROR_STOP=1 -v mode="$MODE" -v stages="${COGNITION_STAGES-classifier,investigate_entity,fixture_boxscore,rating,vibe,narratives,transfers,momentum,sigil}" <<'SQL'
 WITH active_work AS (
     SELECT * FROM pipeline_work WHERE
-      ((:'mode'='acquire' AND stage='classifier_acquire') OR
-      (:'mode'='classifier' AND (stage='classifier_acquire' OR stage=ANY(regexp_split_to_array(lower(btrim(:'stages')),'\s*,\s*')))))
+      (:'mode'='classifier' AND stage=ANY(regexp_split_to_array(lower(btrim(:'stages')),'\s*,\s*')))
       AND (public.coverage_claimable(stage,entity_type,entity_id,sport)
         OR (status='running' AND public.coverage_publishable(stage,entity_type,entity_id,sport)))
 ), queue AS (

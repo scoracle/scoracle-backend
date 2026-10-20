@@ -10,7 +10,7 @@ use crate::harness::Parser;
 use crate::plugins::analyst::parser::parse_momentum_reply;
 use crate::plugins::analyst::prompt::load_momentum_context;
 use crate::plugins::influencer::{prompt::VIBE_NUM_PREDICT, VibeParser};
-use crate::plugins::insider::prompt::preview as preview_insider;
+use crate::plugins::insider::fresh::preview as preview_insider;
 use crate::plugins::insider::prompt::{
     Parts as InsiderParts, PROMPT_VERSION as INSIDER_PROMPT_VERSION,
 };
@@ -466,7 +466,7 @@ impl LensTask for NarrativesTask {
             entity_id: e.entity_id,
             sport: e.sport.to_uppercase(),
         };
-        let material = crate::plugins::journalist::prompt::load_narratives_material(
+        let material = crate::plugins::journalist::fresh::load_narratives_material(
             pool,
             subject,
             crate::plugins::influencer::now(),
@@ -481,6 +481,7 @@ impl LensTask for NarrativesTask {
             crate::plugins::journalist::prompt::Parts {
                 subject: assignment.subject,
                 reports: assignment.selected,
+                memories: assignment.memories,
             },
         )?)?))
     }
@@ -494,6 +495,9 @@ impl LensTask for NarrativesTask {
         _label: Option<f64>,
         expect: Option<&Expect>,
     ) -> CaseVerdict {
+        if !request.should_call {
+            return rejected("Journalist has no fresh assignment");
+        }
         let Some(count) = request
             .parts
             .as_ref()
@@ -507,7 +511,7 @@ impl LensTask for NarrativesTask {
                 let bodies = reply
                     .narratives
                     .iter()
-                    .filter_map(|report| report.text.as_deref())
+                    .map(|report| report.body.as_str())
                     .collect::<Vec<_>>();
                 let joined = bodies.join("\n\n");
                 let mut checks = Vec::new();
@@ -552,10 +556,10 @@ impl LensTask for NarrativesTask {
         let reports = parts.reports.clone();
         // Replay the production payload and the report-count-specific schema.
         let assignment = crate::plugins::journalist::prompt::Assignment {
+            memories: parts.memories,
             subject,
             selected: reports,
             dispositions: Vec::new(),
-            deferred_ids: Vec::new(),
             input_hash: String::new(),
         };
         Ok(Prepared {
@@ -620,7 +624,7 @@ impl LensTask for VibeTask {
         }) else {
             return Ok(None);
         };
-        let (assignment, _) = crate::plugins::influencer::prompt::prepare_assignment(
+        let (assignment, _) = crate::plugins::influencer::fresh::prepare_assignment(
             pool,
             subject,
             crate::plugins::influencer::now(),
@@ -812,8 +816,7 @@ impl LensTask for TransferTask {
     }
     fn assemble(&self, parts: &serde_json::Value) -> Result<Prepared> {
         let selected: InsiderParts = serde_json::from_value(parts.clone())?;
-        let user_prompt =
-            crate::plugins::insider::prompt::assemble(&selected.subject, &selected.reports);
+        let user_prompt = selected.assemble();
         anyhow::ensure!(
             user_prompt.len() <= crate::plugins::insider::prompt::CONTEXT_BUDGET_BYTES,
             "Insider article package exceeds reading budget"
@@ -1615,7 +1618,7 @@ mod tests {
     fn body_excludes_matches_across_typographic_apostrophes() {
         // Real ministral-3:14b output (curly U+2019).
         let reply = serde_json::json!({
-            "report_1": "The tape holds firm and the samples are thin. For now, this isn\u{2019}t a surge, just a brief flash of what might come.",
+            "narratives":[{"headline":"A brief flash","body":"The tape holds firm and the samples are thin. For now, this isn\u{2019}t a surge, just a brief flash of what might come.","report_keys":["report_1"]}],
         })
         .to_string();
         let x = Expect {
@@ -1634,7 +1637,7 @@ mod tests {
     #[test]
     fn body_includes_matches_across_typographic_apostrophes() {
         let reply = serde_json::json!({
-            "report_1": "Harbor City\u{2019}s press is tightening cleanly across the last six.",
+            "narratives":[{"headline":"Press tightens","body":"Harbor City\u{2019}s press is tightening cleanly across the last six.","report_keys":["report_1"]}],
         })
         .to_string();
         let x = Expect {
@@ -1794,7 +1797,15 @@ mod tests {
                     );
                     let package: serde_json::Value =
                         serde_json::from_str(&request.user_prompt).unwrap();
-                    assert_eq!(package.as_object().unwrap().len(), 4, "{name}");
+                    assert_eq!(
+                        package.as_object().unwrap().len(),
+                        if matches!(name, "narratives" | "vibe" | "transfer") {
+                            5
+                        } else {
+                            4
+                        },
+                        "{name}"
+                    );
                     for field in ["meta", "task", "fresh", "voice"] {
                         assert!(package.get(field).is_some(), "{name}: missing {field}");
                     }
@@ -1955,7 +1966,10 @@ mod tests {
         );
         assert_eq!(one.options.system, warm.options.system);
         assert_eq!(one.user_prompt, warm.user_prompt);
-        assert!(!warm.user_prompt.contains(r#""memories""#));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&warm.user_prompt).unwrap()["memories"],
+            serde_json::json!([])
+        );
         assert!(!warm.user_prompt.contains(r#""form""#));
     }
 
@@ -2017,32 +2031,30 @@ mod tests {
                 .len()
                 > 1
         );
-        assert!(
-            !NarrativesTask
-                .evaluate_prepared(&request, r#"{"report_1":"A report."}"#, None, None)
-                .parsed
-        );
-        let mut raw = serde_json::Map::new();
-        for key in request.options.format_schema.as_ref().unwrap()["required"]
-            .as_array()
-            .unwrap()
-        {
-            raw.insert(key.as_str().unwrap().into(), serde_json::Value::Null);
-        }
+        assert!(NarrativesTask.evaluate_prepared(&request,
+            r#"{"narratives":[{"headline":"A report","body":"A report.","report_keys":["report_1"]}]}"#,None,None).parsed);
         assert!(
             NarrativesTask
-                .evaluate_prepared(
-                    &request,
-                    &serde_json::Value::Object(raw).to_string(),
-                    None,
-                    None
-                )
+                .evaluate_prepared(&request, r#"{"narratives":[]}"#, None, None)
                 .parsed
         );
-        let parts = fx.parts.as_mut().unwrap();
-        parts["reports"] = serde_json::json!([]);
-        parts["memory"] = serde_json::json!([]);
-        assert!(!NarrativesTask.assemble(parts).unwrap().should_call);
+        assert!(
+            !NarrativesTask
+                .evaluate_prepared(&request, r#"{"narratives":null}"#, None, None)
+                .parsed
+        );
+        fx.parts.as_mut().unwrap()["reports"] = serde_json::json!([]);
+        fx.user_prompt = NarrativesTask
+            .assemble(fx.parts.as_ref().unwrap())
+            .unwrap()
+            .user_prompt;
+        let quiet = NarrativesTask.prepare_fixture(&fx).unwrap();
+        assert!(!quiet.should_call);
+        assert!(
+            !NarrativesTask
+                .evaluate_prepared(&quiet, r#"{"narratives":[]}"#, None, None)
+                .parsed
+        );
     }
 
     /// Preserve transfer evidence, including an explicit denial.

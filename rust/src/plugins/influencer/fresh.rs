@@ -1,9 +1,9 @@
-//! One bounded fresh package. Historical reporting and memory studies are deferred.
-use super::prompt::{Day, Parts, SOURCE_BUDGET_BYTES};
+//! Load, bound and present the daily emotional headline package and dated memories.
+use super::prompt::{Assignment, Day, Parts, SOURCE_BUDGET_BYTES, VIBE_PROMPT_VERSION};
 use crate::tools::{meta::EntityMeta, source::SourceContext};
 use anyhow::Result;
-use serde_json::json;
-use sqlx::{Postgres, Transaction};
+use serde_json::{json, Value};
+use sqlx::{PgPool, Postgres, Transaction};
 
 pub async fn load(
     tx: &mut Transaction<'_, Postgres>,
@@ -18,7 +18,14 @@ pub async fn load(
         &subject.sport,
     )
     .await?;
-    pack(subject, day, sources)
+    let memories =
+        crate::plugins::classifier::memories::load_on(tx, &subject, &sources, "influencer").await?;
+    let mut parts = pack(subject, day, sources)?;
+    parts.memories = memories;
+    while !parts.memories.is_empty() && parts.assemble().len() > SOURCE_BUDGET_BYTES {
+        parts.memories.pop();
+    }
+    Ok(parts)
 }
 
 fn pack(subject: EntityMeta, day: Day, sources: Vec<SourceContext>) -> Result<Parts> {
@@ -26,18 +33,13 @@ fn pack(subject: EntityMeta, day: Day, sources: Vec<SourceContext>) -> Result<Pa
         subject,
         day,
         sources: vec![],
+        memories: vec![],
         excluded: vec![],
     };
     let mut seen = std::collections::HashSet::new();
     let mut bytes = 0;
     for source in sources {
-        let key = (
-            &source.headline,
-            &source.context,
-            &source.classifier_world,
-            source.published_at_epoch,
-        );
-        let key = serde_json::to_string(&key)?;
+        let key = crate::tools::fresh::evidence_key(&source.source, &source.context);
         let size = serde_json::to_vec(&source)?.len();
         let reason = if source.published_at_epoch.is_none() {
             Some("unknown_publication_time")
@@ -55,9 +57,8 @@ fn pack(subject: EntityMeta, day: Day, sources: Vec<SourceContext>) -> Result<Pa
         } else if seen.contains(&key) {
             Some("known_copy")
         } else {
-            super::prompt::source_disposition(&source.context)
-                .or((bytes + size > SOURCE_BUDGET_BYTES)
-                    .then_some("daily_package_exceeds_context_budget"))
+            source_disposition(&source.context).or((bytes + size > SOURCE_BUDGET_BYTES)
+                .then_some("daily_package_exceeds_context_budget"))
         };
         if let Some(reason) = reason {
             parts.excluded.push(json!({"article_id":source.article_id,
@@ -86,6 +87,39 @@ pub async fn validate(tx: &mut Transaction<'_, Postgres>, parts: &Parts) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn duplicate_headlines_do_not_consume_the_daily_budget() {
+        let source = |id| SourceContext {
+            classification_id: id,
+            article_id: id,
+            headline: "Cedar celebrates".into(),
+            context: "Cedar celebrates".into(),
+            source: "Wire".into(),
+            published_at_epoch: Some(100),
+            classifier_world: Some(
+                json!({"evidence_scope":"headline","url":format!("https://example.invalid/{id}"),"spectrum":{"emotion":id}}),
+            ),
+        };
+        let parts = pack(
+            EntityMeta {
+                name: "Cedar".into(),
+                entity_type: "team".into(),
+                entity_id: 1,
+                sport: "NFL".into(),
+            },
+            Day {
+                start: 0,
+                end: 86400,
+                cutoff: 86400,
+            },
+            vec![source(1), source(2)],
+        )
+        .unwrap();
+        assert_eq!(parts.sources.len(), 1);
+        assert_eq!(parts.excluded[0]["reason"], "known_copy");
+        assert!(parts.hold_reason().is_none());
+    }
+
     #[test]
     fn overflow_holds_one_daily_package_without_clipping_a_denial() {
         let source = |id, text: String| SourceContext {
@@ -139,4 +173,47 @@ pub(super) fn evidence(parts: &Parts) -> Evidence<'_> {
         reporting_end: crate::util::utc_timestamp(parts.day.end),
         reports: crate::tools::fresh::reports(&parts.sources),
     }
+}
+
+pub fn source_disposition(text: &str) -> Option<&'static str> {
+    if text.trim().is_empty() {
+        Some("empty_source")
+    } else if text.len() > SOURCE_BUDGET_BYTES {
+        Some("source_budget_exceeded")
+    } else if crate::tools::source::contains_instruction_override(text) {
+        Some("source_instruction_override")
+    } else {
+        None
+    }
+}
+
+/// Freeze one Eastern calendar day; late headlines keep their original publication dates.
+pub async fn prepare_assignment(
+    pool: &PgPool,
+    subject: EntityMeta,
+    cutoff: i64,
+) -> Result<(Assignment, Value)> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .execute(&mut *tx)
+        .await?;
+    let (start, end, cutoff): (i64, i64, i64) = sqlx::query_as(
+        "WITH clock AS (
+            SELECT COALESCE((e.cutoff_at AT TIME ZONE 'America/Detroit')::date-1,
+                (to_timestamp($1::double precision) AT TIME ZONE 'America/Detroit')::date) AS day,
+                COALESCE(e.frozen_at,to_timestamp($1::double precision)) AS captured
+            FROM coverage_schedule s LEFT JOIN coverage_editions e
+                ON s.enabled AND s.phase='characters' AND e.edition_date=s.edition_date
+        ) SELECT extract(epoch FROM (day::timestamp AT TIME ZONE 'America/Detroit'))::bigint,
+            extract(epoch FROM ((day+1)::timestamp AT TIME ZONE 'America/Detroit'))::bigint,
+            floor(extract(epoch FROM captured))::bigint FROM clock",
+    )
+    .bind(cutoff)
+    .fetch_one(&mut *tx)
+    .await?;
+    let day = Day { start, end, cutoff };
+    let parts = load(&mut tx, subject, day).await?;
+    tx.commit().await?;
+    let receipt = json!({"contract":VIBE_PROMPT_VERSION,"day":parts.day,"excluded":parts.excluded,"memories":parts.memories});
+    Ok((Assignment::from_parts(parts)?, receipt))
 }

@@ -2,7 +2,7 @@
 use anyhow::{bail, ensure, Context, Result};
 use scoracle_cognition::{
     harness::{config::Config, db},
-    plugins::scout::sources::load_scout_reports,
+    plugins::{classifier::delivery::load_for_character, journalist::manifest::MANIFEST},
 };
 use serde_json::Value;
 
@@ -27,7 +27,14 @@ pub async fn run(cfg: &Config, args: &[String]) -> Result<()> {
     let pool = db::build_pool(&cfg.database_url, 1).await?;
     let output: Value = match kind.as_str() {
         "reports" => {
-            let claims = load_scout_reports(&pool, &args[1], args[2].parse()?, &sport).await?;
+            let claims = load_for_character(
+                &pool,
+                MANIFEST.id.as_str(),
+                &args[1],
+                args[2].parse()?,
+                &sport,
+            )
+            .await?;
             serde_json::to_value(claims)?
         }
         "identity" => {

@@ -10,9 +10,9 @@ use crate::harness::model::GenerateOptions;
 use crate::plugins::scout::performance::{self, Profile};
 use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
-use anyhow::{ensure, Result};
+use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s73-single-json";
+pub const RATING_PROMPT_VERSION: &str = "s74-stats-only";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -63,11 +63,11 @@ pub struct Assignment {
 /// Instructions accompanying every prepared Scout world.
 pub const TASK: &str = "\
 meta identifies the subject. fresh contains selected season measurements and
-their sample and limits. fresh.reporting contains complete fresh attributed reports.
+their sample and limits.
 voice sets tone. Return only JSON with body as concise prose or null.
 
 Describe what the supplied measurements establish in compact prose. Use only
-supplied numbers and reporting. A percentile is relative standing, not ability or
+supplied measurements. A percentile is relative standing, not ability or
 the size of a difference. A prior percentile and standing_change apply only to
 that measure; supports_cross_season alone does not establish a comparison.
 Missing comparison is unknown, not stability. A composite
@@ -77,10 +77,9 @@ measure of any individual skill.
 Missing fixture measurements are unknown, not zero.
 
 Honor any limit. Sample counts describe source coverage, not playing time or
-when a season began. Keep reports attributed and dated; a withdrawal retracts
-its claim and does not establish recovery. Do not infer a cause, role, tactics,
-fitness or future outcome from a measurement or report. A short or null body is
-valid when the evidence does not support more. reporting preserves complete publisher text and its article-level classifier spectrum scores, including unknowns; these scores do not establish relevance to the named entity. These reports do not establish a completed move, fitness outcome or cause. Keep reported content distinct from measured facts.";
+when a season began. Do not infer a cause, role, tactics, fitness or future
+outcome from a measurement. A short or null body is valid when the supplied
+measurements do not support more.";
 
 /// Retry the same bounded task without silently changing its content policy.
 pub fn correction(error: &anyhow::Error) -> Option<String> {
@@ -92,8 +91,6 @@ pub fn correction(error: &anyhow::Error) -> Option<String> {
 /// Fixture-replayable selected world. Wire order is the field order of [`Input`].
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct Parts {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reporting: Vec<crate::tools::source::SourceContext>,
     pub subject: EntityMeta,
     #[serde(default)]
     pub sport_name: String,
@@ -121,11 +118,7 @@ impl Parts {
             system: None,
             temperature: Some(temperature),
             num_predict: RATING_NUM_PREDICT,
-            num_ctx: if self.reporting.is_empty() {
-                num_ctx
-            } else {
-                num_ctx.max(32768)
-            },
+            num_ctx,
             json_mode: false,
             format_schema: Some(parser::prose().schema()),
             format_schema_raw: None,
@@ -167,13 +160,13 @@ impl Parts {
         .to_string()
     }
 
-    /// Field order is the wire order; this package contains only current facts and fresh reporting.
+    /// Field order is the wire order; this package contains selected measurements.
     pub fn render(&self) -> String {
         #[derive(Serialize)]
         struct Input<'a> {
             meta: crate::tools::meta::WritingIdentity<'a>,
             task: &'static str,
-            fresh: super::fresh::Evidence<'a>,
+            fresh: &'a Profile,
             voice: &'static str,
         }
         let mut meta = self.subject.for_writing();
@@ -187,7 +180,7 @@ impl Parts {
         serde_json::to_string(&Input {
             meta,
             task: TASK,
-            fresh: super::fresh::evidence(&self.profile, &self.reporting),
+            fresh: &self.profile,
             voice: super::voice::VOICE,
         })
         .expect("scout world serializes")
@@ -255,12 +248,6 @@ pub(crate) async fn build_rating_request_on(
     }
 
     let base_components = performance::input_components(&profile);
-    // Old-season profiles must not inherit present employment or availability.
-    let historical = profile.season
-        != sqlx::query_scalar::<_, i32>("SELECT current_season FROM public.sports WHERE id=$1")
-            .bind(req.sport.to_uppercase())
-            .fetch_one(&mut *connection)
-            .await?;
     let supports_cross_season = performance::supports_cross_season_comparison(&profile);
     let (notability, notability_components) = performance::compute_notability(&profile);
     let exclusions = RatingExclusions {
@@ -279,22 +266,6 @@ pub(crate) async fn build_rating_request_on(
     )
     .await?;
 
-    let reporting = if with_enrichment && !historical {
-        crate::plugins::classifier::delivery::load_on(
-            connection,
-            super::manifest::MANIFEST.id.as_str(),
-            &req.entity_type,
-            req.entity_id,
-            &req.sport,
-        )
-        .await?
-    } else {
-        vec![]
-    };
-    ensure!(
-        serde_json::to_vec(&reporting)?.len() <= 24000,
-        "Scout full reporting population exceeds reading budget"
-    );
     let comparisons = if with_enrichment && supports_cross_season {
         match performance::load_rating_profile(
             connection,
@@ -330,7 +301,6 @@ pub(crate) async fn build_rating_request_on(
         performance::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
     let mut components: serde_json::Value = serde_json::from_str(&base_components)?;
     components["skill_changes"] = serde_json::json!(comparisons);
-    components["current_reports"] = serde_json::json!(reporting);
     let sport_name: String =
         sqlx::query_scalar("SELECT display_name FROM public.sports WHERE id = $1")
             .bind(&req.sport)
@@ -346,7 +316,6 @@ pub(crate) async fn build_rating_request_on(
         sport_name,
     };
     let parts = crate::plugins::scout::prompt::Parts {
-        reporting,
         subject: crate::tools::meta::EntityMeta {
             name: subject.entity_name.clone(),
             entity_type: subject.entity_type.clone(),

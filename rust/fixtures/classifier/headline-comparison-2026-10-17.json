@@ -1,0 +1,424 @@
+{
+  "canonical_replay": {
+    "concurrency": 1,
+    "failures": 0,
+    "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+    "requests": 238,
+    "seconds": 142.37713195895776,
+    "serialization": "json.dumps(sort_keys=True), matching production serde_json object order",
+    "shuffle_seed": 2026101702
+  },
+  "checks": [
+    "238 final paired requests; zero failures.",
+    "All final response fingerprints, four finite probabilities, request/body/metadata hashes and case pairings verified.",
+    "Canonical production reader replay has zero threshold or routing changes versus all 91 stored receipts.",
+    "Evaluator self-test including per-character routing and boundary cases passed.",
+    "Python compile and git diff --check passed.",
+    "No decision publication, character execution, service configuration or deployment performed."
+  ],
+  "criteria_version": "classification-criteria-v6-subject",
+  "cutoffs": {
+    "availability": 0.9,
+    "emotion": 0.15,
+    "movement": 0.8,
+    "subject": 0.55
+  },
+  "labeled_diagnostic": {
+    "articles": 14,
+    "cases_per_condition": 28,
+    "criteria_version": "classification-criteria-v6-subject",
+    "cutoffs": {
+      "availability": 0.9,
+      "emotion": 0.15,
+      "movement": 0.8,
+      "subject": 0.55
+    },
+    "historical_reader_reference": {
+      "character_route_changes": 7,
+      "max_probability_difference": 0.5990160916972265,
+      "note": "Earlier diagnostic requests used Python insertion order. The final experiment uses production serde_json key order; these are distinct serialized inputs.",
+      "topic_threshold_crossings": 7
+    },
+    "limitations": [
+      "Previously inspected, deliberately selected diagnostic sample with provisional agent labels.",
+      "Article-subject cases share articles; 112 topic labels are not 112 independent examples.",
+      "Expected character routes are derived from the existing four topic labels, not independent usefulness judgments.",
+      "Headline input changed only article.body; questions, metadata, model and cutoffs stayed fixed.",
+      "Latency observed under production load; not an isolated throughput benchmark."
+    ],
+    "metrics": {
+      "headline": {
+        "brier": 0.148033300133821,
+        "cases": 28,
+        "character_admissions": 22,
+        "gate": {
+          "errors": 9,
+          "fn": 7,
+          "fp": 2,
+          "precision": 0.6666666666666666,
+          "recall": 0.36363636363636365,
+          "tn": 15,
+          "tp": 4
+        },
+        "input_tokens": {
+          "median": 920.0,
+          "total": 25872
+        },
+        "label_errors": 21,
+        "labels": 112,
+        "latency_seconds": {
+          "median": 0.3188685420900583,
+          "total": 8.977209250442684
+        },
+        "per_character": {
+          "influencer": {
+            "errors": 7,
+            "fn": 5,
+            "fp": 2,
+            "precision": 0.6,
+            "recall": 0.375,
+            "tn": 18,
+            "tp": 3
+          },
+          "insider": {
+            "errors": 4,
+            "fn": 4,
+            "fp": 0,
+            "precision": 1.0,
+            "recall": 0.2,
+            "tn": 23,
+            "tp": 1
+          },
+          "journalist": {
+            "errors": 3,
+            "fn": 0,
+            "fp": 3,
+            "precision": 0.8125,
+            "recall": 1.0,
+            "tn": 12,
+            "tp": 13
+          },
+          "scout": {
+            "errors": 7,
+            "fn": 7,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 21,
+            "tp": 0
+          }
+        },
+        "per_topic": {
+          "availability": {
+            "errors": 7,
+            "fn": 7,
+            "fp": 0,
+            "precision": null,
+            "recall": 0.0,
+            "tn": 21,
+            "tp": 0
+          },
+          "emotion": {
+            "errors": 7,
+            "fn": 5,
+            "fp": 2,
+            "precision": 0.6,
+            "recall": 0.375,
+            "tn": 18,
+            "tp": 3
+          },
+          "movement": {
+            "errors": 4,
+            "fn": 4,
+            "fp": 0,
+            "precision": 1.0,
+            "recall": 0.2,
+            "tn": 23,
+            "tp": 1
+          },
+          "subject": {
+            "errors": 3,
+            "fn": 0,
+            "fp": 3,
+            "precision": 0.8125,
+            "recall": 1.0,
+            "tn": 12,
+            "tp": 13
+          }
+        },
+        "source_groups": 14,
+        "subjects_admitted": 16
+      },
+      "reader": {
+        "brier": 0.1672172249517061,
+        "cases": 28,
+        "character_admissions": 34,
+        "gate": {
+          "errors": 4,
+          "fn": 3,
+          "fp": 1,
+          "precision": 0.8888888888888888,
+          "recall": 0.7272727272727273,
+          "tn": 16,
+          "tp": 8
+        },
+        "input_tokens": {
+          "median": 4900.0,
+          "total": 145016
+        },
+        "label_errors": 21,
+        "labels": 112,
+        "latency_seconds": {
+          "median": 0.8949814999941736,
+          "total": 26.57975670788437
+        },
+        "per_character": {
+          "influencer": {
+            "errors": 4,
+            "fn": 3,
+            "fp": 1,
+            "precision": 0.8333333333333334,
+            "recall": 0.625,
+            "tn": 19,
+            "tp": 5
+          },
+          "insider": {
+            "errors": 2,
+            "fn": 2,
+            "fp": 0,
+            "precision": 1.0,
+            "recall": 0.6,
+            "tn": 23,
+            "tp": 3
+          },
+          "journalist": {
+            "errors": 10,
+            "fn": 0,
+            "fp": 10,
+            "precision": 0.5652173913043478,
+            "recall": 1.0,
+            "tn": 5,
+            "tp": 13
+          },
+          "scout": {
+            "errors": 5,
+            "fn": 5,
+            "fp": 0,
+            "precision": 1.0,
+            "recall": 0.2857142857142857,
+            "tn": 21,
+            "tp": 2
+          }
+        },
+        "per_topic": {
+          "availability": {
+            "errors": 5,
+            "fn": 5,
+            "fp": 0,
+            "precision": 1.0,
+            "recall": 0.2857142857142857,
+            "tn": 21,
+            "tp": 2
+          },
+          "emotion": {
+            "errors": 4,
+            "fn": 3,
+            "fp": 1,
+            "precision": 0.8333333333333334,
+            "recall": 0.625,
+            "tn": 19,
+            "tp": 5
+          },
+          "movement": {
+            "errors": 2,
+            "fn": 2,
+            "fp": 0,
+            "precision": 1.0,
+            "recall": 0.6,
+            "tn": 23,
+            "tp": 3
+          },
+          "subject": {
+            "errors": 10,
+            "fn": 0,
+            "fp": 10,
+            "precision": 0.5652173913043478,
+            "recall": 1.0,
+            "tn": 5,
+            "tp": 13
+          }
+        },
+        "source_groups": 14,
+        "subjects_admitted": 23
+      }
+    },
+    "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+    "route_flips": {
+      "influencer": {
+        "added": 2,
+        "corrected": 1,
+        "introduced": 4,
+        "removed": 3
+      },
+      "insider": {
+        "added": 0,
+        "corrected": 0,
+        "introduced": 2,
+        "removed": 2
+      },
+      "journalist": {
+        "added": 1,
+        "corrected": 8,
+        "introduced": 1,
+        "removed": 8
+      },
+      "scout": {
+        "added": 0,
+        "corrected": 0,
+        "introduced": 2,
+        "removed": 2
+      }
+    }
+  },
+  "limitations": [
+    "Diagnostic labels are provisional agent judgments on previously inspected, deliberately selected articles.",
+    "Production cohort is unlabeled and includes only successfully reader-acquired articles; agreement is not accuracy.",
+    "No fresh human-reviewed holdout and no three-question model ablation were run.",
+    "Timing is under shared production load with prefix caching, not isolated end-to-end throughput."
+  ],
+  "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+  "private_archive": "/private/tmp/scoracle-headline-comparison-20261017",
+  "private_archive_package": "/private/tmp/scoracle-headline-comparison-20261017.tar.gz",
+  "proposed_scout_boundary": "Stats-driven Scout; Journalist owns availability reporting. A source-attributed optional note is a separate handoff, not an article acquisition obligation.",
+  "recorded_at_utc": "2026-10-18T03:12:15.499214+00:00",
+  "remote_archive": {
+    "destination": "/mnt/data/backup/scoracle/classifier-calibration/2026-10-17-headline-comparison",
+    "status": "Not uploaded; automatic approval review rejected this separate private-data transfer. Evidence retained locally."
+  },
+  "request_serialization": "Recursively sorted object keys, matching production serde_json. Only article.body differs within each pair.",
+  "status": "Comparison complete; production routing and character implementations unchanged.",
+  "unlabeled_production": {
+    "articles": 64,
+    "criteria_version": "classification-criteria-v6-subject",
+    "cutoffs": {
+      "availability": 0.9,
+      "emotion": 0.15,
+      "movement": 0.8,
+      "subject": 0.55
+    },
+    "full_route_vector_agreement": 0.5714285714285714,
+    "limitations": [
+      "Unlabeled snapshot of current reader-acquired source heads; admission differences are not accuracy measurements.",
+      "Acquisition failures and URLs never acquired by the reader are absent.",
+      "Both conditions rerun with identical request metadata/questions and the fingerprinted production model.",
+      "No prompts or cutoffs were tuned; no database publication or character execution.",
+      "Production-load latency includes shared model prefix-cache effects."
+    ],
+    "metrics": {
+      "headline": {
+        "character_admissions": 84,
+        "median_input_tokens": 918,
+        "median_seconds": 0.3193027079105377,
+        "per_character_admissions": {
+          "influencer": 4,
+          "insider": 5,
+          "journalist": 65,
+          "scout": 10
+        },
+        "subject_cases_admitted": 65,
+        "total_input_tokens": 83970,
+        "total_seconds": 29.074644995387644,
+        "unique_articles_admitted": 51
+      },
+      "reader": {
+        "character_admissions": 125,
+        "median_input_tokens": 3598,
+        "median_seconds": 0.723262082785368,
+        "per_character_admissions": {
+          "influencer": 15,
+          "insider": 10,
+          "journalist": 80,
+          "scout": 20
+        },
+        "subject_cases_admitted": 80,
+        "total_input_tokens": 409778,
+        "total_seconds": 77.69810771057382,
+        "unique_articles_admitted": 58
+      }
+    },
+    "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+    "overlap_with_labeled_diagnostic_articles": 0,
+    "reader_reproducibility": {
+      "character_route_changes": 0,
+      "max_probability_difference": 1.1102230246251565e-16,
+      "topic_threshold_crossings": 0
+    },
+    "route_flips": {
+      "influencer": {
+        "added": 0,
+        "removed": 11,
+        "unchanged": 80
+      },
+      "insider": {
+        "added": 1,
+        "removed": 6,
+        "unchanged": 84
+      },
+      "journalist": {
+        "added": 0,
+        "removed": 15,
+        "unchanged": 76
+      },
+      "scout": {
+        "added": 2,
+        "removed": 12,
+        "unchanged": 77
+      }
+    },
+    "sports": {
+      "FOOTBALL": 25,
+      "NBA": 22,
+      "NFL": 44
+    },
+    "subject_cases": 91
+  },
+  "without_scout_routing": {
+    "diagnostic": {
+      "headline": {
+        "errors": 14,
+        "fn": 9,
+        "fp": 5,
+        "tn": 53,
+        "tp": 17
+      },
+      "reader": {
+        "errors": 16,
+        "fn": 5,
+        "fp": 11,
+        "tn": 47,
+        "tp": 21
+      },
+      "removed_scout_routes_still_with_journalist": {
+        "count": 2,
+        "out_of": 2
+      }
+    },
+    "kind": "Policy analysis of four-score results; no three-question model was tested.",
+    "production": {
+      "headline": {
+        "influencer": 4,
+        "insider": 5,
+        "journalist": 65
+      },
+      "reader": {
+        "influencer": 15,
+        "insider": 10,
+        "journalist": 80
+      },
+      "removed_scout_routes_still_with_journalist": {
+        "count": 10,
+        "out_of": 12
+      }
+    }
+  }
+}

@@ -14,7 +14,6 @@ fn edition(narratives: Vec<Narrative>) -> NarrativesOutput {
         NarrativesProduct {
             memory_provenance: json!({}),
             narratives,
-            budget_truncated_ids: Vec::new(),
             card_score: Some(71),
             headline: Some("Test Team's story moves".to_string()),
         },

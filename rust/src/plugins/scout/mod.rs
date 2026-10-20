@@ -3,8 +3,6 @@
 //! Preparation belongs to `prompt.rs`; performance reads belong to `performance.rs`.
 //! Publication transactions and receipts belong to `publish.rs`.
 
-pub(crate) mod delivery;
-pub mod fresh;
 pub mod manifest;
 pub mod parser;
 pub mod performance;
@@ -12,7 +10,6 @@ pub mod prompt;
 mod publish;
 pub mod reports;
 pub(crate) mod snapshot;
-pub mod sources;
 pub mod voice;
 
 use crate::harness::models::ExecutionCapabilities;
@@ -119,17 +116,23 @@ async fn generate_rating(
     temperature: f64,
     skip_unchanged: bool,
     with_enrichment: bool,
+    prepared: Option<RatingBuild>,
 ) -> Result<RatingOutput> {
     let backend = models.inference(crate::plugins::scout::manifest::ROUTE)?;
-    let assignment = match build_rating_request(
-        pool,
-        models.voice_num_ctx,
-        req,
-        temperature,
-        with_enrichment,
-    )
-    .await?
-    {
+    let built = match prepared {
+        Some(built) => built,
+        None => {
+            build_rating_request(
+                pool,
+                models.voice_num_ctx,
+                req,
+                temperature,
+                with_enrichment,
+            )
+            .await?
+        }
+    };
+    let assignment = match built {
         RatingBuild::NoStats { season } => return Ok(no_stats(season, backend.model())),
         RatingBuild::Ready(assignment) => *assignment,
     };
@@ -163,8 +166,16 @@ pub async fn invoke_rating(
         RatingRunContext::PublishSingle { skip_unchanged } => (skip_unchanged, true, true),
         RatingRunContext::HistoricalBackfill => (false, true, false),
     };
-    let output =
-        generate_rating(pool, models, req, RATING_TEMPERATURE, skip_unchanged, true).await?;
+    let output = generate_rating(
+        pool,
+        models,
+        req,
+        RATING_TEMPERATURE,
+        skip_unchanged,
+        true,
+        None,
+    )
+    .await?;
     if publish && !output.skipped_unchanged {
         persist_stat_summary(
             pool,
@@ -281,24 +292,18 @@ impl StudioPlugin for RatingHandler {
             .input_version
             .as_deref()
             .is_some_and(|version| version.starts_with(crate::plugins::classifier::CONTRACT))
-            || !crate::plugins::classifier::delivery::load_for_character(
+        {
+            // Historical article jobs complete without reopening a stats rating.
+            return Ok(commit_claimed(
                 &self.pool,
-                manifest::MANIFEST.id.as_str(),
-                &item.entity_type,
-                item.entity_id_i32()?,
+                item,
                 &item.sport.to_uppercase(),
+                "retired_article",
+                &serde_json::json!({}),
+                &Prepared::Debounced,
             )
             .await?
-            .is_empty()
-        {
-            let backend = self.models.inference(manifest::ROUTE)?;
-            return delivery::execute_with_backend(
-                &self.pool,
-                backend.as_ref(),
-                self.models.voice_num_ctx,
-                item,
-            )
-            .await;
+            .0);
         }
         let pool = &self.pool;
         let models = &self.models;
@@ -322,7 +327,17 @@ impl StudioPlugin for RatingHandler {
             season: Some(season),
         };
 
-        let output = generate_rating(pool, models, &req, RATING_TEMPERATURE, !bypass, true).await?;
+        let frozen = snapshot::load(pool, item, models.voice_num_ctx).await?;
+        let output = generate_rating(
+            pool,
+            models,
+            &req,
+            RATING_TEMPERATURE,
+            !bypass,
+            true,
+            frozen,
+        )
+        .await?;
         let prepared = prepare(&output);
         if matches!(prepared, Prepared::Debounced) {
             debug!(

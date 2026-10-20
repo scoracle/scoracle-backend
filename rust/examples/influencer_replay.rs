@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
                 })
                 .context("requested source is not an eligible pending delivery")?;
             let (assignment, disposition) =
-                influencer::prompt::prepare_assignment(&pool, subject, now).await?;
+                influencer::fresh::prepare_assignment(&pool, subject, now).await?;
             record["disposition"] = disposition;
             record["world"] = serde_json::from_str(&assignment.parts.assemble())?;
             record["input_components"] = json!(assignment.parts);

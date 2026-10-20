@@ -1,557 +1,574 @@
 use super::*;
+use crate::harness::{
+    plugin::{PluginOutcome, StudioPlugin},
+    queue::work,
+};
+use anyhow::Result;
+use sqlx::PgPool;
+use std::{
+    io::{Read, Write},
+    net::TcpListener,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::Duration,
+};
+
+pub(crate) struct Model {
+    address: std::net::SocketAddr,
+    pub requests: Arc<Mutex<Vec<Value>>>,
+    pub fail: Arc<AtomicBool>,
+    stop: Arc<AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+impl Model {
+    pub fn new() -> Result<Self> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let address = listener.local_addr()?;
+        listener.set_nonblocking(true)?;
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let captured = requests.clone();
+        let fail = Arc::new(AtomicBool::new(false));
+        let failed = fail.clone();
+        let stop = Arc::new(AtomicBool::new(false));
+        let stopped = stop.clone();
+        let thread = std::thread::spawn(move || {
+            while !stopped.load(Ordering::Relaxed) {
+                let Ok((mut socket, _)) = listener.accept() else {
+                    std::thread::sleep(Duration::from_millis(2));
+                    continue;
+                };
+                socket.set_nonblocking(false).unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut bytes = Vec::new();
+                let header_end = loop {
+                    let mut b = [0; 4096];
+                    let n = socket.read(&mut b).unwrap();
+                    assert!(n > 0);
+                    bytes.extend_from_slice(&b[..n]);
+                    if let Some(end) = bytes.windows(4).position(|s| s == b"\r\n\r\n") {
+                        break end + 4;
+                    }
+                };
+                let headers = String::from_utf8_lossy(&bytes[..header_end]);
+                let model = format!("LiquidAI/d1-3B-GGUF@sha256:{}", "0".repeat(64));
+                let (status, body) = if headers.starts_with("GET /v1/models ") {
+                    (
+                        "200 OK",
+                        serde_json::json!({"data":[{"id":model}]}).to_string(),
+                    )
+                } else {
+                    assert!(headers.starts_with("POST /v1/systemone "));
+                    let length: usize = headers
+                        .lines()
+                        .find_map(|line| {
+                            line.to_ascii_lowercase()
+                                .strip_prefix("content-length: ")
+                                .map(str::to_owned)
+                        })
+                        .unwrap()
+                        .parse()
+                        .unwrap();
+                    while bytes.len() < header_end + length {
+                        let mut b = [0; 4096];
+                        let n = socket.read(&mut b).unwrap();
+                        assert!(n > 0);
+                        bytes.extend_from_slice(&b[..n]);
+                    }
+                    let payload: Value =
+                        serde_json::from_slice(&bytes[header_end..header_end + length]).unwrap();
+                    let rejected = payload["state"]["article"]["headline"]
+                        .as_str()
+                        .unwrap()
+                        .contains("Unrelated")
+                        || payload["state"]["subject_meta"]["identity"]["entity_id"] == 910417;
+                    let answers=payload["questions"].as_object().unwrap().keys().map(|key|(key.clone(),serde_json::json!({"type":"noul","noul":if rejected {0.1}else{0.95}}))).collect::<serde_json::Map<_,_>>();
+                    captured.lock().unwrap().push(payload);
+                    (
+                        if failed.swap(false, Ordering::Relaxed) {
+                            "500 Internal Server Error"
+                        } else {
+                            "200 OK"
+                        },
+                        serde_json::json!({"model":model,"answers":answers}).to_string(),
+                    )
+                };
+                write!(socket,"HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+            }
+        });
+        Ok(Self {
+            address,
+            requests,
+            fail,
+            stop,
+            thread: Some(thread),
+        })
+    }
+    pub fn decision(&self) -> Result<decision::Decision> {
+        decision::Decision::new(format!("http://{}", self.address))
+    }
+    fn calls(&self) -> usize {
+        self.requests.lock().unwrap().len()
+    }
+}
+impl Drop for Model {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        let result = self.thread.take().unwrap().join();
+        if !std::thread::panicking() {
+            result.unwrap();
+        }
+    }
+}
 
 #[tokio::test]
-async fn acquisition_replay_requires_explicit_opt_in() {
-    let pool = sqlx::PgPool::connect_lazy("postgres://localhost/classifier_test").unwrap();
+async fn headline_replay_requires_explicit_opt_in() {
+    let pool = PgPool::connect_lazy("postgres://localhost/classifier_test").unwrap();
     for setting in [None, Some("false"), Some(""), Some("TRUE"), Some("typo")] {
-        assert!(adapter::acquisition_replay(&pool, setting).is_empty());
+        assert!(adapter::headline_replay(&pool, setting).is_empty());
     }
-    let operations = adapter::acquisition_replay(&pool, Some("true"));
-    assert_eq!(operations.len(), 1);
-    assert_eq!(operations[0].name(), "classifier.acquisition-replay");
+    assert_eq!(
+        adapter::headline_replay(&pool, Some("true"))[0].name(),
+        "classifier.admission-replay"
+    );
+}
+
+const SPORT: &str = "ZZ_HEADLINE";
+async fn seed(pool: &PgPool, id: i64, title: &str, body: &str) -> Result<()> {
+    sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,full_text,published_at) VALUES($1,'https://example.invalid/'||$1,md5($1::text),$2,'Fixture Wire',$3,now())")
+        .bind(id).bind(title).bind(body).execute(pool).await?;
+    sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES($1,'team',910415,$2)").bind(id).bind(SPORT).execute(pool).await?;
+    Ok(())
+}
+async fn take(
+    pool: &PgPool,
+    stage: crate::harness::queue::work::TaskKey,
+    id: i64,
+) -> Result<work::Item> {
+    let mut selected = None;
+    for item in work::claim(pool, stage, 100).await? {
+        if item.entity_id == id && item.sport == SPORT {
+            selected = Some(item);
+        } else {
+            work::release(pool, &item).await?;
+        }
+    }
+    Ok(selected.expect("fixture claim missing"))
+}
+async fn admit(pool: &PgPool, handler: &adapter::ClassifierHandler, id: i64) -> Result<()> {
+    sqlx::query("SELECT classifier_enqueue_admission($1,$2)")
+        .bind(id)
+        .bind(SPORT)
+        .execute(pool)
+        .await?;
+    assert!(matches!(
+        handler
+            .execute(&take(pool, manifest::TASK, id).await?)
+            .await?,
+        PluginOutcome::Committed
+    ));
+    Ok(())
 }
 
 #[tokio::test]
 #[ignore = "requires a disposable classifier_test database via TEST_DATABASE_URL"]
-async fn publisher_to_spectrum_to_character_is_complete_and_revision_bound() -> anyhow::Result<()> {
-    use crate::harness::{dbtest, plugin::StudioPlugin, queue::work, tools::WebBroker};
-    use std::{
-        io::{Read, Write},
-        net::TcpListener,
-        sync::Arc,
-    };
-    const SPORT: &str = "ZZ_KEV_PLUMBING";
-    const ARTICLE: i64 = 910415;
-    const MODEL_ID: &str = "LiquidAI/d1-3B-GGUF";
-    let pool = dbtest::pool("disposable classifier_test database").await;
+async fn headlines_archive_and_dispatch_without_publisher_io() -> Result<()> {
+    let pool = crate::harness::dbtest::pool("disposable classifier_test database").await;
     plumbing_tests::setup_disposable(&pool).await?;
     sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
         .bind(SPORT)
         .execute(&pool)
         .await?;
-    sqlx::query("DELETE FROM harvester_query_provenance WHERE article_id=$1")
-        .bind(ARTICLE)
+    sqlx::query("DELETE FROM harvester_query_provenance WHERE sport=$1")
+        .bind(SPORT)
         .execute(&pool)
         .await?;
-    sqlx::query("DELETE FROM news_articles WHERE id=$1")
-        .bind(ARTICLE)
+    sqlx::query("DELETE FROM news_articles WHERE id BETWEEN 910415 AND 910425")
         .execute(&pool)
         .await?;
     sqlx::query("DELETE FROM entity_name_surfaces WHERE sport=$1")
         .bind(SPORT)
         .execute(&pool)
         .await?;
-    sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,'Kev fixture',2026) ON CONFLICT DO NOTHING")
-        .bind(SPORT).execute(&pool).await?;
-    sqlx::query(
-        "INSERT INTO teams(id,sport,name) VALUES(910415,$1,'Cedar FC') ON CONFLICT DO NOTHING",
-    )
-    .bind(SPORT)
-    .execute(&pool)
-    .await?;
-    sqlx::query("INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES($1,'team',910415,'cedar fc','name')")
-        .bind(SPORT).execute(&pool).await?;
-    sqlx::query("INSERT INTO persons(id,sport,full_name,kind,team_id) VALUES(910416,$1,'Morgan Vale','coach',910415) ON CONFLICT DO NOTHING")
-        .bind(SPORT).execute(&pool).await?;
-    sqlx::query("INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES($1,'person',910416,'morgan vale','name')")
-        .bind(SPORT).execute(&pool).await?;
-    sqlx::query(
-        "INSERT INTO teams(id,sport,name) VALUES(910417,$1,'Maple United') ON CONFLICT DO NOTHING",
-    )
-    .bind(SPORT)
-    .execute(&pool)
-    .await?;
-    sqlx::query(
-        "INSERT INTO players(id,sport,name) VALUES(910418,$1,'Alex Reed') ON CONFLICT DO NOTHING",
-    )
-    .bind(SPORT)
-    .execute(&pool)
-    .await?;
-    sqlx::query("INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES($1,'player',910418,'alex reed','name')")
-        .bind(SPORT).execute(&pool).await?;
-    let prose = format!(
-        "Cedar FC reported an injury to Alex Reed before playing Maple United. Morgan Vale explained the update. {} A final correction says the player is available.",
-        "The publisher supplied complete evidence. ".repeat(100)
-    );
-    let html = format!("<!doctype html><html><head><script>tracking()</script></head><body><nav>Buy now</nav><article><p>{prose}</p></article></body></html>");
-    // Keep the optimized identity scan exactly equivalent to the old canonical-name rules.
-    let mut connection = pool.acquire().await?;
-    let old = include_str!("../../../../sql/migrations/295_classifier_insider_delivery.sql")
-        .split("ALTER TABLE public.classifier_sources")
-        .next()
-        .unwrap()
-        .replace("BEGIN;", "")
-        .replace(
-            "public.classifier_identity_candidates",
-            "pg_temp.identity_before",
-        );
-    sqlx::raw_sql(&old).execute(&mut *connection).await?;
-    for body in [
-        Some(prose.clone()),
-        Some("Cedar FClub is not Cedar FC".into()),
-        Some("Morgan Vale and Maple United".repeat(10000)),
-        Some(String::new()),
-        None,
-    ] {
-        let same: bool = sqlx::query_scalar("SELECT pg_temp.identity_before($1,$2,$3)=public.classifier_identity_candidates($1,$2,$3)")
-            .bind(SPORT).bind("Cedar FC update").bind(body).fetch_one(&mut *connection).await?;
-        assert!(same, "identity prefilter changed canonical matches");
+    sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,'Headline fixture',2026) ON CONFLICT DO NOTHING").bind(SPORT).execute(&pool).await?;
+    for (id, name) in [(910415, "Cedar FC"), (910417, "Maple United")] {
+        sqlx::query("INSERT INTO teams(id,sport,name) VALUES($1,$2,$3) ON CONFLICT(id,sport) DO UPDATE SET name=EXCLUDED.name,city=NULL,venue_name=NULL").bind(id).bind(SPORT).bind(name).execute(&pool).await?;
+        sqlx::query("INSERT INTO entity_name_surfaces(sport,entity_type,entity_id,norm,surface_kind) VALUES($1,'team',$2,public.nrm($3),'name')").bind(SPORT).bind(id).bind(name).execute(&pool).await?;
     }
-    drop(connection);
-    sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,full_text,published_at) VALUES($1,'https://example.invalid/kev',md5('https://example.invalid/kev'),'Cedar FC injury','Fixture Wire',$2,now())")
-        .bind(ARTICLE).bind(html).execute(&pool).await?;
-    sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES($1,'team',910415,$2)")
-        .bind(ARTICLE).bind(SPORT).execute(&pool).await?;
-
-    sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES($1,'team',910417,$2)")
-        .bind(ARTICLE).bind(SPORT).execute(&pool).await?;
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    let address = listener.local_addr()?;
-    let (requests, received) = std::sync::mpsc::channel();
-    let server = std::thread::spawn(move || {
-        let mut request_number = 0;
-        loop {
-            let (mut socket, _) = listener.accept().unwrap();
-            socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(10)))
-                .unwrap();
-            let mut bytes = Vec::new();
-            let header_end = loop {
-                let mut buffer = [0; 4096];
-                let n = socket.read(&mut buffer).unwrap();
-                assert!(n > 0);
-                bytes.extend_from_slice(&buffer[..n]);
-                if let Some(end) = bytes.windows(4).position(|s| s == b"\r\n\r\n") {
-                    break end + 4;
-                }
-            };
-            let headers = String::from_utf8_lossy(&bytes[..header_end]);
-            if headers.starts_with("GET /shutdown ") {
-                break;
-            }
-            if headers.starts_with("GET /v1/models ") {
-                let body = serde_json::json!({"data":[{"id":format!("{MODEL_ID}@sha256:{}","0".repeat(64))}]}).to_string();
-                write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
-                continue;
-            }
-            assert!(headers.starts_with("POST /v1/systemone "));
-            let length: usize = headers
-                .lines()
-                .find_map(|line| {
-                    line.to_ascii_lowercase()
-                        .strip_prefix("content-length: ")
-                        .map(str::to_owned)
-                })
-                .unwrap()
-                .parse()
-                .unwrap();
-            while bytes.len() < header_end + length {
-                let mut buffer = [0; 4096];
-                let n = socket.read(&mut buffer).unwrap();
-                assert!(n > 0);
-                bytes.extend_from_slice(&buffer[..n]);
-            }
-            let payload =
-                serde_json::from_slice::<Value>(&bytes[header_end..header_end + length]).unwrap();
-            let unrelated = payload["state"]["subject_meta"]["identity"]["entity_id"] == 910417;
-            requests.send(payload).unwrap();
-            let questions: Value = serde_json::from_str(include_str!(
-                "../../../fixtures/classifier/classification-criteria-v6-subject.json"
-            ))
-            .unwrap();
-            let answers: serde_json::Map<String, Value> = questions["questions"]
-                .as_object()
-                .unwrap()
-                .keys()
-                .map(|key| (key.clone(), serde_json::json!({"type":"noul","noul":if key == "subject" && unrelated {0.1} else {0.95}})))
-                .collect();
-            let body = serde_json::json!({"model":format!("{MODEL_ID}@sha256:{}", "0".repeat(64)),"answers":answers}).to_string();
-            let status = if request_number == 2 {
-                "500 Internal Server Error"
-            } else {
-                "200 OK"
-            };
-            write!(socket, "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
-            request_number += 1;
-        }
-    });
-    let decision = decision::Decision::new(format!("http://{address}/"))?;
-    let acquire = adapter::AcquireHandler::new(pool.clone(), Arc::new(WebBroker::new(0)?));
-    let mut source_ids = Vec::new();
-    for revision in 0..3 {
-        if revision == 1 {
-            sqlx::query("UPDATE news_articles SET full_text=$2 WHERE id=$1")
-                .bind(ARTICLE)
-                .bind(format!("{prose} Additional publisher update."))
-                .execute(&pool)
-                .await?;
-        }
-        if revision == 2 {
-            sqlx::query("UPDATE harvester_query_provenance SET feed_rank=7 WHERE article_id=$1 AND entity_id=910415")
-                .bind(ARTICLE).execute(&pool).await?;
-        }
-        sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
-            .bind(ARTICLE)
-            .bind(SPORT)
-            .execute(&pool)
-            .await?;
-        let item = work::claim(&pool, manifest::ACQUIRE_TASK, 100)
-            .await?
-            .into_iter()
-            .find(|item| item.sport == SPORT)
-            .unwrap();
-        acquire.execute(&item).await?;
-        let item = work::claim(&pool, manifest::TASK, 100)
-            .await?
-            .into_iter()
-            .find(|item| item.sport == SPORT)
-            .unwrap();
-        source_ids.push(item.input_version.clone());
-        if revision == 1 {
-            let completed: Option<String> = sqlx::query_scalar(
-                "SELECT completed_at::text FROM pipeline_stage_progress WHERE stage='classifier'",
-            )
-            .fetch_optional(&pool)
-            .await?;
-            let error = adapter::execute_spectrum(&pool, &item, &decision)
-                .await
-                .unwrap_err();
-            assert!(format!("{error:#}").contains("500"));
-            received.recv_timeout(std::time::Duration::from_secs(10))?;
-            let after_error: Option<String> = sqlx::query_scalar(
-                "SELECT completed_at::text FROM pipeline_stage_progress WHERE stage='classifier'",
-            )
-            .fetch_optional(&pool)
-            .await?;
-            assert_eq!(
-                completed, after_error,
-                "error receipts are not successful queue progress"
-            );
-        }
-        adapter::execute_spectrum(&pool, &item, &decision).await?;
-        let request = if revision == 2 {
-            assert!(
-                received.try_recv().is_err(),
-                "RSS metadata changes must reuse the exact article measurement"
-            );
-            let receipt: String = sqlx::query_scalar("SELECT receipt::text FROM classifier_spectra WHERE source_id=$1 AND target->>'entity_type'='team' AND target->>'entity_id'='910415'")
-                .bind(item.input_version.as_deref().unwrap().parse::<i64>()?).fetch_one(&pool).await?;
-            let receipt: Value = serde_json::from_str(&receipt)?;
-            assert_eq!(receipt["cache_hit"], true);
-            receipt["request"].clone()
-        } else {
-            let first = received.recv_timeout(std::time::Duration::from_secs(10))?;
-            let second = received.recv_timeout(std::time::Duration::from_secs(10))?;
-            assert_ne!(
-                first["state"]["subject_meta"]["identity"],
-                second["state"]["subject_meta"]["identity"]
-            );
-            assert_eq!(first["state"]["article"], second["state"]["article"]);
-            first
-        };
-        assert_eq!(request["questions"].as_object().unwrap().len(), 4);
-        assert_eq!(request["state"]["article"]["sport"], SPORT);
-        assert!(
-            request["state"]["subject_meta"]["identity"]["name"] == "Cedar FC",
-            "each RSS subject gets its own canonical metadata"
-        );
-        let sent = request["state"]["article"]["body"].as_str().unwrap();
-        assert!(sent.contains("A final correction says the player is available."));
-        assert!(!sent.contains('<') && !sent.contains("tracking()") && !sent.contains("Buy now"));
-        let loaded = delivery::load_for_character(
-            &pool,
-            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
-            "team",
-            910415,
-            SPORT,
-        )
-        .await?;
-        assert_eq!(loaded.len(), 1);
-        assert_eq!(loaded[0].context, sent);
-        assert_eq!(
-            loaded[0].classifier_world.as_ref().unwrap()["spectrum"]["scout"],
-            95.0
-        );
-        assert!(
-            delivery::load_for_character(
-                &pool,
-                crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
-                "team",
-                910417,
-                SPORT
-            )
-            .await?
-            .is_empty(),
-            "an unrelated RSS subject cannot receive a character obligation"
-        );
-        if revision == 0 {
-            work::enqueue(
-                &pool,
-                &work::Item {
-                    claim_token: None,
-                    ..item.clone()
-                },
-            )
-            .await?;
-            let repeat = work::claim(&pool, manifest::TASK, 100)
-                .await?
-                .into_iter()
-                .find(|i| i.sport == SPORT)
-                .unwrap();
-            adapter::execute_spectrum(&pool, &repeat, &decision).await?;
-            assert!(
-                received.try_recv().is_err(),
-                "a committed article must not call Kev again for any target"
-            );
-            let count: i64 =
-                sqlx::query_scalar("SELECT count(*) FROM classifier_spectra WHERE sport=$1")
-                    .bind(SPORT)
-                    .fetch_one(&pool)
-                    .await?;
-            assert_eq!(count, 2, "one native measurement per RSS subject");
-            let player_deliveries: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND x.target->>'entity_type'='player'")
-                .bind(SPORT).fetch_one(&pool).await?;
-            assert_eq!(
-                player_deliveries, 0,
-                "incidental canonical mentions must not fan out character work"
-            );
-        }
-    }
-    assert_ne!(source_ids[0], source_ids[1]);
-    assert_ne!(source_ids[1], source_ids[2]);
-    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectra WHERE sport=$1")
-        .bind(SPORT)
-        .fetch_one(&pool)
-        .await?;
-    assert_eq!(count, 6, "changed sources retain both subject measurements");
-    use sqlx::Row;
-    let rows = sqlx::query(
-        "SELECT receipt::text,request_hash,clean_text,model FROM classifier_spectra WHERE sport=$1",
+    let model = Model::new()?;
+    let handler = adapter::ClassifierHandler::new(pool.clone(), model.decision()?);
+    seed(
+        &pool,
+        910415,
+        "Cedar FC appoints a coach",
+        "Body must never be read or delivered.",
     )
-    .bind(SPORT)
-    .fetch_all(&pool)
     .await?;
-    for row in rows {
-        let receipt: Value = serde_json::from_str(row.get::<&str, _>("receipt"))?;
-        assert_eq!(
-            receipt["request"]["state"]["article"]["body"],
-            row.get::<String, _>("clean_text")
-        );
-        assert_eq!(receipt["response"]["model"], row.get::<String, _>("model"));
-        assert_eq!(
-            hash(&receipt["request"].to_string()),
-            row.get::<String, _>("request_hash")
-        );
+    sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES(910415,'team',910417,$1)").bind(SPORT).execute(&pool).await?;
+    admit(&pool, &handler, 910415).await?;
+    assert_eq!(model.calls(), 2);
+    let source: Value = sqlx::query_scalar("SELECT s.source FROM classifier_source_heads h JOIN classifier_sources s ON s.id=h.source_id WHERE h.article_id=910415 AND h.sport=$1").bind(SPORT).fetch_one(&pool).await?;
+    assert_eq!(source["body"], "");
+    assert_eq!(source["evidence_scope"], "headline");
+    for request in model.requests.lock().unwrap().iter() {
+        assert_eq!(request["questions"].as_object().unwrap().len(), 5);
+        assert!(request["questions"].get("clickbait").is_some());
+        assert!(request["state"]["article"].get("body").is_none());
     }
-    let errors: Vec<String> = sqlx::query_scalar(
-        "SELECT receipt::text FROM classifier_measurements WHERE sport=$1 AND status='error'",
-    )
-    .bind(SPORT)
-    .fetch_all(&pool)
-    .await?;
-    assert_eq!(
-        errors.len(),
-        1,
-        "failed inference is retained without creating a spectrum"
-    );
-    let failure: Value = serde_json::from_str(&errors[0])?;
-    assert!(failure["error"].as_str().unwrap().contains("500"));
-    assert!(failure["raw_response"]
-        .as_str()
-        .unwrap()
-        .contains("answers"));
-    assert!(failure["request"]["state"]["article"]["body"]
-        .as_str()
-        .unwrap()
-        .ends_with("Additional publisher update."));
-    let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='pending'").bind(SPORT).fetch_one(&pool).await?;
-    assert_eq!(
-        pending, 4,
-        "only the newest spectrum can dispatch each character"
-    );
-    let invalid = sqlx::query("INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt)
-        SELECT source_id,article_id,sport,target,model||'-invalid',criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,'{}'::jsonb
-        FROM classifier_spectra WHERE sport=$1 LIMIT 1")
-        .bind(SPORT).execute(&pool).await.unwrap_err();
-    assert_eq!(
-        invalid.as_database_error().unwrap().code().as_deref(),
-        Some("23514"),
-        "the database must reject a new spectrum without its complete receipt"
-    );
-    sqlx::query("UPDATE classifier_source_heads SET source_id=$2 WHERE article_id=$1 AND sport=$3")
-        .bind(ARTICLE)
-        .bind(source_ids[0].as_deref().unwrap().parse::<i64>()?)
-        .bind(SPORT)
-        .execute(&pool)
-        .await?;
-    let stale = delivery::load_for_character(
+    let sources = delivery::load_for_character(
         &pool,
         crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
         "team",
         910415,
         SPORT,
     )
-    .await
-    .unwrap_err();
-    assert!(
-        stale.to_string().contains("source changed"),
-        "a superseded acquired source must not reach a character"
+    .await?;
+    assert_eq!(sources.len(), 1);
+    assert_eq!(sources[0].context, "Cedar FC appoints a coach");
+    assert_eq!(
+        sources[0].classifier_world.as_ref().unwrap()["spectrum"]["clickbait"],
+        95.0
     );
-    sqlx::query("UPDATE classifier_source_heads SET source_id=$2 WHERE article_id=$1 AND sport=$3")
-        .bind(ARTICLE)
-        .bind(source_ids[2].as_deref().unwrap().parse::<i64>()?)
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.article_id=910415 AND d.status='pending'").fetch_one(&pool).await?,3,"only the admitted subject is delivered, including high clickbait");
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM pipeline_work WHERE stage='classifier_acquire' AND sport=$1"
+        )
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await?,
+        0
+    );
+    let revision: String = sqlx::query_scalar("SELECT classifier_discovery_version(910415,$1)")
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await?;
+    sqlx::query("UPDATE news_articles SET full_text='A changed unseen article' WHERE id=910415")
+        .execute(&pool)
+        .await?;
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT classifier_discovery_version(910415,$1)")
+            .bind(SPORT)
+            .fetch_one(&pool)
+            .await?,
+        revision
+    );
+
+    sqlx::query("UPDATE harvester_query_provenance SET feed_rank=7 WHERE article_id=910415")
+        .execute(&pool)
+        .await?;
+    let queued: bool = sqlx::query_scalar("SELECT classifier_enqueue_admission(910415,$1)")
+        .bind(SPORT)
+        .fetch_one(&pool)
+        .await?;
+    assert!(!queued, "rank-only changes cannot reopen settled evidence");
+    assert_eq!(model.calls(), 2);
+    sqlx::query("UPDATE news_articles SET source='Cedar Bulletin' WHERE id=910415")
+        .execute(&pool)
+        .await?;
+    admit(&pool, &handler, 910415).await?;
+    assert_eq!(
+        model.calls(),
+        4,
+        "publisher changes invalidate both requests"
+    );
+    assert_eq!(
+        delivery::load_for_character(
+            &pool,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            "team",
+            910415,
+            SPORT
+        )
+        .await?
+        .len(),
+        1,
+        "old revisions are superseded"
+    );
+
+    seed(&pool, 910419, "Unrelated college tourism", "").await?;
+    admit(&pool, &handler, 910419).await?;
+    let rejected: i64 = sqlx::query_scalar(
+        "SELECT id FROM classifier_spectra WHERE article_id=910419 ORDER BY id DESC LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert!(sqlx::query(
+        "INSERT INTO classifier_spectrum_deliveries(spectrum_id,character) VALUES($1,'journalist')"
+    )
+    .bind(rejected)
+    .execute(&pool)
+    .await
+    .is_err());
+
+    seed(&pool, 910420, "Cedar FC update", "").await?;
+    sqlx::query("SELECT classifier_enqueue_admission(910420,$1)")
         .bind(SPORT)
         .execute(&pool)
         .await?;
-    for (plugin, status) in [
-        (
-            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
-            "used",
-        ),
-        (
-            crate::plugins::insider::manifest::MANIFEST.id.as_str(),
-            "abstained",
-        ),
-        (
-            crate::plugins::scout::manifest::MANIFEST.id.as_str(),
-            "held",
-        ),
-        (
-            crate::plugins::influencer::manifest::MANIFEST.id.as_str(),
-            "redundant",
-        ),
-    ] {
-        let sources = delivery::load_for_character(&pool, plugin, "team", 910415, SPORT).await?;
-        assert_eq!(sources.len(), 1);
-        let ids: Vec<_> = sources.iter().map(|s| s.classification_id).collect();
-        let mut tx = pool.begin().await?;
-        delivery::validate_for_publication(&mut tx, plugin, "team", 910415, SPORT, &sources)
+    let item = take(&pool, manifest::TASK, 910420).await?;
+    model.fail.store(true, Ordering::Relaxed);
+    assert!(handler.execute(&item).await.is_err());
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM classifier_measurements WHERE article_id=910420 AND status='error'").fetch_one(&pool).await?,1);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM classifier_spectra WHERE article_id=910420"
+        )
+        .fetch_one(&pool)
+        .await?,
+        0,
+        "a failure is not negative evidence"
+    );
+    work::release(&pool, &item).await?;
+    admit(&pool, &handler, 910420).await?;
+
+    seed(&pool, 910421, "Cedar FC update", "").await?;
+    sqlx::query("SELECT classifier_enqueue_admission(910421,$1)")
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+    let stale = take(&pool, manifest::TASK, 910421).await?;
+    sqlx::query("UPDATE news_articles SET title='Cedar FC changed headline' WHERE id=910421")
+        .execute(&pool)
+        .await?;
+    sqlx::query("SELECT classifier_enqueue_admission(910421,$1)")
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+    let calls = model.calls();
+    assert!(matches!(
+        handler.execute(&stale).await?,
+        PluginOutcome::Superseded
+    ));
+    assert_eq!(model.calls(), calls, "revoked claims cannot call a model");
+
+    for (id, days) in [(910423_i64, 3_i32), (910424, 10)] {
+        seed(
+            &pool,
+            id,
+            "Cedar FC earlier transfer report",
+            "Unused old body",
+        )
+        .await?;
+        sqlx::query("DELETE FROM harvester_query_provenance WHERE article_id=$1")
+            .bind(id)
+            .execute(&pool)
             .await?;
-        delivery::settle(
-            &mut tx,
-            plugin,
-            &ids,
-            status,
-            Some("fixture disposition"),
-            serde_json::json!({"product_id":1}),
+        sqlx::query("INSERT INTO news_article_entities(article_id,entity_type,entity_id,sport) VALUES($1,'team',910415,$2)").bind(id).bind(SPORT).execute(&pool).await?;
+        sqlx::query(
+            "UPDATE news_articles SET published_at=now()-make_interval(days=>$2) WHERE id=$1",
+        )
+        .bind(id)
+        .bind(days)
+        .execute(&pool)
+        .await?;
+    }
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT classifier_replay_admission(1000)")
+            .fetch_one(&pool)
+            .await?,
+        2
+    );
+    for id in [910423_i64, 910424] {
+        let old = take(&pool, manifest::TASK, id).await?;
+        assert!(old
+            .input_version
+            .as_deref()
+            .unwrap()
+            .starts_with("headline-history:"));
+        handler.execute(&old).await?;
+    }
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.article_id IN (910423,910424)").fetch_one(&pool).await?,0,"backscored history cannot flood the fresh edition");
+    let subject = crate::tools::meta::EntityMeta {
+        name: "Cedar FC".into(),
+        entity_type: "team".into(),
+        entity_id: 910415,
+        sport: SPORT.into(),
+    };
+    let fresh = delivery::load_for_character(
+        &pool,
+        crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+        "team",
+        910415,
+        SPORT,
+    )
+    .await?;
+    let memories =
+        super::memories::load_on(&mut *pool.acquire().await?, &subject, &fresh, "journalist")
+            .await?;
+    assert!(memories.iter().any(|m| m.article_id == 910423));
+    assert!(!memories.iter().any(|m| m.article_id == 910424));
+    assert!(memories
+        .iter()
+        .all(|m| !fresh.iter().any(|f| f.article_id == m.article_id)));
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT classifier_replay_admission(1000)")
+            .fetch_one(&pool)
+            .await?,
+        0,
+        "backscoring is restart-safe"
+    );
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(SPORT)
+        .execute(&pool)
+        .await?;
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable classifier_test database via TEST_DATABASE_URL"]
+async fn team_rss_extracts_known_roles_and_recovers_reverted_headlines() -> Result<()> {
+    let pool = crate::harness::dbtest::pool("disposable classifier_test database").await;
+    plumbing_tests::setup_disposable(&pool).await?;
+    let sport = "ZZ_SUBJECTS";
+    sqlx::query("UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL")
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM news_articles WHERE id=920001")
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM entity_name_surfaces WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,'Headline subjects',2026) ON CONFLICT DO NOTHING").bind(sport).execute(&pool).await?;
+    sqlx::query("INSERT INTO teams(id,sport,name) VALUES(920001,$1,'Cedar Sample') ON CONFLICT(id,sport) DO NOTHING").bind(sport).execute(&pool).await?;
+    sqlx::query("INSERT INTO players(id,sport,name) VALUES(920001,$1,'Alex Sample') ON CONFLICT(id,sport) DO NOTHING").bind(sport).execute(&pool).await?;
+    let mut headline = "Cedar Sample and Alex Sample welcome".to_string();
+    for (index, kind) in [
+        "coach",
+        "agent",
+        "owner",
+        "executive",
+        "family",
+        "official",
+        "other",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let name = format!("Casey {kind}");
+        let id = 920001 + index as i32;
+        sqlx::query("INSERT INTO persons(id,sport,full_name,kind) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO UPDATE SET sport=EXCLUDED.sport,full_name=EXCLUDED.full_name,kind=EXCLUDED.kind")
+            .bind(id).bind(sport).bind(&name).bind(kind).execute(&pool).await?;
+        // An unambiguous stored alias resolves to the same canonical subject.
+        let surface = if *kind == "agent" {
+            "Casey Rep".to_string()
+        } else {
+            name.clone()
+        };
+        headline.push_str(&format!(" {surface},"));
+        sqlx::query("INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('person',$1,$2,nrm($3),$4)")
+            .bind(id).bind(sport).bind(surface).bind(if *kind == "agent" { "alias" } else { "name" }).execute(&pool).await?;
+    }
+    headline.push_str(" alongside Unknown Visitor");
+    sqlx::query("INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('player',920001,$1,nrm('Alex Sample'),'name')")
+        .bind(sport).execute(&pool).await?;
+    sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,published_at) VALUES(920001,'https://example.invalid/subjects',md5('subjects'),$1,'Fixture Wire',now())")
+        .bind(&headline).execute(&pool).await?;
+    sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES(920001,'team',920001,$1)").bind(sport).execute(&pool).await?;
+    let model = Model::new()?;
+    let handler = adapter::ClassifierHandler::new(pool.clone(), model.decision()?);
+    async fn score(pool: &PgPool, handler: &adapter::ClassifierHandler, sport: &str) -> Result<()> {
+        let queued: bool = sqlx::query_scalar("SELECT classifier_enqueue_admission(920001,$1)")
+            .bind(sport)
+            .fetch_one(pool)
+            .await?;
+        assert!(queued);
+        let item = work::claim(pool, manifest::TASK, 1).await?.remove(0);
+        assert_eq!(item.entity_id, 920001);
+        assert!(matches!(
+            handler.execute(&item).await?,
+            PluginOutcome::Committed
+        ));
+        Ok(())
+    }
+    score(&pool, &handler, sport).await?;
+    assert_eq!(
+        model.calls(),
+        9,
+        "team, player and all seven known person roles are scored; unknowns are not created"
+    );
+    let old_head: i64 = sqlx::query_scalar(
+        "SELECT source_id FROM classifier_source_heads WHERE article_id=920001 AND sport=$1",
+    )
+    .bind(sport)
+    .fetch_one(&pool)
+    .await?;
+    let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.source_id=$1 AND d.status='pending'").bind(old_head).fetch_one(&pool).await?;
+    assert_eq!(pending, 27);
+    for kind in ["team", "player", "person"] {
+        let reports = delivery::load_for_character(
+            &pool,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            kind,
+            920001,
+            sport,
         )
         .await?;
         assert_eq!(
-            delivery::undelivered_count(&mut tx, plugin, "team", 910415, SPORT).await?,
-            0
+            reports.len(),
+            1,
+            "the same numeric ID must stay separate across entity types"
         );
-        tx.commit().await?;
-        assert!(
-            delivery::settle(
-                &mut *pool.acquire().await?,
-                plugin,
-                &ids,
-                status,
-                None,
-                serde_json::json!({})
-            )
-            .await
-            .is_err(),
-            "character acknowledgements must not consume an obligation twice"
+        assert_eq!(
+            crate::tools::meta::lookup_entity_name(&pool, kind, 920001, sport)
+                .await?
+                .is_empty(),
+            false
         );
     }
-    // A new-only Classifier delivery reaches evaluation even without a legacy Harvester row.
-    sqlx::query("UPDATE news_articles SET published_at=NULL WHERE id=$1")
-        .bind(ARTICLE)
+    sqlx::query("UPDATE news_articles SET title=title||' update' WHERE id=920001")
         .execute(&pool)
         .await?;
-    sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
-        .bind(ARTICLE)
-        .bind(SPORT)
+    score(&pool, &handler, sport).await?;
+    assert_eq!(model.calls(), 18);
+    sqlx::query("UPDATE news_articles SET title=$1 WHERE id=920001")
+        .bind(&headline)
         .execute(&pool)
         .await?;
-    let item = work::claim(&pool, manifest::ACQUIRE_TASK, 100)
-        .await?
-        .into_iter()
-        .find(|i| i.sport == SPORT)
-        .unwrap();
-    acquire.execute(&item).await?;
-    let item = work::claim(&pool, manifest::TASK, 100)
-        .await?
-        .into_iter()
-        .find(|i| i.sport == SPORT)
-        .unwrap();
-    adapter::execute_spectrum(&pool, &item, &decision).await?;
-    assert!(
-        received.try_recv().is_err(),
-        "publication metadata must reuse the same model request"
-    );
-    use crate::evaluation::tasks::{EntitySpec, LensTask, VibeTask};
-    let models = crate::harness::models::Models {
-        router: crate::harness::route::Router::from_config(
-            &crate::harness::config::RouteConfig {
-                roles: Default::default(),
-                candidates: Default::default(),
-                backend_concurrency: Default::default(),
-            },
-            std::time::Duration::from_secs(1),
-            1,
-        )?,
-        voice_num_ctx: 32768,
-    };
-    let result = VibeTask
-        .build_request(
-            &pool,
-            &models,
-            &EntitySpec {
-                entity_type: "team".into(),
-                entity_id: 910415,
-                sport: SPORT.into(),
-                pair_player_id: None,
-            },
-        )
-        .await;
-    let prepared = result?.expect("Classifier-only source remains visible to evaluation");
-    assert!(
-        !prepared.should_call,
-        "an unresolved publication date must never reach the model"
-    );
-    assert_eq!(
-        prepared.parts.as_ref().unwrap()["excluded"][0]["reason"],
-        "unknown_publication_time"
-    );
-    sqlx::query("UPDATE news_articles SET full_text='Transfer news. Sorry, this blog is currently unavailable. Back to Home.' WHERE id=$1")
-        .bind(ARTICLE).execute(&pool).await?;
-    sqlx::query("SELECT classifier_enqueue_acquisition($1,$2)")
-        .bind(ARTICLE)
-        .bind(SPORT)
-        .execute(&pool)
-        .await?;
-    let unavailable = work::claim(&pool, manifest::ACQUIRE_TASK, 100)
-        .await?
-        .into_iter()
-        .find(|i| i.sport == SPORT)
-        .unwrap();
-    assert!(matches!(
-        acquire.execute(&unavailable).await?,
-        crate::harness::plugin::PluginOutcome::Committed
-    ));
-    let reason: String = sqlx::query_scalar(
-        "SELECT reason FROM classifier_acquisitions WHERE article_id=$1 ORDER BY id DESC LIMIT 1",
+    score(&pool, &handler, sport).await?;
+    assert_eq!(model.calls(), 18, "reverting reuses the archived decisions");
+    let head: i64 = sqlx::query_scalar(
+        "SELECT source_id FROM classifier_source_heads WHERE article_id=920001 AND sport=$1",
     )
-    .bind(ARTICLE)
+    .bind(sport)
     .fetch_one(&pool)
     .await?;
-    assert_eq!(reason, "unavailable");
-    let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='pending'")
-        .bind(SPORT).fetch_one(&pool).await?;
+    assert_eq!(head, old_head);
+    let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.source_id=$1 AND d.status='pending'").bind(head).fetch_one(&pool).await?;
+    assert_eq!(pending, 27, "reverted pending obligations must be restored");
+    sqlx::query("UPDATE classifier_spectrum_deliveries d SET status='used' FROM classifier_spectra x WHERE x.id=d.spectrum_id AND x.source_id=$1").bind(head).execute(&pool).await?;
+    sqlx::query("UPDATE harvester_query_provenance SET feed_rank=0 WHERE article_id=920001")
+        .execute(&pool)
+        .await?;
+    let queued: bool = sqlx::query_scalar("SELECT classifier_enqueue_admission(920001,$1)")
+        .bind(sport)
+        .fetch_one(&pool)
+        .await?;
+    assert!(!queued, "rank changes never reopen used evidence");
+    // A repaired canonical name index can be reconciled even when RSS no longer returns the URL.
+    sqlx::query("DELETE FROM entity_name_surfaces WHERE entity_type='person' AND entity_id=920007 AND sport=$1").bind(sport).execute(&pool).await?;
+    let replayed: i64 = sqlx::query_scalar("SELECT classifier_replay_admission(1)")
+        .fetch_one(&pool)
+        .await?;
+    assert_eq!(replayed, 1, "replay repairs a stale current revision");
+    let item = work::claim(&pool, manifest::TASK, 1).await?.remove(0);
+    handler.execute(&item).await?;
+    let pending: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.article_id=920001 AND d.status='pending'").fetch_one(&pool).await?;
     assert_eq!(
         pending, 0,
-        "a terminal acquisition skip cannot strand character consumers on stale pending evidence"
+        "candidate-only revisions do not repeat settled subject evidence"
     );
-    let held: i64 = sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='held' AND d.reason='acquisition_skipped:unavailable'")
-        .bind(SPORT).fetch_one(&pool).await?;
-    assert_eq!(held, 4);
-    let mut shutdown = std::net::TcpStream::connect(address)?;
-    shutdown.write_all(b"GET /shutdown HTTP/1.1\r\nHost: localhost\r\n\r\n")?;
-    server.join().unwrap();
     sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
-        .bind(SPORT)
+        .bind(sport)
         .execute(&pool)
         .await?;
     Ok(())

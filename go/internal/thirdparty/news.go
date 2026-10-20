@@ -331,8 +331,8 @@ func (s *NewsService) persistArticles(
 	var queued []int64
 	for _, id := range discovered {
 		var changed bool
-		if err := tx.QueryRow(ctx, "SELECT public.classifier_enqueue_acquisition($1,$2)", id, sportUpper).Scan(&changed); err != nil {
-			return nil, 0, fmt.Errorf("queue Classifier acquisition: %w", err)
+		if err := tx.QueryRow(ctx, "SELECT public.classifier_enqueue_admission($1,$2)", id, sportUpper).Scan(&changed); err != nil {
+			return nil, 0, fmt.Errorf("queue Classifier admission: %w", err)
 		}
 		if changed {
 			queued = append(queued, id)

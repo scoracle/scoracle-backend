@@ -120,6 +120,7 @@ paths:
         enum:
         - player
         - team
+        - person
         in: path
         name: entityType
         required: true
@@ -166,6 +167,7 @@ paths:
         enum:
         - player
         - team
+        - person
         in: path
         name: entityType
         required: true
@@ -318,6 +320,7 @@ paths:
         enum:
         - player
         - team
+        - person
         in: path
         name: entityType
         required: true
@@ -528,6 +531,7 @@ paths:
         enum:
         - player
         - team
+        - person
         in: path
         name: entityType
         required: true
@@ -582,6 +586,7 @@ paths:
         enum:
         - player
         - team
+        - person
         in: path
         name: entityType
         required: true

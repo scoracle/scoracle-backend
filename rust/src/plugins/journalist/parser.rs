@@ -25,24 +25,6 @@ fn source_metadata(corpus: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Opt
     (corpus.len() as i32, source_names, latest, oldest)
 }
 
-/// The plugin owns which source development labels the report. Prefer the
-/// complete opening sentence; fall back to canonical identity rather than ask
-/// articulation to select or compress a claim.
-fn opening(report: &CorpusItem, entity_name: &str) -> String {
-    let excerpt = report.context.trim();
-    let sentence_end = excerpt
-        .char_indices()
-        .find(|(_, character)| matches!(character, '.' | '?' | '!'))
-        .map(|(index, character)| index + character.len_utf8())
-        .unwrap_or(excerpt.len());
-    let opening = excerpt[..sentence_end].trim();
-    if !opening.is_empty() && opening.chars().count() <= crate::tools::form::HOOK_MAX_CHARS {
-        opening.to_string()
-    } else {
-        entity_name.trim().to_string()
-    }
-}
-
 /// Production and replay share the same strict form parser and source mapping.
 /// This checks shape and surface, not semantic entailment; fidelity is evaluated
 /// against the prepared reports, not inferred from parser success.
@@ -52,45 +34,44 @@ pub struct EditionParser<'a> {
 }
 impl Parser<NarrativesProduct> for EditionParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
-        anyhow::ensure!(
-            self.activity.reports.len() == self.assignment.selected.len(),
-            "Journalist activity does not match selected reports"
-        );
         let reply = crate::tools::form::parse_journalist(raw, self.assignment.selected.len())?;
-        let narratives = self
-            .assignment
-            .selected
-            .iter()
-            .zip(reply.narratives)
-            .zip(&self.activity.reports)
-            .filter_map(|((item, prose), activity)| {
-                prose.text.map(|body| {
-                    let impact = activity.score;
-                    let impact_components = activity.components.clone();
-                    let evidence = std::slice::from_ref(item);
-                    let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
-                        source_metadata(evidence);
-                    let title = opening(item, &self.assignment.subject.name);
-                    crate::tools::form::validate_hook(Some(&title))?;
-                    Ok(Narrative {
-                        title,
-                        body,
-                        impact,
-                        impact_components,
-                        input_news_ids: evidence.iter().map(|r| r.id).collect(),
-                        source_count,
-                        source_names,
-                        source_latest_epoch,
-                        source_oldest_epoch,
+        let narratives = reply
+            .narratives
+            .into_iter()
+            .map(|prose| {
+                let evidence: Vec<_> = prose
+                    .report_keys
+                    .iter()
+                    .map(|key| {
+                        let index = key
+                            .strip_prefix("report_")
+                            .unwrap()
+                            .parse::<usize>()
+                            .unwrap()
+                            - 1;
+                        self.assignment.selected[index].clone()
                     })
+                    .collect();
+                let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
+                    source_metadata(&evidence);
+                Ok(Narrative {
+                    title: prose.headline,
+                    body: prose.body,
+                    // Cited-source activity is measured after articulation, before publication.
+                    impact: 0,
+                    impact_components: json!({}),
+                    input_news_ids: evidence.iter().map(|r| r.id).collect(),
+                    source_count,
+                    source_names,
+                    source_latest_epoch,
+                    source_oldest_epoch,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
         let headline = narratives.first().map(|narrative| narrative.title.clone());
         Ok(Some(NarrativesProduct {
-            memory_provenance: json!({"receipt":null,"selected":[]}),
+            memory_provenance: json!({"version":"headline-archive-v1","selected":self.assignment.memories}),
             narratives,
-            budget_truncated_ids: self.assignment.deferred_ids.clone(),
             card_score: Some(self.activity.card_score),
             headline,
         }))

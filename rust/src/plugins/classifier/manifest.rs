@@ -1,23 +1,13 @@
-//! Classifier registration; acquisition and native classification run independently.
-use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGrant};
+//! Headline scoring.
+use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile};
 use crate::harness::queue::work::{ClaimPolicy, TaskKey};
-use crate::harness::tools::DomainClass;
 
 pub const TASK: TaskKey = TaskKey::new("classifier");
-pub const ACQUIRE_TASK: TaskKey = TaskKey::new("classifier_acquire");
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.internal.classifier"),
     task: TASK,
-    claim_policy: ClaimPolicy::RANKED_ARTICLES,
+    claim_policy: ClaimPolicy::FRESH_ARTICLES,
     inference_routes: &[],
     resources: ResourceProfile::grouped(4, crate::harness::fleet::ARCHBOX_SLOTS).batched(4),
     tools: &[],
-};
-pub const ACQUIRE_MANIFEST: PluginManifest = PluginManifest {
-    id: PluginId::new("scoracle.internal.classifier.source"),
-    task: ACQUIRE_TASK,
-    claim_policy: ClaimPolicy::FRESH_ARTICLES,
-    inference_routes: &[],
-    resources: ResourceProfile::unbounded_batch(4).batched(4),
-    tools: &[ToolGrant::WebFetch(&[DomainClass::CuratedArticles])],
 };

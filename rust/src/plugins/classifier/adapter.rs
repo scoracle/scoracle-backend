@@ -1,30 +1,16 @@
-//! Native source acquisition, replaceable model calls and claim-fenced receipts.
+//! Score and archive RSS headlines, then dispatch daily character obligations.
 use super::{hash, Source};
 use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
-use crate::harness::queue::{
-    publication::ClaimPublication,
-    work::{self, Item},
-};
-use crate::harness::tools::WebBroker;
+use crate::harness::queue::{publication::ClaimPublication, work::Item};
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 use serde_json::json;
 use sqlx::{PgPool, Row};
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-pub struct AcquireHandler {
-    pool: PgPool,
-    web: Arc<WebBroker>,
-}
 pub struct ClassifierHandler {
     pool: PgPool,
     decision: super::decision::Decision,
-}
-impl AcquireHandler {
-    pub fn new(pool: PgPool, web: Arc<WebBroker>) -> Self {
-        Self { pool, web }
-    }
 }
 impl ClassifierHandler {
     pub fn new(pool: PgPool, decision: super::decision::Decision) -> Self {
@@ -39,42 +25,28 @@ async fn discovery(pool: &PgPool, item: &Item) -> Result<Source> {
         item.entity_type == "article",
         "Classifier requires an article claim"
     );
-    let article = sqlx::query("SELECT url,title,COALESCE(source,'') AS source,published_at::text AS published_at,full_text,duplicate_of,public.classifier_acquisition_key(id) AS acquisition_key FROM public.news_articles WHERE id=$1")
+    let article = sqlx::query("SELECT url,title,COALESCE(source,'') AS source,published_at::text AS published_at,duplicate_of FROM public.news_articles WHERE id=$1")
         .bind(item.entity_id).fetch_one(pool).await.context("load Classifier source")?;
-    let queries = sqlx::query("SELECT p.entity_type,p.entity_id,p.sport,p.feed_rank,t.name FROM public.harvester_query_provenance p LEFT JOIN public.teams t ON p.entity_type='team' AND t.id=p.entity_id AND t.sport=p.sport WHERE p.article_id=$1 AND p.sport=$2 ORDER BY p.entity_type,p.entity_id")
-        .bind(item.entity_id).bind(&item.sport).fetch_all(pool).await?;
+    let queries: serde_json::Value =
+        sqlx::query_scalar("SELECT public.classifier_headline_subjects($1,$2)")
+            .bind(item.entity_id)
+            .bind(&item.sport)
+            .fetch_one(pool)
+            .await?;
+    let queries: Vec<serde_json::Value> = serde_json::from_value(queries)?;
     ensure!(
-        !queries.is_empty(),
-        "Classifier requires explicit RSS candidate provenance"
+        !queries.is_empty() && queries.len() <= 128,
+        "Classifier requires 1..128 canonical headline subjects"
     );
-    for row in &queries {
-        ensure!(
-            row.get::<String, _>("entity_type") == "team"
-                && row
-                    .get::<Option<String>, _>("name")
-                    .is_some_and(|name| !name.trim().is_empty()),
-            "unsupported or unresolved RSS candidate identity"
-        );
-    }
-    let mut source = Source {
+    let source = Source {
         article_id: item.entity_id,
-        body: article
-            .get::<Option<String>, _>("full_text")
-            .unwrap_or_default(),
+        body: String::new(),
         source: article.get("source"),
         published_at: article.get("published_at"),
-        query_entities: queries
-            .iter()
-            .map(|row| {
-                json!({"entity_type":row.get::<String,_>("entity_type"),
-            "entity_id":row.get::<i32,_>("entity_id"),"sport":row.get::<String,_>("sport"),
-            "name":row.get::<Option<String>,_>("name"),"feed_rank":row.get::<Option<i32>,_>("feed_rank")})
-            })
-            .collect(),
+        query_entities: queries,
         provenance: [
             ("url".into(), json!(article.get::<String, _>("url"))),
             ("title".into(), json!(article.get::<String, _>("title"))),
-            ("acquisition_key".into(), json!(article.get::<String, _>("acquisition_key"))),
             (
                 "duplicate_of".into(),
                 json!(article.get::<Option<i64>, _>("duplicate_of")),
@@ -82,20 +54,11 @@ async fn discovery(pool: &PgPool, item: &Item) -> Result<Source> {
         ]
         .into(),
     };
-    if std::env::var_os("ARTICLE_READER_URL").is_some() {
-        // A browser-read revision must retain its own provenance even when the text is identical.
-        source
-            .provenance
-            .insert("reader_policy".into(), json!(crate::tools::reader::VERSION));
-    }
     Ok(source)
 }
 
-fn input_hash(source: &Source) -> Result<String> {
-    let mut input = source.clone();
-    // Acquisition policy metadata must not invalidate retained Classifier request identities.
-    input.provenance.remove("acquisition_key");
-    Ok(hash(&serde_json::to_string(&input)?))
+pub(super) fn input_hash(source: &Source) -> Result<String> {
+    Ok(hash(&serde_json::to_string(source)?))
 }
 
 pub(super) async fn fence_source(
@@ -110,9 +73,33 @@ pub(super) async fn fence_source(
         .bind(item.entity_id)
         .fetch_one(&mut **publication.transaction())
         .await?;
-    // Lock candidate provenance and names too; acquisition and inference never hold these locks.
-    sqlx::query("SELECT p.article_id FROM public.harvester_query_provenance p JOIN public.teams t ON p.entity_type='team' AND t.id=p.entity_id AND t.sport=p.sport WHERE p.article_id=$1 AND p.sport=$2 FOR SHARE OF p,t NOWAIT")
+    sqlx::query("SELECT article_id FROM harvester_query_provenance WHERE article_id=$1 AND sport=$2 FOR SHARE NOWAIT")
         .bind(item.entity_id).bind(&item.sport).fetch_all(&mut **publication.transaction()).await?;
+    sqlx::query("SELECT article_id FROM news_article_entities WHERE article_id=$1 AND sport=$2 FOR SHARE NOWAIT")
+        .bind(item.entity_id).bind(&item.sport).fetch_all(&mut **publication.transaction()).await?;
+    for (kind, table) in [
+        ("team", "teams"),
+        ("player", "players"),
+        ("person", "persons"),
+    ] {
+        let ids: Vec<i32> = expected
+            .query_entities
+            .iter()
+            .filter(|c| c["entity_type"] == kind)
+            .filter_map(|c| {
+                c["entity_id"]
+                    .as_i64()
+                    .and_then(|id| i32::try_from(id).ok())
+            })
+            .collect();
+        sqlx::query(&format!(
+            "SELECT id FROM {table} WHERE sport=$1 AND id=ANY($2) ORDER BY id FOR SHARE NOWAIT"
+        ))
+        .bind(&item.sport)
+        .bind(ids)
+        .fetch_all(&mut **publication.transaction())
+        .await?;
+    }
     ensure!(
         input_hash(&discovery(pool, item).await?)? == input_hash(expected)?,
         "Classifier source or candidate provenance changed during work"
@@ -121,110 +108,151 @@ pub(super) async fn fence_source(
 }
 
 #[async_trait]
-impl StudioPlugin for AcquireHandler {
+impl StudioPlugin for ClassifierHandler {
     fn manifest(&self) -> &'static PluginManifest {
-        &super::manifest::ACQUIRE_MANIFEST
+        &super::manifest::MANIFEST
     }
     fn scheduled_operations(&self) -> Vec<Arc<dyn crate::harness::plugin::ScheduledOperation>> {
-        acquisition_replay(
+        headline_replay(
             &self.pool,
             std::env::var("CLASSIFIER_REPLAY_BACKLOG").ok().as_deref(),
         )
     }
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
-        ensure!(
-            item.stage == super::manifest::ACQUIRE_TASK,
-            "wrong Classifier acquisition task"
-        );
+        ensure!(item.stage == super::manifest::TASK, "wrong admission task");
         let before = discovery(&self.pool, item).await?;
-        let key = input_hash(&before)?;
-        let started = std::time::Instant::now();
-        let prepared = super::acquisition::prepare(&self.pool, &self.web, item, &before).await?;
-        let mut source = match prepared {
-            super::acquisition::Prepared::Ready(source) => source,
-            other => {
-                return super::acquisition::finish(
-                    &self.pool,
-                    item,
-                    &before,
-                    other,
-                    started.elapsed().as_millis(),
-                )
-                .await
-            }
+        let Some(measurements) =
+            super::headline::measure(&self.pool, &self.decision, item, &before).await?
+        else {
+            return Ok(PluginOutcome::Superseded);
         };
+        let discovery_hash = input_hash(&before)?;
+        let key = hash(&format!(
+            "{discovery_hash}\n{}",
+            serde_json::to_string(&measurements)?
+        ));
+        let mut source = before.clone();
+        source.body.clear();
+        source
+            .provenance
+            .insert("discovery_input_hash".into(), json!(discovery_hash));
+        source.provenance.insert(
+            "admission_criteria_version".into(),
+            json!(super::decision::CRITERIA_VERSION),
+        );
+        source
+            .provenance
+            .insert("admission_measurements".into(), json!(measurements));
+        let admitted = validate_admission(&self.pool, item, &before, &source)
+            .await?
+            .context("admission changed during measurement")?;
+        source.provenance.insert("admitted".into(), json!(admitted));
+        source
+            .provenance
+            .insert("evidence_scope".into(), json!("headline"));
         let identities =
             super::identity::candidates(&mut *self.pool.acquire().await?, &item.sport, &source)
                 .await?;
-        for candidate in identities.as_array().unwrap() {
-            if matches!(candidate["entity_type"].as_str(), Some("team" | "player"))
-                && !source.query_entities.iter().any(|q| {
-                    q["entity_type"] == candidate["entity_type"]
-                        && q["entity_id"] == candidate["entity_id"]
-                })
-            {
-                source.query_entities.push(candidate.clone());
-            }
-        }
         source
             .provenance
             .insert("identity_candidates".into(), identities);
-        let identity_hash = hash(&source.provenance["identity_candidates"].to_string());
         let Some(mut publication) = ClaimPublication::begin(&self.pool, item).await? else {
             return Ok(PluginOutcome::Superseded);
         };
-        super::identity::validate(publication.transaction(), &item.sport, &source).await?;
         fence_source(&self.pool, item, &before, &mut publication).await?;
-        let source_id: i64 = sqlx::query_scalar("INSERT INTO public.classifier_sources(article_id,sport,input_hash,body_sha256,source,discovery_version,identity_hash) VALUES($1,$2,$3,$4,$5::jsonb,public.classifier_discovery_version($1,$2),$6) ON CONFLICT(article_id,sport,input_hash,body_sha256,identity_hash) DO UPDATE SET discovery_version=EXCLUDED.discovery_version RETURNING id")
-            .bind(item.entity_id).bind(&item.sport).bind(&key).bind(hash(&source.body))
-            .bind(serde_json::to_string(&source)?).bind(identity_hash).fetch_one(&mut **publication.transaction()).await?;
-        sqlx::query("INSERT INTO public.classifier_source_heads(article_id,sport,source_id) VALUES($1,$2,$3)
-            ON CONFLICT(article_id,sport) DO UPDATE SET source_id=EXCLUDED.source_id")
-            .bind(item.entity_id).bind(&item.sport).bind(source_id)
-            .execute(&mut **publication.transaction()).await?;
-        // The revision's canonical names must see the newly selected publisher body.
-        sqlx::query("UPDATE classifier_sources SET discovery_version=public.classifier_discovery_version($1,$2) WHERE id=$3")
-            .bind(item.entity_id).bind(&item.sport).bind(source_id)
-            .execute(&mut **publication.transaction()).await?;
-        sqlx::query("UPDATE public.classifier_spectrum_deliveries d SET status='superseded',updated_at=now()
-            FROM public.classifier_spectra x WHERE x.id=d.spectrum_id AND x.article_id=$1 AND x.sport=$2
-            AND x.source_id<>$3 AND d.status='pending'")
-            .bind(item.entity_id).bind(&item.sport).bind(source_id)
-            .execute(&mut **publication.transaction()).await?;
-        sqlx::query("DELETE FROM public.news_article_entities WHERE article_id=$1 AND sport=$2")
-            .bind(item.entity_id)
-            .bind(&item.sport)
-            .execute(&mut **publication.transaction())
-            .await?;
-        sqlx::query("INSERT INTO public.news_article_entities(article_id,entity_type,entity_id,sport,classifier_source_id)
-            SELECT $1, c->>'entity_type', (c->>'entity_id')::integer,$2,$3
-            FROM jsonb_array_elements($4::jsonb) c")
-            .bind(item.entity_id).bind(&item.sport).bind(source_id).bind(&source.provenance["identity_candidates"])
-            .execute(&mut **publication.transaction()).await?;
-        work::enqueue(
-            &mut **publication.transaction(),
-            &Item {
-                stage: super::manifest::TASK,
-                input_version: Some(source_id.to_string()),
-                claim_token: None,
-                attempts: 0,
-                ..item.clone()
-            },
-        )
-        .await?;
-        super::acquisition::record(&mut publication, item, &before, "acquired", "article_body", json!({
-            "source_id":source_id,"elapsed_ms":started.elapsed().as_millis(),
-            "body_bytes":source.body.len(),"reused":source.provenance.get("acquisition_reused"),
-            "publisher_url":source.provenance.get("publisher_url"),"cache_hit":source.provenance.get("fetch_cache_hit"),
-            "fetch_elapsed_ms":source.provenance.get("fetch_elapsed_ms"),"extract_elapsed_ms":source.provenance.get("extract_elapsed_ms")
-        })).await?;
+        let source_id:i64=sqlx::query_scalar("INSERT INTO classifier_sources(article_id,sport,input_hash,body_sha256,source,discovery_version,identity_hash) VALUES($1,$2,$3,$4,$5,public.classifier_discovery_version($1,$2),$6) ON CONFLICT(article_id,sport,input_hash,body_sha256,identity_hash) DO UPDATE SET discovery_version=EXCLUDED.discovery_version RETURNING id")
+            .bind(item.entity_id).bind(&item.sport).bind(&key).bind(hash("")).bind(json!(source)).bind(hash(&source.provenance["identity_candidates"].to_string())).fetch_one(&mut **publication.transaction()).await?;
+        super::identity::validate(publication.transaction(), &item.sport, &source).await?;
+        sqlx::query("UPDATE classifier_spectrum_deliveries d SET status='superseded',reason='headline_revised',updated_at=now() FROM classifier_spectra x WHERE x.id=d.spectrum_id AND x.article_id=$1 AND x.sport=$2 AND x.source_id<>$3 AND d.status='pending'")
+            .bind(item.entity_id).bind(&item.sport).bind(source_id).execute(&mut **publication.transaction()).await?;
+        sqlx::query("INSERT INTO classifier_source_heads(article_id,sport,source_id) VALUES($1,$2,$3) ON CONFLICT(article_id,sport) DO UPDATE SET source_id=EXCLUDED.source_id")
+            .bind(item.entity_id).bind(&item.sport).bind(source_id).execute(&mut **publication.transaction()).await?;
+        for entry in source.provenance["admission_measurements"]
+            .as_array()
+            .context("admission batch")?
+        {
+            let measured =
+                super::decision::Measurement::from_receipt(entry["measurement"].clone())?;
+            let accepted = super::decision::admitted(&measured.spectrum)?;
+            let characters = super::decision::characters(&measured.spectrum)?;
+            let gate = json!({"coverage":"complete","scope":"headline","admitted":accepted,
+                "characters":characters});
+            let spectrum_id: i64 = sqlx::query_scalar("INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt) VALUES($1,$2,$3,$4,$5,$6,'rss-headline-spectrum-v1',$7,$8,$9,$10,$11,$12) ON CONFLICT(source_id,target,model,criteria_version,scrub_version,request_hash) DO UPDATE SET request_hash=EXCLUDED.request_hash RETURNING id")
+                .bind(source_id).bind(item.entity_id).bind(&item.sport).bind(&entry["target"]).bind(&measured.model).bind(super::decision::CRITERIA_VERSION)
+                .bind(before.provenance["title"].as_str().context("headline")?).bind(hash(before.provenance["title"].as_str().context("headline")?))
+                .bind(json!(measured.spectrum)).bind(gate).bind(&measured.request_hash).bind(&measured.receipt).fetch_one(&mut **publication.transaction()).await?;
+            if accepted
+                && !item
+                    .input_version
+                    .as_deref()
+                    .is_some_and(|v| v.starts_with("headline-history:"))
+            {
+                sqlx::query("INSERT INTO classifier_spectrum_deliveries(spectrum_id,character)
+                    SELECT $1,key FROM jsonb_each_text($2) WHERE value='true' AND NOT EXISTS (
+                        SELECT 1 FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
+                        JOIN classifier_sources s ON s.id=x.source_id WHERE d.character=key AND d.status IN ('used','abstained','redundant')
+                        AND x.article_id=$3 AND x.sport=$4 AND x.target=$5 AND x.request_hash=$6 AND x.model=$7 AND x.criteria_version=$8
+                        AND s.source->>'published_at' IS NOT DISTINCT FROM $9::text)
+                    ON CONFLICT(spectrum_id,character) DO UPDATE SET status='pending',reason=NULL,product_ref='{}'::jsonb,updated_at=now()
+                    WHERE classifier_spectrum_deliveries.status='superseded' AND classifier_spectrum_deliveries.reason='headline_revised' ")
+                    .bind(spectrum_id).bind(&characters).bind(item.entity_id).bind(&item.sport).bind(&entry["target"]).bind(&measured.request_hash).bind(&measured.model).bind(super::decision::CRITERIA_VERSION).bind(&before.published_at).execute(&mut **publication.transaction()).await?;
+            }
+        }
         publication.commit_final().await?;
         Ok(PluginOutcome::Committed)
     }
 }
 
-// Controlled calibration runs must not silently enqueue the whole retained corpus.
-pub(super) fn acquisition_replay(
+async fn validate_admission(
+    pool: &PgPool,
+    item: &Item,
+    before: &Source,
+    source: &Source,
+) -> Result<Option<bool>> {
+    if source.provenance["admission_criteria_version"] != super::decision::CRITERIA_VERSION
+        || source.provenance["discovery_input_hash"].as_str() != Some(input_hash(before)?.as_str())
+    {
+        return Ok(None);
+    }
+    let retained = source.provenance["admission_measurements"]
+        .as_array()
+        .context("retained admission batch")?;
+    ensure!(
+        !retained.is_empty() && retained.len() == before.query_entities.len(),
+        "incomplete admission batch"
+    );
+    let mut accepted = false;
+    let mut model = None;
+    for (candidate, entry) in before.query_entities.iter().zip(retained) {
+        let meta = super::headline::subject_meta(pool, candidate).await?;
+        let target = json!({"entity_type":meta["identity"]["entity_type"],"entity_id":meta["identity"]["entity_id"],"sport":item.sport});
+        ensure!(entry["target"] == target, "admission target changed");
+        let measured = super::decision::Measurement::from_receipt(entry["measurement"].clone())?;
+        if measured.receipt["request"]
+            != super::decision::request(
+                before.provenance["title"].as_str().context("headline")?,
+                &before.source,
+                &item.sport,
+                &meta,
+            )?
+        {
+            return Ok(None);
+        }
+        if let Some(expected) = &model {
+            ensure!(
+                &measured.model == expected,
+                "mixed admission model fingerprints"
+            );
+        } else {
+            model = Some(measured.model.clone());
+        }
+        accepted |= super::decision::admitted(&measured.spectrum)?;
+    }
+    Ok(Some(accepted))
+}
+
+// Backscoring is explicit; historical jobs archive spectra without creating fresh deliveries.
+pub(super) fn headline_replay(
     pool: &PgPool,
     setting: Option<&str>,
 ) -> Vec<Arc<dyn crate::harness::plugin::ScheduledOperation>> {
@@ -239,222 +267,21 @@ struct Replay(PgPool);
 #[async_trait]
 impl crate::harness::plugin::ScheduledOperation for Replay {
     fn name(&self) -> &'static str {
-        "classifier.acquisition-replay"
+        "classifier.admission-replay"
     }
     async fn run(&self, cause: &'static str) -> Duration {
-        match sqlx::query_scalar::<_, i64>("SELECT public.classifier_replay_acquisition(1000)")
+        match sqlx::query_scalar::<_, i64>("SELECT public.classifier_replay_admission(1000)")
             .fetch_one(&self.0)
             .await
         {
             Ok(queued) => {
-                tracing::info!(cause, queued, "Classifier acquisition backlog reconciled");
+                tracing::info!(cause, queued, "Classifier admission backlog reconciled");
                 if queued == 1000 {
                     return Duration::from_secs(5);
                 }
             }
-            Err(error) => tracing::error!(cause, %error, "Classifier acquisition replay failed"),
+            Err(error) => tracing::error!(cause, %error, "Classifier admission replay failed"),
         }
         Duration::from_secs(300)
     }
-}
-
-#[async_trait]
-impl StudioPlugin for ClassifierHandler {
-    fn manifest(&self) -> &'static PluginManifest {
-        &super::manifest::MANIFEST
-    }
-    async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
-        execute_spectrum(&self.pool, item, &self.decision).await
-    }
-}
-
-/// Score each RSS subject with canonical metadata; publish the complete batch atomically.
-pub async fn execute_spectrum(
-    pool: &PgPool,
-    item: &Item,
-    decision: &super::decision::Decision,
-) -> Result<PluginOutcome> {
-    ensure!(
-        item.stage == super::manifest::TASK && item.entity_type == "article",
-        "wrong Classifier task"
-    );
-    let source_id: i64 = item
-        .input_version
-        .as_deref()
-        .context("Classifier requires acquired source revision")?
-        .parse()?;
-    let row = sqlx::query("SELECT source::text,input_hash FROM public.classifier_sources WHERE id=$1 AND article_id=$2 AND sport=$3")
-        .bind(source_id).bind(item.entity_id).bind(&item.sport).fetch_one(pool).await?;
-    let source: Source = serde_json::from_str(row.get::<&str, _>(0))?;
-    let before = discovery(pool, item).await?;
-    let current: Option<i64> = sqlx::query_scalar(
-        "SELECT source_id FROM classifier_source_heads WHERE article_id=$1 AND sport=$2",
-    )
-    .bind(item.entity_id)
-    .bind(&item.sport)
-    .fetch_optional(pool)
-    .await?;
-    if current != Some(source_id) {
-        let Some(publication) = ClaimPublication::begin(pool, item).await? else {
-            return Ok(PluginOutcome::Superseded);
-        };
-        publication.commit_final().await?;
-        return Ok(PluginOutcome::Committed);
-    }
-    if input_hash(&before)? != row.get::<String, _>(1)
-        || source.body.trim_start().starts_with('<')
-        || crate::tools::fetch::article_unavailable(&source.body)
-        || source
-            .provenance
-            .get("publisher_domain")
-            .is_some_and(|domain| domain == "news.google.com")
-    {
-        let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
-            return Ok(PluginOutcome::Superseded);
-        };
-        fence_source(pool, item, &before, &mut publication).await?;
-        let revision: String =
-            sqlx::query_scalar("SELECT public.classifier_discovery_version($1,$2)")
-                .bind(item.entity_id)
-                .bind(&item.sport)
-                .fetch_one(&mut **publication.transaction())
-                .await?;
-        work::enqueue(
-            &mut **publication.transaction(),
-            &Item {
-                stage: super::manifest::ACQUIRE_TASK,
-                input_version: Some(revision),
-                claim_token: None,
-                attempts: 0,
-                ..item.clone()
-            },
-        )
-        .await?;
-        publication.commit_final().await?;
-        return Ok(PluginOutcome::Committed);
-    }
-
-    let (clean_text, scrub_version) = if source.provenance.contains_key("reader_version") {
-        (source.body.clone(), "reader-body-v1")
-    } else {
-        (
-            crate::tools::source::scrub(&source.body).text,
-            "scrub-v2-publisher",
-        )
-    };
-    ensure!(!clean_text.trim().is_empty(), "empty publisher source");
-    let clean_sha256 = hash(&clean_text);
-    let model = decision.identity().await?;
-    let mut measurements = Vec::new();
-    // RSS provenance supplies candidates, never a relevance label or a reason to invent targets.
-    for candidate in &before.query_entities {
-        let entity: crate::tools::meta::EntityMeta = serde_json::from_value(candidate.clone())?;
-        let record = crate::tools::meta::load_identity_record(
-            pool,
-            &entity.entity_type,
-            entity.entity_id,
-            &entity.sport,
-        )
-        .await?
-        .context("Classifier canonical subject record missing")?;
-        let meta = json!({"identity":entity,"identity_record":record,"origin":"canonical_meta_rs",
-            "evidence_scope":"Subject identity only; not article evidence."});
-        let target = json!({"entity_type":entity.entity_type,"entity_id":entity.entity_id,"sport":entity.sport});
-        let request = super::decision::request(&clean_text, &item.sport, &meta)?;
-        let request_hash = hash(&request.to_string());
-        let cached: Option<String> = sqlx::query_scalar("SELECT receipt::text FROM classifier_spectra
-            WHERE article_id=$1 AND sport=$2 AND target=$3::jsonb AND model=$4
-            AND criteria_version=$5 AND scrub_version=$6 AND request_hash=$7 ORDER BY id DESC LIMIT 1")
-            .bind(item.entity_id).bind(&item.sport).bind(target.to_string()).bind(&model)
-            .bind(super::decision::CRITERIA_VERSION).bind(scrub_version).bind(&request_hash)
-            .fetch_optional(pool).await?;
-        let measured = if let Some(cached) = cached {
-            let mut receipt: serde_json::Value = serde_json::from_str(&cached)?;
-            ensure!(
-                receipt["request"] == request,
-                "cached Classifier request mismatch"
-            );
-            receipt["cache_hit"] = json!(true);
-            super::decision::Measurement::from_receipt(receipt)
-        } else {
-            decision.spectrum(&clean_text, &item.sport, &meta).await
-        };
-        let measurement = match measured {
-            Ok(measurement) => measurement,
-            Err(error) => {
-                let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
-                    return Ok(PluginOutcome::Superseded);
-                };
-                fence_source(pool, item, &before, &mut publication).await?;
-                let receipt = json!({"status":"error","production_eligible":false,"target":target,"request":request,
-                    "error":format!("{error:#}"),"raw_response":error.downcast_ref::<crate::harness::model::ResponseFailure>()
-                        .map(|failure| &failure.raw_response_body)});
-                sqlx::query("INSERT INTO classifier_measurements(source_id,article_id,sport,request_hash,status,receipt)
-                    VALUES($1,$2,$3,$4,'error',$5::jsonb)")
-                    .bind(source_id).bind(item.entity_id).bind(&item.sport).bind(&request_hash)
-                    .bind(receipt.to_string()).execute(&mut **publication.transaction()).await?;
-                publication.commit_progress().await?;
-                return Err(error);
-            }
-        };
-        ensure!(
-            measurement.model == model,
-            "Classifier serving model changed during work"
-        );
-        let gate = super::decision::gate(&measurement.spectrum)?;
-        measurements.push((target, measurement, gate));
-    }
-    ensure!(!measurements.is_empty(), "Classifier requires RSS subjects");
-    let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
-        return Ok(PluginOutcome::Superseded);
-    };
-    fence_source(pool, item, &before, &mut publication).await?;
-    let head: i64 = sqlx::query_scalar(
-        "SELECT source_id FROM classifier_source_heads WHERE article_id=$1 AND sport=$2 FOR SHARE",
-    )
-    .bind(item.entity_id)
-    .bind(&item.sport)
-    .fetch_one(&mut **publication.transaction())
-    .await?;
-    ensure!(
-        head == source_id,
-        "Classifier acquired source changed during inference"
-    );
-    super::identity::validate(publication.transaction(), &item.sport, &source).await?;
-    let mut current_ids = Vec::new();
-    for (target, measurement, gate) in &measurements {
-        let gate_doc = json!({"characters":gate,"coverage":"complete","scope":"subject"});
-        let id: i64 = sqlx::query_scalar("INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt)
-            VALUES($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,$13::jsonb)
-            ON CONFLICT (source_id,target,model,criteria_version,scrub_version,request_hash)
-            DO UPDATE SET gate=classifier_spectra.gate RETURNING id")
-            .bind(source_id).bind(item.entity_id).bind(&item.sport).bind(target.to_string())
-            .bind(&measurement.model).bind(super::decision::CRITERIA_VERSION).bind(scrub_version)
-            .bind(&clean_text).bind(&clean_sha256).bind(super::decision::consumer_spectrum(&measurement.spectrum).to_string())
-            .bind(gate_doc.to_string()).bind(&measurement.request_hash).bind(measurement.receipt.to_string())
-            .fetch_one(&mut **publication.transaction()).await?;
-        current_ids.push(id);
-    }
-    // Keep identical obligations settled; supersede only measurements outside this complete batch.
-    sqlx::query(
-        "UPDATE classifier_spectrum_deliveries d SET status='superseded',
-        reason='replaced_by_subject_spectrum',updated_at=now() FROM classifier_spectra x
-        WHERE x.id=d.spectrum_id AND x.article_id=$1 AND x.sport=$2 AND d.status='pending'
-        AND NOT (x.id=ANY($3))",
-    )
-    .bind(item.entity_id)
-    .bind(&item.sport)
-    .bind(&current_ids)
-    .execute(&mut **publication.transaction())
-    .await?;
-    for (id, (_, _, gate)) in current_ids.iter().zip(&measurements) {
-        for (character, fires) in gate {
-            if *fires {
-                sqlx::query("INSERT INTO classifier_spectrum_deliveries(spectrum_id,character) VALUES($1,$2) ON CONFLICT DO NOTHING")
-                    .bind(id).bind(character).execute(&mut **publication.transaction()).await?;
-            }
-        }
-    }
-    publication.commit_final().await?;
-    Ok(PluginOutcome::Committed)
 }

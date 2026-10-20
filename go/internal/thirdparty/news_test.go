@@ -409,20 +409,21 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	article.Title += " corrected"
 	ingest(1)
 	var status, stage string
-	if err := pool.QueryRow(ctx, "SELECT stage,status,attempts FROM pipeline_work WHERE sport='INTAKE_TEST'").Scan(&stage, &status, &attempts); err != nil || stage != "classifier_acquire" || status != "pending" || attempts != 0 {
+	if err := pool.QueryRow(ctx, "SELECT stage,status,attempts FROM pipeline_work WHERE sport='INTAKE_TEST'").Scan(&stage, &status, &attempts); err != nil || stage != "classifier" || status != "pending" || attempts != 0 {
 		t.Fatalf("revision not reopened: %s %s %d %v", stage, status, attempts, err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO classifier_sources(article_id,sport,input_hash,body_sha256,source,discovery_version)
-        VALUES($1,'INTAKE_TEST','test','test','{}',classifier_discovery_version($1,'INTAKE_TEST'));
+	if _, err := pool.Exec(ctx, `WITH retained AS (INSERT INTO classifier_sources(article_id,sport,input_hash,body_sha256,source,discovery_version)
+        VALUES($1,'INTAKE_TEST','test','test','{}',classifier_discovery_version($1,'INTAKE_TEST')) RETURNING id)
+        INSERT INTO classifier_source_heads(article_id,sport,source_id) SELECT $1,'INTAKE_TEST',id FROM retained;
         `, id); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, "DELETE FROM pipeline_work WHERE sport='INTAKE_TEST'"); err != nil {
 		t.Fatal(err)
 	}
-	ingest(0) // Completed, unchanged acquisition is not recreated.
+	ingest(0) // A completed current revision is not recreated.
 	article.FeedRank = 1
-	ingest(1) // Existing query edge changes must invalidate acquisition too.
+	ingest(0) // Feed rank only affects queue order, never evidence identity.
 	failing := newFixtureService(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/xml")
 		w.Write([]byte(rssFixture(rssFixtureItem{"New report", "Example", "https://example.test/failed-intake", time.Now(), "report"})))

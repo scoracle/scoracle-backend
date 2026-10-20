@@ -1,6 +1,6 @@
 //! SQL-owned descriptive source activity; never confidence or corroboration.
 use super::prompt::CorpusItem;
-use anyhow::{ensure, Result};
+use anyhow::Result;
 use serde_json::json;
 use sqlx::PgPool;
 #[cfg(test)]
@@ -11,7 +11,7 @@ pub(super) struct Activity {
     pub components: serde_json::Value,
 }
 pub(super) struct EditionActivity {
-    pub reports: Vec<Activity>,
+    pub summary: Activity,
     pub card_score: i16,
 }
 
@@ -30,36 +30,20 @@ pub(super) async fn load(
         .iter()
         .map(|s| s.published_at_epoch)
         .collect::<Vec<_>>();
-    let rows: Vec<(i64, i32, i64, i64, f64, f64, f64, i16)> =
+    let row: (i64, i32, i64, i64, f64, f64, f64, i16) =
         sqlx::query_as(include_str!("activity.sql"))
             .bind(publishers)
             .bind(epochs)
             .bind(now)
-            .fetch_all(pool)
+            .fetch_one(pool)
             .await?;
-    ensure!(
-        rows.len() == corpus.len() + 1,
-        "Journalist activity slots are incomplete"
-    );
-    let card_score = rows[0].7;
-    let mut reports = Vec::with_capacity(corpus.len());
-    for (
-        index,
-        (slot, score, article_count, distinct_sources, volume, source_breadth, recency, _),
-    ) in rows.into_iter().enumerate()
-    {
-        ensure!(
-            slot == index as i64,
-            "Journalist activity slots changed order"
-        );
-        if index > 0 {
-            reports.push(Activity {score, components: json!({"policy":"source-activity-v2", "article_count":article_count,
-                "distinct_sources":distinct_sources,"volume":volume,"source_breadth":source_breadth,"recency":recency})});
-        }
-    }
     Ok(EditionActivity {
-        reports,
-        card_score,
+        summary: Activity {
+            score: row.1,
+            components: json!({"policy":"source-activity-v2","article_count":row.2,
+                "distinct_sources":row.3,"volume":row.4,"source_breadth":row.5,"recency":row.6}),
+        },
+        card_score: row.7,
     })
 }
 
@@ -94,13 +78,10 @@ fn reference_score(corpus: &[CorpusItem], now: i64) -> (i32, serde_json::Value) 
 #[cfg(test)]
 pub(super) fn reference(corpus: &[CorpusItem], now: i64) -> EditionActivity {
     EditionActivity {
-        reports: corpus
-            .iter()
-            .map(|item| {
-                let (score, components) = reference_score(std::slice::from_ref(item), now);
-                Activity { score, components }
-            })
-            .collect(),
+        summary: {
+            let (score, components) = reference_score(corpus, now);
+            Activity { score, components }
+        },
         card_score: reference_score(corpus, now).0.clamp(1, 99) as i16,
     }
 }

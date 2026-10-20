@@ -1,0 +1,40 @@
+{
+  "version": "classification-criteria-v7-headline",
+  "questions": {
+    "emotion": {
+      "type": "noul",
+      "instructions": "Does the headline express feelings or emotional reactions about {subject}, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Ignore navigation, ads and related-story links."
+    },
+    "movement": {
+      "type": "noul",
+      "instructions": "Does the headline report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving {subject}? Include rumours and denials. Exclude historical background, fantasy trades, navigation and related-story links."
+    },
+    "subject": {
+      "type": "noul",
+      "instructions": "Is {subject} substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison, navigation entry, ad or related-story link alone does not qualify."
+    }
+  },
+  "note": "Headline-only decisions before publisher acquisition. Three subject-scoped scores; Scout uses measurements. Existing topic cutoffs remain conservative canary candidates.",
+  "characters": {
+    "journalist": {
+      "mode": "all",
+      "criteria": {
+        "subject": 55
+      }
+    },
+    "influencer": {
+      "mode": "all",
+      "criteria": {
+        "subject": 55,
+        "emotion": 15
+      }
+    },
+    "insider": {
+      "mode": "all",
+      "criteria": {
+        "subject": 55,
+        "movement": 80
+      }
+    }
+  }
+}

@@ -117,21 +117,21 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			// /sigil the final crown synthesis.
 			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
 			r.Get("/{entityType:player|team}/{id}/rating", h.GetEntityRating)
-			r.Get("/{entityType:player|team}/{id}/vibe", h.GetEntityVibe)
+			r.Get("/{entityType:player|team|person}/{id}/vibe", h.GetEntityVibe)
 			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntitySigil)
 			r.Get("/{entityType:player|team}/{id}/momentum", h.GetTrendsPage)
 			r.Get("/{entityType:player|team}/{id}/momentum/summary", h.GetEntityMomentum)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/{entityType:player|team}/{id}/articulator/{kind:p1|p2|p3|p4|p5|p6|p7|p8}", h.GetArticulatorSlice)
 			r.Get("/team/{id}/roster", h.GetRoster)
-			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)
-			r.Get("/{entityType:player|team}/{id}/transfers", h.GetEntityTransfers)
+			r.Get("/{entityType:player|team|person}/{id}/news", h.GetEntityNarratives)
+			r.Get("/{entityType:player|team|person}/{id}/transfers", h.GetEntityTransfers)
 			// Daily stored outputs; clients own longer reporting views.
-			r.Get("/{entityType:player|team}/{id}/headlines", h.GetEntityHeadlines)
+			r.Get("/{entityType:player|team|person}/{id}/headlines", h.GetEntityHeadlines)
 			// Per-entity identity metadata for the page-header island. Frontend
 			// surfaces should hydrate islands from these dedicated endpoints; the
 			// universal /entities directory is the only small local search DB.
-			r.Get("/{entityType:player|team}/{id}/meta", h.GetEntityMeta)
+			r.Get("/{entityType:player|team|person}/{id}/meta", h.GetEntityMeta)
 			// Legacy sport-wide metadata/search payload. Kept for existing consumers;
 			// new home search should use /api/v1/entities or /api/v1/autofill.
 			r.Get("/meta", h.GetMetaPage)

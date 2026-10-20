@@ -1664,7 +1664,8 @@
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",
@@ -1729,7 +1730,8 @@
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",
@@ -1942,7 +1944,8 @@
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",
@@ -2238,7 +2241,8 @@
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",
@@ -2315,7 +2319,8 @@
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",

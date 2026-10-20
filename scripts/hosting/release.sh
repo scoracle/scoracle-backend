@@ -47,7 +47,6 @@ command -v go    >/dev/null || { echo "release.sh: go not found in \$PATH" >&2; 
 BUILD_ONLY=0
 KEEP_COGNITION_PAUSED=0
 COGNITION_WAS_ACTIVE=0
-SOURCE_WAS_ACTIVE=0
 COVERAGE_WAS_ACTIVE=0
 for arg in "$@"; do
     case "$arg" in
@@ -59,10 +58,9 @@ for arg in "$@"; do
 done
 
 # Preflight before any placement/service change. Installing a release never starts
-# previously paused cognition. The source worker has its own independent lifecycle.
+# previously paused cognition.
 if [ "$BUILD_ONLY" -eq 0 ]; then
     if systemctl --user -q is-active scoracle-cognition.service; then COGNITION_WAS_ACTIVE=1; fi
-    if systemctl --user -q is-active scoracle-classifier-source.service; then SOURCE_WAS_ACTIVE=1; fi
     if systemctl --user -q is-active scoracle-coverage.service; then COVERAGE_WAS_ACTIVE=1; fi
     if [ "$KEEP_COGNITION_PAUSED" -eq 1 ] && [ "$COGNITION_WAS_ACTIVE" -eq 1 ]; then
         echo "release.sh: stop cognition before requesting a paused release" >&2; exit 1
@@ -245,10 +243,6 @@ if [ "$COVERAGE_WAS_ACTIVE" -eq 1 ]; then
     systemctl --user restart scoracle-coverage.service
     systemctl --user --quiet is-active scoracle-coverage.service
 fi
-if [ "$SOURCE_WAS_ACTIVE" -eq 1 ]; then
-    systemctl --user restart scoracle-classifier-source.service
-    systemctl --user --quiet is-active scoracle-classifier-source.service
-fi
 if [ "$COGNITION_WAS_ACTIVE" -eq 1 ]; then
     echo "==> restarting previously active cognition"
     systemctl --user restart scoracle-cognition.service
@@ -259,7 +253,7 @@ if [ "$COGNITION_WAS_ACTIVE" -eq 1 ]; then
     done
     [ "$COGNITION_UP" -eq 1 ] || { echo "ERROR: cognition failed to restart" >&2; exit 1; }
 else
-    echo "==> cognition remains paused; source acquisition requires explicit enablement"
+    echo "==> cognition remains paused"
 fi
 
 echo "==> release complete @ ${COMMIT}"

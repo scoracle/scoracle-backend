@@ -39,7 +39,6 @@ pub struct Narrative {
 pub struct NarrativesProduct {
     pub memory_provenance: serde_json::Value,
     pub narratives: Vec<Narrative>,
-    pub budget_truncated_ids: Vec<i64>,
     pub card_score: Option<i16>,
     pub headline: Option<String>,
 }
@@ -57,7 +56,6 @@ pub async fn create(
             NarrativesProduct {
                 memory_provenance: json!({"receipt":null,"selected":[]}),
                 narratives: Vec::new(),
-                budget_truncated_ids: assignment.deferred_ids.clone(),
                 card_score: None,
                 headline: None,
             },
@@ -80,10 +78,22 @@ pub async fn create(
         )
         .await?;
     let call = GenerationCall::from(&output);
+    let mut product = output
+        .value
+        .ok_or_else(|| anyhow::anyhow!("missing edition"))?;
+    for narrative in &mut product.narratives {
+        let evidence: Vec<_> = assignment
+            .selected
+            .iter()
+            .filter(|r| narrative.input_news_ids.contains(&r.id))
+            .cloned()
+            .collect();
+        let measured = activity::load(pool, &evidence, now).await?;
+        narrative.impact = measured.summary.score;
+        narrative.impact_components = measured.summary.components;
+    }
     Ok(Generation::called(
-        output
-            .value
-            .ok_or_else(|| anyhow::anyhow!("missing edition"))?,
+        product,
         output.model,
         NARRATIVES_PROMPT_VERSION,
         assignment.selected.iter().map(|s| s.id).collect(),
@@ -122,7 +132,7 @@ impl StudioPlugin for NarrativesHandler {
             entity_id: item.entity_id_i32()?,
             sport: item.sport.to_uppercase(),
         };
-        let material = prompt::load_narratives_material(&self.pool, subject, now).await?;
+        let material = fresh::load_narratives_material(&self.pool, subject, now).await?;
         let payload = json!({"source":"classifier"});
         if material.sources.is_empty() {
             return Ok(commit_claimed(

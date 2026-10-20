@@ -1,0 +1,193 @@
+{
+  "date": "2026-10-19",
+  "recommendation": "Combined extraction and full-body decision is a viable job boundary; default dom_smoothie output is not qualified for production article evidence.",
+  "implementation": "Isolated native Rust probe linked to current backend preparation/parsers. No application dependency, queue, migration, prompt, reader service, production binary, enrollment or publication changed.",
+  "target_flow": [
+    "One article intake job resolves/fetches/extracts once",
+    "Decision spectrum judges the extracted body for each canonical query subject and selects characters",
+    "Retain one relevant body and target routes; rejected records retain a processed marker",
+    "Character plugins consume the shared body"
+  ],
+  "test_flow": "Native HTTP fetch and initial Markdown parse wrote audit receipts; a streaming consumer re-extracted the saved HTML as formatted text and made experimental body-spectrum calls. This is a component pipeline experiment, not a deployed single-job implementation or production queue/daily-edition test.",
+  "runtime": {
+    "reader": "dom_smoothie",
+    "version": "0.18.2",
+    "text_mode": "Formatted",
+    "parse_policy": "default multi-attempt",
+    "max_elements_to_parse": 50000,
+    "max_response_bytes": 8388608,
+    "word_floor": 80,
+    "body_limit_bytes": 24000,
+    "host": "Mac mini M4, 16GB; existing d1 decision endpoint on Archbox",
+    "requires_model_for_extraction": false,
+    "browser_used": false
+  },
+  "cohort": {
+    "unique_discovery_urls": 100,
+    "canonical_subject_cases": 122,
+    "source": "Same frozen MD5-selected real RSS discovery window used for the October 18 reader load test, rediscovered October 17; fetched October 19. Not a new holdout or a fresh live sweep.",
+    "extra_reviewed_articles": 6,
+    "extra_subject_cases": 9,
+    "paired_html": "Saved HTTP responses from October 18; excludes refetch drift from this six-article comparison."
+  },
+  "batch": {
+    "completed": 100,
+    "http_successes": 85,
+    "fetch_failures": 15,
+    "http_403": 12,
+    "http_402": 1,
+    "other_fetch_failures": 2,
+    "parsed_bodies": 81,
+    "parse_failures": 4,
+    "short_bodies": 9,
+    "size_word_and_unavailable_checks_passed": 72,
+    "usable_story_count": "Not established; known boilerplate/recommendation-only false successes are included in 72.",
+    "native_fetch_plus_initial_markdown_parse_wall_seconds": 401.74,
+    "native_fetch_peak_rss_bytes": 35766272,
+    "formatted_parse_ms": {
+      "median": 3.694459,
+      "p95_nearest_rank": 8.632249999999999,
+      "max": 15.615125
+    },
+    "fetch_and_resolution_ms": {
+      "median": 15835.188291999999,
+      "p95_nearest_rank": 17612.995541,
+      "max": 34298.363166999996
+    },
+    "network_caveat": "Normal native resolver/domain spacing, concurrency four. Results include Google wrapper resolution and network waits on a different host/date from the browser test; not an extraction-only speedup comparison."
+  },
+  "decisions": {
+    "criteria": "experimental-smoothie-body-spectrum-v1",
+    "bank": "Three existing v7 topic questions adapted to article evidence, existing cutoffs 55/15/80; production configuration and local v8 relevance-only criteria were not changed.",
+    "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+    "body_subject_requests": 90,
+    "transport_errors": 0,
+    "unique_articles_with_admitted_targets": 65,
+    "all_target_reject_articles": 7,
+    "subject_character_nominations": {
+      "journalist": 81,
+      "insider": 15,
+      "influencer": 17
+    },
+    "seconds": {
+      "median": 1.0715406665112823,
+      "p95_nearest_rank": 2.4916354157030582,
+      "max": 4.1117975832894444
+    },
+    "sum_request_seconds": 110.70093350391835,
+    "accuracy": "Unlabeled broad batch; routing counts are not usefulness or accuracy."
+  },
+  "reuse": {
+    "retained_unique_bodies": 65,
+    "offline_delivery_edges": 113,
+    "body_hashes_match_all_decisions": true,
+    "native_fetch_once_per_unique_input": 100,
+    "per_target_input_edges": 122,
+    "same_body_multiple_targets_and_characters": true,
+    "limits": "Experimental file retention and offline fan-out only. No new durable production dedup/cache integration, cross-alias dedup, retry/crash fencing or exactly-once external I/O claim."
+  },
+  "paired_extraction": {
+    "articles": 6,
+    "within_intake": 6,
+    "median_parse_ms": 3.340875,
+    "review": "Reviewed key reporting, attribution, uncertainty and late paragraphs against retained reference. SI paragraph duplication from old custom extraction is absent; all six retain some degree of page furniture, including tracking text on St. Pauli. Not an independent completeness standard."
+  },
+  "memory_stress": {
+    "six_page": {
+      "parses": 6000,
+      "unique_pages": 6,
+      "seconds": 14.817991292104125,
+      "sample_interval_seconds": 0.1,
+      "peak_rss_kib": 16128,
+      "warm_first_quarter_peak_kib": 16128,
+      "last_quarter_peak_kib": 14272
+    },
+    "broad_corpus": {
+      "parses": 8500,
+      "unique_pages": 85,
+      "seconds": 28.85589737491682,
+      "sample_interval_seconds": 0.1,
+      "peak_rss_kib": 32944,
+      "warm_first_quarter_peak_kib": 31040,
+      "last_quarter_peak_kib": 32944
+    }
+  },
+  "plugin_replay": {
+    "requests": 17,
+    "parsed": 16,
+    "guard_rejections": 1,
+    "model": "Qwen3.5-4B-Q5_K_M",
+    "weights_sha256": "8814232b85594dcd46c50e5b8b29324a7efe9e746edbe8a3d1df3d3fce7aad39",
+    "thinking": false,
+    "temperature": 0,
+    "context": 32768,
+    "tasks": {
+      "narratives": 10,
+      "transfer": 4,
+      "vibe": 3
+    },
+    "exact_extracted_body_in_every_prompt": true,
+    "abstentions": 2,
+    "mechanical_acceptance_is_not_factual_quality": true,
+    "limitations": "Current task assemblers, model options and evaluate_prepared parsers; no production publication, database commit, full-day aggregation, historical context or automatic retry tested. Broad Insider cases have no canonical co-mention candidates, so structured findings are disabled there."
+  },
+  "source_and_output_findings": [
+    {
+      "article_id": 973817,
+      "finding": "Yahoo HTTP response has no main story text. Extraction contains headline/caption and recommended stories. Decision admits the caption-only Hawks subject; Journalist abstains. Pacers summary is largely headline-only."
+    },
+    {
+      "article_id": 975645,
+      "finding": "Yahoo main story absent; extractor returns recommendations. Influencer treats those recommendations as story evidence and produces a misleading 76ers reading."
+    },
+    {
+      "article_id": 975075,
+      "finding": "RotoWire extraction returns legal/gambling footer, not the report. Influencer invents mutual departure and emotions. Word floor and spectrum did not protect this case."
+    },
+    {
+      "article_id": 965988,
+      "finding": "Photo caption causes false Jets admission; Journalist abstains. Packers summary swaps Ford/Hargrave injuries and incorrectly extends season-ending absence to both; correct details were present in extracted text."
+    },
+    {
+      "article_id": 963450,
+      "finding": "Historical Nets association causes false admission and an off-target Journalist summary. Insider output changes a curly apostrophe inside its evidence quote and is correctly rejected by exact-containment validation."
+    },
+    {
+      "article_id": 973704,
+      "finding": "Reader retains both teenagers and correct 4-1 Newcastle match; Journalist invents a 5-0 Nottingham Forest result. This is a downstream model error, not missing extraction."
+    }
+  ],
+  "rejected_variant": {
+    "method": "Require exactly one article container, restrict body before Readability",
+    "batch_passes_intake": 10,
+    "http_pages": 85,
+    "paired_passes_intake": 2,
+    "paired_total": 6,
+    "reason": "Blocks Yahoo recommendation and RotoWire footer examples but rejects too much legitimate material; not selected."
+  },
+  "remaining": "Qualify a fail-closed main-article evidence contract on raw HTTP pages before integrating the reader into the single durable intake job; keep parser guards and measure plugin factual fidelity independently.",
+  "private_evidence_directory": "/private/tmp/scoracle-smoothie-20261019",
+  "cleanup": {
+    "temporary_model_server_stopped": true,
+    "temporary_database_stopped": true,
+    "temporary_tunnels_stopped": true,
+    "production_services_or_binaries_changed": false
+  },
+  "verification": {
+    "native_extraction_self_check": "passed",
+    "batch_accounting": "100 input IDs, all terminal outcomes retained",
+    "decision_accounting": "90 expected canonical-subject requests, all responses validated",
+    "exact_body_prompt_checks": 17,
+    "retention_replay_delivery_edges": 113,
+    "container_variant_failure_examples_blocked": 3
+  },
+  "harness_sha256": {
+    "src/main.rs": "84e963922601940061294e04f9efec6e64b2bdf5d7b20db4cb5863f8a72c6831",
+    "Cargo.toml": "f838131a383f177e5791781fdfe51bc27cf2c59cb7f59ea1d37ed46a0d511d02",
+    "Cargo.lock": "e5b648d61c1f1b526fea07b2a134ab41d07aca1c3575328424a4830eae06af4c",
+    "intake.py": "9adadd7b1c69ace8bbdb7b8d2ec8cb289d5659290611ea368854a1052b745ab4",
+    "make_fixtures.py": "ecefea3648791abac16e9797afcbc6123ef05e7baf4136ca220a6cc16ed11287",
+    "stress.py": "0b8625105a26babdd708855be1bc4a90f56347ba13bf5fbe88960bfd8b70b5f3",
+    "summarize.py": "1f18cbcefa8a507d8645c23ee3b2b78d1445a52fa55c86435f21fd102ef2c9ce"
+  }
+}

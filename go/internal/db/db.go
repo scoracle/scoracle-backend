@@ -1071,7 +1071,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
                 report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
                 (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at
             FROM (SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date)
-                FROM public.transfer_rumors WHERE sport=req.sport AND ((req.entity_type='team' AND team_id=req.entity_id) OR (req.entity_type='player' AND player_id=req.entity_id AND subject_type='player')))) report_day FROM req) chosen
+                FROM (SELECT reporting_date FROM public.transfer_rumors WHERE sport=req.sport AND ((req.entity_type='team' AND team_id=req.entity_id) OR (req.entity_type IN ('player','person') AND player_id=req.entity_id AND subject_type=req.entity_type)) UNION ALL SELECT reporting_date FROM public.insider_scores WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id) days)) report_day FROM req) chosen
 		),
 		tr_latest AS (
 			-- subject_type is part of the pair key (mig 235): person/player id
@@ -1093,7 +1093,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM public.transfer_rumors tr CROSS JOIN req CROSS JOIN scope
 			WHERE tr.sport = req.sport
 			  AND ( (req.entity_type = 'team'   AND tr.team_id   = req.entity_id)
-			     OR (req.entity_type = 'player' AND tr.player_id = req.entity_id AND tr.subject_type = 'player') )
+			     OR (req.entity_type IN ('player','person') AND tr.player_id = req.entity_id AND tr.subject_type = req.entity_type) )
 			  AND tr.reporting_date=scope.reporting_date
 			ORDER BY tr.team_id, tr.subject_type, tr.player_id, tr.generated_at DESC
 		),
@@ -1110,7 +1110,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM tr_latest l
 			LEFT JOIN public.players p ON (SELECT entity_type FROM req) = 'team'   AND l.subject_type = 'player' AND p.id = l.player_id AND p.sport = (SELECT sport FROM req)
 			LEFT JOIN public.persons pers ON (SELECT entity_type FROM req) = 'team' AND l.subject_type = 'person' AND pers.id = l.player_id AND pers.sport = (SELECT sport FROM req)
-			LEFT JOIN public.teams   t ON (SELECT entity_type FROM req) = 'player' AND t.id = l.team_id   AND t.sport = (SELECT sport FROM req)
+			LEFT JOIN public.teams   t ON (SELECT entity_type FROM req) IN ('player','person') AND t.id = l.team_id   AND t.sport = (SELECT sport FROM req)
 			LEFT JOIN public.player_current_identity pci ON l.subject_type = 'player' AND pci.player_id = l.player_id AND pci.sport = (SELECT sport FROM req)
 			WHERE l.is_rumor IS TRUE AND l.heat > 0
 			  AND NOT (
@@ -1133,6 +1133,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
+                   AND s.reporting_date=(SELECT reporting_date FROM scope)
 			     ORDER BY s.generated_at DESC LIMIT 1),
 			-- The uniform card contract (2026-08-24): the same wrap score under the key
 			-- the deck-scores ring actually reads ('heat' kept for existing consumers),
@@ -1142,11 +1143,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
+                   AND s.reporting_date=(SELECT reporting_date FROM scope)
 			     ORDER BY s.generated_at DESC LIMIT 1),
 			'headline', (SELECT s.headline FROM public.insider_scores s
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
+                   AND s.reporting_date=(SELECT reporting_date FROM scope)
 			     ORDER BY s.generated_at DESC LIMIT 1),
 			-- The Insider's wire read (mig 226 era — drop 1 of the headline/body contract):
 			-- the same latest wrap's prose, previously audit/prompt-memory only. Served as
@@ -1156,6 +1159,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
+                   AND s.reporting_date=(SELECT reporting_date FROM scope)
 			     ORDER BY s.generated_at DESC LIMIT 1),
 			'transfers', COALESCE((SELECT json_agg(row_to_json(x) ORDER BY x.rank)
 			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, headline, source_attribution,
@@ -1345,7 +1349,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'conference', t.conference, 'division', t.division, 'tier', t.tier
 		)
 		FROM public.teams t
-		WHERE (SELECT entity_type FROM req) = 'team' AND t.id = (SELECT entity_id FROM req) AND t.sport = (SELECT sport FROM req)`,
+		WHERE (SELECT entity_type FROM req) = 'team' AND t.id = (SELECT entity_id FROM req) AND t.sport = (SELECT sport FROM req)
+        UNION ALL
+        SELECT json_build_object('entity_type','person','id',p.id,'sport',lower(p.sport),
+            'name',p.full_name,'position',p.kind,'image',p.meta->>'image',
+            'team',CASE WHEN t.id IS NOT NULL THEN json_build_object('id',t.id,'name',t.name,'image',t.logo_url) END)
+        FROM public.persons p LEFT JOIN public.teams t ON t.id=p.team_id AND t.sport=p.sport
+        WHERE (SELECT entity_type FROM req)='person' AND p.id=(SELECT entity_id FROM req) AND p.sport=(SELECT sport FROM req)`,
 
 		// --- Per-product stats source (split from sparkline) ---
 		// Live routing:

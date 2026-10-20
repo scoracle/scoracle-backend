@@ -25,6 +25,7 @@ var validSports = map[string]struct{}{
 var validEntityTypes = map[string]struct{}{
 	"player": {},
 	"team":   {},
+	"person": {},
 }
 
 // GetLeaderboard returns the DB-first ranking surface for a sport.
@@ -570,7 +571,7 @@ func (h *Handler) GetRoster(w http.ResponseWriter, r *http.Request) {
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param entityType path string true "Entity type" Enums(player, team, person)
 // @Param id path int true "Entity ID"
 // @Param date query string false "Eastern reporting date (YYYY-MM-DD; default latest)"
 // @Success 200 {object} map[string]interface{}
@@ -605,7 +606,7 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param entityType path string true "Entity type" Enums(player, team, person)
 // @Param id path int true "Entity ID"
 // @Param date query string false "Eastern reporting date (YYYY-MM-DD; default latest)"
 // @Success 200 {object} map[string]interface{}
@@ -638,7 +639,7 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param entityType path string true "Entity type" Enums(player, team, person)
 // @Param id path int true "Entity ID"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
@@ -671,7 +672,7 @@ func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param entityType path string true "Entity type" Enums(player, team, person)
 // @Param id path int true "Entity ID"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
@@ -936,7 +937,7 @@ func (h *Handler) GetEntityRating(w http.ResponseWriter, r *http.Request) {
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param entityType path string true "Entity type" Enums(player, team, person)
 // @Param id path int true "Entity ID"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
@@ -1248,7 +1249,7 @@ func parseSport(w http.ResponseWriter, r *http.Request) (string, bool) {
 func parseEntityType(w http.ResponseWriter, r *http.Request) (string, bool) {
 	entityType := strings.ToLower(strings.TrimSpace(chi.URLParam(r, "entityType")))
 	if _, ok := validEntityTypes[entityType]; !ok {
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_ENTITY_TYPE", "entityType must be one of: player, team")
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_ENTITY_TYPE", "entityType must be one of: player, team, person")
 		return "", false
 	}
 	return entityType, true

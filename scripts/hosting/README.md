@@ -8,6 +8,21 @@ See `run_docs/RUNBOOK.md` for the operations runbook (release/rollback, backup/r
 jobs, durable work queue, incident quick-reference) and `../../../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md`
 for the original strategy + rationale.
 
+## Current headline plumbing release
+
+The [October 19 release](../../rust/docs/headline-plumbing-deployment-2026-10-19.md)
+is live with migrations 313–314. Archbox runs headline-only Classifier work and
+hourly RSS monitoring; the Mac runs the existing character stages. d1, SmolLM3,
+model routes, voices and writing metadata are unchanged. Bounded historical
+headline backscoring is enabled. Acquisition and browser-reader services are
+disabled, and cognition's legacy reader dependency was removed.
+
+Current operation and recovery are documented in that deployment record and the
+[headline corpus contract](../../rust/docs/headline-corpus.md). Older reader,
+admission-only and initial scheduling notes below describe preceding releases.
+Apply 313 and 314 together with matching workers during coverage; 313 no longer
+rescans old bodies to preserve the retired reader handoff.
+
 ## Install
 
 ```bash
@@ -44,17 +59,16 @@ the units, restarts the API + the Rust daemon, and verifies `/health/db`. All
 seven binaries are built before any is placed, so a failed build can never leave
 the cron binaries or the daemon on a different commit than the API.
 
-## Daily fresh packages (not deployed)
+## Current source cleanup (not deployed)
 
-The local daily-only change requires migrations 309–310 before matching Go and
-Rust binaries. The shared scheduling boundary is disabled by default. Weekly
-packets, weekly sealing and character memory lookups are retired; stored history
-is retained. Reporting APIs accept `date=YYYY-MM-DD`, reject weekly reporting
-filters, and retire `/weeks`.
+The working tree requires migration 315 and matching Go/Rust binaries. Stop the
+workers between daily editions before migration. Headline extraction now includes
+known players and all canonical person roles; reporting APIs accept `person`.
+The browser reader and source worker are removed. Remove their installed units
+and legacy reader dependencies before restarting the new workers. Unknown-person
+discovery remains a subsequent session task.
 
-Do not enable the coverage schedule yet: phase-aware ingestion, the frozen Scout
-measurement snapshot and both local GPU endpoints still need qualification. See
-[the current plan](../../rust/docs/PLAN-continuous-coverage-daily-characters.md).
+See [the entity pipeline change](../../rust/docs/headline-entity-pipeline.md).
 
 ## Graph retirement
 
@@ -78,111 +92,36 @@ remains valid, but now runs only source-outcome, existing-entity and calendar
 maintenance; it no longer refreshes relationships or promotes legacy discoveries.
 `verify-classifier.sh` requires the retirement migration and queue constraint.
 
-## Classifier cutover with cognition paused
+## Headline Classifier operation
 
-The replacement is prepared on main. Production activation is a separate action.
-Keep daily RSS cron and `DERIVE_WORKER_ENABLED=false`. Harvester/Editor stage lists
-are rejected by the new daemon. `scoracle-classifier-source.service` forces
-`classifier_acquire` after loading the environment, initializes no model host, and
-can retain full sources while all inference remains stopped.
+Archbox runs `COGNITION_STAGES=classifier`, `CLASSIFIER_URL`,
+`CLASSIFIER_REPLAY_BACKLOG=true` and the shared coverage controller. The hourly
+`scoracle-coverage.service` searches team RSS feeds; canonical headline entities
+are scored independently and qualifying reporting deliveries freeze into the
+nightly edition. The Mac runs the character stages. d1 and character model routes
+are unchanged by the source cleanup.
 
-On the deployment host, after a backup and checkout of the intended commit:
+`run-classifier-model.sh` starts the configured native checkpoint with a SHA-256
+model alias. Its checkpoint settings live in
+`~/.config/scoracle/classifier-model.env`; the worker refuses an unfingerprinted
+model identity. The historical service name `scoracle-kev.service` remains for
+host compatibility. The production packet has five headline questions; old
+article-reader measurements do not qualify its model quality or throughput.
 
-```bash
-set -a; source .env.local; set +a
-sql/migrate.sh                         # apply through 310 before matching binaries
-scripts/hosting/verify-classifier.sh  # read-only schema and durable work report
-scripts/hosting/release.sh --keep-cognition-paused
-```
+`release.sh` performs schema preflight before placing binaries. It restarts only
+previously active cognition/coverage workers. It never starts the retired source
+worker. `--keep-cognition-paused` requires cognition and its watcher to be stopped.
+For an isolated build, set `RELEASE_BIN_DIR=<scratch>` and `--build-only`.
 
-`release.sh` checks the native schema before placement. It never starts previously
-inactive cognition, refuses a paused release when cognition or its watcher is active,
-and restarts acquisition only if that separate worker was already running. It renders
-units without enabling them. For an isolated build, use both `RELEASE_BIN_DIR=<scratch>`
-and `--build-only`; build-only without redirection still replaces live files.
+The watchdog recognizes `paused` and `classifier` modes. It checks active stages
+separately; model error receipts do not count as successful progress. Run its
+regressions with an empty migrated `classifier_test` database:
+`TEST_DATABASE_URL=<disposable URL> python3 scripts/hosting/test-classifier-watchdog.py`.
+The release/install simulation is `python3 scripts/hosting/test-classifier-release.py`.
 
-Update `.env.local` so `COGNITION_STAGES` matches the new cognition unit: classifier,
-investigate_entity, fixture_boxscore and the six existing character task names.
-Acquisition is owned by the separate source unit. To enable the Classifier, set
-`CLASSIFIER_URL` to the llama.cpp server exposing `/v1/systemone` (the Kev decision model);
-the daemon refuses to start the classifier stage without it. The spectrum, questions and gate
-live in `rust/src/plugins/classifier/decision.rs` and
-`fixtures/classifier/classification-criteria-v1.json`. The retired GLiNER/candle model and the
-generative `COGNITION_ROUTE_CLASSIFIER_*` settings are gone.
-
-The October 15 native path uses `scoracle-kev.service` on Archbox with eight
-8,192-token decision slots and four concurrent article workers. The extra native slots let
-the four questions share each article prefill. Install the CUDA-compatible `llama-server` at
-`~/.local/bin/scoracle-llama-server` and `Kev-0.8B-Q8_0.gguf` in `~/models/`.
-`run-classifier-model.sh` hashes the GGUF and uses that fingerprint as its serving alias;
-the client requires a named SHA-256 alias and rejects a model change during a request.
-Kev is the default, not a client restriction. To swap a qualified native decision model,
-set `CLASSIFIER_MODEL_FILE=/absolute/path/to/model.gguf` and
-`CLASSIFIER_MODEL_NAME=publisher/model-name` in
-`~/.config/scoracle/classifier-model.env`, then restart `scoracle-kev.service`.
-Keep that service name for compatibility with existing operations. The server must expose
-the same `/v1/models` and `/v1/systemone` typed-probability contract. Calibrate the four
-questions and cutoffs for the replacement in the criteria fixture and release the matching
-worker; changing a model does not make Kev's thresholds valid for it. Model fingerprints,
-exact requests and criteria versions separate retained measurements and caches.
-Apply migrations 302–306 before
-the matching worker: it retains request/reply receipts, source heads and separate spectra
-for changed sources, and supersedes pending HTML/partial measurements.
-
-`CLASSIFIER_URL=http://127.0.0.1:8081` is independent of character routing.
-All generative routes should use SmolLM3 on the Mac via native llama.cpp, with one
-shared four-slot budget (32,768 tokens per SmolLM3 slot). The deployed loopback SSH tunnel is
-`127.0.0.1:18080` on Archbox to `127.0.0.1:8080` on the Mac; set
-`MODEL_BASE_URL=http://127.0.0.1:18080`, `MODEL_NAME=alibayram/smollm3`, and
-`COGNITION_BACKEND_CONCURRENCY=http://127.0.0.1:18080=4`. Remove obsolete per-route
-host/backend overrides. During plumbing verification, `COGNITION_STAGES=classifier`
-runs decision work while character work remains queued. Enable the full task list when
-that work is ready to run. `CLASSIFIER_REPLAY_BACKLOG=true` explicitly enables acquisition
-backlog replay; RSS continues to enqueue newly discovered articles independently.
-
-On the Mac, `com.scoracle.smollm3` and `com.scoracle.model-tunnel` in
-`~/Library/LaunchAgents/` keep the loopback server and SSH forwarding alive.
-The tunnel also exposes Archbox Kev locally at `127.0.0.1:18081` for read-only replays.
-The October 15 cutover retained a focused Classifier backup at
-`/home/sheneveld/tmp/classifier-before302-20261015.dump` on Archbox (about 2 GB).
-Workers are running the tested October 15 source snapshot; its archive and binary hashes
-are retained in `/home/sheneveld/tmp/kev-native-deployment-20261015.sha256`.
-
-The production bank has four article-level questions with provisional cutoffs of
-Journalist 60, Influencer 50, Scout 60 and Insider 70. See
-`rust/docs/classifier-four-score-calibration-2026-10-15.md` for calibration and throughput.
-A failed/oversized decision creates an error receipt and retries through the existing durable
-queue; it cannot score only the opening and dispatch character work as complete evidence.
-Watchdog detects paused/acquire/classifier mode from active services; `WATCHDOG_MODE`
-overrides detection for another host. Migration 306 records successful claim completion
-atomically, including legitimate no-product outcomes. The watchdog checks each active stage
-separately; acquisition, error receipts and another character cannot hide stalled work.
-
-Character packets retain complete articles. Insider processes one complete article at a time, oldest first, and leaves
-additional obligations pending; a single unfit source is explicitly held. Native output and
-parsing both limit its body to 1,200 characters, with two source-bound findings and
-500-character exact quotes; canonical names
-constrain the counterparty choices. A complete reply rejected by the Insider parser is
-retained with its exact request and source, held explicitly, and leaves later articles
-processable. Transport and server failures still use the normal durable retry path. Influencer holds an
-incomplete reporting period with its exclusion receipt, preserving a potentially omitted denial
-rather than publishing a partial period. Other periods remain processable. Journalist writes one
-report per call within the existing 900-token budget; unrelated reporting can be declined with
-null and is recorded as abstained. Prose is limited to 1,200 characters in both native schema
-and parser. Journalist, Influencer and Insider hold RSS targets absent from the acquired
-canonical identity snapshot before inference. Nickname-only references can therefore be held
-unresolved; these holds preserve the source and need evidence/identity reconciliation. Held sources require an explicit evidence/policy repair, not
-blind retries. The Classifier itself still rejects oversized inputs without clipping them.
-
-Recovery keeps stored discovery/sources/receipts, replays acquisition idempotently and
-uses normal retry/lease/outbox recovery. Stop the source worker to pause retrieval;
-stop cognition and its watcher to pause inference. Avoid rolling back to retired intake
-or deleting/down-migrating retained receipts. Restore a backup into an isolated database
-and run `restore-drill.sh` in its default Classifier mode; it migrates the restore and
-verifies the native schema and API prepared statements before it is considered usable.
-
-Runnable checks: `python3 scripts/hosting/test-classifier-release.py` and
-`TEST_DATABASE_URL=<empty migrated classifier_test database> python3 scripts/hosting/test-classifier-watchdog.py`.
+Saved evidence, publication fences, daily schedules, source attribution and
+unknown values remain intact. Historical activation and recovery records live in
+[the October 19 deployment record](../../rust/docs/headline-plumbing-deployment-2026-10-19.md).
 
 ## What's in here
 
@@ -225,7 +164,7 @@ long-running tests.
 
 ## Logs
 
-`journalctl --user -u scoracle-classifier-source -f` shows independent acquisition.
+`journalctl --user -u scoracle-cognition -f` shows headline scoring and queue progress.
 
 ```bash
 # API + listener + maintenance (goes to journal)

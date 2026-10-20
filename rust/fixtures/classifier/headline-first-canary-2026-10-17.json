@@ -1,0 +1,108 @@
+{
+  "criteria_version": "classification-criteria-v7-headline",
+  "decision_model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+  "character_model": "alibayram/smollm3",
+  "reader_policy": "jina-content-v1",
+  "environment": "isolated local PostgreSQL 18; existing Archbox decision and reader endpoints over LAN SSH; existing Mac character model",
+  "production_changes": false,
+  "frozen_diagnostic": {
+    "articles": 14,
+    "subject_cases": 28,
+    "requests": 28,
+    "failures": 0,
+    "labels": "previously inspected provisional agent labels, not holdout",
+    "per_character": {
+      "journalist": {
+        "tp": 13,
+        "fp": 3,
+        "fn": 0,
+        "tn": 12
+      },
+      "influencer": {
+        "tp": 3,
+        "fp": 2,
+        "fn": 5,
+        "tn": 18
+      },
+      "insider": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 4,
+        "tn": 23
+      }
+    }
+  },
+  "live_canary": {
+    "articles": 8,
+    "subject_cases": 11,
+    "labels": "provisional agent review of retained complete publisher text; selected edge cases, not representative or human holdout",
+    "per_character_headline_admission": {
+      "journalist": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 2,
+        "tn": 5
+      },
+      "influencer": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "tn": 9
+      },
+      "insider": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "tn": 9
+      }
+    },
+    "canonical_metadata_check": "11 further native requests used exact archived production metadata and reproduced the isolated canary routing outcomes",
+    "articles_admitted": 4,
+    "articles_rejected": 4,
+    "reader_http_requests": 4,
+    "distinct_reader_urls": 4,
+    "reader_http_failures": 0,
+    "reader_call_saving_against_reading_all_eight": 0.5,
+    "shared_evidence": "all loaded character contexts equaled their linked retained full body; two consumers nominated for each of two signing stories",
+    "character_obligations": {
+      "journalist": 4,
+      "insider": 2,
+      "influencer": 0,
+      "scout": 0
+    },
+    "character_completion_http_requests": 4,
+    "parsed_generations": {
+      "journalist": 3,
+      "insider": 1
+    },
+    "held_obligations": {
+      "journalist": 1,
+      "insider": 1
+    },
+    "held_reason": "unresolved_target_identity: Jazz text did not contain the exact canonical Utah Jazz name; guard preserved",
+    "reader_failures": "none in this canary; bounded fallback, cache and failure behavior covered separately by integration tests",
+    "useful_misses": "two relevant club coach-quote headlines named Rapp or Lampard without naming the club; both Journalist and Influencer missed them",
+    "generation_quality": "parser acceptance measured; not an independent factuality qualification",
+    "publisher_wire_requests": "not instrumented; reader HTTP counts include any upstream Jina cache behavior"
+  },
+  "policy": {
+    "subject_cutoff": 55,
+    "emotion_cutoff": 15,
+    "movement_cutoff": 80,
+    "dispatch": "conservative headline topic gates retained for first canary",
+    "scout": "measurements only; Journalist owns availability reporting; no mandatory handoff"
+  },
+  "private_evidence_directory": "/private/tmp/scoracle-headline-implementation-20261017",
+  "release_status": "implemented and tested locally; not deployed; expand source-reviewed calibration before broad activation",
+  "validation": {
+    "scripts_check": "passed from empty PostgreSQL 18 database with migration 313",
+    "rust_unit_cli_passed": 387,
+    "additional_integration_passed": 57,
+    "go": "format, vet, build, prepared SQL statement validation and go test ./... -race passed",
+    "all_targets": "cargo check --all-targets passed",
+    "deployment_scripts": "mocked release/install checks and read-only migrated schema verification passed",
+    "migration_transition": "populated old-current and old-stale sources retain correct eligibility; pending Journalist history preserved; pending Scout held; no backlog enqueued",
+    "live_qualification": "28 frozen diagnostic requests plus 11 exact-production-metadata canary requests; end-to-end canary used 11 native subject decisions, 4 reader requests and 4 character completions",
+    "remaining": "no broad accuracy/factuality qualification, production deployment or rollback rehearsal"
+  }
+}

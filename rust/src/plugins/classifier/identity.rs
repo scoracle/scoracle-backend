@@ -12,7 +12,7 @@ pub(crate) async fn candidates(
     let found: Value = sqlx::query_scalar("SELECT public.classifier_identity_candidates($1,$2,$3)")
         .bind(sport)
         .bind(source.provenance["title"].as_str().unwrap_or_default())
-        .bind(&source.body)
+        .bind("")
         .fetch_one(connection)
         .await?;
     ensure!(
@@ -53,7 +53,7 @@ pub(crate) async fn validate(
     }
     ensure!(
         candidates(connection, sport, source).await? == source.provenance["identity_candidates"],
-        "Classifier canonical identities changed; acquisition must reconcile them"
+        "Classifier canonical identities changed; headline scoring must reconcile them"
     );
     Ok(())
 }

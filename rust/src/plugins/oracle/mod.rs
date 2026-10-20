@@ -89,6 +89,9 @@ pub async fn enqueue_oracle_if_pillars_settled(
     sport: &str,
     input_version: Option<String>,
 ) -> Result<bool> {
+    if entity_type == "person" {
+        return Ok(false);
+    }
     if !pillars_settled(pool, entity_type, entity_id, sport).await? {
         debug!(%entity_type, entity_id, %sport, "oracle barrier: pillars still outstanding");
         return Ok(false);

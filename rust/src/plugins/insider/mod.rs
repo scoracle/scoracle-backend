@@ -73,8 +73,18 @@ pub async fn create(
     reports: &[prompt::Report],
     num_ctx: i32,
 ) -> Result<Generation<Reply>> {
+    create_with_memories(studio, subject, reports, &[], num_ctx).await
+}
+
+async fn create_with_memories(
+    studio: &Studio<'_>,
+    subject: &EntityMeta,
+    reports: &[prompt::Report],
+    memories: &[crate::plugins::classifier::memories::Headline],
+    num_ctx: i32,
+) -> Result<Generation<Reply>> {
     ensure!(!reports.is_empty(), "Insider needs a verified source");
-    let world = prompt::assemble(subject, reports);
+    let world = prompt::assemble_with_memories(subject, reports, memories);
     ensure!(
         world.len() <= prompt::CONTEXT_BUDGET_BYTES,
         "Insider article package exceeds reading budget"
@@ -125,7 +135,7 @@ impl StudioPlugin for TransferHandler {
             .as_deref()
             .is_some_and(|version| version.starts_with(crate::plugins::classifier::CONTRACT))
         {
-            let material = prompt::load_material(&self.pool, item).await?;
+            let material = fresh::load_material(&self.pool, item).await?;
             let backend = self.models.inference(manifest::ROUTE)?;
             return execute_prepared(
                 &self.pool,
@@ -150,7 +160,7 @@ async fn execute_prepared(
     backend: &dyn Inference,
     num_ctx: i32,
     item: &Item,
-    material: prompt::Material,
+    material: fresh::Material,
 ) -> Result<PluginOutcome> {
     let current: bool = sqlx::query_scalar(
         "SELECT EXISTS (SELECT 1 FROM public.pipeline_work \
@@ -192,7 +202,11 @@ async fn execute_prepared(
                 publication.transaction(),
                 manifest::MANIFEST.id.as_str(),
                 &[source.classification_id],
-                "held",
+                if *reason == "known_copy" {
+                    "redundant"
+                } else {
+                    "held"
+                },
                 Some(reason),
                 serde_json::json!({"model_called":false}),
             )
@@ -204,10 +218,11 @@ async fn execute_prepared(
         }
         publication.commit_progress().await?;
     }
-    let generation = match create(
+    let generation = match create_with_memories(
         &Studio::new(backend),
         &material.subject,
         &material.reports,
+        &material.memories,
         num_ctx,
     )
     .await
@@ -299,6 +314,98 @@ mod tests {
             serde_json::json!({})
         }
     }
+    #[tokio::test]
+    #[ignore = "requires a disposable classifier_test database via TEST_DATABASE_URL"]
+    async fn known_owner_headline_publishes_a_person_card_and_fenced_source_outcome() -> Result<()>
+    {
+        let pool = crate::harness::dbtest::pool("disposable classifier_test database").await;
+        crate::plugins::classifier::plumbing_tests::setup_disposable(&pool).await?;
+        let sport = "ZZ_PERSON_CARD";
+        sqlx::query(
+            "UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+            .bind(sport)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM news_articles WHERE id=940101")
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM insider_scores WHERE sport=$1")
+            .bind(sport)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM transfer_rumors WHERE sport=$1")
+            .bind(sport)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM application_outbox WHERE sport=$1")
+            .bind(sport)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM entity_name_surfaces WHERE sport=$1")
+            .bind(sport)
+            .execute(&pool)
+            .await?;
+        sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,'Person card',2026) ON CONFLICT DO NOTHING").bind(sport).execute(&pool).await?;
+        sqlx::query("INSERT INTO teams(id,sport,name) VALUES(940101,$1,'Cleveland Browns') ON CONFLICT(id,sport) DO NOTHING").bind(sport).execute(&pool).await?;
+        sqlx::query("INSERT INTO persons(id,sport,full_name,kind) VALUES(940101,$1,'Jordan Sample','owner') ON CONFLICT(id) DO UPDATE SET sport=EXCLUDED.sport,full_name=EXCLUDED.full_name,kind=EXCLUDED.kind").bind(sport).execute(&pool).await?;
+        sqlx::query("INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('team',940101,$1,nrm('Cleveland Browns'),'name'),('person',940101,$1,nrm('Jordan Sample'),'name')").bind(sport).execute(&pool).await?;
+        sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,published_at) VALUES(940101,'https://example.invalid/person-card',md5('person-card'),'Cleveland is monitoring Jordan Sample; Cleveland Browns consider talks.','Wire',now())").execute(&pool).await?;
+        sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES(940101,'team',940101,$1)").bind(sport).execute(&pool).await?;
+        sqlx::query("SELECT classifier_enqueue_admission(940101,$1)")
+            .bind(sport)
+            .execute(&pool)
+            .await?;
+        let scorer = crate::plugins::classifier::tests::Model::new()?;
+        let handler = crate::plugins::classifier::adapter::ClassifierHandler::new(
+            pool.clone(),
+            scorer.decision()?,
+        );
+        let claim = crate::harness::queue::work::claim(
+            &pool,
+            crate::plugins::classifier::manifest::TASK,
+            1,
+        )
+        .await?
+        .remove(0);
+        handler.execute(&claim).await?;
+        let mut claimed = None;
+        for item in crate::harness::queue::work::claim(&pool, manifest::TASK, 100).await? {
+            if item.entity_type == "person" && item.entity_id == 940101 && item.sport == sport {
+                claimed = Some(item);
+            } else {
+                crate::harness::queue::work::release(&pool, &item).await?;
+            }
+        }
+        let item = claimed.context("person transfer claim")?;
+        let material = fresh::load_material(&pool, &item).await?;
+        assert_eq!(material.sources.len(), 1);
+        let backend = Fake(Mutex::new(0));
+        assert!(matches!(
+            execute_prepared(&pool, &backend, 32768, &item, material).await?,
+            PluginOutcome::Committed
+        ));
+        let body:String=sqlx::query_scalar("SELECT read FROM insider_scores WHERE sport=$1 AND entity_type='person' AND entity_id=940101").bind(sport).fetch_one(&pool).await?;
+        assert!(body.contains("Jordan Sample"));
+        let settled:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND x.target->>'entity_type'='person' AND d.character='insider' AND d.status='used' AND d.product_ref->>'score_id' IS NOT NULL").bind(sport).fetch_one(&pool).await?;
+        assert_eq!(settled, 1);
+        let reactions = crate::harness::registration::build_reactions(pool.clone())?;
+        assert_eq!(
+            crate::harness::queue::outbox::drain(&pool, &reactions, 100).await?,
+            1
+        );
+        let statistics:i64=sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport=$1 AND entity_type='person' AND stage IN ('rating','momentum','sigil')").bind(sport).fetch_one(&pool).await?;
+        assert_eq!(statistics, 0);
+        sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+            .bind(sport)
+            .execute(&pool)
+            .await?;
+        Ok(())
+    }
+
     #[tokio::test]
     async fn one_call_returns_reading_and_exact_source_finding() {
         let subject = EntityMeta {

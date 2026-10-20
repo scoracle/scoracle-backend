@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-18",
+  "status": "local implementation; not deployed",
+  "scope": "relevance-only admission before content acquisition; character selection deferred by user",
+  "flow": [
+    "Google RSS",
+    "classifier admission",
+    "classifier_acquire only for admitted articles",
+    "retained content; stop before new character selection"
+  ],
+  "criteria_version": "classification-criteria-v8-admission",
+  "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+  "model_input": [
+    "RSS headline",
+    "RSS publisher as subject disambiguation context",
+    "sport",
+    "canonical query subject metadata"
+  ],
+  "native_questions": [
+    "subject"
+  ],
+  "subject_cutoff": 55,
+  "admission_has_publisher_io": false,
+  "admission_has_body_evidence": false,
+  "acquisition_has_native_model_capability": false,
+  "new_character_obligations": 0,
+  "topic_selection": "deferred, including Journalist assignment; historical character receipt/delivery history preserved",
+  "qualified_one_question_replay": {
+    "python_native_requests": 45,
+    "actual_rust_native_requests": 45,
+    "transport_failures": 0,
+    "request_hash_matches": 45,
+    "admission_matches": 45,
+    "labeled_cases": {
+      "cases": 39,
+      "tp": 19,
+      "fp": 3,
+      "fn": 0,
+      "tn": 17
+    },
+    "synthetic_controls": {
+      "cases": 6,
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 6
+    },
+    "labels": "previously inspected provisional development labels, not human holdout or broad precision estimate"
+  },
+  "queue_contract": {
+    "rss_function": "classifier_enqueue_admission",
+    "admission_task": "classifier",
+    "acquisition_task": "classifier_acquire",
+    "acquisition_input_version": "immutable accepted admission source ID",
+    "content_link": "classifier_sources.source.admission_source_id",
+    "all_negative": "retained verdict and headline_rejected intake receipt; no acquisition work",
+    "native_error": "retained error receipt, normal queue retry, never converted to irrelevant",
+    "content_error": "independent bounded skip/retry; cannot determine or suppress relevance",
+    "revisions": "publisher/canonical metadata changes remeasure; unchanged request hashes reuse valid native receipts",
+    "compatibility": "old enqueue/replay acquisition functions enter admission; old acquisition claims without admission IDs return to admission before I/O"
+  },
+  "migration": "unpublished 313_classifier_headline_first revised in place; production remains at 312; matching worker cutover required",
+  "content_method": "current reader/extraction switch retained provisionally; selection explicitly deferred",
+  "next_fresh_context": {
+    "task": "compare existing shared Jina reader with existing strict HTML fetch/extraction on the same admitted corpus",
+    "criteria": [
+      "source-reviewed semantic completeness and late corrections",
+      "per-publisher usable yield and explicit failure modes",
+      "actual I/O, cold/cache/retained reuse and p50/p95 latency",
+      "runtime burden, restart durability and provenance",
+      "one shared retained body usable by later plugins"
+    ],
+    "deferred": [
+      "character selection",
+      "Journalist-to-Scout aside",
+      "production activation"
+    ],
+    "plan": "docs/classifier-reader-rollout-2026-10-17.md#current-scope-and-next-context--october-18"
+  },
+  "private_evidence_directory": "/private/tmp/scoracle-admission-cleanup-20261018",
+  "validation": {
+    "focused_classifier_checks": 7,
+    "full_suite": "passed from empty isolated PostgreSQL 18 database",
+    "native_rust_replay": "45 exact request hash/admission matches to qualification",
+    "rust_unit_cli_tests": 387,
+    "additional_database_integration_checks": 57,
+    "go": "format, vet, build, prepared-statement validation and race tests passed",
+    "all_targets": "cargo check --all-targets passed",
+    "migration_history": "populated current/stale historical source and delivery transition passed",
+    "legacy_queue_bridge": "explicit regression passed: old acquisition claims return to admission before publisher I/O",
+    "operations": "release mock checks, read-only schema verification, shell syntax and diff checks passed"
+  }
+}

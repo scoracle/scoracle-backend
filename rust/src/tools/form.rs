@@ -9,9 +9,7 @@ use serde_json::Value;
 /// The Prose slot: a prepared world in, a keyed prose map out.
 #[derive(Clone, Debug)]
 pub struct Prose {
-    /// The plugin's output keys. `["headline", "body"]` for Influencer, `report_1..report_N`
-    /// for Journalist, `["body"]` for Scout. The shape is shared; the
-    /// keys are the plugin's.
+    /// The plugin's output keys, such as `["body"]` for Scout.
     pub keys: Vec<String>,
 }
 
@@ -20,8 +18,7 @@ impl Prose {
         Self::new_owned(keys.iter().map(|k| (*k).to_string()).collect())
     }
 
-    /// For a plugin whose keys are computed rather than written out, such as the
-    /// Journalist's `report_1..report_N`.
+    /// For a plugin whose keys are computed rather than written out.
     pub fn new_owned(keys: Vec<String>) -> Self {
         Self { keys }
     }
@@ -212,68 +209,71 @@ pub fn normalize_body(body: &str) -> String {
     paragraphs.join("\n\n")
 }
 
-/// The Journalist's declared prose contract: one slot per selected report.
-///
-/// The keys are the plugin's own `report_key` values, in source order. History is
-/// attached per report inside the package rather than presented as a parallel
-/// array, so no pairing decision reaches the model.
-pub fn journalist_prose(report_count: usize) -> Prose {
-    let keys = (1..=report_count)
-        .map(|index| format!("report_{index}"))
-        .collect::<Vec<_>>();
-    Prose::new_owned(keys)
-}
-
-/// Structural writing form: fields, types, counts and dimensions only. Content
-/// direction and source-to-output mapping belong to the Journalist's prompt.rs.
-///
-pub fn journalist_form(report_count: usize) -> serde_json::Value {
-    journalist_prose(report_count).form()
-}
-
-/// Structural output contract, owned alongside the writing form and parser.
-///
-/// Generated from the same declaration the validator enforces, so the grammar
-/// offered to the model and the surface actually accepted cannot drift.
+/// Up to three narratives, each bound to the fresh headlines that support it.
 pub fn journalist_schema(report_count: usize) -> serde_json::Value {
-    let mut schema = journalist_prose(report_count).schema();
-    for property in schema["properties"].as_object_mut().unwrap().values_mut() {
-        property["maxLength"] = serde_json::json!(JOURNALIST_REPORT_MAX_CHARS);
-    }
-    schema
+    let keys: Vec<_> = (1..=report_count).map(|i| format!("report_{i}")).collect();
+    serde_json::json!({"type":"object","additionalProperties":false,"required":["narratives"],
+        "properties":{"narratives":{"type":"array","maxItems":report_count.min(3),"items":{
+            "type":"object","additionalProperties":false,"required":["headline","body","report_keys"],
+            "properties":{"headline":{"type":"string","minLength":1,"maxLength":HOOK_MAX_CHARS},
+                "body":{"type":"string","minLength":1,"maxLength":JOURNALIST_REPORT_MAX_CHARS},
+                "report_keys":{"type":"array","minItems":1,"maxItems":report_count,"uniqueItems":true,
+                    "items":{"type":"string","enum":keys}}}}}}})
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct JournalistReport {
-    pub text: Option<String>,
+    pub headline: String,
+    pub body: String,
+    pub report_keys: Vec<String>,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct JournalistReply {
     pub narratives: Vec<JournalistReport>,
 }
 
-/// Decode the keyed reports and enforce this plugin's structural contract.
-///
-/// The keyed surface is the shared one, so decoding delegates. The report-order
-/// and source-mapping binding stays here because it is this plugin's evidence
-/// contract rather than shared mechanics: `report_N` is a request-local slot
-/// bound to a selected source report, and the index is what ties the returned
-/// prose back to publication.
 pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
-    let prose = journalist_prose(report_count);
-    let map = parse_prose_map(raw, &prose.keys)?;
+    let mut reply: JournalistReply = serde_json::from_str(raw)?;
     anyhow::ensure!(
-        map.iter()
-            .all(|(_, text)| text.chars().count() <= JOURNALIST_REPORT_MAX_CHARS),
-        "Journalist report exceeds the reading budget"
+        reply.narratives.len() <= report_count.min(3),
+        "too many narratives"
     );
-    Ok(JournalistReply {
-        narratives: map
-            .slots
-            .into_iter()
-            .map(|(_, text)| JournalistReport { text })
-            .collect(),
-    })
+    for narrative in &mut reply.narratives {
+        narrative.headline = normalize_body(&narrative.headline);
+        narrative.body = normalize_body(&narrative.body);
+        narrative.headline = crate::tools::guards::clean_served_prose(&narrative.headline);
+        narrative.body = crate::tools::guards::clean_served_prose(&narrative.body);
+        for prose in [&narrative.headline, &narrative.body] {
+            anyhow::ensure!(
+                crate::tools::guards::first_product_name(prose).is_none()
+                    && !crate::tools::guards::has_bookkeeping_citation(prose)
+                    && !crate::tools::guards::has_foreign_script(prose),
+                "Journalist violates served prose guard"
+            );
+        }
+        validate_hook(Some(&narrative.headline))?;
+        validate_body(&narrative.body)?;
+        anyhow::ensure!(
+            narrative.body.chars().count() <= JOURNALIST_REPORT_MAX_CHARS,
+            "Journalist narrative exceeds the reading budget"
+        );
+        let mut seen = std::collections::HashSet::new();
+        anyhow::ensure!(
+            !narrative.report_keys.is_empty(),
+            "narrative has no fresh evidence"
+        );
+        for key in &narrative.report_keys {
+            let valid = (1..=report_count).any(|i| key == &format!("report_{i}"));
+            anyhow::ensure!(
+                valid && seen.insert(key),
+                "invalid or duplicate narrative report key"
+            );
+        }
+    }
+    Ok(reply)
 }
 
 #[cfg(test)]
@@ -359,30 +359,6 @@ mod tests {
         }
     }
 
-    /// The assembled/articulate test, checkable on the rendered package. A
-    /// reader who cannot tell which history belongs to which claim without the
-    /// model has not been handed an assembled world.
-    #[test]
-    fn the_journalist_declares_only_output_fields_and_limit() {
-        let form = journalist_form(1);
-        assert_eq!(form["keys"], serde_json::json!(["report_1"]));
-        assert_eq!(form["paragraphs"], "concise");
-        assert!(form.get("max_chars").is_none());
-    }
-
-    #[test]
-    fn character_forms_share_concise_paragraph_guidance() {
-        assert!(influencer::prompt::TASK.contains("paragraphs separated by blank lines"));
-        assert_eq!(
-            journalist_schema(2)["required"],
-            journalist_prose(2).schema()["required"]
-        );
-        assert_eq!(
-            journalist_schema(2)["properties"]["report_1"]["maxLength"],
-            JOURNALIST_REPORT_MAX_CHARS
-        );
-    }
-
     #[test]
     fn a_declined_slot_and_a_missing_slot_stay_distinct() {
         let keys = Prose::new(&["body"]).keys;
@@ -409,18 +385,35 @@ mod tests {
     }
 
     #[test]
-    fn the_journalist_refuses_a_changed_report_count_order_or_mapping() {
-        let one = |raw: &str| parse_journalist(raw, 1);
-        assert!(one(r#"{"report_1":"Cedar won."}"#).is_ok());
-        // Omitted, added, and remapped slots are all contract violations.
-        assert!(one(r#"{"report_2":"Cedar won."}"#).is_err());
-        assert!(one(r#"{"report_1":"a","report_2":"b"}"#).is_err());
-        assert!(one(r#"{"report_1":"a","text":"b"}"#).is_err());
-        assert!(one(r#"{"report_1":""}"#).is_err());
-        assert!(one(
-            &serde_json::json!({"report_1":"x".repeat(JOURNALIST_REPORT_MAX_CHARS+1)}).to_string()
-        )
-        .is_err());
+    fn journalist_rejects_product_names_and_internal_score_citations() {
+        for bad in [
+            "The Insider confirms it.",
+            "The report (sentiment=30) is positive.",
+        ] {
+            let raw=serde_json::json!({"narratives":[{"headline":"Cedar update","body":bad,"report_keys":["report_1"]}]}).to_string();
+            assert!(parse_journalist(&raw, 1).is_err());
+        }
+    }
+
+    #[test]
+    fn narratives_require_fresh_unique_source_keys_and_bounded_prose() {
+        let good = serde_json::json!({"narratives":[{"headline":"Talks remain uncertain","body":"Wire reports talks, followed by a denial.","report_keys":["report_1","report_2"]}]});
+        assert!(parse_journalist(&good.to_string(), 2).is_ok());
+        for keys in [
+            serde_json::json!([]),
+            serde_json::json!(["report_3"]),
+            serde_json::json!(["report_1", "report_1"]),
+        ] {
+            let mut changed = good.clone();
+            changed["narratives"][0]["report_keys"] = keys;
+            assert!(parse_journalist(&changed.to_string(), 2).is_err());
+        }
+        let mut changed = good;
+        changed["narratives"][0]["body"] =
+            serde_json::json!("x".repeat(JOURNALIST_REPORT_MAX_CHARS + 1));
+        assert!(parse_journalist(&changed.to_string(), 2).is_err());
+        assert!(parse_journalist(r#"{"narratives":[]}"#, 2).is_ok());
+        assert!(parse_journalist(r#"{"report_1":"Old per-headline shape"}"#, 2).is_err());
     }
 }
 

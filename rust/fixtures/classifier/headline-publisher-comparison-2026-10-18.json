@@ -1,0 +1,405 @@
+{
+  "date": "2026-10-18",
+  "scope": "native decision experiment only; runtime implementation unchanged",
+  "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+  "base_criteria_version": "classification-criteria-v7-headline",
+  "thresholds": {
+    "subject": 55,
+    "emotion": 15,
+    "movement": 80
+  },
+  "controls": {
+    "metadata": "exact archived canonical metadata per subject",
+    "serialization": "recursively sorted compact UTF-8 JSON, matching serde_json",
+    "primary_conditions": [
+      "headline only",
+      "add state.article.publisher without changing questions",
+      "publisher field plus explicit subject-disambiguation wording"
+    ],
+    "publisher_provenance": "actual RSS news_articles.source; diagnostic feed titles verified unchanged against Archbox; production names from verified retained discovery",
+    "concurrency": 1,
+    "threshold_changes": false
+  },
+  "samples": {
+    "labeled_real_subject_cases": 39,
+    "labeled_real_articles": 22,
+    "labels": "previously inspected provisional agent labels, not independent human holdout",
+    "additional_unlabeled_subject_cases": 80,
+    "additional_unlabeled_articles": 56,
+    "synthetic_publisher_bias_controls": 6,
+    "synthetic_note": "club-associated publisher paired with clearly unrelated team headline; kept separate from real-case metrics",
+    "posthoc_source_reviews": 2
+  },
+  "native_requests": 576,
+  "native_request_failures": 0,
+  "request_counts": {
+    "two-miss-probe.jsonl": 4,
+    "results.jsonl": 375,
+    "followup-results.jsonl": 170,
+    "scoped-results.jsonl": 3,
+    "stability-results.jsonl": 24
+  },
+  "headline_baseline": {
+    "cases": 39,
+    "nominations": {
+      "journalist": 20,
+      "influencer": 5,
+      "insider": 3
+    },
+    "per_character": {
+      "journalist": {
+        "tp": 17,
+        "fp": 3,
+        "fn": 2,
+        "tn": 17
+      },
+      "influencer": {
+        "tp": 3,
+        "fp": 2,
+        "fn": 7,
+        "tn": 27
+      },
+      "insider": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 4,
+        "tn": 32
+      }
+    },
+    "new_false_admissions": {
+      "journalist": [],
+      "influencer": [],
+      "insider": []
+    },
+    "lost_useful_admissions": {
+      "journalist": [],
+      "influencer": [],
+      "insider": []
+    }
+  },
+  "publisher_field_only": {
+    "cases": 39,
+    "nominations": {
+      "journalist": 21,
+      "influencer": 5,
+      "insider": 3
+    },
+    "per_character": {
+      "journalist": {
+        "tp": 18,
+        "fp": 3,
+        "fn": 1,
+        "tn": 17
+      },
+      "influencer": {
+        "tp": 3,
+        "fp": 2,
+        "fn": 7,
+        "tn": 27
+      },
+      "insider": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 4,
+        "tn": 32
+      }
+    },
+    "new_false_admissions": {
+      "journalist": [],
+      "influencer": [],
+      "insider": []
+    },
+    "lost_useful_admissions": {
+      "journalist": [],
+      "influencer": [],
+      "insider": []
+    }
+  },
+  "publisher_with_disambiguation": {
+    "cases": 39,
+    "nominations": {
+      "journalist": 22,
+      "influencer": 6,
+      "insider": 3
+    },
+    "per_character": {
+      "journalist": {
+        "tp": 19,
+        "fp": 3,
+        "fn": 0,
+        "tn": 17
+      },
+      "influencer": {
+        "tp": 4,
+        "fp": 2,
+        "fn": 6,
+        "tn": 27
+      },
+      "insider": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 4,
+        "tn": 32
+      }
+    },
+    "new_false_admissions": {
+      "journalist": [],
+      "influencer": [],
+      "insider": []
+    },
+    "lost_useful_admissions": {
+      "journalist": [],
+      "influencer": [],
+      "insider": []
+    }
+  },
+  "topic_ignore_instruction": {
+    "labeled": {
+      "cases": 39,
+      "nominations": {
+        "journalist": 22,
+        "influencer": 6,
+        "insider": 3
+      },
+      "per_character": {
+        "journalist": {
+          "tp": 19,
+          "fp": 3,
+          "fn": 0,
+          "tn": 17
+        },
+        "influencer": {
+          "tp": 4,
+          "fp": 2,
+          "fn": 6,
+          "tn": 27
+        },
+        "insider": {
+          "tp": 3,
+          "fp": 0,
+          "fn": 4,
+          "tn": 32
+        }
+      },
+      "new_false_admissions": {
+        "journalist": [],
+        "influencer": [],
+        "insider": []
+      },
+      "lost_useful_admissions": {
+        "journalist": [],
+        "influencer": [],
+        "insider": []
+      }
+    },
+    "outcome": "recovers both generalist misses; explicit ignore-publisher topic instructions still permit the same spurious Bengals Insider nomination outside the frozen labeled set"
+  },
+  "wording_without_publisher": {
+    "cases": 39,
+    "nominations": {
+      "journalist": 20,
+      "influencer": 5,
+      "insider": 3
+    },
+    "per_character": {
+      "journalist": {
+        "tp": 17,
+        "fp": 3,
+        "fn": 2,
+        "tn": 17
+      },
+      "influencer": {
+        "tp": 3,
+        "fp": 2,
+        "fn": 7,
+        "tn": 27
+      },
+      "insider": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 4,
+        "tn": 32
+      }
+    },
+    "new_false_admissions": {
+      "journalist": [],
+      "influencer": [],
+      "insider": []
+    },
+    "lost_useful_admissions": {
+      "journalist": [],
+      "influencer": [],
+      "insider": []
+    }
+  },
+  "publisher_in_subject_question_only": {
+    "requests": 3,
+    "outcome": "early qualification failure; both original misses remained, while the spurious Insider nomination disappeared; no full-cohort run"
+  },
+  "two_context_composition": {
+    "labeled": {
+      "cases": 39,
+      "nominations": {
+        "journalist": 22,
+        "influencer": 6,
+        "insider": 3
+      },
+      "per_character": {
+        "journalist": {
+          "tp": 19,
+          "fp": 3,
+          "fn": 0,
+          "tn": 17
+        },
+        "influencer": {
+          "tp": 4,
+          "fp": 2,
+          "fn": 6,
+          "tn": 27
+        },
+        "insider": {
+          "tp": 3,
+          "fp": 0,
+          "fn": 4,
+          "tn": 32
+        }
+      },
+      "new_false_admissions": {
+        "journalist": [],
+        "influencer": [],
+        "insider": []
+      },
+      "lost_useful_admissions": {
+        "journalist": [],
+        "influencer": [],
+        "insider": []
+      }
+    },
+    "unlabeled_changes": {
+      "cases": 80,
+      "nominations": {
+        "journalist": 62,
+        "influencer": 3,
+        "insider": 5
+      },
+      "new_routes": {
+        "journalist": [
+          "production/966170/30"
+        ],
+        "influencer": [],
+        "insider": []
+      },
+      "removed_routes": {
+        "journalist": [],
+        "influencer": [],
+        "insider": []
+      }
+    },
+    "synthetic": {
+      "cases": 6,
+      "nominations": {
+        "journalist": 0,
+        "influencer": 0,
+        "insider": 0
+      },
+      "per_character": {
+        "journalist": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 6
+        },
+        "influencer": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 6
+        },
+        "insider": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 6
+        }
+      },
+      "new_false_admissions": {
+        "journalist": [],
+        "influencer": [],
+        "insider": []
+      },
+      "lost_useful_admissions": {
+        "journalist": [],
+        "influencer": [],
+        "insider": []
+      }
+    },
+    "evidence": "subject score from measured publisher-disambiguation request; emotion/movement from measured headline-only request",
+    "cost": "two complete three-question requests per subject if used universally; reducing the question banks was not tested",
+    "conditional_policy": "keep headline-only results when subject passes; otherwise retry with publisher context and replace only the subject score",
+    "conditional_cost_on_real_sample": {
+      "subjects": 119,
+      "headline_requests": 119,
+      "additional_requests": 38,
+      "total_requests": 157,
+      "extra_request_fraction": 0.31932773109243695
+    },
+    "conditional_status": "posthoc composition of actual paired outputs, not an implemented end-to-end queue path"
+  },
+  "recovered_cases": [
+    {
+      "subject": "St. Pauli",
+      "rss_publisher": "FC St. Pauli",
+      "headline_only_subject_score": 5.937866487177713,
+      "publisher_field_subject_score": 66.32528683945084,
+      "publisher_disambiguation_subject_score": 70.1004359616133,
+      "combined_routes": {
+        "journalist": true,
+        "influencer": false,
+        "insider": false
+      }
+    },
+    {
+      "subject": "Coventry City",
+      "rss_publisher": "Coventry Telegraph",
+      "headline_only_subject_score": 39.66687269827597,
+      "publisher_field_subject_score": 51.921708026813626,
+      "publisher_disambiguation_subject_score": 56.202626686716904,
+      "combined_routes": {
+        "journalist": true,
+        "influencer": true,
+        "insider": false
+      }
+    }
+  ],
+  "posthoc_reviews": {
+    "additional_generalist_admission": "49ers reporting in a broad fantasy column was useful: retained body reports a current player absence. This is a posthoc review, not a fresh holdout label.",
+    "additional_single_context_insider_nomination": "NFLTradeRumors.co pushed a Bengals retrospective draft discussion above the movement cutoff, although no current Bengals move was reported. This false nomination is absent when headline-only topic scores are preserved."
+  },
+  "stability": {
+    "requests": 24,
+    "repeats_per_input_and_case": 3,
+    "changed_real_cases": 4,
+    "routing_changes_across_repeats": 0,
+    "note": "repeats establish observed serving stability, not independent accuracy evidence"
+  },
+  "reader_requests": 0,
+  "character_model_calls": 0,
+  "production_database_writes": 0,
+  "deployed": false,
+  "validation": [
+    "request-builder and metric self-tests passed",
+    "all response models, topic schemas and finite probabilities checked",
+    "all paired routes inspected for new false admissions and lost useful admissions",
+    "two additional changed production routes source-reviewed",
+    "three repetitions per context on the four changed real cases preserved decisions",
+    "Python compilation and git diff checks passed"
+  ],
+  "remaining_risks": [
+    "Three pre-existing false Journalist admissions and two false Influencer admissions remain in the frozen labeled set.",
+    "Publisher context can bias topic scores; simple instructions did not remove that effect.",
+    "Small, selected, provisional sample with adaptively inspected follow-ups; no broad production accuracy claim.",
+    "Shared-reader acquisition and character generation were not rerun because this experiment changes only decision inputs.",
+    "Conditional second-call execution, caching and combined receipts remain unimplemented."
+  ],
+  "private_evidence_directory": "/private/tmp/scoracle-headline-publisher-20261018"
+}

@@ -96,7 +96,7 @@ pub(crate) async fn load_on(
 ) -> Result<Vec<SourceContext>> {
     let character = character_key(plugin)?;
     let rows=sqlx::query("SELECT x.id,x.spectrum::text AS spectrum,x.gate::text AS gate,x.clean_text,
-        EXTRACT(EPOCH FROM (s.source->>'published_at')::timestamptz)::bigint AS published_at_epoch,
+        floor(EXTRACT(EPOCH FROM (s.source->>'published_at')::timestamptz))::bigint AS published_at_epoch,
         s.source::text AS source,
         COALESCE(s.discovery_version=public.classifier_discovery_version(s.article_id,s.sport),false)
             AND EXISTS(SELECT 1 FROM classifier_source_heads h WHERE h.article_id=s.article_id AND h.sport=s.sport AND h.source_id=s.id)
@@ -105,10 +105,10 @@ pub(crate) async fn load_on(
         JOIN classifier_sources s ON s.id=x.source_id
         WHERE d.character=$1 AND x.sport=$4
         AND x.target->>'entity_type'=$2 AND x.target->>'entity_id'=$3::text
-        AND d.status='pending'
+        AND d.status='pending' AND x.criteria_version=$5
         AND public.coverage_spectrum_selected(d.character,$2,$3::bigint,$4,x.id)
         ORDER BY published_at_epoch DESC NULLS LAST,x.id DESC LIMIT 20001")
-        .bind(character).bind(entity_type).bind(entity_id.to_string()).bind(sport)
+        .bind(character).bind(entity_type).bind(entity_id.to_string()).bind(sport).bind(super::decision::CRITERIA_VERSION)
         .fetch_all(&mut *connection).await?;
     ensure!(
         rows.len() <= 20000,
@@ -119,7 +119,7 @@ pub(crate) async fn load_on(
     for row in rows {
         ensure!(
             row.get::<bool, _>("current_source"),
-            "Classifier delivery source changed; acquisition must reconcile it"
+            "Classifier delivery source changed; headline scoring must reconcile it"
         );
         let id: i64 = row.get("id");
         let source: Source = serde_json::from_str(row.get::<&str, _>("source"))?;
@@ -131,6 +131,10 @@ pub(crate) async fn load_on(
         if !articles.insert(source.article_id) {
             continue;
         }
+        ensure!(
+            source.provenance["evidence_scope"] == "headline",
+            "character delivery must retain headline evidence"
+        );
         sources.push(SourceContext {
             classification_id: id,
             article_id: source.article_id,
@@ -142,9 +146,9 @@ pub(crate) async fn load_on(
             source: source.source,
             published_at_epoch: row.get("published_at_epoch"),
             classifier_world: Some(json!({
-                "target_identity_resolved": source.provenance["identity_candidates"].as_array().is_some_and(|candidates|
-                    candidates.iter().any(|candidate| candidate["entity_type"] == entity_type
-                        && candidate["entity_id"] == entity_id)),
+                "target_identity_resolved": true,
+                "evidence_scope": "headline",
+                "url": source.provenance["url"],
                 "spectrum": serde_json::from_str::<Value>(row.get::<&str, _>("spectrum"))?,
                 "gate": serde_json::from_str::<Value>(row.get::<&str, _>("gate"))?,
             })),
@@ -153,7 +157,7 @@ pub(crate) async fn load_on(
     Ok(sources)
 }
 
-/// Locks follow acquisition's source-before-delivery order and never span inference.
+/// Locks follow the scorer's source-before-delivery order and never span inference.
 pub async fn validate_for_publication(
     tx: &mut Transaction<'_, Postgres>,
     plugin: &str,

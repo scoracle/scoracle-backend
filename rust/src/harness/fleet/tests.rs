@@ -86,12 +86,10 @@ fn durable_task_identifiers_remain_compatible() {
 
 #[test]
 fn acquisition_web_grants_are_scoped_to_each_plugins_sources() {
-    assert!(CLASSIFIER_ACQUIRE.grants_web(DomainClass::CuratedArticles));
     assert!(!CLASSIFIER
         .tools
         .iter()
         .any(|g| matches!(g, ToolGrant::WebFetch(_))));
-    assert!(!CLASSIFIER_ACQUIRE.tools.contains(&ToolGrant::Inference));
 
     assert!(INVESTIGATOR.inference_routes.is_empty());
     assert!(!INVESTIGATOR.tools.contains(&ToolGrant::Inference));
@@ -127,15 +125,14 @@ fn full_and_partial_production_fleets_register() {
 #[test]
 fn classifier_replaces_retired_intake_in_the_deployable_fleet() {
     assert_eq!(CLASSIFIER.task.as_str(), "classifier");
-    assert_eq!(CLASSIFIER_ACQUIRE.task.as_str(), "classifier_acquire");
-    assert!(!ALL
-        .iter()
-        .any(|m| matches!(m.task.as_str(), "harvester" | "editor" | "graph")));
+    assert!(!ALL.iter().any(|m| matches!(
+        m.task.as_str(),
+        "harvester" | "editor" | "graph" | "classifier_acquire"
+    )));
     assert!(inference_routes()
         .iter()
         .all(|r| r.env_suffix() != "EMOTIONAL_NEWS"));
     assert!(ALL.iter().any(|m| m.id == CLASSIFIER.id));
-    assert!(ALL.iter().any(|m| m.id == CLASSIFIER_ACQUIRE.id));
     assert!(crate::harness::registration::enabled_from_config(Some("harvester,editor")).is_err());
     assert!(!crate::harness::registration::enabled_from_config(None)
         .unwrap()

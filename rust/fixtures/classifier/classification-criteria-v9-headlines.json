@@ -1,0 +1,42 @@
+{
+  "version": "classification-criteria-v9-headlines",
+  "questions": {
+    "subject": {
+      "type": "noul",
+      "instructions": "Is {subject} substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison alone does not qualify."
+    },
+    "emotion": {
+      "type": "noul",
+      "instructions": "Does the headline express feelings or emotional reactions about {subject}, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Do not infer feelings from a result alone."
+    },
+    "movement": {
+      "type": "noul",
+      "instructions": "Does the headline report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving {subject}? Include rumours and denials. Exclude historical background and fantasy trades."
+    },
+    "availability": {
+      "type": "noul",
+      "instructions": "Does the headline report injury, illness, fitness, suspension, eligibility, rest, absence or return affecting whether {subject} or its players can participate? Exclude historical background and ordinary tactical substitutions."
+    },
+    "clickbait": {
+      "type": "noul",
+      "instructions": "Does the headline use sensationalism, exaggerated certainty, a misleading tease or withheld key information to entice clicks? Judge the headline's wording, not the publisher's reputation. A surprising concrete claim or an attributed quotation alone is not clickbait. This score cannot establish whether the underlying claim is true."
+    }
+  },
+  "admission": {
+    "subject": 55
+  },
+  "note": "Headline-only spectrum. Route to each character by its relevance lens; clickbait is context, not an admission cutoff.",
+  "characters": {
+    "journalist": {
+      "subject": 55
+    },
+    "influencer": {
+      "subject": 55,
+      "emotion": 15
+    },
+    "insider": {
+      "subject": 55,
+      "movement": 80
+    }
+  }
+}

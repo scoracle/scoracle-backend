@@ -170,6 +170,9 @@ pub async fn enqueue_momentum_if_needed(
     entity_id: i32,
     sport: &str,
 ) -> Result<bool> {
+    if entity_type == "person" {
+        return Ok(false);
+    }
     let sport = sport.to_uppercase();
     let ctx = prompt::load_momentum_context(pool, entity_type, entity_id, &sport).await?;
     if ctx.empty() {

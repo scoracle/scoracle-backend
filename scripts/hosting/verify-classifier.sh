@@ -19,15 +19,16 @@ BEGIN
         '299_classifier_spectra','300_classifier_spectrum_deliveries','301_classifier_spectrum_dispatch',
         '302_classifier_source_revisions','303_classifier_spectrum_consumption',
         '304_classifier_article_spectrum','305_classifier_identity_prefill',
-        '306_pipeline_stage_progress','307_classifier_bounded_acquisition','308_retire_graph','309_continuous_coverage','310_daily_character_scope','311_daily_pipeline_recovery','312_classifier_subject_reader'] LOOP
+        '306_pipeline_stage_progress','307_classifier_bounded_acquisition','308_retire_graph','309_continuous_coverage','310_daily_character_scope','311_daily_pipeline_recovery','312_classifier_subject_reader','313_classifier_headline_first','314_classifier_headline_corpus','315_headline_entity_pipeline'] LOOP
         IF NOT EXISTS(SELECT 1 FROM public.schema_migrations m WHERE m.version=migration_version) THEN
             RAISE EXCEPTION 'Missing migration %; migrate before placing binaries',migration_version;
         END IF;
     END LOOP;
-    IF to_regprocedure('public.classifier_enqueue_acquisition(bigint,text)') IS NULL
-       OR to_regprocedure('public.classifier_replay_acquisition(integer)') IS NULL
+    IF to_regprocedure('public.classifier_enqueue_admission(bigint,text)') IS NULL
+       OR to_regprocedure('public.classifier_replay_admission(integer)') IS NULL
+       OR to_regprocedure('public.classifier_headline_subjects(bigint,text)') IS NULL
        OR to_regprocedure('public.classifier_identity_candidates(text,text,text)') IS NULL THEN
-        RAISE EXCEPTION 'Classifier native acquisition functions missing';
+        RAISE EXCEPTION 'Classifier headline intake functions missing';
     END IF;
     IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.classifier_spectrum_deliveries'::regclass
         AND tgname='classifier_spectrum_delivery_dispatch' AND NOT tgisinternal AND tgenabled IN ('O','A')) THEN
@@ -42,6 +43,12 @@ DO $$ BEGIN
     IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='public.pipeline_work'::regclass
         AND conname='pipeline_work_graph_retired' AND convalidated) THEN
         RAISE EXCEPTION 'Graph retirement queue constraint missing';
+    END IF;
+END $$;
+DO $$ BEGIN
+    IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.classifier_spectrum_deliveries'::regclass
+        AND tgname='classifier_article_ready' AND NOT tgisinternal AND tgenabled IN ('O','A')) THEN
+        RAISE EXCEPTION 'Headline evidence readiness trigger missing or disabled';
     END IF;
 END $$;
 SELECT classifier_source_id FROM public.news_article_entities LIMIT 0;

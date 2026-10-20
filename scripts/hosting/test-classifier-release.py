@@ -28,7 +28,6 @@ with tempfile.TemporaryDirectory(prefix="classifier-release-check-") as director
 case "$*" in
   *is-active*scoracle-cognition.service*) exit "${COGNITION_STATE:-1}" ;;
   *is-active*scoracle-cognition.path*) exit "${WATCHER_STATE:-1}" ;;
-  *is-active*scoracle-classifier-source.service*) exit "${SOURCE_STATE:-1}" ;;
   *is-active*scoracle-coverage.service*) exit "${COVERAGE_STATE:-1}" ;;
   *is-active*scoracle-api.path*) exit 1 ;;
 esac''',
@@ -51,16 +50,12 @@ esac''',
     assert "restart scoracle-api.service" in calls
     assert "restart scoracle-cognition.service" not in calls and "start scoracle-cognition.path" not in calls
     assert "restart scoracle-classifier-source.service" not in calls
-    source_unit = (root / "units/scoracle-classifier-source.service").read_text()
-    assert "/usr/bin/env COGNITION_STAGES=classifier_acquire" in source_unit
-    assert "__SCORACLE_REPO_ROOT__" not in source_unit
+    assert not (root / "units/scoracle-classifier-source.service").exists()
     coverage_unit = (root / "units/scoracle-coverage.service").read_text()
     assert str(root / "go/bin/pipeline") + " -mode monitor" in coverage_unit
     assert "__SCORACLE_REPO_ROOT__" not in coverage_unit
     assert "start scoracle-coverage" not in calls and "restart scoracle-coverage" not in calls
     assert len(list((root / "bins").iterdir())) == 7
-    calls = run(["--keep-cognition-paused"], 0, {"SOURCE_STATE": "0"})
-    assert "restart scoracle-classifier-source.service" in calls and "restart scoracle-cognition.service" not in calls
     calls = run([], 0, {"COVERAGE_STATE": "0"})
     assert "restart scoracle-coverage.service" in calls and "--quiet is-active scoracle-coverage.service" in calls
     calls = run(["--build-only"], 0, {"COVERAGE_STATE": "0"})
@@ -90,4 +85,4 @@ esac''',
         assert args[args.index("--ctx-size")+1] == settings.get("CLASSIFIER_CONTEXT_SIZE","65536")
         assert args[args.index("--parallel")+1] == settings.get("CLASSIFIER_PARALLEL","8")
     assert "EnvironmentFile=-%h/.config/scoracle/classifier-model.env" in (root / "units/scoracle-kev.service").read_text()
-print("Model swap/default launcher, paused/source-only release, preflight/build failure, active restart and build-only checks pass.")
+print("Model swap/default launcher, paused release, preflight/build failure, active restart and build-only checks pass.")

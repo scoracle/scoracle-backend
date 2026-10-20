@@ -1,0 +1,145 @@
+{
+  "date": "2026-10-18",
+  "status": "100-URL intake stopped for memory pressure; partial results retained; browser configuration not qualified for a complete normal batch",
+  "settings": {
+    "rss_default_limit_per_entity": 100,
+    "cohort_articles": 100,
+    "reader_acquisition_concurrency": 4,
+    "domain_spacing_seconds": 2,
+    "application_cache": "empty isolated database for cold run; default six-hour fetch cache",
+    "reader": "deployed pinned Jina browser service; existing article/main selection",
+    "discovery_selection": "fixed MD5 sample from newest persisted one-hour discovery window, not one live entity sweep",
+    "discovery_window": {
+      "started_at": "2026-10-17T22:01:54.251165-04:00",
+      "finished_at": "2026-10-17T23:01:54.251165-04:00"
+    },
+    "admission_order": "load test read raw discoveries first; existing v8 admission replay afterward is reported separately, not gated end-to-end throughput",
+    "production_reader_shared": true
+  },
+  "discovery_deduplication": {
+    "window_unique_urls": 1457,
+    "window_target_edges": 1905,
+    "batch_unique_urls": 100,
+    "batch_target_edges": 122,
+    "already_avoided_per_target_reads": 22,
+    "already_avoided_share": 0.18032786885245902,
+    "meaning": "exact discovery URLs already share one article row and retain every target edge; these savings predate this patch"
+  },
+  "partial_cold_results": {
+    "completed": 51,
+    "reader_bodies": 31,
+    "explicit_errors": 20,
+    "not_completed": 49,
+    "elapsed_to_last_completed_result_seconds": 316.8429284095764,
+    "completed_item_p50_seconds": 22.889560673,
+    "completed_item_p95_seconds": 46.046552856,
+    "bodies_within_24kb": 31,
+    "completed_reader_proxy_records": 73,
+    "proxy_statuses": {
+      "200": 41,
+      "422": 32
+    },
+    "proxy_selectors": {
+      "article": 52,
+      "main": 21
+    },
+    "error_classes": {
+      "reader_returned_insufficient_article": 10,
+      "http_422": 10
+    },
+    "inflight_request_limit": "proxy logs capture completed handlers; requests still in flight when interrupted are not fully accounted for"
+  },
+  "posthoc_admission": {
+    "criteria": "classification-criteria-v8-admission",
+    "native_subject_requests": 122,
+    "request_failures": 0,
+    "admitted_unique_articles": 68,
+    "completed_admitted_articles": 33,
+    "completed_admitted_reader_bodies": 22,
+    "completed_admitted_read_errors": 11,
+    "admitted_not_completed": 35,
+    "limitations": "no independent labels, character routing or output fidelity measured; no claim that all admitted bodies are fresh useful news"
+  },
+  "retained_replay": {
+    "articles": 31,
+    "cache_hits": 31,
+    "concurrency": 4,
+    "errors": 0,
+    "p50_seconds": 0.000543244,
+    "p95_seconds": 0.003792184,
+    "read": 31,
+    "summary": true,
+    "wall_seconds": 0.009273268,
+    "within_intake_size_and_not_unavailable": 31
+  },
+  "retained_replay_proof": "new benchmark process, all 31 document IDs unchanged, ARTICLE_READER_URL=http://127.0.0.1:9/ unreachable; no browser can be called successfully",
+  "memory_observations": {
+    "before_bytes": 7594053632,
+    "stop_decision_bytes": 23706480640,
+    "max_observed_current_bytes": 28630601728,
+    "minimum_observed_host_available_mib": 436,
+    "swap_was_full_mib": 4095,
+    "after_recovery_reader_bytes": 749551616,
+    "after_recovery_host_available_mib": 26761,
+    "scope": "service/cgroup measurements include the reader and browser children; peak cause and long-term leak behavior not diagnosed"
+  },
+  "recovery": {
+    "benchmark_only_intake_interrupted": true,
+    "reader_service_restarted": true,
+    "forced_reader_stop_required": true,
+    "reason": "reader memory continued growing while graceful restart waited for dependent workers to stop",
+    "dependent_workers_restored": [
+      "scoracle-classifier-source.service",
+      "scoracle-cognition.service"
+    ],
+    "reader_active_after": true,
+    "runtime_guard": {
+      "memory_high_bytes": 12884901888,
+      "memory_max_bytes": 17179869184,
+      "persistent_across_service_restart": true,
+      "persistent_across_user_manager_restart_or_reboot": false,
+      "local_template": "ops/scoracle-reader.service includes the same values for a later deployment"
+    },
+    "production_binaries_changed": false,
+    "production_configuration_changed": "runtime-only MemoryHigh=12G and MemoryMax=16G guard applied after recovery; installed service file unchanged",
+    "coverage_before": "clock and discovery stale since 2026-10-17 23:01 Eastern; backend 994 idle in transaction held coverage lock for over twelve hours",
+    "coverage_after": "2026-10-18T11:43:56.260244-04:00",
+    "discovery_after": "2026-10-18T11:44:01.650954-04:00",
+    "underlying_coverage_stall_cause": "not repaired; restart released the blockage"
+  },
+  "read_once_patch": {
+    "file": "src/tools/fetch.rs",
+    "key": "resolved publisher URL plus reader version",
+    "coordination": "PostgreSQL transaction advisory lock, cache recheck after lock, retain response before releasing lock",
+    "test": "eight independent fetchers through two Google aliases: eight reader calls before fix, one after; fresh fetcher reuses same document",
+    "limits": [
+      "Default URL cache lasts six hours; existing same-article retained-source reuse is separate.",
+      "Tracking URLs or redirects that remain different publisher keys, and syndicated articles on separate publisher URLs, are not merged.",
+      "A crash after network reading but before committing retention can cause a retry read; this is not an exactly-once external-I/O guarantee."
+    ],
+    "deployment": "local patch only; production fetcher binary unchanged"
+  },
+  "source_review": {
+    "sample_article_ids": [
+      973817,
+      974095,
+      976324,
+      976838
+    ],
+    "method": "first two completed admitted bodies per represented sport; four bodies, NBA and NFL only",
+    "finding": "three contain substantial reporting; one is a historical player-versus-team statistics page, so transport/word-count success and headline relevance do not prove usable fresh news",
+    "scope": "body inspection only, no independent publisher completeness or model-output qualification"
+  },
+  "validation": {
+    "unit_cli_tests_passed": 385,
+    "focused_database_tests_passed": 3,
+    "all_targets": "cargo check --all-targets passed",
+    "format_diff": "cargo fmt and git diff --check passed",
+    "service_template": "systemd-analyze --user verify passed on Archbox",
+    "cohort_replay_accounting": "assertions passed",
+    "initial_environment_failures": "restricted local sockets and Mac PostgreSQL shared-memory exhaustion; checks rerun with networking enabled against separate Archbox PostgreSQL"
+  },
+  "next_step": "Keep one shared read/retained-content contract; bound or diagnose reader memory before retrying a complete admission-first batch. Do not enable the new routing release on these partial measurements.",
+  "private_local_evidence": "/private/tmp/scoracle-reader-batch-20261018",
+  "private_remote_evidence": "/mnt/data/backup/scoracle/reader-batch-20261018"
+}

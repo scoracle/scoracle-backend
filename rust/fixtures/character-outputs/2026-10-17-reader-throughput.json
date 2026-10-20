@@ -1,0 +1,233 @@
+{
+  "date": "2026-10-17",
+  "purpose": "Reader-fed character throughput; grounding tuning excluded.",
+  "articles": 6,
+  "characters": [
+    "Journalist",
+    "Influencer",
+    "Insider"
+  ],
+  "model_calls": 36,
+  "models": {
+    "qwen": {
+      "calls": 18,
+      "statuses": {
+        "accepted": 17,
+        "rejected": 1
+      },
+      "total_wall_seconds": 200.7,
+      "median_wall_seconds": 10.1815,
+      "max_wall_seconds": 26.429,
+      "input_tokens_range": [
+        455,
+        5200
+      ],
+      "input_tokens": 30096,
+      "output_tokens": 2901,
+      "prompt_seconds": 86.803438,
+      "decode_seconds": 113.025265,
+      "prompt_tokens_per_second": 346.7143778337443,
+      "decode_tokens_per_second": 25.666827677864767,
+      "body_fields_at_1200_chars": 6
+    },
+    "smollm3": {
+      "calls": 18,
+      "statuses": {
+        "accepted": 13,
+        "rejected": 5
+      },
+      "total_wall_seconds": 143.708,
+      "median_wall_seconds": 7.251,
+      "max_wall_seconds": 18.894,
+      "input_tokens_range": [
+        496,
+        5033
+      ],
+      "input_tokens": 30167,
+      "output_tokens": 3492,
+      "prompt_seconds": 62.543105000000004,
+      "decode_seconds": 80.641397,
+      "prompt_tokens_per_second": 482.33934020384817,
+      "decode_tokens_per_second": 43.30282125444826,
+      "body_fields_at_1200_chars": 1
+    }
+  },
+  "by_task": {
+    "narratives": {
+      "qwen": {
+        "calls": 6,
+        "statuses": {
+          "accepted": 6
+        },
+        "total_wall_seconds": 47.7,
+        "median_wall_seconds": 6.642,
+        "max_wall_seconds": 14.673,
+        "input_tokens_range": [
+          455,
+          4875
+        ],
+        "input_tokens": 8752,
+        "output_tokens": 579,
+        "prompt_seconds": 25.333981,
+        "decode_seconds": 22.057282,
+        "prompt_tokens_per_second": 345.4648521288462,
+        "decode_tokens_per_second": 26.24983440842802,
+        "body_fields_at_1200_chars": 0
+      },
+      "smollm3": {
+        "calls": 6,
+        "statuses": {
+          "accepted": 6
+        },
+        "total_wall_seconds": 41.216,
+        "median_wall_seconds": 5.657,
+        "max_wall_seconds": 15.134,
+        "input_tokens_range": [
+          496,
+          4718
+        ],
+        "input_tokens": 8823,
+        "output_tokens": 990,
+        "prompt_seconds": 18.242974999999998,
+        "decode_seconds": 22.821105,
+        "prompt_tokens_per_second": 483.6382223842329,
+        "decode_tokens_per_second": 43.38089676201043,
+        "body_fields_at_1200_chars": 0
+      }
+    },
+    "vibe": {
+      "qwen": {
+        "calls": 6,
+        "statuses": {
+          "accepted": 6
+        },
+        "total_wall_seconds": 94.807,
+        "median_wall_seconds": 13.952,
+        "max_wall_seconds": 26.429,
+        "input_tokens_range": [
+          769,
+          5200
+        ],
+        "input_tokens": 10662,
+        "output_tokens": 1623,
+        "prompt_seconds": 30.660205,
+        "decode_seconds": 63.857964,
+        "prompt_tokens_per_second": 347.74718564340975,
+        "decode_tokens_per_second": 25.415780559492937,
+        "body_fields_at_1200_chars": 6
+      },
+      "smollm3": {
+        "calls": 6,
+        "statuses": {
+          "accepted": 6
+        },
+        "total_wall_seconds": 48.785,
+        "median_wall_seconds": 7.295,
+        "max_wall_seconds": 15.153,
+        "input_tokens_range": [
+          786,
+          5016
+        ],
+        "input_tokens": 10589,
+        "output_tokens": 1168,
+        "prompt_seconds": 21.950256,
+        "decode_seconds": 26.642508999999997,
+        "prompt_tokens_per_second": 482.40895231472473,
+        "decode_tokens_per_second": 43.83971494576581,
+        "body_fields_at_1200_chars": 1
+      }
+    },
+    "transfer": {
+      "qwen": {
+        "calls": 6,
+        "statuses": {
+          "accepted": 5,
+          "rejected": 1
+        },
+        "total_wall_seconds": 58.193,
+        "median_wall_seconds": 7.431,
+        "max_wall_seconds": 18.191,
+        "input_tokens_range": [
+          712,
+          5192
+        ],
+        "input_tokens": 10682,
+        "output_tokens": 699,
+        "prompt_seconds": 30.809252,
+        "decode_seconds": 27.110019,
+        "prompt_tokens_per_second": 346.714032525035,
+        "decode_tokens_per_second": 25.783825529594797,
+        "body_fields_at_1200_chars": 0
+      },
+      "smollm3": {
+        "calls": 6,
+        "statuses": {
+          "rejected": 5,
+          "accepted": 1
+        },
+        "total_wall_seconds": 53.707,
+        "median_wall_seconds": 7.414,
+        "max_wall_seconds": 18.894,
+        "input_tokens_range": [
+          753,
+          5033
+        ],
+        "input_tokens": 10755,
+        "output_tokens": 1334,
+        "prompt_seconds": 22.349874,
+        "decode_seconds": 31.177782999999998,
+        "prompt_tokens_per_second": 481.2107665573417,
+        "decode_tokens_per_second": 42.78687807917581,
+        "body_fields_at_1200_chars": 0
+      }
+    }
+  },
+  "live_reader": {
+    "attempted": 6,
+    "successful": 6,
+    "median_seconds": 18.44286560550006,
+    "min_seconds": 3.848518833999833,
+    "max_seconds": 36.258890213000086,
+    "total_request_seconds": 121.9245061810002,
+    "exact_body_matches_to_frozen_input": 4,
+    "selectors": {
+      "article": 4,
+      "main": 2
+    },
+    "forced_cache_bypass": false
+  },
+  "http_fast_path": {
+    "attempted": 6,
+    "extracted": 5,
+    "median_fetch_extract_seconds": 0.46543903100006156,
+    "min_fetch_extract_seconds": 0.34479358699984647,
+    "max_fetch_extract_seconds": 1.3317888109999911,
+    "method": "HTTP fetch via existing public-address proxy on Archbox, existing Rust strict article extractor on M4.",
+    "limitations": [
+      "One HTTP 402 failure.",
+      "Some extractions contain navigation and related-story text; completeness and cleanliness are not qualified.",
+      "Body vocabulary overlap is diagnostic, not proof of claim or correction retention.",
+      "Browser probe preceded HTTP; cache/network warmness and publisher changes are uncontrolled.",
+      "Models used frozen Jina bodies, not these HTTP extractions."
+    ]
+  },
+  "verification": "18 paired prompt bytes, output schemas and generation settings match exactly; all 36 calls reached EOS with complete untruncated reader source.",
+  "conditions": {
+    "host": "M4 16GB",
+    "context": 32768,
+    "concurrency": 1,
+    "thinking": false,
+    "temperature": 0,
+    "retries": 0,
+    "prompt_cache": false,
+    "model_directed_tool_calls": false
+  },
+  "limitations": [
+    "One pass per model on a shared M4; production model remains resident.",
+    "Reader measurements are on Archbox; models run on the M4.",
+    "Frozen articles were used for the model comparison; live reader responses were measured separately.",
+    "No direct model tool calls, alternate-reader model runs, thinking mode, concurrency benchmark, live routing or product publication."
+  ],
+  "private_artifacts": "/private/tmp/scoracle-character-reader-20261017",
+  "production_configuration_changed": false
+}

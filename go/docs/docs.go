@@ -1666,7 +1666,8 @@ const docTemplate = `{
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",
@@ -1731,7 +1732,8 @@ const docTemplate = `{
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",
@@ -1944,7 +1946,8 @@ const docTemplate = `{
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",
@@ -2240,7 +2243,8 @@ const docTemplate = `{
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",
@@ -2317,7 +2321,8 @@ const docTemplate = `{
                     {
                         "enum": [
                             "player",
-                            "team"
+                            "team",
+                            "person"
                         ],
                         "type": "string",
                         "description": "Entity type",

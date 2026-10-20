@@ -1,21 +1,22 @@
-//! Native Classifier: the retained source contract and the decision-model spectrum.
-mod acquisition;
+//! Archived RSS headlines and their source-bound relevance spectra.
 pub mod adapter;
 pub mod decision;
 pub mod delivery;
+mod headline;
 pub(crate) mod identity;
 pub mod manifest;
+pub mod memories;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 /// Prefix of the `input_version` on character work dispatched from a spectrum obligation.
-/// Insider/Scout use it to tell classifier-derived work from the retired periodic pipeline.
+/// Character work is dispatched from admitted headline spectra.
 pub const CONTRACT: &str = "classifier-spectrum-v1";
 
-/// Retained publisher source and candidate query identities. The native spectrum binds to these
-/// exact bytes; a query identity is a candidate, never a positive relevance label.
+/// Immutable RSS metadata and candidates; historical rows may also retain article text.
+/// A query identity is a candidate, never a positive relevance label.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Source {
     pub article_id: i64,
@@ -32,10 +33,7 @@ fn hash(body: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests;
-
-#[cfg(test)]
-mod acquisition_tests;
+pub(crate) mod tests;
 
 #[cfg(test)]
 pub(crate) mod plumbing_tests;

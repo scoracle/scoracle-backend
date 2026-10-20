@@ -223,7 +223,7 @@ pub(crate) async fn execute_with_backend(
         entity_id,
         sport: sport.clone(),
     };
-    let (assignment, disposition) = prompt::prepare_assignment(pool, subject, now()).await?;
+    let (assignment, disposition) = fresh::prepare_assignment(pool, subject, now()).await?;
     if assignment.parts.hold_reason().is_some() {
         let held: Vec<_> = pending
             .iter()

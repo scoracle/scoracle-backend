@@ -76,8 +76,13 @@ def metrics(rows, cutoffs):
     decisions = [{key: row["scores"][key] >= cutoffs[key] for key in KEYS} for row in rows]
     per_topic = {key: confusion((decision[key], row["expected"][key])
                                for row, decision in zip(rows, decisions)) for key in sorted(KEYS)}
+    per_character = {character: confusion(
+        (decision["subject"] and decision[topic], row["expected"]["subject"] and row["expected"][topic])
+        for row, decision in zip(rows, decisions)) for character, topic in (
+            ("journalist", "subject"), ("influencer", "emotion"),
+            ("insider", "movement"), ("scout", "availability"))}
     return dict(cases=len(rows), source_groups=len({row["group"] for row in rows}),
-                labels=len(rows) * len(KEYS), per_topic=per_topic,
+                labels=len(rows) * len(KEYS), per_topic=per_topic, per_character=per_character,
                 label_errors=sum(counts["errors"] for counts in per_topic.values()),
                 brier=sum((row["scores"][key] - row["expected"][key]) ** 2
                           for row in rows for key in KEYS) / (len(rows) * len(KEYS)),
@@ -117,7 +122,8 @@ def replay(endpoint, bank_path, cases_path, results_path, concurrency):
         started = time.monotonic()
         raw = ""
         try:
-            http_request = urllib.request.Request(endpoint + "/v1/systemone", json.dumps(payload).encode(),
+            # Match production's serde_json key order; state serialization affects native scores.
+            http_request = urllib.request.Request(endpoint + "/v1/systemone", json.dumps(payload, sort_keys=True).encode(),
                                                   {"Content-Type": "application/json"})
             with urllib.request.urlopen(http_request, timeout=120) as response:
                 raw = response.read().decode()
@@ -173,6 +179,18 @@ def self_test():
     assert metrics(rows, cutoffs)["label_errors"] == 0
     assert metrics(rows, dict.fromkeys(KEYS, .5))["gate"]["fn"] == 1
     assert not admitted(dict(emotion=True, movement=True, availability=True, subject=False))
+    cutoffs = dict(subject=.55, emotion=.15, movement=.8, availability=.9)
+    neutral = dict(subject=True, emotion=False, movement=False, availability=False)
+    routes = metrics([
+        dict(group="neutral", scores=dict(subject=.55, emotion=0, movement=0, availability=0),
+             expected=neutral),
+        dict(group="unrelated", scores=dict(subject=.549, emotion=1, movement=1, availability=1),
+             expected=dict.fromkeys(KEYS, False)),
+        dict(group="boundary", scores=cutoffs, expected=dict.fromkeys(KEYS, True)),
+    ], cutoffs)["per_character"]
+    assert routes["journalist"]["tp"] == 2
+    assert all(counts["tp"] == 1 for role, counts in routes.items() if role != "journalist")
+    assert all(counts["errors"] == 0 for counts in routes.values())
     assert confusion([(True, False), (False, True)])["errors"] == 2
     assert confusion([(False, False)])["precision"] is None
     case = dict(subject_reference="Cedar FC, the FOOTBALL team", sport="FOOTBALL", body="A neutral match report.",

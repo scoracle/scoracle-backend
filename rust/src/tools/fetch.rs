@@ -684,7 +684,6 @@ impl DomainState {
 #[derive(Clone)]
 pub struct BudgetedFetcher {
     client: reqwest::Client,
-    reader: Option<super::reader::Reader>,
     domains:
         std::sync::Arc<Mutex<HashMap<String, std::sync::Arc<tokio::sync::Mutex<DomainState>>>>>,
 }
@@ -694,30 +693,13 @@ impl BudgetedFetcher {
         let client = http::builder().build()?;
         Ok(Self {
             client,
-            reader: super::reader::Reader::from_env()?,
             domains: std::sync::Arc::new(Mutex::new(HashMap::new())),
-        })
-    }
-
-    #[cfg(test)]
-    pub(crate) fn test_publisher(address: std::net::SocketAddr) -> Result<Self> {
-        Ok(Self {
-            client: http::builder().resolve("publisher.test", address).build()?,
-            reader: None,
-            domains: Default::default(),
         })
     }
 
     fn domain_state(&self, domain: &str) -> std::sync::Arc<tokio::sync::Mutex<DomainState>> {
         let mut map = self.domains.lock().expect("domain budget map poisoned");
         std::sync::Arc::clone(map.entry(domain.to_string()).or_default())
-    }
-
-    #[cfg(test)]
-    pub(crate) fn test_reader(address: std::net::SocketAddr) -> Result<Self> {
-        let mut fetcher = Self::test_publisher(address)?;
-        fetcher.reader = Some(super::reader::Reader::new(&format!("http://{address}"))?);
-        Ok(fetcher)
     }
 
     /// Fetch one URL under the domain budget, recording provenance into `source_documents`.
@@ -734,89 +716,6 @@ impl BudgetedFetcher {
     ) -> std::result::Result<SourceFetch, BudgetedFetchError> {
         let publisher = self.publisher_url(pool, url, policy).await?;
         self.fetch_request(pool, &publisher, policy, None).await
-    }
-
-    pub fn reader_enabled(&self) -> bool {
-        self.reader.is_some()
-    }
-
-    /// Browser-read once; all character consumers share the retained complete article.
-    pub async fn read_article(
-        &self,
-        pool: &sqlx::PgPool,
-        url: &str,
-        policy: &FetchPolicy,
-    ) -> std::result::Result<SourceFetch, BudgetedFetchError> {
-        let Some(reader) = &self.reader else {
-            return self.fetch(pool, url, policy).await;
-        };
-        let publisher = self.publisher_url(pool, url, policy).await?;
-        checked_url(&publisher).map_err(BudgetedFetchError::Other)?;
-        if let Some(hit) = self
-            .cached(pool, &publisher, policy.cache_ttl, super::reader::VERSION)
-            .await
-            .map_err(BudgetedFetchError::Other)?
-        {
-            return Ok(hit);
-        }
-        let domain = domain_of(&publisher)
-            .context("publisher domain")
-            .map_err(BudgetedFetchError::Other)?;
-        let state = self.domain_state(&domain);
-        let mut state = state.lock().await;
-        if let Some(until_secs) = state.held_for(Instant::now()) {
-            return Err(BudgetedFetchError::DomainSkipped { domain, until_secs });
-        }
-        tokio::time::sleep(state.spacing_wait(Instant::now(), policy.min_spacing)).await;
-        let sent_at = Instant::now();
-        state.last_request_at = Some(sent_at);
-        let article = match reader.read(&publisher).await {
-            Ok(article) => article,
-            Err(error) => {
-                let status = error
-                    .downcast_ref::<reqwest::Error>()
-                    .and_then(|e| e.status());
-                state.record_failure(
-                    sent_at,
-                    (status.map(|s| s.as_u16()) == Some(429)).then_some(Duration::from_secs(60)),
-                );
-                return Err(match status {
-                    Some(status) => BudgetedFetchError::Http {
-                        status: status.as_u16(),
-                        final_url: publisher,
-                    },
-                    None => BudgetedFetchError::Other(error),
-                });
-            }
-        };
-        state.record_success(sent_at);
-        drop(state);
-        let hash = content_hash(&article.body);
-        let document_id = sqlx::query_scalar::<_, i64>(
-            "INSERT INTO source_documents
-            (url,final_url,domain,content_hash,http_status,title,retained_excerpt,headers)
-            VALUES($1,$2,$3,$4,200,$5,$6,$7::jsonb) RETURNING id",
-        )
-        .bind(&publisher)
-        .bind(&article.url)
-        .bind(domain_of(&article.url))
-        .bind(&hash)
-        .bind(&article.title)
-        .bind(&article.body)
-        .bind(json!({"reader":super::reader::VERSION,"selector":article.selector}).to_string())
-        .fetch_one(pool)
-        .await
-        .map_err(|e| BudgetedFetchError::Other(e.into()))?;
-        Ok(SourceFetch {
-            document_id,
-            url: publisher,
-            final_url: article.url.clone(),
-            domain: domain_of(&article.url),
-            http_status: 200,
-            content_hash: hash,
-            body: article.body,
-            from_cache: false,
-        })
     }
 
     async fn publisher_url(
@@ -868,7 +767,7 @@ impl BudgetedFetcher {
 
         if form_payload.is_none() && policy.cache_ttl > Duration::ZERO {
             if let Some(hit) = self
-                .cached(pool, url, policy.cache_ttl, "")
+                .cached(pool, url, policy.cache_ttl)
                 .await
                 .map_err(BudgetedFetchError::Other)?
             {
@@ -973,19 +872,18 @@ impl BudgetedFetcher {
         })
     }
 
-    async fn cached(
+    async fn cached<'e>(
         &self,
-        pool: &sqlx::PgPool,
+        executor: impl sqlx::Executor<'e, Database = sqlx::Postgres>,
         url: &str,
         ttl: Duration,
-        reader: &str,
     ) -> Result<Option<SourceFetch>> {
         let row = sqlx::query(
             r#"
             SELECT id, final_url, domain, content_hash, http_status, retained_excerpt
             FROM public.source_documents
             WHERE url = $1
-              AND COALESCE(headers->>'reader','') = $3
+              AND COALESCE(headers->>'reader','') = ''
               AND fetched_at > NOW() - make_interval(secs => $2)
               AND http_status BETWEEN 200 AND 299
             ORDER BY fetched_at DESC
@@ -994,8 +892,7 @@ impl BudgetedFetcher {
         )
         .bind(url)
         .bind(ttl.as_secs_f64())
-        .bind(reader)
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await
         .context("probe source_documents cache")?;
         let Some(row) = row else { return Ok(None) };
@@ -1177,23 +1074,14 @@ mod tests {
             .execute(&pool).await?;
         let fetcher = BudgetedFetcher::new()?;
         assert!(fetcher
-            .cached(
-                &pool,
-                url,
-                Duration::from_secs(60),
-                crate::tools::reader::VERSION
-            )
-            .await?
-            .is_none());
-        assert!(fetcher
-            .cached(&pool, url, Duration::from_secs(60), "")
+            .cached(&pool, url, Duration::from_secs(60))
             .await?
             .is_none());
         sqlx::query("UPDATE source_documents SET retained_excerpt='Complete article. Later correction.' WHERE url=$1")
             .bind(url).execute(&pool).await?;
         assert_eq!(
             fetcher
-                .cached(&pool, url, Duration::from_secs(60), "")
+                .cached(&pool, url, Duration::from_secs(60))
                 .await?
                 .unwrap()
                 .body,
@@ -1225,8 +1113,8 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "local_real_model: requires disposable TEST_DATABASE_URL, TEST_PUBLISHER_URL and TEST_CLASSIFIER_URL"]
-    async fn live_google_news_fetch_and_native_kev_use_publisher_prose() -> Result<()> {
+    #[ignore = "local_real_model: requires disposable TEST_DATABASE_URL and TEST_PUBLISHER_URL"]
+    async fn live_google_news_fetch_retains_publisher_prose() -> Result<()> {
         let pool = publisher_test_pool().await?;
         let url = std::env::var("TEST_PUBLISHER_URL")?;
         assert!(
@@ -1241,25 +1129,6 @@ mod tests {
         let prose = extract_article_text(&fetched.body);
         assert!(count_words(&prose) >= ARTICLE_MIN_WORDS);
         assert!(!prose.trim_start().starts_with('<'));
-        let scrubbed = crate::tools::source::scrub(&prose);
-        let measured = crate::plugins::classifier::decision::Decision::new(std::env::var(
-            "TEST_CLASSIFIER_URL",
-        )?)?
-        .spectrum(&scrubbed.text, "FOOTBALL", &json!({"identity":{
-            "name":"Arsenal","entity_type":"team","entity_id":19,"sport":"FOOTBALL"},
-            "identity_record":crate::tools::meta::load_identity_record(&pool,"team",19,"FOOTBALL").await?,
-            "origin":"canonical_meta_rs","evidence_scope":"Subject identity only; not article evidence."}))
-        .await?;
-        assert_eq!(measured.spectrum.len(), 4);
-        assert_eq!(
-            measured.receipt["request"]["state"]["article"]["body"],
-            scrubbed.text
-        );
-        eprintln!(
-            "{}",
-            json!({"publisher":fetched.domain,"source_bytes":scrubbed.text.len(),
-            "model":measured.model,"questions":measured.spectrum.len()})
-        );
         Ok(())
     }
 
@@ -1458,10 +1327,14 @@ mod tests {
         let extracted = extract_article_text(&html);
         let paragraphs: Vec<_> = extracted.split("\n\n").collect();
         assert_eq!(paragraphs.len(), 4);
-        let opening = crate::plugins::harvester::cognition::first_paragraphs(&extracted, 3);
-        assert!(opening.text.contains("The coach will decide"));
-        assert!(!opening.text.contains("A later recap"));
-        assert_eq!(&extracted[opening.start..opening.end], opening.text);
+        let opening = extracted
+            .split("\n\n")
+            .take(3)
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        assert!(opening.contains("The coach will decide"));
+        assert!(!opening.contains("A later recap"));
+        assert!(extracted.starts_with(&opening));
     }
 
     #[test]
@@ -1474,10 +1347,14 @@ mod tests {
             "A later recap should not appear in the opening. ".repeat(5)
         );
         let extracted = extract_article_text(&html);
-        let opening = crate::plugins::harvester::cognition::first_paragraphs(&extracted, 3);
-        assert!(opening.text.contains("Supporters reacted"));
-        assert!(!opening.text.contains("A later recap"));
-        assert!(count_words(&opening.text) >= 40);
+        let opening = extracted
+            .split("\n\n")
+            .take(3)
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        assert!(opening.contains("Supporters reacted"));
+        assert!(!opening.contains("A later recap"));
+        assert!(count_words(&opening) >= 40);
     }
 
     /// Fails SAFE: a page the extractor cannot parse must come back whole, never empty — an

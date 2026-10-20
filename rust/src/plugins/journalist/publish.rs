@@ -144,11 +144,6 @@ pub(super) async fn record_ledger(
         .and_then(|body| body.pointer("/options/num_ctx"))
         .and_then(|value| value.as_i64())
         .unwrap_or(crate::harness::model::VOICE_NUM_CTX_PACKET as i64) as i32;
-    let mut excluded = Vec::new();
-    if !output.budget_truncated_ids.is_empty() {
-        excluded.push(json!({"reason":"deferred_context_budget",
-            "dropped_news_ids": output.budget_truncated_ids}));
-    }
     insert_generation_ledger_best_effort(
         pool,
         output,
@@ -162,7 +157,7 @@ pub(super) async fn record_ledger(
             trigger_payload: subject.trigger_payload.clone(),
             product_row_ids,
             included_evidence,
-            excluded_evidence: json!(excluded),
+            excluded_evidence: json!([]),
             context_budget: output.context_budget(json!({
                 "num_predict": output.request_body()
                     .and_then(|body| body.pointer("/options/num_predict"))

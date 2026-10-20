@@ -1,0 +1,273 @@
+{
+  "date": "2026-10-19",
+  "status": "Offline rejection exploration only; production and runtime dependencies unchanged.",
+  "candidate": "dom_smoothie 0.18.2 parse_with_policy(ParsePolicy::Strict), then apply the existing minimum 80 body words and maximum 24 KB; do not count RSS title or metadata as body words; do not relax parsing when insufficient.",
+  "boundary": "Inside the single intake job, before relevance/character scoring. Failure records no_usable_article_body or insufficient_body; it does not manufacture a negative relevance verdict.",
+  "sources": {
+    "parse_policy": "https://docs.rs/dom_smoothie/0.18.2/dom_smoothie/struct.Readability.html#method.parse_with_policy",
+    "structured_article_body": "https://schema.org/articleBody"
+  },
+  "test": {
+    "network_fetches": 0,
+    "decision_model_calls": 0,
+    "character_model_calls": 0,
+    "saved_http_pages": 85,
+    "separate_reviewed_http_pages": 6,
+    "same_HTML_for_both_variants": true,
+    "body_only_word_count": true,
+    "default_passes": 72,
+    "strict_passes": 45,
+    "new_rejections": 27,
+    "previously_failing_examples_rejected": 3,
+    "reviewed_positive_pages_retained": 6,
+    "probably_readable_flagged_all_three_bad_examples_readable": true
+  },
+  "new_rejection_review": {
+    "non_story_or_contaminated_page_outputs": 25,
+    "genuine_short_brief_below_policy_floor": 1,
+    "known_substantive_report_missed": 1,
+    "scope": "Targeted review of changed outcomes on the already inspected development batch. This is not precision/recall over the full corpus or an independent confirmation set."
+  },
+  "changed_outcomes": [
+    {
+      "article_id": 973817,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 874,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 974110,
+      "publisher": "Idaho Press",
+      "label": "photo_caption_or_site_furniture",
+      "default_words": 112,
+      "strict_words": 56,
+      "strict_error": null
+    },
+    {
+      "article_id": 974135,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 788,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 974494,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 949,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 974699,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 773,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 975261,
+      "publisher": "Idaho State Journal",
+      "label": "photo_caption_or_site_furniture",
+      "default_words": 116,
+      "strict_words": 11,
+      "strict_error": null
+    },
+    {
+      "article_id": 975075,
+      "publisher": "RotoWire",
+      "label": "genuine_short_brief_below_existing_word_floor",
+      "default_words": 160,
+      "strict_words": 54,
+      "strict_error": null
+    },
+    {
+      "article_id": 975645,
+      "publisher": "Yahoo",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 881,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 975741,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 1127,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 976507,
+      "publisher": "PrizePicks",
+      "label": "product_legal_footer",
+      "default_words": 312,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 976961,
+      "publisher": "NewsBreak: Local News & Alerts",
+      "label": "recommendations_without_report",
+      "default_words": 180,
+      "strict_words": 0,
+      "strict_error": null
+    },
+    {
+      "article_id": 977112,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 899,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 977171,
+      "publisher": "The Big Lead",
+      "label": "false_rejection_substantive_report_present",
+      "default_words": 510,
+      "strict_words": 0,
+      "strict_error": null
+    },
+    {
+      "article_id": 977218,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 701,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 977331,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 783,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 977401,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 931,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 977493,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 1143,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 977499,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 739,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 977618,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 970,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 977909,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 570,
+      "strict_words": 11,
+      "strict_error": null
+    },
+    {
+      "article_id": 977945,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 1031,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 977968,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 1043,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 978011,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 762,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 978039,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 810,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 978118,
+      "publisher": "PrizePicks",
+      "label": "product_legal_footer",
+      "default_words": 312,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 978976,
+      "publisher": "Yahoo Sports",
+      "label": "recommendations_with_missing_main_story",
+      "default_words": 691,
+      "strict_words": 10,
+      "strict_error": null
+    },
+    {
+      "article_id": 980268,
+      "publisher": "planetsport.com",
+      "label": "fixture_and_tv_listings",
+      "default_words": 332,
+      "strict_words": 27,
+      "strict_error": null
+    }
+  ],
+  "correction_to_previous_experiment": {
+    "article_id": 975075,
+    "detail": "The RotoWire HTTP page contains a genuine 32-word structured articleBody. Default extraction selected legal/footer text; strict mode returns the brief plus small promotion, 54 words total. Its rejection is insufficient length under the existing policy, not proof the article is missing."
+  },
+  "remaining_limits": [
+    "Strict acceptance does not prove article identity, freshness, completeness or freedom from captions and ads.",
+    "One substantive Big Lead report is lost; the user accepts some missed stories.",
+    "The 80-word minimum also rejects valid short news briefs; that is an explicit existing intake limit.",
+    "No blacklist, publisher-specific selector, browser fallback or additional model validator was added.",
+    "Retention/rejection-ledger integration, retries, daily scheduling and downstream factual-fidelity checks remain separate and were not deployed."
+  ],
+  "operational_proposal": "Persist a small processed outcome keyed to article/input and reader-policy revision. Pass no body to characters when acquisition fails. Reconsider on a new input/policy revision or bounded scheduled retry, rather than rereading it every sweep. Reuse existing acquisition dispositions.",
+  "private_evidence_directory": "/private/tmp/scoracle-smoothie-rejection-20261019",
+  "verification": {
+    "schema_metadata_self_test": "passed",
+    "known_failure_rejection_assertions": "passed",
+    "six_reviewed_positive_assertions": "passed",
+    "all_changed_outcomes_accounted_for": true
+  },
+  "harness_sha256": {
+    "src/main.rs": "8701d56a94767f6e5f1095dd9d944065ab68ff8f7ffd6c95883ef33ef8451a43",
+    "Cargo.toml": "e298ab774667fff8dc1a75f1094d86b49a8aa7d06380b2a492a2d669c3e21b47",
+    "Cargo.lock": "9780c6b30e68bb4800e341bbe4ce135153f265c40ac723de023eef390bd65934"
+  }
+}

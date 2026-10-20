@@ -1,5 +1,6 @@
 //! Claim-fenced rumors, scores, source receipts, completion and ledger.
-use super::prompt::{self, Match, Material};
+use super::fresh::{Match, Material};
+use super::prompt;
 use super::{record_transfer_event, Finding, Reply, Status, TRANSFER_PUBLISHED};
 use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::harness::plugin::PluginOutcome;
@@ -283,12 +284,12 @@ pub(super) async fn commit(
         generation,
     )
     .await?;
-    let score_id = if item.entity_type != "person" {
+    let score_id = {
         let previous: Option<i16> = sqlx::query_scalar(
             "SELECT score FROM public.insider_scores WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 ORDER BY generated_at DESC,id DESC LIMIT 1"
         ).bind(&item.entity_type).bind(item.entity_id_i32()?).bind(&material.subject.sport)
             .fetch_optional(&mut **publication.transaction()).await?;
-        Some(sqlx::query_scalar::<_, i64>(
+        sqlx::query_scalar::<_, i64>(
             "INSERT INTO public.insider_scores \
              (sport,entity_type,entity_id,score,previous_score,read,headline,model_version,prompt_version,input_hash) \
              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id"
@@ -297,9 +298,7 @@ pub(super) async fn commit(
             .bind(format!("{}: transfer picture", material.subject.name))
             .bind(&generation.provenance.model_version).bind(generation.provenance.prompt_version)
             .bind(generation.provenance.input_hash.as_deref())
-            .fetch_one(&mut **publication.transaction()).await?)
-    } else {
-        None
+            .fetch_one(&mut **publication.transaction()).await?
     };
     for (index, source) in material.sources.iter().enumerate() {
         let has_finding = generation
@@ -321,17 +320,15 @@ pub(super) async fn commit(
         )
         .await?;
     }
-    if let Some(score_id) = score_id {
-        record_transfer_event(
-            publication.transaction(),
-            item,
-            TRANSFER_PUBLISHED,
-            &item.entity_type,
-            item.entity_id_i32()?,
-            Some(&score_id.to_string()),
-        )
-        .await?;
-    }
+    record_transfer_event(
+        publication.transaction(),
+        item,
+        TRANSFER_PUBLISHED,
+        &item.entity_type,
+        item.entity_id_i32()?,
+        Some(&score_id.to_string()),
+    )
+    .await?;
     let remaining = crate::plugins::classifier::delivery::undelivered_count(
         publication.transaction(),
         crate::plugins::insider::manifest::MANIFEST.id.as_str(),
@@ -345,14 +342,15 @@ pub(super) async fn commit(
     } else {
         publication.commit_final().await?;
     }
-    let product_ids = score_id.into_iter().chain(rumor_ids).collect::<Vec<_>>();
-    if !product_ids.is_empty() {
-        insert_generation_ledger_best_effort(pool, generation,
+    let product_ids = std::iter::once(score_id)
+        .chain(rumor_ids)
+        .collect::<Vec<_>>();
+    insert_generation_ledger_best_effort(pool, generation,
             LedgerSpec {
                 plugin_id: crate::plugins::insider::manifest::MANIFEST.id.as_str(),
                 stage: "transfers", lens: "insider",
                 role: crate::plugins::insider::manifest::ROUTE,
-                product_table: if item.entity_type == "person" { "transfer_rumors" } else { "insider_scores" },
+                product_table: "insider_scores",
                 output_contract_version: prompt::OUTPUT_CONTRACT_VERSION,
             },
             LedgerEvent {
@@ -364,7 +362,6 @@ pub(super) async fn commit(
                 context_budget: generation.context_budget(serde_json::json!({"num_predict":prompt::NUM_PREDICT})),
                 parser_outcome: "parsed",
             }).await;
-    }
     Ok(if remaining > 0 {
         PluginOutcome::deferred(
             "more complete Insider reports remain",
@@ -545,6 +542,7 @@ mod tests {
     #[test]
     fn counterparties_require_one_matching_identity_in_the_delivered_report() {
         let mut material = Material {
+            memories: vec![],
             held: vec![],
             subject: EntityMeta {
                 name: "Jordan Sample".into(),

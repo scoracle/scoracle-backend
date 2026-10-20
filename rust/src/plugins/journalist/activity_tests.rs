@@ -3,10 +3,7 @@ use crate::harness::{
     model::{GenerateOptions, GenerateResult, Inference},
     Studio,
 };
-use crate::plugins::journalist::{
-    self,
-    prompt::{self, Assignment},
-};
+use crate::plugins::journalist::{self, prompt::Assignment};
 use crate::tools::meta::EntityMeta;
 use async_trait::async_trait;
 use std::{
@@ -25,7 +22,7 @@ impl Inference for Model {
         self.0.fetch_add(1, Ordering::SeqCst);
         Ok((
             GenerateResult {
-                response: r#"{"report_1":"Wire reports Cedar won."}"#.into(),
+                response: r#"{"narratives":[{"headline":"Cedar win","body":"Wire reports Cedar won.","report_keys":["report_1"]}]}"#.into(),
                 thinking: String::new(),
                 model: "fake".into(),
                 total_duration: Duration::from_millis(1),
@@ -45,7 +42,7 @@ impl Inference for Model {
     }
 }
 fn assignment(corpus: Vec<CorpusItem>, now: i64) -> Assignment {
-    prompt::prepare(
+    journalist::fresh::prepare(
         EntityMeta {
             name: "Cedar".into(),
             entity_id: 7,
@@ -132,11 +129,8 @@ async fn sql_activity_matches_legacy_formula_and_served_product() {
                     actual.card_score, expected.card_score,
                     "count={count} epoch={epoch:?} clock={clock}"
                 );
-                assert_eq!(actual.reports.len(), expected.reports.len());
-                for (actual, expected) in actual.reports.iter().zip(expected.reports) {
-                    assert_eq!(actual.score, expected.score);
-                    assert_eq!(actual.components, expected.components);
-                }
+                assert_eq!(actual.summary.score, expected.summary.score);
+                assert_eq!(actual.summary.components, expected.summary.components);
                 cases += 1;
             }
         }
@@ -177,7 +171,7 @@ async fn sql_activity_matches_legacy_formula_and_served_product() {
     assert_eq!(output.narratives[0].impact, 32);
     assert_eq!(
         output.narratives[0].impact_components,
-        reference(&a.selected, now).reports[0].components
+        reference(&a.selected, now).summary.components
     );
     assert_eq!(
         output.provenance.input_hash.as_deref(),

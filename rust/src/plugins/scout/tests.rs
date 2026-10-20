@@ -442,7 +442,6 @@ fn world(
     let supports_cross_season = supports_cross_season_comparison(profile);
     let selected = model_prompt_profile(profile, supports_cross_season, comparisons);
     crate::plugins::scout::prompt::Parts {
-        reporting: vec![],
         subject: crate::tools::meta::EntityMeta {
             name: subject.entity_name.clone(),
             entity_type: subject.entity_type.clone(),
@@ -1656,7 +1655,6 @@ fn assignment() -> Assignment {
 /// A small world with an elite, source-selected measurement.
 fn scout_parts() -> crate::plugins::scout::prompt::Parts {
     crate::plugins::scout::prompt::Parts {
-        reporting: vec![],
         subject: crate::tools::meta::EntityMeta {
             name: "Vale Kerr".into(),
             entity_type: "player".into(),

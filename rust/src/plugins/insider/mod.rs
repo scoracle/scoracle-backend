@@ -135,14 +135,12 @@ impl StudioPlugin for TransferHandler {
             .as_deref()
             .is_some_and(|version| version.starts_with(crate::plugins::classifier::CONTRACT))
         {
-            let material = fresh::load_material(&self.pool, item).await?;
             let backend = self.models.inference(manifest::ROUTE)?;
-            return execute_prepared(
+            return execute_with_backend(
                 &self.pool,
                 backend.as_ref(),
                 self.models.voice_num_ctx,
                 item,
-                material,
             )
             .await;
         }
@@ -155,12 +153,22 @@ impl StudioPlugin for TransferHandler {
     }
 }
 
+pub(crate) async fn execute_with_backend(
+    pool: &PgPool,
+    backend: &dyn Inference,
+    num_ctx: i32,
+    item: &Item,
+) -> Result<PluginOutcome> {
+    let material = fresh::load_material(pool, item).await?;
+    execute_prepared(pool, backend, num_ctx, item, material).await
+}
+
 async fn execute_prepared(
     pool: &PgPool,
     backend: &dyn Inference,
     num_ctx: i32,
     item: &Item,
-    material: fresh::Material,
+    mut material: fresh::Material,
 ) -> Result<PluginOutcome> {
     let current: bool = sqlx::query_scalar(
         "SELECT EXISTS (SELECT 1 FROM public.pipeline_work \
@@ -218,24 +226,46 @@ async fn execute_prepared(
         }
         publication.commit_progress().await?;
     }
-    let generation = match create_with_memories(
-        &Studio::new(backend),
-        &material.subject,
-        &material.reports,
-        &material.memories,
-        num_ctx,
-    )
-    .await
-    {
+    let result = loop {
+        let result = create_with_memories(
+            &Studio::new(backend),
+            &material.subject,
+            &material.reports,
+            &material.memories,
+            num_ctx,
+        )
+        .await;
+        if result
+            .as_ref()
+            .err()
+            .is_some_and(|error| error.is::<crate::harness::model::ContextExceeded>())
+            && !material.memories.is_empty()
+        {
+            material.memories.clear();
+            continue;
+        }
+        break result;
+    };
+    let generation = match result {
         Ok(generation) => generation,
         Err(error) => {
-            let Some(rejected) = error.downcast_ref::<crate::harness::model::RejectedReply>()
-            else {
+            let (reason, receipt) = if let Some(rejected) =
+                error.downcast_ref::<crate::harness::model::RejectedReply>()
+            {
+                (
+                    "model_reply_rejected",
+                    serde_json::json!({"model":backend.model(),"prompt_version":prompt::PROMPT_VERSION,
+                    "error":format!("{error:#}"),"raw_response_body":rejected.raw_response_body,
+                    "request":rejected.request_body,"prompt":rejected.built_prompt}),
+                )
+            } else if error.is::<crate::harness::model::ContextExceeded>() {
+                (
+                    "daily_package_exceeds_token_budget",
+                    serde_json::json!({"model_called":false,"error":error.to_string()}),
+                )
+            } else {
                 return Err(error);
             };
-            let receipt = serde_json::json!({"model":backend.model(),"prompt_version":prompt::PROMPT_VERSION,
-                "error":format!("{error:#}"),"raw_response_body":rejected.raw_response_body,
-                "request":rejected.request_body,"prompt":rejected.built_prompt});
             let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
                 return Ok(PluginOutcome::Superseded);
             };
@@ -258,7 +288,7 @@ async fn execute_prepared(
                 manifest::MANIFEST.id.as_str(),
                 &ids,
                 "held",
-                Some("model_reply_rejected"),
+                Some(reason),
                 serde_json::json!({"rejected_attempt":receipt}),
             )
             .await?;
@@ -302,7 +332,7 @@ mod tests {
         ) -> Result<(GenerateResult, serde_json::Value)> {
             *self.0.lock().unwrap() += 1;
             Ok((GenerateResult {
-                response: r#"{"body":"Jordan Sample is linked with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland is monitoring Jordan Sample"}]}"#.into(),
+                response: r#"{"body":"Jordan Sample is linked with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland Browns is monitoring Jordan Sample in trade talks"}]}"#.into(),
                 thinking: String::new(), model: "fake".into(), total_duration: Duration::from_millis(1),
                 prompt_eval_count: 10, eval_count: 10, completion_reason: Some("stop".into()), raw_response_body: "{}".into(),
             }, serde_json::json!({})))
@@ -353,7 +383,7 @@ mod tests {
         sqlx::query("INSERT INTO teams(id,sport,name) VALUES(940101,$1,'Cleveland Browns') ON CONFLICT(id,sport) DO NOTHING").bind(sport).execute(&pool).await?;
         sqlx::query("INSERT INTO persons(id,sport,full_name,kind) VALUES(940101,$1,'Jordan Sample','owner') ON CONFLICT(id) DO UPDATE SET sport=EXCLUDED.sport,full_name=EXCLUDED.full_name,kind=EXCLUDED.kind").bind(sport).execute(&pool).await?;
         sqlx::query("INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('team',940101,$1,nrm('Cleveland Browns'),'name'),('person',940101,$1,nrm('Jordan Sample'),'name')").bind(sport).execute(&pool).await?;
-        sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,published_at) VALUES(940101,'https://example.invalid/person-card',md5('person-card'),'Cleveland is monitoring Jordan Sample; Cleveland Browns consider talks.','Wire',now())").execute(&pool).await?;
+        sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,published_at) VALUES(940101,'https://example.invalid/person-card',md5('person-card'),'Cleveland Browns is monitoring Jordan Sample in trade talks; Cleveland Browns consider talks.','Wire',now())").execute(&pool).await?;
         sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES(940101,'team',940101,$1)").bind(sport).execute(&pool).await?;
         sqlx::query("SELECT classifier_enqueue_admission(940101,$1)")
             .bind(sport)
@@ -419,7 +449,8 @@ mod tests {
             publisher: "Wire".into(),
             published_at: None,
             headline: "Browns pursue Jordan Sample".into(),
-            publisher_excerpt: "Cleveland is monitoring Jordan Sample in trade talks.".into(),
+            publisher_excerpt:
+                "Cleveland Browns is monitoring Jordan Sample in trade talks in trade talks.".into(),
             co_mentions: vec![prompt::Mention {
                 name: "Cleveland Browns".into(),
                 entity_type: "team".into(),
@@ -482,7 +513,8 @@ mod tests {
             publisher: "Wire".into(),
             published_at: None,
             headline: "Browns pursue Jordan Sample".into(),
-            publisher_excerpt: "Cleveland is monitoring Jordan Sample.".into(),
+            publisher_excerpt: "Cleveland Browns is monitoring Jordan Sample in trade talks."
+                .into(),
             co_mentions: vec![prompt::Mention {
                 name: "Cleveland Browns".into(),
                 entity_type: "team".into(),

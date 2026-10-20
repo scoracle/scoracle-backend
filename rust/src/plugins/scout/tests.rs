@@ -1885,3 +1885,39 @@ fn the_header_carries_the_curated_sport_display_name() {
         serde_json::json!("Football (Soccer)")
     );
 }
+
+#[test]
+fn recorded_decimal_counts_and_declared_minimum_are_not_participation_claims() {
+    let prompt = serde_json::json!({"fresh":{"season":2026,"supports_cross_season":false,
+        "limit":{"kind":"thin_sample","appearances":7.0,"minimum":10.0}}})
+    .to_string();
+    let directions = std::collections::BTreeMap::new();
+    let bands = std::collections::BTreeMap::new();
+    let parser = super::parser::RatingRequestParser::new(&prompt, &directions, &bands);
+    for body in [
+        "Chelsea has a recorded sample of 7 appearances.",
+        "Chelsea has a recorded sample of 7.0 appearances.",
+        "Chelsea has a recorded sample of 7 appearances. The sample minimum is 10 appearances.",
+        "For the 2026 season, the sample minimum is 10 appearances.",
+        "Chelsea's relative standing is strong in this snapshot.",
+    ] {
+        assert!(
+            parser
+                .parse(&serde_json::json!({"body":body}).to_string())
+                .is_ok(),
+            "{body}"
+        );
+    }
+    for body in [
+        "Chelsea played 7 appearances.",
+        "The sample minimum is 7 appearances.",
+        "Chelsea's standing is unchanged across seasons.",
+    ] {
+        assert!(
+            parser
+                .parse(&serde_json::json!({"body":body}).to_string())
+                .is_err(),
+            "{body}"
+        );
+    }
+}

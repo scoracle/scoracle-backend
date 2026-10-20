@@ -166,6 +166,30 @@ pub fn count_sentences(text: &str) -> usize {
     n
 }
 
+/// Keep decimal points inside the factual claim they qualify.
+pub fn prose_claims(text: &str) -> Vec<&str> {
+    let mut claims = Vec::new();
+    let mut start = 0;
+    for (index, ch) in text.char_indices() {
+        if matches!(ch, '.' | '!' | '?' | ';' | '\n')
+            && !(ch == '.'
+                && text
+                    .as_bytes()
+                    .get(index.wrapping_sub(1))
+                    .is_some_and(u8::is_ascii_digit)
+                && text
+                    .as_bytes()
+                    .get(index + 1)
+                    .is_some_and(u8::is_ascii_digit))
+        {
+            claims.push(&text[start..index]);
+            start = index + ch.len_utf8();
+        }
+    }
+    claims.push(&text[start..]);
+    claims
+}
+
 /// Case-insensitive, fold-aware contains — the matcher behind every `*_excludes`/`*_includes`
 /// eval axis and the case-insensitive guards.
 pub fn contains_ci(haystack: &str, needle: &str) -> bool {
@@ -552,4 +576,55 @@ mod served_prose_tests {
             }
         }
     }
+}
+
+pub fn numeric_literals(text: &str) -> Vec<(String, f64)> {
+    let chars = text.char_indices().collect::<Vec<_>>();
+    let mut out = Vec::new();
+    let mut cursor = 0usize;
+    while cursor < chars.len() {
+        let (start, ch) = chars[cursor];
+        let unary_sign = matches!(ch, '+' | '-')
+            && chars
+                .get(cursor + 1)
+                .is_some_and(|(_, next)| next.is_ascii_digit())
+            && cursor
+                .checked_sub(1)
+                .and_then(|index| chars.get(index))
+                .is_none_or(|(_, previous)| {
+                    previous.is_whitespace() || matches!(previous, '(' | ':' | '=')
+                });
+        if !ch.is_ascii_digit() && !unary_sign {
+            cursor += 1;
+            continue;
+        }
+
+        let mut end_cursor = cursor + usize::from(unary_sign);
+        let mut decimal_seen = false;
+        while let Some((_, next)) = chars.get(end_cursor) {
+            if next.is_ascii_digit() {
+                end_cursor += 1;
+            } else if *next == '.'
+                && !decimal_seen
+                && chars
+                    .get(end_cursor + 1)
+                    .is_some_and(|(_, after)| after.is_ascii_digit())
+            {
+                decimal_seen = true;
+                end_cursor += 1;
+            } else {
+                break;
+            }
+        }
+        let end = chars
+            .get(end_cursor)
+            .map(|(index, _)| *index)
+            .unwrap_or(text.len());
+        let literal = &text[start..end];
+        if let Ok(value) = literal.parse::<f64>() {
+            out.push((literal.to_string(), value));
+        }
+        cursor = end_cursor.max(cursor + 1);
+    }
+    out
 }

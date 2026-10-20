@@ -67,10 +67,94 @@ impl Parser<Reply> for ReplyParser<'_> {
                 "finding quote is not an exact publisher span"
             );
             ensure!(
+                crate::tools::fresh::names_entity(&finding.evidence_quote, &self.subject.name)
+                    && crate::tools::fresh::names_entity(
+                        &finding.evidence_quote,
+                        &finding.counterparty
+                    ),
+                "finding quote must name both the target and counterparty in full"
+            );
+            let quote = finding.evidence_quote.to_lowercase();
+            ensure!(
+                [
+                    "transfer", "trade", "move", "moving", "leave", "leaving", "join", "sign",
+                    "talks", "deal", "interest", "pursu"
+                ]
+                .iter()
+                .any(|term| quote.contains(term)),
+                "finding quote does not state a move"
+            );
+            if finding.status == Status::Denied {
+                ensure!(
+                    [
+                        "deny talks",
+                        "denies talks",
+                        "denied talks",
+                        "no talks",
+                        "not in talks",
+                        "no move",
+                        "no transfer",
+                        "not joining",
+                        "not moving",
+                        "not signing",
+                        "ruled out a move",
+                        "rules out a move",
+                        "denied a move",
+                        "denies a move",
+                        "denied transfer",
+                        "denies transfer",
+                        "rejects a move",
+                        "rejected a move"
+                    ]
+                    .iter()
+                    .any(|term| quote.contains(term)),
+                    "denied finding requires an explicit denial of that move"
+                );
+            }
+            ensure!(
                 seen.insert((finding.report_index, finding.counterparty.as_str())),
                 "duplicate source/counterparty finding"
             );
         }
         Ok(Some(reply))
+    }
+}
+
+#[cfg(test)]
+mod source_fact_tests {
+    use super::*;
+    #[test]
+    fn a_snub_is_not_a_denial_and_partial_names_are_not_counterparties() {
+        let subject = EntityMeta {
+            name: "Chelsea".into(),
+            entity_type: "team".into(),
+            entity_id: 18,
+            sport: "FOOTBALL".into(),
+        };
+        let reports = vec![Report {
+            classifier_world: None,
+            publisher: "Wire".into(),
+            published_at: None,
+            headline: "Chelsea star urged to leave after Xabi Alonso snub".into(),
+            publisher_excerpt: String::new(),
+            co_mentions: vec![super::super::prompt::Mention {
+                name: "Xabi Alonso".into(),
+                entity_type: "person".into(),
+            }],
+        }];
+        let parser = ReplyParser {
+            subject: &subject,
+            reports: &reports,
+        };
+        let raw=serde_json::json!({"body":"Chelsea has no supported move involving Xabi Alonso.","findings":[{"report_index":0,"counterparty":"Xabi Alonso","status":"denied","stage":null,"evidence_quote":reports[0].headline}]}).to_string();
+        assert!(parser
+            .parse(&raw)
+            .unwrap_err()
+            .to_string()
+            .contains("explicit denial"));
+        assert!(!crate::tools::fresh::names_entity(
+            "Cleveland denied talks for Jordan Sample",
+            "Cleveland Browns"
+        ));
     }
 }

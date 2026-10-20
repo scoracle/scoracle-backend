@@ -72,6 +72,21 @@ pub(crate) async fn load_spectrum_source_on(
     Ok(serde_json::from_value(source)?)
 }
 
+pub(crate) async fn load_spectrum_sources_on(
+    connection: &mut PgConnection,
+    ids: &[i64],
+) -> Result<Vec<Source>> {
+    let rows: Vec<Value> = sqlx::query_scalar("SELECT s.source FROM classifier_spectra x JOIN classifier_sources s ON s.id=x.source_id WHERE x.id=ANY($1) ORDER BY x.id")
+        .bind(ids).fetch_all(connection).await?;
+    ensure!(
+        rows.len() == ids.len(),
+        "missing or duplicate spectrum source"
+    );
+    rows.into_iter()
+        .map(|value| serde_json::from_value(value).map_err(Into::into))
+        .collect()
+}
+
 /// Pool convenience for the retained source behind a spectrum row.
 pub async fn load_spectrum_source(pool: &PgPool, spectrum_id: i64) -> Result<Source> {
     load_spectrum_source_on(&mut *pool.acquire().await?, spectrum_id).await
@@ -104,18 +119,21 @@ pub(crate) async fn load_for_character_on(
         rows.len() <= 20000,
         "Classifier character population exceeds bound"
     );
+    let native = rows
+        .iter()
+        .map(|row| serde_json::from_value::<Source>(row.get("source")))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let identities = super::identity::candidates_for(connection, sport, &native).await?;
     let mut sources = Vec::with_capacity(rows.len());
     let mut articles = std::collections::HashSet::new();
-    for row in rows {
+    for ((row, source), identity) in rows.into_iter().zip(native).zip(identities) {
         ensure!(
             row.get::<bool, _>("current_source"),
             "Classifier delivery source changed; headline scoring must reconcile it"
         );
         let id: i64 = row.get("id");
-        let source: Source = serde_json::from_value(row.get("source"))?;
         ensure!(
-            super::identity::candidates(connection, sport, &source).await?
-                == source.provenance["identity_candidates"],
+            identity == source.provenance["identity_candidates"],
             "Classifier canonical identity changed"
         );
         if !articles.insert(source.article_id) {
@@ -136,7 +154,8 @@ pub(crate) async fn load_for_character_on(
             source: source.source,
             published_at_epoch: row.get("published_at_epoch"),
             classifier_world: Some(json!({
-                "target_identity_resolved": true,
+                "target_identity_resolved": identity.as_array().unwrap().iter().any(|candidate|
+                    candidate["entity_type"] == entity_type && candidate["entity_id"] == entity_id),
                 "evidence_scope": "headline",
                 "url": source.provenance["url"],
                 "spectrum": row.get::<Value, _>("spectrum"),
@@ -157,10 +176,9 @@ pub async fn validate_for_publication(
     sources: &[SourceContext],
 ) -> Result<()> {
     lock_sources(tx, plugin, sport, sources).await?;
-    for source in sources {
-        let native = load_spectrum_source_on(tx, source.classification_id).await?;
-        super::identity::validate(tx, sport, &native).await?;
-    }
+    let ids: Vec<_> = sources.iter().map(|s| s.classification_id).collect();
+    let native = load_spectrum_sources_on(tx, &ids).await?;
+    super::identity::validate_all(tx, sport, &native).await?;
     let current = load_for_character_on(tx, plugin, entity_type, entity_id, sport).await?;
     ensure!(
         sources.iter().all(|s| current.contains(s)),

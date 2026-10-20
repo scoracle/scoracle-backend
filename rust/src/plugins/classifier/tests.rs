@@ -573,3 +573,289 @@ async fn team_rss_extracts_known_roles_and_recovers_reverted_headlines() -> Resu
         .await?;
     Ok(())
 }
+
+#[tokio::test]
+#[ignore = "requires disposable migrated TEST_DATABASE_URL"]
+async fn embedded_unknown_names_remain_unresolved_and_batch_checks_are_identical() -> Result<()> {
+    use sqlx::Acquire;
+    let pool = crate::harness::dbtest::pool("disposable identity boundary database").await;
+    plumbing_tests::setup_disposable(&pool).await?;
+    let sport = "ZZ_IDENTITY_BOUNDARY";
+    sqlx::query("UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL")
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM news_articles WHERE id=920805")
+        .execute(&pool)
+        .await?;
+    sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,$1,2026) ON CONFLICT DO NOTHING").bind(sport).execute(&pool).await?;
+    sqlx::query("INSERT INTO teams(id,sport,name) VALUES(920801,$1,'Chelsea') ON CONFLICT(id,sport) DO NOTHING").bind(sport).execute(&pool).await?;
+    sqlx::query("INSERT INTO players(id,sport,name,first_name,last_name) VALUES(920802,$1,'William','William','de Asevedo Furtado') ON CONFLICT(id,sport) DO NOTHING").bind(sport).execute(&pool).await?;
+    sqlx::query("DELETE FROM entity_name_surfaces WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('team',920801,$1,'chelsea','name'),('player',920802,$1,'william','name')").bind(sport).execute(&pool).await?;
+    let mut connection = pool.acquire().await?;
+    let mut sources = Vec::new();
+    for (title, expected) in [
+        (
+            "GPL: William Bediako joins Atlético Madrid from Berekum Chelsea",
+            0,
+        ),
+        ("william bediako joins atletico from berekum chelsea", 0),
+        ("Chelsea Women sign a forward", 0),
+        ("Former Chelsea midfielder returns", 1),
+        ("Chelsea deny talks for William", 2),
+        ("William scores; Chelsea win", 2),
+    ] {
+        let mut source = Source {
+            article_id: 1,
+            body: String::new(),
+            source: "Wire".into(),
+            published_at: None,
+            query_entities: vec![],
+            provenance: std::collections::BTreeMap::from([(
+                "title".into(),
+                serde_json::json!(title),
+            )]),
+        };
+        let found = super::identity::candidates(&mut connection, sport, &source).await?;
+        assert_eq!(
+            found.as_array().unwrap().len(),
+            expected,
+            "{title}: {found}"
+        );
+        source
+            .provenance
+            .insert("identity_candidates".into(), found);
+        sources.push(source);
+    }
+    assert_eq!(
+        super::identity::candidates_for(&mut connection, sport, &sources).await?,
+        sources
+            .iter()
+            .map(|s| s.provenance["identity_candidates"].clone())
+            .collect::<Vec<_>>()
+    );
+    let mut tx = connection.begin().await?;
+    super::identity::validate_all(&mut tx, sport, &sources).await?;
+    sources[0]
+        .provenance
+        .insert("identity_candidates".into(), serde_json::json!([]));
+    let wrong = sources[4].provenance["identity_candidates"].clone();
+    sources[1]
+        .provenance
+        .insert("identity_candidates".into(), wrong);
+    assert!(super::identity::validate_all(&mut tx, sport, &sources)
+        .await
+        .is_err());
+    tx.rollback().await?;
+    drop(connection);
+    sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,published_at) VALUES(920805,'https://example.invalid/identity-boundary',md5('identity-boundary'),'GPL: William Bediako joins Atletico from Berekum Chelsea','Wire',now()-interval '3 days')").execute(&pool).await?;
+    sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES(920805,'team',920801,$1)").bind(sport).execute(&pool).await?;
+    sqlx::query("SELECT classifier_enqueue_admission(920805,$1)")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    let scorer = Model::new()?;
+    let handler = adapter::ClassifierHandler::new(pool.clone(), scorer.decision()?);
+    let mut selected = None;
+    for item in work::claim(&pool, manifest::TASK, 100).await? {
+        if item.entity_id == 920805 && item.sport == sport {
+            selected = Some(item);
+        } else {
+            work::release(&pool, &item).await?;
+        }
+    }
+    handler.execute(&selected.unwrap()).await?;
+    let subject = crate::tools::meta::EntityMeta {
+        name: "Chelsea".into(),
+        entity_type: "team".into(),
+        entity_id: 920801,
+        sport: sport.into(),
+    };
+    for plugin in [
+        crate::plugins::journalist::manifest::MANIFEST.id,
+        crate::plugins::influencer::manifest::MANIFEST.id,
+        crate::plugins::insider::manifest::MANIFEST.id,
+    ] {
+        let delivered =
+            delivery::load_for_character(&pool, plugin.as_str(), "team", 920801, sport).await?;
+        assert_eq!(delivered.len(), 1);
+        assert_eq!(
+            delivered[0].classifier_world.as_ref().unwrap()["target_identity_resolved"],
+            false,
+            "query provenance and high model relevance must not certify target identity"
+        );
+    }
+    let now = crate::plugins::influencer::now();
+    let fresh = [crate::tools::source::SourceContext {
+        classification_id: 0,
+        article_id: 920899,
+        headline: "Chelsea fresh reporting".into(),
+        context: "Chelsea fresh reporting".into(),
+        source: "Wire".into(),
+        published_at_epoch: Some(now),
+        classifier_world: None,
+    }];
+    assert!(
+        super::memories::load_on(&mut *pool.acquire().await?, &subject, &fresh, "journalist")
+            .await?
+            .is_empty(),
+        "another club's archived headline must not return as memory"
+    );
+    sqlx::query("DELETE FROM application_outbox WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires disposable migrated TEST_DATABASE_URL and SCORACLE_MEMORY_STUDY_BIN"]
+async fn exact_token_overflow_drops_history_then_holds_each_complete_character_packet() -> Result<()>
+{
+    use crate::harness::model::{ContextExceeded, GenerateOptions, GenerateResult, Inference};
+    struct Budget(std::sync::Mutex<Vec<String>>);
+    #[async_trait::async_trait]
+    impl Inference for Budget {
+        async fn generate(
+            &self,
+            prompt: &str,
+            _: &GenerateOptions,
+        ) -> Result<(GenerateResult, Value)> {
+            self.0.lock().unwrap().push(prompt.into());
+            Err(ContextExceeded {
+                input: 6310,
+                reserved: 2100,
+                context: 7900,
+            }
+            .into())
+        }
+        fn model(&self) -> &str {
+            "budget-test"
+        }
+        fn request_body(&self, _: &str, _: &GenerateOptions) -> Value {
+            serde_json::json!({})
+        }
+    }
+    let pool = crate::harness::dbtest::pool("disposable admission database").await;
+    plumbing_tests::setup_disposable(&pool).await?;
+    let sport = "ZZ_TOKEN_ADMISSION";
+    sqlx::query("UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL")
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM application_outbox WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM news_articles WHERE id IN (920902,920903)")
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM entity_name_surfaces WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES($1,$1,2026) ON CONFLICT DO NOTHING").bind(sport).execute(&pool).await?;
+    sqlx::query("INSERT INTO teams(id,sport,name) VALUES(920901,$1,'Budget Club') ON CONFLICT(id,sport) DO NOTHING").bind(sport).execute(&pool).await?;
+    sqlx::query("INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('team',920901,$1,'budget club','name')").bind(sport).execute(&pool).await?;
+    let scorer = Model::new()?;
+    let classifier = adapter::ClassifierHandler::new(pool.clone(), scorer.decision()?);
+    for (id, days, title) in [
+        (920902_i64, 3, "Budget Club deny talks"),
+        (920903, 0, "Budget Club celebrate a new transfer report"),
+    ] {
+        sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,published_at) VALUES($1,'https://example.invalid/'||$1,md5($1::text),$2,'Fixture Wire',now()-make_interval(days=>$3))").bind(id).bind(title).bind(days).execute(&pool).await?;
+        sqlx::query("INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES($1,'team',920901,$2)").bind(id).bind(sport).execute(&pool).await?;
+        sqlx::query("SELECT classifier_enqueue_admission($1,$2)")
+            .bind(id)
+            .bind(sport)
+            .execute(&pool)
+            .await?;
+        if days > 0 {
+            sqlx::query("UPDATE pipeline_work SET input_version='headline-history:'||input_version WHERE stage='classifier' AND entity_id=$1 AND sport=$2").bind(id).bind(sport).execute(&pool).await?;
+        }
+        let mut selected = None;
+        for item in work::claim(&pool, manifest::TASK, 100).await? {
+            if item.entity_id == id && item.sport == sport {
+                selected = Some(item);
+            } else {
+                work::release(&pool, &item).await?;
+            }
+        }
+        classifier.execute(&selected.unwrap()).await?;
+    }
+    for stage in [
+        crate::plugins::journalist::manifest::TASK,
+        crate::plugins::influencer::manifest::TASK,
+        crate::plugins::insider::manifest::TASK,
+    ] {
+        let mut selected = None;
+        for item in work::claim(&pool, stage, 100).await? {
+            if item.entity_id == 920901 && item.sport == sport {
+                selected = Some(item);
+            } else {
+                work::release(&pool, &item).await?;
+            }
+        }
+        let item = selected.expect("daily character obligation");
+        let backend = Budget(std::sync::Mutex::new(Vec::new()));
+        let result = match stage.as_str() {
+            "narratives" => {
+                crate::plugins::journalist::execute_with_backend(&pool, &backend, 7900, &item)
+                    .await?
+            }
+            "vibe" => {
+                crate::plugins::influencer::execute_with_backend(&pool, &backend, 7900, &item)
+                    .await?
+            }
+            _ => {
+                crate::plugins::insider::execute_with_backend(&pool, &backend, 7900, &item).await?
+            }
+        };
+        assert_eq!(result, PluginOutcome::Committed);
+        let prompts = backend.0.lock().unwrap();
+        assert_eq!(
+            prompts.len(),
+            2,
+            "{} must attempt admission once with history and once without",
+            stage
+        );
+        let first: Value = serde_json::from_str(&prompts[0])?;
+        let second: Value = serde_json::from_str(&prompts[1])?;
+        assert_eq!(first["memories"].as_array().unwrap().len(), 1);
+        assert!(second["memories"].as_array().unwrap().is_empty());
+        assert_eq!(
+            first["fresh"], second["fresh"],
+            "complete fresh evidence changed"
+        );
+    }
+    let held:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='held'").bind(sport).fetch_one(&pool).await?;
+    assert_eq!(held, 3);
+    let failed:i64=sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage IN ('narratives','vibe','transfers')").bind(sport).fetch_one(&pool).await?;
+    assert_eq!(
+        failed, 0,
+        "permanent token admission must not enter the retry queue"
+    );
+    sqlx::query("DELETE FROM application_outbox WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    Ok(())
+}

@@ -444,3 +444,86 @@ fn chelsea_full_headline_packet_fits_without_routing_metadata() {
     }
     assert_eq!(generation_options(&a, 7900).num_ctx, 7900);
 }
+
+#[test]
+fn named_facts_cannot_move_between_cited_headlines() {
+    let sources = [
+        "GPL: Ghanaian Midfielder William Bediako Joins Atlético Madrid from Berekum Chelsea",
+        "Chelsea player with 23 minutes of playing time this season urged to leave the club",
+    ];
+    assert!(crate::tools::fresh::validate_named_facts(
+        "William Bediako has 23 minutes of playing time.",
+        &sources
+    )
+    .is_err());
+    assert!(crate::tools::fresh::validate_named_facts(
+        "William Bediako joins Atlético Madrid.",
+        &sources
+    )
+    .is_ok());
+    assert!(crate::tools::fresh::validate_named_facts(
+        "The William Bediako’s move is reported.",
+        &sources
+    )
+    .is_ok());
+    assert!(crate::tools::fresh::validate_named_facts(
+        "William Bediako has 23 minutes.",
+        &["William Bediako has 23 minutes."]
+    )
+    .is_ok());
+    assert!(crate::tools::fresh::validate_named_facts(
+        "William Bediako has 99 minutes.",
+        &["William Bediako has 23 minutes."]
+    )
+    .is_err());
+}
+
+#[test]
+fn retained_chelsea_identity_merge_is_rejected_by_production_parser() {
+    let input: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../fixtures/character-runs/chelsea-2026-10-20-qwen-rerun/journalist-input.json"
+    ))
+    .unwrap();
+    let corpus: Vec<CorpusItem> = serde_json::from_value(input["reports"].clone()).unwrap();
+    let now = corpus
+        .iter()
+        .filter_map(|r| r.published_at_epoch)
+        .max()
+        .unwrap();
+    let assignment = prepare(
+        serde_json::from_value(input["subject"].clone()).unwrap(),
+        corpus,
+        &[],
+        now,
+    )
+    .unwrap();
+    let output: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../fixtures/character-runs/chelsea-2026-10-20-qwen-rerun/journalist-output.json"
+    ))
+    .unwrap();
+    assert!(EditionParser {
+        assignment: &assignment,
+        activity: &activity::reference(&assignment.selected, now)
+    }
+    .parse(output["calls"][0]["response"].as_str().unwrap())
+    .is_err());
+    use crate::evaluation::tasks::LensTask;
+    let parts = Parts {
+        subject: assignment.subject.clone(),
+        reports: assignment.selected.clone(),
+        memories: vec![],
+    };
+    let request = crate::evaluation::tasks::NarrativesTask
+        .assemble(&serde_json::to_value(parts).unwrap())
+        .unwrap();
+    assert!(
+        !crate::evaluation::tasks::NarrativesTask
+            .evaluate_prepared(
+                &request,
+                output["calls"][0]["response"].as_str().unwrap(),
+                None,
+                None
+            )
+            .parsed
+    );
+}

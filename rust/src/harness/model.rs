@@ -5,8 +5,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-/// Context window used by local model stages. Roles sharing one loaded runner must use the same
-/// size or the server reloads it between calls.
+/// Default context window for local model stages.
 pub const LOCAL_STAGE_NUM_CTX: i32 = 4096;
 
 /// Context window shared by every character voice: prompt, evidence, and output reservation.
@@ -90,8 +89,7 @@ pub struct InputCoverage {
 
 impl PreparedRequest {
     pub fn verify_input(&self, prompt: &str, opts: &GenerateOptions) -> Result<()> {
-        let prepared = self;
-        let coverage = prepared
+        let coverage = self
             .coverage
             .as_ref()
             .context("exact tokenizer evidence required")?;
@@ -111,20 +109,41 @@ impl PreparedRequest {
             opts.num_ctx > 0 && opts.num_predict > 0 && coverage.context > 0,
             "invalid input/output reservation"
         );
-        let reserved = prepared.request["n_predict"]
+        let reserved = self.request["n_predict"]
             .as_u64()
-            .or_else(|| prepared.request["options"]["num_predict"].as_u64())
-            .or_else(|| prepared.request["max_tokens"].as_u64())
+            .or_else(|| self.request["options"]["num_predict"].as_u64())
+            .or_else(|| self.request["max_tokens"].as_u64())
             .context("explicit transport output reservation required")?;
         ensure!(
             reserved >= opts.num_predict as u64,
             "transport reduced the requested output reservation"
         );
-        ensure!(coverage.token_ids.len() as u64+reserved <= coverage.context.min(opts.num_ctx) as u64,
-        "complete input plus reserved output exceeds actual model context; no source was clipped");
+        let context = coverage.context.min(opts.num_ctx) as u64;
+        if coverage.token_ids.len() as u64 + reserved > context {
+            return Err(ContextExceeded {
+                input: coverage.token_ids.len() as u64,
+                reserved,
+                context,
+            }
+            .into());
+        }
         Ok(())
     }
 }
+
+/// A permanent admission result for this complete packet, before inference.
+#[derive(Debug)]
+pub struct ContextExceeded {
+    pub input: u64,
+    pub reserved: u64,
+    pub context: u64,
+}
+impl std::fmt::Display for ContextExceeded {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "complete input ({}) plus reserved output ({}) exceeds actual model context ({}); no source was clipped", self.input, self.reserved, self.context)
+    }
+}
+impl std::error::Error for ContextExceeded {}
 
 /// Inference — the model-call backend, the genuine swap point. `LlamaClient` is the first
 /// impl; a `dyn Inference` is what a plugin-owned route resolves to. `generate` returns the exact
@@ -250,5 +269,36 @@ mod tests {
         assert!(crate::harness::session::structured_correction(&wrapped).is_some());
         // Older compatible servers may omit the optional signal.
         assert!(validate_completion(None, None).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod context_tests {
+    use super::*;
+    #[test]
+    fn exact_token_overflow_is_a_distinct_permanent_admission_result() {
+        let options = GenerateOptions {
+            num_ctx: 7900,
+            num_predict: 2100,
+            ..Default::default()
+        };
+        let prepared = PreparedRequest {
+            request: serde_json::json!({"n_predict":2100}),
+            coverage: Some(InputCoverage {
+                rendered_prompt: "complete evidence".into(),
+                token_ids: vec![1; 6310],
+                context: 8192,
+                provider: serde_json::Value::Null,
+            }),
+        };
+        let error = prepared
+            .verify_input("complete evidence", &options)
+            .unwrap_err();
+        let admission = error.downcast_ref::<ContextExceeded>().unwrap();
+        assert_eq!(
+            (admission.input, admission.reserved, admission.context),
+            (6310, 2100, 7900)
+        );
+        assert!(error.to_string().contains("no source was clipped"));
     }
 }

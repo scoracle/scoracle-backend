@@ -212,9 +212,7 @@ mod tests {
     use crate::harness::config::Backend;
     use crate::harness::model::small_voice_window;
 
-    /// The window resolves from the env override when it is sane, and from the default otherwise
-    /// — including for junk, which must never fail a boot (the total-parse discipline `RAIL`
-    /// used to carry, kept after the Phase 9 prune deleted the rail itself).
+    /// Invalid overrides fall back without failing startup.
     #[test]
     fn voice_window_override_beats_the_default_and_junk_falls_back() {
         assert_eq!(resolve_voice_num_ctx(None), VOICE_NUM_CTX_PACKET);
@@ -229,10 +227,7 @@ mod tests {
         }
     }
 
-    /// Everything that has to fit inside the window keys on the WINDOW. The pin that matters:
-    /// 4096 is a small window whatever set it, so a host pinned there by env gets the small
-    /// reservations rather than a 4,000-token reservation it cannot hold. This is why
-    /// `small_voice_window` outlived the rail: it keys on the WINDOW, which is still a live knob.
+    /// Small output reservations follow the effective window, including an env override.
     #[test]
     fn small_window_is_a_property_of_the_window() {
         assert!(!small_voice_window(VOICE_NUM_CTX_PACKET));

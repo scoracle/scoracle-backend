@@ -217,7 +217,7 @@ async fn blank_prose_produces_no_product() {
 }
 
 #[tokio::test]
-async fn partial_material_supports_creation_and_missing_measurement_stays_neutral() {
+async fn missing_peer_is_explicit_without_a_model_call() {
     let model =
         Model::new(r#"{"blurb":"The mood reading is calm; measured movement is unavailable."}"#);
     let mut assignment = assignment();
@@ -241,10 +241,10 @@ async fn partial_material_supports_creation_and_missing_measurement_stays_neutra
     assert_eq!(out.direction, "steady");
     assert_eq!(out.score, 0);
     assert_eq!(out.headline.as_deref(), Some("Vale Kerr: current momentum"));
-    assert_eq!(
-        model.calls.lock().unwrap()[0].1.num_predict,
-        MOMENTUM_NUM_PREDICT
-    );
+    assert!(out.blurb.contains("Performance reading unavailable"));
+    assert!(out.blurb.contains("cannot be assessed"));
+    assert!(!out.was_called());
+    assert!(model.calls.lock().unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -377,17 +377,23 @@ async fn sql_metrics_match_legacy_thresholds_and_creation() -> Result<()> {
                 assert_eq!(actual.season, expected.season);
                 assert_eq!(actual.input_components_json, expected.input_components_json);
                 assert_eq!(actual.provenance.input_hash, expected.provenance.input_hash);
-                assert_eq!(actual.provenance.model_version, "model-that-answered");
-                assert_eq!(
-                    actual.call.as_ref().unwrap().request_body,
-                    expected.call.as_ref().unwrap().request_body
-                );
-                assert_eq!(actual_calls.len(), 1);
-                assert_eq!(actual_calls[0].0, expected_calls[0].0);
-                assert_eq!(
-                    format!("{:?}", actual_calls[0].1),
-                    format!("{:?}", expected_calls[0].1)
-                );
+                if actual.was_called() {
+                    assert_eq!(actual.provenance.model_version, "model-that-answered");
+                    assert_eq!(
+                        actual.call.as_ref().unwrap().request_body,
+                        expected.call.as_ref().unwrap().request_body
+                    );
+                    assert_eq!(actual_calls.len(), 1);
+                    assert_eq!(actual_calls[0].0, expected_calls[0].0);
+                    assert_eq!(
+                        format!("{:?}", actual_calls[0].1),
+                        format!("{:?}", expected_calls[0].1)
+                    );
+                } else {
+                    assert_eq!(actual.provenance.model_version, "configured-model");
+                    assert!(actual_calls.is_empty());
+                    assert!(actual.blurb.contains("cannot be assessed"));
+                }
             }
             creations += 1;
         }

@@ -1,6 +1,7 @@
 //! Scout response shape and guards against unsupported factual claims.
 use super::performance::RelativeDirection;
 use crate::harness::Parser;
+use crate::tools::guards::numeric_literals;
 use anyhow::Result;
 use std::collections::BTreeMap;
 
@@ -174,57 +175,6 @@ fn first_unsupported_number(body: &str, prompt: &str) -> Option<String> {
                 .any(|(_, known)| (known - value).abs() < 0.000_001)
         })
         .map(|(literal, _)| literal)
-}
-
-fn numeric_literals(text: &str) -> Vec<(String, f64)> {
-    let chars = text.char_indices().collect::<Vec<_>>();
-    let mut out = Vec::new();
-    let mut cursor = 0usize;
-    while cursor < chars.len() {
-        let (start, ch) = chars[cursor];
-        let unary_sign = matches!(ch, '+' | '-')
-            && chars
-                .get(cursor + 1)
-                .is_some_and(|(_, next)| next.is_ascii_digit())
-            && cursor
-                .checked_sub(1)
-                .and_then(|index| chars.get(index))
-                .is_none_or(|(_, previous)| {
-                    previous.is_whitespace() || matches!(previous, '(' | ':' | '=')
-                });
-        if !ch.is_ascii_digit() && !unary_sign {
-            cursor += 1;
-            continue;
-        }
-
-        let mut end_cursor = cursor + usize::from(unary_sign);
-        let mut decimal_seen = false;
-        while let Some((_, next)) = chars.get(end_cursor) {
-            if next.is_ascii_digit() {
-                end_cursor += 1;
-            } else if *next == '.'
-                && !decimal_seen
-                && chars
-                    .get(end_cursor + 1)
-                    .is_some_and(|(_, after)| after.is_ascii_digit())
-            {
-                decimal_seen = true;
-                end_cursor += 1;
-            } else {
-                break;
-            }
-        }
-        let end = chars
-            .get(end_cursor)
-            .map(|(index, _)| *index)
-            .unwrap_or(text.len());
-        let literal = &text[start..end];
-        if let Ok(value) = literal.parse::<f64>() {
-            out.push((literal.to_string(), value));
-        }
-        cursor = end_cursor.max(cursor + 1);
-    }
-    out
 }
 
 fn first_direction_contradiction(
@@ -454,7 +404,7 @@ fn first_source_shape_error(
                 )
             });
         if (stability_word && temporal_refers_back)
-            || ["relative standing", "no change"]
+            || ["no change"]
                 .iter()
                 .any(|phrase| body_folded.contains(phrase))
         {
@@ -485,7 +435,7 @@ fn first_source_shape_error(
             "deteriorated",
             "deteriorating",
         ];
-        for claim in body_folded.split(['.', '!', '?', ';', '\n']) {
+        for claim in crate::tools::guards::prose_claims(&body_folded) {
             let names_measure = bands
                 .keys()
                 .any(|label| claim.contains(&label.to_lowercase()));
@@ -495,24 +445,37 @@ fn first_source_shape_error(
                 );
             }
         }
-        for claim in body_folded.split(['.', '!', '?', ';', '\n']) {
-            let actualized = claim
+        for claim in crate::tools::guards::prose_claims(&body_folded) {
+            let counts: Vec<_> = claim
                 .split_whitespace()
                 .collect::<Vec<_>>()
                 .windows(2)
-                .any(|words| {
+                .filter(|words| {
+                    words[1].starts_with("game")
+                        || words[1].starts_with("appearance")
+                        || words[1].starts_with("minute")
+                })
+                .filter_map(|words| {
                     words[0]
                         .trim_matches(|c: char| !c.is_ascii_digit() && c != '.')
                         .parse::<f64>()
-                        .is_ok()
-                        && (words[1].starts_with("game")
-                            || words[1].starts_with("appearance")
-                            || words[1].starts_with("minute"))
-                });
+                        .ok()
+                })
+                .collect();
             let qualified = ["recorded", "stored", "snapshot", "source sample"]
                 .iter()
-                .any(|term| claim.contains(term));
-            if actualized && !qualified {
+                .any(|term| claim.contains(term))
+                || (claim.contains("sample")
+                    && ["minimum", "threshold", "limit"]
+                        .iter()
+                        .any(|term| claim.contains(term))
+                    && profile["limit"]["minimum"].as_f64().is_some_and(|minimum| {
+                        !counts.is_empty()
+                            && counts
+                                .iter()
+                                .all(|value| (*value - minimum).abs() < 0.000_001)
+                    }));
+            if !counts.is_empty() && !qualified {
                 return Some(
                     "The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games.",
                 );

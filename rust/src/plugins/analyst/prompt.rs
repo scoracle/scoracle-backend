@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s40-evidence-only";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s41-missing-peer";
 
 pub const MOMENTUM_SYSTEM_PROMPT: &str = "Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Preserve the entity type and evidence limits of each reading. Do not strengthen a claim or turn relative statistics into skill, cohesion or causation. If either reading is missing, explicitly say that agreement between performance and mood cannot be assessed. Synthesize the supplied finished performance and mood readings for this entity. Explain whether they reinforce each other, diverge, or leave the current picture unresolved. Scout notability measures distinctiveness, not skill; do not merge different windows or infer a cause. A missing daily reading is unknown, not a neutral signal. Do not forecast. Return only a JSON object with one key, blurb, containing concise prose.";
 

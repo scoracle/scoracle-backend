@@ -12,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s75-evidence-only";
+pub const RATING_PROMPT_VERSION: &str = "s76-source-shape";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;

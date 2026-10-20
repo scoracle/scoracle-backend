@@ -375,6 +375,18 @@ pub async fn compute(req: &Request) -> Result<Vec<Finding>> {
     Ok(findings)
 }
 
+/// Exercise the installed helper with nonempty history before claiming character work.
+pub async fn verify_runtime() -> Result<()> {
+    let ids: Vec<i64> = run(&serde_json::json!({
+        "kind":"headline_memory", "version":"headline-spectrum-memory-v1",
+        "character":"journalist", "from":0, "before":2, "limit":1,
+        "observations":[{"article_id":1,"reported_at":1,"spectrum":{"subject":100}}],
+    }))
+    .await?;
+    ensure!(ids == [1], "memory helper failed its startup contract");
+    Ok(())
+}
+
 pub(crate) async fn run<T: Serialize, R: serde::de::DeserializeOwned>(req: &T) -> Result<R> {
     // Bound embedded-engine concurrency independently of the queue's fan-out.
     static SLOTS: std::sync::LazyLock<tokio::sync::Semaphore> =

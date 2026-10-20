@@ -1,7 +1,7 @@
 //! Load and bound fresh movement headlines and canonical candidate names.
 use super::prompt::{assemble, assemble_with_memories, Parts, CONTEXT_BUDGET_BYTES};
 use crate::harness::queue::work::Item;
-use crate::plugins::classifier::delivery::{load_for_character, load_spectrum_source};
+use crate::plugins::classifier::delivery::{load_for_character, load_spectrum_sources_on};
 use crate::tools::{meta::EntityMeta, source::SourceContext};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -63,8 +63,14 @@ pub(super) async fn load_material(pool: &PgPool, item: &Item) -> Result<Material
     .await?;
     let mut reports = Vec::with_capacity(sources.len());
     let mut mentions = Vec::with_capacity(sources.len());
+    let ids: Vec<_> = sources.iter().map(|s| s.classification_id).collect();
+    let native = load_spectrum_sources_on(&mut *pool.acquire().await?, &ids).await?;
+    let native: std::collections::HashMap<_, _> =
+        native.into_iter().map(|s| (s.article_id, s)).collect();
     for source in &sources {
-        let native = load_spectrum_source(pool, source.classification_id).await?;
+        let native = native
+            .get(&source.article_id)
+            .context("native source missing")?;
         let found = native.provenance["identity_candidates"]
             .as_array()
             .context("native identities missing")?

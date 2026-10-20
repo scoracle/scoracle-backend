@@ -34,7 +34,7 @@ pub struct EditionParser<'a> {
 }
 impl Parser<NarrativesProduct> for EditionParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
-        let reply = crate::tools::form::parse_journalist(raw, self.assignment.selected.len())?;
+        let reply = parse_reports(raw, &self.assignment.selected)?;
         let narratives = reply
             .narratives
             .into_iter()
@@ -76,4 +76,33 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
             headline,
         }))
     }
+}
+
+pub(super) fn parse_reports(
+    raw: &str,
+    reports: &[CorpusItem],
+) -> Result<crate::tools::form::JournalistReply> {
+    let reply = crate::tools::form::parse_journalist(raw, reports.len())?;
+    for prose in &reply.narratives {
+        let sources: Vec<_> = prose
+            .report_keys
+            .iter()
+            .map(|key| {
+                let index = key
+                    .strip_prefix("report_")
+                    .unwrap()
+                    .parse::<usize>()
+                    .unwrap()
+                    - 1;
+                let report = &reports[index];
+                format!("{}: {} {}", report.source, report.title, report.context)
+            })
+            .collect();
+        crate::tools::fresh::validate_named_facts(
+            &format!("{}. {}", prose.headline, prose.body),
+            &sources.iter().map(String::as_str).collect::<Vec<_>>(),
+        )
+        .map_err(|error| crate::tools::form::SurfaceError(error.to_string()))?;
+    }
+    Ok(reply)
 }

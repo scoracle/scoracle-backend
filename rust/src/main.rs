@@ -29,6 +29,15 @@ async fn main() -> Result<()> {
     let mut cfg = config::Config::from_env()?;
     let configured_stages = std::env::var("COGNITION_STAGES").ok();
     let enabled = registration::enabled_from_config(configured_stages.as_deref())?;
+    if enabled.iter().any(|stage| {
+        matches!(
+            stage.as_str(),
+            "narratives" | "vibe" | "rating" | "transfers" | "momentum" | "sigil"
+        )
+    }) {
+        scoracle_cognition::tools::memories::verify_runtime().await?;
+        info!("shared memory helper verified");
+    }
     // Acquisition-only workers have no inference routes or model-host dependency.
     let routes: Vec<_> = scoracle_cognition::harness::fleet::ALL
         .iter()

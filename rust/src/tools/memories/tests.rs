@@ -232,3 +232,9 @@ async fn live_memory_exports_are_read_only() {
         println!("live publisher records: {}", records.len());
     }
 }
+
+#[tokio::test]
+#[ignore = "requires SCORACLE_MEMORY_STUDY_BIN"]
+async fn installed_helper_handles_nonempty_startup_history() {
+    verify_runtime().await.unwrap();
+}

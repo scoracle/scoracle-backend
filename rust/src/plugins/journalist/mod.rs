@@ -119,107 +119,145 @@ impl StudioPlugin for NarrativesHandler {
     }
 
     async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
-        let now = now_unix();
-        let subject = EntityMeta {
-            name: crate::tools::meta::lookup_entity_name(
-                &self.pool,
-                &item.entity_type,
-                item.entity_id_i32()?,
-                &item.sport,
-            )
-            .await?,
-            entity_type: item.entity_type.clone(),
-            entity_id: item.entity_id_i32()?,
-            sport: item.sport.to_uppercase(),
-        };
-        let material = fresh::load_narratives_material(&self.pool, subject, now).await?;
-        let payload = json!({"source":"classifier"});
-        let debounced = material.sources.is_empty()
-            || (crate::harness::products::debounce_unchanged(
-                &self.pool,
-                "news_summaries",
-                &EntityKey {
-                    entity_type: item.entity_type.clone(),
-                    entity_id: item.entity_id_i32()?,
-                    sport: item.sport.to_uppercase(),
-                    season: None,
-                },
-                &material.assignment.input_hash,
-            )
-            .await?
-                && !material.assignment.selected.is_empty());
-        if debounced {
-            return Ok(commit_claimed(
-                &self.pool,
-                item,
-                &item.sport.to_uppercase(),
-                "classifier",
-                &payload,
-                &Prepared::Debounced,
-                &material.sources,
-                &material.assignment.dispositions,
-            )
-            .await?
-            .0);
-        }
-        let backend = self
-            .models
-            .inference(crate::plugins::journalist::manifest::ROUTE)?;
-        let output = create(
+        let backend = self.models.inference(manifest::ROUTE)?;
+        execute_with_backend(
             &self.pool,
-            &Studio::new(backend.as_ref()),
-            &material.assignment,
-            now,
+            backend.as_ref(),
             self.models.voice_num_ctx,
+            item,
         )
-        .await?;
-        // No fresh reporting completes dispositions without overwriting the last
-        // useful edition with an artificial quiet/zero product.
-        let mut dispositions = material.assignment.dispositions.clone();
-        if output.was_called() && output.narratives.is_empty() {
-            dispositions.extend(material.assignment.selected.iter().map(|report| {
-                prompt::Disposition {
-                    article_id: report.id,
-                    reason: "no_target_reporting",
-                }
-            }));
-        }
-        let prepared = if output.narratives.is_empty() {
-            Prepared::Debounced
-        } else {
-            Prepared::Product(&output)
-        };
-        let (outcome, rows) = commit_claimed(
-            &self.pool,
+        .await
+    }
+}
+
+pub(crate) async fn execute_with_backend(
+    pool: &sqlx::PgPool,
+    backend: &dyn crate::harness::model::Inference,
+    num_ctx: i32,
+    item: &Item,
+) -> Result<PluginOutcome> {
+    let now = now_unix();
+    let subject = EntityMeta {
+        name: crate::tools::meta::lookup_entity_name(
+            pool,
+            &item.entity_type,
+            item.entity_id_i32()?,
+            &item.sport,
+        )
+        .await?,
+        entity_type: item.entity_type.clone(),
+        entity_id: item.entity_id_i32()?,
+        sport: item.sport.to_uppercase(),
+    };
+    let mut material = fresh::load_narratives_material(pool, subject, now).await?;
+    let payload = json!({"source":"classifier"});
+    let debounced = material.sources.is_empty()
+        || (crate::harness::products::debounce_unchanged(
+            pool,
+            "news_summaries",
+            &EntityKey {
+                entity_type: item.entity_type.clone(),
+                entity_id: item.entity_id_i32()?,
+                sport: item.sport.to_uppercase(),
+                season: None,
+            },
+            &material.assignment.input_hash,
+        )
+        .await?
+            && !material.assignment.selected.is_empty());
+    if debounced {
+        return Ok(commit_claimed(
+            pool,
             item,
             &item.sport.to_uppercase(),
             "classifier",
             &payload,
-            &prepared,
+            &Prepared::Debounced,
             &material.sources,
-            &dispositions,
+            &material.assignment.dispositions,
+        )
+        .await?
+        .0);
+    }
+    let output =
+        loop {
+            match create(
+                pool,
+                &Studio::new(backend),
+                &material.assignment,
+                now,
+                num_ctx,
+            )
+            .await
+            {
+                Err(error) if error.is::<crate::harness::model::ContextExceeded>() => {
+                    if material.assignment.memories.is_empty() {
+                        material.assignment.dispositions.extend(
+                            material.assignment.selected.drain(..).map(|report| {
+                                prompt::Disposition {
+                                    article_id: report.id,
+                                    reason: "daily_package_exceeds_token_budget",
+                                }
+                            }),
+                        );
+                    } else {
+                        material.assignment.memories.clear();
+                    }
+                    material.assignment.input_hash = crate::util::hash_components(&format!(
+                        "{}:{}",
+                        material.assignment.input_hash,
+                        prompt::prompt(&material.assignment)
+                    ));
+                }
+                result => break result?,
+            }
+        };
+    // No fresh reporting completes dispositions without overwriting the last
+    // useful edition with an artificial quiet/zero product.
+    let mut dispositions = material.assignment.dispositions.clone();
+    if output.was_called() && output.narratives.is_empty() {
+        dispositions.extend(material.assignment.selected.iter().map(|report| {
+            prompt::Disposition {
+                article_id: report.id,
+                reason: "no_target_reporting",
+            }
+        }));
+    }
+    let prepared = if output.narratives.is_empty() {
+        Prepared::Debounced
+    } else {
+        Prepared::Product(&output)
+    };
+    let (outcome, rows) = commit_claimed(
+        pool,
+        item,
+        &item.sport.to_uppercase(),
+        "classifier",
+        &payload,
+        &prepared,
+        &material.sources,
+        &dispositions,
+    )
+    .await?;
+    if matches!(
+        outcome,
+        PluginOutcome::Committed | PluginOutcome::Deferred { .. }
+    ) {
+        record_ledger(
+            pool,
+            &LedgerSubject {
+                entity_type: &item.entity_type,
+                entity_id: item.entity_id_i32()?,
+                sport: &item.sport.to_uppercase(),
+                trigger_type: "classifier",
+                trigger_payload: &payload,
+            },
+            rows,
+            &output,
         )
         .await?;
-        if matches!(
-            outcome,
-            PluginOutcome::Committed | PluginOutcome::Deferred { .. }
-        ) {
-            record_ledger(
-                &self.pool,
-                &LedgerSubject {
-                    entity_type: &item.entity_type,
-                    entity_id: item.entity_id_i32()?,
-                    sport: &item.sport.to_uppercase(),
-                    trigger_type: "classifier",
-                    trigger_payload: &payload,
-                },
-                rows,
-                &output,
-            )
-            .await?;
-        }
-        Ok(outcome)
     }
+    Ok(outcome)
 }
 
 fn now_unix() -> i64 {

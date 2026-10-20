@@ -16,7 +16,7 @@ Classifier performs no publisher fetch, article extraction, browser rendering or
 
 ## Character packages and publication
 
-Journalist, Influencer and Insider receive one JSON document containing `meta`, `task`, `fresh`, `memories` and `voice`. Each plugin's `fresh.rs` selects and bounds its evidence; `prompt.rs` owns instructions and assembly; `voice.rs` controls expression. Production and evaluation use these same preparation paths.
+Each plugin's `fresh.rs` selects and bounds evidence; `prompt.rs` owns instructions and assembly; `voice.rs` controls expression. Journalist and Insider include instructions in their JSON packets. Influencer receives a compact `meta`/`fresh`/`memories` packet with separate system instructions. Production and evaluation share these preparation paths.
 
 - Journalist groups supported fresh headlines into up to three narratives, retaining exact contributing report keys.
 - Influencer produces one supported emotional reading, or abstains when feelings are unknown.
@@ -25,7 +25,7 @@ Journalist, Influencer and Insider receive one JSON document containing `meta`, 
 
 Fresh copies from the same publisher are supplied once, regardless of RSS URL or routing scores. Every delivery still receives a durable outcome. Feed rank controls queue ordering and cannot make unchanged evidence fresh again.
 
-Memories are attributed headlines from the prior seven days, using the same character lens, with at most 20 complete records and 6 KB. DuckDB ranks them by relevance for Journalist, emotion then relevance for Influencer, and movement then relevance for Insider, with recency breaking ties. Their publication dates, URLs and scores remain attached. The view excludes fresh article IDs and decisions after the edition freeze. Memories describe previous reporting; they cannot establish a new event or today's emotions. See the [headline corpus contract](docs/headline-corpus.md).
+Memories are attributed headlines from the prior seven days, using the same character lens, with at most 20 complete records and 6 KB. DuckDB ranks them by relevance for Journalist, emotion then relevance for Influencer, and movement then relevance for Insider, with recency breaking ties. Writing inputs keep headlines, publishers and dates; receipts also retain URLs and scores. The view excludes fresh article IDs and decisions after the edition freeze. Memories describe previous reporting; they cannot establish a new event or today's emotions. See the [headline corpus contract](docs/headline-corpus.md).
 
 The shared coverage controller freezes daily assignments at midnight America/Detroit. Queue leases, current-source validation and claim-fenced transactions protect retries and publication. Reverting a headline to an archived revision reconciles its current pointer and outstanding obligations. Completed evidence is not republished merely because its discovery candidates change.
 
@@ -54,6 +54,8 @@ The six character plugins retain their existing interfaces and model routes. `st
 ## Activation and verification
 
 The [October 20 release record](docs/headline-qwen35-deployment-2026-10-20.md) documents deployed migration 315 and matching Go/Rust binaries on both hosts. The [all-character Qwen release](docs/qwen-character-production-2026-10-20.md) pins all six character routes to one Qwen3.5-4B server with four slots, a 7,900-token request budget and evidence-only prompts. Known factual-output defects remain documented in the release record. See [entity pipeline changes and follow-up](docs/headline-entity-pipeline.md).
+
+The [pipeline guard fixes](docs/pipeline-guard-fixes-2026-10-20.md) add conservative identity and source checks, explicit missing-peer readings, exact-token holds and verified memory-helper startup.
 
 For a read-only model replay: `CLASSIFIER_URL=http://127.0.0.1:18081 cargo run --release --example classifier_replay -- cases.jsonl 4`. Cases supply `id`, `sport`, `headline`, `publisher` and canonical `meta`.
 

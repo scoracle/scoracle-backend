@@ -101,6 +101,8 @@ pub async fn create(
             if let Some(failure) = error.downcast_ref::<crate::harness::model::ResponseFailure>() {
                 receipt["raw_response_body"] = json!(failure.raw_response_body);
             }
+            receipt["context_exceeded"] =
+                json!(error.is::<crate::harness::model::ContextExceeded>());
             receipt["error"] = json!(format!("{error:#}"));
             return Ok((None, receipt));
         }
@@ -223,65 +225,11 @@ pub(crate) async fn execute_with_backend(
         entity_id,
         sport: sport.clone(),
     };
-    let (assignment, disposition) = fresh::prepare_assignment(pool, subject, now()).await?;
+    let (mut assignment, disposition) = fresh::prepare_assignment(pool, subject, now()).await?;
     if assignment.parts.hold_reason().is_some() {
-        let held: Vec<_> = pending
-            .iter()
-            .filter(|source| {
-                assignment.parts.sources.contains(source)
-                    || assignment.parts.excluded.iter().any(|entry| {
-                        entry["in_day"] == true
-                            && entry["classification_id"] == source.classification_id
-                    })
-            })
-            .cloned()
-            .collect();
-        ensure!(
-            !held.is_empty(),
-            "Influencer daily hold covers no pending work"
-        );
-        let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
-            return Ok(PluginOutcome::Superseded);
-        };
-        validate_for_publication(
-            publication.transaction(),
-            plugin_id,
-            &item.entity_type,
-            entity_id,
-            &sport,
-            &held,
-        )
-        .await?;
-        let ids: Vec<_> = held.iter().map(|s| s.classification_id).collect();
-        crate::plugins::classifier::delivery::settle(
-            publication.transaction(),
-            plugin_id,
-            &ids,
-            "held",
-            Some("incomplete_reporting_day"),
-            json!({"model_called":false,"disposition":disposition}),
-        )
-        .await?;
-        let remaining = crate::plugins::classifier::delivery::undelivered_count(
-            publication.transaction(),
-            plugin_id,
-            &item.entity_type,
-            entity_id,
-            &sport,
-        )
-        .await?;
-        if remaining > 0 {
-            publication.commit_progress().await?;
-            return Ok(PluginOutcome::deferred(
-                "other daily source obligations remain",
-                Duration::from_secs(1),
-            ));
-        }
-        record_vibe_completed(publication.transaction(), item).await?;
-        publication.commit_final().await?;
-        return Ok(PluginOutcome::Committed);
+        return hold_daily(pool, item, &assignment, &pending, &disposition).await;
     }
-    let input_hash = prompt::request_hash(backend, &assignment, voice_num_ctx)?;
+    let mut input_hash = prompt::request_hash(backend, &assignment, voice_num_ctx)?;
     // Reuse a completed attempt only for identical evidence, model and contract.
     let previous: Option<(i64, Option<i64>)> = sqlx::query_as(
         "SELECT id,product_id FROM vibe_card_attempts WHERE input_hash=$1 AND model_version=$2
@@ -294,7 +242,16 @@ pub(crate) async fn execute_with_backend(
     let (output, attempt_id) = if let Some((id, _)) = previous {
         (None, id)
     } else {
-        let (output, receipt) = create(backend, &assignment, voice_num_ctx).await?;
+        let (mut output, mut receipt) = create(backend, &assignment, voice_num_ctx).await?;
+        if receipt["context_exceeded"] == true && !assignment.parts.memories.is_empty() {
+            assignment.parts.memories.clear();
+            assignment = Assignment::from_parts(assignment.parts)?;
+            input_hash = prompt::request_hash(backend, &assignment, voice_num_ctx)?;
+            (output, receipt) = create(backend, &assignment, voice_num_ctx).await?;
+        }
+        if receipt["context_exceeded"] == true {
+            return hold_daily(pool, item, &assignment, &pending, &receipt).await;
+        }
         let attempt_id:i64=sqlx::query_scalar(
             "INSERT INTO vibe_card_attempts(entity_type,entity_id,sport,input_hash,model_version,receipt,outcome)
              VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id")
@@ -418,3 +375,74 @@ pub(crate) async fn execute_with_backend(
 
 #[cfg(test)]
 mod tests;
+
+async fn hold_daily(
+    pool: &PgPool,
+    item: &Item,
+    assignment: &Assignment,
+    pending: &[SourceContext],
+    disposition: &Value,
+) -> Result<PluginOutcome> {
+    let plugin_id = manifest::MANIFEST.id.as_str();
+    let entity_id = item.entity_id_i32()?;
+    let sport = item.sport.to_uppercase();
+    let held: Vec<_> = pending
+        .iter()
+        .filter(|source| {
+            assignment.parts.sources.contains(source)
+                || assignment.parts.excluded.iter().any(|entry| {
+                    entry["in_day"] == true
+                        && entry["classification_id"] == source.classification_id
+                })
+        })
+        .cloned()
+        .collect();
+    ensure!(
+        !held.is_empty(),
+        "Influencer daily hold covers no pending work"
+    );
+    let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
+        return Ok(PluginOutcome::Superseded);
+    };
+    validate_for_publication(
+        publication.transaction(),
+        plugin_id,
+        &item.entity_type,
+        entity_id,
+        &sport,
+        &held,
+    )
+    .await?;
+    let ids: Vec<_> = held.iter().map(|s| s.classification_id).collect();
+    crate::plugins::classifier::delivery::settle(
+        publication.transaction(),
+        plugin_id,
+        &ids,
+        "held",
+        Some(if disposition["context_exceeded"] == true {
+            "daily_package_exceeds_token_budget"
+        } else {
+            "incomplete_reporting_day"
+        }),
+        json!({"model_called":false,"disposition":disposition}),
+    )
+    .await?;
+    let remaining = crate::plugins::classifier::delivery::undelivered_count(
+        publication.transaction(),
+        plugin_id,
+        &item.entity_type,
+        entity_id,
+        &sport,
+    )
+    .await?;
+    if remaining > 0 {
+        publication.commit_progress().await?;
+        return Ok(PluginOutcome::deferred(
+            "other daily source obligations remain",
+            Duration::from_secs(1),
+        ));
+    }
+    record_vibe_completed(publication.transaction(), item).await?;
+    publication.commit_final().await?;
+    return Ok(PluginOutcome::Committed);
+}

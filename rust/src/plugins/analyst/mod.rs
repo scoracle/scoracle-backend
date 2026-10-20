@@ -116,6 +116,32 @@ async fn articulate(
     (direction, score): (String, i32),
 ) -> Result<Option<MomentumOutput>> {
     let ctx = &assignment.context;
+    if ctx.rating.is_none() || ctx.vibe.is_none() {
+        return Ok(Some(Generation::uncalled(
+            MomentumSummary {
+                direction,
+                score,
+                blurb: format!(
+                    "{}: {} reading unavailable. Agreement between performance and mood cannot be assessed.",
+                    assignment.entity_name,
+                    if ctx.rating.is_none() && ctx.vibe.is_none() {
+                        "Performance and mood"
+                    } else if ctx.rating.is_none() {
+                        "Performance"
+                    } else {
+                        "Mood"
+                    }
+                ),
+                headline: Some(format!("{}: current momentum", assignment.entity_name)),
+                season: ctx.season,
+                input_components_json: ctx.input_components_json.clone(),
+            },
+            studio.model_name().to_string(),
+            MOMENTUM_PROMPT_VERSION,
+            Vec::new(),
+            Some(ctx.input_hash.clone()),
+        )));
+    }
     let subject = crate::tools::meta::EntityMeta {
         name: assignment.entity_name.clone(),
         entity_type: assignment.entity_type.clone(),

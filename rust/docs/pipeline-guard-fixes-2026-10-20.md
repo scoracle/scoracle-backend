@@ -1,0 +1,65 @@
+# Character pipeline guard fixes: 20 October 2026
+
+This release addresses the eight findings from the post-Qwen pipeline audit.
+Qwen3.5-4B remains pinned for all six character routes, with four shared slots
+and a 7,900-token ceiling including reserved output.
+
+## Runtime changes
+
+- Bundle the current `scoracle-memory-study` beside the Mac worker. Character
+  workers verify a nonempty headline-history request before claiming work.
+- Migration 316 makes short names embedded in ambiguous proper names unresolved.
+  Delivery requires the exact target in the current canonical candidates;
+  RSS query provenance and a high relevance score cannot certify identity.
+  Historical headlines must also match the current target before entering memory.
+- Insider quotes must name both parties and state a move. Denials require explicit
+  move-denial wording. Missing evidence produces no structured finding.
+- Journalist production and evaluation share the same named-fact guard. A number
+  cannot be reassigned to a named person by combining unrelated citations.
+- Analyst produces an explicit missing-peer reading without inference when either
+  performance or mood is unavailable.
+- Scout preserves decimal points within claims, accepts the supplied sample
+  minimum, and allows within-snapshot relative standing without a time claim.
+- Native token overflow is a permanent packet-admission result. Reporting stages
+  retry preparation once without optional history, then hold complete fresh
+  evidence if it still cannot fit. They do not clip sources or repeatedly retry
+  an unchanged oversized packet.
+- Source loading and canonical identity validation run in batches under the same
+  source, name-index, identity-row, delivery and queue-lease fences.
+
+Current quality fixtures retain their evidence and expectations; affected version
+labels and the Insider instruction are recaptured. Historical model scores and
+Chelsea replay receipts are preserved.
+
+## Verification and limits
+
+The retained Chelsea name check keeps 53 of 63 headlines. Exclusions cover Berekum
+Chelsea, a school opponent, women's-team reporting, listings/profiles and headlines
+without a literal Chelsea identity. Regression tests cover both wrong fresh
+routing and historical-memory leakage despite high model relevance.
+
+The 80-report stress packet remains complete: 6,310 input tokens plus 2,100 output
+reservation exceeds the cap. All three reporting stages are tested to remove
+history first and durably hold the packet without generation or retry-queue churn.
+
+These are conservative lexical and structural guards, not a general proof of
+semantic truth. Ambiguous names or unsupported prose can abstain. Natural nightly
+completion and sustained throughput still require observation.
+
+## Deployment and recovery
+
+Build from a committed revision. Preserve each host's current binary, launcher,
+private environment and service states. Save the previous canonical-name function.
+Stop the managed workers and acquisition monitor during the brief migration,
+apply migration 316, install matching binaries/helper, and restore only the
+previously active services. Keep binary-directory watchers stopped during placement.
+Do not launch a second full queue worker for verification.
+
+Check worker commits, the Mac helper-startup receipt, pinned routes/context,
+controller heartbeat, source revision reconciliation, locks and the public API.
+The Go API and acquisition code are unchanged; their binaries need no replacement.
+
+Rollback restores the saved binaries and launcher plus the previous canonical-name
+function, with workers stopped. Remove migration 316's receipt only after restoring
+its function contract. Retain all archived sources and products; source revisions
+can be reconciled through the existing Classifier queue.

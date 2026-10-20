@@ -50,6 +50,8 @@ pub async fn load_on(
         ), eligible AS (
             SELECT DISTINCT ON (source->>'title',source->>'source') * FROM archive
             WHERE gate->>'admitted'='true' AND gate->'characters'->>$6='true'
+                AND EXISTS(SELECT 1 FROM jsonb_array_elements(public.classifier_identity_candidates($3,source->>'title','')) identity
+                    WHERE identity->>'entity_type'=$1 AND identity->>'entity_id'=$2::text)
                 AND published<before AND published>=before-interval '7 days'
                 AND length(btrim(source->>'title'))>0 AND length(btrim(source->>'source'))>0
                 AND length(btrim(source->>'url'))>0
@@ -283,6 +285,7 @@ mod tests {
         let records = records();
         let subject: EntityMeta = serde_json::from_value(records[0]["subject"].clone())?;
         sqlx::query("INSERT INTO teams(id,sport,name) VALUES(20,'NBA','New York Knicks') ON CONFLICT DO NOTHING").execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('team',20,'NBA','new york knicks','name'),('team',20,'NBA','knicks','alias') ON CONFLICT DO NOTHING").execute(&mut *tx).await?;
         let mut spectrum_ids = Vec::new();
         for record in &records {
             let id = record["article_id"].as_i64().unwrap();

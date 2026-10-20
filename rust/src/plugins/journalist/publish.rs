@@ -236,6 +236,7 @@ pub(super) async fn commit_claimed(
                         | "source_instruction_override"
                         | "complete_report_exceeds_context_budget"
                         | "daily_package_exceeds_context_budget"
+                        | "daily_package_exceeds_token_budget"
                 )
             );
             let row_refs = match prepared {

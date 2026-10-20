@@ -498,15 +498,12 @@ impl LensTask for NarrativesTask {
         if !request.should_call {
             return rejected("Journalist has no fresh assignment");
         }
-        let Some(count) = request
-            .parts
-            .as_ref()
-            .and_then(|p| p["reports"].as_array())
-            .map(Vec::len)
-        else {
+        let Some(parts) = request.parts.as_ref().and_then(|parts| {
+            serde_json::from_value::<crate::plugins::journalist::prompt::Parts>(parts.clone()).ok()
+        }) else {
             return rejected("Journalist evaluation requires report parts");
         };
-        match crate::tools::form::parse_journalist(raw, count) {
+        match parts.parse(raw) {
             Ok(reply) => {
                 let bodies = reply
                     .narratives
@@ -1602,9 +1599,11 @@ mod tests {
 
     /// A single-report prepared request: the Journalist lens refuses without report parts.
     fn one_report() -> Prepared {
-        let mut request = Prepared::captured("p".into(), GenerateOptions::default());
-        request.parts = Some(serde_json::json!({ "reports": [{ "id": 1 }] }));
-        request
+        NarrativesTask.assemble(&serde_json::json!({
+            "subject":{"name":"Harbor City","entity_type":"team","entity_id":1,"sport":"FOOTBALL"},
+            "reports":[{"id":1,"title":"Harbor City's press","source":"Wire","published_at_epoch":1,
+                "context":"Harbor City's press is tightening cleanly across the last six. The tape holds firm and the samples are thin. For now, this isn't a surge, just a brief flash of what might come."}]
+        })).unwrap()
     }
 
     /// The regression this exists to prevent: an exclusion written with an ASCII apostrophe must

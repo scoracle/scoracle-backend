@@ -9,6 +9,8 @@ and a 7,900-token ceiling including reserved output.
 - Bundle the current `scoracle-memory-study` beside the Mac worker. Character
   workers verify a nonempty headline-history request before claiming work.
 - Migration 316 makes short names embedded in ambiguous proper names unresolved.
+  Migration 317 applies the boundary check after materializing literal matches,
+  preventing the planner from checking every name in the sport.
   Delivery requires the exact target in the current canonical candidates;
   RSS query provenance and a high relevance score cannot certify identity.
   Historical headlines must also match the current target before entering memory.

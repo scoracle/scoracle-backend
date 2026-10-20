@@ -192,15 +192,16 @@ pub async fn load_narratives_material(
     )
     .await?;
     let fresh = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
-    let memories = crate::plugins::classifier::memories::load_on(
-        &mut *pool.acquire().await?,
-        &subject,
-        &sources,
-        "journalist",
-    )
-    .await?;
     let mut assignment = prepare(subject, fresh, &[], now)?;
-    assignment.memories = memories;
+    if !assignment.selected.is_empty() {
+        assignment.memories = crate::plugins::classifier::memories::load_on(
+            &mut *pool.acquire().await?,
+            &assignment.subject,
+            &sources,
+            "journalist",
+        )
+        .await?;
+    }
     while !assignment.memories.is_empty() && prompt(&assignment).len() > SOURCE_BUDGET_BYTES {
         assignment.memories.pop();
     }

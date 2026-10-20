@@ -189,6 +189,23 @@ lack receipts. Publication normalization and semantic quality were not qualified
 Do not revive the rejected production-clone/worker-stop plan merely to benchmark;
 use the retained read-only inputs for tuning first.
 
+## Local cleanup checkpoint
+
+The [memory contract](memory-studies.md) now records the intended boundary:
+Postgres stores durable data, DuckDB analyzes source snapshots for plugins,
+and plugins publish products back to Postgres for the API. Memories remain
+compact dated context, including reported stories, emotions, movement and injuries.
+The active DuckDB headline and cohort calculations are retained.
+
+The local cleanup removes unused historical memory-study modes and their Rust
+adapters, skips Journalist history loading when no fresh reports are usable,
+and fixes Articulator's stale arguments to the daily news/vibe/transfer queries.
+Rust library/binary tests, seven classifier/memory integration tests, Go
+API/database/DuckDB checks, all-target Rust checking and Go package builds passed.
+Before/after helper comparison preserved all three character rankings on the
+same bounded sample. This is not model-quality or nightly throughput qualification.
+No deployment or production database change was performed by this cleanup.
+
 ## Deployment and recovery
 
 Private trial and rollback receipts are retained at

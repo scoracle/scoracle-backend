@@ -155,17 +155,17 @@ func (h *Handler) loadArticulatorInputs(
 		}
 	}
 	if kind == "p1" || kind == "p5" || kind == "p6" {
-		if err := query(&inputs.News, "entity_news", sport, entityType, entityID, nil, nil, nil); err != nil {
+		if err := query(&inputs.News, "entity_news", sport, entityType, entityID, nil); err != nil {
 			return inputs, err
 		}
 	}
 	if kind == "p1" || kind == "p6" || kind == "p7" {
-		if err := query(&inputs.Vibe, "entity_vibe", sport, entityType, entityID); err != nil {
+		if err := query(&inputs.Vibe, "entity_vibe", sport, entityType, entityID, nil); err != nil {
 			return inputs, err
 		}
 	}
 	if kind == "p8" {
-		if err := query(&inputs.Transfers, "entity_transfers", sport, entityType, entityID, nil, nil, nil); err != nil {
+		if err := query(&inputs.Transfers, "entity_transfers", sport, entityType, entityID, nil); err != nil {
 			return inputs, err
 		}
 	}

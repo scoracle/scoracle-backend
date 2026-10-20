@@ -34,66 +34,21 @@ func run() error {
 	if err = json.Unmarshal(data, &kind); err != nil {
 		return err
 	}
+	if kind.Kind != "headline_memory" {
+		return fmt.Errorf("unknown memory study kind: %q", kind.Kind)
+	}
+	var req duckdb.HeadlineMemoryRequest
+	if err = json.Unmarshal(data, &req); err != nil {
+		return err
+	}
 	engine, err := duckdb.Open(ctx, duckdb.Options{MemoryLimit: "256MB"})
 	if err != nil {
 		return err
 	}
 	defer engine.Close(ctx)
-	if kind.Kind == "headline_memory" {
-		var req duckdb.HeadlineMemoryRequest
-		if err = json.Unmarshal(data, &req); err != nil {
-			return err
-		}
-		ids, err := engine.StudyHeadlineMemory(ctx, req)
-		if err != nil {
-			return err
-		}
-		return json.NewEncoder(os.Stdout).Encode(ids)
-	}
-	if kind.Kind == "source_records" {
-		var req duckdb.SourceRecordsRequest
-		if err = json.Unmarshal(data, &req); err != nil {
-			return err
-		}
-		findings, err := engine.StudySourceRecords(ctx, req)
-		if err != nil {
-			return err
-		}
-		return json.NewEncoder(os.Stdout).Encode(findings)
-	}
-	if kind.Kind == "scout_records" {
-		var req duckdb.ScoutRecordsRequest
-		if err = json.Unmarshal(data, &req); err != nil {
-			return err
-		}
-		findings, err := engine.StudyScoutRecords(ctx, req)
-		if err != nil {
-			return err
-		}
-		return json.NewEncoder(os.Stdout).Encode(findings)
-	}
-
-	if kind.Kind == "statistic" {
-		var req duckdb.StatisticRequest
-		if err = json.Unmarshal(data, &req); err != nil {
-			return err
-		}
-		result, err := engine.StudyStatistic(ctx, req)
-		if err != nil {
-			return err
-		}
-		return json.NewEncoder(os.Stdout).Encode(result)
-	}
-	if kind.Kind != "" && kind.Kind != "reporting" {
-		return fmt.Errorf("unknown memory study kind")
-	}
-	var req duckdb.MemoryRequest
-	if err = json.Unmarshal(data, &req); err != nil {
-		return err
-	}
-	findings, err := engine.StudyMemory(ctx, req)
+	ids, err := engine.StudyHeadlineMemory(ctx, req)
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(os.Stdout).Encode(findings)
+	return json.NewEncoder(os.Stdout).Encode(ids)
 }

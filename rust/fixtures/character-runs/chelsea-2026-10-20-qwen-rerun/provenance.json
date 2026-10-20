@@ -1,0 +1,14 @@
+{
+  "base_commit": "49d27ca98bf280ec3718ba5d85c06dc8b381e569",
+  "source_patch_sha256": "3e9fb9c3dcd24c93bfaedcc15a8eacf3da03840b8cb5a35b7e25a077319a7752",
+  "replay_source_sha256": "fb6e8ed9b22bd90c6ac90bdc366fc06cf8c30a14adfa78c97db4c2a05bdc0744",
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "endpoint": "http://127.0.0.1:8081",
+  "request_window": 7900,
+  "scope": "five-character read-only current-corpus replay; fresh peer inputs for Analyst; no publication",
+  "production_deployment_changed": false,
+  "allows_subset_fallback": false,
+  "observed_server_slots": 1,
+  "observed_slot_capacity": 32768,
+  "effective_request_cap": 7900
+}

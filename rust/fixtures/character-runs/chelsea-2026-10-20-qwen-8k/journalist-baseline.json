@@ -1,0 +1,3533 @@
+{
+  "dispositions": [
+    {
+      "article_id": 994684,
+      "reason": "already_reported_exact_text"
+    },
+    {
+      "article_id": 994691,
+      "reason": "already_reported_exact_text"
+    },
+    {
+      "article_id": 994213,
+      "reason": "already_reported_exact_text"
+    }
+  ],
+  "memories": [],
+  "selected": [
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 70.49418932378924,
+          "clickbait": 14.287489113386115,
+          "emotion": 1.5911079854026935,
+          "movement": 96.97869777711264,
+          "subject": 91.82716394454869
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxNX09mdlBrSURDbmFPT3VTVjlfQ0c0ZGMxSVhTWE9ZaFh6QnBSUkRyRGh0MHYyT1otaHlpcmIxcXVrN0s0dmM3NWZnNERHNDBwVGJGWkhlVTE5T19MdDFYU3VqZ2QzTTRRUHYtdlRuRF9qbk1iNzF3a2xGemxweVIwWDc0aDB1RjlrWGpBRjRLaUQyNVJsS19tZ2g3dVhGQUJkcjNkMmJZRk9lMk0wUWc5V2NwdE5iVWdSWm9SbA?oc=5"
+      },
+      "context": "Confirmed: French-born Super Falcons-eligible forward joins Chelsea on professional deal",
+      "id": 1023419,
+      "published_at_epoch": 1792502945,
+      "source": "AllNigeriaSoccer",
+      "title": "Confirmed: French-born Super Falcons-eligible forward joins Chelsea on professional deal"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.696023455092425,
+          "clickbait": 6.6564329884153,
+          "emotion": 1.5334149645868356,
+          "movement": 75.72537900904089,
+          "subject": 91.27934644805008
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxQSUMwNzBLdmN3VW14bFVDMHlpcUpzVDk2cUE5d25YcXF1WW1maU9vdXdxMTZvTWhkQXNhbGFnNklkTDZELTFPa2t2Qll3UFRFWmk4dGFLRDcxM1YwYXI2dGtRMHhkcjlYMkx4aHhUY0JVZS1MUlZxb1dtLUd5QXFqeFpkYzlqclpmeV9z?oc=5"
+      },
+      "context": "Chelsea plans future move for Strasbourg winger Gessime Yassine",
+      "id": 1013797,
+      "published_at_epoch": 1792501339,
+      "source": "Soccer News",
+      "title": "Chelsea plans future move for Strasbourg winger Gessime Yassine"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.9088683762288567,
+          "clickbait": 3.6535504313211606,
+          "emotion": 3.3766286807067156,
+          "movement": 5.471423698338707,
+          "subject": 74.49097634351408
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQd1JHWXVsYTVCSFVEamhDeUFVbHIxNGFZRE5pb3djb3ZlXzNfUFRaU3d4M0JaUUo4dWpXV05MY0dGZ2xnZlI5VXlIUERybU4tQ0RtMHZVdEgyLUc4aWNIYnFsQ2trTFVNdHBIQThudkU1Y3hNZ3BCU00yWURlRU5hX3N6VmgxaFhxZ0JIY1RZN2J4TV9DXzBLLXhuVHowYmNaV0JiTURoTjdDUQ?oc=5"
+      },
+      "context": "Danny Welbeck on leadership, family and honouring our communities | News | Official Site",
+      "id": 1013751,
+      "published_at_epoch": 1792501200,
+      "source": "Chelsea Football Club",
+      "title": "Danny Welbeck on leadership, family and honouring our communities | News | Official Site"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 4.842590503746908,
+          "clickbait": 9.94775607788898,
+          "emotion": 2.092813782033637,
+          "movement": 89.95322009157596,
+          "subject": 84.3113833860873
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMizwFBVV95cUxOMVdPWE9wVUVDM2hhN1VLLVJkMjRpajd2aUc2dW1oZ2djUUczOUlfLUs4VkEzQ3hlNEhVU2tNTHQ2UC0zTm9wVmdWZ2J3WlJON2FyczMya05FcVRyZDRKWWhtMWNLdW9RaEFXLU1NM01jNWhPTEZCenozemVZU0thSzJCQzlOdmlHeWVHSEdDR1BGWkhVcGNNQ1llTWxkbnBpT0FwcjAwYllEdmNycVJZTE1URzMwYnE3eXF0YjRHRElOUlFTaWQzR1VjYXZodUU?oc=5"
+      },
+      "context": "Transfer news LIVE: Kvaratskhelia to Arsenal, Ngumoha talks; Chelsea beat Man Utd to signing; Liverpool latest",
+      "id": 1023472,
+      "published_at_epoch": 1792501170,
+      "source": "London Evening Standard",
+      "title": "Transfer news LIVE: Kvaratskhelia to Arsenal, Ngumoha talks; Chelsea beat Man Utd to signing; Liverpool latest"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 7.299830549421414,
+          "clickbait": 4.698689584518935,
+          "emotion": 1.828792562165,
+          "movement": 9.687553933799505,
+          "subject": 69.75851777572089
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE9oQ2NvaFVWa0dCVE5ZZ0ZSUUI1aVhLMzZtZFJxMnFYaUxQTXhiUk1pamxWVTNpUFRYN01XV0JmQzAyVDBOdFFfXzBGOUFQRUN6MjlPSmJjc3VMWlk?oc=5"
+      },
+      "context": "Football Lineups",
+      "id": 276292,
+      "published_at_epoch": 1792500646,
+      "source": "Sportsgambler",
+      "title": "Football Lineups"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.068436677661033,
+          "clickbait": 3.285561821592198,
+          "emotion": 1.8551946674193556,
+          "movement": 12.396651377850944,
+          "subject": 69.32065149243128
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTFBTQjBfSjFNT0g0S0otS3J6dWFNNUtRUENiUl9xM0k1NzZ3WGVqMWdCdFphZTZ1UUIwRFdVWVNONXVWd1Y0dTkwQVl1ZGVNVDh0TGU3U3NScVR0RWkwLTZERmpnbEpRQWJDZHc?oc=5"
+      },
+      "context": "Rachael Adedini | Profile | Official Site",
+      "id": 1023413,
+      "published_at_epoch": 1792495653,
+      "source": "Chelsea Football Club",
+      "title": "Rachael Adedini | Profile | Official Site"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.1402458461940648,
+          "clickbait": 10.307026464760916,
+          "emotion": 1.497243786191398,
+          "movement": 4.104457234149646,
+          "subject": 92.64865899277964
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxQUEdoS242VFM5ZWl5OW5fWHA5aTE4cnlCWURYNlFhX1gzVWxib1hGVXlHaUFHTlhuWWNSN2JPQWtvU0NwbmtQVlMzRGRadDdYUWZWdmtHVXZIcTRMMUZFcXRia3RlRmZkaHRFdGJiMnlrWTJiMWxIOXRTMzVYdzhoUTJzNHVSeXYyZ281R3FCdVp1RGkteG03Rml4TjQybENQZzFnZnFB?oc=5"
+      },
+      "context": "Chelsea ticket packages for Premier League games at Stamford Bridge for 2026/27",
+      "id": 383213,
+      "published_at_epoch": 1792494633,
+      "source": "The Sun",
+      "title": "Chelsea ticket packages for Premier League games at Stamford Bridge for 2026/27"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.105600356553354,
+          "clickbait": 8.457556101967306,
+          "emotion": 2.129212088602179,
+          "movement": 3.2761261246558115,
+          "subject": 91.12596357292804
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxNczkzRTdxUDJiX0psSWhJVGZNYnZ0N2NDV2tlWFQyNkdTTzNIVEttUy1fUG9MM3QxcENlMjJOWnVkVDM4LUU5MDVLVkZMbFMtb2pQX1FKdU5CazFTUk12dk9UMHZkd1dMMndWYXVNMGE2dE9WcjdGcVJ6QWtVWEVMbm15aUZDSFQwYjhYRU81cUZYUk5yZnlicWcyREtCWkVxWFJYYmFkaE1SekFyN2sxNQ?oc=5"
+      },
+      "context": "Mike Penders breaks 21-year Chelsea record after Premier League debut | News | Official Site",
+      "id": 1033006,
+      "published_at_epoch": 1792494000,
+      "source": "Chelsea Football Club",
+      "title": "Mike Penders breaks 21-year Chelsea record after Premier League debut | News | Official Site"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 96.70085307791985,
+          "clickbait": 12.746604448520849,
+          "emotion": 1.6806246747314488,
+          "movement": 3.770671887053644,
+          "subject": 91.93574860938956
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxQbFZPeUFhNWVXcG9CQ2V3NHpjem5HQ001aXowVzdCcnhCRUEyNFVYMmVYVVduNjVDQkFQdTduZG80WUlsSlFTSWJ4RnVhdUlIMFBNc2ptd2U5Q2dyck9yV3YtNUFwd1Z2MjU0MWJvQWlOLVV2U2g2T0xYdFY1SXMwZTBIcHdQZlJINF9MTEN6N2FLTEIxcDdvcFVvblBjcFhwbmI3QmM4RXFRdkRPRlc5SU9n?oc=5"
+      },
+      "context": "Chelsea: What games Emi Martinez will miss after injury timeline is 'revealed'",
+      "id": 994696,
+      "published_at_epoch": 1792493898,
+      "source": "London Evening Standard",
+      "title": "Chelsea: What games Emi Martinez will miss after injury timeline is 'revealed'"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.4160662659943233,
+          "clickbait": 20.86266863404608,
+          "emotion": 7.30555038849716,
+          "movement": 90.89687124031178,
+          "subject": 93.71379074160252
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxQYWllRGduTVd2Nkt2UUlmOGcyd3l3Z2FrT3d6NkxVU3BiU2l4THZ0YkI4dzZrQkNxQkpqNjVXbGctMnBVdFloUG9IVHBhcERxMjdqclZ3MXIwc0hxUEJxZWRFVTBDSzJtNGtNZUdGWlpqUE9KWE40STJBMEFNMncteEJ3bk5xLURLbDhnYXA5NTYwRC05YnlCNmNB0gGaAUFVX3lxTFBhaWVEZ25NV3Y2S3ZRSWY4ZzJ3eXdnYWtPd3o2TFVTcGJTaXhMdnRiQjh3NmtCQ3FCSmo2NVdsZy0ycFV0WWhQb0hUcGFwRHEyN2pyVncxcjBzSHFQQnFlZEVVMENLMm00a01lR0ZaWmpQT0pYTjRJMkEwQU0ydy14QnduTnEtREtsOGdhcDk1NjBELTlieUI2Y0E?oc=5"
+      },
+      "context": "Estevao given brutally honest Chelsea transfer advice despite Xabi Alonso promise",
+      "id": 1013768,
+      "published_at_epoch": 1792493342,
+      "source": "Football London",
+      "title": "Estevao given brutally honest Chelsea transfer advice despite Xabi Alonso promise"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.2056053373892404,
+          "clickbait": 5.006472951835892,
+          "emotion": 1.6574762672966707,
+          "movement": 5.001921262672093,
+          "subject": 93.78557601439933
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNUzZhQkM0R0NsZ1h3Nkp5b29yeTVQU1BMSldvWHJUZzB4c1RtRWpoMEdSN0VWTThnX1dZUDIxRWhZWWRmWWIzeG9FZkN0dnU1OEQzY0pJV0VsUlY3eG5ZSmZiUFg2WGdGUk5NTmtVczRiWjNBSV9tcUYxdVBETWl1SGZNRFFTSTg?oc=5"
+      },
+      "context": "Bournemouth - Chelsea",
+      "id": 995280,
+      "published_at_epoch": 1792489078,
+      "source": "Flashscore.com",
+      "title": "Bournemouth - Chelsea"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 85.31028764942158,
+          "clickbait": 7.168862272292746,
+          "emotion": 1.9028492152180336,
+          "movement": 47.230125992355774,
+          "subject": 91.16175873554668
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxOOEFaN05obDE1M3hnVHh6QlBkQWxyVlJWNzhKMU84YVRza1M1V3RCN2hrYndzaUliSU14WWlEMlFaLThWYVp5MzI3V04yMG1BNWVPdTVKdXh4RGVEVV9mRVE1Y1hpVFUwbUNIR2ZwTmlwMUxuX1Y0X25xYW1kaklnUUgyc3ZabktXbDA5R3JBSGVlQTdONUVsbDVn?oc=5"
+      },
+      "context": "Emi Martinez confirms new Chelsea aim after surgery",
+      "id": 994668,
+      "published_at_epoch": 1792488971,
+      "source": "London Evening Standard",
+      "title": "Emi Martinez confirms new Chelsea aim after surgery"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.616239214153216,
+          "clickbait": 5.880621344620766,
+          "emotion": 1.6369308549159836,
+          "movement": 89.81991980576045,
+          "subject": 86.74453161605656
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPd2w2elpzS0NnTVFsX1FEbkJBUVRaUmlsR3BjbmNyeE1uTTZPdWEyWWJDZ2stTHdPSjhzZVAyX29OWWpOaVFUbFB2UUhqRnhtOVpRT3JLTjZ1bjduZk5zMVpqMEVfNG1SWmpSeFBtWXl2amtTVUFJdzMwam1BM1hsVjFQSURYSHRyX0RhNg?oc=5"
+      },
+      "context": "Former Berekum Chelsea midfielder Bediako moves to Atletico",
+      "id": 1007253,
+      "published_at_epoch": 1792487126,
+      "source": "3News",
+      "title": "Former Berekum Chelsea midfielder Bediako moves to Atletico"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.978342054389926,
+          "clickbait": 28.681568099948635,
+          "emotion": 9.304931416271922,
+          "movement": 2.818763364859449,
+          "subject": 84.76451128626935
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQa3RKUjBmZHZxeUlxeXdWWkNaZmtkSE9fUExNWVBfU2poVTJ3ZXA3UHJlRkd6bklyT2F0M2hRRE9LRlphWWp3T1Rrd052ckpkUk5Id0xzeGxyMDUzUEQ2bXZBMTZkQThkZFZHbHNfT19NbTB4QTV4eW5YUEEtWE50WUNkTW1aMjVOWWczSHhnbTjSAZABQVVfeXFMUGt0SlIwZmR2cXlJcXl3VlpDWmZrZEhPX1BMTVlQX1NqaFUyd2VwN1ByZUZHem5Jck9hdDNoUURPS0ZaYVlqd09Ua3dOdnJKZFJOSHdMc3hscjA1M1BENm12QTE2ZEE4ZGRWR2xzX09fTW0weEE1eHluWFBBLVhOdFlDZE1tWjI1TllnM0h4Z204?oc=5"
+      },
+      "context": "Simon Jordan claims Chelsea 'bigger and worse offenders' than Man City",
+      "id": 994697,
+      "published_at_epoch": 1792487100,
+      "source": "Daily Mirror",
+      "title": "Simon Jordan claims Chelsea 'bigger and worse offenders' than Man City"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.2165069426272144,
+          "clickbait": 4.819483394889896,
+          "emotion": 1.6309866509520876,
+          "movement": 97.14898366607382,
+          "subject": 93.4413516919578
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNRzdrWEVrX1pHcE8tSXpmdkJDUGJlU2kxMDBaWnBJU3ZaWXlIUmQwekJ5aUk5Y1pQaTI4WkxMdXBWeU5VWmhYWjkyUFc0eWxfQlJ1SEVuZmxJOFduN3lGN0dVek9rVU9reE1MLW9XNHNiaVRkTmpTNkdTcDJldzVvQ1lqWU9YN2ZkWmczUTV3c1NfWTFBX1dGNFVJc3R3VDJaaWl3dld0cw?oc=5"
+      },
+      "context": "Rachael Adedini signs first professional contract with Chelsea | News | Official Site",
+      "id": 1033007,
+      "published_at_epoch": 1792486740,
+      "source": "Chelsea Football Club",
+      "title": "Rachael Adedini signs first professional contract with Chelsea | News | Official Site"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.124164485899327,
+          "clickbait": 7.459737275285288,
+          "emotion": 1.952955845030512,
+          "movement": 3.216310869753942,
+          "subject": 93.5703043848935
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPRXcwYjRPVDR5U1drSVd5aExYRWRYMEJTVVZJRWdLZVVzcFA5SFRkc29qaER2a3RJcF96bDJnLUFLQ0ktMldIa2JsWXFFdi1sYTV1Z3hqenNfLTd4aUd4Nm11b1RHek95TFQ5S1Z5SXNtS3pDNnQ0S29JSHhaRzdEY1VzVGdHdWY5TkxySzBfTnJjVnZZSTZwWEE0M2UtbG1OSFMtRmFR?oc=5"
+      },
+      "context": "Chelsea vs. Aston Villa - Final Score - December 21, 2026",
+      "id": 1023357,
+      "published_at_epoch": 1792486118,
+      "source": "FOX Sports",
+      "title": "Chelsea vs. Aston Villa - Final Score - December 21, 2026"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 94.8001960703508,
+          "clickbait": 6.94408577409424,
+          "emotion": 2.2305228054002555,
+          "movement": 11.705683232002972,
+          "subject": 87.50063959866216
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxQS016Zk9aSlBRTEhGeWpaa2V2dDFBVVNlTUl1MnM1UWx2bWpRbFVNVGk4NVRiSmhCd0tJVUtCN0d1aU9XN0ZVSkpkOWpwSnl1aHdwd1NIcWdQSWRNVEozY1hxeng3cHlmemJIUWlfd2FUWUk4ZHZnUWs3SGNOZHFBVUFFSmpmUFhEM1BDMVdnV0NScmJvODVaUHlHSUlvd9IBngFBVV95cUxQS016Zk9aSlBRTEhGeWpaa2V2dDFBVVNlTUl1MnM1UWx2bWpRbFVNVGk4NVRiSmhCd0tJVUtCN0d1aU9XN0ZVSkpkOWpwSnl1aHdwd1NIcWdQSWRNVEozY1hxeng3cHlmemJIUWlfd2FUWUk4ZHZnUWs3SGNOZHFBVUFFSmpmUFhEM1BDMVdnV0NScmJvODVaUHlHSUlvdw?oc=5"
+      },
+      "context": "Penders handed Chelsea opportunity after Martinez injury",
+      "id": 994673,
+      "published_at_epoch": 1792485003,
+      "source": "BeSoccer Livescore",
+      "title": "Penders handed Chelsea opportunity after Martinez injury"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.009103945068455,
+          "clickbait": 4.565420560950026,
+          "emotion": 1.9197664678507655,
+          "movement": 3.784037896290599,
+          "subject": 91.96364699754584
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxPZUZfbTlrMHpobUZYV3I2NlJoalRDcHFMTWkzQzQ2RDZiZkJzXzk2RGZDTmZQdjljbF9ud1JrOUJMLTBvcFRmeTFIS3hma2FPS3pFMFVhalN1Z3RGd3NGeXQ4SEthQVJsX0JwMUZaU2hHYl9UZlo2eU94N2wwTU5HMkpjcHA4VWV1NlRiYmNvbnZybnpwUEw3N1NLYWM3d1RxeS1BRg?oc=5"
+      },
+      "context": "Watch Chelsea vs AFC Bournemouth",
+      "id": 995278,
+      "published_at_epoch": 1792483689,
+      "source": "TOD",
+      "title": "Watch Chelsea vs AFC Bournemouth"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.829924073343718,
+          "clickbait": 6.083434377797333,
+          "emotion": 2.8363246261309185,
+          "movement": 2.9806776744286583,
+          "subject": 92.7118029639418
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxPTDFEOTgwU1M0QUktZzkxR0I1YUNnTnZxMThUcFQtU3Z5ZWtMMXcyc0h4cXI5XzU4ZlhRWUN4cndZMkJ2X2MtTng4blR0SHFUNjluMllrTWwwVWlWbTdSV2l4RkhiVDV6RDRpbjJyZTJsVk9Pb1JtY0kwVWJyS2RFdDJRLVpSN09sQjlZd0dPd2RTcVBReG1vMTh4bkpOcXNHcW9fYy1BZ3JfTXdsckV5d1N2clMzQQ?oc=5"
+      },
+      "context": "Opta give Everton’s new percentage chance of European football after first loss vs Chelsea",
+      "id": 1023288,
+      "published_at_epoch": 1792483260,
+      "source": "Everton News",
+      "title": "Opta give Everton’s new percentage chance of European football after first loss vs Chelsea"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.524633055528792,
+          "clickbait": 4.514978423759457,
+          "emotion": 1.4646770923510506,
+          "movement": 1.894004202403414,
+          "subject": 92.58976352295808
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMihgJBVV95cUxPUkZwYzdkakFXRnN0YkJ0a0E3TjlPX1dCVThVUU5qbkJiYkNPUDFsamNqcm1LSXJpQkt3M3pZVVBCcEI4TVVFREtQckdnMjB4ckJHTnlCZ0VlWFNUeHFpNWxTZmRWRzJUa1pPd3ZycWh4M0ZzSUE0VTBwNlExSkwxR1ZWYXBKaTl4dk52UDRRN3FMMFZtSjZaalBXdVY2LXFrUm0yRzlOSEJMaXc5LTVCYUh6TlhQX2hPSExSTUR4SG1LOE1qeGlHQlBOSUZzX0FkQUIwU2ljWHA3ZEREbXZ2M0tJc0c2U05rcHQ2S2hhUjFFbnpWYVdZdXVPSGR1S2IwdDBqMjhB?oc=5"
+      },
+      "context": "Chelsea FC, all the broadcast information at a glance: Who shows or broadcasts the Blues’ matches live on TV and via live stream?",
+      "id": 994674,
+      "published_at_epoch": 1792483115,
+      "source": "Goal.com",
+      "title": "Chelsea FC, all the broadcast information at a glance: Who shows or broadcasts the Blues’ matches live on TV and via live stream?"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.0417363870800815,
+          "clickbait": 30.16388048577104,
+          "emotion": 12.73305534411776,
+          "movement": 2.136932651622402,
+          "subject": 92.87470534629811
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPQnJIZUhENzJ5bURoRV9ia0tHTE1vZVJHdm00TEd6dGFsYXk5WlV4bTJJalZhZ2o2UG5HNE5pSS1rUXNPbDlhendHWm5iWC1hX2tNSUthR283WnNRU0VodkhNZ0tQam91YzhsaXItUExKS3J1QUkySFVOUldFUndjLUl4ZFRMN0RLNDYxNtIBkgFBVV95cUxPYTF6aGRyTTY4LVpVV0VxNjVmY3NfT0JKMzlXMThWaU0wQzJ5REZtVXB2YmkxVm44RGlIb2s1QWI1cWNEZHZRc3JJbmNyS01IdjVlajlxU0o4Ml9ZYkwxYUFXVEZ4Yl9hVWpFQmVybE45eVJiTUxya3FDb2RRYkNBM0JHMzlrSldkekdEcDZlOTVXUQ?oc=5"
+      },
+      "context": "Chelsea labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict",
+      "id": 994670,
+      "published_at_epoch": 1792482620,
+      "source": "Football London",
+      "title": "Chelsea labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.1871165692646,
+          "clickbait": 23.36394133755312,
+          "emotion": 3.4539564822201516,
+          "movement": 3.6235372849744096,
+          "subject": 67.72622657748828
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxQLWR1Mm9lMDhxR2NUajQwSDdtNU5PNVlGbGRma0VxTkFfTFNRSEktTTVlQnR1TGpsX3VkNW1uSjZQTGZYYjZFaHRMZmFpdlBEcWdVbXAxVExGOXZzWTZWVkhVQWdQY0FQX1BwOEFZM3VBSGswYUttODBmNTRxWEZvN1c4a0lVeWFsaE00QUFyY1l6Ynl0V0V1cWlSblFsMGJmUGxGVVkwdjluWGNva2FwNA?oc=5"
+      },
+      "context": "George Weah recalls his ‘historic’ debut derby winner against Tottenham | News | Official Site",
+      "id": 994306,
+      "published_at_epoch": 1792481100,
+      "source": "Chelsea Football Club",
+      "title": "George Weah recalls his ‘historic’ debut derby winner against Tottenham | News | Official Site"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 19.66977858699679,
+          "clickbait": 21.040515630733456,
+          "emotion": 4.6512348828141965,
+          "movement": 67.91205121511469,
+          "subject": 93.73064650857056
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQRWo4cG5wREc2dVlBdmNZZkhNaXd0Q2Z2WVgxNVd3dEhOMjhLVkhURUJiS2pCalJwRFpSQ1REWkY0OGZDeVBwTjNpS1loVDZTVTlybTZzb0F2MlRiOG1BZkVMOUg3aGR6YkpFOXBMWDNwR2J1djdlSzIxLTgxWFZ6MmpFLUIwZHdXUmFfTzR30gGTAUFVX3lxTE85MmVhcl9pS0NHQjBtUlNrR3FvcExMM0VnZ1hsR01iU01MWXliQV9Fd1hCUVZMOVh2eVR6RnVQcllxTnBtYUxCbXY2elFfcUx3amNGTWJkNVhPV2lVM2JKU1N5MmxlNVpqMzhNN1BXRGdMVUZmRzNfZXlDYmM3Q0E0RE96RHJJU1BXMTEtUFFvT1NITQ?oc=5"
+      },
+      "context": "Chelsea player with 23 minutes of playing time this season urged to leave the club",
+      "id": 994712,
+      "published_at_epoch": 1792480960,
+      "source": "CaughtOffside",
+      "title": "Chelsea player with 23 minutes of playing time this season urged to leave the club"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 6.491998120723426,
+          "clickbait": 7.651273810771484,
+          "emotion": 2.251751102589538,
+          "movement": 36.980123510247545,
+          "subject": 79.37958342185635
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOTEI5VlhJaHMtWmhZX2ZldEg2QkVSV2hWUEE0dXpYOHpyOXhGQkNtZDcybjJ2dGZmekpZTzB0WGg2aHpUY0tXZzB1a2Y0LUwwaXZ2aFprVU9sbVFhc0RFWElOVHBzbmc2V0FCektoUlJzTFRRWUNRalJ3Zm9nLUNwZGY3amxSWm8zdV9MZjRRUmZ1bDNKS0hFYnZsdmN6dGd0SDh0Wg?oc=5"
+      },
+      "context": "Who is Mike Penders? Why Chelsea have full faith in Emi Martinez replacement",
+      "id": 994688,
+      "published_at_epoch": 1792479155,
+      "source": "London Evening Standard",
+      "title": "Who is Mike Penders? Why Chelsea have full faith in Emi Martinez replacement"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.5617339682715743,
+          "clickbait": 4.501635155999836,
+          "emotion": 1.5174077421869647,
+          "movement": 1.789537469282093,
+          "subject": 92.4368551691554
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiigJBVV95cUxObENpdFBqbG83OUlHU2tpaXVQc0pLcXR5VS1SOGpUdDBnLWNaRURrY3ZwYXNORkpHSkd3UnZaS2N2dkhQZERxaGhlXzBRZGsxZE5LZFNLMnVPUW53VXp0NWthR0tzWHd5ODk4MVlHdE42czd5T1hRLUI2blNOemFsUG9haDhLRVJKdVV2OUxQdFpPUXNTY0piVzJJUS1KYUFhOTEwbXNuMlFpQVpLS1F3NXRkS0hrQ05BMDQtTTlLNmM5QWRUOFp0VXRWWlF5VnNWTTVnTHp6Ym4xdkZIV3Q3WTNCTkZsY1dERmtUVTJXemtrOExvX2x3Tll4emh5OTBDUWdRak1YbFVIdw?oc=5"
+      },
+      "context": "Chelsea FC, all the broadcast information at a glance: who is showing / streaming the Blues’ matches live on TV and via live stream?",
+      "id": 1004071,
+      "published_at_epoch": 1792476786,
+      "source": "Goal.com",
+      "title": "Chelsea FC, all the broadcast information at a glance: who is showing / streaming the Blues’ matches live on TV and via live stream?"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 4.567357251577741,
+          "clickbait": 6.255782922279616,
+          "emotion": 1.9019308661911,
+          "movement": 5.388087185598679,
+          "subject": 75.2276409611593
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxQNmFEd1FRcDRCcnF2VS1FMmRRYVJIYTdCRldjWFVFMnVFcDhjTVNDUzJCVUFGR1U2SW80ZGJPdnpVRDdlZDF6VVNDZjduZWlmZF9kZU84MmliNk1mek1LV1d4MXZEY1BYcGNjTDhFcmROQW1qbkphMjVYamNEcVJrSEU3NURYc1V2R1dDWmZqZDF1aGVlYldKUFRpUjZ3QjhtTml1ek50MGhxbkhBc0E?oc=5"
+      },
+      "context": "Chelsea Boys Varsity Soccer vs. Dexter",
+      "id": 994711,
+      "published_at_epoch": 1792474819,
+      "source": "MaxPreps",
+      "title": "Chelsea Boys Varsity Soccer vs. Dexter"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.375816508661243,
+          "clickbait": 8.693666030520028,
+          "emotion": 9.177816394300756,
+          "movement": 11.603191001224756,
+          "subject": 90.24997249701087
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxNSDJYQ2xucXlBdGdYY0gzMnNpZEYzcmVINFl0TlZXU2FXTkRaUmRINU5laVJDcnBselhFMlFSUW9qZDlaUm8xallXbmtOSDFRMjZDWHYwR09OZUY3WFFUOXhxaUtBS1pBV0pUZkcwLTZSWm1iQkUyVms3VUFmSENOR0ZKdmhSNERoZlNmM3AwSnRTcUXSAZMBQVVfeXFMTUgyWENsbnF5QXRnWGNIMzJzaWRGM3JlSDRZdE5WV1NhV05EWlJkSDVOZWlSQ3JwbHpYRTJRUlFvamQ5WlJvMWpZV25rTkgxUTI2Q1h2MEdPTmVGN1hRVDl4cWlLQUtaQVdKVGZHMC02UlptYkJFMlZrN1VBZkhDTkdGSnZoUjREaGZTZjNwMEp0U3FF?oc=5"
+      },
+      "context": "Chelsea wonderkid who loves Eden Hazard sends Xabi Alonso 'awesome' message",
+      "id": 994687,
+      "published_at_epoch": 1792474631,
+      "source": "Football London",
+      "title": "Chelsea wonderkid who loves Eden Hazard sends Xabi Alonso 'awesome' message"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 6.056964230311294,
+          "clickbait": 11.307992938113744,
+          "emotion": 8.75217889270008,
+          "movement": 3.602507789988406,
+          "subject": 94.82006441293558
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxPWGZUQmZZd2JjeFZscjdzN1hjZV8tdldyVVlsTXpNcUpwaTNsa1l3NThTTmpiejMxZDc0WU9xUEhxcGNDUFVEc1hFVlhIUFhKbW4yUWdjdXdFa1lXbUN1SnJIeklMTjZQOXNjc21VTnE2c1E5clJKZk5MZ25QUWNnTXlwRXprOGlweTdYQkFLTUIzb1c1TkpERFdtQmotalAxa3lNTEI5b2FfUVFo?oc=5"
+      },
+      "context": "Chelsea fans denied tradition as Premier League fixtures for December announced",
+      "id": 994703,
+      "published_at_epoch": 1792474200,
+      "source": "The Pride of London",
+      "title": "Chelsea fans denied tradition as Premier League fixtures for December announced"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 94.23579161568796,
+          "clickbait": 7.258468906389043,
+          "emotion": 1.6692818090796324,
+          "movement": 10.783502486763217,
+          "subject": 83.04392080181276
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxQWDNwV1paX2NHZXZaUkQyZWZCYmlXYkh3SnctV1VJR2FHTHp5WFF3eFJzQ1pCbnREV3h3X0VEMTllOC1Ic0pSZWt6QXpvQktqaEtpQUFGWEU3MVNlTmVHM05Ic0xPeDYxQkF0V3Q2NGVaRFlEV0V2MnhHNFNvTDV0WTdRM3NOd09yZ09HVkJkYTRnN2hzZi1XVFRKbkI3d19mZkROZjFIV3Y3VTNtbWFCOE9QXzlrVGlQSm5jYVVQZkpPSU5kVzUzTzNuWmpwS2ZvcGlGV2x4UjZkbnEwVGlYYURwRjlJdw?oc=5"
+      },
+      "context": "What Emi Martinez's injury means for Mike Pender's situation at Chelsea",
+      "id": 994665,
+      "published_at_epoch": 1792473732,
+      "source": "Flashscore.com",
+      "title": "What Emi Martinez's injury means for Mike Pender's situation at Chelsea"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 92.0605153084808,
+          "clickbait": 14.803396703792036,
+          "emotion": 2.7573977376108982,
+          "movement": 3.2791857675846,
+          "subject": 83.4273490953346
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxPWk43czZpMTB0bVFCY1FxZk1XQ0pOTk10bkRQWlViOVJNVEpYUGxHUlAzbUFieU9PaXhPNG1mRk5VVTNOQ29tOHJjcGI2Y2FOTGg4X2M5enFMclNQWGpjNVFLMEZzV1JQaW13UmJXcVUyb1lQTmRqOXlDQ3c0V2JnMkpldzN4Y1Y5aVRhNjF5cFlLWHVaZ0JFZmtnVUk5dDlGc29OS3pLckRPYnlrRlFNUXRQQXo?oc=5"
+      },
+      "context": "Emiliano Martinez sends message from hospital bed as Chelsea goalkeeper undergoes surgery after sickening head clash",
+      "id": 1023443,
+      "published_at_epoch": 1792471503,
+      "source": "Goal.com",
+      "title": "Emiliano Martinez sends message from hospital bed as Chelsea goalkeeper undergoes surgery after sickening head clash"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.5343687928195786,
+          "clickbait": 17.750741237923396,
+          "emotion": 7.556347028046408,
+          "movement": 95.4962242456394,
+          "subject": 94.6663834475792
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPWTBWQTF1SXRrQ2lTZExHT3pMVmwwamFXa3NWZktPb01wSU5XdmZ4a3c2SjVwNGhwNkE2Qk1lclZ6c0RuN1I0WllwT3RXZXdYSTRoVzFiTkQzYW9POGdBNGRrVWJrR0hVbzliOEszRGQxTG1SX0ZiSnY4a2pVbUNqREpEeTJfckFlN0lhN1FRaURWZzlZTENHRXBpUFFQZmQyMHpnZ2pR?oc=5"
+      },
+      "context": "Chelsea unsung hero emerges after bold £100m transfer statement",
+      "id": 994686,
+      "published_at_epoch": 1792471085,
+      "source": "London Evening Standard",
+      "title": "Chelsea unsung hero emerges after bold £100m transfer statement"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.2120743249157786,
+          "clickbait": 4.241056723350277,
+          "emotion": 1.7419029820148355,
+          "movement": 6.148168477622117,
+          "subject": 92.85705216663862
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxNSWJpcVNVSHoyY09BMlVuck9aZEhITjdmamtJMEZCcTMzNlBwSGF0NWQ4RFdNcGZ1VG12djZWQTJFN3pjUXhQdlFqV2J4YnRldS1YYTc4emFzS0RsdlhOVFdvcTg5eTZja1ZTNDhxVzY0U1JtcDdTZTlNWjM0RGlxRA?oc=5"
+      },
+      "context": "Chelsea - Fulham",
+      "id": 683352,
+      "published_at_epoch": 1792470752,
+      "source": "Flashscore.com",
+      "title": "Chelsea - Fulham"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": true,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.8055909855029189,
+          "clickbait": 9.285167886121515,
+          "emotion": 77.27467761673348,
+          "movement": 46.416761576082166,
+          "subject": 93.92608294095014
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQa2QzNDlXYTJjMjA5dC10OVRtNXNOR2dFZ2Q1SnRMc2JXMkc5bGRmOHdpako2VnlJcFZFWnpQUUh6RER0eVRmT1VTeDlkTWNqd1pPWThnYm9ISnRzWGRYS0YwWk1Xc3RRb1hGa1ZETHVxRHdvdTRTSkpKRkhIYVcwNXJNdVRpaFI0S2RjMXhDbUtPNEhsMFpPRTdRNA?oc=5"
+      },
+      "context": "'An absolute honour': Alonso's Chelsea vision is already taking shape",
+      "id": 1033013,
+      "published_at_epoch": 1792460881,
+      "source": "London Evening Standard",
+      "title": "'An absolute honour': Alonso's Chelsea vision is already taking shape"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 14.02249150011157,
+          "clickbait": 5.477158045619039,
+          "emotion": 2.8590731393641535,
+          "movement": 12.106130720672692,
+          "subject": 76.95162420915446
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiyAJBVV95cUxNYXVRbzFqeXVZRDNadXA0aHNBbTNLV2dDSEdPOFprUEtrZ1RUdm8wek1wSW0taFFJRFBmajFVWHJXVE51c2o2OFdiVUxCYXdic1dDdlNwT2xETkZncGhFb0xlQlk1a1lIN3pJRy1jbHROWHZON01ta3B4RloxWF9JYnFSbk5RYjVlWUVCRXBidlNlWEJ0dTFYaUxqeW1KS0NqaHRyVjlhNG8zMDYyXzZlRUpFdmZCaWJhX2NWbEYxbnMyOG94ZmUyanZncUV4WFZPcTN5QlFFS3N4YWFXb0w2eDRYZkpUaGhUZThHb2xiamxMa1FCV29FVFdPRHFjOTk1LVdUZndIcGVab0xqcXlPN2RQdHhFUzVNa0x6NlZwZlU2djZOQ1hPRklKNUpVMGE2WWVvc2tiUkJlWWJmWlU5aENMNm9VaDBY?oc=5"
+      },
+      "context": "Portuguese Abroad goals: Varela dominant in Serie A; Neto pays tribute to Jorge Jesus after Chelsea brace; Guedes on-target again in La Liga; Amorim says Milan trust goalscorer Ramos [video]",
+      "id": 995887,
+      "published_at_epoch": 1792452256,
+      "source": "OneFootball",
+      "title": "Portuguese Abroad goals: Varela dominant in Serie A; Neto pays tribute to Jorge Jesus after Chelsea brace; Guedes on-target again in La Liga; Amorim says Milan trust goalscorer Ramos [video]"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.704890281660035,
+          "clickbait": 5.6496972478265555,
+          "emotion": 2.323421862557996,
+          "movement": 5.1768824151591,
+          "subject": 93.9032572545556
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxQN1Q4NEh5YlpxRjdRWmZtUDl0aXNrSTY0VEZrOWNHVHk4aElLbU5xc2NrNVg2bkFyckRTU2U2UU5zUjQ0NzZmcmpTLURWWmZxUmZ5eUZ5Q1RoTkVRQ3ZYZW5zWlN6bTJRNDc4SVBKdjVxdE5BbGZ3cXFFLXZkZEYwSjhSbjFkeFZPemMxVXJUbUdzanlzQUwwQnlB?oc=5"
+      },
+      "context": "Watch Everton vs Chelsea",
+      "id": 994529,
+      "published_at_epoch": 1792451642,
+      "source": "TOD",
+      "title": "Watch Everton vs Chelsea"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.9479767949962767,
+          "clickbait": 12.644558877522668,
+          "emotion": 5.868397938440661,
+          "movement": 83.17044419865148,
+          "subject": 90.70144077241704
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQNHVES2tLQUhCSnRYV2JTdVoxUE9NOHhpYUJrVlRkSl9wUXo3VzJxeHVRQWRkVnJoRTU1aklGeVdYeXY0ZURtUmhIMG5NMmxmaDlKSmNibGhFUTZ5UVRQR21FdzZSal9hZVIyZko1b2ZlSFlnN1ctSmpxOVdLQWd3NGFoY3FRWUUwZGxId3BFLW8zVmIwcTBlRDNKWQ?oc=5"
+      },
+      "context": "£100m star ‘very keen on moving to Chelsea’ after speaking to Xabi Alonso",
+      "id": 994702,
+      "published_at_epoch": 1792447173,
+      "source": "Football365",
+      "title": "£100m star ‘very keen on moving to Chelsea’ after speaking to Xabi Alonso"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.16435042838732,
+          "clickbait": 36.36142257915033,
+          "emotion": 10.670731932292163,
+          "movement": 96.63475319005347,
+          "subject": 84.68799487495632
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMivgJBVV95cUxPZ09UTHM0LXdob3RmdmlyQ2FrUXNtVDNyckd5QnBOQnNuOUpkYjV1cEs3VHQ4dXdGOHVRVnJMZFFyeDdQSFQ5Z2d5WnNTRWVONVdkdzB0R2lTbnNPZUxRSnlHaGZtdTRTaWZSS0NTSkF5TUFPX2M5RTdzOExaMTF1X3lib3BnWi1jakd4TkowdmJUVzlnVjM0dU9NdzlEdTVJNkVYNldQUWtwdVZlZFQ0aVJCQXBCZWtha1U1cnlfTWJ6N19LVTIwbUxuSDFsOV92Q052Qk92eDh5LW5QYW10ZHIteEZSWUlKRDlENHVPTlBaaHdxQWRnUF9iRDAzMEhMVk5uakZNekhMeDVfNG9QUk0xYlBOZkVsQnYxQmdhMVZoU0h6OS1Ra0tocTIyRi1RRVhhQ01FSGpfM0hGVUE?oc=5"
+      },
+      "context": "€75m Arsenal problem as Chelsea signing hits like a bomb",
+      "id": 1004202,
+      "published_at_epoch": 1792443780,
+      "source": "FootballTransfers.com",
+      "title": "€75m Arsenal problem as Chelsea signing hits like a bomb"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.618105900969229,
+          "clickbait": 7.26528965258966,
+          "emotion": 3.3530118059705303,
+          "movement": 4.182651688467087,
+          "subject": 93.2103003176596
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTE05OHdROHBMdGNKS3cwVUhnRFFnbnNNQmNrdkZseTQ1NHU5eVNyVndRdUc0TERsa0VscEcyeDdzYndOUlZkODdIdTlBcmZtOF9jU2NyWkVXbEtEdVJvVWdOSFJyOUlXOWM?oc=5"
+      },
+      "context": "U18 Report | Albion 3-5 Chelsea",
+      "id": 1013566,
+      "published_at_epoch": 1792442103,
+      "source": "West Bromwich Albion",
+      "title": "U18 Report | Albion 3-5 Chelsea"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.3911623291749384,
+          "clickbait": 27.50475674236153,
+          "emotion": 7.020455555579143,
+          "movement": 9.569915700994422,
+          "subject": 94.90554915999329
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQb3JwVDlOUnZ3ZFdRajN5QU0tX3o4YzVjZWVvTEVwWWlKX0JWMjE0N3BZVU5paU1aUXZ1ek1meWxGdk5nUzhDSHB0dDN6QTlYclBWTmUtZzB1ZDhxaE5oOVpNSUhMb1dGS2hZZlMwa2Z1aEVTUUJjUDNfRkFrN1Y5eTRYazdkQQ?oc=5"
+      },
+      "context": "Why Arsenal, Man City and Chelsea should be worried about Brighton and their ultra-flexible 'polo-mint' tactic",
+      "id": 1014631,
+      "published_at_epoch": 1792440364,
+      "source": "The Irish Sun",
+      "title": "Why Arsenal, Man City and Chelsea should be worried about Brighton and their ultra-flexible 'polo-mint' tactic"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.2552256008032385,
+          "clickbait": 35.644315842688194,
+          "emotion": 7.3461463790071235,
+          "movement": 10.289107684054445,
+          "subject": 95.21647119747338
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNWWNwSEJERVRWeVJjakFhVld5LXJZdU1zMVZtZzZCVGt6YWVVU2hkNU1JV25FTkZueXlDMVBYQWxvX0hPNEw5ZmFmZnNKTDNVUnJydmxKMEVGRWVaMmJKMlEzWUltRGlBc0xsbkt4UUl4dUtXSk5VMW5iUlVOV2g3S3lnT0NVUW1XVXc?oc=5"
+      },
+      "context": "Why Arsenal, Man City and Chelsea should be worried about Brighton and their ultra-flexible 'polo-mint' tactic",
+      "id": 994794,
+      "published_at_epoch": 1792440180,
+      "source": "The Sun",
+      "title": "Why Arsenal, Man City and Chelsea should be worried about Brighton and their ultra-flexible 'polo-mint' tactic"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.443955883595331,
+          "clickbait": 6.676453578092493,
+          "emotion": 3.0195814186628596,
+          "movement": 2.4031667650793103,
+          "subject": 87.65640192443156
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMivwFBVV95cUxPOFdvVDJnVmpBTmNJMGVZUTZ1blB5WGJlNndsWnZlNWlQSHM5R2dEWXhlU1VrWWdsX3hBZzcxQkhFZm5oZ2RnMTl3bFBadXlzSnBiSllIWFZmQVBlWUNhYUtPTEFnbWotV3V4N051RkZDUlJtRm9FMHd0Tk1lMUdyWjhMeGtleDFXOVJ1aGQ3Z2UzdEd3dWxvWVBHNzB2M0FZY180c0tsNWRpR1BlVy1lTkdVMG1kR0pUU2VFT0xEMA?oc=5"
+      },
+      "context": "Everton 0-2 Chelsea: Post-Match Chelsea Player Ratings",
+      "id": 994522,
+      "published_at_epoch": 1792438488,
+      "source": "VAVEL.com",
+      "title": "Everton 0-2 Chelsea: Post-Match Chelsea Player Ratings"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 58.277118710513776,
+          "clickbait": 14.052734651001222,
+          "emotion": 2.817185898743272,
+          "movement": 18.88551806730593,
+          "subject": 81.732286626112
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMickFVX3lxTE0xb013bV8wYWp3S29mZDlLcElTWmhXNHRqWldTUUF2S3JiRkpiQXFiaHV0b0RuTnZKNllpb3N1UWJuZEJha0M1ampOUUJadGk5TjBzWGoyZUstU0l1VzA4OW5HZVhLY0pnZjJsNUpxaDdfUQ?oc=5"
+      },
+      "context": "Former Officials Question Chelsea Escape After Merseyside Clash",
+      "id": 1004104,
+      "published_at_epoch": 1792438200,
+      "source": "azat.tv",
+      "title": "Former Officials Question Chelsea Escape After Merseyside Clash"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.197910583934741,
+          "clickbait": 5.554132210144194,
+          "emotion": 1.772820139381295,
+          "movement": 6.396726161997895,
+          "subject": 90.1240314204462
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOVXJRZTA2a2owT0xWZ3ZWeG12RXpZdDRIUWlnZTRiUnZQRm5OZWR1dk5KcVAxVnppaHFDV1BZb2Y0WTgxUVQ4SUJqNmdJNHhKbGFGZjhJVTlpdDU5WV9iM2U1UGxJQ0tSSzJDMXp1YV93R0JZeE9wZ3liajVlZ25MLTFkamNUQlNPS3d0YmpweE03b1hLNU1WMDgwLXBFelR2Y2dCYg?oc=5"
+      },
+      "context": "Chelsea vs. Paris: The preview",
+      "id": 994701,
+      "published_at_epoch": 1792438043,
+      "source": "Paris Saint-Germain",
+      "title": "Chelsea vs. Paris: The preview"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 94.68899857986928,
+          "clickbait": 6.298884447669181,
+          "emotion": 1.650021903982288,
+          "movement": 3.6191369945056846,
+          "subject": 93.90971848200016
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPbmp6d0hua1RXOTE0YTQxZFpTbEFYT0hma0NEM1hLN0o4VFEyR1IxUzZ5emsxLUdaRm8tOXhzWVpweUZYUjFfdHpfbjdGZUhNekFGbk9XYlFfSzJuNUVPU2NuQlJ0TDRnVlVGTm5pV1Q1Mk50QnoxRndrdW4zaTIxLWFTa2IzaW4xeDR3cw?oc=5"
+      },
+      "context": "Chelsea's Emiliano Martínez confirms return timeline after successful surgery on fractured jaw",
+      "id": 994543,
+      "published_at_epoch": 1792438030,
+      "source": "Yahoo Sports",
+      "title": "Chelsea's Emiliano Martínez confirms return timeline after successful surgery on fractured jaw"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": true,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 8.782294415010842,
+          "clickbait": 34.328066816741995,
+          "emotion": 21.257823000932877,
+          "movement": 80.41218685866252,
+          "subject": 92.84532853436689
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4ONIBjwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4OA?oc=5"
+      },
+      "context": "Chelsea star urged to leave after Xabi Alonso snub",
+      "id": 1023440,
+      "published_at_epoch": 1792437180,
+      "source": "Metro.co.uk",
+      "title": "Chelsea star urged to leave after Xabi Alonso snub"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 97.3307496185718,
+          "clickbait": 4.91956981983508,
+          "emotion": 1.5015707120269937,
+          "movement": 2.631778992791367,
+          "subject": 94.30305438253728
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiygFBVV95cUxQQmZ5di0wTk1XcWpfNFlnZlAwbDVsSkF3MUtFRkc5d21OS3QyUlZTYXJwZGVubW9uQnFCZUw2bmxYSExiTklfU0VBYkxoMEFhckFMY2Mya3pLWkc1cV9ZVE1wd1J2NFNHcTFocnNDWTBNUlJReEduRnNkSHRsSEJ5UGVLWXBBZEZQZG80T1Fjbmt5bXZRVVZBMHNvSkU1dXVta3pWN2FvYkVOYm9EeGdCLTNmQkZGcl83bHpHeldrZktaVHphcktaVkxn?oc=5"
+      },
+      "context": "Chelsea injury update: Martinez, Chavarria, Gusto latest return dates",
+      "id": 994542,
+      "published_at_epoch": 1792433608,
+      "source": "London Evening Standard",
+      "title": "Chelsea injury update: Martinez, Chavarria, Gusto latest return dates"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.6579909749920647,
+          "clickbait": 32.20119145330942,
+          "emotion": 2.545464206267924,
+          "movement": 83.57478924304324,
+          "subject": 86.82016510410952
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiyAFBVV95cUxQOVlXbUg3RWhvc0dsYU1YeklnZ2lZT2R3Mm9OTERRV09Jc0Uya1dsaWVZeTVaWFJCeEVnYTV6azBHNnlBVDVnWDlRMWNRNXVXTUt0ZzhyazhWYUJpemhRWjFuQmN0MGh6dVNzTDZpQ1pGRE92Yng1cWRLYzZiWXBXNHhvLXRudmZYMFJ2X09HRWY5ajRYaktURHdReHRlVWtIUlB5c3oxMEczNTNuTi1SVFdaeEhqQUJZcE9YVHlfaUFqYkg1RGVWZw?oc=5"
+      },
+      "context": "PSG conspiracy theory could ignite Chelsea transfer for Fernandez replacement",
+      "id": 994707,
+      "published_at_epoch": 1792429380,
+      "source": "FootballTransfers.com",
+      "title": "PSG conspiracy theory could ignite Chelsea transfer for Fernandez replacement"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 8.14840602569124,
+          "clickbait": 13.850161274850942,
+          "emotion": 7.039728262780745,
+          "movement": 94.24592628586274,
+          "subject": 77.74365221112825
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxPcG9nUjN5alB2eWtITnV0a1o2c3U4Y0JNaHNScUZienZVODZ6TlowbHRiSTBGQ2hpd1otNnNSQ1lGVTR4R2IzQjlBc2FaNWd0M2g5RWZ3WGNyeFVkdm9WSEJMcklKQldvOFFKUm1iUUpUUndUVEhyeUdtdmRiYVBvdVhuckZuRTVNSFlBVS1yWkZVaE9UbEMzc2JQWXhqVTRXY0JCNXFuTXZMZTl4MzlPMW16clJjcVJVTklHNmRPSU1USWc0a2fSAcsBQVVfeXFMTlhtUkFwbkNKUDB0ZFFJbGUyR2Rqb29BbS1faVQ2eXY3SXp4MlE5d29ERDhRcFhOTndueHZZU0ItNkdNMmVnWEFkNV9sSTc4c1FFa3ltcS0yMGN1Yk04RzdrZklOLTE5eDJ1TC01eFRpejFEamlMazAyWTdUYVpQWUJOVE9pdlF6Y1UxcFVjN190bG56ZEhJN2ZtYkw1WFppbTdEaE10anY4cGJjRHR2bU9QbDZTTk5pb0kwdXRKV0t1LXN6eFFIMUNpWGs?oc=5"
+      },
+      "context": "Liverpool face transfer setback as Chelsea grow confident of signing 23-year-old star",
+      "id": 995317,
+      "published_at_epoch": 1792429237,
+      "source": "CaughtOffside",
+      "title": "Liverpool face transfer setback as Chelsea grow confident of signing 23-year-old star"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 57.636873850172755,
+          "clickbait": 11.68974458371065,
+          "emotion": 1.648904894949698,
+          "movement": 53.67943089820058,
+          "subject": 93.7213485138276
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxPZmlLcE5PTWotUHZ2TmFBMFU1QkUxU3kzUF9TT213ZllVRjMxUlo0bG80TTBSanIyd2k3eUdsa25uOFIyRnZ6ZGVkSkhaSXBlZVBzUU1OWjZZcXMtakRPc3pmWWNnWS1MVHdTbXlSYjJCMTNoZWtlNHFZUTJtWWVpa0xGT1RpcS12cXI5VWc1eklWaXBsd1JCc09JMkx1NXRlc0RXbmdxQlLSAa4BQVVfeXFMT3I1bktZeE14R21ZWk12QzFxQUlVempaLXpvczI3RHA3RnNxS1cwTlFsdFhvbDBRZDlBTVZxemFXa085dUJzdERtSXc1NUVPaTNqT2JlMGdSaVNCMW1GSGFOS1FhSjFQTnhycW1iRWdEOWtYQ1llblI4WXV2N3RnZXBUV1VSV09qMWN2Y1BGeG5yT09zM05IeHoxZmJUZzZITnNtVFhoeUV5dGNlNERB?oc=5"
+      },
+      "context": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball",
+      "id": 994628,
+      "published_at_epoch": 1792423799,
+      "source": "Football London",
+      "title": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 55.73620910676142,
+          "clickbait": 14.02308939001568,
+          "emotion": 1.7214035510594965,
+          "movement": 58.33785995797608,
+          "subject": 93.39663983664911
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNMHZIMlVXc1lQSVRob0JydWxQQnpqRVhKUmpkOXpSWFJjV1F4enFuR2JnVDJpZXl5cU9mM1E5dFExakxsd2Z6U0plVGl1WXFSeHVHNzhoNTlvTGJONnNpTlo1MjluZG9sa3c5VGJvSE01djBlM2V6UGtnbElnTGNfNm02R1BYMUgyblE?oc=5"
+      },
+      "context": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball",
+      "id": 994699,
+      "published_at_epoch": 1792422804,
+      "source": "AOL.co.uk",
+      "title": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.267803038746148,
+          "clickbait": 6.619741657625042,
+          "emotion": 1.9688071032428045,
+          "movement": 13.74817951772085,
+          "subject": 70.69651071167571
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxOOXlsa0M2dUtDTjUzYTR1Q0UzVVpGWHRKTWJxdkF2VlhINnVNWW11aGFNM1VLYzY3eEd4dWZCazlKUl9uaFdpU3RyMGxveC12TFVzbHRXUUFqc05tRTAtWEU5U3hzemowQkZTdHlJbmhCSGdGMjlyWjIxcEJONTVXOGtQN25XYkdpS05rekpLR09qWU1fNnFteUZMemVOSkd4VDlLd21WVXhmdw?oc=5"
+      },
+      "context": "Premier League: 10 talking points from the weekend’s action",
+      "id": 995248,
+      "published_at_epoch": 1792422300,
+      "source": "The Guardian",
+      "title": "Premier League: 10 talking points from the weekend’s action"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 6.535262079349077,
+          "clickbait": 11.1447672862351,
+          "emotion": 2.2595560805672825,
+          "movement": 12.80626886196555,
+          "subject": 83.11055685780676
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxOWUtfRFZxY2w2MG9MdEdvS19VRm9fbXNiYTRMMl9saEFuaEtIYVFRZDU5S19oZnFDZmNKRjl2TTZLT0Y0TlQ2cUZkeGNVNk1lM2dreFlMRzI4Yk9VQkVDOTZCa25BS3MyWEhVRm9vMWdfdnVvcDd5Rm8zYWZvYmZJM1ZoUTcteDA4Zjk1cV9HVmhyLXo1ZV9wLUFrcWRfVGVjV2c?oc=5"
+      },
+      "context": "Chelsea told why TWO key players should have been sent off at Everton",
+      "id": 994524,
+      "published_at_epoch": 1792421843,
+      "source": "London Evening Standard",
+      "title": "Chelsea told why TWO key players should have been sent off at Everton"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.372469955977105,
+          "clickbait": 8.01787806138416,
+          "emotion": 1.772089570398062,
+          "movement": 2.0487482924038307,
+          "subject": 79.90187399301041
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxQNG1IQllETG9SajkxakVLQ1Ryb1EwRmdCM1pVcVFIcDIwQ05XNkRQMmExazhxTVN1UUp2OTVlZjdPQnVxVUxWNXhENjJTc2pTN3JkSDJsRHhWaHlaS05NUGZ0b3daclZOYUxlM1oxdFlrUXAydDRPN1RqQVJ1am9xZVg0VVFnT25pRFVXYjlhYkN1XzZYcm9kR3NUbXEyck1vYkpDbVdOdEE?oc=5"
+      },
+      "context": "Free tickets available for Chelsea Women Academy match at Kingsmeadow vs Birmingham | News | Official Site",
+      "id": 1013779,
+      "published_at_epoch": 1792420200,
+      "source": "Chelsea Football Club",
+      "title": "Free tickets available for Chelsea Women Academy match at Kingsmeadow vs Birmingham | News | Official Site"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.206105061837262,
+          "clickbait": 5.281650217040255,
+          "emotion": 1.3499241320628397,
+          "movement": 2.478686187997208,
+          "subject": 88.91047306654148
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNVU5LRF9vYzVqZUhoWjAwNlZISFBfeHRCcEYtc1RweXA1Mm5jbXo0LUFCbTBBUjFwMGFpcC1VRlBVY0lHX3lTLTdvWEh1TW82dzd0dlF2NTQ1VlpVTmExdVpZNHBZdXp3bjBpMFJSY3NScUZwY2ZYVUtEeDlzQ0tEODR2VWFEbTI3YUV0TUV5cHRqQnUxLVoyMkMzSUx3bUU1c2JESHFFSdIBpwFBVV95cUxNVU5LRF9vYzVqZUhoWjAwNlZISFBfeHRCcEYtc1RweXA1Mm5jbXo0LUFCbTBBUjFwMGFpcC1VRlBVY0lHX3lTLTdvWEh1TW82dzd0dlF2NTQ1VlpVTmExdVpZNHBZdXp3bjBpMFJSY3NScUZwY2ZYVUtEeDlzQ0tEODR2VWFEbTI3YUV0TUV5cHRqQnUxLVoyMkMzSUx3bUU1c2JESHFFSQ?oc=5"
+      },
+      "context": "Chelsea vs Liverpool kick-off time moved after Premier League decision",
+      "id": 994537,
+      "published_at_epoch": 1792420080,
+      "source": "Liverpool Echo",
+      "title": "Chelsea vs Liverpool kick-off time moved after Premier League decision"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.356214136520953,
+          "clickbait": 3.717318772665803,
+          "emotion": 1.4094577100075854,
+          "movement": 1.655037479070284,
+          "subject": 92.38908630700428
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNTjRtVTJqR1NlNjdFMU9fZTlJOGwtUm5YLVQzWk9QQ3FDTU5Ma3hXUjViLUVabmY1eFg1QVpOYTlHVnF0UjgydG1wM3l3T0lXTzZzM1l2bHcxbEE4cmhSZkw0SzViUEN1Q3FfZXlNcTNlRnBISFYtZnZJT1h1aVM1dEF4UWNXa18wOGpORmlR?oc=5"
+      },
+      "context": "Four Chelsea December fixtures moved for TV | News | Official Site",
+      "id": 994618,
+      "published_at_epoch": 1792418340,
+      "source": "Chelsea Football Club",
+      "title": "Four Chelsea December fixtures moved for TV | News | Official Site"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 75.80750236640847,
+          "clickbait": 9.662101990827273,
+          "emotion": 2.1756192113172137,
+          "movement": 7.234482744017344,
+          "subject": 85.7067405621696
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxOUGJfNi1Dc05UWkN6RjR4UWdfMlB6SjY3QUk4R1ZmX2pHVVdpcnMtSmRTOHBNNXN6cS1fZERFbXpfdHNPenZ1bS15MEVUelVsSE1RcjcxekNiNzctNk5rTy1oM0ZzLWxuSzhFa2E4SG13NHM5Q2JCR2pFZHA2RUJncWc4RkppdVlRMHN4M2VQaHc1b1dRbVVhcElkaFAxUktEZzV6OUc2OEIyRkE?oc=5"
+      },
+      "context": "Chelsea legend Petr Cech opens up on Reading FC injury 20 years after collision",
+      "id": 994693,
+      "published_at_epoch": 1792415403,
+      "source": "Reading Chronicle",
+      "title": "Chelsea legend Petr Cech opens up on Reading FC injury 20 years after collision"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.276252120829833,
+          "clickbait": 12.772315790229577,
+          "emotion": 2.654799284208675,
+          "movement": 23.390077362213084,
+          "subject": 92.16937586321646
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxPeS1ycXdxTTVod3IybktQUUswc2s1cFhZTG5oRnBSaF8zXzlqMWdnYlhBWXQ5a1ROTXFtbnVKaDJZTlRDSWFWSzZVeU5jTzRmOENiRGQ1WnBqbC1LTTVCbnpRUWZTa21sMk1ER21Vb3o5VFp6VGpTRnRhRmFMNFNMLV9OUzBESkp1dHZ2TWw2RWxJT29PRjdYZ9IBmAFBVV95cUxPeS1ycXdxTTVod3IybktQUUswc2s1cFhZTG5oRnBSaF8zXzlqMWdnYlhBWXQ5a1ROTXFtbnVKaDJZTlRDSWFWSzZVeU5jTzRmOENiRGQ1WnBqbC1LTTVCbnpRUWZTa21sMk1ER21Vb3o5VFp6VGpTRnRhRmFMNFNMLV9OUzBESkp1dHZ2TWw2RWxJT29PRjdYZw?oc=5"
+      },
+      "context": "Jorrel Hato passes difficult Chelsea audition as Xabi Alonso told exactly what he wants to hear",
+      "id": 994540,
+      "published_at_epoch": 1792414769,
+      "source": "Football London",
+      "title": "Jorrel Hato passes difficult Chelsea audition as Xabi Alonso told exactly what he wants to hear"
+    },
+    {
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": true,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.234865278316622,
+          "clickbait": 8.355370956906956,
+          "emotion": 57.902246994826925,
+          "movement": 2.685203055443508,
+          "subject": 83.95223400452808
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNcWRRN0ZBcm9DWWtjVF9QazFtQ1lwLWM3OTVTNWRsTHI5U1AteU9OYTVORHQ4OFJ1Wk5VNnNfbjFJeThCQ3RuNTdJWjUyclA4V0FIWG5rbEtQR2g0ZU16Q2NHRXVaWkZUZkVtZ3lFWmVwYWFEVi1DSFM4VjBid2VqdUtQTTdrRmw4RWZZV1dQVVlPZm9p?oc=5"
+      },
+      "context": "Henderson happy Chelsea ‘in right direction’ after beating Everton",
+      "id": 994678,
+      "published_at_epoch": 1792414113,
+      "source": "Yahoo Sports",
+      "title": "Henderson happy Chelsea ‘in right direction’ after beating Everton"
+    }
+  ],
+  "sources": [
+    {
+      "article_id": 1023419,
+      "classification_id": 58277,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 70.49418932378924,
+          "clickbait": 14.287489113386115,
+          "emotion": 1.5911079854026935,
+          "movement": 96.97869777711264,
+          "subject": 91.82716394454869
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxNX09mdlBrSURDbmFPT3VTVjlfQ0c0ZGMxSVhTWE9ZaFh6QnBSUkRyRGh0MHYyT1otaHlpcmIxcXVrN0s0dmM3NWZnNERHNDBwVGJGWkhlVTE5T19MdDFYU3VqZ2QzTTRRUHYtdlRuRF9qbk1iNzF3a2xGemxweVIwWDc0aDB1RjlrWGpBRjRLaUQyNVJsS19tZ2g3dVhGQUJkcjNkMmJZRk9lMk0wUWc5V2NwdE5iVWdSWm9SbA?oc=5"
+      },
+      "context": "Confirmed: French-born Super Falcons-eligible forward joins Chelsea on professional deal",
+      "headline": "Confirmed: French-born Super Falcons-eligible forward joins Chelsea on professional deal",
+      "published_at_epoch": 1792502945,
+      "source": "AllNigeriaSoccer"
+    },
+    {
+      "article_id": 1013797,
+      "classification_id": 50650,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.696023455092425,
+          "clickbait": 6.6564329884153,
+          "emotion": 1.5334149645868356,
+          "movement": 75.72537900904089,
+          "subject": 91.27934644805008
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxQSUMwNzBLdmN3VW14bFVDMHlpcUpzVDk2cUE5d25YcXF1WW1maU9vdXdxMTZvTWhkQXNhbGFnNklkTDZELTFPa2t2Qll3UFRFWmk4dGFLRDcxM1YwYXI2dGtRMHhkcjlYMkx4aHhUY0JVZS1MUlZxb1dtLUd5QXFqeFpkYzlqclpmeV9z?oc=5"
+      },
+      "context": "Chelsea plans future move for Strasbourg winger Gessime Yassine",
+      "headline": "Chelsea plans future move for Strasbourg winger Gessime Yassine",
+      "published_at_epoch": 1792501339,
+      "source": "Soccer News"
+    },
+    {
+      "article_id": 1013751,
+      "classification_id": 50502,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.9088683762288567,
+          "clickbait": 3.6535504313211606,
+          "emotion": 3.3766286807067156,
+          "movement": 5.471423698338707,
+          "subject": 74.49097634351408
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQd1JHWXVsYTVCSFVEamhDeUFVbHIxNGFZRE5pb3djb3ZlXzNfUFRaU3d4M0JaUUo4dWpXV05MY0dGZ2xnZlI5VXlIUERybU4tQ0RtMHZVdEgyLUc4aWNIYnFsQ2trTFVNdHBIQThudkU1Y3hNZ3BCU00yWURlRU5hX3N6VmgxaFhxZ0JIY1RZN2J4TV9DXzBLLXhuVHowYmNaV0JiTURoTjdDUQ?oc=5"
+      },
+      "context": "Danny Welbeck on leadership, family and honouring our communities | News | Official Site",
+      "headline": "Danny Welbeck on leadership, family and honouring our communities | News | Official Site",
+      "published_at_epoch": 1792501200,
+      "source": "Chelsea Football Club"
+    },
+    {
+      "article_id": 1023472,
+      "classification_id": 58342,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 4.842590503746908,
+          "clickbait": 9.94775607788898,
+          "emotion": 2.092813782033637,
+          "movement": 89.95322009157596,
+          "subject": 84.3113833860873
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMizwFBVV95cUxOMVdPWE9wVUVDM2hhN1VLLVJkMjRpajd2aUc2dW1oZ2djUUczOUlfLUs4VkEzQ3hlNEhVU2tNTHQ2UC0zTm9wVmdWZ2J3WlJON2FyczMya05FcVRyZDRKWWhtMWNLdW9RaEFXLU1NM01jNWhPTEZCenozemVZU0thSzJCQzlOdmlHeWVHSEdDR1BGWkhVcGNNQ1llTWxkbnBpT0FwcjAwYllEdmNycVJZTE1URzMwYnE3eXF0YjRHRElOUlFTaWQzR1VjYXZodUU?oc=5"
+      },
+      "context": "Transfer news LIVE: Kvaratskhelia to Arsenal, Ngumoha talks; Chelsea beat Man Utd to signing; Liverpool latest",
+      "headline": "Transfer news LIVE: Kvaratskhelia to Arsenal, Ngumoha talks; Chelsea beat Man Utd to signing; Liverpool latest",
+      "published_at_epoch": 1792501170,
+      "source": "London Evening Standard"
+    },
+    {
+      "article_id": 276292,
+      "classification_id": 51275,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 7.299830549421414,
+          "clickbait": 4.698689584518935,
+          "emotion": 1.828792562165,
+          "movement": 9.687553933799505,
+          "subject": 69.75851777572089
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE9oQ2NvaFVWa0dCVE5ZZ0ZSUUI1aVhLMzZtZFJxMnFYaUxQTXhiUk1pamxWVTNpUFRYN01XV0JmQzAyVDBOdFFfXzBGOUFQRUN6MjlPSmJjc3VMWlk?oc=5"
+      },
+      "context": "Football Lineups",
+      "headline": "Football Lineups",
+      "published_at_epoch": 1792500646,
+      "source": "Sportsgambler"
+    },
+    {
+      "article_id": 1023413,
+      "classification_id": 58289,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.068436677661033,
+          "clickbait": 3.285561821592198,
+          "emotion": 1.8551946674193556,
+          "movement": 12.396651377850944,
+          "subject": 69.32065149243128
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTFBTQjBfSjFNT0g0S0otS3J6dWFNNUtRUENiUl9xM0k1NzZ3WGVqMWdCdFphZTZ1UUIwRFdVWVNONXVWd1Y0dTkwQVl1ZGVNVDh0TGU3U3NScVR0RWkwLTZERmpnbEpRQWJDZHc?oc=5"
+      },
+      "context": "Rachael Adedini | Profile | Official Site",
+      "headline": "Rachael Adedini | Profile | Official Site",
+      "published_at_epoch": 1792495653,
+      "source": "Chelsea Football Club"
+    },
+    {
+      "article_id": 383213,
+      "classification_id": 43444,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.1402458461940648,
+          "clickbait": 10.307026464760916,
+          "emotion": 1.497243786191398,
+          "movement": 4.104457234149646,
+          "subject": 92.64865899277964
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxQUEdoS242VFM5ZWl5OW5fWHA5aTE4cnlCWURYNlFhX1gzVWxib1hGVXlHaUFHTlhuWWNSN2JPQWtvU0NwbmtQVlMzRGRadDdYUWZWdmtHVXZIcTRMMUZFcXRia3RlRmZkaHRFdGJiMnlrWTJiMWxIOXRTMzVYdzhoUTJzNHVSeXYyZ281R3FCdVp1RGkteG03Rml4TjQybENQZzFnZnFB?oc=5"
+      },
+      "context": "Chelsea ticket packages for Premier League games at Stamford Bridge for 2026/27",
+      "headline": "Chelsea ticket packages for Premier League games at Stamford Bridge for 2026/27",
+      "published_at_epoch": 1792494633,
+      "source": "The Sun"
+    },
+    {
+      "article_id": 1033006,
+      "classification_id": 62035,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.105600356553354,
+          "clickbait": 8.457556101967306,
+          "emotion": 2.129212088602179,
+          "movement": 3.2761261246558115,
+          "subject": 91.12596357292804
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxNczkzRTdxUDJiX0psSWhJVGZNYnZ0N2NDV2tlWFQyNkdTTzNIVEttUy1fUG9MM3QxcENlMjJOWnVkVDM4LUU5MDVLVkZMbFMtb2pQX1FKdU5CazFTUk12dk9UMHZkd1dMMndWYXVNMGE2dE9WcjdGcVJ6QWtVWEVMbm15aUZDSFQwYjhYRU81cUZYUk5yZnlicWcyREtCWkVxWFJYYmFkaE1SekFyN2sxNQ?oc=5"
+      },
+      "context": "Mike Penders breaks 21-year Chelsea record after Premier League debut | News | Official Site",
+      "headline": "Mike Penders breaks 21-year Chelsea record after Premier League debut | News | Official Site",
+      "published_at_epoch": 1792494000,
+      "source": "Chelsea Football Club"
+    },
+    {
+      "article_id": 994696,
+      "classification_id": 50495,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 96.70085307791985,
+          "clickbait": 12.746604448520849,
+          "emotion": 1.6806246747314488,
+          "movement": 3.770671887053644,
+          "subject": 91.93574860938956
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxQbFZPeUFhNWVXcG9CQ2V3NHpjem5HQ001aXowVzdCcnhCRUEyNFVYMmVYVVduNjVDQkFQdTduZG80WUlsSlFTSWJ4RnVhdUlIMFBNc2ptd2U5Q2dyck9yV3YtNUFwd1Z2MjU0MWJvQWlOLVV2U2g2T0xYdFY1SXMwZTBIcHdQZlJINF9MTEN6N2FLTEIxcDdvcFVvblBjcFhwbmI3QmM4RXFRdkRPRlc5SU9n?oc=5"
+      },
+      "context": "Chelsea: What games Emi Martinez will miss after injury timeline is 'revealed'",
+      "headline": "Chelsea: What games Emi Martinez will miss after injury timeline is 'revealed'",
+      "published_at_epoch": 1792493898,
+      "source": "London Evening Standard"
+    },
+    {
+      "article_id": 1013768,
+      "classification_id": 50642,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.4160662659943233,
+          "clickbait": 20.86266863404608,
+          "emotion": 7.30555038849716,
+          "movement": 90.89687124031178,
+          "subject": 93.71379074160252
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxQYWllRGduTVd2Nkt2UUlmOGcyd3l3Z2FrT3d6NkxVU3BiU2l4THZ0YkI4dzZrQkNxQkpqNjVXbGctMnBVdFloUG9IVHBhcERxMjdqclZ3MXIwc0hxUEJxZWRFVTBDSzJtNGtNZUdGWlpqUE9KWE40STJBMEFNMncteEJ3bk5xLURLbDhnYXA5NTYwRC05YnlCNmNB0gGaAUFVX3lxTFBhaWVEZ25NV3Y2S3ZRSWY4ZzJ3eXdnYWtPd3o2TFVTcGJTaXhMdnRiQjh3NmtCQ3FCSmo2NVdsZy0ycFV0WWhQb0hUcGFwRHEyN2pyVncxcjBzSHFQQnFlZEVVMENLMm00a01lR0ZaWmpQT0pYTjRJMkEwQU0ydy14QnduTnEtREtsOGdhcDk1NjBELTlieUI2Y0E?oc=5"
+      },
+      "context": "Estevao given brutally honest Chelsea transfer advice despite Xabi Alonso promise",
+      "headline": "Estevao given brutally honest Chelsea transfer advice despite Xabi Alonso promise",
+      "published_at_epoch": 1792493342,
+      "source": "Football London"
+    },
+    {
+      "article_id": 994684,
+      "classification_id": 43495,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.4608509345404457,
+          "clickbait": 21.07253806602188,
+          "emotion": 7.416114480971332,
+          "movement": 91.4694162841394,
+          "subject": 93.58210222622084
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNQUtJMWxtQ3RiN3JzVUJJRGdrUjZSbmt1aFlodzNLUEpZaW05ckctOWNsOUZOa0t5R0RFb3l5R19fNDdRQzUwckd1bEE3YzRCSlhlUmItVzBSamh0Mm04S0xkMlplMzNYQXZrbzhQM2xFdHRKZm5SSTlsbFMwckJ6QnRUeXVrYnlHTFo1ZXJyNzNNbVUx0gGaAUFVX3lxTFBhaWVEZ25NV3Y2S3ZRSWY4ZzJ3eXdnYWtPd3o2TFVTcGJTaXhMdnRiQjh3NmtCQ3FCSmo2NVdsZy0ycFV0WWhQb0hUcGFwRHEyN2pyVncxcjBzSHFQQnFlZEVVMENLMm00a01lR0ZaWmpQT0pYTjRJMkEwQU0ydy14QnduTnEtREtsOGdhcDk1NjBELTlieUI2Y0E?oc=5"
+      },
+      "context": "Estevao given brutally honest Chelsea transfer advice despite Xabi Alonso promise",
+      "headline": "Estevao given brutally honest Chelsea transfer advice despite Xabi Alonso promise",
+      "published_at_epoch": 1792493302,
+      "source": "Football London"
+    },
+    {
+      "article_id": 995280,
+      "classification_id": 44866,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.2056053373892404,
+          "clickbait": 5.006472951835892,
+          "emotion": 1.6574762672966707,
+          "movement": 5.001921262672093,
+          "subject": 93.78557601439933
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNUzZhQkM0R0NsZ1h3Nkp5b29yeTVQU1BMSldvWHJUZzB4c1RtRWpoMEdSN0VWTThnX1dZUDIxRWhZWWRmWWIzeG9FZkN0dnU1OEQzY0pJV0VsUlY3eG5ZSmZiUFg2WGdGUk5NTmtVczRiWjNBSV9tcUYxdVBETWl1SGZNRFFTSTg?oc=5"
+      },
+      "context": "Bournemouth - Chelsea",
+      "headline": "Bournemouth - Chelsea",
+      "published_at_epoch": 1792489078,
+      "source": "Flashscore.com"
+    },
+    {
+      "article_id": 994668,
+      "classification_id": 44885,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 85.31028764942158,
+          "clickbait": 7.168862272292746,
+          "emotion": 1.9028492152180336,
+          "movement": 47.230125992355774,
+          "subject": 91.16175873554668
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxOOEFaN05obDE1M3hnVHh6QlBkQWxyVlJWNzhKMU84YVRza1M1V3RCN2hrYndzaUliSU14WWlEMlFaLThWYVp5MzI3V04yMG1BNWVPdTVKdXh4RGVEVV9mRVE1Y1hpVFUwbUNIR2ZwTmlwMUxuX1Y0X25xYW1kaklnUUgyc3ZabktXbDA5R3JBSGVlQTdONUVsbDVn?oc=5"
+      },
+      "context": "Emi Martinez confirms new Chelsea aim after surgery",
+      "headline": "Emi Martinez confirms new Chelsea aim after surgery",
+      "published_at_epoch": 1792488971,
+      "source": "London Evening Standard"
+    },
+    {
+      "article_id": 1007253,
+      "classification_id": 45159,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.616239214153216,
+          "clickbait": 5.880621344620766,
+          "emotion": 1.6369308549159836,
+          "movement": 89.81991980576045,
+          "subject": 86.74453161605656
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPd2w2elpzS0NnTVFsX1FEbkJBUVRaUmlsR3BjbmNyeE1uTTZPdWEyWWJDZ2stTHdPSjhzZVAyX29OWWpOaVFUbFB2UUhqRnhtOVpRT3JLTjZ1bjduZk5zMVpqMEVfNG1SWmpSeFBtWXl2amtTVUFJdzMwam1BM1hsVjFQSURYSHRyX0RhNg?oc=5"
+      },
+      "context": "Former Berekum Chelsea midfielder Bediako moves to Atletico",
+      "headline": "Former Berekum Chelsea midfielder Bediako moves to Atletico",
+      "published_at_epoch": 1792487126,
+      "source": "3News"
+    },
+    {
+      "article_id": 994697,
+      "classification_id": 45289,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.978342054389926,
+          "clickbait": 28.681568099948635,
+          "emotion": 9.304931416271922,
+          "movement": 2.818763364859449,
+          "subject": 84.76451128626935
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQa3RKUjBmZHZxeUlxeXdWWkNaZmtkSE9fUExNWVBfU2poVTJ3ZXA3UHJlRkd6bklyT2F0M2hRRE9LRlphWWp3T1Rrd052ckpkUk5Id0xzeGxyMDUzUEQ2bXZBMTZkQThkZFZHbHNfT19NbTB4QTV4eW5YUEEtWE50WUNkTW1aMjVOWWczSHhnbTjSAZABQVVfeXFMUGt0SlIwZmR2cXlJcXl3VlpDWmZrZEhPX1BMTVlQX1NqaFUyd2VwN1ByZUZHem5Jck9hdDNoUURPS0ZaYVlqd09Ua3dOdnJKZFJOSHdMc3hscjA1M1BENm12QTE2ZEE4ZGRWR2xzX09fTW0weEE1eHluWFBBLVhOdFlDZE1tWjI1TllnM0h4Z204?oc=5"
+      },
+      "context": "Simon Jordan claims Chelsea 'bigger and worse offenders' than Man City",
+      "headline": "Simon Jordan claims Chelsea 'bigger and worse offenders' than Man City",
+      "published_at_epoch": 1792487100,
+      "source": "Daily Mirror"
+    },
+    {
+      "article_id": 1033007,
+      "classification_id": 62033,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.2165069426272144,
+          "clickbait": 4.819483394889896,
+          "emotion": 1.6309866509520876,
+          "movement": 97.14898366607382,
+          "subject": 93.4413516919578
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNRzdrWEVrX1pHcE8tSXpmdkJDUGJlU2kxMDBaWnBJU3ZaWXlIUmQwekJ5aUk5Y1pQaTI4WkxMdXBWeU5VWmhYWjkyUFc0eWxfQlJ1SEVuZmxJOFduN3lGN0dVek9rVU9reE1MLW9XNHNiaVRkTmpTNkdTcDJldzVvQ1lqWU9YN2ZkWmczUTV3c1NfWTFBX1dGNFVJc3R3VDJaaWl3dld0cw?oc=5"
+      },
+      "context": "Rachael Adedini signs first professional contract with Chelsea | News | Official Site",
+      "headline": "Rachael Adedini signs first professional contract with Chelsea | News | Official Site",
+      "published_at_epoch": 1792486740,
+      "source": "Chelsea Football Club"
+    },
+    {
+      "article_id": 1023357,
+      "classification_id": 58948,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.124164485899327,
+          "clickbait": 7.459737275285288,
+          "emotion": 1.952955845030512,
+          "movement": 3.216310869753942,
+          "subject": 93.5703043848935
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPRXcwYjRPVDR5U1drSVd5aExYRWRYMEJTVVZJRWdLZVVzcFA5SFRkc29qaER2a3RJcF96bDJnLUFLQ0ktMldIa2JsWXFFdi1sYTV1Z3hqenNfLTd4aUd4Nm11b1RHek95TFQ5S1Z5SXNtS3pDNnQ0S29JSHhaRzdEY1VzVGdHdWY5TkxySzBfTnJjVnZZSTZwWEE0M2UtbG1OSFMtRmFR?oc=5"
+      },
+      "context": "Chelsea vs. Aston Villa - Final Score - December 21, 2026",
+      "headline": "Chelsea vs. Aston Villa - Final Score - December 21, 2026",
+      "published_at_epoch": 1792486118,
+      "source": "FOX Sports"
+    },
+    {
+      "article_id": 994673,
+      "classification_id": 45625,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 94.8001960703508,
+          "clickbait": 6.94408577409424,
+          "emotion": 2.2305228054002555,
+          "movement": 11.705683232002972,
+          "subject": 87.50063959866216
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxQS016Zk9aSlBRTEhGeWpaa2V2dDFBVVNlTUl1MnM1UWx2bWpRbFVNVGk4NVRiSmhCd0tJVUtCN0d1aU9XN0ZVSkpkOWpwSnl1aHdwd1NIcWdQSWRNVEozY1hxeng3cHlmemJIUWlfd2FUWUk4ZHZnUWs3SGNOZHFBVUFFSmpmUFhEM1BDMVdnV0NScmJvODVaUHlHSUlvd9IBngFBVV95cUxQS016Zk9aSlBRTEhGeWpaa2V2dDFBVVNlTUl1MnM1UWx2bWpRbFVNVGk4NVRiSmhCd0tJVUtCN0d1aU9XN0ZVSkpkOWpwSnl1aHdwd1NIcWdQSWRNVEozY1hxeng3cHlmemJIUWlfd2FUWUk4ZHZnUWs3SGNOZHFBVUFFSmpmUFhEM1BDMVdnV0NScmJvODVaUHlHSUlvdw?oc=5"
+      },
+      "context": "Penders handed Chelsea opportunity after Martinez injury",
+      "headline": "Penders handed Chelsea opportunity after Martinez injury",
+      "published_at_epoch": 1792485003,
+      "source": "BeSoccer Livescore"
+    },
+    {
+      "article_id": 995278,
+      "classification_id": 45836,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.009103945068455,
+          "clickbait": 4.565420560950026,
+          "emotion": 1.9197664678507655,
+          "movement": 3.784037896290599,
+          "subject": 91.96364699754584
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxPZUZfbTlrMHpobUZYV3I2NlJoalRDcHFMTWkzQzQ2RDZiZkJzXzk2RGZDTmZQdjljbF9ud1JrOUJMLTBvcFRmeTFIS3hma2FPS3pFMFVhalN1Z3RGd3NGeXQ4SEthQVJsX0JwMUZaU2hHYl9UZlo2eU94N2wwTU5HMkpjcHA4VWV1NlRiYmNvbnZybnpwUEw3N1NLYWM3d1RxeS1BRg?oc=5"
+      },
+      "context": "Watch Chelsea vs AFC Bournemouth",
+      "headline": "Watch Chelsea vs AFC Bournemouth",
+      "published_at_epoch": 1792483689,
+      "source": "TOD"
+    },
+    {
+      "article_id": 1023288,
+      "classification_id": 59685,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.829924073343718,
+          "clickbait": 6.083434377797333,
+          "emotion": 2.8363246261309185,
+          "movement": 2.9806776744286583,
+          "subject": 92.7118029639418
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxPTDFEOTgwU1M0QUktZzkxR0I1YUNnTnZxMThUcFQtU3Z5ZWtMMXcyc0h4cXI5XzU4ZlhRWUN4cndZMkJ2X2MtTng4blR0SHFUNjluMllrTWwwVWlWbTdSV2l4RkhiVDV6RDRpbjJyZTJsVk9Pb1JtY0kwVWJyS2RFdDJRLVpSN09sQjlZd0dPd2RTcVBReG1vMTh4bkpOcXNHcW9fYy1BZ3JfTXdsckV5d1N2clMzQQ?oc=5"
+      },
+      "context": "Opta give Everton’s new percentage chance of European football after first loss vs Chelsea",
+      "headline": "Opta give Everton’s new percentage chance of European football after first loss vs Chelsea",
+      "published_at_epoch": 1792483260,
+      "source": "Everton News"
+    },
+    {
+      "article_id": 994674,
+      "classification_id": 45906,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.524633055528792,
+          "clickbait": 4.514978423759457,
+          "emotion": 1.4646770923510506,
+          "movement": 1.894004202403414,
+          "subject": 92.58976352295808
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMihgJBVV95cUxPUkZwYzdkakFXRnN0YkJ0a0E3TjlPX1dCVThVUU5qbkJiYkNPUDFsamNqcm1LSXJpQkt3M3pZVVBCcEI4TVVFREtQckdnMjB4ckJHTnlCZ0VlWFNUeHFpNWxTZmRWRzJUa1pPd3ZycWh4M0ZzSUE0VTBwNlExSkwxR1ZWYXBKaTl4dk52UDRRN3FMMFZtSjZaalBXdVY2LXFrUm0yRzlOSEJMaXc5LTVCYUh6TlhQX2hPSExSTUR4SG1LOE1qeGlHQlBOSUZzX0FkQUIwU2ljWHA3ZEREbXZ2M0tJc0c2U05rcHQ2S2hhUjFFbnpWYVdZdXVPSGR1S2IwdDBqMjhB?oc=5"
+      },
+      "context": "Chelsea FC, all the broadcast information at a glance: Who shows or broadcasts the Blues’ matches live on TV and via live stream?",
+      "headline": "Chelsea FC, all the broadcast information at a glance: Who shows or broadcasts the Blues’ matches live on TV and via live stream?",
+      "published_at_epoch": 1792483115,
+      "source": "Goal.com"
+    },
+    {
+      "article_id": 994670,
+      "classification_id": 45958,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.0417363870800815,
+          "clickbait": 30.16388048577104,
+          "emotion": 12.73305534411776,
+          "movement": 2.136932651622402,
+          "subject": 92.87470534629811
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPQnJIZUhENzJ5bURoRV9ia0tHTE1vZVJHdm00TEd6dGFsYXk5WlV4bTJJalZhZ2o2UG5HNE5pSS1rUXNPbDlhendHWm5iWC1hX2tNSUthR283WnNRU0VodkhNZ0tQam91YzhsaXItUExKS3J1QUkySFVOUldFUndjLUl4ZFRMN0RLNDYxNtIBkgFBVV95cUxPYTF6aGRyTTY4LVpVV0VxNjVmY3NfT0JKMzlXMThWaU0wQzJ5REZtVXB2YmkxVm44RGlIb2s1QWI1cWNEZHZRc3JJbmNyS01IdjVlajlxU0o4Ml9ZYkwxYUFXVEZ4Yl9hVWpFQmVybE45eVJiTUxya3FDb2RRYkNBM0JHMzlrSldkekdEcDZlOTVXUQ?oc=5"
+      },
+      "context": "Chelsea labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict",
+      "headline": "Chelsea labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict",
+      "published_at_epoch": 1792482620,
+      "source": "Football London"
+    },
+    {
+      "article_id": 994306,
+      "classification_id": 46183,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.1871165692646,
+          "clickbait": 23.36394133755312,
+          "emotion": 3.4539564822201516,
+          "movement": 3.6235372849744096,
+          "subject": 67.72622657748828
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxQLWR1Mm9lMDhxR2NUajQwSDdtNU5PNVlGbGRma0VxTkFfTFNRSEktTTVlQnR1TGpsX3VkNW1uSjZQTGZYYjZFaHRMZmFpdlBEcWdVbXAxVExGOXZzWTZWVkhVQWdQY0FQX1BwOEFZM3VBSGswYUttODBmNTRxWEZvN1c4a0lVeWFsaE00QUFyY1l6Ynl0V0V1cWlSblFsMGJmUGxGVVkwdjluWGNva2FwNA?oc=5"
+      },
+      "context": "George Weah recalls his ‘historic’ debut derby winner against Tottenham | News | Official Site",
+      "headline": "George Weah recalls his ‘historic’ debut derby winner against Tottenham | News | Official Site",
+      "published_at_epoch": 1792481100,
+      "source": "Chelsea Football Club"
+    },
+    {
+      "article_id": 994712,
+      "classification_id": 46200,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 19.66977858699679,
+          "clickbait": 21.040515630733456,
+          "emotion": 4.6512348828141965,
+          "movement": 67.91205121511469,
+          "subject": 93.73064650857056
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQRWo4cG5wREc2dVlBdmNZZkhNaXd0Q2Z2WVgxNVd3dEhOMjhLVkhURUJiS2pCalJwRFpSQ1REWkY0OGZDeVBwTjNpS1loVDZTVTlybTZzb0F2MlRiOG1BZkVMOUg3aGR6YkpFOXBMWDNwR2J1djdlSzIxLTgxWFZ6MmpFLUIwZHdXUmFfTzR30gGTAUFVX3lxTE85MmVhcl9pS0NHQjBtUlNrR3FvcExMM0VnZ1hsR01iU01MWXliQV9Fd1hCUVZMOVh2eVR6RnVQcllxTnBtYUxCbXY2elFfcUx3amNGTWJkNVhPV2lVM2JKU1N5MmxlNVpqMzhNN1BXRGdMVUZmRzNfZXlDYmM3Q0E0RE96RHJJU1BXMTEtUFFvT1NITQ?oc=5"
+      },
+      "context": "Chelsea player with 23 minutes of playing time this season urged to leave the club",
+      "headline": "Chelsea player with 23 minutes of playing time this season urged to leave the club",
+      "published_at_epoch": 1792480960,
+      "source": "CaughtOffside"
+    },
+    {
+      "article_id": 994688,
+      "classification_id": 62043,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 6.491998120723426,
+          "clickbait": 7.651273810771484,
+          "emotion": 2.251751102589538,
+          "movement": 36.980123510247545,
+          "subject": 79.37958342185635
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOTEI5VlhJaHMtWmhZX2ZldEg2QkVSV2hWUEE0dXpYOHpyOXhGQkNtZDcybjJ2dGZmekpZTzB0WGg2aHpUY0tXZzB1a2Y0LUwwaXZ2aFprVU9sbVFhc0RFWElOVHBzbmc2V0FCektoUlJzTFRRWUNRalJ3Zm9nLUNwZGY3amxSWm8zdV9MZjRRUmZ1bDNKS0hFYnZsdmN6dGd0SDh0Wg?oc=5"
+      },
+      "context": "Who is Mike Penders? Why Chelsea have full faith in Emi Martinez replacement",
+      "headline": "Who is Mike Penders? Why Chelsea have full faith in Emi Martinez replacement",
+      "published_at_epoch": 1792479155,
+      "source": "London Evening Standard"
+    },
+    {
+      "article_id": 1004071,
+      "classification_id": 46814,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.5617339682715743,
+          "clickbait": 4.501635155999836,
+          "emotion": 1.5174077421869647,
+          "movement": 1.789537469282093,
+          "subject": 92.4368551691554
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiigJBVV95cUxObENpdFBqbG83OUlHU2tpaXVQc0pLcXR5VS1SOGpUdDBnLWNaRURrY3ZwYXNORkpHSkd3UnZaS2N2dkhQZERxaGhlXzBRZGsxZE5LZFNLMnVPUW53VXp0NWthR0tzWHd5ODk4MVlHdE42czd5T1hRLUI2blNOemFsUG9haDhLRVJKdVV2OUxQdFpPUXNTY0piVzJJUS1KYUFhOTEwbXNuMlFpQVpLS1F3NXRkS0hrQ05BMDQtTTlLNmM5QWRUOFp0VXRWWlF5VnNWTTVnTHp6Ym4xdkZIV3Q3WTNCTkZsY1dERmtUVTJXemtrOExvX2x3Tll4emh5OTBDUWdRak1YbFVIdw?oc=5"
+      },
+      "context": "Chelsea FC, all the broadcast information at a glance: who is showing / streaming the Blues’ matches live on TV and via live stream?",
+      "headline": "Chelsea FC, all the broadcast information at a glance: who is showing / streaming the Blues’ matches live on TV and via live stream?",
+      "published_at_epoch": 1792476786,
+      "source": "Goal.com"
+    },
+    {
+      "article_id": 994711,
+      "classification_id": 47064,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 4.567357251577741,
+          "clickbait": 6.255782922279616,
+          "emotion": 1.9019308661911,
+          "movement": 5.388087185598679,
+          "subject": 75.2276409611593
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxQNmFEd1FRcDRCcnF2VS1FMmRRYVJIYTdCRldjWFVFMnVFcDhjTVNDUzJCVUFGR1U2SW80ZGJPdnpVRDdlZDF6VVNDZjduZWlmZF9kZU84MmliNk1mek1LV1d4MXZEY1BYcGNjTDhFcmROQW1qbkphMjVYamNEcVJrSEU3NURYc1V2R1dDWmZqZDF1aGVlYldKUFRpUjZ3QjhtTml1ek50MGhxbkhBc0E?oc=5"
+      },
+      "context": "Chelsea Boys Varsity Soccer vs. Dexter",
+      "headline": "Chelsea Boys Varsity Soccer vs. Dexter",
+      "published_at_epoch": 1792474819,
+      "source": "MaxPreps"
+    },
+    {
+      "article_id": 994687,
+      "classification_id": 47078,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.375816508661243,
+          "clickbait": 8.693666030520028,
+          "emotion": 9.177816394300756,
+          "movement": 11.603191001224756,
+          "subject": 90.24997249701087
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxNSDJYQ2xucXlBdGdYY0gzMnNpZEYzcmVINFl0TlZXU2FXTkRaUmRINU5laVJDcnBselhFMlFSUW9qZDlaUm8xallXbmtOSDFRMjZDWHYwR09OZUY3WFFUOXhxaUtBS1pBV0pUZkcwLTZSWm1iQkUyVms3VUFmSENOR0ZKdmhSNERoZlNmM3AwSnRTcUXSAZMBQVVfeXFMTUgyWENsbnF5QXRnWGNIMzJzaWRGM3JlSDRZdE5WV1NhV05EWlJkSDVOZWlSQ3JwbHpYRTJRUlFvamQ5WlJvMWpZV25rTkgxUTI2Q1h2MEdPTmVGN1hRVDl4cWlLQUtaQVdKVGZHMC02UlptYkJFMlZrN1VBZkhDTkdGSnZoUjREaGZTZjNwMEp0U3FF?oc=5"
+      },
+      "context": "Chelsea wonderkid who loves Eden Hazard sends Xabi Alonso 'awesome' message",
+      "headline": "Chelsea wonderkid who loves Eden Hazard sends Xabi Alonso 'awesome' message",
+      "published_at_epoch": 1792474631,
+      "source": "Football London"
+    },
+    {
+      "article_id": 994703,
+      "classification_id": 47127,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 6.056964230311294,
+          "clickbait": 11.307992938113744,
+          "emotion": 8.75217889270008,
+          "movement": 3.602507789988406,
+          "subject": 94.82006441293558
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxPWGZUQmZZd2JjeFZscjdzN1hjZV8tdldyVVlsTXpNcUpwaTNsa1l3NThTTmpiejMxZDc0WU9xUEhxcGNDUFVEc1hFVlhIUFhKbW4yUWdjdXdFa1lXbUN1SnJIeklMTjZQOXNjc21VTnE2c1E5clJKZk5MZ25QUWNnTXlwRXprOGlweTdYQkFLTUIzb1c1TkpERFdtQmotalAxa3lNTEI5b2FfUVFo?oc=5"
+      },
+      "context": "Chelsea fans denied tradition as Premier League fixtures for December announced",
+      "headline": "Chelsea fans denied tradition as Premier League fixtures for December announced",
+      "published_at_epoch": 1792474200,
+      "source": "The Pride of London"
+    },
+    {
+      "article_id": 994665,
+      "classification_id": 47173,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 94.23579161568796,
+          "clickbait": 7.258468906389043,
+          "emotion": 1.6692818090796324,
+          "movement": 10.783502486763217,
+          "subject": 83.04392080181276
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxQWDNwV1paX2NHZXZaUkQyZWZCYmlXYkh3SnctV1VJR2FHTHp5WFF3eFJzQ1pCbnREV3h3X0VEMTllOC1Ic0pSZWt6QXpvQktqaEtpQUFGWEU3MVNlTmVHM05Ic0xPeDYxQkF0V3Q2NGVaRFlEV0V2MnhHNFNvTDV0WTdRM3NOd09yZ09HVkJkYTRnN2hzZi1XVFRKbkI3d19mZkROZjFIV3Y3VTNtbWFCOE9QXzlrVGlQSm5jYVVQZkpPSU5kVzUzTzNuWmpwS2ZvcGlGV2x4UjZkbnEwVGlYYURwRjlJdw?oc=5"
+      },
+      "context": "What Emi Martinez's injury means for Mike Pender's situation at Chelsea",
+      "headline": "What Emi Martinez's injury means for Mike Pender's situation at Chelsea",
+      "published_at_epoch": 1792473732,
+      "source": "Flashscore.com"
+    },
+    {
+      "article_id": 1023443,
+      "classification_id": 59460,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 92.0605153084808,
+          "clickbait": 14.803396703792036,
+          "emotion": 2.7573977376108982,
+          "movement": 3.2791857675846,
+          "subject": 83.4273490953346
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxPWk43czZpMTB0bVFCY1FxZk1XQ0pOTk10bkRQWlViOVJNVEpYUGxHUlAzbUFieU9PaXhPNG1mRk5VVTNOQ29tOHJjcGI2Y2FOTGg4X2M5enFMclNQWGpjNVFLMEZzV1JQaW13UmJXcVUyb1lQTmRqOXlDQ3c0V2JnMkpldzN4Y1Y5aVRhNjF5cFlLWHVaZ0JFZmtnVUk5dDlGc29OS3pLckRPYnlrRlFNUXRQQXo?oc=5"
+      },
+      "context": "Emiliano Martinez sends message from hospital bed as Chelsea goalkeeper undergoes surgery after sickening head clash",
+      "headline": "Emiliano Martinez sends message from hospital bed as Chelsea goalkeeper undergoes surgery after sickening head clash",
+      "published_at_epoch": 1792471503,
+      "source": "Goal.com"
+    },
+    {
+      "article_id": 994686,
+      "classification_id": 51982,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.5343687928195786,
+          "clickbait": 17.750741237923396,
+          "emotion": 7.556347028046408,
+          "movement": 95.4962242456394,
+          "subject": 94.6663834475792
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPWTBWQTF1SXRrQ2lTZExHT3pMVmwwamFXa3NWZktPb01wSU5XdmZ4a3c2SjVwNGhwNkE2Qk1lclZ6c0RuN1I0WllwT3RXZXdYSTRoVzFiTkQzYW9POGdBNGRrVWJrR0hVbzliOEszRGQxTG1SX0ZiSnY4a2pVbUNqREpEeTJfckFlN0lhN1FRaURWZzlZTENHRXBpUFFQZmQyMHpnZ2pR?oc=5"
+      },
+      "context": "Chelsea unsung hero emerges after bold £100m transfer statement",
+      "headline": "Chelsea unsung hero emerges after bold £100m transfer statement",
+      "published_at_epoch": 1792471085,
+      "source": "London Evening Standard"
+    },
+    {
+      "article_id": 683352,
+      "classification_id": 47504,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.2120743249157786,
+          "clickbait": 4.241056723350277,
+          "emotion": 1.7419029820148355,
+          "movement": 6.148168477622117,
+          "subject": 92.85705216663862
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxNSWJpcVNVSHoyY09BMlVuck9aZEhITjdmamtJMEZCcTMzNlBwSGF0NWQ4RFdNcGZ1VG12djZWQTJFN3pjUXhQdlFqV2J4YnRldS1YYTc4emFzS0RsdlhOVFdvcTg5eTZja1ZTNDhxVzY0U1JtcDdTZTlNWjM0RGlxRA?oc=5"
+      },
+      "context": "Chelsea - Fulham",
+      "headline": "Chelsea - Fulham",
+      "published_at_epoch": 1792470752,
+      "source": "Flashscore.com"
+    },
+    {
+      "article_id": 1033013,
+      "classification_id": 62044,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": true,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.8055909855029189,
+          "clickbait": 9.285167886121515,
+          "emotion": 77.27467761673348,
+          "movement": 46.416761576082166,
+          "subject": 93.92608294095014
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQa2QzNDlXYTJjMjA5dC10OVRtNXNOR2dFZ2Q1SnRMc2JXMkc5bGRmOHdpako2VnlJcFZFWnpQUUh6RER0eVRmT1VTeDlkTWNqd1pPWThnYm9ISnRzWGRYS0YwWk1Xc3RRb1hGa1ZETHVxRHdvdTRTSkpKRkhIYVcwNXJNdVRpaFI0S2RjMXhDbUtPNEhsMFpPRTdRNA?oc=5"
+      },
+      "context": "'An absolute honour': Alonso's Chelsea vision is already taking shape",
+      "headline": "'An absolute honour': Alonso's Chelsea vision is already taking shape",
+      "published_at_epoch": 1792460881,
+      "source": "London Evening Standard"
+    },
+    {
+      "article_id": 995887,
+      "classification_id": 52785,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 14.02249150011157,
+          "clickbait": 5.477158045619039,
+          "emotion": 2.8590731393641535,
+          "movement": 12.106130720672692,
+          "subject": 76.95162420915446
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiyAJBVV95cUxNYXVRbzFqeXVZRDNadXA0aHNBbTNLV2dDSEdPOFprUEtrZ1RUdm8wek1wSW0taFFJRFBmajFVWHJXVE51c2o2OFdiVUxCYXdic1dDdlNwT2xETkZncGhFb0xlQlk1a1lIN3pJRy1jbHROWHZON01ta3B4RloxWF9JYnFSbk5RYjVlWUVCRXBidlNlWEJ0dTFYaUxqeW1KS0NqaHRyVjlhNG8zMDYyXzZlRUpFdmZCaWJhX2NWbEYxbnMyOG94ZmUyanZncUV4WFZPcTN5QlFFS3N4YWFXb0w2eDRYZkpUaGhUZThHb2xiamxMa1FCV29FVFdPRHFjOTk1LVdUZndIcGVab0xqcXlPN2RQdHhFUzVNa0x6NlZwZlU2djZOQ1hPRklKNUpVMGE2WWVvc2tiUkJlWWJmWlU5aENMNm9VaDBY?oc=5"
+      },
+      "context": "Portuguese Abroad goals: Varela dominant in Serie A; Neto pays tribute to Jorge Jesus after Chelsea brace; Guedes on-target again in La Liga; Amorim says Milan trust goalscorer Ramos [video]",
+      "headline": "Portuguese Abroad goals: Varela dominant in Serie A; Neto pays tribute to Jorge Jesus after Chelsea brace; Guedes on-target again in La Liga; Amorim says Milan trust goalscorer Ramos [video]",
+      "published_at_epoch": 1792452256,
+      "source": "OneFootball"
+    },
+    {
+      "article_id": 994529,
+      "classification_id": 52885,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.704890281660035,
+          "clickbait": 5.6496972478265555,
+          "emotion": 2.323421862557996,
+          "movement": 5.1768824151591,
+          "subject": 93.9032572545556
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxQN1Q4NEh5YlpxRjdRWmZtUDl0aXNrSTY0VEZrOWNHVHk4aElLbU5xc2NrNVg2bkFyckRTU2U2UU5zUjQ0NzZmcmpTLURWWmZxUmZ5eUZ5Q1RoTkVRQ3ZYZW5zWlN6bTJRNDc4SVBKdjVxdE5BbGZ3cXFFLXZkZEYwSjhSbjFkeFZPemMxVXJUbUdzanlzQUwwQnlB?oc=5"
+      },
+      "context": "Watch Everton vs Chelsea",
+      "headline": "Watch Everton vs Chelsea",
+      "published_at_epoch": 1792451642,
+      "source": "TOD"
+    },
+    {
+      "article_id": 994702,
+      "classification_id": 53999,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 1.9479767949962767,
+          "clickbait": 12.644558877522668,
+          "emotion": 5.868397938440661,
+          "movement": 83.17044419865148,
+          "subject": 90.70144077241704
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQNHVES2tLQUhCSnRYV2JTdVoxUE9NOHhpYUJrVlRkSl9wUXo3VzJxeHVRQWRkVnJoRTU1aklGeVdYeXY0ZURtUmhIMG5NMmxmaDlKSmNibGhFUTZ5UVRQR21FdzZSal9hZVIyZko1b2ZlSFlnN1ctSmpxOVdLQWd3NGFoY3FRWUUwZGxId3BFLW8zVmIwcTBlRDNKWQ?oc=5"
+      },
+      "context": "£100m star ‘very keen on moving to Chelsea’ after speaking to Xabi Alonso",
+      "headline": "£100m star ‘very keen on moving to Chelsea’ after speaking to Xabi Alonso",
+      "published_at_epoch": 1792447173,
+      "source": "Football365"
+    },
+    {
+      "article_id": 1004202,
+      "classification_id": 55255,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.16435042838732,
+          "clickbait": 36.36142257915033,
+          "emotion": 10.670731932292163,
+          "movement": 96.63475319005347,
+          "subject": 84.68799487495632
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMivgJBVV95cUxPZ09UTHM0LXdob3RmdmlyQ2FrUXNtVDNyckd5QnBOQnNuOUpkYjV1cEs3VHQ4dXdGOHVRVnJMZFFyeDdQSFQ5Z2d5WnNTRWVONVdkdzB0R2lTbnNPZUxRSnlHaGZtdTRTaWZSS0NTSkF5TUFPX2M5RTdzOExaMTF1X3lib3BnWi1jakd4TkowdmJUVzlnVjM0dU9NdzlEdTVJNkVYNldQUWtwdVZlZFQ0aVJCQXBCZWtha1U1cnlfTWJ6N19LVTIwbUxuSDFsOV92Q052Qk92eDh5LW5QYW10ZHIteEZSWUlKRDlENHVPTlBaaHdxQWRnUF9iRDAzMEhMVk5uakZNekhMeDVfNG9QUk0xYlBOZkVsQnYxQmdhMVZoU0h6OS1Ra0tocTIyRi1RRVhhQ01FSGpfM0hGVUE?oc=5"
+      },
+      "context": "€75m Arsenal problem as Chelsea signing hits like a bomb",
+      "headline": "€75m Arsenal problem as Chelsea signing hits like a bomb",
+      "published_at_epoch": 1792443780,
+      "source": "FootballTransfers.com"
+    },
+    {
+      "article_id": 1013566,
+      "classification_id": 55839,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.618105900969229,
+          "clickbait": 7.26528965258966,
+          "emotion": 3.3530118059705303,
+          "movement": 4.182651688467087,
+          "subject": 93.2103003176596
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTE05OHdROHBMdGNKS3cwVUhnRFFnbnNNQmNrdkZseTQ1NHU5eVNyVndRdUc0TERsa0VscEcyeDdzYndOUlZkODdIdTlBcmZtOF9jU2NyWkVXbEtEdVJvVWdOSFJyOUlXOWM?oc=5"
+      },
+      "context": "U18 Report | Albion 3-5 Chelsea",
+      "headline": "U18 Report | Albion 3-5 Chelsea",
+      "published_at_epoch": 1792442103,
+      "source": "West Bromwich Albion"
+    },
+    {
+      "article_id": 1014631,
+      "classification_id": 56305,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.3911623291749384,
+          "clickbait": 27.50475674236153,
+          "emotion": 7.020455555579143,
+          "movement": 9.569915700994422,
+          "subject": 94.90554915999329
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQb3JwVDlOUnZ3ZFdRajN5QU0tX3o4YzVjZWVvTEVwWWlKX0JWMjE0N3BZVU5paU1aUXZ1ek1meWxGdk5nUzhDSHB0dDN6QTlYclBWTmUtZzB1ZDhxaE5oOVpNSUhMb1dGS2hZZlMwa2Z1aEVTUUJjUDNfRkFrN1Y5eTRYazdkQQ?oc=5"
+      },
+      "context": "Why Arsenal, Man City and Chelsea should be worried about Brighton and their ultra-flexible 'polo-mint' tactic",
+      "headline": "Why Arsenal, Man City and Chelsea should be worried about Brighton and their ultra-flexible 'polo-mint' tactic",
+      "published_at_epoch": 1792440364,
+      "source": "The Irish Sun"
+    },
+    {
+      "article_id": 994794,
+      "classification_id": 62432,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.2552256008032385,
+          "clickbait": 35.644315842688194,
+          "emotion": 7.3461463790071235,
+          "movement": 10.289107684054445,
+          "subject": 95.21647119747338
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNWWNwSEJERVRWeVJjakFhVld5LXJZdU1zMVZtZzZCVGt6YWVVU2hkNU1JV25FTkZueXlDMVBYQWxvX0hPNEw5ZmFmZnNKTDNVUnJydmxKMEVGRWVaMmJKMlEzWUltRGlBc0xsbkt4UUl4dUtXSk5VMW5iUlVOV2g3S3lnT0NVUW1XVXc?oc=5"
+      },
+      "context": "Why Arsenal, Man City and Chelsea should be worried about Brighton and their ultra-flexible 'polo-mint' tactic",
+      "headline": "Why Arsenal, Man City and Chelsea should be worried about Brighton and their ultra-flexible 'polo-mint' tactic",
+      "published_at_epoch": 1792440180,
+      "source": "The Sun"
+    },
+    {
+      "article_id": 994522,
+      "classification_id": 56890,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.443955883595331,
+          "clickbait": 6.676453578092493,
+          "emotion": 3.0195814186628596,
+          "movement": 2.4031667650793103,
+          "subject": 87.65640192443156
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMivwFBVV95cUxPOFdvVDJnVmpBTmNJMGVZUTZ1blB5WGJlNndsWnZlNWlQSHM5R2dEWXhlU1VrWWdsX3hBZzcxQkhFZm5oZ2RnMTl3bFBadXlzSnBiSllIWFZmQVBlWUNhYUtPTEFnbWotV3V4N051RkZDUlJtRm9FMHd0Tk1lMUdyWjhMeGtleDFXOVJ1aGQ3Z2UzdEd3dWxvWVBHNzB2M0FZY180c0tsNWRpR1BlVy1lTkdVMG1kR0pUU2VFT0xEMA?oc=5"
+      },
+      "context": "Everton 0-2 Chelsea: Post-Match Chelsea Player Ratings",
+      "headline": "Everton 0-2 Chelsea: Post-Match Chelsea Player Ratings",
+      "published_at_epoch": 1792438488,
+      "source": "VAVEL.com"
+    },
+    {
+      "article_id": 1004104,
+      "classification_id": 56960,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 58.277118710513776,
+          "clickbait": 14.052734651001222,
+          "emotion": 2.817185898743272,
+          "movement": 18.88551806730593,
+          "subject": 81.732286626112
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMickFVX3lxTE0xb013bV8wYWp3S29mZDlLcElTWmhXNHRqWldTUUF2S3JiRkpiQXFiaHV0b0RuTnZKNllpb3N1UWJuZEJha0M1ampOUUJadGk5TjBzWGoyZUstU0l1VzA4OW5HZVhLY0pnZjJsNUpxaDdfUQ?oc=5"
+      },
+      "context": "Former Officials Question Chelsea Escape After Merseyside Clash",
+      "headline": "Former Officials Question Chelsea Escape After Merseyside Clash",
+      "published_at_epoch": 1792438200,
+      "source": "azat.tv"
+    },
+    {
+      "article_id": 994701,
+      "classification_id": 56990,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.197910583934741,
+          "clickbait": 5.554132210144194,
+          "emotion": 1.772820139381295,
+          "movement": 6.396726161997895,
+          "subject": 90.1240314204462
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOVXJRZTA2a2owT0xWZ3ZWeG12RXpZdDRIUWlnZTRiUnZQRm5OZWR1dk5KcVAxVnppaHFDV1BZb2Y0WTgxUVQ4SUJqNmdJNHhKbGFGZjhJVTlpdDU5WV9iM2U1UGxJQ0tSSzJDMXp1YV93R0JZeE9wZ3liajVlZ25MLTFkamNUQlNPS3d0YmpweE03b1hLNU1WMDgwLXBFelR2Y2dCYg?oc=5"
+      },
+      "context": "Chelsea vs. Paris: The preview",
+      "headline": "Chelsea vs. Paris: The preview",
+      "published_at_epoch": 1792438043,
+      "source": "Paris Saint-Germain"
+    },
+    {
+      "article_id": 994543,
+      "classification_id": 56995,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 94.68899857986928,
+          "clickbait": 6.298884447669181,
+          "emotion": 1.650021903982288,
+          "movement": 3.6191369945056846,
+          "subject": 93.90971848200016
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPbmp6d0hua1RXOTE0YTQxZFpTbEFYT0hma0NEM1hLN0o4VFEyR1IxUzZ5emsxLUdaRm8tOXhzWVpweUZYUjFfdHpfbjdGZUhNekFGbk9XYlFfSzJuNUVPU2NuQlJ0TDRnVlVGTm5pV1Q1Mk50QnoxRndrdW4zaTIxLWFTa2IzaW4xeDR3cw?oc=5"
+      },
+      "context": "Chelsea's Emiliano Martínez confirms return timeline after successful surgery on fractured jaw",
+      "headline": "Chelsea's Emiliano Martínez confirms return timeline after successful surgery on fractured jaw",
+      "published_at_epoch": 1792438030,
+      "source": "Yahoo Sports"
+    },
+    {
+      "article_id": 1023440,
+      "classification_id": 60215,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": true,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 8.782294415010842,
+          "clickbait": 34.328066816741995,
+          "emotion": 21.257823000932877,
+          "movement": 80.41218685866252,
+          "subject": 92.84532853436689
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4ONIBjwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4OA?oc=5"
+      },
+      "context": "Chelsea star urged to leave after Xabi Alonso snub",
+      "headline": "Chelsea star urged to leave after Xabi Alonso snub",
+      "published_at_epoch": 1792437180,
+      "source": "Metro.co.uk"
+    },
+    {
+      "article_id": 994542,
+      "classification_id": 60828,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 97.3307496185718,
+          "clickbait": 4.91956981983508,
+          "emotion": 1.5015707120269937,
+          "movement": 2.631778992791367,
+          "subject": 94.30305438253728
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiygFBVV95cUxQQmZ5di0wTk1XcWpfNFlnZlAwbDVsSkF3MUtFRkc5d21OS3QyUlZTYXJwZGVubW9uQnFCZUw2bmxYSExiTklfU0VBYkxoMEFhckFMY2Mya3pLWkc1cV9ZVE1wd1J2NFNHcTFocnNDWTBNUlJReEduRnNkSHRsSEJ5UGVLWXBBZEZQZG80T1Fjbmt5bXZRVVZBMHNvSkU1dXVta3pWN2FvYkVOYm9EeGdCLTNmQkZGcl83bHpHeldrZktaVHphcktaVkxn?oc=5"
+      },
+      "context": "Chelsea injury update: Martinez, Chavarria, Gusto latest return dates",
+      "headline": "Chelsea injury update: Martinez, Chavarria, Gusto latest return dates",
+      "published_at_epoch": 1792433608,
+      "source": "London Evening Standard"
+    },
+    {
+      "article_id": 994707,
+      "classification_id": 64232,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 3.6579909749920647,
+          "clickbait": 32.20119145330942,
+          "emotion": 2.545464206267924,
+          "movement": 83.57478924304324,
+          "subject": 86.82016510410952
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiyAFBVV95cUxQOVlXbUg3RWhvc0dsYU1YeklnZ2lZT2R3Mm9OTERRV09Jc0Uya1dsaWVZeTVaWFJCeEVnYTV6azBHNnlBVDVnWDlRMWNRNXVXTUt0ZzhyazhWYUJpemhRWjFuQmN0MGh6dVNzTDZpQ1pGRE92Yng1cWRLYzZiWXBXNHhvLXRudmZYMFJ2X09HRWY5ajRYaktURHdReHRlVWtIUlB5c3oxMEczNTNuTi1SVFdaeEhqQUJZcE9YVHlfaUFqYkg1RGVWZw?oc=5"
+      },
+      "context": "PSG conspiracy theory could ignite Chelsea transfer for Fernandez replacement",
+      "headline": "PSG conspiracy theory could ignite Chelsea transfer for Fernandez replacement",
+      "published_at_epoch": 1792429380,
+      "source": "FootballTransfers.com"
+    },
+    {
+      "article_id": 995317,
+      "classification_id": 64289,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": true,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 8.14840602569124,
+          "clickbait": 13.850161274850942,
+          "emotion": 7.039728262780745,
+          "movement": 94.24592628586274,
+          "subject": 77.74365221112825
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxPcG9nUjN5alB2eWtITnV0a1o2c3U4Y0JNaHNScUZienZVODZ6TlowbHRiSTBGQ2hpd1otNnNSQ1lGVTR4R2IzQjlBc2FaNWd0M2g5RWZ3WGNyeFVkdm9WSEJMcklKQldvOFFKUm1iUUpUUndUVEhyeUdtdmRiYVBvdVhuckZuRTVNSFlBVS1yWkZVaE9UbEMzc2JQWXhqVTRXY0JCNXFuTXZMZTl4MzlPMW16clJjcVJVTklHNmRPSU1USWc0a2fSAcsBQVVfeXFMTlhtUkFwbkNKUDB0ZFFJbGUyR2Rqb29BbS1faVQ2eXY3SXp4MlE5d29ERDhRcFhOTndueHZZU0ItNkdNMmVnWEFkNV9sSTc4c1FFa3ltcS0yMGN1Yk04RzdrZklOLTE5eDJ1TC01eFRpejFEamlMazAyWTdUYVpQWUJOVE9pdlF6Y1UxcFVjN190bG56ZEhJN2ZtYkw1WFppbTdEaE10anY4cGJjRHR2bU9QbDZTTk5pb0kwdXRKV0t1LXN6eFFIMUNpWGs?oc=5"
+      },
+      "context": "Liverpool face transfer setback as Chelsea grow confident of signing 23-year-old star",
+      "headline": "Liverpool face transfer setback as Chelsea grow confident of signing 23-year-old star",
+      "published_at_epoch": 1792429237,
+      "source": "CaughtOffside"
+    },
+    {
+      "article_id": 994628,
+      "classification_id": 65612,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 57.636873850172755,
+          "clickbait": 11.68974458371065,
+          "emotion": 1.648904894949698,
+          "movement": 53.67943089820058,
+          "subject": 93.7213485138276
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxPZmlLcE5PTWotUHZ2TmFBMFU1QkUxU3kzUF9TT213ZllVRjMxUlo0bG80TTBSanIyd2k3eUdsa25uOFIyRnZ6ZGVkSkhaSXBlZVBzUU1OWjZZcXMtakRPc3pmWWNnWS1MVHdTbXlSYjJCMTNoZWtlNHFZUTJtWWVpa0xGT1RpcS12cXI5VWc1eklWaXBsd1JCc09JMkx1NXRlc0RXbmdxQlLSAa4BQVVfeXFMT3I1bktZeE14R21ZWk12QzFxQUlVempaLXpvczI3RHA3RnNxS1cwTlFsdFhvbDBRZDlBTVZxemFXa085dUJzdERtSXc1NUVPaTNqT2JlMGdSaVNCMW1GSGFOS1FhSjFQTnhycW1iRWdEOWtYQ1llblI4WXV2N3RnZXBUV1VSV09qMWN2Y1BGeG5yT09zM05IeHoxZmJUZzZITnNtVFhoeUV5dGNlNERB?oc=5"
+      },
+      "context": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball",
+      "headline": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball",
+      "published_at_epoch": 1792423799,
+      "source": "Football London"
+    },
+    {
+      "article_id": 994699,
+      "classification_id": 65804,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 55.73620910676142,
+          "clickbait": 14.02308939001568,
+          "emotion": 1.7214035510594965,
+          "movement": 58.33785995797608,
+          "subject": 93.39663983664911
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNMHZIMlVXc1lQSVRob0JydWxQQnpqRVhKUmpkOXpSWFJjV1F4enFuR2JnVDJpZXl5cU9mM1E5dFExakxsd2Z6U0plVGl1WXFSeHVHNzhoNTlvTGJONnNpTlo1MjluZG9sa3c5VGJvSE01djBlM2V6UGtnbElnTGNfNm02R1BYMUgyblE?oc=5"
+      },
+      "context": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball",
+      "headline": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball",
+      "published_at_epoch": 1792422804,
+      "source": "AOL.co.uk"
+    },
+    {
+      "article_id": 995248,
+      "classification_id": 65894,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.267803038746148,
+          "clickbait": 6.619741657625042,
+          "emotion": 1.9688071032428045,
+          "movement": 13.74817951772085,
+          "subject": 70.69651071167571
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxOOXlsa0M2dUtDTjUzYTR1Q0UzVVpGWHRKTWJxdkF2VlhINnVNWW11aGFNM1VLYzY3eEd4dWZCazlKUl9uaFdpU3RyMGxveC12TFVzbHRXUUFqc05tRTAtWEU5U3hzemowQkZTdHlJbmhCSGdGMjlyWjIxcEJONTVXOGtQN25XYkdpS05rekpLR09qWU1fNnFteUZMemVOSkd4VDlLd21WVXhmdw?oc=5"
+      },
+      "context": "Premier League: 10 talking points from the weekend’s action",
+      "headline": "Premier League: 10 talking points from the weekend’s action",
+      "published_at_epoch": 1792422300,
+      "source": "The Guardian"
+    },
+    {
+      "article_id": 994524,
+      "classification_id": 66046,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 6.535262079349077,
+          "clickbait": 11.1447672862351,
+          "emotion": 2.2595560805672825,
+          "movement": 12.80626886196555,
+          "subject": 83.11055685780676
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxOWUtfRFZxY2w2MG9MdEdvS19VRm9fbXNiYTRMMl9saEFuaEtIYVFRZDU5S19oZnFDZmNKRjl2TTZLT0Y0TlQ2cUZkeGNVNk1lM2dreFlMRzI4Yk9VQkVDOTZCa25BS3MyWEhVRm9vMWdfdnVvcDd5Rm8zYWZvYmZJM1ZoUTcteDA4Zjk1cV9HVmhyLXo1ZV9wLUFrcWRfVGVjV2c?oc=5"
+      },
+      "context": "Chelsea told why TWO key players should have been sent off at Everton",
+      "headline": "Chelsea told why TWO key players should have been sent off at Everton",
+      "published_at_epoch": 1792421843,
+      "source": "London Evening Standard"
+    },
+    {
+      "article_id": 994691,
+      "classification_id": 66062,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 58.52094976427779,
+          "clickbait": 11.942057530143872,
+          "emotion": 1.6940210221898864,
+          "movement": 54.43274004454926,
+          "subject": 93.7213485138276
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxPcjVuS1l4TXhHbVlaTXZDMXFBSVV6alotem9zMjdEcDdGc3FLVzBOUWx0WG9sMFFkOUFNVnF6YVdrTzl1QnN0RG1JdzU1RU9pM2pPYmUwZ1JpU0IxbUZIYU5LUWFKMVBOeHJxbWJFZ0Q5a1hDWWVuUjhZdXY3dGdlcFRXVVJXT2oxY3ZjUEZ4bnJPT3MzTkh4ejFmYlRnNkhOc21UWGh5RXl0Y2U0REHSAa4BQVVfeXFMT3I1bktZeE14R21ZWk12QzFxQUlVempaLXpvczI3RHA3RnNxS1cwTlFsdFhvbDBRZDlBTVZxemFXa085dUJzdERtSXc1NUVPaTNqT2JlMGdSaVNCMW1GSGFOS1FhSjFQTnhycW1iRWdEOWtYQ1llblI4WXV2N3RnZXBUV1VSV09qMWN2Y1BGeG5yT09zM05IeHoxZmJUZzZITnNtVFhoeUV5dGNlNERB?oc=5"
+      },
+      "context": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball",
+      "headline": "Premier League announce four Chelsea fixture changes as Xabi Alonso thrown curveball",
+      "published_at_epoch": 1792421785,
+      "source": "Football London"
+    },
+    {
+      "article_id": 1013779,
+      "classification_id": 66484,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.372469955977105,
+          "clickbait": 8.01787806138416,
+          "emotion": 1.772089570398062,
+          "movement": 2.0487482924038307,
+          "subject": 79.90187399301041
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxQNG1IQllETG9SajkxakVLQ1Ryb1EwRmdCM1pVcVFIcDIwQ05XNkRQMmExazhxTVN1UUp2OTVlZjdPQnVxVUxWNXhENjJTc2pTN3JkSDJsRHhWaHlaS05NUGZ0b3daclZOYUxlM1oxdFlrUXAydDRPN1RqQVJ1am9xZVg0VVFnT25pRFVXYjlhYkN1XzZYcm9kR3NUbXEyck1vYkpDbVdOdEE?oc=5"
+      },
+      "context": "Free tickets available for Chelsea Women Academy match at Kingsmeadow vs Birmingham | News | Official Site",
+      "headline": "Free tickets available for Chelsea Women Academy match at Kingsmeadow vs Birmingham | News | Official Site",
+      "published_at_epoch": 1792420200,
+      "source": "Chelsea Football Club"
+    },
+    {
+      "article_id": 994537,
+      "classification_id": 66507,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.206105061837262,
+          "clickbait": 5.281650217040255,
+          "emotion": 1.3499241320628397,
+          "movement": 2.478686187997208,
+          "subject": 88.91047306654148
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNVU5LRF9vYzVqZUhoWjAwNlZISFBfeHRCcEYtc1RweXA1Mm5jbXo0LUFCbTBBUjFwMGFpcC1VRlBVY0lHX3lTLTdvWEh1TW82dzd0dlF2NTQ1VlpVTmExdVpZNHBZdXp3bjBpMFJSY3NScUZwY2ZYVUtEeDlzQ0tEODR2VWFEbTI3YUV0TUV5cHRqQnUxLVoyMkMzSUx3bUU1c2JESHFFSdIBpwFBVV95cUxNVU5LRF9vYzVqZUhoWjAwNlZISFBfeHRCcEYtc1RweXA1Mm5jbXo0LUFCbTBBUjFwMGFpcC1VRlBVY0lHX3lTLTdvWEh1TW82dzd0dlF2NTQ1VlpVTmExdVpZNHBZdXp3bjBpMFJSY3NScUZwY2ZYVUtEeDlzQ0tEODR2VWFEbTI3YUV0TUV5cHRqQnUxLVoyMkMzSUx3bUU1c2JESHFFSQ?oc=5"
+      },
+      "context": "Chelsea vs Liverpool kick-off time moved after Premier League decision",
+      "headline": "Chelsea vs Liverpool kick-off time moved after Premier League decision",
+      "published_at_epoch": 1792420080,
+      "source": "Liverpool Echo"
+    },
+    {
+      "article_id": 994213,
+      "classification_id": 66504,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.206105061837262,
+          "clickbait": 5.281650217040255,
+          "emotion": 1.3499241320628397,
+          "movement": 2.478686187997208,
+          "subject": 88.91047306654148
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxPV2c0V1hsNld2Rk5vRTliaktqakprUFdyVVZVUzBHUWhjRTNVYnU3aml4WXpjb1BqbE5DQXp0RDlvR1pST3NtX2F2QUQxOW9rVXRuZDdTQ1hLMDY4NTh4TDRvamFhNXpaZU9kUXNXX2pCRm1Yd3lvR2NvQ0lnZU85d0VBcTR6Uzd0TGFEN1ZmTFdvRUtsdF9nNnFFWk9tb2RUM1HSAacBQVVfeXFMTVVOS0Rfb2M1amVIaFowMDZWSEhQX3h0QnBGLXNUcHlwNTJuY216NC1BQm0wQVIxcDBhaXAtVUZQVWNJR195Uy03b1hIdU1vNnc3dHZRdjU0NVZaVU5hMXVaWTRwWXV6d24waTBSUmNzUnFGcGNmWFVLRHg5c0NLRDg0dlVhRG0yN2FFdE1FeXB0akJ1MS1aMjJDM0lMd21FNXNiREhxRUk?oc=5"
+      },
+      "context": "Chelsea vs Liverpool kick-off time moved after Premier League decision",
+      "headline": "Chelsea vs Liverpool kick-off time moved after Premier League decision",
+      "published_at_epoch": 1792420080,
+      "source": "Liverpool Echo"
+    },
+    {
+      "article_id": 994618,
+      "classification_id": 66902,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.356214136520953,
+          "clickbait": 3.717318772665803,
+          "emotion": 1.4094577100075854,
+          "movement": 1.655037479070284,
+          "subject": 92.38908630700428
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNTjRtVTJqR1NlNjdFMU9fZTlJOGwtUm5YLVQzWk9QQ3FDTU5Ma3hXUjViLUVabmY1eFg1QVpOYTlHVnF0UjgydG1wM3l3T0lXTzZzM1l2bHcxbEE4cmhSZkw0SzViUEN1Q3FfZXlNcTNlRnBISFYtZnZJT1h1aVM1dEF4UWNXa18wOGpORmlR?oc=5"
+      },
+      "context": "Four Chelsea December fixtures moved for TV | News | Official Site",
+      "headline": "Four Chelsea December fixtures moved for TV | News | Official Site",
+      "published_at_epoch": 1792418340,
+      "source": "Chelsea Football Club"
+    },
+    {
+      "article_id": 994693,
+      "classification_id": 67558,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 75.80750236640847,
+          "clickbait": 9.662101990827273,
+          "emotion": 2.1756192113172137,
+          "movement": 7.234482744017344,
+          "subject": 85.7067405621696
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxOUGJfNi1Dc05UWkN6RjR4UWdfMlB6SjY3QUk4R1ZmX2pHVVdpcnMtSmRTOHBNNXN6cS1fZERFbXpfdHNPenZ1bS15MEVUelVsSE1RcjcxekNiNzctNk5rTy1oM0ZzLWxuSzhFa2E4SG13NHM5Q2JCR2pFZHA2RUJncWc4RkppdVlRMHN4M2VQaHc1b1dRbVVhcElkaFAxUktEZzV6OUc2OEIyRkE?oc=5"
+      },
+      "context": "Chelsea legend Petr Cech opens up on Reading FC injury 20 years after collision",
+      "headline": "Chelsea legend Petr Cech opens up on Reading FC injury 20 years after collision",
+      "published_at_epoch": 1792415403,
+      "source": "Reading Chronicle"
+    },
+    {
+      "article_id": 994540,
+      "classification_id": 67722,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": false,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 5.276252120829833,
+          "clickbait": 12.772315790229577,
+          "emotion": 2.654799284208675,
+          "movement": 23.390077362213084,
+          "subject": 92.16937586321646
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxPeS1ycXdxTTVod3IybktQUUswc2s1cFhZTG5oRnBSaF8zXzlqMWdnYlhBWXQ5a1ROTXFtbnVKaDJZTlRDSWFWSzZVeU5jTzRmOENiRGQ1WnBqbC1LTTVCbnpRUWZTa21sMk1ER21Vb3o5VFp6VGpTRnRhRmFMNFNMLV9OUzBESkp1dHZ2TWw2RWxJT29PRjdYZ9IBmAFBVV95cUxPeS1ycXdxTTVod3IybktQUUswc2s1cFhZTG5oRnBSaF8zXzlqMWdnYlhBWXQ5a1ROTXFtbnVKaDJZTlRDSWFWSzZVeU5jTzRmOENiRGQ1WnBqbC1LTTVCbnpRUWZTa21sMk1ER21Vb3o5VFp6VGpTRnRhRmFMNFNMLV9OUzBESkp1dHZ2TWw2RWxJT29PRjdYZw?oc=5"
+      },
+      "context": "Jorrel Hato passes difficult Chelsea audition as Xabi Alonso told exactly what he wants to hear",
+      "headline": "Jorrel Hato passes difficult Chelsea audition as Xabi Alonso told exactly what he wants to hear",
+      "published_at_epoch": 1792414769,
+      "source": "Football London"
+    },
+    {
+      "article_id": 994678,
+      "classification_id": 67783,
+      "classifier_world": {
+        "evidence_scope": "headline",
+        "gate": {
+          "admitted": true,
+          "characters": {
+            "influencer": true,
+            "insider": false,
+            "journalist": true
+          },
+          "coverage": "complete",
+          "scope": "headline"
+        },
+        "spectrum": {
+          "availability": 2.234865278316622,
+          "clickbait": 8.355370956906956,
+          "emotion": 57.902246994826925,
+          "movement": 2.685203055443508,
+          "subject": 83.95223400452808
+        },
+        "target_identity_resolved": true,
+        "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNcWRRN0ZBcm9DWWtjVF9QazFtQ1lwLWM3OTVTNWRsTHI5U1AteU9OYTVORHQ4OFJ1Wk5VNnNfbjFJeThCQ3RuNTdJWjUyclA4V0FIWG5rbEtQR2g0ZU16Q2NHRXVaWkZUZkVtZ3lFWmVwYWFEVi1DSFM4VjBid2VqdUtQTTdrRmw4RWZZV1dQVVlPZm9p?oc=5"
+      },
+      "context": "Henderson happy Chelsea ‘in right direction’ after beating Everton",
+      "headline": "Henderson happy Chelsea ‘in right direction’ after beating Everton",
+      "published_at_epoch": 1792414113,
+      "source": "Yahoo Sports"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.scoracle.qwen35-emotion</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/llama-server</string>
+		<string>--model</string>
+		<string>/Users/scotty/models/Qwen3.5-4B-Q4_K_M.gguf</string>
+		<string>--alias</string>
+		<string>Qwen3.5-4B-Q4_K_M</string>
+		<string>--host</string>
+		<string>127.0.0.1</string>
+		<string>--port</string>
+		<string>8081</string>
+		<string>--ctx-size</string>
+		<string>32768</string>
+		<string>--parallel</string>
+		<string>4</string>
+		<string>--n-gpu-layers</string>
+		<string>99</string>
+		<string>--flash-attn</string>
+		<string>on</string>
+		<string>--cache-ram</string>
+		<string>0</string>
+		<string>--slots</string>
+		<string>--jinja</string>
+		<string>--reasoning</string>
+		<string>off</string>
+		<string>--chat-template-kwargs</string>
+		<string>{"enable_thinking":false}</string>
+		<string>--cont-batching</string>
+		<string>--no-context-shift</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/scotty/Library/Logs/com.scoracle.qwen35-emotion.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/scotty/Library/Logs/com.scoracle.qwen35-emotion.log</string>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+</dict>
+</plist>

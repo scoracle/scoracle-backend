@@ -1,11 +1,11 @@
 {
-  "expect": {},
   "name": "ascendant-aligned",
-  "prompt_version": "or28-single-json",
+  "task": "oracle",
+  "prompt_version": "or29-evidence-only",
+  "user_prompt": "{\"fresh\":{\"analyst\":{\"body\":\"Performance and the mood around her are moving upward together.\"},\"influencer\":{\"body\":\"The room is warm and getting warmer — a run of dominant defensive games has the coverage glowing.\"},\"journalist\":[{\"body\":\"A month of dominant rim protection has the rotation built around her; the coverage is admiring and consistent.\",\"source_age_days\":1,\"source_count\":3,\"title\":\"Kiana Wells keeps rolling as a defensive anchor\",\"trajectory\":\"heating_up\"}],\"scout\":{\"body\":\"Anchor defender erasing the paint; blocks and altered shots keep climbing.\"}},\"meta\":{\"entity_type\":\"player\",\"name\":\"Kiana Wells\",\"sport\":\"basketball\"},\"task\":\"Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Preserve the entity type, limits and uncertainty of each card. Do not strengthen a repeated claim or infer a missing connection between cards. Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.\",\"voice\":\"Mystic, arcane, knowing, restrained.\"}",
+  "temperature": 0.0,
+  "expect": {},
   "review": [
     "Draw a supported connection across the aligned readings without adding facts."
-  ],
-  "task": "oracle",
-  "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Kiana Wells\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"task\":\"Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.\",\"fresh\":{\"journalist\":[{\"title\":\"Kiana Wells keeps rolling as a defensive anchor\",\"body\":\"A month of dominant rim protection has the rotation built around her; the coverage is admiring and consistent.\",\"trajectory\":\"heating_up\",\"source_count\":3,\"source_age_days\":1}],\"scout\":{\"body\":\"Anchor defender erasing the paint; blocks and altered shots keep climbing.\"},\"influencer\":{\"body\":\"The room is warm and getting warmer — a run of dominant defensive games has the coverage glowing.\"},\"analyst\":{\"body\":\"Performance and the mood around her are moving upward together.\"}},\"voice\":\"Mystic, arcane, knowing, restrained.\"}"
+  ]
 }

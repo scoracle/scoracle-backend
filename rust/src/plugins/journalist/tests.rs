@@ -398,3 +398,49 @@ fn stored_history_is_ignored_and_replay_matches_production() {
         json!({"version":"headline-archive-v1","selected":[]})
     );
 }
+
+#[test]
+fn chelsea_full_headline_packet_fits_without_routing_metadata() {
+    let captured: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../fixtures/character-runs/chelsea-2026-10-20/journalist-baseline.json"
+    ))
+    .unwrap();
+    let sources: Vec<crate::tools::source::SourceContext> =
+        serde_json::from_value(captured["sources"].clone()).unwrap();
+    let subject: crate::tools::meta::EntityMeta = serde_json::from_value(
+        serde_json::from_str::<serde_json::Value>(include_str!(
+            "../../../fixtures/character-runs/chelsea-2026-10-20/run.json"
+        ))
+        .unwrap()["subject"]
+            .clone(),
+    )
+    .unwrap();
+    let now = sources
+        .iter()
+        .filter_map(|s| s.published_at_epoch)
+        .max()
+        .unwrap();
+    let a = fresh::prepare(
+        subject,
+        sources.iter().map(CorpusItem::from).collect(),
+        &[],
+        now,
+    )
+    .unwrap();
+    assert_eq!(a.selected.len(), 42);
+    assert_eq!(a.dispositions.len(), 1);
+    assert_eq!(a.dispositions[0].reason, "already_reported_exact_text");
+    let packet = prompt(&a);
+    assert!(packet.len() < SOURCE_BUDGET_BYTES);
+    assert!(!packet.contains("news.google.com"));
+    for source in &a.selected {
+        assert!(packet.contains(&crate::tools::fetch::decode_entities(&source.title)));
+        assert!(source
+            .classifier_world
+            .as_ref()
+            .unwrap()
+            .get("url")
+            .is_some());
+    }
+    assert_eq!(generation_options(&a, 7900).num_ctx, 7900);
+}

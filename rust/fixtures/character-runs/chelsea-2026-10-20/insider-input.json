@@ -1,0 +1,275 @@
+{
+  "parts": {
+    "memories": [],
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 70.49418932378924,
+            "clickbait": 14.287489113386115,
+            "emotion": 1.5911079854026935,
+            "movement": 96.97869777711264,
+            "subject": 91.82716394454869
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxNX09mdlBrSURDbmFPT3VTVjlfQ0c0ZGMxSVhTWE9ZaFh6QnBSUkRyRGh0MHYyT1otaHlpcmIxcXVrN0s0dmM3NWZnNERHNDBwVGJGWkhlVTE5T19MdDFYU3VqZ2QzTTRRUHYtdlRuRF9qbk1iNzF3a2xGemxweVIwWDc0aDB1RjlrWGpBRjRLaUQyNVJsS19tZ2g3dVhGQUJkcjNkMmJZRk9lMk0wUWc5V2NwdE5iVWdSWm9SbA?oc=5"
+        },
+        "co_mentions": [],
+        "headline": "Confirmed: French-born Super Falcons-eligible forward joins Chelsea on professional deal",
+        "published_at": "2026-10-20T13:29:05Z",
+        "publisher": "AllNigeriaSoccer"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.842590503746908,
+            "clickbait": 9.94775607788898,
+            "emotion": 2.092813782033637,
+            "movement": 89.95322009157596,
+            "subject": 84.3113833860873
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizwFBVV95cUxOMVdPWE9wVUVDM2hhN1VLLVJkMjRpajd2aUc2dW1oZ2djUUczOUlfLUs4VkEzQ3hlNEhVU2tNTHQ2UC0zTm9wVmdWZ2J3WlJON2FyczMya05FcVRyZDRKWWhtMWNLdW9RaEFXLU1NM01jNWhPTEZCenozemVZU0thSzJCQzlOdmlHeWVHSEdDR1BGWkhVcGNNQ1llTWxkbnBpT0FwcjAwYllEdmNycVJZTE1URzMwYnE3eXF0YjRHRElOUlFTaWQzR1VjYXZodUU?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "person",
+            "name": "JJ Gabriel"
+          },
+          {
+            "entity_type": "team",
+            "name": "Liverpool"
+          },
+          {
+            "entity_type": "team",
+            "name": "Arsenal"
+          }
+        ],
+        "headline": "Transfer news LIVE: Kvaratskhelia to Arsenal, Ngumoha talks; Chelsea beat Man Utd to signing; Liverpool latest",
+        "published_at": "2026-10-20T12:59:30Z",
+        "publisher": "London Evening Standard"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.4160662659943233,
+            "clickbait": 20.86266863404608,
+            "emotion": 7.30555038849716,
+            "movement": 90.89687124031178,
+            "subject": 93.71379074160252
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxQYWllRGduTVd2Nkt2UUlmOGcyd3l3Z2FrT3d6NkxVU3BiU2l4THZ0YkI4dzZrQkNxQkpqNjVXbGctMnBVdFloUG9IVHBhcERxMjdqclZ3MXIwc0hxUEJxZWRFVTBDSzJtNGtNZUdGWlpqUE9KWE40STJBMEFNMncteEJ3bk5xLURLbDhnYXA5NTYwRC05YnlCNmNB0gGaAUFVX3lxTFBhaWVEZ25NV3Y2S3ZRSWY4ZzJ3eXdnYWtPd3o2TFVTcGJTaXhMdnRiQjh3NmtCQ3FCSmo2NVdsZy0ycFV0WWhQb0hUcGFwRHEyN2pyVncxcjBzSHFQQnFlZEVVMENLMm00a01lR0ZaWmpQT0pYTjRJMkEwQU0ydy14QnduTnEtREtsOGdhcDk1NjBELTlieUI2Y0E?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "person",
+            "name": "Xabi Alonso"
+          },
+          {
+            "entity_type": "player",
+            "name": "Estêvão"
+          }
+        ],
+        "headline": "Estevao given brutally honest Chelsea transfer advice despite Xabi Alonso promise",
+        "published_at": "2026-10-20T10:49:02Z",
+        "publisher": "Football London"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.616239214153216,
+            "clickbait": 5.880621344620766,
+            "emotion": 1.6369308549159836,
+            "movement": 89.81991980576045,
+            "subject": 86.74453161605656
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPd2w2elpzS0NnTVFsX1FEbkJBUVRaUmlsR3BjbmNyeE1uTTZPdWEyWWJDZ2stTHdPSjhzZVAyX29OWWpOaVFUbFB2UUhqRnhtOVpRT3JLTjZ1bjduZk5zMVpqMEVfNG1SWmpSeFBtWXl2amtTVUFJdzMwam1BM1hsVjFQSURYSHRyX0RhNg?oc=5"
+        },
+        "co_mentions": [],
+        "headline": "Former Berekum Chelsea midfielder Bediako moves to Atletico",
+        "published_at": "2026-10-20T09:05:26Z",
+        "publisher": "3News"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.5343687928195786,
+            "clickbait": 17.750741237923396,
+            "emotion": 7.556347028046408,
+            "movement": 95.4962242456394,
+            "subject": 94.6663834475792
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPWTBWQTF1SXRrQ2lTZExHT3pMVmwwamFXa3NWZktPb01wSU5XdmZ4a3c2SjVwNGhwNkE2Qk1lclZ6c0RuN1I0WllwT3RXZXdYSTRoVzFiTkQzYW9POGdBNGRrVWJrR0hVbzliOEszRGQxTG1SX0ZiSnY4a2pVbUNqREpEeTJfckFlN0lhN1FRaURWZzlZTENHRXBpUFFQZmQyMHpnZ2pR?oc=5"
+        },
+        "co_mentions": [],
+        "headline": "Chelsea unsung hero emerges after bold £100m transfer statement",
+        "published_at": "2026-10-20T04:38:05Z",
+        "publisher": "London Evening Standard"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9479767949962767,
+            "clickbait": 12.644558877522668,
+            "emotion": 5.868397938440661,
+            "movement": 83.17044419865148,
+            "subject": 90.70144077241704
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQNHVES2tLQUhCSnRYV2JTdVoxUE9NOHhpYUJrVlRkSl9wUXo3VzJxeHVRQWRkVnJoRTU1aklGeVdYeXY0ZURtUmhIMG5NMmxmaDlKSmNibGhFUTZ5UVRQR21FdzZSal9hZVIyZko1b2ZlSFlnN1ctSmpxOVdLQWd3NGFoY3FRWUUwZGxId3BFLW8zVmIwcTBlRDNKWQ?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "person",
+            "name": "Xabi Alonso"
+          }
+        ],
+        "headline": "£100m star ‘very keen on moving to Chelsea’ after speaking to Xabi Alonso",
+        "published_at": "2026-10-19T21:59:33Z",
+        "publisher": "Football365"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.16435042838732,
+            "clickbait": 36.36142257915033,
+            "emotion": 10.670731932292163,
+            "movement": 96.63475319005347,
+            "subject": 84.68799487495632
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMivgJBVV95cUxPZ09UTHM0LXdob3RmdmlyQ2FrUXNtVDNyckd5QnBOQnNuOUpkYjV1cEs3VHQ4dXdGOHVRVnJMZFFyeDdQSFQ5Z2d5WnNTRWVONVdkdzB0R2lTbnNPZUxRSnlHaGZtdTRTaWZSS0NTSkF5TUFPX2M5RTdzOExaMTF1X3lib3BnWi1jakd4TkowdmJUVzlnVjM0dU9NdzlEdTVJNkVYNldQUWtwdVZlZFQ0aVJCQXBCZWtha1U1cnlfTWJ6N19LVTIwbUxuSDFsOV92Q052Qk92eDh5LW5QYW10ZHIteEZSWUlKRDlENHVPTlBaaHdxQWRnUF9iRDAzMEhMVk5uakZNekhMeDVfNG9QUk0xYlBOZkVsQnYxQmdhMVZoU0h6OS1Ra0tocTIyRi1RRVhhQ01FSGpfM0hGVUE?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Arsenal"
+          }
+        ],
+        "headline": "€75m Arsenal problem as Chelsea signing hits like a bomb",
+        "published_at": "2026-10-19T21:03:00Z",
+        "publisher": "FootballTransfers.com"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.782294415010842,
+            "clickbait": 34.328066816741995,
+            "emotion": 21.257823000932877,
+            "movement": 80.41218685866252,
+            "subject": 92.84532853436689
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4ONIBjwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4OA?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "person",
+            "name": "Xabi Alonso"
+          }
+        ],
+        "headline": "Chelsea star urged to leave after Xabi Alonso snub",
+        "published_at": "2026-10-19T19:13:00Z",
+        "publisher": "Metro.co.uk"
+      }
+    ],
+    "subject": {
+      "entity_id": 18,
+      "entity_type": "team",
+      "name": "Chelsea",
+      "sport": "FOOTBALL"
+    }
+  },
+  "prompt": "{\"meta\":{\"name\":\"Chelsea\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"task\":\"Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Each report carries classifier routing scores over their declared evidence_scope; headline scores do not describe the complete article or prove relevance to the named entity; unmeasured criteria stay unresolved. Read the scores with the supplied evidence. For headline evidence, report only what the headline says and do not invent article details. Clickbait describes wording, not truth. memories are dated historical headlines, never evidence of a new move or a source for findings. Faithfully report your character’s point of view in voice. Return one JSON object with body and findings. Keep the body to two or three short sentences, at most 1200 characters, and return at most two of the most significant supported findings. The body must name the exact target from meta.name, even when no move is supported. If these reports do not support a move involving that target, explain that evidence limit and return findings as []; do not retell another subject's move. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.\",\"fresh\":{\"reports\":[{\"classifier_world\":{\"evidence_scope\":\"headline\",\"gate\":{\"admitted\":true,\"characters\":{\"influencer\":false,\"insider\":true,\"journalist\":true},\"coverage\":\"complete\",\"scope\":\"headline\"},\"spectrum\":{\"availability\":70.49418932378924,\"clickbait\":14.287489113386115,\"emotion\":1.5911079854026935,\"movement\":96.97869777711264,\"subject\":91.82716394454869},\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMivAFBVV95cUxNX09mdlBrSURDbmFPT3VTVjlfQ0c0ZGMxSVhTWE9ZaFh6QnBSUkRyRGh0MHYyT1otaHlpcmIxcXVrN0s0dmM3NWZnNERHNDBwVGJGWkhlVTE5T19MdDFYU3VqZ2QzTTRRUHYtdlRuRF9qbk1iNzF3a2xGemxweVIwWDc0aDB1RjlrWGpBRjRLaUQyNVJsS19tZ2g3dVhGQUJkcjNkMmJZRk9lMk0wUWc5V2NwdE5iVWdSWm9SbA?oc=5\"},\"co_mentions\":[],\"headline\":\"Confirmed: French-born Super Falcons-eligible forward joins Chelsea on professional deal\",\"published_at\":\"2026-10-20T13:29:05Z\",\"publisher\":\"AllNigeriaSoccer\"},{\"classifier_world\":{\"evidence_scope\":\"headline\",\"gate\":{\"admitted\":true,\"characters\":{\"influencer\":false,\"insider\":true,\"journalist\":true},\"coverage\":\"complete\",\"scope\":\"headline\"},\"spectrum\":{\"availability\":4.842590503746908,\"clickbait\":9.94775607788898,\"emotion\":2.092813782033637,\"movement\":89.95322009157596,\"subject\":84.3113833860873},\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMizwFBVV95cUxOMVdPWE9wVUVDM2hhN1VLLVJkMjRpajd2aUc2dW1oZ2djUUczOUlfLUs4VkEzQ3hlNEhVU2tNTHQ2UC0zTm9wVmdWZ2J3WlJON2FyczMya05FcVRyZDRKWWhtMWNLdW9RaEFXLU1NM01jNWhPTEZCenozemVZU0thSzJCQzlOdmlHeWVHSEdDR1BGWkhVcGNNQ1llTWxkbnBpT0FwcjAwYllEdmNycVJZTE1URzMwYnE3eXF0YjRHRElOUlFTaWQzR1VjYXZodUU?oc=5\"},\"co_mentions\":[{\"entity_type\":\"person\",\"name\":\"JJ Gabriel\"},{\"entity_type\":\"team\",\"name\":\"Liverpool\"},{\"entity_type\":\"team\",\"name\":\"Arsenal\"}],\"headline\":\"Transfer news LIVE: Kvaratskhelia to Arsenal, Ngumoha talks; Chelsea beat Man Utd to signing; Liverpool latest\",\"published_at\":\"2026-10-20T12:59:30Z\",\"publisher\":\"London Evening Standard\"},{\"classifier_world\":{\"evidence_scope\":\"headline\",\"gate\":{\"admitted\":true,\"characters\":{\"influencer\":false,\"insider\":true,\"journalist\":true},\"coverage\":\"complete\",\"scope\":\"headline\"},\"spectrum\":{\"availability\":2.4160662659943233,\"clickbait\":20.86266863404608,\"emotion\":7.30555038849716,\"movement\":90.89687124031178,\"subject\":93.71379074160252},\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxQYWllRGduTVd2Nkt2UUlmOGcyd3l3Z2FrT3d6NkxVU3BiU2l4THZ0YkI4dzZrQkNxQkpqNjVXbGctMnBVdFloUG9IVHBhcERxMjdqclZ3MXIwc0hxUEJxZWRFVTBDSzJtNGtNZUdGWlpqUE9KWE40STJBMEFNMncteEJ3bk5xLURLbDhnYXA5NTYwRC05YnlCNmNB0gGaAUFVX3lxTFBhaWVEZ25NV3Y2S3ZRSWY4ZzJ3eXdnYWtPd3o2TFVTcGJTaXhMdnRiQjh3NmtCQ3FCSmo2NVdsZy0ycFV0WWhQb0hUcGFwRHEyN2pyVncxcjBzSHFQQnFlZEVVMENLMm00a01lR0ZaWmpQT0pYTjRJMkEwQU0ydy14QnduTnEtREtsOGdhcDk1NjBELTlieUI2Y0E?oc=5\"},\"co_mentions\":[{\"entity_type\":\"person\",\"name\":\"Xabi Alonso\"},{\"entity_type\":\"player\",\"name\":\"Estêvão\"}],\"headline\":\"Estevao given brutally honest Chelsea transfer advice despite Xabi Alonso promise\",\"published_at\":\"2026-10-20T10:49:02Z\",\"publisher\":\"Football London\"},{\"classifier_world\":{\"evidence_scope\":\"headline\",\"gate\":{\"admitted\":true,\"characters\":{\"influencer\":false,\"insider\":true,\"journalist\":true},\"coverage\":\"complete\",\"scope\":\"headline\"},\"spectrum\":{\"availability\":5.616239214153216,\"clickbait\":5.880621344620766,\"emotion\":1.6369308549159836,\"movement\":89.81991980576045,\"subject\":86.74453161605656},\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPd2w2elpzS0NnTVFsX1FEbkJBUVRaUmlsR3BjbmNyeE1uTTZPdWEyWWJDZ2stTHdPSjhzZVAyX29OWWpOaVFUbFB2UUhqRnhtOVpRT3JLTjZ1bjduZk5zMVpqMEVfNG1SWmpSeFBtWXl2amtTVUFJdzMwam1BM1hsVjFQSURYSHRyX0RhNg?oc=5\"},\"co_mentions\":[],\"headline\":\"Former Berekum Chelsea midfielder Bediako moves to Atletico\",\"published_at\":\"2026-10-20T09:05:26Z\",\"publisher\":\"3News\"},{\"classifier_world\":{\"evidence_scope\":\"headline\",\"gate\":{\"admitted\":true,\"characters\":{\"influencer\":false,\"insider\":true,\"journalist\":true},\"coverage\":\"complete\",\"scope\":\"headline\"},\"spectrum\":{\"availability\":2.5343687928195786,\"clickbait\":17.750741237923396,\"emotion\":7.556347028046408,\"movement\":95.4962242456394,\"subject\":94.6663834475792},\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMipgFBVV95cUxPWTBWQTF1SXRrQ2lTZExHT3pMVmwwamFXa3NWZktPb01wSU5XdmZ4a3c2SjVwNGhwNkE2Qk1lclZ6c0RuN1I0WllwT3RXZXdYSTRoVzFiTkQzYW9POGdBNGRrVWJrR0hVbzliOEszRGQxTG1SX0ZiSnY4a2pVbUNqREpEeTJfckFlN0lhN1FRaURWZzlZTENHRXBpUFFQZmQyMHpnZ2pR?oc=5\"},\"co_mentions\":[],\"headline\":\"Chelsea unsung hero emerges after bold £100m transfer statement\",\"published_at\":\"2026-10-20T04:38:05Z\",\"publisher\":\"London Evening Standard\"},{\"classifier_world\":{\"evidence_scope\":\"headline\",\"gate\":{\"admitted\":true,\"characters\":{\"influencer\":false,\"insider\":true,\"journalist\":true},\"coverage\":\"complete\",\"scope\":\"headline\"},\"spectrum\":{\"availability\":1.9479767949962767,\"clickbait\":12.644558877522668,\"emotion\":5.868397938440661,\"movement\":83.17044419865148,\"subject\":90.70144077241704},\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxQNHVES2tLQUhCSnRYV2JTdVoxUE9NOHhpYUJrVlRkSl9wUXo3VzJxeHVRQWRkVnJoRTU1aklGeVdYeXY0ZURtUmhIMG5NMmxmaDlKSmNibGhFUTZ5UVRQR21FdzZSal9hZVIyZko1b2ZlSFlnN1ctSmpxOVdLQWd3NGFoY3FRWUUwZGxId3BFLW8zVmIwcTBlRDNKWQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"person\",\"name\":\"Xabi Alonso\"}],\"headline\":\"£100m star ‘very keen on moving to Chelsea’ after speaking to Xabi Alonso\",\"published_at\":\"2026-10-19T21:59:33Z\",\"publisher\":\"Football365\"},{\"classifier_world\":{\"evidence_scope\":\"headline\",\"gate\":{\"admitted\":true,\"characters\":{\"influencer\":false,\"insider\":true,\"journalist\":true},\"coverage\":\"complete\",\"scope\":\"headline\"},\"spectrum\":{\"availability\":5.16435042838732,\"clickbait\":36.36142257915033,\"emotion\":10.670731932292163,\"movement\":96.63475319005347,\"subject\":84.68799487495632},\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMivgJBVV95cUxPZ09UTHM0LXdob3RmdmlyQ2FrUXNtVDNyckd5QnBOQnNuOUpkYjV1cEs3VHQ4dXdGOHVRVnJMZFFyeDdQSFQ5Z2d5WnNTRWVONVdkdzB0R2lTbnNPZUxRSnlHaGZtdTRTaWZSS0NTSkF5TUFPX2M5RTdzOExaMTF1X3lib3BnWi1jakd4TkowdmJUVzlnVjM0dU9NdzlEdTVJNkVYNldQUWtwdVZlZFQ0aVJCQXBCZWtha1U1cnlfTWJ6N19LVTIwbUxuSDFsOV92Q052Qk92eDh5LW5QYW10ZHIteEZSWUlKRDlENHVPTlBaaHdxQWRnUF9iRDAzMEhMVk5uakZNekhMeDVfNG9QUk0xYlBOZkVsQnYxQmdhMVZoU0h6OS1Ra0tocTIyRi1RRVhhQ01FSGpfM0hGVUE?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Arsenal\"}],\"headline\":\"€75m Arsenal problem as Chelsea signing hits like a bomb\",\"published_at\":\"2026-10-19T21:03:00Z\",\"publisher\":\"FootballTransfers.com\"},{\"classifier_world\":{\"evidence_scope\":\"headline\",\"gate\":{\"admitted\":true,\"characters\":{\"influencer\":true,\"insider\":true,\"journalist\":true},\"coverage\":\"complete\",\"scope\":\"headline\"},\"spectrum\":{\"availability\":8.782294415010842,\"clickbait\":34.328066816741995,\"emotion\":21.257823000932877,\"movement\":80.41218685866252,\"subject\":92.84532853436689},\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4ONIBjwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4OA?oc=5\"},\"co_mentions\":[{\"entity_type\":\"person\",\"name\":\"Xabi Alonso\"}],\"headline\":\"Chelsea star urged to leave after Xabi Alonso snub\",\"published_at\":\"2026-10-19T19:13:00Z\",\"publisher\":\"Metro.co.uk\"}]},\"memories\":[],\"voice\":\"Informed, alert, measured.\"}"
+}

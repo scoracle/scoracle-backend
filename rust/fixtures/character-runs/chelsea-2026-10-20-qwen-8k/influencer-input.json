@@ -1,0 +1,119 @@
+{
+  "disposition": {
+    "contract": "vibe-frame-v31-evidence-only",
+    "day": {
+      "cutoff": 1792509975,
+      "end": 1792555200,
+      "start": 1792468800
+    },
+    "excluded": [],
+    "memories": []
+  },
+  "parts": {
+    "day": {
+      "cutoff": 1792509975,
+      "end": 1792555200,
+      "start": 1792468800
+    },
+    "excluded": [],
+    "memories": [],
+    "sources": [
+      {
+        "article_id": 1033013,
+        "classification_id": 62044,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8055909855029189,
+            "clickbait": 9.285167886121515,
+            "emotion": 77.27467761673348,
+            "movement": 46.416761576082166,
+            "subject": 93.92608294095014
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQa2QzNDlXYTJjMjA5dC10OVRtNXNOR2dFZ2Q1SnRMc2JXMkc5bGRmOHdpako2VnlJcFZFWnpQUUh6RER0eVRmT1VTeDlkTWNqd1pPWThnYm9ISnRzWGRYS0YwWk1Xc3RRb1hGa1ZETHVxRHdvdTRTSkpKRkhIYVcwNXJNdVRpaFI0S2RjMXhDbUtPNEhsMFpPRTdRNA?oc=5"
+        },
+        "context": "'An absolute honour': Alonso's Chelsea vision is already taking shape",
+        "headline": "'An absolute honour': Alonso's Chelsea vision is already taking shape",
+        "published_at_epoch": 1792460881,
+        "source": "London Evening Standard"
+      },
+      {
+        "article_id": 1023440,
+        "classification_id": 60215,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.782294415010842,
+            "clickbait": 34.328066816741995,
+            "emotion": 21.257823000932877,
+            "movement": 80.41218685866252,
+            "subject": 92.84532853436689
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4ONIBjwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4OA?oc=5"
+        },
+        "context": "Chelsea star urged to leave after Xabi Alonso snub",
+        "headline": "Chelsea star urged to leave after Xabi Alonso snub",
+        "published_at_epoch": 1792437180,
+        "source": "Metro.co.uk"
+      },
+      {
+        "article_id": 994678,
+        "classification_id": 67783,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.234865278316622,
+            "clickbait": 8.355370956906956,
+            "emotion": 57.902246994826925,
+            "movement": 2.685203055443508,
+            "subject": 83.95223400452808
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNcWRRN0ZBcm9DWWtjVF9QazFtQ1lwLWM3OTVTNWRsTHI5U1AteU9OYTVORHQ4OFJ1Wk5VNnNfbjFJeThCQ3RuNTdJWjUyclA4V0FIWG5rbEtQR2g0ZU16Q2NHRXVaWkZUZkVtZ3lFWmVwYWFEVi1DSFM4VjBid2VqdUtQTTdrRmw4RWZZV1dQVVlPZm9p?oc=5"
+        },
+        "context": "Henderson happy Chelsea ‘in right direction’ after beating Everton",
+        "headline": "Henderson happy Chelsea ‘in right direction’ after beating Everton",
+        "published_at_epoch": 1792414113,
+        "source": "Yahoo Sports"
+      }
+    ],
+    "subject": {
+      "entity_id": 18,
+      "entity_type": "team",
+      "name": "Chelsea",
+      "sport": "FOOTBALL"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "attempt": 1,
+    "rejection": "model reply rejected: The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games. Return the complete requested JSON within the declared output limits. Preserve the supplied qualifications and use only the prepared evidence."
+  },
+  {
+    "attempt": 2,
+    "rejection": "model reply rejected: The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games. Return the complete requested JSON within the declared output limits. Preserve the supplied qualifications and use only the prepared evidence."
+  },
+  {
+    "attempt": 3,
+    "rejection": "model reply rejected: The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games."
+  }
+]

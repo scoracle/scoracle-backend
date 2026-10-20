@@ -1,0 +1,59 @@
+{
+  "disposition": {
+    "contract": "vibe-frame-v30-compact-emotion",
+    "day": {
+      "cutoff": 1792506798,
+      "end": 1792555200,
+      "start": 1792468800
+    },
+    "excluded": [],
+    "memories": []
+  },
+  "parts": {
+    "day": {
+      "cutoff": 1792506798,
+      "end": 1792555200,
+      "start": 1792468800
+    },
+    "excluded": [],
+    "memories": [],
+    "sources": [
+      {
+        "article_id": 1023440,
+        "classification_id": 60215,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.782294415010842,
+            "clickbait": 34.328066816741995,
+            "emotion": 21.257823000932877,
+            "movement": 80.41218685866252,
+            "subject": 92.84532853436689
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4ONIBjwFBVV95cUxNd0M0eWwwLVlOUktaXzVMeGNxLUFqSC13eGpJY1Z3blFESldlT3pVcFdYdTk3cVlhUjRQQlZKeWs5MndrVm1lMmxRaVVqQm40U1RSa19QcWc3UDhRb3ZmRjNWS2pHVkhua0htQ2JNTUtYb2pSLTNlSm9KLTFOZUxFQW1tc2Nfb0NjTS1vWTY4OA?oc=5"
+        },
+        "context": "Chelsea star urged to leave after Xabi Alonso snub",
+        "headline": "Chelsea star urged to leave after Xabi Alonso snub",
+        "published_at_epoch": 1792437180,
+        "source": "Metro.co.uk"
+      }
+    ],
+    "subject": {
+      "entity_id": 18,
+      "entity_type": "team",
+      "name": "Chelsea",
+      "sport": "FOOTBALL"
+    }
+  }
+}

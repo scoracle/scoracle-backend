@@ -1,0 +1,15 @@
+{
+  "analyst_inputs": "fresh replay outputs; no stored peer fallback",
+  "captured_at": 1792509975,
+  "database_read_only": true,
+  "num_ctx": 7900,
+  "publishes": false,
+  "runtime_source": "working-tree-after-49d27ca9",
+  "subject": {
+    "entity_id": 18,
+    "entity_type": "team",
+    "name": "Chelsea",
+    "sport": "FOOTBALL"
+  },
+  "qualification": "Uncommitted working-tree replay after 49d27ca9; all five use Qwen, sequential calls, no publication. This is not a production rollout."
+}

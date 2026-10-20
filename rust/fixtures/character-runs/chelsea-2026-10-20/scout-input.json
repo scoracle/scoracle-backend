@@ -1,0 +1,98 @@
+{
+  "assignment": {
+    "built_prompt": "{\"meta\":{\"name\":\"Chelsea\",\"entity_type\":\"team\",\"sport\":\"Football (Soccer)\"},\"task\":\"meta identifies the subject. fresh contains selected season measurements and\\ntheir sample and limits.\\nvoice sets tone. Return only JSON with body as concise prose or null.\\n\\nDescribe what the supplied measurements establish in compact prose. Use only\\nsupplied measurements. A percentile is relative standing, not ability or\\nthe size of a difference. A prior percentile and standing_change apply only to\\nthat measure; supports_cross_season alone does not establish a comparison.\\nMissing comparison is unknown, not stability. A composite\\nis a standardized overall score with peer mean 50, not a percentile or a\\nmeasure of any individual skill.\\n\\nMissing fixture measurements are unknown, not zero.\\n\\nHonor any limit. Sample counts describe source coverage, not playing time or\\nwhen a season began. Do not infer a cause, role, tactics, fitness or future\\noutcome from a measurement. A short or null body is valid when the supplied\\nmeasurements do not support more.\",\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Creation\",\"measure\":\"assists\",\"value\":15.0,\"percentile\":89.5,\"cohort\":20.0,\"band\":\"strong\"},{\"label\":\"Goals For\",\"measure\":\"Goals For\",\"value\":17.0,\"percentile\":89.5,\"cohort\":20.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":7.0,\"minimum\":10.0}},\"voice\":\"Observant, direct, specific to the sport and restrained.\"}",
+    "exclusions": {
+      "budget_truncated_stat_labels": [],
+      "degenerate_zero_stat_labels": [],
+      "display_tier_stat_labels": [],
+      "off_facet_stat_labels": [],
+      "thin_sample_omitted_stat_labels": []
+    },
+    "input_components": "{\"output_contract\":\"rating-commentary-v8-parts\",\"prompt_version\":\"s74-stats-only\",\"provenance\":{\"composite_score\":53.0,\"datapoints\":[{\"cohort\":20.0,\"label\":\"Cards\",\"measure\":\"Cards\",\"pct\":52.6,\"sign\":-1,\"value\":13.0,\"z\":-0.2841},{\"cohort\":20.0,\"label\":\"Clean Sheets\",\"measure\":\"Clean Sheets\",\"pct\":10.5,\"sign\":1,\"value\":1.0,\"z\":-0.7137},{\"cohort\":20.0,\"label\":\"Goals Against\",\"measure\":\"Goals Against\",\"pct\":26.3,\"sign\":-1,\"value\":13.0,\"z\":0.8184},{\"cohort\":20.0,\"label\":\"Tackling\",\"measure\":\"possession-adjusted tackles\",\"pct\":47.4,\"sign\":1,\"value\":183.0,\"z\":0.1565},{\"cohort\":20.0,\"label\":\"xG Against\",\"measure\":\"xG Against\",\"pct\":26.3,\"sign\":-1,\"value\":11.0,\"z\":0.2469},{\"cohort\":20.0,\"label\":\"Creation\",\"measure\":\"assists\",\"pct\":89.5,\"sign\":1,\"value\":15.0,\"z\":1.288},{\"cohort\":20.0,\"label\":\"Goals For\",\"measure\":\"Goals For\",\"pct\":89.5,\"sign\":1,\"value\":17.0,\"z\":1.5082},{\"cohort\":20.0,\"label\":\"xG For\",\"measure\":\"xG For\",\"pct\":36.8,\"sign\":1,\"value\":9.98,\"z\":-0.2057}],\"league_id\":8,\"observed_at\":\"2026-10-20\",\"prompt_version\":\"s74-stats-only\",\"sample\":{\"Matches Played\":7.0},\"season\":2026,\"skill_changes\":null},\"world\":\"{\\\"meta\\\":{\\\"name\\\":\\\"Chelsea\\\",\\\"entity_type\\\":\\\"team\\\",\\\"sport\\\":\\\"Football (Soccer)\\\"},\\\"task\\\":\\\"meta identifies the subject. fresh contains selected season measurements and\\\\ntheir sample and limits.\\\\nvoice sets tone. Return only JSON with body as concise prose or null.\\\\n\\\\nDescribe what the supplied measurements establish in compact prose. Use only\\\\nsupplied measurements. A percentile is relative standing, not ability or\\\\nthe size of a difference. A prior percentile and standing_change apply only to\\\\nthat measure; supports_cross_season alone does not establish a comparison.\\\\nMissing comparison is unknown, not stability. A composite\\\\nis a standardized overall score with peer mean 50, not a percentile or a\\\\nmeasure of any individual skill.\\\\n\\\\nMissing fixture measurements are unknown, not zero.\\\\n\\\\nHonor any limit. Sample counts describe source coverage, not playing time or\\\\nwhen a season began. Do not infer a cause, role, tactics, fitness or future\\\\noutcome from a measurement. A short or null body is valid when the supplied\\\\nmeasurements do not support more.\\\",\\\"fresh\\\":{\\\"season\\\":2026,\\\"values\\\":[{\\\"label\\\":\\\"Creation\\\",\\\"measure\\\":\\\"assists\\\",\\\"value\\\":15.0,\\\"percentile\\\":89.5,\\\"cohort\\\":20.0,\\\"band\\\":\\\"strong\\\"},{\\\"label\\\":\\\"Goals For\\\",\\\"measure\\\":\\\"Goals For\\\",\\\"value\\\":17.0,\\\"percentile\\\":89.5,\\\"cohort\\\":20.0,\\\"band\\\":\\\"strong\\\"}],\\\"supports_cross_season\\\":false,\\\"limit\\\":{\\\"kind\\\":\\\"thin_sample\\\",\\\"appearances\\\":7.0,\\\"minimum\\\":10.0}},\\\"voice\\\":\\\"Observant, direct, specific to the sport and restrained.\\\"}\"}",
+    "input_hash": "4dca4c9c03f2826a7f13c885dd524dcf",
+    "notability": 75,
+    "notability_components": {
+      "composite": 53.0,
+      "elite_count": 2,
+      "top_pct": 89.5
+    },
+    "parts": {
+      "profile": {
+        "limit": {
+          "appearances": 7.0,
+          "kind": "thin_sample",
+          "minimum": 10.0
+        },
+        "season": 2026,
+        "supports_cross_season": false,
+        "values": [
+          {
+            "band": "strong",
+            "cohort": 20.0,
+            "label": "Creation",
+            "measure": "assists",
+            "percentile": 89.5,
+            "value": 15.0
+          },
+          {
+            "band": "strong",
+            "cohort": 20.0,
+            "label": "Goals For",
+            "measure": "Goals For",
+            "percentile": 89.5,
+            "value": 17.0
+          }
+        ]
+      },
+      "season": 2026,
+      "sport_name": "Football (Soccer)",
+      "subject": {
+        "entity_id": 18,
+        "entity_type": "team",
+        "name": "Chelsea",
+        "sport": "FOOTBALL"
+      }
+    },
+    "rating_trajectory": {
+      "components": {
+        "events_played": 7,
+        "latest_rating_z": 2.4,
+        "metrics": [
+          "rating"
+        ],
+        "rating_z_slope": 3.2,
+        "recent_rating_z": [
+          2.4,
+          7.1,
+          -4.0
+        ],
+        "sample_size": 3,
+        "source": "event_rating_z_scores",
+        "window_pct": 0.1,
+        "window_size": 3
+      },
+      "key": "rising",
+      "label": "overall scores trending up over recent games"
+    },
+    "season": 2026,
+    "subject": {
+      "entity_name": "Chelsea",
+      "entity_type": "team",
+      "sport": "FOOTBALL",
+      "sport_name": "Football (Soccer)"
+    }
+  },
+  "request": {
+    "add_generation_prompt": true,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "messages": [
+      {
+        "content": "{\"meta\":{\"name\":\"Chelsea\",\"entity_type\":\"team\",\"sport\":\"Football (Soccer)\"},\"task\":\"meta identifies the subject. fresh contains selected season measurements and\\ntheir sample and limits.\\nvoice sets tone. Return only JSON with body as concise prose or null.\\n\\nDescribe what the supplied measurements establish in compact prose. Use only\\nsupplied measurements. A percentile is relative standing, not ability or\\nthe size of a difference. A prior percentile and standing_change apply only to\\nthat measure; supports_cross_season alone does not establish a comparison.\\nMissing comparison is unknown, not stability. A composite\\nis a standardized overall score with peer mean 50, not a percentile or a\\nmeasure of any individual skill.\\n\\nMissing fixture measurements are unknown, not zero.\\n\\nHonor any limit. Sample counts describe source coverage, not playing time or\\nwhen a season began. Do not infer a cause, role, tactics, fitness or future\\noutcome from a measurement. A short or null body is valid when the supplied\\nmeasurements do not support more.\",\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Creation\",\"measure\":\"assists\",\"value\":15.0,\"percentile\":89.5,\"cohort\":20.0,\"band\":\"strong\"},{\"label\":\"Goals For\",\"measure\":\"Goals For\",\"value\":17.0,\"percentile\":89.5,\"cohort\":20.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":7.0,\"minimum\":10.0}},\"voice\":\"Observant, direct, specific to the sport and restrained.\"}",
+        "role": "user"
+      }
+    ],
+    "model": "alibayram/smollm3"
+  }
+}

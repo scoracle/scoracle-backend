@@ -1,0 +1,62 @@
+{
+  "tokenizer": "live Qwen3.5 native /apply-template + /tokenize; no inference",
+  "cases": {
+    "journalist": {
+      "reported_input_tokens": 9174,
+      "qwen_input_tokens": 10568,
+      "qwen_input_without_routing_metadata": 2033,
+      "routing_metadata_marginal_tokens": 8535,
+      "instructions_identity_template_tokens": 300,
+      "reserved_output_tokens": 2100,
+      "memories": 0,
+      "full_prompt_sha256": "850a36080350be22e44b17ea4be00fd9b5df8ca0f70f9a20f5c621c8b4f0ae5f",
+      "routing_share_pct": 80.8
+    },
+    "influencer": {
+      "reported_input_tokens": 817,
+      "qwen_input_tokens": 817,
+      "qwen_input_without_routing_metadata": 363,
+      "routing_metadata_marginal_tokens": 454,
+      "instructions_identity_template_tokens": 251,
+      "reserved_output_tokens": 600,
+      "memories": 0,
+      "full_prompt_sha256": "d48965089795235f640d8a8769cd5e2136da508cf89b9d0045147bd2e6881119"
+    },
+    "scout": {
+      "reported_input_tokens": 406,
+      "qwen_input_tokens": 360,
+      "qwen_input_without_routing_metadata": 360,
+      "routing_metadata_marginal_tokens": 0,
+      "instructions_identity_template_tokens": 251,
+      "reserved_output_tokens": 700,
+      "memories": 0,
+      "full_prompt_sha256": "2c6c55318be2eda3d260162a2756b2ac39b66b4b0abdfce2f1a1070af93e6e80"
+    },
+    "insider": {
+      "reported_input_tokens": 3626,
+      "qwen_input_tokens": 4057,
+      "qwen_input_without_routing_metadata": 1060,
+      "routing_metadata_marginal_tokens": 2997,
+      "instructions_identity_template_tokens": 424,
+      "reserved_output_tokens": 1400,
+      "memories": 0,
+      "full_prompt_sha256": "246698556697961e4b056036f682b20d426f0285328747f367606cdbd9d53b82"
+    },
+    "analyst": {
+      "reported_input_tokens": 274,
+      "qwen_input_tokens": 230,
+      "qwen_input_without_routing_metadata": 230,
+      "routing_metadata_marginal_tokens": 0,
+      "instructions_identity_template_tokens": 128,
+      "reserved_output_tokens": 700,
+      "memories": 0,
+      "full_prompt_sha256": "fd57fc7c2de5c5407aacf3411ccd65d89c1873a1c080c65c177add833f765ba2"
+    }
+  },
+  "journalist_independent_ablations": {
+    "without_urls": 5336,
+    "without_routing_gate": 9800,
+    "without_routing_scores": 8033,
+    "without_all_three": 2033
+  }
+}

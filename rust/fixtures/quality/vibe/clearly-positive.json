@@ -1,6 +1,8 @@
 {
-  "expect": {},
   "name": "clearly-positive",
+  "task": "vibe",
+  "prompt_version": "vibe-frame-v31-evidence-only",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"reporting_start\":\"2026-09-27T04:00:00Z\",\"reporting_end\":\"2026-09-28T04:00:00Z\",\"reports\":[{\"headline\":\"Cedar Comets supporters cheer the win\",\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_text\":\"Supporters of Cedar Comets cheered the win and said they were delighted.\"}]},\"memories\":[]}",
   "parts": {
     "day": {
       "cutoff": 1790553601,
@@ -25,7 +27,8 @@
       "sport": "NBA"
     }
   },
-  "prompt_version": "vibe-frame-v30-compact-emotion",
+  "temperature": 0.0,
+  "expect": {},
   "review": [
     "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
     "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
@@ -34,9 +37,5 @@
     "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
     "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
     "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
-  ],
-  "system": "",
-  "task": "vibe",
-  "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"reporting_start\":\"2026-09-27T04:00:00Z\",\"reporting_end\":\"2026-09-28T04:00:00Z\",\"reports\":[{\"headline\":\"Cedar Comets supporters cheer the win\",\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_text\":\"Supporters of Cedar Comets cheered the win and said they were delighted.\"}]},\"memories\":[]}"
+  ]
 }

@@ -10,12 +10,12 @@ use std::time::Duration;
 pub const LOCAL_STAGE_NUM_CTX: i32 = 4096;
 
 /// Context window shared by every character voice: prompt, evidence, and output reservation.
-pub const VOICE_NUM_CTX_PACKET: i32 = 4096;
+pub const VOICE_NUM_CTX_PACKET: i32 = 7900;
 
 /// Whether a voice uses the small context envelope. Output reservations and evidence caps key on
 /// this effective window.
 pub fn small_voice_window(num_ctx: i32) -> bool {
-    num_ctx <= VOICE_NUM_CTX_PACKET
+    num_ctx <= 4096
 }
 
 /// GenerateOptions tunes a single call. Defaults mean "let the server default."
@@ -24,10 +24,8 @@ pub fn small_voice_window(num_ctx: i32) -> bool {
 /// its own default, ~0.8, NON-deterministic) and `Some(t)` sends exactly `t` —
 /// INCLUDING `Some(0.0)`. `num_predict` is still omitted when `<= 0`.
 ///
-/// `num_ctx <= 0` sends the 4096 envelope explicitly rather than inheriting a
-/// potentially much larger model default.
-/// A prompt + `num_predict` sum that exceeds the window still silently evicts the
-/// EARLIEST tokens (the system prompt) mid-generation; size budgets accordingly.
+/// Native providers verify complete tokenized input plus reserved output against
+/// this request window and the physical slot; oversized packets fail without clipping.
 #[derive(Clone, Debug, Default)]
 pub struct GenerateOptions {
     pub system: Option<String>,

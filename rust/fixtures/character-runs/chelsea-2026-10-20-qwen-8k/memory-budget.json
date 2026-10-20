@@ -1,0 +1,17 @@
+{
+  "one_history_fixture": {
+    "input_before_memory_metadata_trim": 566,
+    "input_after_memory_metadata_trim": 522,
+    "memories": 1
+  },
+  "twenty_history_stress": {
+    "synthetic": true,
+    "fresh_headlines": 58,
+    "memories": 20,
+    "retained_memory_bytes": 5442,
+    "input_tokens": 5556,
+    "reserved_output_tokens": 2100,
+    "total_tokens": 7656,
+    "fits_7900": true
+  }
+}

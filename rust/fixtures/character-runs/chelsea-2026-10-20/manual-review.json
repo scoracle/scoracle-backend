@@ -1,0 +1,63 @@
+{
+  "entity": "team:18:FOOTBALL",
+  "runtime_source": "49d27ca98bf280ec3718ba5d85c06dc8b381e569",
+  "human_review_required": true,
+  "journalist": {
+    "quality": "fail",
+    "production_baseline": "no_call_budget_overflow",
+    "diagnostic_scope": "24 newest fitting reports from 43 retained sources; not a complete daily reading",
+    "issues": [
+      "Cross-team contamination: Berekum Chelsea becomes a Stamford Bridge departure.",
+      "Bediako move incorrectly attributed to Flashscore.com instead of 3News; headline Bournemouth - Chelsea mismatches cited report.",
+      "Atletico expanded to Atletico Madrid without evidence.",
+      "Emi Martinez confirms new Chelsea aim becomes confirmed his new club.",
+      "French-born description appears transferred from an unrelated headline; general squad-building statements unsupported."
+    ]
+  },
+  "influencer": {
+    "quality": "appropriate_abstention",
+    "response": {
+      "score": null,
+      "headline": null,
+      "body": null
+    },
+    "issues": [
+      "Only one routed headline: Chelsea star urged to leave after Xabi Alonso snub; no explicit current feelings about the target.",
+      "Fresh packet carries a headline published before reporting_start; investigate late-delivery/reporting-period policy.",
+      "No emotional prose or numeric score to grade; not evidence of positive-emotion recall."
+    ]
+  },
+  "scout": {
+    "quality": "fail",
+    "issues": [
+      "First attempt calls Chelsea a player, calls 20 a player cohort, and turns total measurements into averages.",
+      "Production correction produces a second accepted reply, but drops the seven-appearance thin-sample limit.",
+      "Infers cohesion and effectiveness from two measurements; unsupported by the evidence."
+    ]
+  },
+  "insider": {
+    "quality": "rejected_by_production_guard",
+    "issues": [
+      "Raw prose invents Chelsea confirming a French forward JJ Gabriel signing from Liverpool; the cited headline names neither the player nor Liverpool.",
+      "Finding names JJ Gabriel using report_index 0, whose co_mentions list is empty.",
+      "Production counterparty validation rejected it; no valid product."
+    ]
+  },
+  "analyst": {
+    "quality": "fail",
+    "scope": "fresh generated Scout output; Influencer missing after explicit abstention; no stored-peer fallback",
+    "issues": [
+      "Propagates Scout cohesion/effectiveness claims.",
+      "Does not explain the missing mood evidence or unresolved relation between performance and emotion.",
+      "Echoes voice instructions: The analysis is decisive and economical.",
+      "Deterministic direction steady with conviction 0 comes from a null study; not evidence of stable momentum."
+    ]
+  },
+  "recommended_order": [
+    "Fix target identity and meaningful-report selection (Berekum Chelsea, high-school Chelsea, squad scope and listing pages).",
+    "Resolve complete-day headline package overflow without silently dropping qualifications or denials.",
+    "Fix Scout team identity, thin-sample preservation and unsupported tactical/causal claims.",
+    "Make Analyst preserve missing evidence and prevent amplification/voice leakage.",
+    "Re-run this retained evidence after each fix; keep grammar/parser and semantic quality separate."
+  ]
+}

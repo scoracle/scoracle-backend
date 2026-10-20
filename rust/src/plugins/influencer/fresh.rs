@@ -40,7 +40,8 @@ fn pack(subject: EntityMeta, day: Day, sources: Vec<SourceContext>) -> Result<Pa
     let mut bytes = 0;
     for source in sources {
         let key = crate::tools::fresh::evidence_key(&source.source, &source.context);
-        let size = serde_json::to_vec(&source)?.len();
+        let size =
+            serde_json::to_vec(&crate::tools::fresh::reports(std::slice::from_ref(&source)))?.len();
         let reason = if source.published_at_epoch.is_none() {
             Some("unknown_publication_time")
         } else if source

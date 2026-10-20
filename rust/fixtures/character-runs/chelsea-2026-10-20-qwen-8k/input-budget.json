@@ -1,0 +1,64 @@
+{
+  "effective_request_cap": 7900,
+  "includes_output_reservation": true,
+  "source_patch_sha256": "31085d2fbe98be05785a2908a75dedb17a84771d1746540d48c31a83cf488bad",
+  "calls": [
+    {
+      "character": "journalist",
+      "attempt": 1,
+      "input_tokens": 4636,
+      "reserved_output_tokens": 2100,
+      "total_budgeted_tokens": 6736,
+      "generated_tokens": 322
+    },
+    {
+      "character": "influencer",
+      "attempt": 1,
+      "input_tokens": 586,
+      "reserved_output_tokens": 600,
+      "total_budgeted_tokens": 1186,
+      "generated_tokens": 76
+    },
+    {
+      "character": "scout",
+      "attempt": 1,
+      "input_tokens": 467,
+      "reserved_output_tokens": 700,
+      "total_budgeted_tokens": 1167,
+      "generated_tokens": 78
+    },
+    {
+      "character": "scout",
+      "attempt": 2,
+      "input_tokens": 528,
+      "reserved_output_tokens": 700,
+      "total_budgeted_tokens": 1228,
+      "generated_tokens": 42
+    },
+    {
+      "character": "scout",
+      "attempt": 3,
+      "input_tokens": 589,
+      "reserved_output_tokens": 700,
+      "total_budgeted_tokens": 1289,
+      "generated_tokens": 56
+    },
+    {
+      "character": "insider",
+      "attempt": 1,
+      "input_tokens": 1356,
+      "reserved_output_tokens": 1400,
+      "total_budgeted_tokens": 2756,
+      "generated_tokens": 148
+    },
+    {
+      "character": "analyst",
+      "attempt": 1,
+      "input_tokens": 323,
+      "reserved_output_tokens": 700,
+      "total_budgeted_tokens": 1023,
+      "generated_tokens": 65
+    }
+  ],
+  "qualification": "The recorded live replay preceded the additional memory projection; its memories were empty so that projection does not change these requests. Source patch includes the final memory projection."
+}

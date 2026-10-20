@@ -1,6 +1,8 @@
 {
-  "expect": {},
   "name": "synthetic-withdrawn-report",
+  "task": "rating",
+  "prompt_version": "s75-evidence-only",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"task\":\"Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names,\\nidentities, affiliations, causes, motives or outcomes. Missing information is unknown.\\nVoice controls tone only; do not discuss the instructions.\\n\\nmeta identifies the subject. A team is a team, never an individual player.\\nDo not turn totals into averages or a team cohort into a player cohort.\\nfresh contains selected season measurements and\\ntheir sample and limits.\\nvoice sets tone. Return only JSON with body as concise prose or null.\\n\\nDescribe what the supplied measurements establish in compact prose. Use only\\nsupplied measurements. A percentile is relative standing, not ability or\\nthe size of a difference. A prior percentile and standing_change apply only to\\nthat measure; supports_cross_season alone does not establish a comparison.\\nMissing comparison is unknown, not stability. A composite\\nis a standardized overall score with peer mean 50, not a percentile or a\\nmeasure of any individual skill.\\n\\nMissing fixture measurements are unknown, not zero.\\n\\nState any thin-sample limit and its supplied sample count explicitly.\\nDo not infer cohesion, effectiveness, consistency or ability from relative ranks.\\nHonor any limit. Sample counts describe source coverage, not playing time or\\nwhen a season began. Do not infer a cause, role, tactics, fitness or future\\noutcome from a measurement. A short or null body is valid when the supplied\\nmeasurements do not support more.\",\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\",\"prior_percentile\":80.0,\"standing_change\":\"rose\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\",\"prior_percentile\":75.0,\"standing_change\":\"held\"}],\"composite\":64.0,\"supports_cross_season\":true},\"voice\":\"Observant, direct, specific to the sport and restrained.\"}",
   "parts": {
     "profile": {
       "composite": 64.0,
@@ -41,13 +43,11 @@
       "sport": "NBA"
     }
   },
-  "prompt_version": "s74-stats-only",
+  "temperature": 0.0,
+  "expect": {},
   "review": [
     "Assess supplied season measurements only; article reporting is excluded from the stats-only Scout contract.",
     "Preserve measured values and distinguish relative standing from improvement magnitude. Missing availability evidence supports no fitness or recovery claim.",
     "Offline recapture; generation quality remains subject to evaluation."
-  ],
-  "task": "rating",
-  "temperature": 0,
-  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"Basketball\"},\"task\":\"meta identifies the subject. fresh contains selected season measurements and\\ntheir sample and limits.\\nvoice sets tone. Return only JSON with body as concise prose or null.\\n\\nDescribe what the supplied measurements establish in compact prose. Use only\\nsupplied measurements. A percentile is relative standing, not ability or\\nthe size of a difference. A prior percentile and standing_change apply only to\\nthat measure; supports_cross_season alone does not establish a comparison.\\nMissing comparison is unknown, not stability. A composite\\nis a standardized overall score with peer mean 50, not a percentile or a\\nmeasure of any individual skill.\\n\\nMissing fixture measurements are unknown, not zero.\\n\\nHonor any limit. Sample counts describe source coverage, not playing time or\\nwhen a season began. Do not infer a cause, role, tactics, fitness or future\\noutcome from a measurement. A short or null body is valid when the supplied\\nmeasurements do not support more.\",\"fresh\":{\"season\":2026,\"sample\":{\"Games Played\":25.0},\"values\":[{\"label\":\"Rebounds\",\"measure\":\"rebounds per game\",\"value\":48.0,\"percentile\":90.0,\"cohort\":30.0,\"band\":\"elite\",\"prior_percentile\":80.0,\"standing_change\":\"rose\"},{\"label\":\"Assists\",\"measure\":\"assists per game\",\"value\":23.0,\"percentile\":75.0,\"cohort\":30.0,\"band\":\"strong\",\"prior_percentile\":75.0,\"standing_change\":\"held\"}],\"composite\":64.0,\"supports_cross_season\":true},\"voice\":\"Observant, direct, specific to the sport and restrained.\"}"
+  ]
 }

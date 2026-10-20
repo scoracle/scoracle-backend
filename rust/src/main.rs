@@ -133,15 +133,10 @@ async fn main() -> Result<()> {
             .join(" "),
         "resolved plugin fleet"
     );
-    // Every voice derives its prompt budget from this shared window.
+    // The provider verifies complete input and output reservations against this window.
     info!(
         voice_num_ctx = cfg.voice_num_ctx,
         pinned = std::env::var("VOICE_NUM_CTX").is_ok(),
-        envelope = if scoracle_cognition::harness::model::small_voice_window(cfg.voice_num_ctx) {
-            "small: reservations ≤700, crown cards capped, journalist corpus 8"
-        } else {
-            "wide: larger reservations, no card caps, journalist corpus 40"
-        },
         "VOICE WINDOW: every voice on this host requests num_ctx {}",
         cfg.voice_num_ctx
     );

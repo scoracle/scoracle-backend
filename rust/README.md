@@ -53,7 +53,7 @@ The six character plugins retain their existing interfaces and model routes. `st
 
 ## Activation and verification
 
-The [October 20 release record](docs/headline-qwen35-deployment-2026-10-20.md) documents deployed migration 315 and matching Go/Rust binaries on both hosts. Influencer uses Qwen3.5-4B with the qualified compact prompt and score-first schema; the other character routes retain SmolLM3. See [entity pipeline changes and follow-up](docs/headline-entity-pipeline.md).
+The [October 20 release record](docs/headline-qwen35-deployment-2026-10-20.md) documents deployed migration 315 and matching Go/Rust binaries on both hosts. The [all-character Qwen release](docs/qwen-character-production-2026-10-20.md) pins all six character routes to one Qwen3.5-4B server with four slots, a 7,900-token request budget and evidence-only prompts. Known factual-output defects remain documented in the release record. See [entity pipeline changes and follow-up](docs/headline-entity-pipeline.md).
 
 For a read-only model replay: `CLASSIFIER_URL=http://127.0.0.1:18081 cargo run --release --example classifier_replay -- cases.jsonl 4`. Cases supply `id`, `sport`, `headline`, `publisher` and canonical `meta`.
 

@@ -16,6 +16,14 @@ pub struct Headline {
     pub spectrum: Value,
 }
 
+impl Headline {
+    /// Writing needs dated publisher wording; full ranking metadata stays in receipts.
+    pub fn for_writing(&self) -> Value {
+        serde_json::json!({"headline":self.headline,"publisher":self.publisher,
+            "published_at":self.published_at})
+    }
+}
+
 pub async fn load_on(
     connection: &mut PgConnection,
     subject: &EntityMeta,
@@ -131,6 +139,27 @@ mod tests {
     use crate::plugins::influencer::prompt::{Assignment, Day, Parts};
     use serde_json::json;
 
+    #[test]
+    fn writing_memory_preserves_dated_evidence_without_ranking_metadata() {
+        let memory = Headline {
+            article_id: 7,
+            headline: "Cedar denied talks".into(),
+            publisher: "Wire".into(),
+            published_at: "2026-10-19T12:00:00Z".into(),
+            url: "https://example.invalid/7".into(),
+            spectrum: json!({"movement":95}),
+        };
+        assert_eq!(
+            memory.for_writing(),
+            json!({"headline":"Cedar denied talks", "publisher":"Wire",
+            "published_at":"2026-10-19T12:00:00Z"})
+        );
+        let retained = serde_json::to_value(&memory).unwrap();
+        assert_eq!(retained["article_id"], 7);
+        assert_eq!(retained["spectrum"]["movement"], 95);
+        assert_eq!(retained["url"], "https://example.invalid/7");
+    }
+
     fn records() -> Vec<Value> {
         let corpus: Value = serde_json::from_str(include_str!(
             "../../../fixtures/classifier/headline-memory-corpus.json"
@@ -191,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn stored_headline_memories_preserve_dates_scores_identity_and_voice() {
+    fn stored_memories_keep_provenance_while_writing_only_receives_dated_evidence() {
         let records = records();
         let memories = records[..4]
             .iter()
@@ -221,7 +250,12 @@ mod tests {
             packet["memories"][0]["published_at"],
             records[0]["published_at"]
         );
-        assert_eq!(packet["memories"][0]["spectrum"], records[0]["spectrum"]);
+        assert_eq!(packet["memories"][0]["publisher"], records[0]["publisher"]);
+        assert_eq!(packet["memories"][0].as_object().unwrap().len(), 3);
+        let retained = serde_json::to_value(&parts.memories[0]).unwrap();
+        assert_eq!(retained["spectrum"], records[0]["spectrum"]);
+        assert_eq!(retained["article_id"], records[0]["article_id"]);
+        assert_eq!(retained["url"], records[0]["url"]);
         assert_eq!(
             packet["meta"],
             json!({"name":"New York Knicks","entity_type":"team","sport":"basketball"})

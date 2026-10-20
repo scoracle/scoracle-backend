@@ -12,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s74-stats-only";
+pub const RATING_PROMPT_VERSION: &str = "s75-evidence-only";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -62,7 +62,13 @@ pub struct Assignment {
 
 /// Instructions accompanying every prepared Scout world.
 pub const TASK: &str = "\
-meta identifies the subject. fresh contains selected season measurements and
+Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names,
+identities, affiliations, causes, motives or outcomes. Missing information is unknown.
+Voice controls tone only; do not discuss the instructions.
+
+meta identifies the subject. A team is a team, never an individual player.
+Do not turn totals into averages or a team cohort into a player cohort.
+fresh contains selected season measurements and
 their sample and limits.
 voice sets tone. Return only JSON with body as concise prose or null.
 
@@ -76,6 +82,8 @@ measure of any individual skill.
 
 Missing fixture measurements are unknown, not zero.
 
+State any thin-sample limit and its supplied sample count explicitly.
+Do not infer cohesion, effectiveness, consistency or ability from relative ranks.
 Honor any limit. Sample counts describe source coverage, not playing time or
 when a season began. Do not infer a cause, role, tactics, fitness or future
 outcome from a measurement. A short or null body is valid when the supplied

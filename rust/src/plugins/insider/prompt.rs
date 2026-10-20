@@ -2,16 +2,15 @@
 use crate::harness::route::RouteKey;
 pub const MODEL: RouteKey = RouteKey::new("transfer-logic", "TRANSFER_LOGIC");
 // Reserve room for a complete headline package, instructions and output.
-pub const ARTICLE_NUM_CTX: i32 = 32768;
 pub const CONTEXT_BUDGET_BYTES: usize = 24000;
 use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 use serde::Serialize;
 
-const SYSTEM: &str = "Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Each report carries classifier routing scores over their declared evidence_scope; headline scores do not describe the complete article or prove relevance to the named entity; unmeasured criteria stay unresolved. Read the scores with the supplied evidence. For headline evidence, report only what the headline says and do not invent article details. Clickbait describes wording, not truth. memories are dated historical headlines, never evidence of a new move or a source for findings. Faithfully report your character’s point of view in voice. Return one JSON object with body and findings. Keep the body to two or three short sentences, at most 1200 characters, and return at most two of the most significant supported findings. The body must name the exact target from meta.name, even when no move is supported. If these reports do not support a move involving that target, explain that evidence limit and return findings as []; do not retell another subject's move. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.";
+const SYSTEM: &str = "Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Do not name an unnamed signing from another report or a co-mention. An exact evidence_quote must support that specific counterparty and target in that same report. Generic or unrelated movement produces no finding. Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Routing does not verify facts or target relationships. For headline evidence, report only what the headline says and do not invent article details. memories are dated historical headlines, never evidence of a new move or a source for findings. Faithfully report your character’s point of view in voice. Return one JSON object with body and findings. Keep the body to two or three short sentences, at most 1200 characters, and return at most two of the most significant supported findings. The body must name the exact target from meta.name, even when no move is supported. If these reports do not support a move involving that target, explain that evidence limit and return findings as []; do not retell another subject's move. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.";
 
-pub const PROMPT_VERSION: &str = "insider-source-v14-headline-corpus";
+pub const PROMPT_VERSION: &str = "insider-source-v15-evidence-only";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v3-bounded";
 pub const NUM_PREDICT: i32 = 1400;
 pub const BODY_MAX_CHARS: usize = 1200;
@@ -23,7 +22,11 @@ pub fn options(num_ctx: i32) -> GenerateOptions {
         system: None,
         temperature: Some(0.3),
         num_predict: NUM_PREDICT,
-        num_ctx: num_ctx.max(ARTICLE_NUM_CTX),
+        num_ctx: if num_ctx > 0 {
+            num_ctx
+        } else {
+            crate::harness::model::VOICE_NUM_CTX_PACKET
+        },
         json_mode: false,
         format_schema: Some(serde_json::json!({
             "type": "object", "additionalProperties": false,
@@ -115,19 +118,27 @@ pub(super) fn assemble_with_memories(
     reports: &[Report],
     memories: &[crate::plugins::classifier::memories::Headline],
 ) -> String {
+    let mut reports = reports.to_vec();
+    for report in &mut reports {
+        report.classifier_world =
+            crate::tools::fresh::evidence_world(report.classifier_world.as_ref());
+    }
     #[derive(Serialize)]
     struct Input<'a> {
         meta: crate::tools::meta::WritingIdentity<'a>,
         task: &'static str,
         fresh: serde_json::Value,
-        memories: &'a [crate::plugins::classifier::memories::Headline],
+        memories: Vec<serde_json::Value>,
         voice: &'static str,
     }
     serde_json::to_string(&Input {
         meta: subject.for_writing(),
         task: SYSTEM,
         fresh: serde_json::json!({ "reports": reports }),
-        memories,
+        memories: memories
+            .iter()
+            .map(crate::plugins::classifier::memories::Headline::for_writing)
+            .collect(),
         voice: crate::plugins::insider::voice::VOICE,
     })
     .expect("insider world serializes")
@@ -197,7 +208,8 @@ mod tests {
                 },
             ],
         };
-        let options = options_for_reports(32768, &subject, std::slice::from_ref(&report));
+        let options = options_for_reports(7900, &subject, std::slice::from_ref(&report));
+        assert_eq!(options.num_ctx, 7900);
         let findings = &options.format_schema.as_ref().unwrap()["properties"]["findings"];
         assert_eq!(
             findings["items"]["properties"]["counterparty"]["enum"],

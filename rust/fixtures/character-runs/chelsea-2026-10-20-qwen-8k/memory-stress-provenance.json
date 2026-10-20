@@ -1,0 +1,285 @@
+{
+  "synthetic": true,
+  "memories": [
+    {
+      "article_id": 1,
+      "headline": "Historical report 0: Chelsea denied opening talks with Player 0.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/0",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 2,
+      "headline": "Historical report 1: Chelsea denied opening talks with Player 1.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/1",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 3,
+      "headline": "Historical report 2: Chelsea denied opening talks with Player 2.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/2",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 4,
+      "headline": "Historical report 3: Chelsea denied opening talks with Player 3.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/3",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 5,
+      "headline": "Historical report 4: Chelsea denied opening talks with Player 4.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/4",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 6,
+      "headline": "Historical report 5: Chelsea denied opening talks with Player 5.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/5",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 7,
+      "headline": "Historical report 6: Chelsea denied opening talks with Player 6.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/6",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 8,
+      "headline": "Historical report 7: Chelsea denied opening talks with Player 7.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/7",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 9,
+      "headline": "Historical report 8: Chelsea denied opening talks with Player 8.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/8",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 10,
+      "headline": "Historical report 9: Chelsea denied opening talks with Player 9.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/9",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 11,
+      "headline": "Historical report 10: Chelsea denied opening talks with Player 10.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/10",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 12,
+      "headline": "Historical report 11: Chelsea denied opening talks with Player 11.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/11",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 13,
+      "headline": "Historical report 12: Chelsea denied opening talks with Player 12.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/12",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 14,
+      "headline": "Historical report 13: Chelsea denied opening talks with Player 13.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/13",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 15,
+      "headline": "Historical report 14: Chelsea denied opening talks with Player 14.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/14",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 16,
+      "headline": "Historical report 15: Chelsea denied opening talks with Player 15.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/15",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 17,
+      "headline": "Historical report 16: Chelsea denied opening talks with Player 16.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/16",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 18,
+      "headline": "Historical report 17: Chelsea denied opening talks with Player 17.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/17",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 19,
+      "headline": "Historical report 18: Chelsea denied opening talks with Player 18.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/18",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    },
+    {
+      "article_id": 20,
+      "headline": "Historical report 19: Chelsea denied opening talks with Player 19.",
+      "publisher": "Wire",
+      "published_at": "2026-10-18T12:00:00Z",
+      "url": "https://example.invalid/19",
+      "spectrum": {
+        "subject": 95,
+        "emotion": 10,
+        "movement": 99,
+        "availability": 1,
+        "clickbait": 5
+      }
+    }
+  ]
+}

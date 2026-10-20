@@ -235,7 +235,8 @@ mod tests {
     /// `small_voice_window` outlived the rail: it keys on the WINDOW, which is still a live knob.
     #[test]
     fn small_window_is_a_property_of_the_window() {
-        assert!(small_voice_window(VOICE_NUM_CTX_PACKET));
+        assert!(!small_voice_window(VOICE_NUM_CTX_PACKET));
+        assert_eq!(resolve_voice_num_ctx(Some("8096")), 8096);
         assert!(small_voice_window(2048));
         assert!(!small_voice_window(16384)); // the legacy corpus's window
         assert!(small_voice_window(resolve_voice_num_ctx(Some("4096"))));

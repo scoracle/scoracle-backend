@@ -9,9 +9,9 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-pub const ORACLE_PROMPT_VERSION: &str = "or28-single-json";
+pub const ORACLE_PROMPT_VERSION: &str = "or29-evidence-only";
 
-pub const ORACLE_SYSTEM_PROMPT: &str = "Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.";
+pub const ORACLE_SYSTEM_PROMPT: &str = "Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Preserve the entity type, limits and uncertainty of each card. Do not strengthen a repeated claim or infer a missing connection between cards. Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.";
 
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;

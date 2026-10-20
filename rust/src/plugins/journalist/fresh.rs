@@ -45,7 +45,7 @@ pub(super) struct Report<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     publisher_excerpt: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    classifier_world: Option<&'a serde_json::Value>,
+    classifier_world: Option<serde_json::Value>,
 }
 
 /// Preserve selected order and the declared source scope. Headline-only reports
@@ -69,7 +69,7 @@ pub(super) fn reports(reports: &[CorpusItem]) -> Vec<Report<'_>> {
                 .as_ref()
                 .is_none_or(|w| w["evidence_scope"] != "headline")
                 .then(|| crate::tools::fetch::decode_entities(&report.context)),
-            classifier_world: report.classifier_world.as_ref(),
+            classifier_world: crate::tools::fresh::evidence_world(report.classifier_world.as_ref()),
         })
         .collect()
 }

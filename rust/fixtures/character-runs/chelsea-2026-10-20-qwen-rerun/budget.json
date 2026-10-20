@@ -1,0 +1,69 @@
+{
+  "cap": 7900,
+  "includes_output_reservation": true,
+  "calls": [
+    {
+      "character": "journalist",
+      "attempt": 1,
+      "input_tokens": 5012,
+      "reserved_output_tokens": 2100,
+      "total_budgeted_tokens": 7112,
+      "generated_tokens": 365,
+      "wall_ms": 26294
+    },
+    {
+      "character": "influencer",
+      "attempt": 1,
+      "input_tokens": 586,
+      "reserved_output_tokens": 600,
+      "total_budgeted_tokens": 1186,
+      "generated_tokens": 76,
+      "wall_ms": 4125
+    },
+    {
+      "character": "scout",
+      "attempt": 1,
+      "input_tokens": 467,
+      "reserved_output_tokens": 700,
+      "total_budgeted_tokens": 1167,
+      "generated_tokens": 97,
+      "wall_ms": 4433
+    },
+    {
+      "character": "scout",
+      "attempt": 2,
+      "input_tokens": 528,
+      "reserved_output_tokens": 700,
+      "total_budgeted_tokens": 1228,
+      "generated_tokens": 81,
+      "wall_ms": 4052
+    },
+    {
+      "character": "scout",
+      "attempt": 3,
+      "input_tokens": 589,
+      "reserved_output_tokens": 700,
+      "total_budgeted_tokens": 1289,
+      "generated_tokens": 60,
+      "wall_ms": 3558
+    },
+    {
+      "character": "insider",
+      "attempt": 1,
+      "input_tokens": 1533,
+      "reserved_output_tokens": 1400,
+      "total_budgeted_tokens": 2933,
+      "generated_tokens": 194,
+      "wall_ms": 10587
+    },
+    {
+      "character": "analyst",
+      "attempt": 1,
+      "input_tokens": 323,
+      "reserved_output_tokens": 700,
+      "total_budgeted_tokens": 1023,
+      "generated_tokens": 81,
+      "wall_ms": 3504
+    }
+  ]
+}

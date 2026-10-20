@@ -1,11 +1,11 @@
 {
-  "expect": {},
   "name": "near-empty-quiet-wire",
-  "prompt_version": "or28-single-json",
+  "task": "oracle",
+  "prompt_version": "or29-evidence-only",
+  "user_prompt": "{\"fresh\":{\"journalist\":[{\"body\":\"The squad returned for preseason testing this week; no further detail has surfaced.\",\"source_age_days\":1,\"source_count\":1,\"title\":\"Venezia reports back for preseason\",\"trajectory\":\"developing_story...\"}]},\"meta\":{\"entity_type\":\"team\",\"name\":\"Venezia\",\"sport\":\"FOOTBALL\"},\"task\":\"Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Preserve the entity type, limits and uncertainty of each card. Do not strengthen a repeated claim or infer a missing connection between cards. Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.\",\"voice\":\"Mystic, arcane, knowing, restrained.\"}",
+  "temperature": 0.0,
+  "expect": {},
   "review": [
     "Make a restrained reading of sparse material; missing pillars do not become negative findings."
-  ],
-  "task": "oracle",
-  "temperature": 0.0,
-  "user_prompt": "{\"meta\":{\"name\":\"Venezia\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"task\":\"Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.\",\"fresh\":{\"journalist\":[{\"title\":\"Venezia reports back for preseason\",\"body\":\"The squad returned for preseason testing this week; no further detail has surfaced.\",\"trajectory\":\"developing_story...\",\"source_count\":1,\"source_age_days\":1}]},\"voice\":\"Mystic, arcane, knowing, restrained.\"}"
+  ]
 }

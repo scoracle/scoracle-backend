@@ -1,0 +1,15 @@
+{
+  "analyst_inputs": "fresh replay outputs; no stored peer fallback",
+  "captured_at": 1792506798,
+  "database_read_only": true,
+  "num_ctx": 32768,
+  "publishes": false,
+  "runtime_source": "49d27ca98bf280ec3718ba5d85c06dc8b381e569",
+  "subject": {
+    "entity_id": 18,
+    "entity_type": "team",
+    "name": "Chelsea",
+    "sport": "FOOTBALL"
+  },
+  "scope": "Read-only production creator replay; Journalist bounded subset and Analyst fresh replay inputs are diagnostic variants."
+}

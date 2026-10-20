@@ -86,6 +86,9 @@ queries, not one transaction snapshot; classification could continue during it.
 
 ## Interpretation
 
+The [optimization handoff](../../../docs/character-capacity-2026-10-20.md#optimization-handoff-for-the-next-context)
+prioritizes the speed levers, code entry points and next-session checks.
+
 This measures fresh creators and parsers, not a complete overnight edition.
 It excludes unchanged-product reuse, queue retries/backoff, publication,
 source-claim revalidation, write-time metric normalization and durable handoffs.

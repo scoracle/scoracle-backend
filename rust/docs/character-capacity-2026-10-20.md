@@ -77,6 +77,118 @@ was 6,895 tokens, so context capacity did not limit this sample. This read-only,
 two-pass test excludes queue publication/backoff and does not qualify the entire
 nightly population or the factual accuracy of accepted prose.
 
+## Optimization handoff for the next context
+
+The working goal remains roughly four hours for daily character coverage, with
+continuous daytime fetching and overnight character work. The league result is
+an encouraging starting point. Next, improve first-attempt validity and avoid
+repeating unchanged work; measure a full frozen edition before treating four
+hours as established capacity. This handoff records proposals, not deployed fixes.
+
+Start with the [retained benchmark and limitations](../fixtures/character-runs/premier-league-2026-10-20/README.md)
+and its [machine-readable totals](../fixtures/character-runs/premier-league-2026-10-20/summary.json).
+Benchmark artifacts were committed in `2a5814ab`; production runtime remains
+`3df810c5189c`, with the 10k configuration from `d93c15d7`. The benchmark was
+read-only and published nothing. Fetching was restored; API, classifier and the
+Mac worker were healthy afterward. No optimization is running in the background.
+
+### Levers, in priority order
+
+1. **Make Scout succeed on its first attempt.** It used 657 responses for 332
+   invoked stages: 325 extra calls, about 28% of all final-result responses.
+   Its 37 final rejections include 20 unsupported stability/direction claims and
+   15 unqualified appearance-count claims. Inspect actual first replies and
+   corrections before changing the prompt. Try a shorter, concrete thin-sample
+   instruction/example: recorded source coverage is not complete participation;
+   absent comparison is unknown, not stability. Check whether correction wording
+   identifies the rejected claim clearly enough for this small model. Preserve
+   the qualifications and null/abstain path. Entry points:
+   [Scout prompt](../src/plugins/scout/prompt.rs),
+   [parser](../src/plugins/scout/parser.rs),
+   [regressions](../src/plugins/scout/tests.rs), and
+   [shared three-attempt extraction](../src/harness/session.rs).
+   The 325 calls are an opportunity bound, not a promised 28% wall-time saving.
+
+2. **Diagnose Journalist rejections against the exact cited reports.** There were
+   68 output rejections across 104 native responses, plus one pre-inference
+   changed-source failure. Separate invented identities, dates and merged facts
+   from demonstrated alias, capitalization or claim-boundary false positives.
+   Publication time does not establish an event date. Tighten prompts/citations
+   for real errors; change matching only with a positive and negative regression
+   demonstrating the same fact remains supported. Do not globally loosen name or
+   number guards. Inspect [Journalist preparation](../src/plugins/journalist/fresh.rs),
+   [prompt](../src/plugins/journalist/prompt.rs),
+   [parser](../src/plugins/journalist/parser.rs), and the shared
+   [named-fact guard](../src/tools/fresh.rs). Insider's ten rejections similarly
+   require an exact quote naming both parties and stating the move or denial;
+   [its parser](../src/plugins/insider/parser.rs) must retain those checks.
+
+3. **Treat local correction and durable retry as separate budgets.** Scout can
+   make up to three local extraction attempts; the worker permits five failed
+   queue executions. Repeated local failure can therefore amplify to 15 calls
+   for one unchanged assignment. The current queue ladder waits 30s, 2m, 10m,
+   then 30m: 42m 30s before the fifth execution, excluding generation time.
+   This queue tail was not measured by the replay. Classify transport/transient,
+   stale-source and deterministic evidence failures before proposing a retry
+   policy. Consider bounded, specific repair only where replay demonstrates it
+   helps; unchanged unsupported claims should not receive blind repeated calls.
+   Keep failures visible and preserve new-input/next-edition recovery. Do not
+   simply add retries, shorten all delays or lower the global attempt limit.
+   Inspect [session corrections](../src/harness/session.rs),
+   [worker failure handling](../src/harness/queue/worker.rs),
+   [retry policy](../src/harness/queue/work.rs), and coverage edition tests.
+
+4. **Verify existing reuse and dependency gates before adding caching.** The
+   fresh replay deliberately bypassed product reuse; production already has input
+   hashes/debounce in [Scout](../src/plugins/scout/mod.rs),
+   [Analyst](../src/plugins/analyst/mod.rs) and
+   [Oracle](../src/plugins/oracle/mod.rs), plus Journalist's unchanged-input path.
+   Measure their real hit rate and avoid regenerating downstream prose when its
+   meaningful peer inputs have not changed. Oracle made 293 calls, about 26% of
+   final-result calls, so inspect its input hashing and settled-pillar gate.
+   Preserve current-edition provenance, source completeness, readiness and valid
+   partial-peer behavior. The 1,830 no-call stages, 132 no-stats stages and 49
+   abstentions are distinct outcomes, not automatic reasons to call again.
+
+5. **Reduce generated verbosity before increasing hardware pressure.** Trial
+   shorter complete prose and simpler evidence-bound output where quality allows;
+   retain required qualifications and exact quotes. Measure actual output tokens
+   and truncation/correction rates: lowering reserved output alone can cause more
+   retries. Keep all eligible evidence and the admission guards; do not meet the
+   clock by dropping reports. The largest observed request was only 6,895 tokens
+   including reserved output, so a larger context is not the first speed lever.
+   Retain one pinned Qwen and four slots initially. Use the slot trace to measure
+   idle time and queue/model wait before tuning concurrency or stage claim caps.
+   Preparation took only 42.94s; database preparation is a lower priority than
+   inference/rework in this sample.
+
+### Smallest useful next experiment
+
+Replay representative retained Scout failures and successful controls first,
+then Journalist rejection examples. Compare the same prepared evidence and keep
+the model, context and concurrency fixed while changing one lever. Record first
+attempt acceptance, corrections per invoked stage, final grounded acceptance,
+abstention, error category, native input/output tokens and elapsed time. Manually
+check a sample of accepted prose; valid JSON and parser success are not accuracy.
+Add focused regressions for each proven parser bug before changing a shared guard.
+
+Then repeat the whole league and measure an actual frozen nightly population,
+including product reuse, queue retries/backoff, publication and handoff drain.
+Count scheduled retries, running claims and visible terminal failures when deciding
+an edition is finished. Preserve the six-hour safety allowance until the full
+edition establishes the four-hour target without silently expiring coverage.
+
+The benchmark controller's partial-JSONL race was repaired for the twelve-player
+recovery pass. Reuse the newline-complete sampler and separate observer failures
+from worker lifetime in the next test; do not accidentally repeat the sampler
+that stopped its own child. Original/recovery receipts, controller scripts, slot
+samples and final health checks remain in
+`/Users/scotty/scoracle-worker/releases/premier-league-test-20261020/`.
+The recorded timing includes recovery; up to four canceled in-flight attempts
+lack receipts. Publication normalization and semantic quality were not qualified.
+Do not revive the rejected production-clone/worker-stop plan merely to benchmark;
+use the retained read-only inputs for tuning first.
+
 ## Deployment and recovery
 
 Private trial and rollback receipts are retained at

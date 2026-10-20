@@ -1,8 +1,9 @@
 # Qwen character release: 20 October 2026
 
-The user explicitly approved deploying this useful starting point with the known
-output defects recorded below. Activation receipts and final verification will
-be appended after the managed worker and model server are switched.
+Deployed at **12:08 Eastern (16:08 UTC), 20 October 2026**, from runtime commit
+`054105c60df16b5f823a6ec708d5f168dc44b759`. The user explicitly approved this
+starting point with the known output defects recorded below. The exact runtime
+commit is pushed to main and the active Archbox source checkout is synchronized.
 
 ## Release behavior
 
@@ -70,3 +71,68 @@ Rollback restores those saved files and service states, restarts the previous
 model servers and boots the previous managed worker. There is no database migration
 to reverse. Reverting prompts during a frozen character edition still requires
 coordinating the edition's Scout input contract.
+
+## Activated state and verification
+
+The managed Mac character worker restarted once, from the exact optimized release
+binary. Its startup reports commit `054105c60df1`, six enabled character stages,
+one model host, all six routes bound to Qwen on 8081, and `VOICE_NUM_CTX=7900`.
+The same worker PID remained stable through postflight with no new startup errors.
+The prior Smol service was unloaded and disabled, with its files retained.
+
+The Qwen service now advertises four **8,192-token physical slots** sharing one
+32,768-token pool. Logical requests are limited to **7,900 including output**.
+The former `com.scoracle.qwen35-emotion` agent label is retained for compatibility;
+it now serves every character. Thinking and context shifting are disabled, and
+continuous batching is enabled. Native tokenizer and complete-response checks
+remain active.
+
+A concurrency smoke sent four retained Chelsea requests simultaneously. All four
+slots were observed processing together, all four returned complete, untruncated
+JSON with input-token counts matching the exact supplied token IDs, and no
+request exceeded the logical budget. This is plumbing verification, not a factual
+quality grade or a sustained throughput benchmark.
+
+| Request | Input | Reserved output | Slot | Concurrent wall time |
+| --- | ---: | ---: | ---: | ---: |
+| Journalist | 5,012 | 2,100 | 0 | 38.221 s |
+| Influencer | 586 | 600 | 2 | 24.972 s |
+| Scout | 467 | 700 | 3 | 29.278 s |
+| Insider | 1,533 | 1,400 | 1 | 32.554 s |
+
+The deployed read-only eval tool additionally exercised four Oracle fixtures:
+12/12 mechanical checks passed. Public API smoke passed 18/18; direct Archbox
+API/database health was healthy. The API and Classifier services remained active.
+The [exact runtime CI run](https://github.com/scoracle/scoracle-backend/actions/runs/39454056632)
+completed successfully. No migrations or forced character publications occurred.
+Postflight confirmed the existing midnight America/Detroit schedule still in
+coverage phase, a current controller heartbeat, zero running character claims
+and zero long lock waiters. A natural nightly edition remains unobserved.
+
+An initial launchd bootstrap immediately after unloading Qwen returned error 5;
+a later retry succeeded. The character worker remained stopped until four-slot
+model verification passed. An initial Python public-health probe received HTTP
+403; the repository's standard curl smoke subsequently passed all 18 public checks.
+These diagnostics are retained rather than treated as successful first attempts.
+
+## Exact release and recovery receipts
+
+Private durable release directory:
+`/Users/scotty/scoracle-worker/releases/qwen-all-characters-20261020-054105c6/`.
+It contains `before/` launcher/environment/agent/service-state backups, the exact
+binaries and hashes, `release.json`, `model-activation.json`, `activation.json`,
+`verified.json`, worker startup and API/Oracle logs, and all four concurrent
+native requests/responses with a slot trace. Configuration backups are private;
+no credentials are committed.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Mac character worker | `b45691456f035c877684ec427fdf59844293554cea89c9c04ddb836ecd198e18` |
+| Read-only eval | `cdd66479fbcda63ccb3385e4ea2f4efe524653b0ea5ab8248046dd50bc9bcb7b` |
+| Qwen3.5-4B Q4_K_M weights | `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4` |
+
+The runtime changes affect the Mac character worker. Archbox's API/acquisition
+binaries retain the previously deployed `49d27ca9` build; its source checkout is
+updated, and those unaffected services were not restarted. No new database backup
+or restore rehearsal was needed for this code/config-only release. Natural
+nightly completion and broad semantic quality remain the next observations.

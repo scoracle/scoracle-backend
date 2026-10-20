@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict dVMCf2fKp07ANIPkcTgGo3lH56bm0BpUbJtnrQYUa1tWAR65JwDsueYeCJB920v
+\restrict kRbvL1mUDwymcbpHemm60raksnZni5GkmR0Obs8Hi5IyZ2MJ2I9Ib0Y4nnjhefX
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1875,7 +1875,8 @@ CREATE FUNCTION public.classifier_identity_candidates(league text, headline text
         AND strpos(input.text,' '||s.norm||' ')>0
     ), unique_names AS (
         SELECT s.* FROM matching_names s
-        WHERE NOT EXISTS(SELECT 1 FROM public.entity_name_surfaces other
+        WHERE public.classifier_name_span_matches(headline||' '||body,s.norm,s.entity_type)
+        AND NOT EXISTS(SELECT 1 FROM public.entity_name_surfaces other
             WHERE other.sport=league AND other.norm=s.norm
             AND (other.entity_type,other.entity_id)<>(s.entity_type,s.entity_id))
     ), candidates AS (
@@ -1888,6 +1889,44 @@ CREATE FUNCTION public.classifier_identity_candidates(league text, headline text
         'sport',league,'name',name,'identity_method','unique_name_surface_v2')
         ORDER BY entity_type,entity_id) FILTER(WHERE name IS NOT NULL),'[]'::jsonb) FROM candidates
 $$;
+
+
+--
+-- Name: classifier_name_span_matches(text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_name_span_matches(headline text, surface text, kind text) RETURNS boolean
+    LANGUAGE plpgsql IMMUTABLE STRICT
+    AS $_$
+DECLARE
+    words text[];
+    gaps text[];
+    size integer := cardinality(string_to_array(surface,' '));
+    n integer;
+    previous text;
+    following text;
+    connectors text[] := ARRAY['a','an','the','and','or','but','to','from','for','at','with','against','vs','v','of','on','by','over','after','before','about','as','in','into','out','off','not','is','are','was','were','be','been','has','have','had','will','would','could','should','can','may','must','s','former','ex','new','old','current','next','first','last','star','player','players','coach','manager','boss','owner','captain','midfielder','forward','defender','goalkeeper','winger','striker','team','club','clubmate','legend','target','says','said','say','join','joins','joined','joining','leave','leaves','leaving','left','sign','signs','signed','signing','deny','denies','denied','reject','rejects','rejected','talks','move','moves','moving','transfer','transfers','news','update','updates','welcome','welcomes','welcomed','scores','scored','wins','win','won','beats','beat','faces','face','happy','backs','back','wants','want','wanted','linked','keen','return','returns','returned','confirms','confirmed','confident','urged','injury','injured','rules','ruled','interest','interested','under','around','through','without','during','why','how','what','when','monitor','monitors','monitoring','consider','considers','considering','report','reports','reported','reportedly','pursue','pursues','pursuing','cryptic','watch','question','one','two','three','four','five','six','seven','eight','nine','ten'];
+BEGIN
+    SELECT array_agg(m[1]),array_agg(m[2]) INTO words,gaps
+    FROM regexp_matches(public.unaccent('public.unaccent'::regdictionary,headline),'([[:alnum:]]+)([^[:alnum:]]*)','g') m;
+    IF size=0 OR words IS NULL OR cardinality(words)<size THEN RETURN false; END IF;
+    FOR n IN 1..cardinality(words)-size+1 LOOP
+        IF lower(array_to_string(words[n:n+size-1],' '))<>surface THEN CONTINUE; END IF;
+        previous := lower(words[n-1]);
+        following := lower(words[n+size]);
+        -- shortcut: uncertain adjacent names abstain; extend connectors only with a regression case.
+        IF size=1 AND n>1 AND gaps[n-1]!~ '[,;:!?()/–—-]' AND previous~'^[a-z]+$'
+            AND (words[n-1]<>lower(words[n-1]) OR headline=lower(headline))
+            AND NOT(previous=ANY(connectors)) THEN CONTINUE; END IF;
+        IF following IS NOT NULL AND gaps[n+size-1]!~ '[,;:!?()/–—-]' THEN
+            IF kind='team' AND following=ANY(ARRAY['women','womens','ladies','youth','academy','u18','u19','u21','u23','school','college']) THEN CONTINUE; END IF;
+            IF kind IN ('player','person') AND size=1 AND following~'^[a-z]+$'
+                AND NOT(following=ANY(connectors)) THEN CONTINUE; END IF;
+        END IF;
+        RETURN true;
+    END LOOP;
+    RETURN false;
+END $_$;
 
 
 --
@@ -12032,7 +12071,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dVMCf2fKp07ANIPkcTgGo3lH56bm0BpUbJtnrQYUa1tWAR65JwDsueYeCJB920v
+\unrestrict kRbvL1mUDwymcbpHemm60raksnZni5GkmR0Obs8Hi5IyZ2MJ2I9Ib0Y4nnjhefX
 
 
 \ir reference-data.sql
@@ -12040,7 +12079,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict 2r9ZQVIRQzPAnsjd8lrZLiLUf4Je3CXUzxRY9yVChbj4m2IYLrnDSIAHHvYfAhy
+\restrict WecDGsfe1fS7HnSWcj3OGtbb9JaKzkqjV9fd6MNIEbH1Ub5Z0tOwiAM14b5A8hu
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -15633,4 +15672,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 2r9ZQVIRQzPAnsjd8lrZLiLUf4Je3CXUzxRY9yVChbj4m2IYLrnDSIAHHvYfAhy
+\unrestrict WecDGsfe1fS7HnSWcj3OGtbb9JaKzkqjV9fd6MNIEbH1Ub5Z0tOwiAM14b5A8hu

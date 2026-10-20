@@ -68,3 +68,41 @@ Rollback restores the saved binaries and launcher plus the previous canonical-na
 function, with workers stopped. Remove migration 316's receipt only after restoring
 its function contract. Retain all archived sources and products; source revisions
 can be reconciled through the existing Classifier queue.
+
+## Production activation
+
+The Mac character worker and Archbox Classifier, statcommentary and factsweep
+binaries run runtime commit `3df810c5189c661c96663d56ff64730cdef284e2`.
+Migrations 316 and 317 are active; the SQL optimization is commit
+`a680d3ecf38c7df9cca0308460059d522657758a`. Migration 317 completed at
+2026-10-20 17:34 UTC. The API and acquisition binaries retain their prior build.
+
+Verification includes 356 Rust library tests, 17 CLI/bin tests, 64 opted-in
+queue/database recovery tests plus the statcommentary database test, Go vet/build,
+prepared-statement registration and Go race tests. A fresh UTF-8 baseline restore
+passes the full repository check with migrations already applied. Native Qwen
+checks passed Insider 6/6, Scout 3/3, Journalist 3/3 and Oracle 12/12 mechanical
+properties. These checks do not replace claim-level editorial review.
+
+The public API/CORS smoke passed 18/18. The managed Mac worker verified its bundled
+headline-memory helper and all six routes on Qwen; the 7,900-token logical cap and
+four 8,192-token physical slots remain in effect. Production retained coverage
+phase and the midnight Detroit cutoff, with a current heartbeat and no long lock
+waiters at postflight.
+
+Postflight caught a cached Archbox build-script stamp; rebuilding its metadata
+and replacing the binaries corrected the runtime commit receipt. It also caught
+Postgres pushing the boundary predicate ahead of the candidate filter: the
+representative identity query fell from 426 ms to 7 ms after migration 317.
+The initial broad source reconciliation hit its 30-second limit, and a smaller
+attempt hit a coverage-lock timeout. Reconciliation subsequently uses short
+transactions. Two replay statements left by retired workers were canceled by
+exact backend identity. These diagnostics are retained, not counted as passes.
+
+Private rollback artifacts, binary hashes, startup receipts and native smoke logs
+are retained under `pipeline-guards-20261020-3df810c5` in
+`/Users/scotty/scoracle-worker/releases/` and
+`/mnt/data/backup/scoracle/releases/` on Archbox. Earlier staged guard builds
+were superseded before activation. Restore the original saved function contract
+and binaries together for rollback; migration 317 must also be removed from the
+ledger if reverting to the pre-316 function.

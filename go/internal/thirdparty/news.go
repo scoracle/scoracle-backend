@@ -33,16 +33,7 @@ const (
 	newsLookbackSlack = 15 * time.Minute
 )
 
-// rssLookbackHours is the single query lookback window. It MUST cover the ingest
-// cron's period or the sweep is blind between runs: the window is both the `when:`
-// token handed to Google News and the client-side `filterArticlesByLookback`
-// cutoff, so anything older than it is dropped twice over and never reaches
-// news_articles at all.
-//
-// 24h to match the daily 02:00 ingest (2026-07-26). The pairing has moved together
-// every time: 6h window with the six-hour cron, 12h when that went twelve-hourly.
-// A day's news now arrives in one sweep, and per-entity volume is bounded by
-// `-rss-limit` (one Google page) rather than by how often the cron happens to fire.
+// Both the Google query and client-side filter use this window; it must cover the ingest interval.
 const rssLookbackHours = 24
 
 // Sport-specific search term suffixes for RSS.
@@ -63,30 +54,8 @@ var defaultRSSEditions = []rssEdition{
 	{name: "en-us", hl: "en-US", gl: "US", ceid: "US:en"},
 }
 
-// footballTeamRSSEditions is ENGLISH-ONLY, deliberately, until the cognition layer can read other
-// languages first-hand.
-//
-// The localized editions (es-es, fr-fr, de-de, it-it, pt-pt, nl-nl) were live from 2026-07-23 and
-// measurably worked — they made the corpus only 24.1% English, with 45.3% definitively non-English.
-// The problem is that nothing downstream was ready for that:
-//
-//   - the candle's embedder is `bge-small-en-v1.5`, an ENGLISH-ONLY model, so it scored three
-//     quarters of the corpus on text its weights never saw;
-//   - the Article Reader was left translating AND summarizing in one 7B call on 76% of articles;
-//   - every prompt, guard list, and stopword downstream is English.
-//
-// Restore the localized editions when a model that reads them natively is in place (Scott's call:
-// at the 30B tier). Until then, ingesting text we cannot read is buying GPU load and noise, not
-// coverage. Re-adding them is this one slice — the edition machinery is untouched and still tested.
-// en-GB alone. We cover five leagues — Premier League (England), La Liga (Spain), Serie A (Italy),
-// Ligue 1 (France), Bundesliga (Germany) — so by the "only fetch countries whose leagues we cover"
-// rule the correct edition set is en-GB + es/it/fr/de. The four localized ones are PARKED, not
-// rejected, until a model that reads them exists; en-GB is kept because British outlets cover all
-// five leagues in English, and en-US was dropped because it duplicates that coverage more thinly.
-//
-// The named consequence, so nobody rediscovers it as a surprise: four of our five leagues are now
-// covered only by English-language reporting of them. That is a deliberate accuracy-over-breadth
-// trade while the pipeline is GPU-bound.
+// Keep football RSS in English until downstream models support localized reporting.
+// British outlets provide English coverage of all five leagues.
 var footballTeamRSSEditions = []rssEdition{
 	{name: "en-gb", hl: "en-GB", gl: "GB", ceid: "GB:en"},
 }
@@ -103,24 +72,11 @@ type Article struct {
 	Source      string `json:"source"`
 	PublishedAt string `json:"published_at"`
 
-	// FeedRank is this article's 0-based position in the RSS payload Google returned — its own
-	// ranking of what matters most for the query. Captured at parse time, before any reordering
-	// downstream can destroy it.
-	//
-	// This is the primary quality signal in the ingest path, and it is free. It decides which
-	// articles survive `-rss-limit` here, and which are worth a model call once the reading
-	// budget binds later. Both cuts rank by it, so "top N" means the same thing at every stage.
+	// FeedRank preserves Google's original ordering for RSS limits and queue priority.
 	FeedRank int `json:"feed_rank"`
 
-	// Query provenance — which (query, lane, edition, window) request surfaced this
-	// article. The query IS the hypothesis: every article is here because we asked
-	// Google a specific question, and until now that question was discarded at fetch
-	// time. persistArticles writes these into news_articles.raw on first insert.
-	//
-	// Unexported on purpose: provenance is for the corpus, not the API response, and
-	// unexported fields stay out of the JSON marshal. Dedup keeps the first occurrence,
-	// so an article seen by several lanes carries the lane that found it first (the
-	// sweep runs primary before aliases — first-writer wins is also best-writer wins).
+	// Private query provenance is excluded from API JSON. Dedup keeps the first lane;
+	// persistence retains that raw stamp plus every entity-query edge separately.
 	queryTerm    string // literal search term as sent, minus the when: token
 	queryLane    string // "primary" or "alias<N>" per buildRSSSearchQueries order
 	queryEdition string // ceid of the edition that returned it
@@ -131,15 +87,13 @@ type Article struct {
 // NewsService — Google News RSS client
 // ---------------------------------------------------------------------------
 
-// defaultRSSBaseURL is the Google News RSS search endpoint. Held in a field
-// rather than inlined so the funnel accounting can be exercised against a local
-// test server instead of the live endpoint.
+// The endpoint is replaceable with a local RSS test server.
 const defaultRSSBaseURL = "https://news.google.com/rss/search"
 
 // NewsService fetches entity news from Google News RSS.
 //
 // When constructed with a non-nil pool, matched articles are persisted to
-// news_articles (with native acquisition enqueued in the same transaction).
+// news_articles (with headline scoring enqueued in the same transaction).
 // That populates the long-term corpus consumed by the cognition layer.
 type NewsService struct {
 	httpClient *http.Client
@@ -148,9 +102,7 @@ type NewsService struct {
 	logger     *slog.Logger
 }
 
-// NewNewsService creates a news service. If pool is non-nil, fetched articles
-// are written to news_articles on each sweep. If logger is nil, a default
-// no-op logger is used.
+// NewNewsService optionally persists articles and uses slog.Default when logger is nil.
 func NewNewsService(pool *pgxpool.Pool, logger *slog.Logger) *NewsService {
 	if logger == nil {
 		logger = slog.Default()
@@ -165,16 +117,13 @@ func NewNewsService(pool *pgxpool.Pool, logger *slog.Logger) *NewsService {
 	}
 }
 
-// isTeamEntity reports whether entityType is the team grain. Moved here from the deleted
-// match.go (PLAN-one-rail 8.8) — it is not relevance machinery, it is a grain test, and every
-// remaining caller is in this file: query building, provenance, and the edition/lane plan.
 func isTeamEntity(entityType string) bool {
 	return strings.EqualFold(strings.TrimSpace(entityType), "team")
 }
 
 // GetEntityNews sweeps Google News RSS and atomically persists discovery plus
-// native Classifier acquisition work. With no entity identity it only fetches.
-// The first return contains article IDs whose acquisition was newly queued or revised.
+// Classifier headline work. With no entity identity it only fetches.
+// The first return contains article IDs whose scoring was newly queued or revised.
 //
 // The second return is the fetch funnel for this entity: how much of the query
 // grid ran and what each filter stage discarded. It is returned even on error,
@@ -192,51 +141,42 @@ func (s *NewsService) GetEntityNews(
 		return nil, funnel, err
 	}
 
-	// Write-through: persist the matched articles (persistArticles also enqueues
-	// Classifier acquisition in-txn). The caller counts and reports persistence
-	// failures and continues the remaining teams in the sweep.
+	// Persist discovery and enqueue scoring in the same transaction.
 	var affected []int64
 	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
-		ids, withheld, perr := s.persistArticles(ctx, sport, entityType, entityID, matched)
-		if perr != nil {
-			return nil, funnel, fmt.Errorf("persist RSS discovery: %w", perr)
-		} else {
-			affected = ids
-			// D-T21: the cap's bite belongs in the funnel, not only in its own log line —
-			// otherwise a fully-capped sweep reports `fresh_articles=0` beside hundreds of
-			// rows it just wrote.
-			funnel.ReadsWithheld = withheld
+		affected, err = s.persistArticles(ctx, sport, entityType, entityID, matched)
+		if err != nil {
+			return nil, funnel, fmt.Errorf("persist RSS discovery: %w", err)
 		}
 	}
 
 	return affected, funnel, nil
 }
 
-// persistArticles retains every RSS query edge and queues native source acquisition.
+// persistArticles retains every RSS query edge and queues headline scoring.
 // Query provenance supplies candidate identities, never a relevance decision.
-// The second return is retained for the retired read-cap API and is always zero.
 func (s *NewsService) persistArticles(
 	ctx context.Context,
 	sport, primaryEntityType string,
 	primaryEntityID int,
 	articles []Article,
-) ([]int64, int, error) {
+) ([]int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	defer tx.Rollback(ctx)
 
 	// Fence discovery against the same transition used by queue claims/publication.
 	if _, err := tx.Exec(ctx, "SELECT public.coverage_lock()"); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	var open bool
 	if err := tx.QueryRow(ctx, "SELECT NOT enabled OR phase='coverage' FROM public.coverage_schedule").Scan(&open); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if !open {
-		return nil, 0, fmt.Errorf("coverage closed before discovery persistence; retry on reopen")
+		return nil, fmt.Errorf("coverage closed before discovery persistence; retry on reopen")
 	}
 
 	sportUpper := strings.ToUpper(sport)
@@ -255,12 +195,7 @@ func (s *NewsService) persistArticles(
 			publishedAt = &ts
 		}
 
-		// Query provenance (Phase 2, PLAN-one-rail): the question we asked Google,
-		// written on INSERT ONLY — the conflict branch never touches raw, so the
-		// first sweep that lands an article owns its provenance and re-seen
-		// articles keep theirs. query_team_id records which team's sweep asked;
-		// the sweep is teams-only by doctrine, so the guard is belt-and-braces
-		// for any non-team caller of GetEntityNews.
+		// Keep first-discovery metadata on insert; every query edge is stored separately.
 		rawProv := []byte(`{}`)
 		if a.queryTerm != "" {
 			prov := map[string]any{
@@ -271,12 +206,7 @@ func (s *NewsService) persistArticles(
 			}
 			if isTeamEntity(primaryEntityType) {
 				prov["query_team_id"] = primaryEntityID
-				// The sport RIDES WITH the team id: ids are per-sport namespaces
-				// (NBA 18, NFL 18 and FOOTBALL 18 are three teams), so provenance
-				// without the sport is ambiguous — and the D-T21 cap count below
-				// keys on this pair. Without it, the sweep order (NBA→NFL→FOOTBALL)
-				// let NBA's low ids spend football's whole allowance (the Aug-7→14
-				// starvation of every Premier League club).
+				// Team IDs are sport-scoped.
 				prov["query_sport"] = sportUpper
 			}
 			if b, jerr := json.Marshal(prov); jerr == nil {
@@ -297,7 +227,7 @@ func (s *NewsService) persistArticles(
 			RETURNING id
 		`, hash, a.URL, work.NullIfEmpty(a.Source), a.Title, work.NullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID)
 		if err != nil {
-			return nil, 0, fmt.Errorf("upsert article: %w", err)
+			return nil, fmt.Errorf("upsert article: %w", err)
 		}
 		// Preserve every entity-query edge, including URLs another sweep first inserted.
 		// This is retrieval provenance, never an authoritative article/entity link.
@@ -306,7 +236,7 @@ func (s *NewsService) persistArticles(
 			"window": a.queryWindow, "feed_rank": a.FeedRank,
 		})
 		if err != nil {
-			return nil, 0, fmt.Errorf("encode harvester query: %w", err)
+			return nil, fmt.Errorf("encode harvester query: %w", err)
 		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO public.harvester_query_provenance
@@ -320,7 +250,7 @@ func (s *NewsService) persistArticles(
 			    last_seen_at = NOW()
 		`, articleID, primaryEntityType, primaryEntityID, sportUpper, a.FeedRank, hit)
 		if err != nil {
-			return nil, 0, fmt.Errorf("upsert harvester query provenance: %w", err)
+			return nil, fmt.Errorf("upsert harvester query provenance: %w", err)
 		}
 		if !seen[articleID] {
 			seen[articleID] = true
@@ -332,16 +262,16 @@ func (s *NewsService) persistArticles(
 	for _, id := range discovered {
 		var changed bool
 		if err := tx.QueryRow(ctx, "SELECT public.classifier_enqueue_admission($1,$2)", id, sportUpper).Scan(&changed); err != nil {
-			return nil, 0, fmt.Errorf("queue Classifier admission: %w", err)
+			return nil, fmt.Errorf("queue Classifier admission: %w", err)
 		}
 		if changed {
 			queued = append(queued, id)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	return queued, 0, nil
+	return queued, nil
 
 }
 
@@ -517,35 +447,14 @@ func (s *NewsService) fetchFromRSS(
 				articles[i].queryWindow = rssWhenToken(rssLookbackHours)
 			}
 
-			// No relevance filter here. This used to run an entity matcher over
-			// title+description and drop whatever did not name the entity — 4,859 of
-			// 9,694 articles on the 2026-07-26 sweep, half of everything Google
-			// returned, and fifteen clubs (Nice, Spezia, Leganés, Huesca …) admitted
-			// nothing at all because their names are short or ambiguous.
-			//
-			// It was re-deriving something the query already established: we asked
-			// Google for this entity, so the link IS the query. Relevance is decided
-			// once, downstream, by something that reads the body instead of
-			// pattern-matching a headline. The matcher itself is gone as of 8.8, and
-			// with it the funnel's MatchRejected counter — a filter returning here
-			// would owe the Residual invariant a counter of its own.
+			// The decision model determines subject relevance downstream.
 			beforeDedup := len(allArticles) + len(articles)
 			allArticles = deduplicateArticles(append(allArticles, articles...))
 			f.DedupCollapsed += beforeDedup - len(allArticles)
 		}
 	}
 
-	// Cut by Google's ranking, not by recency. This sort decides WHICH articles survive
-	// `-rss-limit`, and sorting by date here meant the cap kept the newest rather than the
-	// best: on the 2026-07-26 sweep that discarded 2,235 of 9,694 articles on publish time
-	// alone, while the read budget downstream was separately ranking by `feed_rank` — two
-	// different notions of "top N" in one path.
-	//
-	// Ranking relevance is the one thing Google is unambiguously better at than anything
-	// here, and FeedRank is that judgment for free. Recency is not this product's axis; the
-	// entity's story is, and a well-ranked piece from this morning beats a thin one from
-	// twenty minutes ago. Stable, so that at equal rank the primary query still outranks the
-	// alias lanes that ran after it.
+	// Stable rank ordering keeps primary-query results ahead of aliases on ties.
 	sortArticlesByFeedRank(allArticles)
 	totalResults, allArticles := limitRSSArticles(allArticles, limit)
 	f.LimitTruncated = totalResults - len(allArticles)
@@ -561,27 +470,7 @@ func (s *NewsService) fetchFromRSS(
 	return allArticles, f, nil
 }
 
-// buildRSSSearchQueries returns ONE Google query per name we know this entity by: the canonical
-// search name first, then every alias, each carrying the sport term.
-//
-// PLAN-one-rail 8.9. What used to live here was ~350 lines of pre-AI judgment deciding which
-// alias was "safe" enough to ask about — hand-tuned lane scores (base 60, +20 for two tokens,
-// +25 for a shared token, +10 for a club designator), an 18-word hardcoded list of risky solo
-// club words (athletic, celtic, city, inter, nice, real, united …), four trusted literals
-// (barca, barça, spurs, juve), and a hand-maintained short-alias allowlist. Every line of it
-// existed to protect a downstream regex from whatever came back. Nothing downstream guesses any
-// more: Google ranks, and Harvester filters the publisher body. So we ask about every name we
-// have and let the two things that are genuinely good at this do the work.
-//
-// Aliases earn their lane on measurement, not on principle — sampled live 2026-08-06, an alias
-// lane returns 16–29 links the canonical-name lane never saw (Spurs 18/47, Barça 29/102, PSG
-// 16/47). Dropping to one query per entity would have thrown that away.
-//
-// The sport term is applied UNIFORMLY — every sport, every entity kind, every lane. That one
-// rule replaced the per-term suffix branching, and it is not scar tissue: measured the same day,
-// bare "Nice" returns the NHS institute (NICE), pharma press releases and Formula 1, while
-// "Nice soccer football" returns OGC Nice. The suffix is the context Google needs to rank the
-// right entity, which is precisely the job being handed to it.
+// Query the canonical name and every alias with the sport suffix for disambiguation.
 func buildRSSSearchQueries(primarySearch, sport string, aliases []string) []string {
 	suffix := rssSportSuffix(sport)
 	seen := make(map[string]bool, len(aliases)+1)

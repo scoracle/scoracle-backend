@@ -579,23 +579,7 @@ func (h *Handler) GetRoster(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/news [get]
 func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
-	date, ok := optionalReportingDate(w, r)
-	if !ok {
-		return
-	}
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-	entityType, ok := parseEntityType(w, r)
-	if !ok {
-		return
-	}
-	id, ok := parsePathID(w, r, "id", "entity id")
-	if !ok {
-		return
-	}
-	h.serveStatementJSON(w, r, "entity_news", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
+	h.serveDailyEntityJSON(w, r, "entity_news")
 }
 
 // GetEntityTransfers returns the entity's TRANSFERS product — the vetted rumor
@@ -614,23 +598,7 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/transfers [get]
 func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
-	date, ok := optionalReportingDate(w, r)
-	if !ok {
-		return
-	}
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-	entityType, ok := parseEntityType(w, r)
-	if !ok {
-		return
-	}
-	id, ok := parsePathID(w, r, "id", "entity id")
-	if !ok {
-		return
-	}
-	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
+	h.serveDailyEntityJSON(w, r, "entity_transfers")
 }
 
 // GetEntityHeadlines returns the latest output from each character for one reporting day.
@@ -646,23 +614,7 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/headlines [get]
 func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
-	date, ok := optionalReportingDate(w, r)
-	if !ok {
-		return
-	}
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-	entityType, ok := parseEntityType(w, r)
-	if !ok {
-		return
-	}
-	id, ok := parsePathID(w, r, "id", "entity id")
-	if !ok {
-		return
-	}
-	h.serveStatementJSON(w, r, "entity_headlines", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
+	h.serveDailyEntityJSON(w, r, "entity_headlines")
 }
 
 // GetEntityVibe serves saved daily cards without inference.
@@ -683,23 +635,7 @@ func (h *Handler) GetEntityVibe(w http.ResponseWriter, r *http.Request) {
 		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", "Use date=YYYY-MM-DD for daily reporting")
 		return
 	}
-	date, ok := optionalReportingDate(w, r)
-	if !ok {
-		return
-	}
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-	entityType, ok := parseEntityType(w, r)
-	if !ok {
-		return
-	}
-	id, ok := parsePathID(w, r, "id", "entity id")
-	if !ok {
-		return
-	}
-	h.serveStatementJSON(w, r, "entity_vibe", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
+	h.serveDailyEntityJSON(w, r, "entity_vibe")
 }
 
 // GetEntitySigil returns the entity's SIGIL product — ONE `current` object
@@ -1158,6 +1094,26 @@ const dbQueryTimeout = 8 * time.Second
 type cachedPayload struct {
 	data []byte
 	etag string
+}
+
+func (h *Handler) serveDailyEntityJSON(w http.ResponseWriter, r *http.Request, stmt string) {
+	date, ok := optionalReportingDate(w, r)
+	if !ok {
+		return
+	}
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
 }
 
 func (h *Handler) serveStatementJSON(

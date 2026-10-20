@@ -27,16 +27,6 @@ pub async fn load_for_character(
     .await
 }
 
-pub(crate) async fn load_for_character_on(
-    connection: &mut PgConnection,
-    plugin: &str,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-) -> Result<Vec<SourceContext>> {
-    load_on(connection, plugin, entity_type, entity_id, sport).await
-}
-
 /// The routing-gate character key for a plugin id.
 pub(crate) fn character_key(plugin: &str) -> Result<&'static str> {
     match plugin {
@@ -74,12 +64,12 @@ pub(crate) async fn load_spectrum_source_on(
     connection: &mut PgConnection,
     spectrum_id: i64,
 ) -> Result<Source> {
-    let row = sqlx::query("SELECT s.source::text FROM classifier_spectra x JOIN classifier_sources s ON s.id=x.source_id WHERE x.id=$1")
+    let source: Value = sqlx::query_scalar("SELECT s.source FROM classifier_spectra x JOIN classifier_sources s ON s.id=x.source_id WHERE x.id=$1")
         .bind(spectrum_id)
         .fetch_one(connection)
         .await
         .context("load spectrum source")?;
-    Ok(serde_json::from_str(row.get::<&str, _>(0))?)
+    Ok(serde_json::from_value(source)?)
 }
 
 /// Pool convenience for the retained source behind a spectrum row.
@@ -87,7 +77,7 @@ pub async fn load_spectrum_source(pool: &PgPool, spectrum_id: i64) -> Result<Sou
     load_spectrum_source_on(&mut *pool.acquire().await?, spectrum_id).await
 }
 
-pub(crate) async fn load_on(
+pub(crate) async fn load_for_character_on(
     connection: &mut PgConnection,
     plugin: &str,
     entity_type: &str,
@@ -95,9 +85,9 @@ pub(crate) async fn load_on(
     sport: &str,
 ) -> Result<Vec<SourceContext>> {
     let character = character_key(plugin)?;
-    let rows=sqlx::query("SELECT x.id,x.spectrum::text AS spectrum,x.gate::text AS gate,x.clean_text,
+    let rows=sqlx::query("SELECT x.id,x.spectrum,x.gate,x.clean_text,
         floor(EXTRACT(EPOCH FROM (s.source->>'published_at')::timestamptz))::bigint AS published_at_epoch,
-        s.source::text AS source,
+        s.source,
         COALESCE(s.discovery_version=public.classifier_discovery_version(s.article_id,s.sport),false)
             AND EXISTS(SELECT 1 FROM classifier_source_heads h WHERE h.article_id=s.article_id AND h.sport=s.sport AND h.source_id=s.id)
             AS current_source
@@ -122,7 +112,7 @@ pub(crate) async fn load_on(
             "Classifier delivery source changed; headline scoring must reconcile it"
         );
         let id: i64 = row.get("id");
-        let source: Source = serde_json::from_str(row.get::<&str, _>("source"))?;
+        let source: Source = serde_json::from_value(row.get("source"))?;
         ensure!(
             super::identity::candidates(connection, sport, &source).await?
                 == source.provenance["identity_candidates"],
@@ -149,8 +139,8 @@ pub(crate) async fn load_on(
                 "target_identity_resolved": true,
                 "evidence_scope": "headline",
                 "url": source.provenance["url"],
-                "spectrum": serde_json::from_str::<Value>(row.get::<&str, _>("spectrum"))?,
-                "gate": serde_json::from_str::<Value>(row.get::<&str, _>("gate"))?,
+                "spectrum": row.get::<Value, _>("spectrum"),
+                "gate": row.get::<Value, _>("gate"),
             })),
         });
     }
@@ -171,7 +161,7 @@ pub async fn validate_for_publication(
         let native = load_spectrum_source_on(tx, source.classification_id).await?;
         super::identity::validate(tx, sport, &native).await?;
     }
-    let current = load_on(tx, plugin, entity_type, entity_id, sport).await?;
+    let current = load_for_character_on(tx, plugin, entity_type, entity_id, sport).await?;
     ensure!(
         sources.iter().all(|s| current.contains(s)),
         "Classifier evidence or delivery changed during articulation"

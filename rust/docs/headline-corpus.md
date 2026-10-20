@@ -34,6 +34,12 @@ at most 20 complete headlines and 6 KB. It keeps one copy of identical publisher
 freeze. It respects the earlier of the reporting day's Eastern midnight and the
 oldest fresh headline, including late-arriving reporting.
 
+Postgres exports the eligible frozen archive; the shared DuckDB memory runner
+ranks it by subject relevance for Journalist, emotion then relevance for Influencer,
+and movement then relevance for Insider. Newer publication times and article IDs
+break ties. It studies up to 20,000 eligible records before selecting 20, preserving
+each selected headline's date, publisher, URL and full spectrum within the 6 KB budget.
+
 ## Classifier to daily context
 
 The decision model remains d1; this preparation change does not alter its model,

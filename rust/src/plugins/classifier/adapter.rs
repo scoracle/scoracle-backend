@@ -18,8 +18,7 @@ impl ClassifierHandler {
     }
 }
 
-// The existing Go RSS collector owns this discovery table. Reading its candidate
-// provenance does not call or import the retired Harvester/Editor plugins.
+// RSS query provenance supplies candidates, not relevance decisions.
 async fn discovery(pool: &PgPool, item: &Item) -> Result<Source> {
     ensure!(
         item.entity_type == "article",
@@ -38,7 +37,7 @@ async fn discovery(pool: &PgPool, item: &Item) -> Result<Source> {
         !queries.is_empty() && queries.len() <= 128,
         "Classifier requires 1..128 canonical headline subjects"
     );
-    let source = Source {
+    Ok(Source {
         article_id: item.entity_id,
         body: String::new(),
         source: article.get("source"),
@@ -53,8 +52,7 @@ async fn discovery(pool: &PgPool, item: &Item) -> Result<Source> {
             ),
         ]
         .into(),
-    };
-    Ok(source)
+    })
 }
 
 pub(super) fn input_hash(source: &Source) -> Result<String> {
@@ -132,7 +130,6 @@ impl StudioPlugin for ClassifierHandler {
             serde_json::to_string(&measurements)?
         ));
         let mut source = before.clone();
-        source.body.clear();
         source
             .provenance
             .insert("discovery_input_hash".into(), json!(discovery_hash));

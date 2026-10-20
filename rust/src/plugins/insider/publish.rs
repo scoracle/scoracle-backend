@@ -24,11 +24,6 @@ fn direction_for(relationship: &str) -> &'static str {
 }
 
 fn counterparty<'a>(material: &'a Material, finding: &Finding) -> Result<&'a Match> {
-    let expected = if material.subject.entity_type == "team" {
-        "subject"
-    } else {
-        "team"
-    };
     let candidates = material
         .mentions
         .get(finding.report_index)
@@ -37,10 +32,10 @@ fn counterparty<'a>(material: &'a Material, finding: &Finding) -> Result<&'a Mat
         .iter()
         .filter(|m| {
             m.name == finding.counterparty
-                && (if expected == "team" {
-                    m.entity_type == "team"
-                } else {
+                && (if material.subject.entity_type == "team" {
                     matches!(m.entity_type.as_str(), "player" | "person")
+                } else {
+                    m.entity_type == "team"
                 })
         })
         .collect::<Vec<_>>();

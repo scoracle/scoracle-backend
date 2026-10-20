@@ -25,7 +25,7 @@ Journalist, Influencer and Insider receive one JSON document containing `meta`, 
 
 Fresh copies from the same publisher are supplied once, regardless of RSS URL or routing scores. Every delivery still receives a durable outcome. Feed rank controls queue ordering and cannot make unchanged evidence fresh again.
 
-Memories are attributed headlines from the prior seven days, using the same character lens, with at most 20 complete records and 6 KB. Their publication dates, URLs and scores remain attached. The view excludes fresh article IDs and decisions after the edition freeze. Memories describe previous reporting; they cannot establish a new event or today's emotions. See the [headline corpus contract](docs/headline-corpus.md).
+Memories are attributed headlines from the prior seven days, using the same character lens, with at most 20 complete records and 6 KB. DuckDB ranks them by relevance for Journalist, emotion then relevance for Influencer, and movement then relevance for Insider, with recency breaking ties. Their publication dates, URLs and scores remain attached. The view excludes fresh article IDs and decisions after the edition freeze. Memories describe previous reporting; they cannot establish a new event or today's emotions. See the [headline corpus contract](docs/headline-corpus.md).
 
 The shared coverage controller freezes daily assignments at midnight America/Detroit. Queue leases, current-source validation and claim-fenced transactions protect retries and publication. Reverting a headline to an archived revision reconciles its current pointer and outstanding obligations. Completed evidence is not republished merely because its discovery candidates change.
 
@@ -47,7 +47,7 @@ The API reads saved products and performs no inference. The reporting routes `/n
 
 Share ordinary tool functions when doing so reduces complexity. Plugins assemble clues rather than prewrite conclusions. Preserve dates, uncertainty, unknown values, publisher attribution and complete evidence. Historical prose cannot become measurement evidence. Keep model requests and responses inspectable outside compact character inputs.
 
-`tools/meta.rs` provides canonical identity; `tools/fresh.rs` presents evidence; `classifier/memories.rs` selects headline history; `tools/form.rs` owns structural forms and decoding; `tools/guards.rs` owns served-prose checks. The older DuckDB study tools remain available for explicit offline studies and are not character preparation dependencies.
+`tools/meta.rs` provides canonical identity; `tools/fresh.rs` presents evidence; `classifier/memories.rs` selects headline history through the shared DuckDB runner; `tools/form.rs` owns structural forms and decoding; `tools/guards.rs` owns served-prose checks. Other DuckDB studies remain available for explicit offline work.
 
 The six character plugins retain their existing interfaces and model routes. `statcommentary` remains an explicit statistics command. Investigator uses structured Wikimedia evidence; `factsweep` remains unavailable pending a qualified discovery gate.
 

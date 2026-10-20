@@ -221,14 +221,6 @@ pub(super) async fn commit_claimed(
         }
     };
     if !classifier_sources.is_empty() {
-        let cited: std::collections::HashSet<i64> = match prepared {
-            Prepared::Debounced => std::collections::HashSet::new(),
-            Prepared::Product(output) => output
-                .narratives
-                .iter()
-                .flat_map(|narrative| narrative.input_news_ids.iter().copied())
-                .collect(),
-        };
         for source in classifier_sources {
             let reason = dispositions
                 .iter()
@@ -246,17 +238,6 @@ pub(super) async fn commit_claimed(
                         | "daily_package_exceeds_context_budget"
                 )
             );
-            let status = if unresolved {
-                "held"
-            } else if reason == Some("already_reported_exact_text")
-                || (reason.is_none() && matches!(prepared, Prepared::Debounced))
-            {
-                "redundant"
-            } else if cited.contains(&source.article_id) {
-                "used"
-            } else {
-                "abstained"
-            };
             let row_refs = match prepared {
                 Prepared::Product(output) => output
                     .narratives
@@ -266,6 +247,17 @@ pub(super) async fn commit_claimed(
                     .map(|(_, id)| *id)
                     .collect::<Vec<_>>(),
                 Prepared::Debounced => Vec::new(),
+            };
+            let status = if unresolved {
+                "held"
+            } else if reason == Some("already_reported_exact_text")
+                || (reason.is_none() && matches!(prepared, Prepared::Debounced))
+            {
+                "redundant"
+            } else if !row_refs.is_empty() {
+                "used"
+            } else {
+                "abstained"
             };
             crate::plugins::classifier::delivery::settle(
                 publication.transaction(),
@@ -277,8 +269,6 @@ pub(super) async fn commit_claimed(
             )
             .await?;
         }
-    }
-    if !classifier_sources.is_empty() {
         let remaining = crate::plugins::classifier::delivery::undelivered_count(
             publication.transaction(),
             crate::plugins::journalist::manifest::MANIFEST.id.as_str(),

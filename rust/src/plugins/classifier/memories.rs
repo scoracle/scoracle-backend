@@ -1,9 +1,10 @@
-//! A small archive slice of earlier headlines; no reader or generated memory prose.
+//! DuckDB ranks retained headline history; Postgres supplies the frozen source slice.
 use crate::tools::{meta::EntityMeta, source::SourceContext};
-use anyhow::Result;
+use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{PgConnection, Row};
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Headline {
@@ -45,26 +46,77 @@ pub async fn load_on(
                 AND length(btrim(source->>'title'))>0 AND length(btrim(source->>'source'))>0
                 AND length(btrim(source->>'url'))>0
             ORDER BY source->>'title',source->>'source',published DESC,article_id DESC
-        ) SELECT article_id,source,spectrum,floor(extract(epoch FROM published))::bigint AS published_at_epoch
-            FROM eligible ORDER BY published DESC,article_id DESC LIMIT 20")
+        ) SELECT article_id,source,spectrum,floor(extract(epoch FROM published))::bigint AS published_at_epoch,
+            floor(extract(epoch FROM before))::bigint AS before_epoch
+            FROM eligible ORDER BY published DESC,article_id DESC LIMIT 20001")
         .bind(&subject.entity_type).bind(subject.entity_id.to_string()).bind(&subject.sport)
         .bind(before as f64).bind(exclude).bind(character).bind(super::decision::CRITERIA_VERSION)
         .fetch_all(connection).await?;
-    let mut result = Vec::new();
+    ensure!(
+        rows.len() <= 20000,
+        "headline memory population exceeds bound"
+    );
+    let Some(first) = rows.first() else {
+        return Ok(Vec::new());
+    };
+    let before = first.get::<i64, _>("before_epoch");
+    let mut candidates = Vec::new();
     for row in rows {
         let source: Value = row.get("source");
         let headline = source["title"].as_str().unwrap_or_default();
         if crate::tools::source::contains_instruction_override(headline) {
             continue;
         }
-        result.push(Headline {
-            article_id: row.get("article_id"),
-            headline: crate::tools::fetch::decode_entities(headline),
-            publisher: source["source"].as_str().unwrap_or_default().into(),
-            published_at: crate::util::utc_timestamp(row.get("published_at_epoch")),
-            url: source["url"].as_str().unwrap_or_default().into(),
-            spectrum: row.get("spectrum"),
-        });
+        let article_id = row.get("article_id");
+        let reported_at = row.get("published_at_epoch");
+        let headline = crate::tools::fetch::decode_entities(headline);
+        let publisher = source["source"].as_str().unwrap_or_default().to_owned();
+        candidates.push((
+            Headline {
+                article_id,
+                headline,
+                publisher,
+                published_at: crate::util::utc_timestamp(reported_at),
+                url: source["url"].as_str().unwrap_or_default().into(),
+                spectrum: row.get("spectrum"),
+            },
+            reported_at,
+        ));
+    }
+    select(character, before, candidates).await
+}
+
+async fn select(
+    character: &str,
+    before: i64,
+    candidates: Vec<(Headline, i64)>,
+) -> Result<Vec<Headline>> {
+    if candidates.is_empty() {
+        return Ok(Vec::new());
+    }
+    let selected: Vec<i64> = crate::tools::memories::run(&serde_json::json!({
+        "kind":"headline_memory", "version":"headline-spectrum-memory-v1", "character":character,
+        "from":before - 7 * 86400, "before":before, "limit":20,
+        "observations":candidates.iter().map(|(h, at)| serde_json::json!({
+            "article_id":h.article_id, "reported_at":at, "spectrum":h.spectrum,
+        })).collect::<Vec<_>>(),
+    }))
+    .await?;
+    ensure!(
+        selected.len() <= 20,
+        "unexpected headline memory result count"
+    );
+    let mut retained: BTreeMap<_, _> = candidates
+        .into_iter()
+        .map(|(h, _)| (h.article_id, h))
+        .collect();
+    let mut result = Vec::new();
+    for id in selected {
+        result.push(
+            retained
+                .remove(&id)
+                .context("unknown or duplicate headline memory")?,
+        );
         if serde_json::to_vec(&result)?.len() > 6000 {
             result.pop();
             break;
@@ -98,6 +150,44 @@ mod tests {
             classifier_world: Some(json!({"evidence_scope":"headline",
                 "target_identity_resolved":true,"spectrum":record["spectrum"],"url":record["url"]})),
         }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires SCORACLE_MEMORY_STUDY_BIN"]
+    async fn duckdb_ranks_each_character_and_preserves_complete_headlines() -> Result<()> {
+        let candidates: Vec<_> = records()
+            .into_iter()
+            .take(3)
+            .enumerate()
+            .map(|(i, r)| {
+                (
+                    Headline {
+                        article_id: i as i64 + 1,
+                        headline: r["headline"].as_str().unwrap().into(),
+                        publisher: r["publisher"].as_str().unwrap().into(),
+                        published_at: crate::util::utc_timestamp(100 + i as i64),
+                        url: r["url"].as_str().unwrap().into(),
+                        spectrum: [
+                            json!({"subject":99,"emotion":20,"movement":80}),
+                            json!({"subject":95,"emotion":99,"movement":83}),
+                            json!({"subject":90,"emotion":85,"movement":99}),
+                        ][i]
+                            .clone(),
+                    },
+                    100 + i as i64,
+                )
+            })
+            .collect();
+        for (character, index) in [("journalist", 0), ("influencer", 1), ("insider", 2)] {
+            let selected = select(character, 200, candidates.clone()).await?;
+            assert_eq!(selected.len(), 3);
+            assert_eq!(selected[0], candidates[index].0);
+        }
+        let mut oversized = candidates[0].clone();
+        oversized.0.headline = "Complete headline ".repeat(500);
+        assert!(select("journalist", 200, vec![oversized]).await?.is_empty());
+        assert!(select("journalist", 200, vec![]).await?.is_empty());
+        Ok(())
     }
 
     #[test]

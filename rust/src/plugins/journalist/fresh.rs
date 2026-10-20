@@ -106,6 +106,7 @@ pub fn prepare(
             item.id > 0 && ids.insert(item.id),
             "duplicate or invalid article identity"
         );
+        let key = crate::tools::fresh::evidence_key(&item.source, &item.context);
         let reason = if item
             .classifier_world
             .as_ref()
@@ -120,10 +121,7 @@ pub fn prepare(
             Some("unknown_publication_time")
         } else if item.published_at_epoch.unwrap() > now {
             Some("future_publication_time")
-        } else if seen.contains(&crate::tools::fresh::evidence_key(
-            &item.source,
-            &item.context,
-        )) {
+        } else if seen.contains(&key) {
             Some("already_reported_exact_text")
         } else {
             None
@@ -142,10 +140,7 @@ pub fn prepare(
             });
             continue;
         }
-        seen.insert(crate::tools::fresh::evidence_key(
-            &item.source,
-            &item.context,
-        ));
+        seen.insert(key);
         selected.push(item);
     }
     if assemble(&subject, &selected).len() > SOURCE_BUDGET_BYTES

@@ -134,33 +134,21 @@ impl StudioPlugin for NarrativesHandler {
         };
         let material = fresh::load_narratives_material(&self.pool, subject, now).await?;
         let payload = json!({"source":"classifier"});
-        if material.sources.is_empty() {
-            return Ok(commit_claimed(
+        let debounced = material.sources.is_empty()
+            || (crate::harness::products::debounce_unchanged(
                 &self.pool,
-                item,
-                &item.sport.to_uppercase(),
-                "classifier",
-                &payload,
-                &Prepared::Debounced,
-                &[],
-                &[],
+                "news_summaries",
+                &EntityKey {
+                    entity_type: item.entity_type.clone(),
+                    entity_id: item.entity_id_i32()?,
+                    sport: item.sport.to_uppercase(),
+                    season: None,
+                },
+                &material.assignment.input_hash,
             )
             .await?
-            .0);
-        }
-        let unchanged = crate::harness::products::debounce_unchanged(
-            &self.pool,
-            "news_summaries",
-            &EntityKey {
-                entity_type: item.entity_type.clone(),
-                entity_id: item.entity_id_i32()?,
-                sport: item.sport.to_uppercase(),
-                season: None,
-            },
-            &material.assignment.input_hash,
-        )
-        .await?;
-        if unchanged && !material.assignment.selected.is_empty() {
+                && !material.assignment.selected.is_empty());
+        if debounced {
             return Ok(commit_claimed(
                 &self.pool,
                 item,

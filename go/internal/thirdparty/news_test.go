@@ -248,14 +248,6 @@ func TestFeedRankSortIsStableAcrossQueryLanes(t *testing.T) {
 	}
 }
 
-// --------------------------------------------------------------------------
-// D-T21 — the per-entity daily read cap
-// --------------------------------------------------------------------------
-
-// The cap keeps the FRONT of the fresh list, because that list arrives in Google's result order
-// and Google is the relevancy source (8.9). If this ever starts keeping some other subset, a
-// ranking heuristic has grown back in the one place the rail spent 393 lines removing it from.
-
 // Real producer transaction plus the same migrations used by the Rust worker.
 func TestClassifierRSSAcquisition(t *testing.T) {
 	dbURL := os.Getenv("TEST_DATABASE_URL")
@@ -324,7 +316,7 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	}
 	blocked := make(chan error, 1)
 	go func() {
-		_, _, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1,
+		_, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1,
 			[]Article{{URL: "https://example.test/late-discovery", Title: "Must not persist"}})
 		blocked <- err
 	}()
@@ -354,7 +346,7 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	if _, err := pool.Exec(ctx, "UPDATE coverage_schedule SET phase='characters'"); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1, nil); err == nil {
+	if _, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1, nil); err == nil {
 		t.Fatal("character phase accepted discovery")
 	}
 	if _, err := pool.Exec(ctx, "UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL"); err != nil {
@@ -375,9 +367,9 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	service := NewNewsService(pool, nil)
 	ingest := func(want int) {
 		t.Helper()
-		ids, withheld, err := service.persistArticles(ctx, "INTAKE_TEST", "team", 1, []Article{article})
-		if err != nil || len(ids) != want || withheld != 0 {
-			t.Fatalf("queued=%v withheld=%d error=%v, want %d", ids, withheld, err, want)
+		ids, err := service.persistArticles(ctx, "INTAKE_TEST", "team", 1, []Article{article})
+		if err != nil || len(ids) != want {
+			t.Fatalf("queued=%v error=%v, want %d", ids, err, want)
 		}
 	}
 	ingest(1)

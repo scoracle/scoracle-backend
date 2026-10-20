@@ -1,4 +1,4 @@
-//! Persist headline decisions before any publisher I/O, including failed and rejected work.
+//! Persist headline decisions and failures before character delivery.
 use super::{adapter, decision, hash, Source};
 use crate::harness::{queue::publication::ClaimPublication, queue::work::Item};
 use anyhow::{ensure, Context, Result};
@@ -35,11 +35,9 @@ pub(super) async fn measure(
         return Ok(None);
     };
     adapter::fence_source(pool, item, before, &mut publication).await?;
-    let mut discovery = before.clone();
-    discovery.body.clear();
     let source_id: i64 = sqlx::query_scalar("INSERT INTO classifier_sources(article_id,sport,input_hash,body_sha256,source) VALUES($1,$2,$3,$4,$5) ON CONFLICT(article_id,sport,input_hash,body_sha256,identity_hash) DO UPDATE SET input_hash=classifier_sources.input_hash RETURNING id")
         .bind(item.entity_id).bind(&item.sport).bind(adapter::input_hash(before)?)
-        .bind(hash("")).bind(json!(discovery)).fetch_one(&mut **publication.transaction()).await?;
+        .bind(hash("")).bind(json!(before)).fetch_one(&mut **publication.transaction()).await?;
     publication.commit_progress().await?;
     let mut results = Vec::new();
     for candidate in &before.query_entities {

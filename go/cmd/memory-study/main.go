@@ -39,6 +39,17 @@ func run() error {
 		return err
 	}
 	defer engine.Close(ctx)
+	if kind.Kind == "headline_memory" {
+		var req duckdb.HeadlineMemoryRequest
+		if err = json.Unmarshal(data, &req); err != nil {
+			return err
+		}
+		ids, err := engine.StudyHeadlineMemory(ctx, req)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(ids)
+	}
 	if kind.Kind == "source_records" {
 		var req duckdb.SourceRecordsRequest
 		if err = json.Unmarshal(data, &req); err != nil {

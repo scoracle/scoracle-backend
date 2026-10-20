@@ -11,7 +11,7 @@ for the original strategy + rationale.
 ## Current production release
 
 The [October 20 release](../../rust/docs/headline-qwen35-deployment-2026-10-20.md)
-is live from commit `e4fa9bd3`, with migration 315 and matching Go/Rust binaries.
+is live from commit `17ba32b5`, including the coverage scheduling repair, with migration 315 and matching Go/Rust binaries.
 Archbox runs known-entity headline scoring and hourly team RSS; the Mac runs the
 six character stages. Influencer uses Qwen3.5-4B Q4_K_M with compact instructions
 and score-first decoding. Other character routes retain SmolLM3; d1 is unchanged.

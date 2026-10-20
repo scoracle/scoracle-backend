@@ -68,6 +68,15 @@ edition time. Extra context reduces some holds; it does not solve an excessive
 number of model calls. Do not silently drop evidence or force partial completion
 to meet the clock.
 
+The subsequent [Premier League creator replay](../fixtures/character-runs/premier-league-2026-10-20/README.md)
+attempted six stages for 20 clubs and 444 current-season players in 63m 48s of
+active replay time, or 65m 25s including a sampler interruption and recovery.
+It produced 657 generated stage products and 116 failed stages. Scout made 657
+native calls for 332 invoked stages. The largest request including reserved output
+was 6,895 tokens, so context capacity did not limit this sample. This read-only,
+two-pass test excludes queue publication/backoff and does not qualify the entire
+nightly population or the factual accuracy of accepted prose.
+
 ## Deployment and recovery
 
 Private trial and rollback receipts are retained at

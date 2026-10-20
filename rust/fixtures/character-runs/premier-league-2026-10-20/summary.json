@@ -1,0 +1,225 @@
+{
+  "complete": true,
+  "driver_sha256": "1d3829248db51b8a6c3fa8de25562f3832725d6054446aa496da8be64fbf4d4b",
+  "clubs": 20,
+  "players": 444,
+  "timing": {
+    "assembled_from_two_passes": true,
+    "subjects": 464,
+    "stage_results": 2784,
+    "preparation_seconds": 42.938434792,
+    "active_replay_seconds": 3828.387440791,
+    "total_seconds": 3925.332116,
+    "intermission_and_restoration_seconds": 96.94467520900025,
+    "model_calls": 1146,
+    "read_only": true,
+    "publishes": false,
+    "interruption": {
+      "reason": "Progress sampler read a partially written JSONL tail and terminated its child; sampler now reads newline-complete records only.",
+      "completed_subjects_before_interruption": 452,
+      "rerun_subjects": 12,
+      "excluded_partial_stage_receipts": 26,
+      "extra_recorded_model_responses": 5,
+      "unreceipted_inflight_attempts": "Up to four at cancellation; exact count unknown.",
+      "recovery_driver_sha256": "2bbdb6ae0940cbf415802b7b994df7a433ee2f4167563e08a6dc02a65b6aede7",
+      "sources": {
+        "first_pass": "/Users/scotty/scoracle-worker/releases/premier-league-test-20261020",
+        "recovery": "/Users/scotty/scoracle-worker/releases/premier-league-test-20261020/recovery"
+      }
+    }
+  },
+  "native_responses": 1146,
+  "incomplete_or_failed_native_responses": 0,
+  "unknown_transport_attempts": 0,
+  "max_admitted_tokens_including_output": 6895,
+  "peak_active_slots": 4,
+  "outcomes": {
+    "no_call": 1830,
+    "abstained": 49,
+    "generated": 657,
+    "failed": 116,
+    "no_stats": 132
+  },
+  "by_stage": {
+    "journalist": {
+      "outcomes": {
+        "no_call": 359,
+        "failed": 69,
+        "generated": 35,
+        "abstained": 1
+      },
+      "invocations": 104,
+      "attempts": 104,
+      "native_responses": 104,
+      "input_tokens": 98572,
+      "output_tokens": 18665,
+      "provider_seconds": 2225.51,
+      "mean_provider_seconds": 21.4,
+      "median_provider_seconds": 13.35
+    },
+    "influencer": {
+      "outcomes": {
+        "no_call": 419,
+        "abstained": 35,
+        "generated": 10
+      },
+      "invocations": 45,
+      "attempts": 45,
+      "native_responses": 45,
+      "input_tokens": 30289,
+      "output_tokens": 1322,
+      "provider_seconds": 231.32,
+      "mean_provider_seconds": 5.14,
+      "median_provider_seconds": 3.73
+    },
+    "scout": {
+      "outcomes": {
+        "generated": 282,
+        "failed": 37,
+        "no_stats": 132,
+        "abstained": 13
+      },
+      "invocations": 332,
+      "attempts": 657,
+      "native_responses": 657,
+      "input_tokens": 344610,
+      "output_tokens": 65806,
+      "provider_seconds": 7511.72,
+      "mean_provider_seconds": 11.43,
+      "median_provider_seconds": 11.4
+    },
+    "insider": {
+      "outcomes": {
+        "no_call": 426,
+        "generated": 28,
+        "failed": 10
+      },
+      "invocations": 38,
+      "attempts": 38,
+      "native_responses": 38,
+      "input_tokens": 35331,
+      "output_tokens": 4195,
+      "provider_seconds": 606.18,
+      "mean_provider_seconds": 15.95,
+      "median_provider_seconds": 11.77
+    },
+    "analyst": {
+      "outcomes": {
+        "no_call": 455,
+        "generated": 9
+      },
+      "invocations": 9,
+      "attempts": 9,
+      "native_responses": 9,
+      "input_tokens": 4205,
+      "output_tokens": 1060,
+      "provider_seconds": 117.09,
+      "mean_provider_seconds": 13.01,
+      "median_provider_seconds": 12.25
+    },
+    "oracle": {
+      "outcomes": {
+        "generated": 293,
+        "no_call": 171
+      },
+      "invocations": 293,
+      "attempts": 293,
+      "native_responses": 293,
+      "input_tokens": 110124,
+      "output_tokens": 41595,
+      "provider_seconds": 4354.08,
+      "mean_provider_seconds": 14.86,
+      "median_provider_seconds": 14.49
+    }
+  },
+  "by_entity_type": {
+    "team": {
+      "no_call": 24,
+      "abstained": 16,
+      "generated": 57,
+      "failed": 23
+    },
+    "player": {
+      "no_call": 1806,
+      "generated": 600,
+      "no_stats": 132,
+      "failed": 93,
+      "abstained": 33
+    }
+  },
+  "top_errors": [
+    {
+      "stage": "scout",
+      "reason": "The thin sample has no computed cross-season direction or stability evidence. Remove claims of no change, stable standing, consistency or reliability.",
+      "count": 20,
+      "example": "team-236"
+    },
+    {
+      "stage": "scout",
+      "reason": "The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games.",
+      "count": 15,
+      "example": "player-37658280"
+    },
+    {
+      "stage": "insider",
+      "reason": "finding quote does not state a move",
+      "count": 4,
+      "example": "team-8"
+    },
+    {
+      "stage": "insider",
+      "reason": "finding quote must name both the target and counterparty in full",
+      "count": 4,
+      "example": "player-129602"
+    },
+    {
+      "stage": "journalist",
+      "reason": "named claim is absent from cited reports: Manchester United",
+      "count": 2,
+      "example": "player-129602"
+    },
+    {
+      "stage": "journalist",
+      "reason": "cited reports do not connect Aston Villa with numerical fact 2026",
+      "count": 2,
+      "example": "player-37681576"
+    },
+    {
+      "stage": "insider",
+      "reason": "finding counterparty was not co-mentioned in its report",
+      "count": 2,
+      "example": "team-19"
+    },
+    {
+      "stage": "journalist",
+      "reason": "cited reports do not connect Crystal Palace with numerical fact 20",
+      "count": 1,
+      "example": "team-51"
+    },
+    {
+      "stage": "journalist",
+      "reason": "cited reports do not connect Premier League with numerical fact 25",
+      "count": 1,
+      "example": "team-236"
+    },
+    {
+      "stage": "journalist",
+      "reason": "cited reports do not connect Tottenham Hotspur with numerical fact 8",
+      "count": 1,
+      "example": "team-20000000"
+    },
+    {
+      "stage": "journalist",
+      "reason": "named claim is absent from cited reports: Crystal Palace",
+      "count": 1,
+      "example": "team-78"
+    },
+    {
+      "stage": "journalist",
+      "reason": "named claim is absent from cited reports: Bournemouth's First League Win",
+      "count": 1,
+      "example": "team-52"
+    }
+  ],
+  "qualification": "Read-only creator/parser replay; excludes queue publication, write-time normalization, durable retries, unchanged-product reuse and factual accuracy grading."
+}

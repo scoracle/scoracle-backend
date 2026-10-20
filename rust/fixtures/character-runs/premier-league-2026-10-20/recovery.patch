@@ -1,0 +1,15 @@
+--- fixtures/character-runs/premier-league-2026-10-20/replay.rs	2026-10-20 15:03:45
++++ examples/premier_league_replay.rs	2026-10-20 15:20:52
+@@ -388,6 +388,12 @@
+         rows.iter().filter(|r| r.0 == "team").count() == 20,
+         "current-season club population must be 20"
+     );
++    let mut rows = rows;
++    if let Some(path) = std::env::var_os("SCORACLE_REPLAY_SUBJECTS") {
++        let selected: Vec<Value> = serde_json::from_slice(&fs::read(path)?)?;
++        rows.retain(|r| selected.iter().any(|s| s["entity_type"] == r.0 && s["entity_id"] == r.1));
++        ensure!(rows.len() == selected.len(), "resume subjects must match the current roster exactly");
++    }
+     let roster = rows
+         .iter()
+         .map(|(kind, id, name)| json!({"entity_type":kind,"entity_id":id,"name":name}))

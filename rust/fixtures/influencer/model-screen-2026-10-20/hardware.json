@@ -1,0 +1,33 @@
+{
+  "cpu": "Apple M4",
+  "memory_bytes": 17179869184,
+  "other_llama_server_ports": [
+    8080,
+    18183
+  ],
+  "vm_stat_during_baseline": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                    58981.\nPages active:                                 144193.\nPages inactive:                               132164.\nPages speculative:                             16652.\nPages throttled:                                   0.\nPages wired down:                             627461.\nPages purgeable:                                1595.\n\"Translation faults\":                    18110753203.\nPages copy-on-write:                       568755253.\nPages zero filled:                       10359554533.\nPages reactivated:                        1205570767.\nPages purged:                              344260497.\nFile-backed pages:                            141903.\nAnonymous pages:                              151106.\nPages stored in compressor:                  1445394.\nPages occupied by compressor:                  34507.\nDecompressions:                           1224925421.\nCompressions:                             1448964617.\nPageins:                                   645676243.\nPageouts:                                    3580457.\nSwapins:                                   206834170.\nSwapouts:                                  296746124.\n",
+  "ollama_residents": {
+    "models": [
+      {
+        "name": "granite4.2:3b",
+        "model": "granite4.2:3b",
+        "size": 26534425393,
+        "digest": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "granite",
+          "families": [
+            "granite"
+          ],
+          "parameter_size": "3.7B",
+          "quantization_level": "Q4_K_M"
+        },
+        "expires_at": "2319-01-24T22:42:32.922037807-05:00",
+        "size_vram": 11372425379,
+        "context_length": 131072,
+        "runner": "llamacpp"
+      }
+    ]
+  }
+}

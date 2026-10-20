@@ -1,0 +1,11 @@
+{
+  "expect": {},
+  "name": "crossroads-conflict",
+  "prompt_version": "or28-single-json",
+  "review": [
+    "Preserve disagreement across the supplied pillars rather than forcing unanimous direction."
+  ],
+  "task": "oracle",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Marcus Vale\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"task\":\"Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.\",\"fresh\":{\"journalist\":[{\"title\":\"Marcus Vale trade demand reported\",\"body\":\"A trade-demand story broke this week and hangs over everything; the front office has not responded publicly.\",\"trajectory\":\"heating_up\",\"source_count\":4,\"source_age_days\":1}],\"scout\":{\"body\":\"Elite two-way production; the numbers have not blinked through the noise.\"},\"influencer\":{\"body\":\"The room has soured — the standoff dominates every thread and the patience is thinning.\"},\"analyst\":{\"body\":\"Feeling is dragging the arc down while the production holds its line.\"}},\"voice\":\"Mystic, arcane, knowing, restrained.\"}"
+}

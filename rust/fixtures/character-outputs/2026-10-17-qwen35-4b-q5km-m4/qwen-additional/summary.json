@@ -1,0 +1,702 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [
+        {
+          "detail": "",
+          "name": "body includes \"denied\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"City Wire\"",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/narratives/conflicting-reports.json",
+      "generation_wall_ms": 4686,
+      "input_tokens": 300,
+      "name": "conflicting-reports-two-sources-that-contradict-each-other",
+      "output_limit": 900,
+      "output_tokens": 95,
+      "parsed": true,
+      "prompt_version": "n106-single-json",
+      "reading": "Club Bulletin reported on September 26, 2026, that Cedar United denied agreeing a fee for Alex Stone, with a club spokesperson stating discussions had not begun.\n\nCity Wire reported on September 26, 2026, that Cedar United agreed a fee for Alex Stone, citing an unnamed source, though the club has not confirmed the report.",
+      "request_bytes": 1253,
+      "review": [
+        "Two keyed slots, two source positions. Neither may be merged into one settled fact.",
+        "Both reports are unconfirmed; the reading must not resolve the contradiction for the reader.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 4711
+    },
+    {
+      "case": 2,
+      "checks": [
+        {
+          "detail": "",
+          "name": "body includes \"Kim Park\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"Jo Vale\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"Vale City\"",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/narratives/distinct-developments.json",
+      "generation_wall_ms": 5661,
+      "input_tokens": 348,
+      "name": "distinct-developments-three-independent-developments,-three-keyed-slots",
+      "output_limit": 1260,
+      "output_tokens": 119,
+      "parsed": true,
+      "prompt_version": "n106-single-json",
+      "reading": "Cedar United goalkeeper Kim Park will miss the next match due to an ankle injury, the club confirmed. No return date was provided for Park's recovery.\n\nCedar United appointed Jo Vale as head coach on Monday, with a two-year contract securing her tenure. The appointment marks a new leadership chapter for the squad.\n\nCedar United secured a 2–1 victory against Vale City on Sunday. The win extends the team's recent momentum on the pitch.",
+      "request_bytes": 1379,
+      "review": [
+        "One development per report_key, in source order. No slot may carry another report's claim.",
+        "The ankle injury, the appointment and the result are three stories, not one narrative.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 5675
+    },
+    {
+      "case": 3,
+      "checks": [
+        {
+          "detail": "",
+          "name": "body includes \"Jordan Reed\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"Cedar Comets\"",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/narratives/nba-attribution.json",
+      "generation_wall_ms": 3425,
+      "input_tokens": 254,
+      "name": "nba-attribution-basketball-source-under-a-league-namespace",
+      "output_limit": 900,
+      "output_tokens": 69,
+      "parsed": true,
+      "prompt_version": "n106-single-json",
+      "reading": "Court Wire reported on September 26, 2026, that the Cedar Comets defeated the Vale Stars 108–104 with Jordan Reed contributing 27 points. However, the team stated Reed is questionable for Wednesday due to ankle soreness.",
+      "request_bytes": 1077,
+      "review": [
+        "The identity part says basketball, not NBA: the sport, not the competition namespace.",
+        "Keep the question mark on Reed's availability; the source says questionable, not ruled out.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 3434
+    },
+    {
+      "case": 4,
+      "fixture": "fixtures/quality/narratives/no-new-material.json",
+      "name": "no-new-material-nothing-eligible:-no-call,-no-package",
+      "output_limit": 900,
+      "prompt_version": "n106-single-json",
+      "request_bytes": 801,
+      "review": [
+        "An empty world produces no report. A body here would be an invented story.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "no_call",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 0
+    },
+    {
+      "case": 5,
+      "checks": [
+        {
+          "detail": "",
+          "name": "body includes \"Vale City\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"Sam Lee\"",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/narratives/one-result.json",
+      "generation_wall_ms": 2451,
+      "input_tokens": 239,
+      "name": "one-result-single-result,-named-scorer",
+      "output_limit": 900,
+      "output_tokens": 43,
+      "parsed": true,
+      "prompt_version": "n106-single-json",
+      "reading": "Cedar United secured a 2–1 victory over Vale City on Sunday, with Sam Lee scoring the decisive goal in the 84th minute.",
+      "request_bytes": 1001,
+      "review": [
+        "Articulate the supplied result and its scorer; add no significance the source does not carry.",
+        "Keep the source's attribution and keep the result factual.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 2460
+    },
+    {
+      "case": 6,
+      "checks": [
+        {
+          "detail": "",
+          "name": "body includes \"supporters\"",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/narratives/synthetic-closed-training-fresh-only.json",
+      "generation_wall_ms": 2701,
+      "input_tokens": 241,
+      "name": "synthetic-closed-training-fresh-only",
+      "output_limit": 900,
+      "output_tokens": 51,
+      "parsed": true,
+      "prompt_version": "n106-single-json",
+      "reading": "Cedar United announced on 28 September 2026 that its training session scheduled for 29 September will be closed to supporters. The club provided no explanation for this decision.",
+      "request_bytes": 1052,
+      "review": [
+        "Attribute the closed session on 29 September to the club statement.",
+        "The club supplied no reason; do not infer a cause, prior supporter access or prior venue.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 2714
+    },
+    {
+      "case": 7,
+      "checks": [
+        {
+          "detail": "",
+          "name": "body includes \"10:00\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body excludes \"11:00\"",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/narratives/synthetic-training-time-fresh-only.json",
+      "generation_wall_ms": 2785,
+      "input_tokens": 253,
+      "name": "synthetic-training-time-fresh-only",
+      "output_limit": 900,
+      "output_tokens": 53,
+      "parsed": true,
+      "prompt_version": "n106-single-json",
+      "reading": "Cedar United confirmed an updated start time of 10:00 for its training session on 29 September, with the venue remaining North Field. The club provided no reason for the update.",
+      "request_bytes": 1082,
+      "review": [
+        "Report the supplied 10:00 start, 29 September date and North Field venue.",
+        "The club supplied no reason; do not infer one or invent a previous start time.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 2798
+    },
+    {
+      "case": 8,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/vibe/clearly-negative.json",
+      "generation_wall_ms": 5961,
+      "input_tokens": 540,
+      "name": "clearly-negative",
+      "output_limit": 600,
+      "output_tokens": 111,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v27-single-json",
+      "reading": "Fans boo and voice fury over Cedar Comets performance\n\nFans of the Cedar Comets are expressing deep frustration and anger over the team's recent performance. Reports indicate that supporters booed the players and voiced their fury directly, signaling a strong disconnect between the fanbase and how the team is playing. This reaction suggests a collective disappointment that has turned into active criticism, with no signs of relief or hope currently visible in the crowd's response.",
+      "request_bytes": 2394,
+      "review": [
+        "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+        "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+        "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+        "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 5977
+    },
+    {
+      "case": 9,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/vibe/warm-memory-cold-coverage.json",
+      "generation_wall_ms": 8848,
+      "input_tokens": 532,
+      "name": "warm-memory-cold-coverage",
+      "output_limit": 600,
+      "output_tokens": 177,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v27-single-json",
+      "reading": "Cedar Comets announce Tuesday training; mood is one of steady, disciplined readiness.\n\nThe Cedar Comets have announced a training schedule for Tuesday, marking a return to the court. While the news signals a step forward, the emotional tone remains neutral and procedural. There is no explicit expression of joy, relief, or hope from the team or their supporters in this report. Instead, the atmosphere is one of quiet anticipation and routine. The announcement serves as a reminder of the team's commitment, but it does not yet convey the deep emotions of a comeback or a victory. The mood is steady, reflecting the calm before the storm of upcoming games. For now, the focus is on preparation, and the feelings are those of disciplined readiness rather than exuberant celebration.",
+      "request_bytes": 2364,
+      "review": [
+        "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+        "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+        "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+        "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 8864
+    },
+    {
+      "case": 10,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/rating/synthetic-composite.json",
+      "generation_wall_ms": 2671,
+      "input_tokens": 361,
+      "name": "synthetic-composite",
+      "output_limit": 700,
+      "output_tokens": 40,
+      "parsed": true,
+      "prompt_version": "s73-single-json",
+      "reading": "In the 2026 season, Cedar Comets played 25 games and achieved a composite score of 64.0. Cross-season support is indicated.",
+      "request_bytes": 1709,
+      "review": [
+        "The composite has a peer mean of 50. No individual measurements, playing traits, trend or balanced offense/defense are established.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "rating",
+      "temperature": 0.0,
+      "wall_ms": 2687
+    },
+    {
+      "case": 11,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/rating/synthetic-incompatible.json",
+      "generation_wall_ms": 5499,
+      "input_tokens": 439,
+      "name": "synthetic-incompatible",
+      "output_limit": 700,
+      "output_tokens": 108,
+      "parsed": true,
+      "prompt_version": "s73-single-json",
+      "reading": "In the 2026 season, Cedar Comets recorded 25 games played. Their rebounding averaged 48.0 per game, placing them at the 90th percentile within a cohort of 30 and classifying them as elite. Their assists averaged 23.0 per game, placing them at the 75th percentile within the same cohort and classifying them as strong. The team's composite score is 64.0. Cross-season support is indicated.",
+      "request_bytes": 1929,
+      "review": [
+        "The prior competition is incompatible. Describe current standing without inventing a comparison, stability or recent form.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "rating",
+      "temperature": 0.0,
+      "wall_ms": 5517
+    },
+    {
+      "case": 12,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/rating/synthetic-measured-memory.json",
+      "generation_wall_ms": 6145,
+      "input_tokens": 467,
+      "name": "synthetic-measured-memory",
+      "output_limit": 700,
+      "output_tokens": 122,
+      "parsed": true,
+      "prompt_version": "s73-single-json",
+      "reading": "In the 2026 season, Cedar Comets averaged 25 games played. Their rebounding output of 48 per game placed them in the 90th percentile within a cohort of 30, marking an elite band and a rise from the prior 80th percentile. Assists averaged 23 per game, holding the 75th percentile in the strong band with no standing change. A composite score of 64 reflects standardized overall performance relative to peers. Cross-season support is indicated, though specific prior season metrics are not provided.",
+      "request_bytes": 2027,
+      "review": [
+        "The current points average is 105 across three measured fixtures out of four. The supplied change is 2; do not turn 105 into the prior average or invent 107. Preserve missing-data coverage.",
+        "Explicit synthetic windows: previous August 1–30 average 103; current August 30–September 29 average 105. This reconstructs a coherent test comparison, not a historical database receipt.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "rating",
+      "temperature": 0.0,
+      "wall_ms": 6165
+    },
+    {
+      "case": 13,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/rating/synthetic-source-trigger.json",
+      "generation_wall_ms": 3105,
+      "input_tokens": 388,
+      "name": "synthetic-source-trigger",
+      "output_limit": 700,
+      "output_tokens": 52,
+      "parsed": true,
+      "prompt_version": "s73-single-json",
+      "reading": "In the 2026 season, the subject scored 20.0 points, establishing an 80th percentile standing classified as 'strong' with a minimum sample of 10. Cross-season comparison is unsupported.",
+      "request_bytes": 1808,
+      "review": [
+        "The sample count is unknown. The minimum of 10 is an appearance threshold, not a points threshold or observed sample. No stability or recent form is established.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "rating",
+      "temperature": 0.0,
+      "wall_ms": 3121
+    },
+    {
+      "case": 14,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/rating/synthetic-sparse.json",
+      "generation_wall_ms": 3955,
+      "input_tokens": 453,
+      "name": "synthetic-sparse",
+      "output_limit": 700,
+      "output_tokens": 67,
+      "parsed": true,
+      "prompt_version": "s73-single-json",
+      "reading": "Cedar Comets' 2026 season sample of three games shows 48.0 rebounds per game (90th percentile, elite band) and 23.0 assists per game (75th percentile, strong band). The thin sample limit of ten appearances is not met.",
+      "request_bytes": 1976,
+      "review": [
+        "Three stored games describe source coverage, not first games, early-season participation or future potential. No cross-season comparison is supplied.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "rating",
+      "temperature": 0.0,
+      "wall_ms": 3971
+    },
+    {
+      "case": 15,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/rating/synthetic-zero-unknown.json",
+      "generation_wall_ms": 3918,
+      "input_tokens": 412,
+      "name": "synthetic-zero-unknown",
+      "output_limit": 700,
+      "output_tokens": 70,
+      "parsed": true,
+      "prompt_version": "s73-single-json",
+      "reading": "In the 2026 season, Cedar Comets recorded 25 games played and a composite score of 64.0. Turnovers per game averaged 0.0, placing the team at the 99th percentile within the elite band. Assists per game data is unavailable for this season.",
+      "request_bytes": 1886,
+      "review": [
+        "Zero turnovers is measured; assists are unknown. Low turnovers do not establish defensive performance or forcing opponent turnovers.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "rating",
+      "temperature": 0.0,
+      "wall_ms": 3935
+    },
+    {
+      "case": 16,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "findings=0",
+          "name": "has_source_linked_move",
+          "pass": false
+        },
+        {
+          "detail": "",
+          "name": "stage:speculation",
+          "pass": false
+        },
+        {
+          "detail": "",
+          "name": "body_includes:Sorensen",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:$",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:£",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:€",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:million",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/transfer/fizzled-prior-lowrel-skeptic.json",
+      "generation_wall_ms": 2640,
+      "input_tokens": 430,
+      "name": "fizzled-prior-lowrel-skeptic",
+      "output_limit": 1400,
+      "output_tokens": 36,
+      "parsed": true,
+      "prompt_version": "insider-source-v12-single-json",
+      "reading": "0 finding(s) | Chelsea are reportedly monitoring Kai Sorensen, but no bid or talks have been confirmed.",
+      "request_bytes": 2087,
+      "review": [
+        "Distinguish the proposed relationship from speculation, historical affiliation and unrelated people.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 2655
+    },
+    {
+      "case": 17,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/momentum/falling-confirmed.json",
+      "generation_wall_ms": 2560,
+      "input_tokens": 200,
+      "name": "falling-confirmed",
+      "output_limit": 700,
+      "output_tokens": 49,
+      "parsed": true,
+      "prompt_version": "momentum-s39-single-json",
+      "reading": "Riverton Athletic's measured profile has weakened, a decline in performance mirrored by a cooling atmosphere where concern has supplanted patience. These signals reinforce one another, presenting a unified picture of deteriorating form and morale.",
+      "request_bytes": 809,
+      "review": [
+        "Both supplied trajectories fall; preserve that agreement without inventing a tactical or psychological cause.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "momentum",
+      "temperature": 0.0,
+      "wall_ms": 2572
+    },
+    {
+      "case": 18,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/momentum/sparse-samples-stay-steady.json",
+      "generation_wall_ms": 2701,
+      "input_tokens": 198,
+      "name": "sparse-samples-stay-steady",
+      "output_limit": 700,
+      "output_tokens": 52,
+      "parsed": true,
+      "prompt_version": "momentum-s39-single-json",
+      "reading": "Stone's performance and mood readings remain inconclusive due to insufficient data; the thin statistical sample precludes directional comparison, while limited reporting offers no settled emotional direction. These factors leave the current picture unresolved rather than reinforcing or diverging.",
+      "request_bytes": 832,
+      "review": [
+        "Treat sparse history as limited evidence, not proof of either stability or a confident directional trend.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+      ],
+      "status": "accepted",
+      "task": "momentum",
+      "temperature": 0.0,
+      "wall_ms": 2715
+    },
+    {
+      "case": 19,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "reading_plain_text",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/oracle/ascendant-aligned.json",
+      "generation_wall_ms": 5784,
+      "input_tokens": 247,
+      "name": "ascendant-aligned",
+      "output_limit": 700,
+      "output_tokens": 129,
+      "parsed": true,
+      "prompt_version": "or28-single-json",
+      "reading": "Kiana Wells stands as a defensive anchor whose rim protection has solidified into a month-long consensus of dominance. Across the available reports, a unified trajectory emerges: her blocks and altered shots are climbing, erasing the paint with a consistency that has warmed the room and built a rotation built around her. While the sources differ in tone—ranging from the admiring coverage of the journalist to the technical observation of the scout and the glowing sentiment of the influencer—the core reality remains identical; her performance and the mood surrounding her are moving upward together, creating a cohesive narrative of rising heat without contradiction.",
+      "request_bytes": 1135,
+      "review": [
+        "Draw a supported connection across the aligned readings without adding facts."
+      ],
+      "status": "accepted",
+      "task": "oracle",
+      "temperature": 0.0,
+      "wall_ms": 5798
+    },
+    {
+      "case": 20,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "reading_plain_text",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/quality/oracle/three-card-newcomer.json",
+      "generation_wall_ms": 5296,
+      "input_tokens": 240,
+      "name": "three-card-newcomer",
+      "output_limit": 700,
+      "output_tokens": 116,
+      "parsed": true,
+      "prompt_version": "or28-single-json",
+      "reading": "The spine of Ipswich Town has been reshaped, anchored by the confirmed arrival of Issa Diop from Fulham, whose paperwork is filed and whose presence signals a deliberate reconstruction of the defensive line. While the business of the rebuild is acknowledged with cautious optimism, the room remains watchful, demanding that these structural changes manifest on the grass before the opener. The narrative is one of quiet certainty regarding the transfer, yet a palpable tension exists between the completed administrative work and the pending validation of the new formation in actual play.",
+      "request_bytes": 1054,
+      "review": [
+        "Use the three supplied readings without implying the missing pillars were also observed."
+      ],
+      "status": "accepted",
+      "task": "oracle",
+      "temperature": 0.0,
+      "wall_ms": 5307
+    }
+  ],
+  "completed": 20
+}

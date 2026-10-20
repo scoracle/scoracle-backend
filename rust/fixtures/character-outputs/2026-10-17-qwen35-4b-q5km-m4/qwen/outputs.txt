@@ -1,0 +1,49 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: qwen3.5-4b-q5_k_m. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / late-qualification-late-correction-in-the-same-source [accepted]
+Cedar United held discussions with Alex Stone and his representatives on Monday following training, with club officials present. While City Wire initially described the talks as an agreement, the publisher later corrected its report to clarify that no contract was offered and no deal was reached.
+
+2 — narratives / rumour-and-denial-rumour-with-its-denial-intact [accepted]
+According to two unnamed sources, Cedar United are reportedly in talks to sign Alex Stone, though no agreement has been reached. The club declined to comment on the matter.
+
+3 — vibe / clearly-positive [accepted]
+Cedar Comets supporters cheer the win and express delight
+
+Supporters of the Cedar Comets expressed pure delight following their recent victory. The atmosphere was electric as fans gathered to celebrate the team's success, with many explicitly stating they were thrilled by the outcome. This collective joy reflects a strong sense of pride and relief among the community, marking a positive shift in their emotional state regarding the team's performance.
+
+4 — vibe / quiet-mixed [accepted]
+Cedar Comets announce training and travel dates, bringing relief and hope to fans
+
+The Cedar Comets have officially announced their schedule for the upcoming season, marking a shift from uncertainty to concrete planning. The team confirmed that training begins on Tuesday, followed by travel on Friday, providing a clear roadmap for the players and staff.
+
+This announcement brings a sense of relief and anticipation to the community. After the fog of the preseason, the clarity of these dates allows fans to visualize the journey ahead. There is a quiet pride in seeing the organization move forward with such organization, suggesting that the team is ready to focus on preparation rather than speculation.
+
+While the specific outcomes of the season remain unknown, the act of setting these dates itself is a positive step. It signals commitment and readiness, fostering a mood of hopeful preparation among supporters who are eager to see the Comets in action.
+
+5 — rating / synthetic-strong [accepted]
+In the 2026 season, Cedar Comets averaged 25 games played. Their rebounding output of 48 per game placed them in the 90th percentile within a cohort of 30, marking an elite band and a rise from the prior 80th percentile. Assists averaged 23 per game, holding the 75th percentile in the strong band with no standing change. A composite score of 64 reflects standardized overall performance relative to peers. Cross-season support is indicated, though specific prior season metrics are not provided.
+
+6 — rating / synthetic-withdrawn-report [accepted]
+In the 2026 season, Cedar Comets averaged 25 games played. Their rebounding output of 48 per game placed them in the 90th percentile within a cohort of 30, marking an elite band and a rise from the prior 80th percentile. Assists averaged 23 per game, holding the 75th percentile in the strong band with no standing change. A composite score of 64 reflects standardized overall performance relative to peers. Cross-season support is indicated, though specific prior season metrics are not provided.
+
+7 — transfer / explicit-denial-clears-prior-rumor [rejected]
+finding stage does not match its status
+
+8 — transfer / reliable-source-heating-steam [accepted]
+2 finding(s) | Reports indicate Bayern Munich has opened formal negotiations with Flamengo for winger Mateus Andrade, with personal terms reportedly agreed upon for a five-year deal.
+
+9 — momentum / mixed-peak-up-vibe-down [accepted]
+Rowe's statistical efficiency is rising, yet the surrounding mood is cooling, creating a divergence between objective output and perceived value. This disconnect leaves the current picture unresolved, as the data does not yet justify the shift in sentiment.
+
+10 — momentum / rising-confirmed [accepted]
+Carter's creation and finishing are strengthening together, while the surrounding mood remains emphatically positive and warming; these signals reinforce one another without divergence or unresolved ambiguity.
+
+11 — oracle / crossroads-conflict [accepted]
+The narrative surrounding Marcus Vale is defined by a tightening standoff where elite, unblinking production meets a cooling room. While the numbers remain steadfast and the front office remains silent, the atmosphere has soured; the trade demand, though unconfirmed by the organization, hangs heavily as the primary driver of the current tension. The arc is being dragged down not by a lack of skill, but by the thinning patience of the surrounding ecosystem, which views the situation as a dominant, unresolved friction point.
+
+12 — oracle / near-empty-quiet-wire [accepted]
+The squad of Venezia has returned to the fold for preseason testing, a gathering marked by silence rather than spectacle. No further detail has surfaced regarding their preparations or future trajectory. This is the only known state of the team at this moment; beyond this return, the path remains obscured.
+
+13 — rating / synthetic-daily-withdrawal [rejected]
+Cedar Comets' 2026 season sample of 25 games shows 48 rebounds per game (90th percentile, elite band, rose from 80th) and 23 assists per game (75th percentile, strong band, held). A composite score of 64 is standardized relative to peers. A retraction of a training notice does not establish fitness recovery.

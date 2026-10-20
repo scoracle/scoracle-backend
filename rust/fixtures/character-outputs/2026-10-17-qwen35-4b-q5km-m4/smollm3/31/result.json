@@ -1,0 +1,34 @@
+{
+  "case": 31,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/momentum/sparse-samples-stay-steady.json",
+  "generation_wall_ms": 2692,
+  "input_tokens": 245,
+  "name": "sparse-samples-stay-steady",
+  "output_limit": 700,
+  "output_tokens": 98,
+  "parsed": true,
+  "prompt_version": "momentum-s39-single-json",
+  "reading": "Malik Stone's current performance and mood readings suggest a neutral, unresolved state. While there is no clear directional comparison due to the limited statistical sample, the lack of a settled emotional direction also indicates uncertainty. The detached, decisive, and economical voice suggests a balanced approach to evaluating Stone's performance, without leaning towards optimism or pessimism. The absence of daily readings does not indicate a neutral signal, but rather a lack of data to make a definitive assessment.",
+  "request_bytes": 832,
+  "review": [
+    "Treat sparse history as limited evidence, not proof of either stability or a confident directional trend.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 2706
+}

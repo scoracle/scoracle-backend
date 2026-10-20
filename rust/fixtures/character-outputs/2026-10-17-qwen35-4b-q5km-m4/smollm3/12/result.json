@@ -1,0 +1,33 @@
+{
+  "case": 12,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/oracle/near-empty-quiet-wire.json",
+  "generation_wall_ms": 1730,
+  "input_tokens": 235,
+  "name": "near-empty-quiet-wire",
+  "output_limit": 700,
+  "output_tokens": 56,
+  "parsed": true,
+  "prompt_version": "or28-single-json",
+  "reading": "Venezia's squad returned for preseason testing this week, with no further details provided. The team's trajectory remains developing, as indicated by the journalist's report. No additional cards have been synthesized to provide further insight into the team's current state.",
+  "request_bytes": 793,
+  "review": [
+    "Make a restrained reading of sparse material; missing pillars do not become negative findings."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 1746
+}

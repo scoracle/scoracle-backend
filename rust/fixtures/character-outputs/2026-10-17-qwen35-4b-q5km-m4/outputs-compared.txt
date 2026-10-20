@@ -1,0 +1,314 @@
+Qwen3.5-4B Q5_K_M versus SmolLM3 Q4_K_M — M4, 2026-10-17
+Mechanical acceptance is not factual correctness. See review.txt.
+
+01. narratives / late-qualification-late-correction-in-the-same-source
+Fixture: fixtures/quality/narratives/late-qualification.json
+QWEN [accepted, 3.406s]
+{
+  "report_1": "Cedar United held discussions with Alex Stone and his representatives on Monday following training, with club officials present. While City Wire initially described the talks as an agreement, the publisher later corrected its report to clarify that no contract was offered and no deal was reached."
+}
+SMOLLM3 [accepted, 2.093s]
+{"report_1": "Cedar United held discussions with Alex Stone and his representatives on Monday. The talks took place after training, with club officials present. City Wire initially described the talks as an agreement, but later corrected its report: no contract was offered and no deal was reached."}
+
+02. narratives / rumour-and-denial-rumour-with-its-denial-intact
+Fixture: fixtures/quality/narratives/rumour-and-denial.json
+QWEN [accepted, 2.493s]
+{
+  "report_1": "According to two unnamed sources, Cedar United are reportedly in talks to sign Alex Stone, though no agreement has been reached. The club declined to comment on the matter."
+}
+SMOLLM3 [accepted, 1.451s]
+{"report_1": "Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources. No agreement has been reached. Cedar United declined to comment."}
+
+03. vibe / clearly-positive
+Fixture: fixtures/quality/vibe/clearly-positive.json
+QWEN [accepted, 5.812s]
+{
+  "body": "Supporters of the Cedar Comets expressed pure delight following their recent victory. The atmosphere was electric as fans gathered to celebrate the team's success, with many explicitly stating they were thrilled by the outcome. This collective joy reflects a strong sense of pride and relief among the community, marking a positive shift in their emotional state regarding the team's performance.",
+  "headline": "Cedar Comets supporters cheer the win and express delight",
+  "score": 75
+}
+SMOLLM3 [accepted, 5.046s]
+{"body": "Cedar Comets supporters erupted in cheers and applause as the team secured a hard-fought victory. The win was met with a mix of relief and joy, as fans celebrated the team's resilience and determination. Many expressed their delight at the team's performance, praising the players for their effort and skill. The atmosphere in the stadium was electric, with fans waving banners and chanting in unison. Some supporters even took to social media to share their excitement, posting photos and videos of the celebration. The victory was a much-needed boost for the team, and fans are hopeful that this win will lead to more successes in the coming season. While there may be some apprehension about the upcoming matches, the current mood is overwhelmingly positive and celebratory.", "headline": "Cedar Comets Supporters Cheer the Win", "score": 75}
+
+04. vibe / quiet-mixed
+Fixture: fixtures/quality/vibe/quiet-mixed.json
+QWEN [accepted, 9.687s]
+{
+  "body": "The Cedar Comets have officially announced their schedule for the upcoming season, marking a shift from uncertainty to concrete planning. The team confirmed that training begins on Tuesday, followed by travel on Friday, providing a clear roadmap for the players and staff.\n\nThis announcement brings a sense of relief and anticipation to the community. After the fog of the preseason, the clarity of these dates allows fans to visualize the journey ahead. There is a quiet pride in seeing the organization move forward with such organization, suggesting that the team is ready to focus on preparation rather than speculation.\n\nWhile the specific outcomes of the season remain unknown, the act of setting these dates itself is a positive step. It signals commitment and readiness, fostering a mood of hopeful preparation among supporters who are eager to see the Comets in action.",
+  "headline": "Cedar Comets announce training and travel dates, bringing relief and hope to fans",
+  "score": 75
+}
+SMOLLM3 [accepted, 6.506s]
+{"body": "The Cedar Comets team has announced the start of their training and travel dates for the upcoming season. The announcement was made on Friday, and it marks the beginning of a new chapter for the team. The players and coaching staff are excited about the upcoming season and the opportunities it presents. The team has been working tirelessly to prepare for the season, and the announcement of the training and travel dates is a significant step in that process. The team is looking forward to the challenges and triumphs that lie ahead, and they are confident in their ability to perform well. The announcement has been met with a mix of emotions, ranging from hope and anticipation to a sense of relief and excitement. The players are eager to get started and make a strong impression in the league. The coaching staff is also looking forward to the season, knowing that they have a talented team to work with. Overall, the announcement of the training and travel dates has set the stage for a promising season, and the team is ready to take on the challenges that lie ahead.", "headline": "Cedar Comets Announces Training and Travel Dates", "score": 75}
+
+05. rating / synthetic-strong
+Fixture: fixtures/quality/rating/synthetic-strong.json
+QWEN [accepted, 6.242s]
+{"body":"In the 2026 season, Cedar Comets averaged 25 games played. Their rebounding output of 48 per game placed them in the 90th percentile within a cohort of 30, marking an elite band and a rise from the prior 80th percentile. Assists averaged 23 per game, holding the 75th percentile in the strong band with no standing change. A composite score of 64 reflects standardized overall performance relative to peers. Cross-season support is indicated, though specific prior season metrics are not provided."}
+SMOLLM3 [rejected, 3.622s]
+{"body": "In the 2026 season, the Cedar Comets had 25 games played. The team's rebounding performance was strong, with 48 rebounds per game placing them at the 90th percentile, a significant improvement from the 80th percentile in the previous cohort. However, their assist per game average was 23, which was at the 75th percentile, a slight decline from the previous cohort's 75th percentile. The team's overall performance was measured at a composite score of 64, indicating a balanced but not exceptional season."}
+
+06. rating / synthetic-withdrawn-report
+Fixture: fixtures/quality/rating/synthetic-withdrawn-report.json
+QWEN [accepted, 6.193s]
+{"body":"In the 2026 season, Cedar Comets averaged 25 games played. Their rebounding output of 48 per game placed them in the 90th percentile within a cohort of 30, marking an elite band and a rise from the prior 80th percentile. Assists averaged 23 per game, holding the 75th percentile in the strong band with no standing change. A composite score of 64 reflects standardized overall performance relative to peers. Cross-season support is indicated, though specific prior season metrics are not provided."}
+SMOLLM3 [rejected, 3.642s]
+{"body": "In the 2026 season, the Cedar Comets had 25 games played. The team's rebounding performance was strong, with 48 rebounds per game placing them at the 90th percentile, a significant improvement from the 80th percentile in the previous cohort. However, their assist per game average was 23, which was at the 75th percentile, a slight decline from the previous cohort's 75th percentile. The team's overall performance was measured at a composite score of 64, indicating a balanced but not exceptional season."}
+
+07. transfer / explicit-denial-clears-prior-rumor
+Fixture: fixtures/quality/transfer/explicit-denial-clears-prior-rumor.json
+QWEN [rejected, 5.801s]
+{
+  "body": "Reports indicate Everton denied talks to sign Lina Foss following earlier speculation linking the player with the club.",
+  "findings": [
+    {
+      "counterparty": "Everton",
+      "evidence_quote": "Everton denied talks to sign Lina Foss after earlier reports linked the player with the club.",
+      "report_index": 0,
+      "stage": "speculation",
+      "status": "denied"
+    }
+  ]
+}
+SMOLLM3 [rejected, 2.725s]
+{"body":"Everton denied talks to sign Lina Foss, dismissing earlier reports linking the player with the club.","findings":[{"counterparty":"Everton","evidence_quote":"Everton denied talks to sign Lina Foss after earlier reports linked the player with the club.","report_index":0,"stage":"speculation","status":"reported"}] }
+
+08. transfer / reliable-source-heating-steam
+Fixture: fixtures/quality/transfer/reliable-source-heating-steam.json
+QWEN [accepted, 9.238s]
+{
+  "body": "Reports indicate Bayern Munich has opened formal negotiations with Flamengo for winger Mateus Andrade, with personal terms reportedly agreed upon for a five-year deal.",
+  "findings": [
+    {
+      "counterparty": "Flamengo",
+      "evidence_quote": "Bayern and Flamengo are negotiating the fee, with personal terms already agreed on a five-year deal for the winger.",
+      "report_index": 0,
+      "stage": "concrete_interest",
+      "status": "reported"
+    },
+    {
+      "counterparty": "Flamengo",
+      "evidence_quote": "Bayern's board have opened formal negotiations with Flamengo and see the Brazilian as their top target.",
+      "report_index": 1,
+      "stage": "advanced_talks",
+      "status": "reported"
+    }
+  ]
+}
+SMOLLM3 [rejected, 4.892s]
+{"body": "Bayern Munich and Flamengo are in active negotiations, with personal terms already agreed on a five-year deal for winger Mateus Andrade, according to reports from Fabrizio Romano and Kicker.", "findings": [{"counterparty": "Flamengo", "evidence_quote": "Bayern and Flamengo are negotiating the fee, with personal terms already agreed on a five-year deal for the winger.", "report_index": 0, "stage": "speculation", "status": "reported"}, {"counterparty": "Flamengo", "evidence_quote": "Bayern's board have opened formal negotiations with Flamengo and see the Brazilian as their top target.", "report_index": 1, "stage": "speculation", "status": "reported"}]}
+
+09. momentum / mixed-peak-up-vibe-down
+Fixture: fixtures/quality/momentum/mixed-peak-up-vibe-down.json
+QWEN [accepted, 2.861s]
+{
+  "blurb": "Rowe's statistical efficiency is rising, yet the surrounding mood is cooling, creating a divergence between objective output and perceived value. This disconnect leaves the current picture unresolved, as the data does not yet justify the shift in sentiment."
+}
+SMOLLM3 [accepted, 2.156s]
+{"blurb": "Jalen Rowe's performance metrics indicate a steady improvement, with enhanced efficiency in creating opportunities for his team. However, the sentiment surrounding him has cooled, suggesting a shift in perception despite his stronger statistical contributions. The contrast between his rising performance and the cooling mood underscores a nuanced dynamic, where his impact is being recognized but not universally embraced."}
+
+10. momentum / rising-confirmed
+Fixture: fixtures/quality/momentum/rising-confirmed.json
+QWEN [accepted, 2.133s]
+{"blurb":"Carter's creation and finishing are strengthening together, while the surrounding mood remains emphatically positive and warming; these signals reinforce one another without divergence or unresolved ambiguity."}
+SMOLLM3 [accepted, 2.424s]
+{"blurb": "Deshawn Carter's performance and mood readings indicate a harmonious progression. His creation and finishing skills are improving together, suggesting a cohesive development in his game. Meanwhile, the positive and warming mood around him reinforces this upward trajectory, indicating a growing confidence and satisfaction with his performance. The overall picture is one of consistent improvement and a positive outlook, with no signs of divergence or unresolved issues."}
+
+11. oracle / crossroads-conflict
+Fixture: fixtures/quality/oracle/crossroads-conflict.json
+QWEN [accepted, 5.016s]
+{
+  "reading": "The narrative surrounding Marcus Vale is defined by a tightening standoff where elite, unblinking production meets a cooling room. While the numbers remain steadfast and the front office remains silent, the atmosphere has soured; the trade demand, though unconfirmed by the organization, hangs heavily as the primary driver of the current tension. The arc is being dragged down not by a lack of skill, but by the thinning patience of the surrounding ecosystem, which views the situation as a dominant, unresolved friction point."
+}
+SMOLLM3 [accepted, 2.930s]
+{"reading": "The trade demand involving Marcus Vale has escalated, with the front office's silence sparking tension among fans and analysts alike. While the elite production numbers remain consistent, the atmosphere has grown increasingly sour, with the standoff dominating every thread and patience thinning. Analysts note a downward trajectory, while scouts emphasize the production's resilience. The room's mood is a mix of frustration and uncertainty, with the lack of a response from the front office leaving many questioning the future of the player and the team."}
+
+12. oracle / near-empty-quiet-wire
+Fixture: fixtures/quality/oracle/near-empty-quiet-wire.json
+QWEN [accepted, 3.163s]
+{
+  "reading": "The squad of Venezia has returned to the fold for preseason testing, a gathering marked by silence rather than spectacle. No further detail has surfaced regarding their preparations or future trajectory. This is the only known state of the team at this moment; beyond this return, the path remains obscured."
+}
+SMOLLM3 [accepted, 1.746s]
+{"reading": "Venezia's squad returned for preseason testing this week, with no further details provided. The team's trajectory remains developing, as indicated by the journalist's report. No additional cards have been synthesized to provide further insight into the team's current state."}
+
+13. rating / synthetic-daily-withdrawal
+Fixture: fixtures/quality/rating/synthetic-daily-withdrawal.json
+QWEN [rejected, 5.170s]
+{"body":"Cedar Comets' 2026 season sample of 25 games shows 48 rebounds per game (90th percentile, elite band, rose from 80th) and 23 assists per game (75th percentile, strong band, held). A composite score of 64 is standardized relative to peers. A retraction of a training notice does not establish fitness recovery."}
+SMOLLM3 [rejected, 3.522s]
+{"body": "The Cedar Comets' season performance, as measured in the 2026 season, shows a strong rebounding effort with 48 rebounds per game, placing them in the top 90th percentile, and a holding assist rate at 23 assists per game, maintaining a 75th percentile standing. The composite score for the team is 64, indicating a solid overall performance. The team has withdrawn a training notice, correcting an earlier error, without providing a new assessment of player fitness."}
+
+14. narratives / conflicting-reports-two-sources-that-contradict-each-other
+Fixture: fixtures/quality/narratives/conflicting-reports.json
+QWEN [accepted, 4.711s]
+{
+  "report_1": "Club Bulletin reported on September 26, 2026, that Cedar United denied agreeing a fee for Alex Stone, with a club spokesperson stating discussions had not begun.",
+  "report_2": "City Wire reported on September 26, 2026, that Cedar United agreed a fee for Alex Stone, citing an unnamed source, though the club has not confirmed the report."
+}
+SMOLLM3 [accepted, 2.075s]
+{"report_1": "Cedar United denied agreeing a fee for Alex Stone. A club spokesperson said discussions had not begun.", "report_2": "Cedar United agreed a fee for Alex Stone, City Wire reports, citing an unnamed source. The club has not confirmed the report."}
+
+15. narratives / distinct-developments-three-independent-developments,-three-keyed-slots
+Fixture: fixtures/quality/narratives/distinct-developments.json
+QWEN [accepted, 5.675s]
+{
+  "report_1": "Cedar United goalkeeper Kim Park will miss the next match due to an ankle injury, the club confirmed. No return date was provided for Park's recovery.",
+  "report_2": "Cedar United appointed Jo Vale as head coach on Monday, with a two-year contract securing her tenure. The appointment marks a new leadership chapter for the squad.",
+  "report_3": "Cedar United secured a 2–1 victory against Vale City on Sunday. The win extends the team's recent momentum on the pitch."
+}
+SMOLLM3 [accepted, 2.649s]
+{
+  "report_1": "Cedar United announced that goalkeeper Kim Park will miss the upcoming match due to an ankle injury, with no return date provided.",
+  "report_2": "The club announced Jo Vale's appointment as head coach, with a contract lasting two years.",
+  "report_3": "Cedar United secured a 2-1 victory over Vale City in their recent match."
+}
+
+16. narratives / nba-attribution-basketball-source-under-a-league-namespace
+Fixture: fixtures/quality/narratives/nba-attribution.json
+QWEN [accepted, 3.434s]
+{
+  "report_1": "Court Wire reported on September 26, 2026, that the Cedar Comets defeated the Vale Stars 108–104 with Jordan Reed contributing 27 points. However, the team stated Reed is questionable for Wednesday due to ankle soreness."
+}
+SMOLLM3 [accepted, 1.715s]
+{"report_1": "The Cedar Comets defeated the Vale Stars 108-104 on Monday, with Jordan Reed contributing 27 points. The team announced that Reed is questionable for their upcoming game due to ankle soreness."}
+
+17. narratives / no-new-material-nothing-eligible:-no-call,-no-package
+Fixture: fixtures/quality/narratives/no-new-material.json
+QWEN [no_call, 0.000s]
+No model call
+SMOLLM3 [no_call, 0.000s]
+No model call
+
+18. narratives / one-result-single-result,-named-scorer
+Fixture: fixtures/quality/narratives/one-result.json
+QWEN [accepted, 2.460s]
+{
+  "report_1": "Cedar United secured a 2–1 victory over Vale City on Sunday, with Sam Lee scoring the decisive goal in the 84th minute."
+}
+SMOLLM3 [accepted, 1.453s]
+{"report_1": "Cedar United secured a 2-1 victory over Vale City on Sunday, with Sam Lee scoring the decisive goal in the 84th minute."}
+
+19. narratives / synthetic-closed-training-fresh-only
+Fixture: fixtures/quality/narratives/synthetic-closed-training-fresh-only.json
+QWEN [accepted, 2.714s]
+{
+  "report_1": "Cedar United announced on 28 September 2026 that its training session scheduled for 29 September will be closed to supporters. The club provided no explanation for this decision."
+}
+SMOLLM3 [accepted, 1.353s]
+{"report_1": "Cedar United confirmed that its training session on 29 September will be closed to supporters. The club gave no reason for the decision."}
+
+20. narratives / synthetic-training-time-fresh-only
+Fixture: fixtures/quality/narratives/synthetic-training-time-fresh-only.json
+QWEN [accepted, 2.798s]
+{
+  "report_1": "Cedar United confirmed an updated start time of 10:00 for its training session on 29 September, with the venue remaining North Field. The club provided no reason for the update."
+}
+SMOLLM3 [accepted, 1.648s]
+{"report_1": "Cedar United confirmed an updated start time of 10:00 for its training session on 29 September. The venue remains North Field. The club gave no reason for the update."}
+
+21. vibe / clearly-negative
+Fixture: fixtures/quality/vibe/clearly-negative.json
+QWEN [accepted, 5.977s]
+{
+  "body": "Fans of the Cedar Comets are expressing deep frustration and anger over the team's recent performance. Reports indicate that supporters booed the players and voiced their fury directly, signaling a strong disconnect between the fanbase and how the team is playing. This reaction suggests a collective disappointment that has turned into active criticism, with no signs of relief or hope currently visible in the crowd's response.",
+  "headline": "Fans boo and voice fury over Cedar Comets performance",
+  "score": 25
+}
+SMOLLM3 [accepted, 4.980s]
+{"body": "Cedar Comets fans expressed their disappointment and frustration with the team's performance, booing them loudly during the game. Many fans felt that the team had let them down, as they had high expectations going into the match. The fans' dissatisfaction was evident in their vocal reactions, which seemed to carry a mix of anger and sadness. Some fans even suggested that the team needed to make significant changes to improve their performance in future games. The Comets' coach was reportedly unavailable for comment, but the fans' strong reactions indicated that they were not pleased with the team's current state. The team's performance has left a bitter taste in the fans' mouths, and they are hoping for a better outcome in the upcoming matches.", "headline": "Cedar Comets fans criticize the performance", "score": 75}
+
+22. vibe / warm-memory-cold-coverage
+Fixture: fixtures/quality/vibe/warm-memory-cold-coverage.json
+QWEN [accepted, 8.864s]
+{
+  "body": "The Cedar Comets have announced a training schedule for Tuesday, marking a return to the court. While the news signals a step forward, the emotional tone remains neutral and procedural. There is no explicit expression of joy, relief, or hope from the team or their supporters in this report. Instead, the atmosphere is one of quiet anticipation and routine. The announcement serves as a reminder of the team's commitment, but it does not yet convey the deep emotions of a comeback or a victory. The mood is steady, reflecting the calm before the storm of upcoming games. For now, the focus is on preparation, and the feelings are those of disciplined readiness rather than exuberant celebration.",
+  "headline": "Cedar Comets announce Tuesday training; mood is one of steady, disciplined readiness.",
+  "score": 50
+}
+SMOLLM3 [accepted, 5.597s]
+{"body": "The Cedar Comets have announced a training session for Tuesday, providing fans with a glimpse into their upcoming season. Head coach John Smith expressed excitement about the upcoming matches, stating, 'We're looking forward to a challenging season and are eager to see our team grow and improve.' The announcement comes after a successful summer camp, where the team focused on building team chemistry and refining their skills. Players like Emily Johnson and Michael Davis were highlighted for their positive contributions during the camp, with Smith praising their dedication and teamwork. The team is currently ranked 5th in the league, and Smith emphasized the importance of maintaining their current form. Fans are encouraged to attend the training session to get a closer look at the team's preparation and to support their efforts. The Comets are confident that their hard work will pay off, and they are looking forward to a successful season.", "headline": "Cedar Comets Announces Tuesday Training", "score": 75}
+
+23. rating / synthetic-composite
+Fixture: fixtures/quality/rating/synthetic-composite.json
+QWEN [accepted, 2.687s]
+{"body":"In the 2026 season, Cedar Comets played 25 games and achieved a composite score of 64.0. Cross-season support is indicated."}
+SMOLLM3 [accepted, 2.382s]
+{"body": "The Cedar Comets played 25 games in the 2026 season, with a composite score of 64.0. This composite score is a standardized overall measure, not a percentile or a measure of individual skills. The team's performance is supported by cross-season comparisons, indicating a notable standing relative to their peers."}
+
+24. rating / synthetic-incompatible
+Fixture: fixtures/quality/rating/synthetic-incompatible.json
+QWEN [accepted, 5.517s]
+{"body":"In the 2026 season, Cedar Comets recorded 25 games played. Their rebounding averaged 48.0 per game, placing them at the 90th percentile within a cohort of 30 and classifying them as elite. Their assists averaged 23.0 per game, placing them at the 75th percentile within the same cohort and classifying them as strong. The team's composite score is 64.0. Cross-season support is indicated."}
+SMOLLM3 [accepted, 2.966s]
+{"body": "In the 2026 season, the Cedar Comets had 25 games played, averaging 48 rebounds per game, placing them in the 90th percentile among the top 30% of teams. They also averaged 23 assists per game, ranking at the 75th percentile in the same cohort. The team's overall performance was measured at a composite score of 64, indicating a strong season."}
+
+25. rating / synthetic-measured-memory
+Fixture: fixtures/quality/rating/synthetic-measured-memory.json
+QWEN [accepted, 6.165s]
+{"body":"In the 2026 season, Cedar Comets averaged 25 games played. Their rebounding output of 48 per game placed them in the 90th percentile within a cohort of 30, marking an elite band and a rise from the prior 80th percentile. Assists averaged 23 per game, holding the 75th percentile in the strong band with no standing change. A composite score of 64 reflects standardized overall performance relative to peers. Cross-season support is indicated, though specific prior season metrics are not provided."}
+SMOLLM3 [rejected, 3.642s]
+{"body": "In the 2026 season, the Cedar Comets had 25 games played. The team's rebounding performance was strong, with 48 rebounds per game placing them at the 90th percentile, a significant improvement from the 80th percentile in the previous cohort. However, their assist per game average was 23, which was at the 75th percentile, a slight decline from the previous cohort's 75th percentile. The team's overall performance was measured at a composite score of 64, indicating a balanced but not exceptional season."}
+
+26. rating / synthetic-source-trigger
+Fixture: fixtures/quality/rating/synthetic-source-trigger.json
+QWEN [accepted, 3.121s]
+{"body":"In the 2026 season, the subject scored 20.0 points, establishing an 80th percentile standing classified as 'strong' with a minimum sample of 10. Cross-season comparison is unsupported."}
+SMOLLM3 [accepted, 1.676s]
+{"body": "In the 2026 season, the team scored an average of 20 points, placing them at the 80th percentile, indicating a strong performance."}
+
+27. rating / synthetic-sparse
+Fixture: fixtures/quality/rating/synthetic-sparse.json
+QWEN [accepted, 3.971s]
+{"body":"Cedar Comets' 2026 season sample of three games shows 48.0 rebounds per game (90th percentile, elite band) and 23.0 assists per game (75th percentile, strong band). The thin sample limit of ten appearances is not met."}
+SMOLLM3 [accepted, 2.712s]
+{"body": "In the 2026 season, the Cedar Comets had a strong performance, averaging 48 rebounds per game, placing them in the top 90th percentile, and 23 assists per game, ranking in the top 75th percentile. These statistics indicate a dominant presence on both ends of the court, showcasing their elite status in the league."}
+
+28. rating / synthetic-zero-unknown
+Fixture: fixtures/quality/rating/synthetic-zero-unknown.json
+QWEN [accepted, 3.935s]
+{"body":"In the 2026 season, Cedar Comets recorded 25 games played and a composite score of 64.0. Turnovers per game averaged 0.0, placing the team at the 99th percentile within the elite band. Assists per game data is unavailable for this season."}
+SMOLLM3 [accepted, 2.601s]
+{"body": "In the 2026 season, the Cedar Comets had a turnover rate of 0.0 per game, placing them at the 99th percentile, indicating elite performance. They had no assists per game recorded, so no percentile was provided. The overall composite score for the season was 64.0, suggesting a strong overall performance."}
+
+29. transfer / fizzled-prior-lowrel-skeptic
+Fixture: fixtures/quality/transfer/fizzled-prior-lowrel-skeptic.json
+QWEN [rejected, 2.655s]
+{
+  "body": "Chelsea are reportedly monitoring Kai Sorensen, but no bid or talks have been confirmed.",
+  "findings": []
+}
+SMOLLM3 [rejected, 3.740s]
+{"body":"Chelsea are reportedly keeping tabs on Kai Sorensen, though no bid or talks are mentioned.","findings":[{"counterparty":"Chelsea","evidence_quote":"A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.","report_index":0,"stage":"speculation","status":"reported"},{"counterparty":"Chelsea","evidence_quote":"A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.","report_index":0,"stage":"speculation","status":"reported"}] }
+
+30. momentum / falling-confirmed
+Fixture: fixtures/quality/momentum/falling-confirmed.json
+QWEN [accepted, 2.572s]
+{"blurb":"Riverton Athletic's measured profile has weakened, a decline in performance mirrored by a cooling atmosphere where concern has supplanted patience. These signals reinforce one another, presenting a unified picture of deteriorating form and morale."}
+SMOLLM3 [accepted, 2.072s]
+{"blurb": "Riverton's performance has seen a decline, with a weakened profile across the current run, while the sentiment around the team has cooled, indicating a shift from patience to concern. This divergence in performance and mood readings leaves the current picture unresolved, suggesting a need for reassessment and potential intervention to address the team's challenges."}
+
+31. momentum / sparse-samples-stay-steady
+Fixture: fixtures/quality/momentum/sparse-samples-stay-steady.json
+QWEN [accepted, 2.715s]
+{"blurb":"Stone's performance and mood readings remain inconclusive due to insufficient data; the thin statistical sample precludes directional comparison, while limited reporting offers no settled emotional direction. These factors leave the current picture unresolved rather than reinforcing or diverging."}
+SMOLLM3 [accepted, 2.706s]
+{"blurb": "Malik Stone's current performance and mood readings suggest a neutral, unresolved state. While there is no clear directional comparison due to the limited statistical sample, the lack of a settled emotional direction also indicates uncertainty. The detached, decisive, and economical voice suggests a balanced approach to evaluating Stone's performance, without leaning towards optimism or pessimism. The absence of daily readings does not indicate a neutral signal, but rather a lack of data to make a definitive assessment."}
+
+32. oracle / ascendant-aligned
+Fixture: fixtures/quality/oracle/ascendant-aligned.json
+QWEN [accepted, 5.798s]
+{
+  "reading": "Kiana Wells stands as a defensive anchor whose rim protection has solidified into a month-long consensus of dominance. Across the available reports, a unified trajectory emerges: her blocks and altered shots are climbing, erasing the paint with a consistency that has warmed the room and built a rotation built around her. While the sources differ in tone—ranging from the admiring coverage of the journalist to the technical observation of the scout and the glowing sentiment of the influencer—the core reality remains identical; her performance and the mood surrounding her are moving upward together, creating a cohesive narrative of rising heat without contradiction."
+}
+SMOLLM3 [accepted, 3.566s]
+{"reading": "Kiana Wells continues to dominate the paint, showcasing her defensive prowess as a key anchor for her team. Her consistent performance has garnered admiring coverage, with analysts noting a positive trajectory for her career. The room is warm, indicating a growing sentiment around her, with influencers and scouts alike praising her ability to erase the paint and alter shots. A month of dominant rim protection has solidified her position, with the rotation built around her. However, it's important to note that the current reading is based on a limited set of sources and does not include a missing card, which could provide additional context or contradict the current narrative."}
+
+33. oracle / three-card-newcomer
+Fixture: fixtures/quality/oracle/three-card-newcomer.json
+QWEN [accepted, 5.307s]
+{
+  "reading": "The spine of Ipswich Town has been reshaped, anchored by the confirmed arrival of Issa Diop from Fulham, whose paperwork is filed and whose presence signals a deliberate reconstruction of the defensive line. While the business of the rebuild is acknowledged with cautious optimism, the room remains watchful, demanding that these structural changes manifest on the grass before the opener. The narrative is one of quiet certainty regarding the transfer, yet a palpable tension exists between the completed administrative work and the pending validation of the new formation in actual play."
+}
+SMOLLM3 [accepted, 3.839s]
+{"reading": "Ipswich Town is in the process of reshaping its defensive line ahead of the upcoming season, with two confirmed signings bringing new talent to the squad. Issa Diop's move from Fulham is reportedly finalized, and the club is also exploring other options to bolster its backline. While the team's management is cautiously optimistic about the rebuild, emphasizing the importance of seeing progress on the grass, the room seems to appreciate the business acumen but is waiting for tangible results. The club's recent history of promotions and relegations suggests that the team is aware of the challenges ahead, but the arrival of these new players could be a crucial step in their quest for stability and success."}

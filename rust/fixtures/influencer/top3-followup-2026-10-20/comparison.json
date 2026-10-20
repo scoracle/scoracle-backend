@@ -1,0 +1,252 @@
+{
+  "measured_calls": 282,
+  "unique_cases": 47,
+  "scored_cases": 43,
+  "unscored_interpretive_real_cases": 4,
+  "repeats": 2,
+  "method": "Per-case pass requires valid complete output and expected decision on both identical greedy calls. Repeats are not independent examples.",
+  "models": {
+    "qwen35": {
+      "calls": 94,
+      "complete": 94,
+      "valid_contract": 94,
+      "scored_passes_both": 39,
+      "cohorts": {
+        "synthetic": {
+          "cases": 24,
+          "passes_both": 22,
+          "misses": [
+            "s01-quiet-hope",
+            "s17-two-coaches"
+          ]
+        },
+        "real_explicit": {
+          "cases": 19,
+          "passes_both": 17,
+          "misses": [
+            "r06",
+            "r07"
+          ]
+        },
+        "real_ambiguous": {
+          "cases": 4,
+          "passes_both": 1,
+          "misses": [
+            "r14",
+            "r15",
+            "r23"
+          ]
+        }
+      },
+      "synthetic_categories": {
+        "positive": {
+          "cases": 6,
+          "passes_both": 5
+        },
+        "negative": {
+          "cases": 6,
+          "passes_both": 6
+        },
+        "mixed": {
+          "cases": 6,
+          "passes_both": 5
+        },
+        "abstain": {
+          "cases": 6,
+          "passes_both": 6
+        }
+      },
+      "missed_reported_emotion_cases": [
+        "s17-two-coaches"
+      ],
+      "unsupported_emotion_on_abstention_cases": [
+        "r06",
+        "r07"
+      ],
+      "gendered_pronouns_in_gender_unspecified_synthetic_cases": [
+        "s01-quiet-hope",
+        "s03-relief-after-worry",
+        "s06-excitement-before-debut",
+        "s08-performance-disappointment",
+        "s10-selection-pressure",
+        "s11-no-relief-still-concerned",
+        "s13-equal-pride-disappointment",
+        "s15-relief-and-worry"
+      ],
+      "repeat_score_or_abstention_changes": [],
+      "repeat_parsed_text_changes": [],
+      "median_completion_ms": 2563.177353935316,
+      "p95_completion_ms": 3635.6560001149774,
+      "median_decode_tokens_per_second": 30.227708666872452,
+      "median_output_tokens": 46.0
+    },
+    "ministral3": {
+      "calls": 94,
+      "complete": 94,
+      "valid_contract": 94,
+      "scored_passes_both": 26,
+      "cohorts": {
+        "synthetic": {
+          "cases": 24,
+          "passes_both": 10,
+          "misses": [
+            "s01-quiet-hope",
+            "s03-relief-after-worry",
+            "s05-confidence-ahead-of-game",
+            "s07-frustration-after-loss",
+            "s08-performance-disappointment",
+            "s09-injury-worry",
+            "s10-selection-pressure",
+            "s11-no-relief-still-concerned",
+            "s12-regret-missed-chance",
+            "s13-equal-pride-disappointment",
+            "s14-two-supporter-voices",
+            "s17-two-coaches",
+            "s18-duplicate-not-consensus",
+            "s21-past-feeling-only"
+          ]
+        },
+        "real_explicit": {
+          "cases": 19,
+          "passes_both": 16,
+          "misses": [
+            "r06",
+            "r11",
+            "r22"
+          ]
+        },
+        "real_ambiguous": {
+          "cases": 4,
+          "passes_both": 0,
+          "misses": [
+            "r14",
+            "r15",
+            "r20",
+            "r23"
+          ]
+        }
+      },
+      "synthetic_categories": {
+        "positive": {
+          "cases": 6,
+          "passes_both": 3
+        },
+        "negative": {
+          "cases": 6,
+          "passes_both": 0
+        },
+        "mixed": {
+          "cases": 6,
+          "passes_both": 2
+        },
+        "abstain": {
+          "cases": 6,
+          "passes_both": 5
+        }
+      },
+      "missed_reported_emotion_cases": [
+        "s05-confidence-ahead-of-game",
+        "s10-selection-pressure",
+        "s12-regret-missed-chance",
+        "s13-equal-pride-disappointment",
+        "s17-two-coaches",
+        "r11",
+        "r22"
+      ],
+      "unsupported_emotion_on_abstention_cases": [
+        "s21-past-feeling-only",
+        "r06"
+      ],
+      "gendered_pronouns_in_gender_unspecified_synthetic_cases": [],
+      "repeat_score_or_abstention_changes": [],
+      "repeat_parsed_text_changes": [],
+      "median_completion_ms": 1399.5125412475318,
+      "p95_completion_ms": 2954.3877081014216,
+      "median_decode_tokens_per_second": 40.76802162454341,
+      "median_output_tokens": 17.0
+    },
+    "omnidimen": {
+      "calls": 94,
+      "complete": 94,
+      "valid_contract": 94,
+      "scored_passes_both": 32,
+      "cohorts": {
+        "synthetic": {
+          "cases": 24,
+          "passes_both": 17,
+          "misses": [
+            "s01-quiet-hope",
+            "s05-confidence-ahead-of-game",
+            "s09-injury-worry",
+            "s10-selection-pressure",
+            "s12-regret-missed-chance",
+            "s17-two-coaches",
+            "s19-other-team-joy"
+          ]
+        },
+        "real_explicit": {
+          "cases": 19,
+          "passes_both": 15,
+          "misses": [
+            "r06",
+            "r09",
+            "r11",
+            "r22"
+          ]
+        },
+        "real_ambiguous": {
+          "cases": 4,
+          "passes_both": 1,
+          "misses": [
+            "r14",
+            "r15",
+            "r23"
+          ]
+        }
+      },
+      "synthetic_categories": {
+        "positive": {
+          "cases": 6,
+          "passes_both": 4
+        },
+        "negative": {
+          "cases": 6,
+          "passes_both": 3
+        },
+        "mixed": {
+          "cases": 6,
+          "passes_both": 5
+        },
+        "abstain": {
+          "cases": 6,
+          "passes_both": 5
+        }
+      },
+      "missed_reported_emotion_cases": [
+        "s05-confidence-ahead-of-game",
+        "s09-injury-worry",
+        "s10-selection-pressure",
+        "s12-regret-missed-chance",
+        "s17-two-coaches",
+        "r09",
+        "r11",
+        "r22"
+      ],
+      "unsupported_emotion_on_abstention_cases": [
+        "s19-other-team-joy",
+        "r06"
+      ],
+      "gendered_pronouns_in_gender_unspecified_synthetic_cases": [
+        "s03-relief-after-worry",
+        "s06-excitement-before-debut",
+        "s08-performance-disappointment"
+      ],
+      "repeat_score_or_abstention_changes": [],
+      "repeat_parsed_text_changes": [],
+      "median_completion_ms": 1498.7879579421133,
+      "p95_completion_ms": 3777.9631251469254,
+      "median_decode_tokens_per_second": 30.994300147088598,
+      "median_output_tokens": 16.0
+    }
+  }
+}

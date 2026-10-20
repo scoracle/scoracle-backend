@@ -1,0 +1,921 @@
+{
+  "date": "2026-10-19",
+  "criteria_version": "classification-criteria-v9-headlines",
+  "cases": {
+    "synthetic": 24,
+    "real": 21,
+    "total": 45,
+    "labeled_emotion_positive": 21,
+    "real_emotion_positive": 6
+  },
+  "label_status": "Assistant-reviewed provisional headline-only labels, frozen before new predictions; not human gold.",
+  "selection": "Purposeful difficult prior cases plus fictional controls; not representative and not held out from prior development.",
+  "cutoffs": {
+    "subject": 55,
+    "emotion": 15,
+    "movement": 80,
+    "raw_per_label": 50
+  },
+  "models": {
+    "d1": {
+      "identity": {
+        "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402"
+      },
+      "overall": {
+        "completed": 45,
+        "failed": 0,
+        "per_label": {
+          "availability": {
+            "at_50": {
+              "tp": 6,
+              "fp": 0,
+              "fn": 0,
+              "tn": 39,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.0020117961024211676
+          },
+          "clickbait": {
+            "at_50": {
+              "tp": 2,
+              "fp": 0,
+              "fn": 0,
+              "tn": 22,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.015377913623330687
+          },
+          "emotion": {
+            "at_50": {
+              "tp": 15,
+              "fp": 4,
+              "fn": 6,
+              "tn": 20,
+              "precision": 0.7894736842105263,
+              "recall": 0.7142857142857143,
+              "f1": 0.75
+            },
+            "brier": 0.162436294796313
+          },
+          "movement": {
+            "at_50": {
+              "tp": 5,
+              "fp": 3,
+              "fn": 0,
+              "tn": 37,
+              "precision": 0.625,
+              "recall": 1.0,
+              "f1": 0.7692307692307693
+            },
+            "brier": 0.047940151283661976
+          },
+          "subject": {
+            "at_50": {
+              "tp": 37,
+              "fp": 3,
+              "fn": 0,
+              "tn": 5,
+              "precision": 0.925,
+              "recall": 1.0,
+              "f1": 0.961038961038961
+            },
+            "brier": 0.05299401581992171
+          }
+        },
+        "routing": {
+          "journalist": {
+            "tp": 36,
+            "fp": 3,
+            "fn": 1,
+            "tn": 5,
+            "precision": 0.9230769230769231,
+            "recall": 0.972972972972973,
+            "f1": 0.9473684210526315
+          },
+          "influencer": {
+            "tp": 17,
+            "fp": 4,
+            "fn": 4,
+            "tn": 20,
+            "precision": 0.8095238095238095,
+            "recall": 0.8095238095238095,
+            "f1": 0.8095238095238095
+          },
+          "insider": {
+            "tp": 5,
+            "fp": 1,
+            "fn": 0,
+            "tn": 39,
+            "precision": 0.8333333333333334,
+            "recall": 1.0,
+            "f1": 0.9090909090909091
+          }
+        },
+        "median_seconds": 0.49707533325999975,
+        "p95_seconds": 0.5255257920362055
+      },
+      "synthetic": {
+        "completed": 24,
+        "failed": 0,
+        "per_label": {
+          "availability": {
+            "at_50": {
+              "tp": 3,
+              "fp": 0,
+              "fn": 0,
+              "tn": 21,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.0009079830157109779
+          },
+          "clickbait": {
+            "at_50": {
+              "tp": 2,
+              "fp": 0,
+              "fn": 0,
+              "tn": 22,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.015377913623330687
+          },
+          "emotion": {
+            "at_50": {
+              "tp": 12,
+              "fp": 2,
+              "fn": 3,
+              "tn": 7,
+              "precision": 0.8571428571428571,
+              "recall": 0.8,
+              "f1": 0.8275862068965517
+            },
+            "brier": 0.1525766647490454
+          },
+          "movement": {
+            "at_50": {
+              "tp": 3,
+              "fp": 3,
+              "fn": 0,
+              "tn": 18,
+              "precision": 0.5,
+              "recall": 1.0,
+              "f1": 0.6666666666666666
+            },
+            "brier": 0.07632194938287447
+          },
+          "subject": {
+            "at_50": {
+              "tp": 22,
+              "fp": 0,
+              "fn": 0,
+              "tn": 2,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.01274902912965599
+          }
+        },
+        "routing": {
+          "journalist": {
+            "tp": 22,
+            "fp": 0,
+            "fn": 0,
+            "tn": 2,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "influencer": {
+            "tp": 14,
+            "fp": 2,
+            "fn": 1,
+            "tn": 7,
+            "precision": 0.875,
+            "recall": 0.9333333333333333,
+            "f1": 0.9032258064516129
+          },
+          "insider": {
+            "tp": 3,
+            "fp": 1,
+            "fn": 0,
+            "tn": 20,
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571428571428571
+          }
+        },
+        "median_seconds": 0.46881087496876717,
+        "p95_seconds": 0.5160672501660883
+      },
+      "real": {
+        "completed": 21,
+        "failed": 0,
+        "per_label": {
+          "availability": {
+            "at_50": {
+              "tp": 3,
+              "fp": 0,
+              "fn": 0,
+              "tn": 18,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.003273296772947098
+          },
+          "emotion": {
+            "at_50": {
+              "tp": 3,
+              "fp": 2,
+              "fn": 3,
+              "tn": 13,
+              "precision": 0.6,
+              "recall": 0.5,
+              "f1": 0.5454545454545454
+            },
+            "brier": 0.1737044434217617
+          },
+          "movement": {
+            "at_50": {
+              "tp": 2,
+              "fp": 0,
+              "fn": 0,
+              "tn": 19,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.015503810598847692
+          },
+          "subject": {
+            "at_50": {
+              "tp": 15,
+              "fp": 3,
+              "fn": 0,
+              "tn": 3,
+              "precision": 0.8333333333333334,
+              "recall": 1.0,
+              "f1": 0.9090909090909091
+            },
+            "brier": 0.09898828632308254
+          }
+        },
+        "routing": {
+          "journalist": {
+            "tp": 14,
+            "fp": 3,
+            "fn": 1,
+            "tn": 3,
+            "precision": 0.8235294117647058,
+            "recall": 0.9333333333333333,
+            "f1": 0.875
+          },
+          "influencer": {
+            "tp": 3,
+            "fp": 2,
+            "fn": 3,
+            "tn": 13,
+            "precision": 0.6,
+            "recall": 0.5,
+            "f1": 0.5454545454545454
+          },
+          "insider": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 0,
+            "tn": 19,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "median_seconds": 0.5221845838241279,
+        "p95_seconds": 0.5269705420359969
+      },
+      "receipt_sha256": "abd62e6184d6a3d0de03624d2593f19c7cfd802a4335f25c907f61b85c0d78cc",
+      "context": {
+        "native_usage_input_tokens": [
+          1214,
+          1380
+        ]
+      }
+    },
+    "laya": {
+      "identity": {
+        "model": "ggml-org/Laya-GGUF@sha256:c06528c5746d3bb8baa72a27938be95abbfd0b226f8471e8a9e365ed0bb066d2"
+      },
+      "overall": {
+        "completed": 45,
+        "failed": 0,
+        "per_label": {
+          "availability": {
+            "at_50": {
+              "tp": 5,
+              "fp": 0,
+              "fn": 1,
+              "tn": 39,
+              "precision": 1.0,
+              "recall": 0.8333333333333334,
+              "f1": 0.9090909090909091
+            },
+            "brier": 0.05859958600556466
+          },
+          "clickbait": {
+            "at_50": {
+              "tp": 2,
+              "fp": 1,
+              "fn": 0,
+              "tn": 21,
+              "precision": 0.6666666666666666,
+              "recall": 1.0,
+              "f1": 0.8
+            },
+            "brier": 0.09367836201082431
+          },
+          "emotion": {
+            "at_50": {
+              "tp": 7,
+              "fp": 0,
+              "fn": 14,
+              "tn": 24,
+              "precision": 1.0,
+              "recall": 0.3333333333333333,
+              "f1": 0.5
+            },
+            "brier": 0.2347634031840343
+          },
+          "movement": {
+            "at_50": {
+              "tp": 1,
+              "fp": 1,
+              "fn": 4,
+              "tn": 39,
+              "precision": 0.5,
+              "recall": 0.2,
+              "f1": 0.2857142857142857
+            },
+            "brier": 0.09071598302945565
+          },
+          "subject": {
+            "at_50": {
+              "tp": 3,
+              "fp": 1,
+              "fn": 34,
+              "tn": 7,
+              "precision": 0.75,
+              "recall": 0.08108108108108109,
+              "f1": 0.14634146341463414
+            },
+            "brier": 0.4777110682904477
+          }
+        },
+        "routing": {
+          "journalist": {
+            "tp": 3,
+            "fp": 1,
+            "fn": 34,
+            "tn": 7,
+            "precision": 0.75,
+            "recall": 0.08108108108108109,
+            "f1": 0.14634146341463414
+          },
+          "influencer": {
+            "tp": 2,
+            "fp": 1,
+            "fn": 19,
+            "tn": 23,
+            "precision": 0.6666666666666666,
+            "recall": 0.09523809523809523,
+            "f1": 0.16666666666666666
+          },
+          "insider": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 5,
+            "tn": 40,
+            "precision": null,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "median_seconds": 2.080177708994597,
+        "p95_seconds": 2.5258761662989855
+      },
+      "synthetic": {
+        "completed": 24,
+        "failed": 0,
+        "per_label": {
+          "availability": {
+            "at_50": {
+              "tp": 2,
+              "fp": 0,
+              "fn": 1,
+              "tn": 21,
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "f1": 0.8
+            },
+            "brier": 0.07134184127348452
+          },
+          "clickbait": {
+            "at_50": {
+              "tp": 2,
+              "fp": 1,
+              "fn": 0,
+              "tn": 21,
+              "precision": 0.6666666666666666,
+              "recall": 1.0,
+              "f1": 0.8
+            },
+            "brier": 0.09367836201082431
+          },
+          "emotion": {
+            "at_50": {
+              "tp": 5,
+              "fp": 0,
+              "fn": 10,
+              "tn": 9,
+              "precision": 1.0,
+              "recall": 0.3333333333333333,
+              "f1": 0.5
+            },
+            "brier": 0.30603237595323596
+          },
+          "movement": {
+            "at_50": {
+              "tp": 1,
+              "fp": 0,
+              "fn": 2,
+              "tn": 21,
+              "precision": 1.0,
+              "recall": 0.3333333333333333,
+              "f1": 0.5
+            },
+            "brier": 0.08331345445829665
+          },
+          "subject": {
+            "at_50": {
+              "tp": 2,
+              "fp": 0,
+              "fn": 20,
+              "tn": 2,
+              "precision": 1.0,
+              "recall": 0.09090909090909091,
+              "f1": 0.16666666666666666
+            },
+            "brier": 0.520552554501535
+          }
+        },
+        "routing": {
+          "journalist": {
+            "tp": 2,
+            "fp": 0,
+            "fn": 20,
+            "tn": 2,
+            "precision": 1.0,
+            "recall": 0.09090909090909091,
+            "f1": 0.16666666666666666
+          },
+          "influencer": {
+            "tp": 1,
+            "fp": 0,
+            "fn": 14,
+            "tn": 9,
+            "precision": 1.0,
+            "recall": 0.06666666666666667,
+            "f1": 0.125
+          },
+          "insider": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 3,
+            "tn": 21,
+            "precision": null,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "median_seconds": 1.9473927081562579,
+        "p95_seconds": 2.3250337089411914
+      },
+      "real": {
+        "completed": 21,
+        "failed": 0,
+        "per_label": {
+          "availability": {
+            "at_50": {
+              "tp": 3,
+              "fp": 0,
+              "fn": 0,
+              "tn": 18,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.04403700855651341
+          },
+          "emotion": {
+            "at_50": {
+              "tp": 2,
+              "fp": 0,
+              "fn": 4,
+              "tn": 15,
+              "precision": 1.0,
+              "recall": 0.3333333333333333,
+              "f1": 0.5
+            },
+            "brier": 0.15331314859066103
+          },
+          "movement": {
+            "at_50": {
+              "tp": 0,
+              "fp": 1,
+              "fn": 2,
+              "tn": 18,
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0
+            },
+            "brier": 0.0991760156822088
+          },
+          "subject": {
+            "at_50": {
+              "tp": 1,
+              "fp": 1,
+              "fn": 14,
+              "tn": 5,
+              "precision": 0.5,
+              "recall": 0.06666666666666667,
+              "f1": 0.11764705882352941
+            },
+            "brier": 0.4287493697634906
+          }
+        },
+        "routing": {
+          "journalist": {
+            "tp": 1,
+            "fp": 1,
+            "fn": 14,
+            "tn": 5,
+            "precision": 0.5,
+            "recall": 0.06666666666666667,
+            "f1": 0.11764705882352941
+          },
+          "influencer": {
+            "tp": 1,
+            "fp": 1,
+            "fn": 5,
+            "tn": 14,
+            "precision": 0.5,
+            "recall": 0.16666666666666666,
+            "f1": 0.25
+          },
+          "insider": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 2,
+            "tn": 19,
+            "precision": null,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "median_seconds": 2.2736929999664426,
+        "p95_seconds": 2.539725166745484
+      },
+      "receipt_sha256": "584599de99983a58f71043c96efa0359aef6bba26ad4e108ed139ab25e265276",
+      "context": {
+        "native_usage_input_tokens": [
+          1149,
+          1345
+        ]
+      }
+    },
+    "modernbert": {
+      "identity": {
+        "model": "MoritzLaurer/ModernBERT-large-zeroshot-v2.0@a51e07b524299e309dd2b88d48b0cfa2bd9ec598",
+        "backend": "transformers-nli",
+        "torch": "2.14.1",
+        "device": "cpu",
+        "threads": 4,
+        "platform": "macOS-26.6.2-arm64-arm-64bit",
+        "id2label": {
+          "0": "entailment",
+          "1": "not_entailment"
+        }
+      },
+      "overall": {
+        "completed": 45,
+        "failed": 0,
+        "per_label": {
+          "availability": {
+            "at_50": {
+              "tp": 6,
+              "fp": 0,
+              "fn": 0,
+              "tn": 39,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.0027058370427031327
+          },
+          "clickbait": {
+            "at_50": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 2,
+              "tn": 22,
+              "precision": null,
+              "recall": 0.0,
+              "f1": 0.0
+            },
+            "brier": 0.0853618050562418
+          },
+          "emotion": {
+            "at_50": {
+              "tp": 9,
+              "fp": 4,
+              "fn": 12,
+              "tn": 20,
+              "precision": 0.6923076923076923,
+              "recall": 0.42857142857142855,
+              "f1": 0.5294117647058824
+            },
+            "brier": 0.24972661931238788
+          },
+          "movement": {
+            "at_50": {
+              "tp": 5,
+              "fp": 12,
+              "fn": 0,
+              "tn": 28,
+              "precision": 0.29411764705882354,
+              "recall": 1.0,
+              "f1": 0.45454545454545453
+            },
+            "brier": 0.16359007291705846
+          },
+          "subject": {
+            "at_50": {
+              "tp": 37,
+              "fp": 7,
+              "fn": 0,
+              "tn": 1,
+              "precision": 0.8409090909090909,
+              "recall": 1.0,
+              "f1": 0.9135802469135802
+            },
+            "brier": 0.13094637545003587
+          }
+        },
+        "routing": {
+          "journalist": {
+            "tp": 37,
+            "fp": 7,
+            "fn": 0,
+            "tn": 1,
+            "precision": 0.8409090909090909,
+            "recall": 1.0,
+            "f1": 0.9135802469135802
+          },
+          "influencer": {
+            "tp": 17,
+            "fp": 3,
+            "fn": 4,
+            "tn": 21,
+            "precision": 0.85,
+            "recall": 0.8095238095238095,
+            "f1": 0.8292682926829268
+          },
+          "insider": {
+            "tp": 5,
+            "fp": 6,
+            "fn": 0,
+            "tn": 34,
+            "precision": 0.45454545454545453,
+            "recall": 1.0,
+            "f1": 0.625
+          }
+        },
+        "median_seconds": 0.4875984159298241,
+        "p95_seconds": 0.6196166248992085
+      },
+      "synthetic": {
+        "completed": 24,
+        "failed": 0,
+        "per_label": {
+          "availability": {
+            "at_50": {
+              "tp": 3,
+              "fp": 0,
+              "fn": 0,
+              "tn": 21,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.004630796667775989
+          },
+          "clickbait": {
+            "at_50": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 2,
+              "tn": 22,
+              "precision": null,
+              "recall": 0.0,
+              "f1": 0.0
+            },
+            "brier": 0.0853618050562418
+          },
+          "emotion": {
+            "at_50": {
+              "tp": 6,
+              "fp": 2,
+              "fn": 9,
+              "tn": 7,
+              "precision": 0.75,
+              "recall": 0.4,
+              "f1": 0.5217391304347826
+            },
+            "brier": 0.2697577946742396
+          },
+          "movement": {
+            "at_50": {
+              "tp": 3,
+              "fp": 4,
+              "fn": 0,
+              "tn": 17,
+              "precision": 0.42857142857142855,
+              "recall": 1.0,
+              "f1": 0.6
+            },
+            "brier": 0.09246221837536174
+          },
+          "subject": {
+            "at_50": {
+              "tp": 22,
+              "fp": 1,
+              "fn": 0,
+              "tn": 1,
+              "precision": 0.9565217391304348,
+              "recall": 1.0,
+              "f1": 0.9777777777777777
+            },
+            "brier": 0.03636083304347349
+          }
+        },
+        "routing": {
+          "journalist": {
+            "tp": 22,
+            "fp": 1,
+            "fn": 0,
+            "tn": 1,
+            "precision": 0.9565217391304348,
+            "recall": 1.0,
+            "f1": 0.9777777777777777
+          },
+          "influencer": {
+            "tp": 14,
+            "fp": 1,
+            "fn": 1,
+            "tn": 8,
+            "precision": 0.9333333333333333,
+            "recall": 0.9333333333333333,
+            "f1": 0.9333333333333333
+          },
+          "insider": {
+            "tp": 3,
+            "fp": 1,
+            "fn": 0,
+            "tn": 20,
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571428571428571
+          }
+        },
+        "median_seconds": 0.45503729209303856,
+        "p95_seconds": 0.4942585420794785
+      },
+      "real": {
+        "completed": 21,
+        "failed": 0,
+        "per_label": {
+          "availability": {
+            "at_50": {
+              "tp": 3,
+              "fp": 0,
+              "fn": 0,
+              "tn": 18,
+              "precision": 1.0,
+              "recall": 1.0,
+              "f1": 1.0
+            },
+            "brier": 0.00050588318547701
+          },
+          "emotion": {
+            "at_50": {
+              "tp": 3,
+              "fp": 2,
+              "fn": 3,
+              "tn": 13,
+              "precision": 0.6,
+              "recall": 0.5,
+              "f1": 0.5454545454545454
+            },
+            "brier": 0.22683384747027158
+          },
+          "movement": {
+            "at_50": {
+              "tp": 2,
+              "fp": 8,
+              "fn": 0,
+              "tn": 11,
+              "precision": 0.2,
+              "recall": 1.0,
+              "f1": 0.3333333333333333
+            },
+            "brier": 0.24487904953614043
+          },
+          "subject": {
+            "at_50": {
+              "tp": 15,
+              "fp": 6,
+              "fn": 0,
+              "tn": 0,
+              "precision": 0.7142857142857143,
+              "recall": 1.0,
+              "f1": 0.8333333333333334
+            },
+            "brier": 0.2390441382003929
+          }
+        },
+        "routing": {
+          "journalist": {
+            "tp": 15,
+            "fp": 6,
+            "fn": 0,
+            "tn": 0,
+            "precision": 0.7142857142857143,
+            "recall": 1.0,
+            "f1": 0.8333333333333334
+          },
+          "influencer": {
+            "tp": 3,
+            "fp": 2,
+            "fn": 3,
+            "tn": 13,
+            "precision": 0.6,
+            "recall": 0.5,
+            "f1": 0.5454545454545454
+          },
+          "insider": {
+            "tp": 2,
+            "fp": 5,
+            "fn": 0,
+            "tn": 14,
+            "precision": 0.2857142857142857,
+            "recall": 1.0,
+            "f1": 0.4444444444444444
+          }
+        },
+        "median_seconds": 0.538144042249769,
+        "p95_seconds": 0.6200883751735091
+      },
+      "receipt_sha256": "dda8a6031e1e5900e9d3531245a1701e1fcaa213e7117d9a8b0fd42d734b8938",
+      "context": {
+        "nli_pair_token_count_range": [
+          137,
+          196
+        ],
+        "truncated": false
+      }
+    }
+  },
+  "requests_sha256": "a82877b5785e513a1eeef1e984faad746aefb56a61fcfe84003bba6bc2b2962b",
+  "controls_sha256": "a8f0e1810ca53b532a7d85d32bf68aa6fdc879518e19df3d0556f92b31dbbf4b",
+  "private_receipts": "/tmp/scoracle-headline-model-comparison-20261019",
+  "production_database_writes": 0,
+  "production_service_changes": 0,
+  "promoted": false,
+  "recommendation": "Keep d1 for pipeline qualification. ModernBERT’s one extra Influencer routing hit is synthetic; both tie on the 21 real cases. Improve reviewed target-scoped emotion data before choosing a replacement.",
+  "limits": [
+    "ModernBERT is the same large backbone as English Laya, with a separately trained zero-shot NLI head; it is not the raw encoder or a dedicated sports-emotion model.",
+    "Native models use identical production requests; NLI sees the same state with fixed declarative hypotheses. This measures these configured pipelines, not architecture alone.",
+    "d1 Q4_K_M uses the existing Archbox GTX 1070 Ti endpoint; Laya Q8_0 and ModernBERT float32 use four local Mac CPU threads. Latencies are operational observations, not a matched hardware speed ranking.",
+    "Each model has one excluded warmup and 45 sequential measured requests.",
+    "No thresholds, NLI hypotheses or provisional labels were tuned on these new predictions.",
+    "Native usage counts are aggregate input tokens over questions, not proof of per-question tokenizer coverage. ModernBERT retains exact token IDs and uses no truncation.",
+    "Only synthetic cases have clickbait labels, including just two positives. Reported clickbait scores are diagnostic.",
+    "Emotion is subject-scoped headline relevance, not emotional valence or quality of the Influencer’s generated narrative."
+  ]
+}

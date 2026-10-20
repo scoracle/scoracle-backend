@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict a26OVrXaedeP4cVhThNmywZcmNZJT5CV09uk1f47kFSHMxhEHhBMEItPtuuc9mc
+\restrict dVMCf2fKp07ANIPkcTgGo3lH56bm0BpUbJtnrQYUa1tWAR65JwDsueYeCJB920v
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1713,24 +1713,47 @@ $$;
 
 
 --
+-- Name: classifier_article_ready(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_article_ready() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE measured record;
+BEGIN
+    IF NEW.status<>'pending' THEN RETURN NEW; END IF;
+    SELECT x.criteria_version,x.gate,x.clean_text,s.source INTO STRICT measured
+        FROM public.classifier_spectra x JOIN public.classifier_sources s ON s.id=x.source_id
+        WHERE x.id=NEW.spectrum_id;
+    IF measured.criteria_version='classification-criteria-v9-headlines' THEN
+        IF NOT COALESCE((measured.gate->'characters'->>NEW.character)::boolean,false)
+            OR measured.source->>'evidence_scope' IS DISTINCT FROM 'headline'
+            OR length(btrim(measured.clean_text))=0
+            OR measured.clean_text IS DISTINCT FROM measured.source->>'title' THEN
+            RAISE EXCEPTION 'Headline delivery requires an admitted character and retained headline';
+        END IF;
+    ELSIF measured.criteria_version IN ('classification-criteria-v7-headline','classification-criteria-v8-admission') AND
+        (length(btrim(COALESCE(measured.source->>'body','')))=0
+         OR NOT COALESCE((measured.gate->'characters'->>NEW.character)::boolean,false)) THEN
+        RAISE EXCEPTION 'Historical delivery requires an admitted character and retained article';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: classifier_discovery_version(bigint, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.classifier_discovery_version(article bigint, league text) RETURNS text
     LANGUAGE sql STABLE
     AS $$
-    SELECT md5(jsonb_build_array(a.url,a.title,COALESCE(a.source,''),
-        extract(epoch FROM a.published_at),COALESCE(a.full_text,''),a.duplicate_of,
-        public.classifier_identity_candidates(league,a.title,COALESCE(NULLIF(a.full_text,''),
-            (SELECT s.source->>'body' FROM public.classifier_source_heads h JOIN public.classifier_sources s ON s.id=h.source_id
-             WHERE h.article_id=a.id AND h.sport=league AND s.source->>'url'=a.url),'')),
-        jsonb_agg(jsonb_build_array(p.entity_type,p.entity_id,p.sport,p.feed_rank,t.name)
-            ORDER BY p.entity_type,p.entity_id))::text)
-    FROM public.news_articles a
-    JOIN public.harvester_query_provenance p ON p.article_id=a.id AND p.sport=league
-    LEFT JOIN public.teams t ON p.entity_type='team' AND t.id=p.entity_id AND t.sport=p.sport
+    SELECT CASE WHEN jsonb_array_length(c.subjects)>0 THEN
+        md5(jsonb_build_array('headline-subjects-v2',a.url,a.title,COALESCE(a.source,''),extract(epoch FROM a.published_at),
+            a.duplicate_of,public.classifier_identity_candidates(league,a.title,''),c.subjects)::text) END
+    FROM public.news_articles a CROSS JOIN LATERAL (SELECT public.classifier_headline_subjects(article,league) AS subjects) c
     WHERE a.id=article
-    GROUP BY a.id
 $$;
 
 
@@ -1786,26 +1809,51 @@ $$;
 
 CREATE FUNCTION public.classifier_enqueue_acquisition(article bigint, league text) RETURNS boolean
     LANGUAGE sql
+    AS $$ SELECT public.classifier_enqueue_admission(article,league) $$;
+
+
+--
+-- Name: classifier_enqueue_admission(bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_enqueue_admission(article bigint, league text) RETURNS boolean
+    LANGUAGE sql
     AS $$
-    WITH revision AS (SELECT public.classifier_discovery_version(article,league) AS version),
-    queued AS (
+    WITH revision AS (SELECT public.classifier_discovery_version(article,league) AS version), queued AS (
         INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
-        SELECT 'classifier_acquire','article',article,league,version FROM revision
+        SELECT 'classifier','article',article,league,version FROM revision
         WHERE version IS NOT NULL AND NOT EXISTS (
-            SELECT 1 FROM public.classifier_sources s
-            WHERE s.article_id=article AND s.sport=league AND s.discovery_version=version)
-        AND NOT EXISTS (
-            SELECT 1 FROM public.classifier_acquisitions a
-            WHERE a.article_id=article AND a.sport=league
-            AND a.acquisition_key=public.classifier_acquisition_key(article)
-            AND a.policy_version='article-acquisition-v1' AND a.status='skipped')
+            SELECT 1 FROM public.classifier_source_heads h JOIN public.classifier_sources s ON s.id=h.source_id
+            WHERE h.article_id=article AND h.sport=league AND s.discovery_version=version)
         ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET
             status='pending',attempts=0,input_version=EXCLUDED.input_version,
             available_at=CASE WHEN pipeline_work.status='pending' THEN pipeline_work.available_at ELSE now() END,
             updated_at=now(),last_error=NULL,running_input_version=NULL,claim_token=NULL
-        WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
-        RETURNING 1
+        WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version RETURNING 1
     ) SELECT EXISTS(SELECT 1 FROM queued)
+$$;
+
+
+--
+-- Name: classifier_headline_subjects(bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_headline_subjects(article bigint, league text) RETURNS jsonb
+    LANGUAGE sql STABLE
+    AS $$
+    WITH candidates AS (
+        SELECT entity_type,entity_id FROM public.harvester_query_provenance WHERE article_id=article AND sport=league
+        UNION SELECT entity_type,entity_id FROM public.news_article_entities WHERE article_id=article AND sport=league
+        UNION SELECT c->>'entity_type',(c->>'entity_id')::integer
+            FROM public.news_articles a CROSS JOIN LATERAL jsonb_array_elements(public.classifier_identity_candidates(league,a.title,'')) c
+            WHERE a.id=article
+    ), names AS (
+        SELECT 'team' AS entity_type,id,name FROM public.teams WHERE sport=league
+        UNION ALL SELECT 'player',id,name FROM public.players WHERE sport=league
+        UNION ALL SELECT 'person',id,full_name FROM public.persons WHERE sport=league
+    ) SELECT COALESCE(jsonb_agg(jsonb_build_object('entity_type',n.entity_type,'entity_id',n.id,'sport',league,'name',n.name)
+        ORDER BY n.entity_type,n.id),'[]'::jsonb)
+    FROM candidates c JOIN names n ON n.entity_type=c.entity_type AND n.id=c.entity_id
 $$;
 
 
@@ -1823,7 +1871,7 @@ CREATE FUNCTION public.classifier_identity_candidates(league text, headline text
     ), matching_names AS MATERIALIZED (
         SELECT s.entity_type,s.entity_id,s.norm FROM public.entity_name_surfaces s
         JOIN words ON words.word=split_part(s.norm,' ',1) CROSS JOIN input
-        WHERE s.sport=league AND s.surface_kind='name' AND s.norm<>''
+        WHERE s.sport=league AND s.surface_kind IN ('name','alias') AND s.norm<>''
         AND strpos(input.text,' '||s.norm||' ')>0
     ), unique_names AS (
         SELECT s.* FROM matching_names s
@@ -1835,10 +1883,9 @@ CREATE FUNCTION public.classifier_identity_candidates(league text, headline text
         FROM unique_names n
         LEFT JOIN public.teams t ON n.entity_type='team' AND t.id=n.entity_id AND t.sport=league
         LEFT JOIN public.players p ON n.entity_type='player' AND p.id=n.entity_id AND p.sport=league
-        LEFT JOIN public.persons pp ON n.entity_type='person' AND pp.id=n.entity_id AND pp.sport=league AND pp.kind='coach'
-        WHERE n.norm=public.nrm(COALESCE(t.name,p.name,pp.full_name))
+        LEFT JOIN public.persons pp ON n.entity_type='person' AND pp.id=n.entity_id AND pp.sport=league
     ) SELECT COALESCE(jsonb_agg(jsonb_build_object('entity_type',entity_type,'entity_id',entity_id,
-        'sport',league,'name',name,'identity_method','unique_canonical_name_v1')
+        'sport',league,'name',name,'identity_method','unique_name_surface_v2')
         ORDER BY entity_type,entity_id) FILTER(WHERE name IS NOT NULL),'[]'::jsonb) FROM candidates
 $$;
 
@@ -1849,31 +1896,7 @@ $$;
 
 CREATE FUNCTION public.classifier_replay_acquisition(batch_limit integer DEFAULT 1000) RETURNS bigint
     LANGUAGE sql
-    AS $$
-    WITH candidates AS MATERIALIZED (
-        SELECT DISTINCT p.article_id,p.sport FROM public.harvester_query_provenance p
-        JOIN public.news_articles a ON a.id=p.article_id
-        WHERE a.published_at IS NULL OR a.published_at >= now()-interval '48 hours'
-        OR EXISTS (SELECT 1 FROM public.classifier_source_heads h WHERE h.article_id=p.article_id AND h.sport=p.sport)
-    ), missing AS MATERIALIZED (
-        SELECT c.*,public.classifier_discovery_version(c.article_id,c.sport) AS version
-        FROM candidates c WHERE NOT EXISTS (
-            SELECT 1 FROM public.classifier_acquisitions a
-            WHERE a.article_id=c.article_id AND a.sport=c.sport
-            AND a.acquisition_key=public.classifier_acquisition_key(c.article_id)
-            AND a.policy_version='article-acquisition-v1' AND a.status='skipped')
-    ), batch AS MATERIALIZED (
-        SELECT m.article_id,m.sport FROM missing m JOIN public.news_articles a ON a.id=m.article_id
-        WHERE m.version IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM public.classifier_sources s
-            WHERE s.article_id=m.article_id AND s.sport=m.sport AND s.discovery_version=m.version)
-        AND NOT EXISTS (SELECT 1 FROM public.pipeline_work w
-            WHERE w.stage='classifier_acquire' AND w.entity_type='article'
-            AND w.entity_id=m.article_id AND w.sport=m.sport AND w.input_version=m.version)
-        ORDER BY a.published_at DESC NULLS LAST,a.feed_rank ASC NULLS LAST,m.article_id,m.sport
-        LIMIT GREATEST(batch_limit,0)
-    ) SELECT count(*) FILTER (WHERE public.classifier_enqueue_acquisition(article_id,sport)) FROM batch
-$$;
+    AS $$ SELECT public.classifier_replay_admission(batch_limit) $$;
 
 
 --
@@ -1881,6 +1904,37 @@ $$;
 --
 
 COMMENT ON FUNCTION public.classifier_replay_acquisition(batch_limit integer) IS 'Idempotent retained RSS replay; never resets unchanged active leases or failed attempts.';
+
+
+--
+-- Name: classifier_replay_admission(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.classifier_replay_admission(batch_limit integer DEFAULT 1000) RETURNS bigint
+    LANGUAGE sql
+    AS $$
+    WITH candidates AS MATERIALIZED (
+        SELECT article_id,sport FROM public.harvester_query_provenance
+        UNION SELECT article_id,sport FROM public.news_article_entities
+    ), revisions AS MATERIALIZED (
+        SELECT c.*,a.published_at,a.feed_rank,public.classifier_discovery_version(c.article_id,c.sport) AS version
+        FROM candidates c JOIN public.news_articles a ON a.id=c.article_id WHERE length(btrim(a.title))>0
+    ), batch AS MATERIALIZED (
+        SELECT r.* FROM revisions r WHERE version IS NOT NULL AND NOT EXISTS(
+            SELECT 1 FROM public.classifier_source_heads h JOIN public.classifier_sources s ON s.id=h.source_id
+            WHERE h.article_id=r.article_id AND h.sport=r.sport AND s.discovery_version=r.version)
+        AND NOT EXISTS(SELECT 1 FROM public.pipeline_work w WHERE w.stage='classifier' AND w.entity_type='article'
+            AND w.entity_id=r.article_id AND w.sport=r.sport)
+        ORDER BY published_at DESC NULLS LAST,feed_rank ASC NULLS LAST,article_id,sport
+        LIMIT GREATEST(batch_limit-(SELECT count(*) FROM public.pipeline_work WHERE stage='classifier' AND entity_type='article'
+            AND (status IN ('pending','running') OR (status='failed' AND attempts<5))),0)
+    ), queued AS (
+        INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
+        SELECT 'classifier','article',article_id,sport,
+            CASE WHEN published_at IS NULL OR published_at<now()-interval '48 hours' THEN 'headline-history:' ELSE '' END||version FROM batch
+        ON CONFLICT(stage,entity_type,entity_id,sport) DO NOTHING RETURNING 1
+    ) SELECT count(*) FROM queued
+$$;
 
 
 --
@@ -1910,8 +1964,8 @@ BEGIN
     SELECT x.target->>'entity_type', (x.target->>'entity_id')::integer, x.sport
       INTO target_type, target_id, league
       FROM public.classifier_spectra x WHERE x.id = NEW.spectrum_id;
-    IF target_type IS NULL OR target_type NOT IN ('team','player') OR target_id IS NULL OR target_id <= 0 THEN
-        RAISE EXCEPTION 'Classifier spectrum delivery requires a canonical team/player target';
+    IF target_type IS NULL OR target_type NOT IN ('team','player','person') OR target_id IS NULL OR target_id <= 0 THEN
+        RAISE EXCEPTION 'Classifier spectrum delivery requires a canonical team/player/person target';
     END IF;
     revision := 'classifier-spectrum-v1:' || NEW.character || ':s' || NEW.spectrum_id;
     INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
@@ -2632,7 +2686,6 @@ BEGIN
         END IF;
         IF at_time < e.drain_deadline AND EXISTS (
             SELECT 1 FROM public.pipeline_work WHERE
-                (stage='classifier_acquire' AND status='running') OR
                 (stage='classifier' AND (status='running' OR
                     (status IN ('pending','failed') AND attempts<5 AND available_at<=at_time)))
         ) THEN RETURN 'draining'; END IF;
@@ -2647,7 +2700,7 @@ BEGIN
                  ELSE 'coverage:'||e.edition_date END
         FROM public.pipeline_work w CROSS JOIN
             unnest(ARRAY['narratives','vibe','rating','transfers','momentum','sigil']) downstream
-        WHERE public.coverage_is_character(w.stage) AND w.entity_type IN ('team','player')
+        WHERE public.coverage_is_character(w.stage) AND (w.entity_type IN ('team','player') OR (w.entity_type='person' AND downstream IN ('narratives','vibe','transfers')))
         ON CONFLICT(stage,entity_type,entity_id,sport) DO NOTHING;
         UPDATE public.pipeline_work SET status='pending',attempts=0,available_at=clock_timestamp(),
             claim_token=NULL,running_input_version=NULL,last_error=NULL,updated_at=at_time
@@ -7508,7 +7561,7 @@ CREATE TABLE public.application_outbox (
     last_error text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     edition_date date,
-    CONSTRAINT application_outbox_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT application_outbox_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
     CONSTRAINT application_outbox_kind_stage_check CHECK ((((kind = 'vibe_completed'::text) AND (source_stage = 'vibe'::text)) OR ((kind = 'momentum_completed'::text) AND (source_stage = 'momentum'::text)) OR ((kind = 'rating_completed'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'rating_debounced'::text) AND (source_stage = 'rating'::text)) OR ((kind = 'narratives_completed'::text) AND (source_stage = 'narratives'::text)) OR ((kind = 'transfer_published'::text) AND (source_stage = 'transfers'::text)) OR ((kind = 'transfer_identity_applied'::text) AND (source_stage = 'transfers'::text))))
 );
 
@@ -7675,7 +7728,7 @@ CREATE TABLE public.classifier_acquisitions (
     reason text NOT NULL,
     receipt jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT classifier_acquisitions_status_check CHECK ((status = ANY (ARRAY['acquired'::text, 'skipped'::text, 'retryable_error'::text])))
+    CONSTRAINT classifier_acquisitions_status_check CHECK ((status = ANY (ARRAY['acquired'::text, 'skipped'::text, 'retryable_error'::text, 'headline_rejected'::text])))
 );
 
 
@@ -7683,7 +7736,7 @@ CREATE TABLE public.classifier_acquisitions (
 -- Name: TABLE classifier_acquisitions; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.classifier_acquisitions IS 'Claim-fenced acquisition outcomes; skipped is unknown evidence, never a negative Classifier score.';
+COMMENT ON TABLE public.classifier_acquisitions IS 'Claim-fenced intake outcomes. headline_rejected is a model verdict with no publisher read; failed reading is unknown article evidence, never negative relevance.';
 
 
 --
@@ -7800,7 +7853,7 @@ CREATE TABLE public.classifier_sources (
 -- Name: TABLE classifier_sources; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.classifier_sources IS 'Complete native publisher-source snapshots, independent of model admission.';
+COMMENT ON TABLE public.classifier_sources IS 'Immutable RSS headline metadata. v9 has empty body and evidence_scope=headline; historical publisher text remains archived.';
 
 
 --
@@ -7844,7 +7897,7 @@ CREATE TABLE public.classifier_spectra (
 -- Name: TABLE classifier_spectra; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.classifier_spectra IS 'Immutable source-bound native measurements. v6 scores each RSS subject with canonical metadata; historical article spectra remain retained.';
+COMMENT ON TABLE public.classifier_spectra IS 'Immutable source-bound spectra. v9 scores headline relevance, emotion, movement, availability and clickbait; subject-scoped character lenses dispatch daily reporting obligations.';
 
 
 --
@@ -7874,6 +7927,7 @@ CREATE TABLE public.classifier_spectrum_deliveries (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     reason text,
     product_ref jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT classifier_no_scout_pending CHECK ((("character" <> 'scout'::text) OR (status <> 'pending'::text))),
     CONSTRAINT classifier_spectrum_deliveries_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'used'::text, 'abstained'::text, 'superseded'::text, 'held'::text, 'redundant'::text])))
 );
 
@@ -7930,7 +7984,7 @@ CREATE TABLE public.cognition_ledger (
     parser_outcome text NOT NULL,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     plugin_id text,
-    CONSTRAINT cognition_ledger_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'candidate'::text, 'fixture'::text]))),
+    CONSTRAINT cognition_ledger_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text, 'article'::text, 'candidate'::text, 'fixture'::text]))),
     CONSTRAINT cognition_ledger_pair_entity_type_check CHECK (((pair_entity_type IS NULL) OR (pair_entity_type = ANY (ARRAY['player'::text, 'team'::text]))))
 );
 
@@ -9109,7 +9163,7 @@ CREATE TABLE public.insider_scores (
     week_season integer,
     week_no integer,
     reporting_date date NOT NULL,
-    CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
     CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 99)))),
     CONSTRAINT insider_scores_score_check CHECK (((score >= 1) AND (score <= 99)))
 );
@@ -9827,7 +9881,7 @@ CREATE TABLE public.news_summaries (
     week_no integer,
     reporting_date date NOT NULL,
     CONSTRAINT news_summaries_card_score_check CHECK (((card_score IS NULL) OR ((card_score >= 1) AND (card_score <= 99)))),
-    CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
     CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
     CONSTRAINT news_summaries_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
     CONSTRAINT news_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text, 'classifier'::text])))
@@ -10329,6 +10383,7 @@ CREATE TABLE public.pipeline_work (
     claim_token uuid,
     CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'fixture'::text, 'candidate'::text, 'person'::text]))),
     CONSTRAINT pipeline_work_graph_retired CHECK ((stage <> 'graph'::text)),
+    CONSTRAINT pipeline_work_reader_retired CHECK ((stage <> 'classifier_acquire'::text)),
     CONSTRAINT pipeline_work_running_claim_check CHECK (((status = 'running'::text) = (claim_token IS NOT NULL))),
     CONSTRAINT pipeline_work_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'failed'::text])))
 );
@@ -11579,7 +11634,7 @@ CREATE TABLE public.vibe_scores (
     scoring_version text,
     source_references jsonb,
     reporting_date date NOT NULL,
-    CONSTRAINT vibe_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT vibe_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
     CONSTRAINT vibe_scores_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 0) AND (sentiment <= 100)))),
     CONSTRAINT vibe_scores_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['milestone'::text, 'manual'::text, 'periodic'::text, 'news_spike'::text])))
 );
@@ -11977,7 +12032,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict a26OVrXaedeP4cVhThNmywZcmNZJT5CV09uk1f47kFSHMxhEHhBMEItPtuuc9mc
+\unrestrict dVMCf2fKp07ANIPkcTgGo3lH56bm0BpUbJtnrQYUa1tWAR65JwDsueYeCJB920v
 
 
 \ir reference-data.sql
@@ -11985,7 +12040,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict SGi1SpvW8BxRpzGNSzSvcDzpnSX4cy1crerfqczGrVnGoSKhEdewGSdKeJ52EZP
+\restrict 2r9ZQVIRQzPAnsjd8lrZLiLUf4Je3CXUzxRY9yVChbj4m2IYLrnDSIAHHvYfAhy
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -12129,7 +12184,7 @@ ALTER TABLE ONLY public.classifier_sources
 --
 
 ALTER TABLE public.classifier_spectra
-    ADD CONSTRAINT classifier_spectra_complete_receipt CHECK (COALESCE((((gate ->> 'coverage'::text) = 'complete'::text) AND (COALESCE((receipt #>> '{request,state,article,body}'::text[]), (receipt #>> '{request,state,body}'::text[])) = clean_text) AND ((receipt #>> '{response,model}'::text[]) = model) AND (request_hash <> ''::text)), false)) NOT VALID;
+    ADD CONSTRAINT classifier_spectra_complete_receipt CHECK (COALESCE((((gate ->> 'coverage'::text) = 'complete'::text) AND (COALESCE((receipt #>> '{request,state,article,headline}'::text[]), (receipt #>> '{request,state,article,body}'::text[]), (receipt #>> '{request,state,body}'::text[])) = clean_text) AND ((receipt #>> '{response,model}'::text[]) = model) AND (request_hash <> ''::text)), false)) NOT VALID;
 
 
 --
@@ -13062,6 +13117,13 @@ CREATE INDEX classifier_source_discovery ON public.classifier_sources USING btre
 --
 
 CREATE UNIQUE INDEX classifier_source_identity ON public.classifier_sources USING btree (article_id, sport, input_hash, body_sha256, identity_hash);
+
+
+--
+-- Name: classifier_spectra_headline_archive; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX classifier_spectra_headline_archive ON public.classifier_spectra USING btree (sport, ((target ->> 'entity_type'::text)), ((target ->> 'entity_id'::text)), created_at DESC) WHERE (criteria_version = 'classification-criteria-v9-headlines'::text);
 
 
 --
@@ -14269,6 +14331,13 @@ CREATE TRIGGER application_outbox_notify_insert AFTER INSERT ON public.applicati
 
 
 --
+-- Name: classifier_spectrum_deliveries classifier_article_ready; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER classifier_article_ready BEFORE INSERT OR UPDATE OF status, spectrum_id, "character" ON public.classifier_spectrum_deliveries FOR EACH ROW EXECUTE FUNCTION public.classifier_article_ready();
+
+
+--
 -- Name: classifier_deliveries classifier_delivery_dispatch; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -14279,7 +14348,7 @@ CREATE TRIGGER classifier_delivery_dispatch AFTER INSERT OR UPDATE OF status, pr
 -- Name: classifier_spectrum_deliveries classifier_spectrum_delivery_dispatch; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER classifier_spectrum_delivery_dispatch AFTER INSERT ON public.classifier_spectrum_deliveries FOR EACH ROW EXECUTE FUNCTION public.classifier_spectrum_dispatch();
+CREATE TRIGGER classifier_spectrum_delivery_dispatch AFTER INSERT OR UPDATE OF status ON public.classifier_spectrum_deliveries FOR EACH ROW EXECUTE FUNCTION public.classifier_spectrum_dispatch();
 
 
 --
@@ -15564,4 +15633,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict SGi1SpvW8BxRpzGNSzSvcDzpnSX4cy1crerfqczGrVnGoSKhEdewGSdKeJ52EZP
+\unrestrict 2r9ZQVIRQzPAnsjd8lrZLiLUf4Je3CXUzxRY9yVChbj4m2IYLrnDSIAHHvYfAhy

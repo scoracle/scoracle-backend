@@ -1,0 +1,102 @@
+{
+  "scope": "Reviewed source support in first-pass prose. Parsed outputs were identical on the second pass. Decision scoring does not certify prose factuality. Names, pronouns, roles, affiliations and reasons absent from the supplied evidence are unsupported additions. Emotion synonyms are not treated as factual errors by themselves.",
+  "models": {
+    "qwen35": {
+      "strength": "Best coverage of ordinary emotions: all six synthetic negatives and five of six positives.",
+      "decision_misses": [
+        "Tentative hope became mixed (s01).",
+        "Two coaches with opposite reactions produced abstention (s17).",
+        "Unrelated player/team emotion was attached to the requested real target (r06, r07)."
+      ],
+      "unsupported_gender_cases": [
+        "s01-quiet-hope",
+        "s03-relief-after-worry",
+        "s06-excitement-before-debut",
+        "s08-performance-disappointment",
+        "s10-selection-pressure",
+        "s11-no-relief-still-concerned",
+        "s13-equal-pride-disappointment",
+        "s15-relief-and-worry"
+      ],
+      "additional_prose_issues": [
+        {
+          "case": "r06",
+          "issue": "Invented a player affiliation with the requested club, absent from the headline."
+        },
+        {
+          "case": "r11",
+          "issue": "Assigned reported frustration to fans and observers even though the headline does not identify those speakers."
+        },
+        {
+          "case": "r20",
+          "issue": "Added an unsupported first name to a person identified only by surname. This case is excluded from hard decision scoring."
+        }
+      ]
+    },
+    "omnidimen": {
+      "strength": "Handled explicit delight, pride, relief, frustration, disappointment and most mixed descriptions.",
+      "decision_misses": [
+        "Missed confidence, injury worry, selection pressure and regret.",
+        "Tentative hope became mixed; opposing coaches produced abstention.",
+        "Another team's joy was used for the synthetic target; an unrelated real player was affiliated to the requested club."
+      ],
+      "unsupported_gender_cases": [
+        "s03-relief-after-worry",
+        "s06-excitement-before-debut",
+        "s08-performance-disappointment"
+      ],
+      "additional_prose_issues": [
+        {
+          "case": "s03-relief-after-worry",
+          "issue": "Called different feelings on different dates a contradiction rather than a change over time."
+        },
+        {
+          "case": "s07-frustration-after-loss",
+          "issue": "Added that performance was unsatisfactory, which does not follow from a loss and a reported feeling of frustration."
+        },
+        {
+          "case": "r06",
+          "issue": "Invented a player affiliation with the requested club."
+        },
+        {
+          "case": "r20",
+          "issue": "Added an unsupported first name and relationship wording. Excluded from hard decision scoring."
+        }
+      ]
+    },
+    "ministral3": {
+      "strength": "Often correctly abstained on routine results, schedule and injury updates; used gender-neutral pronouns in synthetic responses.",
+      "decision_misses": [
+        "Zero of six synthetic negative-valence cases passed. Frustration, disappointment and concern often became score 50, or the model abstained.",
+        "Missed confidence and current relief, several mixed cases, and reused a historical feeling as current."
+      ],
+      "unsupported_gender_cases": [],
+      "additional_prose_issues": [
+        {
+          "case": "s02-delight-after-win",
+          "issue": "Added unreported relief and placed feelings during the match rather than after the win."
+        },
+        {
+          "case": "s04-player-pride",
+          "issue": "Said no specific emotion was provided despite the headline explicitly saying proud."
+        },
+        {
+          "case": "s09-injury-worry",
+          "issue": "Invented relief about safety protocols, worries about leadership, and effects on morale and strategy."
+        },
+        {
+          "case": "r06",
+          "issue": "Invented a player affiliation and significance for a club season."
+        },
+        {
+          "case": "r09",
+          "issue": "Invented a quarterback role for a person whose role is absent from the headline."
+        },
+        {
+          "case": "r15",
+          "issue": "Invented what two disputing people said and defended. Excluded from hard decision scoring."
+        }
+      ]
+    }
+  }
+}

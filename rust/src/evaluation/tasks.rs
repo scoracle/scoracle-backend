@@ -1791,25 +1791,36 @@ mod tests {
                 assert!(!fx.user_prompt.trim().is_empty());
                 if name != "investigator" {
                     let request = task.prepare_fixture(&fx).unwrap();
-                    assert!(
-                        request.options.system.is_none(),
-                        "{name} has a second instruction input"
-                    );
                     let package: serde_json::Value =
                         serde_json::from_str(&request.user_prompt).unwrap();
-                    assert_eq!(
-                        package.as_object().unwrap().len(),
-                        if matches!(name, "narratives" | "vibe" | "transfer") {
-                            5
-                        } else {
-                            4
-                        },
-                        "{name}"
-                    );
-                    for field in ["meta", "task", "fresh", "voice"] {
-                        assert!(package.get(field).is_some(), "{name}: missing {field}");
+                    if name == "vibe" {
+                        assert_eq!(
+                            request.options.system.as_deref(),
+                            Some(crate::plugins::influencer::prompt::TASK)
+                        );
+                        assert_eq!(package.as_object().unwrap().len(), 3);
+                        for field in ["meta", "fresh", "memories"] {
+                            assert!(package.get(field).is_some(), "{name}: missing {field}");
+                        }
+                    } else {
+                        assert!(
+                            request.options.system.is_none(),
+                            "{name} has a second instruction input"
+                        );
+                        assert_eq!(
+                            package.as_object().unwrap().len(),
+                            if matches!(name, "narratives" | "transfer") {
+                                5
+                            } else {
+                                4
+                            },
+                            "{name}"
+                        );
+                        for field in ["meta", "task", "fresh", "voice"] {
+                            assert!(package.get(field).is_some(), "{name}: missing {field}");
+                        }
+                        assert!(package["task"].as_str().is_some_and(|s| !s.is_empty()));
                     }
-                    assert!(package["task"].as_str().is_some_and(|s| !s.is_empty()));
                     assert!(package["meta"].get("task").is_none());
                 }
                 assert!(!fx.review.is_empty());

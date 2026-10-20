@@ -1,0 +1,72 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: qwen3.5-4b-q5_k_m. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / conflicting-reports-two-sources-that-contradict-each-other [accepted]
+Club Bulletin reported on September 26, 2026, that Cedar United denied agreeing a fee for Alex Stone, with a club spokesperson stating discussions had not begun.
+
+City Wire reported on September 26, 2026, that Cedar United agreed a fee for Alex Stone, citing an unnamed source, though the club has not confirmed the report.
+
+2 — narratives / distinct-developments-three-independent-developments,-three-keyed-slots [accepted]
+Cedar United goalkeeper Kim Park will miss the next match due to an ankle injury, the club confirmed. No return date was provided for Park's recovery.
+
+Cedar United appointed Jo Vale as head coach on Monday, with a two-year contract securing her tenure. The appointment marks a new leadership chapter for the squad.
+
+Cedar United secured a 2–1 victory against Vale City on Sunday. The win extends the team's recent momentum on the pitch.
+
+3 — narratives / nba-attribution-basketball-source-under-a-league-namespace [accepted]
+Court Wire reported on September 26, 2026, that the Cedar Comets defeated the Vale Stars 108–104 with Jordan Reed contributing 27 points. However, the team stated Reed is questionable for Wednesday due to ankle soreness.
+
+4 — narratives / no-new-material-nothing-eligible:-no-call,-no-package [no_call]
+No model call
+
+5 — narratives / one-result-single-result,-named-scorer [accepted]
+Cedar United secured a 2–1 victory over Vale City on Sunday, with Sam Lee scoring the decisive goal in the 84th minute.
+
+6 — narratives / synthetic-closed-training-fresh-only [accepted]
+Cedar United announced on 28 September 2026 that its training session scheduled for 29 September will be closed to supporters. The club provided no explanation for this decision.
+
+7 — narratives / synthetic-training-time-fresh-only [accepted]
+Cedar United confirmed an updated start time of 10:00 for its training session on 29 September, with the venue remaining North Field. The club provided no reason for the update.
+
+8 — vibe / clearly-negative [accepted]
+Fans boo and voice fury over Cedar Comets performance
+
+Fans of the Cedar Comets are expressing deep frustration and anger over the team's recent performance. Reports indicate that supporters booed the players and voiced their fury directly, signaling a strong disconnect between the fanbase and how the team is playing. This reaction suggests a collective disappointment that has turned into active criticism, with no signs of relief or hope currently visible in the crowd's response.
+
+9 — vibe / warm-memory-cold-coverage [accepted]
+Cedar Comets announce Tuesday training; mood is one of steady, disciplined readiness.
+
+The Cedar Comets have announced a training schedule for Tuesday, marking a return to the court. While the news signals a step forward, the emotional tone remains neutral and procedural. There is no explicit expression of joy, relief, or hope from the team or their supporters in this report. Instead, the atmosphere is one of quiet anticipation and routine. The announcement serves as a reminder of the team's commitment, but it does not yet convey the deep emotions of a comeback or a victory. The mood is steady, reflecting the calm before the storm of upcoming games. For now, the focus is on preparation, and the feelings are those of disciplined readiness rather than exuberant celebration.
+
+10 — rating / synthetic-composite [accepted]
+In the 2026 season, Cedar Comets played 25 games and achieved a composite score of 64.0. Cross-season support is indicated.
+
+11 — rating / synthetic-incompatible [accepted]
+In the 2026 season, Cedar Comets recorded 25 games played. Their rebounding averaged 48.0 per game, placing them at the 90th percentile within a cohort of 30 and classifying them as elite. Their assists averaged 23.0 per game, placing them at the 75th percentile within the same cohort and classifying them as strong. The team's composite score is 64.0. Cross-season support is indicated.
+
+12 — rating / synthetic-measured-memory [accepted]
+In the 2026 season, Cedar Comets averaged 25 games played. Their rebounding output of 48 per game placed them in the 90th percentile within a cohort of 30, marking an elite band and a rise from the prior 80th percentile. Assists averaged 23 per game, holding the 75th percentile in the strong band with no standing change. A composite score of 64 reflects standardized overall performance relative to peers. Cross-season support is indicated, though specific prior season metrics are not provided.
+
+13 — rating / synthetic-source-trigger [accepted]
+In the 2026 season, the subject scored 20.0 points, establishing an 80th percentile standing classified as 'strong' with a minimum sample of 10. Cross-season comparison is unsupported.
+
+14 — rating / synthetic-sparse [accepted]
+Cedar Comets' 2026 season sample of three games shows 48.0 rebounds per game (90th percentile, elite band) and 23.0 assists per game (75th percentile, strong band). The thin sample limit of ten appearances is not met.
+
+15 — rating / synthetic-zero-unknown [accepted]
+In the 2026 season, Cedar Comets recorded 25 games played and a composite score of 64.0. Turnovers per game averaged 0.0, placing the team at the 99th percentile within the elite band. Assists per game data is unavailable for this season.
+
+16 — transfer / fizzled-prior-lowrel-skeptic [rejected]
+0 finding(s) | Chelsea are reportedly monitoring Kai Sorensen, but no bid or talks have been confirmed.
+
+17 — momentum / falling-confirmed [accepted]
+Riverton Athletic's measured profile has weakened, a decline in performance mirrored by a cooling atmosphere where concern has supplanted patience. These signals reinforce one another, presenting a unified picture of deteriorating form and morale.
+
+18 — momentum / sparse-samples-stay-steady [accepted]
+Stone's performance and mood readings remain inconclusive due to insufficient data; the thin statistical sample precludes directional comparison, while limited reporting offers no settled emotional direction. These factors leave the current picture unresolved rather than reinforcing or diverging.
+
+19 — oracle / ascendant-aligned [accepted]
+Kiana Wells stands as a defensive anchor whose rim protection has solidified into a month-long consensus of dominance. Across the available reports, a unified trajectory emerges: her blocks and altered shots are climbing, erasing the paint with a consistency that has warmed the room and built a rotation built around her. While the sources differ in tone—ranging from the admiring coverage of the journalist to the technical observation of the scout and the glowing sentiment of the influencer—the core reality remains identical; her performance and the mood surrounding her are moving upward together, creating a cohesive narrative of rising heat without contradiction.
+
+20 — oracle / three-card-newcomer [accepted]
+The spine of Ipswich Town has been reshaped, anchored by the confirmed arrival of Issa Diop from Fulham, whose paperwork is filed and whose presence signals a deliberate reconstruction of the defensive line. While the business of the rebuild is acknowledged with cautious optimism, the room remains watchful, demanding that these structural changes manifest on the grass before the opener. The narrative is one of quiet certainty regarding the transfer, yet a palpable tension exists between the completed administrative work and the pending validation of the new formation in actual play.

@@ -136,7 +136,9 @@ mod tests {
             packet["meta"],
             json!({"name":"New York Knicks","entity_type":"team","sport":"basketball"})
         );
-        assert_eq!(packet["voice"], crate::plugins::influencer::voice::VOICE);
+        assert!(packet.get("voice").is_none());
+        assert!(packet.get("task").is_none());
+        assert_eq!(packet.as_object().unwrap().len(), 3);
         assert!(packet["fresh"]["reports"][0]
             .get("publisher_text")
             .is_none());

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "qwen35",
+    "path": "/private/tmp/scoracle-emotion-models-20261020/Qwen3.5-4B-Q4_K_M.gguf",
+    "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+    "upstream": "unsloth/Qwen3.5-4B-GGUF",
+    "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+    "quantization": "Q4_K_M"
+  },
+  {
+    "name": "ministral3",
+    "path": "/Users/scotty/.ollama/models/blobs/sha256-053d49ac334f26338e935c2beb6abfc3cca1140d4822c88de0c9bc6f38583e6c",
+    "sha256": "053d49ac334f26338e935c2beb6abfc3cca1140d4822c88de0c9bc6f38583e6c",
+    "upstream": "mistralai/Ministral-3-3B-Instruct-2512",
+    "quantization": "Q4_K_M",
+    "packaging": "Ollama llama.cpp-specific language-model layer; vision projector omitted for text-only tests"
+  },
+  {
+    "name": "omnidimen",
+    "path": "/private/tmp/scoracle-emotion-models-20261020/OmniDimen-2.5-4B-Emotion_q4_K_M.gguf",
+    "sha256": "0836c347aa7b4afbcaf2a56d52b4fe097c0f7f4507f10fc6c0df27e23c595a27",
+    "upstream": "OmniDimen/OmniDimen-v2.5-4B-Emotion-GGUF",
+    "revision": "192cbd7e2bb6c1d196fb17cc02bae3b716de8614",
+    "quantization": "Q4_K_M"
+  }
+]

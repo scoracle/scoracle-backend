@@ -1,0 +1,290 @@
+{
+  "decision": "User approved Qwen3.5-4B Q4_K_M for production emotional reading on 2026-10-20. Activation is documented separately.",
+  "route": "vibe-logic",
+  "model_sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+  "screen_scores": {
+    "qwen35": "39/43",
+    "omnidimen": "32/43",
+    "ministral3": "26/43"
+  },
+  "production_path": {
+    "qwen35": {
+      "cases": 25,
+      "valid_complete_outputs": 25,
+      "expected_decisions": 21,
+      "misses": [
+        {
+          "name": "s01-quiet-hope",
+          "expected": "positive",
+          "output": {
+            "score": 25,
+            "headline": "Riverton Rooks supporter Noor expresses mixed hope without celebration",
+            "body": "Noor, a Riverton Rooks supporter, stated on October 19, 2026, that she feels 'a little hopeful' but is 'not celebrating.' This reflects a negative emotional valence of 25 based on the explicit denial of celebration despite hope."
+          }
+        },
+        {
+          "name": "s03-relief-after-worry",
+          "expected": "positive",
+          "output": {
+            "score": null,
+            "headline": null,
+            "body": null
+          }
+        },
+        {
+          "name": "s17-two-coaches",
+          "expected": "mixed",
+          "output": {
+            "score": null,
+            "headline": null,
+            "body": null
+          }
+        },
+        {
+          "name": "s19-other-team-joy",
+          "expected": "abstain",
+          "output": {
+            "score": 75,
+            "headline": "Seabrook Swifts supporters express joy over team",
+            "body": "Supporters of the Seabrook Swifts stated they are overjoyed about the team. This positive sentiment was reported on October 19, 2026, by Fictional Evidence Wire."
+          }
+        }
+      ],
+      "median_ms": 2860,
+      "max_ms": 3796,
+      "scope": "Score-first native production Rust adapter, assembly and parser. 24 common synthetic controls plus one retained neutral live input. 32768-token slot. Single greedy pass, transport smoke rather than independent benchmark."
+    },
+    "smollm3": {
+      "cases": 25,
+      "valid_complete_outputs": 25,
+      "expected_decisions": 8,
+      "misses": [
+        {
+          "name": "s01-quiet-hope",
+          "expected": "positive",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks supporter Noor: \"I feel a little hopeful, but I am not celebrating\"",
+            "body": "Riverton Rooks supporter Noor expressed mixed emotions after the team's recent performance, stating they feel a little hopeful but are not celebrating."
+          },
+          "error": null
+        },
+        {
+          "name": "s03-relief-after-worry",
+          "expected": "positive",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks captain Vale: \"I feel relieved now\"",
+            "body": "Riverton Rooks captain Vale expressed relief after a recent game, stating, 'I feel relieved now.'"
+          },
+          "error": null
+        },
+        {
+          "name": "s07-frustration-after-loss",
+          "expected": "negative",
+          "output": {
+            "score": 75,
+            "headline": "Riverton Rooks coach Rowan frustrated after loss",
+            "body": "Riverton Rooks coach Rowan expressed frustration after the team's recent loss, reflecting on the challenges faced during the game."
+          },
+          "error": null
+        },
+        {
+          "name": "s08-performance-disappointment",
+          "expected": "negative",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks player Vale disappointed with performance",
+            "body": "Riverton Rooks player Vale expressed disappointment with his team's performance in the recent game, citing lack of teamwork and strategic errors."
+          },
+          "error": null
+        },
+        {
+          "name": "s09-injury-worry",
+          "expected": "negative",
+          "output": {
+            "score": 75,
+            "headline": "Riverton Rooks supporters worried about captain Vale injury",
+            "body": "Riverton Rooks supporters are expressing concern over the injury to captain Vale, who is a key player for the team."
+          },
+          "error": null
+        },
+        {
+          "name": "s10-selection-pressure",
+          "expected": "negative",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks coach Rowan: \"I feel under pressure about team selection\"",
+            "body": "Riverton Rooks coach Rowan expressed feeling under pressure regarding team selection, according to a report from the Fictional Evidence Wire."
+          },
+          "error": null
+        },
+        {
+          "name": "s11-no-relief-still-concerned",
+          "expected": "negative",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks supporter Jules: \"I do not feel relieved. I still feel concerned about the team\"",
+            "body": "Riverton Rooks supporter Jules expressed his continued concern about the team's performance, despite recent developments."
+          },
+          "error": null
+        },
+        {
+          "name": "s12-regret-missed-chance",
+          "expected": "negative",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks player Arden regrets missed chance",
+            "body": "Riverton Rooks player Arden expressed regret over a missed opportunity during the recent game, according to a report by the Fictional Evidence Wire."
+          },
+          "error": null
+        },
+        {
+          "name": "s14-two-supporter-voices",
+          "expected": "mixed",
+          "output": {
+            "score": 75,
+            "headline": "Riverton Rooks supporter Noor: \"I feel joyful about the team\"",
+            "body": "Riverton Rooks supporter Noor expressed joy about the team's performance, stating, 'I feel joyful about the team.'"
+          },
+          "error": null
+        },
+        {
+          "name": "s18-duplicate-not-consensus",
+          "expected": "mixed",
+          "output": {
+            "score": 75,
+            "headline": "Riverton Rooks supporter Noor: \"I feel hopeful about the team\"",
+            "body": "Riverton Rooks supporter Noor expressed hope for the team's performance in a recent statement."
+          },
+          "error": null
+        },
+        {
+          "name": "s19-other-team-joy",
+          "expected": "abstain",
+          "output": {
+            "score": 75,
+            "headline": "Seabrook Swifts supporters: \"We are overjoyed about the team\"",
+            "body": "The Riverton Rooks supporters expressed their excitement and happiness regarding the performance of the Seabrook Swifts in their recent games."
+          },
+          "error": null
+        },
+        {
+          "name": "s20-other-player-frustration",
+          "expected": "abstain",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks player Jules frustrated with performance; teammate Arden did not comment",
+            "body": "Riverton Rooks player Jules expressed frustration with his recent performance, while teammate Arden remained silent on the matter."
+          },
+          "error": null
+        },
+        {
+          "name": "s21-past-feeling-only",
+          "expected": "abstain",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks announce Tuesday training",
+            "body": "The Riverton Rooks have announced their upcoming training session on Tuesday. The team is preparing for upcoming matches and is eager to improve their performance."
+          },
+          "error": null
+        },
+        {
+          "name": "s22-future-conditional",
+          "expected": "abstain",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks supporter Imani: \"I would celebrate if the appeal succeeded; I have not said how I feel now\"; appeal undecided",
+            "body": "Riverton Rooks supporter Imani expressed mixed feelings about the appeal, stating that they would celebrate if it succeeded, but have not yet made a public statement on their current emotions."
+          },
+          "error": null
+        },
+        {
+          "name": "s23-neutral-result-package",
+          "expected": "abstain",
+          "output": {
+            "score": 75,
+            "headline": "Riverton Rooks beat Seabrook Swifts 88-80",
+            "body": "The Riverton Rooks secured a victory over the Seabrook Swifts with a score of 88-80."
+          },
+          "error": null
+        },
+        {
+          "name": "s24-neutral-injury-update",
+          "expected": "abstain",
+          "output": {
+            "score": 50,
+            "headline": "Riverton Rooks provide captain Vale injury update ahead of Friday game",
+            "body": "The Riverton Rooks have announced that their captain, Vale, is available for the upcoming game against their rivals on Friday, despite a recent injury update."
+          },
+          "error": null
+        },
+        {
+          "name": "retained-live-jets-neutral",
+          "expected": "abstain",
+          "output": {
+            "score": 16,
+            "headline": "Tim Patrick One snag in defeat",
+            "body": "Tim Patrick's performance was overshadowed by the Jets' loss to the Bills, as the quarterback struggled with accuracy and decision-making."
+          },
+          "error": null
+        }
+      ],
+      "median_ms": 1988,
+      "scope": "Same 25 production-path transport controls, compact instructions and score-first schema as Qwen; incumbent on its existing four-slot 32768-token Smol service."
+    }
+  },
+  "schema_order_control": [
+    {
+      "case": "s19-other-team-joy",
+      "schema_order": "screened",
+      "content": "{\"score\":null,\"headline\":null,\"body\":null}"
+    },
+    {
+      "case": "s19-other-team-joy",
+      "schema_order": "alphabetical",
+      "content": "{\"body\": \"Supporters of the Seabrook Swifts expressed joy regarding the team. This sentiment was reported on October 19, 2026, by Fictional Evidence Wire.\",\"headline\": \"Seabrook Swifts supporters: \\\"We are overjoyed about the team\\\"\",\"score\":75}"
+    },
+    {
+      "case": "s20-other-player-frustration",
+      "schema_order": "screened",
+      "content": "{\"score\":null,\"headline\":null,\"body\":null}"
+    },
+    {
+      "case": "s20-other-player-frustration",
+      "schema_order": "alphabetical",
+      "content": "{\"body\": \"Jules expressed frustration with her performance, while teammate Arden did not comment on the matter.\",\"headline\": \"Riverton Rooks player Jules frustrated with performance; teammate Arden did not comment\",\"score\":25}"
+    },
+    {
+      "case": "s21-past-feeling-only",
+      "schema_order": "screened",
+      "content": "{\"score\":null,\"headline\":null,\"body\":null}"
+    },
+    {
+      "case": "s21-past-feeling-only",
+      "schema_order": "alphabetical",
+      "content": "{\"body\": \"Noor, a Riverton Rooks supporter, expressed disappointment with the team's performance on October 17, 2026. The team announced training sessions on October 19, 2026, but this does not indicate current feelings about the team.\", \"headline\": \"Riverton Rooks supporter Noor disappointed with performance\", \"score\": 25}"
+    },
+    {
+      "case": "s22-future-conditional",
+      "schema_order": "screened",
+      "content": "{\"score\":null,\"headline\":null,\"body\":null}"
+    },
+    {
+      "case": "s22-future-conditional",
+      "schema_order": "alphabetical",
+      "content": "{\"body\": \"Supporter Imani stated she would celebrate if an appeal succeeded but has not expressed current feelings as the appeal remains undecided.\",\"headline\": \"Riverton Rooks supporter Imani: \\\"I would celebrate if the appeal succeeded; I have not said how I feel now\\\"; appeal undecided\",\"score\": 50}"
+    },
+    {
+      "case": "s24-neutral-injury-update",
+      "schema_order": "screened",
+      "content": "{\"score\":null,\"headline\":null,\"body\":null}"
+    },
+    {
+      "case": "s24-neutral-injury-update",
+      "schema_order": "alphabetical",
+      "content": "{\"body\": \"No emotions reported. The headline concerns an injury update for captain Vale ahead of a game, which does not convey feelings about the team.\", \"headline\": \"Riverton Rooks provide captain Vale injury update ahead of Friday game\", \"score\": 0}"
+    }
+  ],
+  "limits": "Original screen uses Python request serialization and a 4096-token context. Rust production uses its own packet serialization and 32768-token slots; its scores differ. These are provisional decision labels, not factual-prose qualification. Known unsupported pronouns, affiliations and target mistakes remain."
+}

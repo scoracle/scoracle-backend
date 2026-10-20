@@ -1,0 +1,27 @@
+{
+  "case": 21,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/vibe/clearly-negative.json",
+  "generation_wall_ms": 4965,
+  "input_tokens": 563,
+  "name": "clearly-negative",
+  "output_limit": 600,
+  "output_tokens": 169,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v27-single-json",
+  "reading": "Cedar Comets fans criticize the performance\n\nCedar Comets fans expressed their disappointment and frustration with the team's performance, booing them loudly during the game. Many fans felt that the team had let them down, as they had high expectations going into the match. The fans' dissatisfaction was evident in their vocal reactions, which seemed to carry a mix of anger and sadness. Some fans even suggested that the team needed to make significant changes to improve their performance in future games. The Comets' coach was reportedly unavailable for comment, but the fans' strong reactions indicated that they were not pleased with the team's current state. The team's performance has left a bitter taste in the fans' mouths, and they are hoping for a better outcome in the upcoming matches.",
+  "request_bytes": 2394,
+  "review": [
+    "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+    "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+    "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+    "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 4980
+}

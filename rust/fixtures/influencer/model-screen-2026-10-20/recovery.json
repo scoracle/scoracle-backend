@@ -1,0 +1,5 @@
+{
+  "initial_run": "run",
+  "failure": "Ministral default Ollama ggml packaging cannot load in llama.cpp: tensor count mismatch",
+  "resolution": "Use the existing Ollama llama.cpp-specific language layer, same quantization; preserve initial results and continue other five models in run-next."
+}

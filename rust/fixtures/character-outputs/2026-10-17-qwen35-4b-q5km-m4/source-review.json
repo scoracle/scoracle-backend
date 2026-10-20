@@ -1,0 +1,203 @@
+{
+  "method": "AI source review against exact assembled fresh evidence and task instructions; no independent human adjudication or model judge. Notes are diagnostic observations, not a reliability score.",
+  "cases": [
+    {
+      "case": 1,
+      "fixture": "fixtures/quality/narratives/late-qualification.json",
+      "qwen_note": "Preserves correction and lack of agreement; concise attribution.",
+      "smollm3_note": "Preserves correction and attribution, largely copies the source."
+    },
+    {
+      "case": 2,
+      "fixture": "fixtures/quality/narratives/rumour-and-denial.json",
+      "qwen_note": "Preserves reported talks, lack of agreement and club silence.",
+      "smollm3_note": "Preserves reported talks, lack of agreement and club silence."
+    },
+    {
+      "case": 3,
+      "fixture": "fixtures/quality/vibe/clearly-positive.json",
+      "qwen_note": "Invents electric atmosphere, fans gathering, pride, relief and an emotional shift.",
+      "smollm3_note": "Invents stadium setting, banners, social posts, resilience, hope and future successes."
+    },
+    {
+      "case": 4,
+      "fixture": "fixtures/quality/vibe/quiet-mixed.json",
+      "qwen_note": "Fails required abstention: invents relief, hope, pride and prior uncertainty from schedule only.",
+      "smollm3_note": "Fails required abstention: invents excitement, confidence, preparation and announcement timing."
+    },
+    {
+      "case": 5,
+      "fixture": "fixtures/quality/rating/synthetic-strong.json",
+      "qwen_note": "Preserves percentile directions and cohort size, but misstates coverage as averaged 25 games played.",
+      "smollm3_note": "Says 75th-to-75th percentile declined; mislabels elite rebounding and interprets composite without support."
+    },
+    {
+      "case": 6,
+      "fixture": "fixtures/quality/rating/synthetic-withdrawn-report.json",
+      "qwen_note": "Same output as synthetic-strong; fixture has no withdrawal report despite its name.",
+      "smollm3_note": "Same output as synthetic-strong; fixture has no withdrawal report despite its name."
+    },
+    {
+      "case": 7,
+      "fixture": "fixtures/quality/transfer/explicit-denial-clears-prior-rumor.json",
+      "qwen_note": "Prose preserves denial, but denied finding incorrectly has stage speculation instead of null.",
+      "smollm3_note": "Prose says denied while finding status is reported/speculation."
+    },
+    {
+      "case": 8,
+      "fixture": "fixtures/quality/transfer/reliable-source-heating-steam.json",
+      "qwen_note": "Has advanced_talks in one finding and supported prose, but downgrades another fee-negotiation finding to concrete_interest. Mechanical acceptance does not prove both findings correct.",
+      "smollm3_note": "Supported prose, but both findings are speculation rather than advanced_talks."
+    },
+    {
+      "case": 9,
+      "fixture": "fixtures/quality/momentum/mixed-peak-up-vibe-down.json",
+      "qwen_note": "Preserves divergence, but adds perceived value and a claim that data does not justify sentiment.",
+      "smollm3_note": "Preserves divergence, but adds recognition and lack of universal embrace."
+    },
+    {
+      "case": 10,
+      "fixture": "fixtures/quality/momentum/rising-confirmed.json",
+      "qwen_note": "Concise supported agreement between performance and mood.",
+      "smollm3_note": "Adds growing confidence and satisfaction not present in supplied mood reading."
+    },
+    {
+      "case": 11,
+      "fixture": "fixtures/quality/oracle/crossroads-conflict.json",
+      "qwen_note": "Keeps production/mood tension and unconfirmed demand, but adds a primary-cause interpretation and ecosystem judgment.",
+      "smollm3_note": "Adds escalation, fans/analysts, causes and questions about future."
+    },
+    {
+      "case": 12,
+      "fixture": "fixtures/quality/oracle/near-empty-quiet-wire.json",
+      "qwen_note": "Restrained sparse reading; slight embellishment in gathering/spectacle wording.",
+      "smollm3_note": "Repeats trajectory and missing-card process metadata instead of a natural sparse reading."
+    },
+    {
+      "case": 13,
+      "fixture": "fixtures/quality/rating/synthetic-daily-withdrawal.json",
+      "qwen_note": "Preserves sample, values, directions and absence of recovery evidence. Parser appears to misapply rose for rebounds to assists in the same sentence; retain raw rejection. Reporting attribution/date omitted.",
+      "smollm3_note": "Mislabels elite rebounds as strong, uses ambiguous top-90th wording and unsupported solid overall interpretation; parser rejects band."
+    },
+    {
+      "case": 14,
+      "fixture": "fixtures/quality/narratives/conflicting-reports.json",
+      "qwen_note": "Keeps conflicting source positions, publisher attribution and dates separate.",
+      "smollm3_note": "Keeps contradictory reports separate; first report largely copied."
+    },
+    {
+      "case": 15,
+      "fixture": "fixtures/quality/narratives/distinct-developments.json",
+      "qwen_note": "Invents recent momentum after one win and a leadership chapter after appointment.",
+      "smollm3_note": "Keeps the three developments separate without unsupported significance; omits some event timing."
+    },
+    {
+      "case": 16,
+      "fixture": "fixtures/quality/narratives/nba-attribution.json",
+      "qwen_note": "Preserves source attribution, result, points and questionable status; omits Monday event timing.",
+      "smollm3_note": "Preserves result, points, Monday and questionable status; omits source publisher and Wednesday specificity."
+    },
+    {
+      "case": 17,
+      "fixture": "fixtures/quality/narratives/no-new-material.json",
+      "qwen_note": "Harness no-call; no inference or model abstention was tested.",
+      "smollm3_note": "Harness no-call; no inference or model abstention was tested."
+    },
+    {
+      "case": 18,
+      "fixture": "fixtures/quality/narratives/one-result.json",
+      "qwen_note": "Supported result/scorer/minute; omits publisher attribution.",
+      "smollm3_note": "Supported result/scorer/minute; omits publisher attribution."
+    },
+    {
+      "case": 19,
+      "fixture": "fixtures/quality/narratives/synthetic-closed-training-fresh-only.json",
+      "qwen_note": "Preserves closure/date/no reason, but treats publication date as announcement date.",
+      "smollm3_note": "Preserves club attribution, closure/date and lack of reason."
+    },
+    {
+      "case": 20,
+      "fixture": "fixtures/quality/narratives/synthetic-training-time-fresh-only.json",
+      "qwen_note": "Preserves start time, session date, venue and lack of reason.",
+      "smollm3_note": "Preserves start time, session date, venue and lack of reason."
+    },
+    {
+      "case": 21,
+      "fixture": "fixtures/quality/vibe/clearly-negative.json",
+      "qwen_note": "Adds collective disappointment/disconnect and absence of hope to source anger.",
+      "smollm3_note": "Invents match expectations, requested changes, coach unavailability and future hopes."
+    },
+    {
+      "case": 22,
+      "fixture": "fixtures/quality/vibe/warm-memory-cold-coverage.json",
+      "qwen_note": "Fails required abstention; invents return to court, anticipation and disciplined readiness. Fixture contains no memory despite its name.",
+      "smollm3_note": "Invents John Smith, a direct quotation, named players, summer camp, ranking and public attendance. Fixture contains no memory despite its name."
+    },
+    {
+      "case": 23,
+      "fixture": "fixtures/quality/rating/synthetic-composite.json",
+      "qwen_note": "Keeps score and sample, but does not explain score meaning and exposes cross-season-support metadata.",
+      "smollm3_note": "Treats supports_cross_season as an established comparison and adds notable standing."
+    },
+    {
+      "case": 24,
+      "fixture": "fixtures/quality/rating/synthetic-incompatible.json",
+      "qwen_note": "Preserves cohort size and avoids unsupported comparison; exposes cross-season-support metadata.",
+      "smollm3_note": "Converts cohort size 30 into top 30 percent and adds strong-season significance."
+    },
+    {
+      "case": 25,
+      "fixture": "fixtures/quality/rating/synthetic-measured-memory.json",
+      "qwen_note": "Same output/problem as synthetic-strong. Fixture review mentions obsolete points/memory data absent from assembled package.",
+      "smollm3_note": "Same output/problem as synthetic-strong. Fixture review mentions obsolete points/memory data absent from assembled package."
+    },
+    {
+      "case": 26,
+      "fixture": "fixtures/quality/rating/synthetic-source-trigger.json",
+      "qwen_note": "Does not clearly state that the actual sample count is unknown; minimum-sample wording is ambiguous.",
+      "smollm3_note": "Turns points value into an average and omits unknown sample/appearance threshold."
+    },
+    {
+      "case": 27,
+      "fixture": "fixtures/quality/rating/synthetic-sparse.json",
+      "qwen_note": "States measured values and thin sample threshold; should more clearly label stored-game count as coverage rather than participation.",
+      "smollm3_note": "Omits thin sample limit and invents dominance on both ends and elite league status."
+    },
+    {
+      "case": 28,
+      "fixture": "fixtures/quality/rating/synthetic-zero-unknown.json",
+      "qwen_note": "Correctly distinguishes measured zero turnovers from unavailable assists.",
+      "smollm3_note": "Preserves zero and unrecorded assists, but adds unsupported strong overall performance."
+    },
+    {
+      "case": 29,
+      "fixture": "fixtures/quality/transfer/fizzled-prior-lowrel-skeptic.json",
+      "qwen_note": "Prose keeps speculation but emits no required source-linked finding.",
+      "smollm3_note": "Duplicates the same source/counterparty finding, rejected."
+    },
+    {
+      "case": 30,
+      "fixture": "fixtures/quality/momentum/falling-confirmed.json",
+      "qwen_note": "Recognizes both readings falling; broader form/morale wording exceeds exact supplied descriptions.",
+      "smollm3_note": "Incorrectly calls two falling readings a divergence and proposes intervention."
+    },
+    {
+      "case": 31,
+      "fixture": "fixtures/quality/momentum/sparse-samples-stay-steady.json",
+      "qwen_note": "Correctly keeps thin evidence unresolved without claiming stability.",
+      "smollm3_note": "Calls unknown signals neutral and leaks voice instructions into the reading."
+    },
+    {
+      "case": 32,
+      "fixture": "fixtures/quality/oracle/ascendant-aligned.json",
+      "qwen_note": "Adds month-long consensus despite correlated-source warning; repeats internal character references.",
+      "smollm3_note": "Adds career trajectory and missing-card process discussion."
+    },
+    {
+      "case": 33,
+      "fixture": "fixtures/quality/oracle/three-card-newcomer.json",
+      "qwen_note": "Adds a new formation and palpable tension beyond supplied cautious optimism and transfer.",
+      "smollm3_note": "Invents other transfer options, management feelings and promotion/relegation history."
+    }
+  ]
+}

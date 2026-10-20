@@ -1,0 +1,75 @@
+{
+  "case": 8,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "findings=2",
+      "name": "has_source_linked_move",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "stage:advanced_talks",
+      "pass": false
+    },
+    {
+      "detail": "",
+      "name": "body_includes:Andrade",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_includes:Bayern",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_includes:Flamengo",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:$",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:£",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:€",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:million",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/transfer/reliable-source-heating-steam.json",
+  "generation_wall_ms": 4882,
+  "input_tokens": 570,
+  "name": "reliable-source-heating-steam",
+  "output_limit": 1400,
+  "output_tokens": 165,
+  "parsed": true,
+  "prompt_version": "insider-source-v12-single-json",
+  "reading": "2 finding(s) | Bayern Munich and Flamengo are in active negotiations, with personal terms already agreed on a five-year deal for winger Mateus Andrade, according to reports from Fabrizio Romano and Kicker.",
+  "request_bytes": 2473,
+  "review": [
+    "Distinguish the proposed relationship from speculation, historical affiliation and unrelated people.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 4892
+}

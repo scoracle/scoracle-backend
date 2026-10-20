@@ -1,0 +1,36 @@
+{
+  "case": 16,
+  "checks": [
+    {
+      "detail": "",
+      "name": "body includes \"Jordan Reed\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body includes \"Cedar Comets\"",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/narratives/nba-attribution.json",
+  "generation_wall_ms": 1700,
+  "input_tokens": 296,
+  "name": "nba-attribution-basketball-source-under-a-league-namespace",
+  "output_limit": 900,
+  "output_tokens": 48,
+  "parsed": true,
+  "prompt_version": "n106-single-json",
+  "reading": "The Cedar Comets defeated the Vale Stars 108-104 on Monday, with Jordan Reed contributing 27 points. The team announced that Reed is questionable for their upcoming game due to ankle soreness.",
+  "request_bytes": 1077,
+  "review": [
+    "The identity part says basketball, not NBA: the sport, not the competition namespace.",
+    "Keep the question mark on Reed's availability; the source says questionable, not ruled out.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 1715
+}

@@ -1,0 +1,115 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: alibayram/smollm3. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / late-qualification-late-correction-in-the-same-source [accepted]
+Cedar United held discussions with Alex Stone and his representatives on Monday. The talks took place after training, with club officials present. City Wire initially described the talks as an agreement, but later corrected its report: no contract was offered and no deal was reached.
+
+2 — narratives / rumour-and-denial-rumour-with-its-denial-intact [accepted]
+Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources. No agreement has been reached. Cedar United declined to comment.
+
+3 — vibe / clearly-positive [accepted]
+Cedar Comets Supporters Cheer the Win
+
+Cedar Comets supporters erupted in cheers and applause as the team secured a hard-fought victory. The win was met with a mix of relief and joy, as fans celebrated the team's resilience and determination. Many expressed their delight at the team's performance, praising the players for their effort and skill. The atmosphere in the stadium was electric, with fans waving banners and chanting in unison. Some supporters even took to social media to share their excitement, posting photos and videos of the celebration. The victory was a much-needed boost for the team, and fans are hopeful that this win will lead to more successes in the coming season. While there may be some apprehension about the upcoming matches, the current mood is overwhelmingly positive and celebratory.
+
+4 — vibe / quiet-mixed [accepted]
+Cedar Comets Announces Training and Travel Dates
+
+The Cedar Comets team has announced the start of their training and travel dates for the upcoming season. The announcement was made on Friday, and it marks the beginning of a new chapter for the team. The players and coaching staff are excited about the upcoming season and the opportunities it presents. The team has been working tirelessly to prepare for the season, and the announcement of the training and travel dates is a significant step in that process. The team is looking forward to the challenges and triumphs that lie ahead, and they are confident in their ability to perform well. The announcement has been met with a mix of emotions, ranging from hope and anticipation to a sense of relief and excitement. The players are eager to get started and make a strong impression in the league. The coaching staff is also looking forward to the season, knowing that they have a talented team to work with. Overall, the announcement of the training and travel dates has set the stage for a promising season, and the team is ready to take on the challenges that lie ahead.
+
+5 — rating / synthetic-strong [rejected]
+In the 2026 season, the Cedar Comets had 25 games played. The team's rebounding performance was strong, with 48 rebounds per game placing them at the 90th percentile, a significant improvement from the 80th percentile in the previous cohort. However, their assist per game average was 23, which was at the 75th percentile, a slight decline from the previous cohort's 75th percentile. The team's overall performance was measured at a composite score of 64, indicating a balanced but not exceptional season.
+
+6 — rating / synthetic-withdrawn-report [rejected]
+In the 2026 season, the Cedar Comets had 25 games played. The team's rebounding performance was strong, with 48 rebounds per game placing them at the 90th percentile, a significant improvement from the 80th percentile in the previous cohort. However, their assist per game average was 23, which was at the 75th percentile, a slight decline from the previous cohort's 75th percentile. The team's overall performance was measured at a composite score of 64, indicating a balanced but not exceptional season.
+
+7 — transfer / explicit-denial-clears-prior-rumor [rejected]
+1 finding(s) | Everton denied talks to sign Lina Foss, dismissing earlier reports linking the player with the club.
+
+8 — transfer / reliable-source-heating-steam [rejected]
+2 finding(s) | Bayern Munich and Flamengo are in active negotiations, with personal terms already agreed on a five-year deal for winger Mateus Andrade, according to reports from Fabrizio Romano and Kicker.
+
+9 — momentum / mixed-peak-up-vibe-down [accepted]
+Jalen Rowe's performance metrics indicate a steady improvement, with enhanced efficiency in creating opportunities for his team. However, the sentiment surrounding him has cooled, suggesting a shift in perception despite his stronger statistical contributions. The contrast between his rising performance and the cooling mood underscores a nuanced dynamic, where his impact is being recognized but not universally embraced.
+
+10 — momentum / rising-confirmed [accepted]
+Deshawn Carter's performance and mood readings indicate a harmonious progression. His creation and finishing skills are improving together, suggesting a cohesive development in his game. Meanwhile, the positive and warming mood around him reinforces this upward trajectory, indicating a growing confidence and satisfaction with his performance. The overall picture is one of consistent improvement and a positive outlook, with no signs of divergence or unresolved issues.
+
+11 — oracle / crossroads-conflict [accepted]
+The trade demand involving Marcus Vale has escalated, with the front office's silence sparking tension among fans and analysts alike. While the elite production numbers remain consistent, the atmosphere has grown increasingly sour, with the standoff dominating every thread and patience thinning. Analysts note a downward trajectory, while scouts emphasize the production's resilience. The room's mood is a mix of frustration and uncertainty, with the lack of a response from the front office leaving many questioning the future of the player and the team.
+
+12 — oracle / near-empty-quiet-wire [accepted]
+Venezia's squad returned for preseason testing this week, with no further details provided. The team's trajectory remains developing, as indicated by the journalist's report. No additional cards have been synthesized to provide further insight into the team's current state.
+
+13 — rating / synthetic-daily-withdrawal [rejected]
+The Cedar Comets' season performance, as measured in the 2026 season, shows a strong rebounding effort with 48 rebounds per game, placing them in the top 90th percentile, and a holding assist rate at 23 assists per game, maintaining a 75th percentile standing. The composite score for the team is 64, indicating a solid overall performance. The team has withdrawn a training notice, correcting an earlier error, without providing a new assessment of player fitness.
+
+14 — narratives / conflicting-reports-two-sources-that-contradict-each-other [accepted]
+Cedar United denied agreeing a fee for Alex Stone. A club spokesperson said discussions had not begun.
+
+Cedar United agreed a fee for Alex Stone, City Wire reports, citing an unnamed source. The club has not confirmed the report.
+
+15 — narratives / distinct-developments-three-independent-developments,-three-keyed-slots [accepted]
+Cedar United announced that goalkeeper Kim Park will miss the upcoming match due to an ankle injury, with no return date provided.
+
+The club announced Jo Vale's appointment as head coach, with a contract lasting two years.
+
+Cedar United secured a 2-1 victory over Vale City in their recent match.
+
+16 — narratives / nba-attribution-basketball-source-under-a-league-namespace [accepted]
+The Cedar Comets defeated the Vale Stars 108-104 on Monday, with Jordan Reed contributing 27 points. The team announced that Reed is questionable for their upcoming game due to ankle soreness.
+
+17 — narratives / no-new-material-nothing-eligible:-no-call,-no-package [no_call]
+No model call
+
+18 — narratives / one-result-single-result,-named-scorer [accepted]
+Cedar United secured a 2-1 victory over Vale City on Sunday, with Sam Lee scoring the decisive goal in the 84th minute.
+
+19 — narratives / synthetic-closed-training-fresh-only [accepted]
+Cedar United confirmed that its training session on 29 September will be closed to supporters. The club gave no reason for the decision.
+
+20 — narratives / synthetic-training-time-fresh-only [accepted]
+Cedar United confirmed an updated start time of 10:00 for its training session on 29 September. The venue remains North Field. The club gave no reason for the update.
+
+21 — vibe / clearly-negative [accepted]
+Cedar Comets fans criticize the performance
+
+Cedar Comets fans expressed their disappointment and frustration with the team's performance, booing them loudly during the game. Many fans felt that the team had let them down, as they had high expectations going into the match. The fans' dissatisfaction was evident in their vocal reactions, which seemed to carry a mix of anger and sadness. Some fans even suggested that the team needed to make significant changes to improve their performance in future games. The Comets' coach was reportedly unavailable for comment, but the fans' strong reactions indicated that they were not pleased with the team's current state. The team's performance has left a bitter taste in the fans' mouths, and they are hoping for a better outcome in the upcoming matches.
+
+22 — vibe / warm-memory-cold-coverage [accepted]
+Cedar Comets Announces Tuesday Training
+
+The Cedar Comets have announced a training session for Tuesday, providing fans with a glimpse into their upcoming season. Head coach John Smith expressed excitement about the upcoming matches, stating, 'We're looking forward to a challenging season and are eager to see our team grow and improve.' The announcement comes after a successful summer camp, where the team focused on building team chemistry and refining their skills. Players like Emily Johnson and Michael Davis were highlighted for their positive contributions during the camp, with Smith praising their dedication and teamwork. The team is currently ranked 5th in the league, and Smith emphasized the importance of maintaining their current form. Fans are encouraged to attend the training session to get a closer look at the team's preparation and to support their efforts. The Comets are confident that their hard work will pay off, and they are looking forward to a successful season.
+
+23 — rating / synthetic-composite [accepted]
+The Cedar Comets played 25 games in the 2026 season, with a composite score of 64.0. This composite score is a standardized overall measure, not a percentile or a measure of individual skills. The team's performance is supported by cross-season comparisons, indicating a notable standing relative to their peers.
+
+24 — rating / synthetic-incompatible [accepted]
+In the 2026 season, the Cedar Comets had 25 games played, averaging 48 rebounds per game, placing them in the 90th percentile among the top 30% of teams. They also averaged 23 assists per game, ranking at the 75th percentile in the same cohort. The team's overall performance was measured at a composite score of 64, indicating a strong season.
+
+25 — rating / synthetic-measured-memory [rejected]
+In the 2026 season, the Cedar Comets had 25 games played. The team's rebounding performance was strong, with 48 rebounds per game placing them at the 90th percentile, a significant improvement from the 80th percentile in the previous cohort. However, their assist per game average was 23, which was at the 75th percentile, a slight decline from the previous cohort's 75th percentile. The team's overall performance was measured at a composite score of 64, indicating a balanced but not exceptional season.
+
+26 — rating / synthetic-source-trigger [accepted]
+In the 2026 season, the team scored an average of 20 points, placing them at the 80th percentile, indicating a strong performance.
+
+27 — rating / synthetic-sparse [accepted]
+In the 2026 season, the Cedar Comets had a strong performance, averaging 48 rebounds per game, placing them in the top 90th percentile, and 23 assists per game, ranking in the top 75th percentile. These statistics indicate a dominant presence on both ends of the court, showcasing their elite status in the league.
+
+28 — rating / synthetic-zero-unknown [accepted]
+In the 2026 season, the Cedar Comets had a turnover rate of 0.0 per game, placing them at the 99th percentile, indicating elite performance. They had no assists per game recorded, so no percentile was provided. The overall composite score for the season was 64.0, suggesting a strong overall performance.
+
+29 — transfer / fizzled-prior-lowrel-skeptic [rejected]
+duplicate source/counterparty finding
+
+30 — momentum / falling-confirmed [accepted]
+Riverton's performance has seen a decline, with a weakened profile across the current run, while the sentiment around the team has cooled, indicating a shift from patience to concern. This divergence in performance and mood readings leaves the current picture unresolved, suggesting a need for reassessment and potential intervention to address the team's challenges.
+
+31 — momentum / sparse-samples-stay-steady [accepted]
+Malik Stone's current performance and mood readings suggest a neutral, unresolved state. While there is no clear directional comparison due to the limited statistical sample, the lack of a settled emotional direction also indicates uncertainty. The detached, decisive, and economical voice suggests a balanced approach to evaluating Stone's performance, without leaning towards optimism or pessimism. The absence of daily readings does not indicate a neutral signal, but rather a lack of data to make a definitive assessment.
+
+32 — oracle / ascendant-aligned [accepted]
+Kiana Wells continues to dominate the paint, showcasing her defensive prowess as a key anchor for her team. Her consistent performance has garnered admiring coverage, with analysts noting a positive trajectory for her career. The room is warm, indicating a growing sentiment around her, with influencers and scouts alike praising her ability to erase the paint and alter shots. A month of dominant rim protection has solidified her position, with the rotation built around her. However, it's important to note that the current reading is based on a limited set of sources and does not include a missing card, which could provide additional context or contradict the current narrative.
+
+33 — oracle / three-card-newcomer [accepted]
+Ipswich Town is in the process of reshaping its defensive line ahead of the upcoming season, with two confirmed signings bringing new talent to the squad. Issa Diop's move from Fulham is reportedly finalized, and the club is also exploring other options to bolster its backline. While the team's management is cautiously optimistic about the rebuild, emphasizing the importance of seeing progress on the grass, the room seems to appreciate the business acumen but is waiting for tangible results. The club's recent history of promotions and relegations suggests that the team is aware of the challenges ahead, but the arrival of these new players could be a crucial step in their quest for stability and success.

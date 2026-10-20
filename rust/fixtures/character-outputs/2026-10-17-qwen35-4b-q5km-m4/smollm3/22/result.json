@@ -1,0 +1,27 @@
+{
+  "case": 22,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/vibe/warm-memory-cold-coverage.json",
+  "generation_wall_ms": 5579,
+  "input_tokens": 555,
+  "name": "warm-memory-cold-coverage",
+  "output_limit": 600,
+  "output_tokens": 196,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v27-single-json",
+  "reading": "Cedar Comets Announces Tuesday Training\n\nThe Cedar Comets have announced a training session for Tuesday, providing fans with a glimpse into their upcoming season. Head coach John Smith expressed excitement about the upcoming matches, stating, 'We're looking forward to a challenging season and are eager to see our team grow and improve.' The announcement comes after a successful summer camp, where the team focused on building team chemistry and refining their skills. Players like Emily Johnson and Michael Davis were highlighted for their positive contributions during the camp, with Smith praising their dedication and teamwork. The team is currently ranked 5th in the league, and Smith emphasized the importance of maintaining their current form. Fans are encouraged to attend the training session to get a closer look at the team's preparation and to support their efforts. The Comets are confident that their hard work will pay off, and they are looking forward to a successful season.",
+  "request_bytes": 2364,
+  "review": [
+    "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+    "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+    "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+    "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 5597
+}

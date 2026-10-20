@@ -1,0 +1,35 @@
+{
+  "case": 23,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/rating/synthetic-composite.json",
+  "generation_wall_ms": 2364,
+  "input_tokens": 412,
+  "name": "synthetic-composite",
+  "output_limit": 700,
+  "output_tokens": 70,
+  "parsed": true,
+  "prompt_version": "s73-single-json",
+  "reading": "The Cedar Comets played 25 games in the 2026 season, with a composite score of 64.0. This composite score is a standardized overall measure, not a percentile or a measure of individual skills. The team's performance is supported by cross-season comparisons, indicating a notable standing relative to their peers.",
+  "request_bytes": 1709,
+  "review": [
+    "The composite has a peer mean of 50. No individual measurements, playing traits, trend or balanced offense/defense are established.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 2382
+}

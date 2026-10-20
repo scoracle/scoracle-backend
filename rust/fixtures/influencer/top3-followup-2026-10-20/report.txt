@@ -1,0 +1,44 @@
+Top-three common sports-emotion follow-up — 2026-10-20
+
+Qwen3.5-4B remains the first candidate; OmniDimen is second, Ministral third for this reading task. None is qualified as a factual free-form writer.
+
+282 scored-run calls: 47 cases x 3 models x 2 identical greedy passes. A separate incomplete setup pilot is excluded. Every matched-run completion reached EOS and satisfied the JSON output contract. Each model produced identical parsed outputs across the two passes, including its errors.
+
+FOCUS
+Hope, delight, relief, pride, confidence, excitement, frustration, disappointment, injury worry, selection pressure, concern and regret. Six cases each are positive, negative, mixed and abstention controls. No new sarcasm, grief, fear or source-injection stress cases. Category balance is diagnostic rather than a claim about real-world frequencies.
+
+RESULTS
+A case passes only if the expected decision/valence band passes in both runs. Prose source-support is a separate review. Four interpretive real cases are excluded from hard scores.
+
+Model             Common suite     Retained real     Combined     Warm median / P95
+qwen35            22/24            17/19             39/43        2.56s / 3.64s
+omnidimen         17/24            15/19             32/43        1.50s / 3.78s
+ministral3        10/24            16/19             26/43        1.40s / 2.95s
+
+COMMON-EMOTION BREAKDOWN
+Model             Positive /6     Negative /6     Mixed /6     Abstain /6
+qwen35             5               6               5            6
+omnidimen          4               3               5            5
+ministral3         3               0               2            5
+
+READING
+Qwen3.5 handled all six ordinary negative-emotion examples, versus three for OmniDimen and zero for Ministral. It still mistook low-intensity hope for mixed emotion, missed opposing coaches, and connected unrelated reporting to the target.
+OmniDimen missed explicit confidence, injury worry, selection pressure and regret. Its emotional fine-tuning did not improve coverage over its parent model in this task.
+Ministral often treated ordinary negative emotions as score 50 or abstained. Its faster median includes many short abstentions where another model supplied a reading.
+
+FACTUAL PROSE
+Correct scores do not imply faithful prose. Qwen3.5 added gendered pronouns in eight gender-unspecified synthetic cases; OmniDimen did so in three. All three invented a player affiliation in one real target-mismatch case. Other issues include invented roles, reasons, first names, speakers and confusing emotional change over time with contradiction. See manual-review.json for case IDs.
+
+METHOD AND LIMITS
+Same pinned Q4_K_M weights, llama.cpp build, 4096-token context, no thinking, temperature zero, seed 42, compact system prompt and production JSON schema as the previous final control. No prompt tuning between candidates. Latency covers warm completion prefill and decode, excludes load/template/application/DB overhead, and was measured with other local model services left resident.
+The 23 real cases reuse 21 retained classifier diagnostics plus an explicit-confidence target counterfactual and an injury-concern headline. They are not a random or independent real-news holdout. Only four of the 19 hard-scored real cases contain target emotion; keep this small denominator in mind. Four cases involving dispute wording, nickname resolution or injury-concern interpretation receive qualitative review only. Missing publication dates stay null.
+Labels are assistant-reviewed and provisional, not human gold. The matched suite follows a Qwen-only setup pilot that revealed an impossible basketball draw and an ambiguous relief target; both were corrected for every candidate, without changing the prompt. This is a prospective diagnostic comparison, not a blind holdout. No application routes, services or production records changed.
+
+FILES
+comparison.json: per-model metrics, misses, stability and timing.
+manual-review.json: prose-support findings, separately from decision checks.
+synthetic-cases.json and protocol.json: public test cases, frozen-input hash and method.
+Private real inputs, rendered prompts, raw replies, server logs and runner snapshot: /private/tmp/scoracle-emotion-top3-20261020/run-main/
+
+REPRODUCE FROM rust/
+python3 examples/emotion_model_screen.py /private/tmp/scoracle-emotion-top3-20261020/cases.json fixtures/influencer/top3-followup-2026-10-20/models.json /private/tmp/emotion-top3-repeat --repeats 2 --constrain-json

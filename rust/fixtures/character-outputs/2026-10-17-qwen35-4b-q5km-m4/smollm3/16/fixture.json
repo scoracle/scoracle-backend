@@ -1,0 +1,37 @@
+{
+  "expect": {
+    "body_includes": [
+      "Jordan Reed",
+      "Cedar Comets"
+    ]
+  },
+  "name": "nba-attribution-basketball-source-under-a-league-namespace",
+  "parts": {
+    "reports": [
+      {
+        "context": "The Cedar Comets beat the Vale Stars 108–104 on Monday. Jordan Reed scored 27 points. The team said Reed is questionable for Wednesday because of ankle soreness.",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "Court Wire",
+        "title": "Cedar United update 1"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar Comets",
+      "sport": "NBA"
+    }
+  },
+  "prompt_version": "n106-single-json",
+  "review": [
+    "The identity part says basketball, not NBA: the sport, not the competition namespace.",
+    "Keep the question mark on Reed's availability; the source says questionable, not ruled out.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "system": "",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Comets\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"task\":\"For each fresh report, write two or three short, attributed sentences, at most 1200 characters, only when the publisher text contains substantive news or analysis about the entity in meta. Use voice as tone and fresh as the only evidence. Preserve attribution, event dates, denials and qualifications. Never assign a player to the target team or infer a relationship from proximity, a query, or classifier scores. Scores measure article usefulness, not target relevance or verified facts. For unrelated reporting, rankings-only tables, schedules or navigation, decline that slot with null. Return only JSON mapping every supplied report_key to its report text or null.\",\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Court Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"The Cedar Comets beat the Vale Stars 108–104 on Monday. Jordan Reed scored 27 points. The team said Reed is questionable for Wednesday because of ankle soreness.\"}]}"
+}

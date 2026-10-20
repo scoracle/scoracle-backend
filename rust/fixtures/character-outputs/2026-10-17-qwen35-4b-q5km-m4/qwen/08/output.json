@@ -1,0 +1,19 @@
+{
+  "body": "Reports indicate Bayern Munich has opened formal negotiations with Flamengo for winger Mateus Andrade, with personal terms reportedly agreed upon for a five-year deal.",
+  "findings": [
+    {
+      "counterparty": "Flamengo",
+      "evidence_quote": "Bayern and Flamengo are negotiating the fee, with personal terms already agreed on a five-year deal for the winger.",
+      "report_index": 0,
+      "stage": "concrete_interest",
+      "status": "reported"
+    },
+    {
+      "counterparty": "Flamengo",
+      "evidence_quote": "Bayern's board have opened formal negotiations with Flamengo and see the Brazilian as their top target.",
+      "report_index": 1,
+      "stage": "advanced_talks",
+      "status": "reported"
+    }
+  ]
+}

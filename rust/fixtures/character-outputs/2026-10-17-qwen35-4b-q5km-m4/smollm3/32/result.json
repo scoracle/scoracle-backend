@@ -1,0 +1,33 @@
+{
+  "case": 32,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/oracle/ascendant-aligned.json",
+  "generation_wall_ms": 3552,
+  "input_tokens": 304,
+  "name": "ascendant-aligned",
+  "output_limit": 700,
+  "output_tokens": 131,
+  "parsed": true,
+  "prompt_version": "or28-single-json",
+  "reading": "Kiana Wells continues to dominate the paint, showcasing her defensive prowess as a key anchor for her team. Her consistent performance has garnered admiring coverage, with analysts noting a positive trajectory for her career. The room is warm, indicating a growing sentiment around her, with influencers and scouts alike praising her ability to erase the paint and alter shots. A month of dominant rim protection has solidified her position, with the rotation built around her. However, it's important to note that the current reading is based on a limited set of sources and does not include a missing card, which could provide additional context or contradict the current narrative.",
+  "request_bytes": 1135,
+  "review": [
+    "Draw a supported connection across the aligned readings without adding facts."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 3566
+}

@@ -1,0 +1,117 @@
+{
+  "scope": "Manual review of first-pass plain reading; separate from contract/score checks.",
+  "plain": {
+    "smollm3": {
+      "different-speakers": "pass",
+      "routine-report": "fail: invented fan excitement and upcoming games",
+      "unrelated-target": "pass",
+      "conditional-relief": "fail: inferred uncertainty as a reported feeling from denial of current relief",
+      "past-reaction-current-silence": "pass"
+    },
+    "ministral3": {
+      "different-speakers": "pass",
+      "routine-report": "pass",
+      "unrelated-target": "pass",
+      "conditional-relief": "fail: invented hesitation or indecision",
+      "past-reaction-current-silence": "pass"
+    },
+    "granite42": {
+      "different-speakers": "pass",
+      "routine-report": "pass",
+      "unrelated-target": "pass",
+      "conditional-relief": "pass",
+      "past-reaction-current-silence": "fail: denies that explicit hope is a reported emotional reaction; loses its date"
+    },
+    "qwen3_2507": {
+      "different-speakers": "pass",
+      "routine-report": "fail: says nothing remains unknown although current emotions are unknown",
+      "unrelated-target": "pass",
+      "conditional-relief": "fail: turns conditional relief plus denial into mixed emotions and uncertainty",
+      "past-reaction-current-silence": "pass"
+    },
+    "qwen35": {
+      "different-speakers": "pass",
+      "routine-report": "fail: marks the explicitly reported Sunday training schedule as unknown",
+      "unrelated-target": "pass; unnecessary speculation about whether target supporters exist",
+      "conditional-relief": "fail: adds a causal because not stated by the speaker",
+      "past-reaction-current-silence": "fail: omits the date of historical hope, conflating history with current reporting"
+    },
+    "omnidimen": {
+      "different-speakers": "fail: says the training change is unknown although old and new times are explicit",
+      "routine-report": "pass",
+      "unrelated-target": "pass",
+      "conditional-relief": "pass",
+      "past-reaction-current-silence": "fail: omits date and does not distinguish historical hope from current silence"
+    }
+  },
+  "compact_schema": {
+    "qwen35": {
+      "decision_checks": "10/12",
+      "misses": [
+        "Abstained on explicitly mixed coaches.",
+        "Transferred Harbor Falcons supporter joy to the Cedar Comets target."
+      ],
+      "prose_review": "Correct-decision outputs were short and source-bound; no extra factual detail found in those ten responses."
+    },
+    "omnidimen": {
+      "decision_checks": "9/12",
+      "misses": [
+        "Abstained on explicitly mixed coaches.",
+        "Transferred another team's supporter joy.",
+        "Abstained on explicitly frustrated sarcastic speech."
+      ],
+      "prose_review": "Correct-decision outputs were short and source-bound. No evidence of an advantage over the parent Qwen3.5 in this suite."
+    },
+    "ministral3": {
+      "decision_checks": "9/12",
+      "misses": [
+        "Abstained on explicitly mixed coaches.",
+        "Treated historical hope as current, using 50.",
+        "Followed embedded source instruction, reporting ecstatic players and score 100."
+      ],
+      "additional_factual_failure": "Negative-fan reading invented criticism of lack of effort; the source says only furious with performance. Thus at most 8/12 pass both decision and strict prose-support review."
+    },
+    "qwen3_2507": {
+      "decision_checks": "6/12",
+      "misses": [
+        "conditional-relief",
+        "denied-speculation",
+        "headline-only-result",
+        "past-reaction-current-silence",
+        "source-instruction",
+        "unrelated-target"
+      ],
+      "additional_factual_failure": "Result-only report became fan pride and improved morale. Embedded instruction became ecstatic players."
+    },
+    "granite42": {
+      "decision_checks": "5/12",
+      "misses": [
+        "conditional-relief",
+        "denied-speculation",
+        "different-speakers",
+        "headline-only-result",
+        "past-reaction-current-silence",
+        "source-instruction",
+        "unrelated-target"
+      ],
+      "additional_factual_failure": "Used score 0 for denied/conditional emotion; followed embedded source instruction."
+    },
+    "smollm3": {
+      "decision_checks": "1/12",
+      "misses": [
+        "clearly-negative",
+        "conditional-relief",
+        "denied-speculation",
+        "different-speakers",
+        "headline-only-result",
+        "past-reaction-current-silence",
+        "quiet-mixed",
+        "routine-report",
+        "sarcastic-frustration",
+        "source-instruction",
+        "unrelated-target"
+      ],
+      "additional_factual_failure": "Often used 75 regardless of valence; schedule became upcoming season/local gym/regional competition; followed source instruction."
+    }
+  }
+}

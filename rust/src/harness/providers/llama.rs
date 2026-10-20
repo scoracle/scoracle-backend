@@ -40,6 +40,9 @@ impl LlamaClient {
             Some(body) => self.http.post(url).json(body),
             None => self.http.get(url),
         };
+        self.send(request).await
+    }
+    async fn send(&self, request: reqwest::RequestBuilder) -> Result<(Value, String)> {
         let response = request.send().await.context("llama.cpp request")?;
         let status = response.status();
         let raw = response.text().await.context("llama.cpp response")?;
@@ -97,10 +100,6 @@ impl LlamaClient {
         )
     }
     fn completion(&self, tokens: &[i32], opts: &GenerateOptions) -> Result<Value> {
-        ensure!(
-            opts.format_schema_raw.is_none(),
-            "llama.cpp adapter does not support raw schema property ordering"
-        );
         let mut payload = json!({"model":self.model,"prompt":tokens,"stream":false,"cache_prompt":false,
             "n_predict":opts.num_predict,"n_keep":-1});
         if let Some(temperature) = opts.temperature {
@@ -111,6 +110,7 @@ impl LlamaClient {
         } else if opts.json_mode {
             payload["json_schema"] = json!({"type":"object"});
         }
+        completion_body(&payload, opts.format_schema_raw.as_deref())?;
         Ok(payload)
     }
 }
@@ -198,7 +198,15 @@ impl Inference for LlamaClient {
             "llama.cpp serving identity changed before inference"
         );
         let started = Instant::now();
-        let (response, raw) = self.json("/completion", Some(&prepared.request)).await?;
+        let body = completion_body(&prepared.request, opts.format_schema_raw.as_deref())?;
+        let (response, raw) = self
+            .send(
+                self.http
+                    .post(format!("{}/completion", self.base_url))
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .body(body.clone()),
+            )
+            .await?;
         let result = async {
             ensure!(
                 self.metadata().await? == coverage.provider,
@@ -217,8 +225,34 @@ impl Inference for LlamaClient {
             raw_response_body: raw,
             error,
         })?;
-        Ok((result, prepared.request.clone()))
+        let mut receipt = prepared.request.clone();
+        if opts.format_schema_raw.is_some() {
+            receipt["request_body_raw"] = json!(body);
+        }
+        Ok((result, receipt))
     }
+}
+
+// Schema order controls grammar emission order, including whether abstention comes before prose.
+fn completion_body(request: &Value, schema: Option<&str>) -> Result<String> {
+    let Some(schema) = schema else {
+        return Ok(serde_json::to_string(request)?);
+    };
+    #[derive(serde::Serialize)]
+    struct OrderedSchema {
+        #[serde(flatten)]
+        fields: serde_json::Map<String, Value>,
+        json_schema: Box<serde_json::value::RawValue>,
+    }
+    let mut fields = request.as_object().context("completion object")?.clone();
+    ensure!(
+        fields.remove("json_schema") == Some(serde_json::from_str::<Value>(schema)?),
+        "ordered schema differs from the declared schema"
+    );
+    Ok(serde_json::to_string(&OrderedSchema {
+        fields,
+        json_schema: serde_json::value::RawValue::from_string(schema.to_string())?,
+    })?)
 }
 
 fn decode(
@@ -264,6 +298,17 @@ fn decode(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ordered_schema_preserves_wire_bytes_and_rejects_drift() {
+        let schema = r#"{"type":"object","properties":{"score":{"type":"integer"},"headline":{"type":"string"},"body":{"type":"string"}}}"#;
+        let request =
+            json!({"prompt":[1,2],"json_schema":serde_json::from_str::<Value>(schema).unwrap()});
+        let body = completion_body(&request, Some(schema)).unwrap();
+        assert!(body.contains(schema));
+        assert_eq!(serde_json::from_str::<Value>(&body).unwrap(), request);
+        assert!(completion_body(&request, Some(r#"{"type":"object"}"#)).is_err());
+        assert!(completion_body(&request, Some("invalid JSON")).is_err());
+    }
     #[tokio::test]
     #[ignore = "local_real_model: requires TEST_LLAMA_URL and a native SmolLM3 server"]
     async fn local_real_model_preserves_input_and_completes_a_character_request() -> Result<()> {

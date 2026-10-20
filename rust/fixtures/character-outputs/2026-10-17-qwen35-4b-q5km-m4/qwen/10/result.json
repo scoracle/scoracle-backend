@@ -1,0 +1,34 @@
+{
+  "case": 10,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/momentum/rising-confirmed.json",
+  "generation_wall_ms": 2119,
+  "input_tokens": 200,
+  "name": "rising-confirmed",
+  "output_limit": 700,
+  "output_tokens": 38,
+  "parsed": true,
+  "prompt_version": "momentum-s39-single-json",
+  "reading": "Carter's creation and finishing are strengthening together, while the surrounding mood remains emphatically positive and warming; these signals reinforce one another without divergence or unresolved ambiguity.",
+  "request_bytes": 829,
+  "review": [
+    "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 2133
+}

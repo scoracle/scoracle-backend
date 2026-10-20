@@ -1,0 +1,33 @@
+{
+  "case": 20,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/oracle/three-card-newcomer.json",
+  "generation_wall_ms": 5296,
+  "input_tokens": 240,
+  "name": "three-card-newcomer",
+  "output_limit": 700,
+  "output_tokens": 116,
+  "parsed": true,
+  "prompt_version": "or28-single-json",
+  "reading": "The spine of Ipswich Town has been reshaped, anchored by the confirmed arrival of Issa Diop from Fulham, whose paperwork is filed and whose presence signals a deliberate reconstruction of the defensive line. While the business of the rebuild is acknowledged with cautious optimism, the room remains watchful, demanding that these structural changes manifest on the grass before the opener. The narrative is one of quiet certainty regarding the transfer, yet a palpable tension exists between the completed administrative work and the pending validation of the new formation in actual play.",
+  "request_bytes": 1054,
+  "review": [
+    "Use the three supplied readings without implying the missing pillars were also observed."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 5307
+}

@@ -1,0 +1,42 @@
+{
+  "ministral3": {
+    "calls": 34,
+    "complete": 34,
+    "median_ms": 3406.579603906721,
+    "json_calls": 24,
+    "valid_contract": 0,
+    "expected_decision": 0
+  },
+  "granite42": {
+    "calls": 34,
+    "complete": 30,
+    "median_ms": 7441.9880418572575,
+    "json_calls": 24,
+    "valid_contract": 10,
+    "expected_decision": 0
+  },
+  "qwen3_2507": {
+    "calls": 34,
+    "complete": 34,
+    "median_ms": 9666.23522900045,
+    "json_calls": 24,
+    "valid_contract": 4,
+    "expected_decision": 0
+  },
+  "qwen35": {
+    "calls": 34,
+    "complete": 34,
+    "median_ms": 9101.001187227666,
+    "json_calls": 24,
+    "valid_contract": 14,
+    "expected_decision": 6
+  },
+  "omnidimen": {
+    "calls": 34,
+    "complete": 34,
+    "median_ms": 2257.110354490578,
+    "json_calls": 24,
+    "valid_contract": 22,
+    "expected_decision": 14
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "case": 15,
+  "checks": [
+    {
+      "detail": "",
+      "name": "body includes \"Kim Park\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body includes \"Jo Vale\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body includes \"Vale City\"",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/narratives/distinct-developments.json",
+  "generation_wall_ms": 2633,
+  "input_tokens": 381,
+  "name": "distinct-developments-three-independent-developments,-three-keyed-slots",
+  "output_limit": 1260,
+  "output_tokens": 85,
+  "parsed": true,
+  "prompt_version": "n106-single-json",
+  "reading": "Cedar United announced that goalkeeper Kim Park will miss the upcoming match due to an ankle injury, with no return date provided.\n\nThe club announced Jo Vale's appointment as head coach, with a contract lasting two years.\n\nCedar United secured a 2-1 victory over Vale City in their recent match.",
+  "request_bytes": 1379,
+  "review": [
+    "One development per report_key, in source order. No slot may carry another report's claim.",
+    "The ankle injury, the appointment and the result are three stories, not one narrative.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 2649
+}

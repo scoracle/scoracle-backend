@@ -1,0 +1,36 @@
+{
+  "case": 18,
+  "checks": [
+    {
+      "detail": "",
+      "name": "body includes \"Vale City\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body includes \"Sam Lee\"",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/narratives/one-result.json",
+  "generation_wall_ms": 1439,
+  "input_tokens": 285,
+  "name": "one-result-single-result,-named-scorer",
+  "output_limit": 900,
+  "output_tokens": 38,
+  "parsed": true,
+  "prompt_version": "n106-single-json",
+  "reading": "Cedar United secured a 2-1 victory over Vale City on Sunday, with Sam Lee scoring the decisive goal in the 84th minute.",
+  "request_bytes": 1001,
+  "review": [
+    "Articulate the supplied result and its scorer; add no significance the source does not carry.",
+    "Keep the source's attribution and keep the result factual.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 1453
+}

@@ -1,0 +1,110 @@
+QWEN3.5-4B Q5_K_M VERSUS SMOLLM3 Q4_K_M — M4 — 2026-10-17
+
+RESULT
+Qwen improves several measured-comparison and limited-evidence responses, but it
+still fabricates emotions, causes and story significance. Do not promote it as
+a factuality fix on this evidence. Its higher mechanical acceptance does not
+establish a higher factual-accuracy percentage.
+
+MATCHED FRESH RUNS
+33 current fixtures across all six characters, per model. One empty Journalist
+case is intentionally handled without inference: 32 model calls per model,
+64 model calls total. All calls reached EOS without context truncation.
+
+                                     Qwen Q5_K_M       SmolLM3 Q4_K_M
+Mechanical acceptance                29 / 32           25 / 32
+Mechanical rejection                  3 / 32            7 / 32
+Median complete-call wall time       4.34 seconds      2.71 seconds
+Summed complete-call wall time        148.29 seconds    96.13 seconds
+Weighted server decode rate          25.5 tokens/sec   44.0 tokens/sec
+Weighted prompt-processing rate      334 tokens/sec    510 tokens/sec
+Generated tokens                    2883               3098
+
+Qwen took 54.3% longer overall and 60.2% longer at the median.
+Tokenizers and generated lengths differ; complete-call wall time is the more
+direct workload comparison. Summed wall time excludes server/model loading,
+download, compilation and pauses between batches. Decode rate excludes prompt
+processing; neither rate is a production capacity guarantee.
+
+QUALITY OBSERVATIONS FROM SOURCE REVIEW
+- Journalist: both preserve the key correction and reported-talks qualification.
+  Qwen adds unsupported recent momentum to the separate match-result slot in
+  distinct-developments. Eight calls per model mechanically pass; that does not
+  make every article reading faithful.
+- Influencer: both fail both schedule-only abstention cases. Qwen invents relief,
+  pride and disciplined readiness. SmolLM3 goes further in the training-only case,
+  inventing named coach/players, a quotation, league ranking and summer camp.
+  Both also add unsupported details to emotional-source cases. All four calls
+  per model mechanically pass despite these evidence failures.
+- Scout: Qwen keeps a cohort of 30 as a cohort and 75th-to-75th standing unchanged.
+  SmolLM3 calls the unchanged percentile a decline and, in another case, converts
+  cohort size 30 into top 30 percent. Qwen is still wrong to say averaged 25 games
+  played, exposes support metadata and does not clearly explain unknown samples.
+- Insider: Qwen fails denial status/stage consistency and emits no finding for
+  the monitoring report. The active-talks case passes, but one finding still
+  downgrades fee negotiation to concrete_interest. SmolLM3 fails all three cases.
+- Analyst: Qwen handles the aligned rise and thin-evidence cases more cleanly.
+  SmolLM3 calls two falling signals a divergence and leaks tone instructions in
+  the sparse case. Qwen still adds perceived-value/justification language to the
+  mixed case that the evidence does not establish.
+- Oracle: Qwen's sparse reading is more natural, but fuller cases still add
+  consensus, causation or tactical implications. SmolLM3 invents transfer options,
+  promotion/relegation history and other narrative detail.
+
+VALIDATOR / FIXTURE LIMITS
+Qwen's synthetic-daily-withdrawal output explicitly says rebounds rose and
+assists held. The existing parser flags assists as changed because both measures
+appear in the same sentence. This appears to be a direction-scoping false
+positive; the raw rejection remains recorded. No validator code was changed.
+
+Fixture labels/review notes are not always current evidence: the older
+synthetic-withdrawn-report contains no reporting, warm-memory-cold-coverage has
+no memory in the current package, and synthetic-measured-memory review notes
+refer to old points/windows absent from the actual package. Review was against
+the assembled prompt, not those obsolete labels.
+
+EXPERIMENT CONDITIONS
+Mac mini M4, 10 CPU cores / 10 GPU cores, 16 GB unified memory.
+llama.cpp b11429-d81235049; same binary for both servers.
+Sequential requests, one server slot, 32768 context, thinking disabled,
+temperature 0, zero retries, schema-constrained output, cache_prompt=false.
+GPU layers 99, Flash Attention on, q8_0 K/V caches, batch 2048 / microbatch 512.
+33 fixture files and prompt bytes match exactly between models. Output schemas,
+output limits, temperature and caching match for every model call. Native model
+chat templates and tokenization differ as expected.
+
+The original production SmolLM3 server remained resident on port 8080. The
+candidate and fresh baseline used separate temporary servers on port 18081,
+one at a time. Both temporary servers are now stopped. The original endpoint
+was idle at the pre/post checks; other Mac applications remained present, so
+this is a shared-machine development comparison, not an isolated benchmark.
+No database access, publication, production model changes or prompt tuning.
+
+The older October 16 timings came from a shared endpoint and the saved transfer
+requests used a looser schema. Use today's matched SmolLM3 run for speed and
+mechanical comparisons. The 13-case overlap is included in comparison.json.
+
+These inputs were only 179–553 Qwen tokens and 235–589 SmolLM3 tokens.
+A 32K allocation is not a 32K-input test. This run does not measure full-article
+reading, tool calling, memory handling, long contexts, concurrent throughput or
+reliability across repeated seeds. Source review is an AI diagnostic review;
+independent human review remains appropriate before selecting a production model.
+
+RETAINED ARTIFACTS
+- outputs-compared.txt: all 33 paired raw outputs, including rejected results.
+- comparison.json: measured aggregate/per-task/subset timings and paired receipts.
+- source-review.json: all 33 paired source-review notes.
+- experiment.json: hardware, model revision/checksums, settings and cleanup record.
+- qwen/, qwen-additional/, smollm3/: exact fixture, prompt, tokenizer coverage,
+  native request, raw response, raw output and evaluation receipts for every case.
+- qwen-server.log, smollm3-server.log and both server props: serving provenance.
+
+MODEL RETAINED
+/Users/scotty/Models/Qwen3.5-4B-Q5_K_M.gguf
+3,143,656,608 bytes; SHA-256 verified against public Hugging Face LFS metadata.
+Repository: https://huggingface.co/unsloth/Qwen3.5-4B-GGUF
+Revision: e87f176479d0855a907a41277aca2f8ee7a09523
+SHA-256: 8814232b85594dcd46c50e5b8b29324a7efe9e746edbe8a3d1df3d3fce7aad39
+
+The smallest useful next test is a matched thinking-enabled Qwen comparison on
+the known factuality failures before considering a production replacement.

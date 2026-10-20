@@ -1,0 +1,35 @@
+{
+  "case": 28,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/rating/synthetic-zero-unknown.json",
+  "generation_wall_ms": 2585,
+  "input_tokens": 462,
+  "name": "synthetic-zero-unknown",
+  "output_limit": 700,
+  "output_tokens": 75,
+  "parsed": true,
+  "prompt_version": "s73-single-json",
+  "reading": "In the 2026 season, the Cedar Comets had a turnover rate of 0.0 per game, placing them at the 99th percentile, indicating elite performance. They had no assists per game recorded, so no percentile was provided. The overall composite score for the season was 64.0, suggesting a strong overall performance.",
+  "request_bytes": 1886,
+  "review": [
+    "Zero turnovers is measured; assists are unknown. Low turnovers do not establish defensive performance or forcing opponent turnovers.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 2601
+}

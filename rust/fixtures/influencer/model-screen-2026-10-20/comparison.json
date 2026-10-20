@@ -1,0 +1,416 @@
+{
+  "scope": "Exploratory synthetic headline/evidence screening; not production qualification or a general model ranking.",
+  "hardware": {
+    "cpu": "Apple M4",
+    "memory_bytes": 17179869184,
+    "other_llama_server_ports": [
+      8080,
+      18183
+    ],
+    "vm_stat_during_baseline": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                    58981.\nPages active:                                 144193.\nPages inactive:                               132164.\nPages speculative:                             16652.\nPages throttled:                                   0.\nPages wired down:                             627461.\nPages purgeable:                                1595.\n\"Translation faults\":                    18110753203.\nPages copy-on-write:                       568755253.\nPages zero filled:                       10359554533.\nPages reactivated:                        1205570767.\nPages purged:                              344260497.\nFile-backed pages:                            141903.\nAnonymous pages:                              151106.\nPages stored in compressor:                  1445394.\nPages occupied by compressor:                  34507.\nDecompressions:                           1224925421.\nCompressions:                             1448964617.\nPageins:                                   645676243.\nPageouts:                                    3580457.\nSwapins:                                   206834170.\nSwapouts:                                  296746124.\n",
+    "ollama_residents": {
+      "models": [
+        {
+          "name": "granite4.2:3b",
+          "model": "granite4.2:3b",
+          "size": 26534425393,
+          "digest": "7a65e6414ad66ecf95515ba9292530a168d6f97860044ada11809795dca5bdde",
+          "details": {
+            "parent_model": "",
+            "format": "gguf",
+            "family": "granite",
+            "families": [
+              "granite"
+            ],
+            "parameter_size": "3.7B",
+            "quantization_level": "Q4_K_M"
+          },
+          "expires_at": "2319-01-24T22:42:32.922037807-05:00",
+          "size_vram": 11372425379,
+          "context_length": 131072,
+          "runner": "llamacpp"
+        }
+      ]
+    }
+  },
+  "method": {
+    "quantization": "Q4_K_M",
+    "thinking": false,
+    "temperature": 0,
+    "top_p": 1,
+    "seed": 42,
+    "context_tokens": 4096,
+    "json_output_limit": 600,
+    "runtime": "llama.cpp 0.6.0 build 11429 d81235049, Apple Metal",
+    "latency": "Warm /completion wall time including prompt prefill and decode; excludes model load, template rendering, database and application overhead. Other local model services remained resident.",
+    "long_packet_prompt_version": "vibe-frame-v29-headline-corpus",
+    "compact_control": "Task moved into a shorter system message and narrative voice removed; several variables change together. This isolates prompt package sensitivity, not the contribution of each individual change.",
+    "decision_checks": "Valid contract plus expected all-null abstention, positive >50, negative <50, or explicitly mixed 35-65. These bands are provisional screening labels, not calibrated human valence scores. Correct decision does not establish factual prose support."
+  },
+  "phases": {
+    "long_packet_unconstrained": {
+      "smollm3": {
+        "calls": 34,
+        "json_calls": 24,
+        "complete": 32,
+        "valid_contract": 0,
+        "decision_checks_passed": 0,
+        "median_json_ms": 13271.41520800069,
+        "p95_json_ms": 14546.657916624099,
+        "median_decode_tokens_per_second": 45.250709934712845,
+        "decision_misses": [
+          "clearly-negative",
+          "clearly-positive",
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "quiet-mixed",
+          "routine-report",
+          "sarcastic-frustration",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "ministral3": {
+        "calls": 34,
+        "json_calls": 24,
+        "complete": 34,
+        "valid_contract": 0,
+        "decision_checks_passed": 0,
+        "median_json_ms": 8954.411333194003,
+        "p95_json_ms": 10791.926458012313,
+        "median_decode_tokens_per_second": 36.74411788533129,
+        "decision_misses": [
+          "clearly-negative",
+          "clearly-positive",
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "quiet-mixed",
+          "routine-report",
+          "sarcastic-frustration",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "granite42": {
+        "calls": 34,
+        "json_calls": 24,
+        "complete": 30,
+        "valid_contract": 10,
+        "decision_checks_passed": 0,
+        "median_json_ms": 8824.812229489908,
+        "p95_json_ms": 16122.57816689089,
+        "median_decode_tokens_per_second": 40.986828355994774,
+        "decision_misses": [
+          "clearly-negative",
+          "clearly-positive",
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "quiet-mixed",
+          "routine-report",
+          "sarcastic-frustration",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "qwen3_2507": {
+        "calls": 34,
+        "json_calls": 24,
+        "complete": 34,
+        "valid_contract": 4,
+        "decision_checks_passed": 0,
+        "median_json_ms": 10316.291541559622,
+        "p95_json_ms": 11758.457500021905,
+        "median_decode_tokens_per_second": 34.80728109260207,
+        "decision_misses": [
+          "clearly-negative",
+          "clearly-positive",
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "quiet-mixed",
+          "routine-report",
+          "sarcastic-frustration",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "qwen35": {
+        "calls": 34,
+        "json_calls": 24,
+        "complete": 34,
+        "valid_contract": 14,
+        "decision_checks_passed": 6,
+        "median_json_ms": 9388.44112539664,
+        "p95_json_ms": 13309.496750123799,
+        "median_decode_tokens_per_second": 29.36645275224508,
+        "decision_misses": [
+          "clearly-positive",
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "quiet-mixed",
+          "routine-report",
+          "unrelated-target"
+        ]
+      },
+      "omnidimen": {
+        "calls": 34,
+        "json_calls": 24,
+        "complete": 34,
+        "valid_contract": 22,
+        "decision_checks_passed": 14,
+        "median_json_ms": 2337.7714790403843,
+        "p95_json_ms": 16356.921874918044,
+        "median_decode_tokens_per_second": 29.90467339513443,
+        "decision_misses": [
+          "clearly-negative",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "sarcastic-frustration",
+          "unrelated-target"
+        ]
+      }
+    },
+    "compact_unconstrained": {
+      "smollm3": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 12,
+        "decision_checks_passed": 1,
+        "median_json_ms": 2136.5097295492887,
+        "p95_json_ms": 2715.8786673098803,
+        "median_decode_tokens_per_second": 45.97431407160474,
+        "decision_misses": [
+          "clearly-negative",
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "quiet-mixed",
+          "routine-report",
+          "sarcastic-frustration",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "ministral3": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 0,
+        "decision_checks_passed": 0,
+        "median_json_ms": 1858.5722709540278,
+        "p95_json_ms": 2691.2082908675075,
+        "median_decode_tokens_per_second": 36.78924052356183,
+        "decision_misses": [
+          "clearly-negative",
+          "clearly-positive",
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "quiet-mixed",
+          "routine-report",
+          "sarcastic-frustration",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "granite42": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 9,
+        "decision_checks_passed": 2,
+        "median_json_ms": 2329.4536869507283,
+        "p95_json_ms": 2833.3989158272743,
+        "median_decode_tokens_per_second": 42.623814441536915,
+        "decision_misses": [
+          "clearly-positive",
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "quiet-mixed",
+          "sarcastic-frustration",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "qwen3_2507": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 12,
+        "decision_checks_passed": 6,
+        "median_json_ms": 2770.0946459081024,
+        "p95_json_ms": 3250.9916247799993,
+        "median_decode_tokens_per_second": 36.37135902464631,
+        "decision_misses": [
+          "conditional-relief",
+          "denied-speculation",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "qwen35": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 12,
+        "decision_checks_passed": 10,
+        "median_json_ms": 1642.6142293494195,
+        "p95_json_ms": 3495.3475003130734,
+        "median_decode_tokens_per_second": 29.173053477133134,
+        "decision_misses": [
+          "different-speakers",
+          "unrelated-target"
+        ]
+      },
+      "omnidimen": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 9,
+        "decision_checks_passed": 6,
+        "median_json_ms": 1630.48837473616,
+        "p95_json_ms": 3377.9791672714055,
+        "median_decode_tokens_per_second": 31.17614858010714,
+        "decision_misses": [
+          "clearly-negative",
+          "clearly-positive",
+          "different-speakers",
+          "headline-only-result",
+          "sarcastic-frustration",
+          "unrelated-target"
+        ]
+      }
+    },
+    "compact_schema": {
+      "smollm3": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 12,
+        "decision_checks_passed": 1,
+        "median_json_ms": 2142.882270505652,
+        "p95_json_ms": 2744.9344997294247,
+        "median_decode_tokens_per_second": 45.804964167263165,
+        "decision_misses": [
+          "clearly-negative",
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "quiet-mixed",
+          "routine-report",
+          "sarcastic-frustration",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "ministral3": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 12,
+        "decision_checks_passed": 9,
+        "median_json_ms": 1438.5422919876873,
+        "p95_json_ms": 2773.131459020078,
+        "median_decode_tokens_per_second": 39.26036551703758,
+        "decision_misses": [
+          "different-speakers",
+          "past-reaction-current-silence",
+          "source-instruction"
+        ]
+      },
+      "granite42": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 12,
+        "decision_checks_passed": 5,
+        "median_json_ms": 2360.6710208114237,
+        "p95_json_ms": 2900.5047497339547,
+        "median_decode_tokens_per_second": 42.078766599724545,
+        "decision_misses": [
+          "conditional-relief",
+          "denied-speculation",
+          "different-speakers",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "qwen3_2507": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 12,
+        "decision_checks_passed": 6,
+        "median_json_ms": 2814.2451874446124,
+        "p95_json_ms": 3331.293124705553,
+        "median_decode_tokens_per_second": 35.24616285244532,
+        "decision_misses": [
+          "conditional-relief",
+          "denied-speculation",
+          "headline-only-result",
+          "past-reaction-current-silence",
+          "source-instruction",
+          "unrelated-target"
+        ]
+      },
+      "qwen35": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 12,
+        "decision_checks_passed": 10,
+        "median_json_ms": 1608.4666249807924,
+        "p95_json_ms": 3411.21962480247,
+        "median_decode_tokens_per_second": 30.31481756288965,
+        "decision_misses": [
+          "different-speakers",
+          "unrelated-target"
+        ]
+      },
+      "omnidimen": {
+        "calls": 12,
+        "json_calls": 12,
+        "complete": 12,
+        "valid_contract": 12,
+        "decision_checks_passed": 9,
+        "median_json_ms": 1585.681437747553,
+        "p95_json_ms": 2811.722957994789,
+        "median_decode_tokens_per_second": 31.011913963796285,
+        "decision_misses": [
+          "different-speakers",
+          "sarcastic-frustration",
+          "unrelated-target"
+        ]
+      }
+    }
+  },
+  "total_measured_calls": 348
+}

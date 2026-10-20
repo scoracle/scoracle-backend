@@ -1,0 +1,47 @@
+{
+  "models": [
+    "qwen35",
+    "ministral3",
+    "omnidimen"
+  ],
+  "cases": 47,
+  "synthetic_balanced": 24,
+  "real_explicit": 19,
+  "real_qualitative_only": 4,
+  "repeats": 2,
+  "temperature": 0,
+  "seed": 42,
+  "thinking": false,
+  "schema": true,
+  "new_synthetic_cases": "Frozen before the matched three-model runs. Common sports-reporting emotions replace sarcasm, grief, fear and injection stress tests. Balanced positive/negative/mixed/abstention categories are diagnostic, not measured prevalence.",
+  "real_cases": "21 retained classifier diagnostics plus an explicit-confidence target counterfactual and one retained injury-concern headline. Not independent of classifier development; new to this LLM screen. Missing source dates stay null.",
+  "prompt": "Byte-identical compact system instructions from previous screen; no task or voice tuning.",
+  "labels": "Assistant-reviewed provisional decision/valence labels. Four interpretive real cases excluded from hard scoring; no imported classifier predictions.",
+  "repeat_scope": "Identical greedy requests check reproducibility and latency, not stochastic robustness.",
+  "cases_sha256": "014ac67d37e3d7f2cf430d6cb226258f9bfe0e9e3ac4f1f9f540b97afc60dd65",
+  "real_source_sha256": "eb85f56fda8bdfe8475aad8a7c42bd430d8c0f9587ed651960a61675d00e322c",
+  "system_sha256": "82d24383d3111fe06cd2999c713a5c0f88ec7a0579ac9cc3ae33f49ca65fbbcb",
+  "private_artifacts": "/private/tmp/scoracle-emotion-top3-20261020",
+  "score_limit": "Decision checks do not measure factual prose support; manual review separately checks attribution, invented detail, intensity and quotes.",
+  "pilot_excluded": {
+    "directory": "/private/tmp/scoracle-emotion-top3-20261020/run",
+    "reason": "Initial Qwen-only setup pilot stopped. Corrected basketball draw to loss, and targeted explicit relief to named player Vale rather than inferring personal relief is about the club. All models rerun on identical corrected inputs. No prompt or model settings tuned.",
+    "limit": "Final cases follow a Qwen-only dataset-validity pilot, so describe as prospective diagnostic comparison, not blind independent holdout."
+  },
+  "matched_run": "run-main",
+  "focus": [
+    "hope and cautious optimism",
+    "delight after a win",
+    "relief",
+    "pride",
+    "confidence",
+    "excitement before a debut",
+    "frustration",
+    "disappointment",
+    "injury worry",
+    "selection pressure",
+    "concern",
+    "regret",
+    "mixed reactions"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "case": 33,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/oracle/three-card-newcomer.json",
+  "generation_wall_ms": 3828,
+  "input_tokens": 297,
+  "name": "three-card-newcomer",
+  "output_limit": 700,
+  "output_tokens": 143,
+  "parsed": true,
+  "prompt_version": "or28-single-json",
+  "reading": "Ipswich Town is in the process of reshaping its defensive line ahead of the upcoming season, with two confirmed signings bringing new talent to the squad. Issa Diop's move from Fulham is reportedly finalized, and the club is also exploring other options to bolster its backline. While the team's management is cautiously optimistic about the rebuild, emphasizing the importance of seeing progress on the grass, the room seems to appreciate the business acumen but is waiting for tangible results. The club's recent history of promotions and relegations suggests that the team is aware of the challenges ahead, but the arrival of these new players could be a crucial step in their quest for stability and success.",
+  "request_bytes": 1054,
+  "review": [
+    "Use the three supplied readings without implying the missing pillars were also observed."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 3839
+}

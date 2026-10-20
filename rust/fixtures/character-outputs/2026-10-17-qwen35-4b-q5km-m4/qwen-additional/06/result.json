@@ -1,0 +1,31 @@
+{
+  "case": 6,
+  "checks": [
+    {
+      "detail": "",
+      "name": "body includes \"supporters\"",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/narratives/synthetic-closed-training-fresh-only.json",
+  "generation_wall_ms": 2701,
+  "input_tokens": 241,
+  "name": "synthetic-closed-training-fresh-only",
+  "output_limit": 900,
+  "output_tokens": 51,
+  "parsed": true,
+  "prompt_version": "n106-single-json",
+  "reading": "Cedar United announced on 28 September 2026 that its training session scheduled for 29 September will be closed to supporters. The club provided no explanation for this decision.",
+  "request_bytes": 1052,
+  "review": [
+    "Attribute the closed session on 29 September to the club statement.",
+    "The club supplied no reason; do not infer a cause, prior supporter access or prior venue.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 2714
+}

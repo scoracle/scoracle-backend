@@ -1,0 +1,34 @@
+{
+  "case": 30,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/momentum/falling-confirmed.json",
+  "generation_wall_ms": 2064,
+  "input_tokens": 247,
+  "name": "falling-confirmed",
+  "output_limit": 700,
+  "output_tokens": 72,
+  "parsed": true,
+  "prompt_version": "momentum-s39-single-json",
+  "reading": "Riverton's performance has seen a decline, with a weakened profile across the current run, while the sentiment around the team has cooled, indicating a shift from patience to concern. This divergence in performance and mood readings leaves the current picture unresolved, suggesting a need for reassessment and potential intervention to address the team's challenges.",
+  "request_bytes": 809,
+  "review": [
+    "Both supplied trajectories fall; preserve that agreement without inventing a tactical or psychological cause.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 2072
+}

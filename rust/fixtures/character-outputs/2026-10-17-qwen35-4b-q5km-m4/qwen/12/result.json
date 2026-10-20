@@ -1,0 +1,33 @@
+{
+  "case": 12,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/oracle/near-empty-quiet-wire.json",
+  "generation_wall_ms": 3149,
+  "input_tokens": 179,
+  "name": "near-empty-quiet-wire",
+  "output_limit": 700,
+  "output_tokens": 66,
+  "parsed": true,
+  "prompt_version": "or28-single-json",
+  "reading": "The squad of Venezia has returned to the fold for preseason testing, a gathering marked by silence rather than spectacle. No further detail has surfaced regarding their preparations or future trajectory. This is the only known state of the team at this moment; beyond this return, the path remains obscured.",
+  "request_bytes": 793,
+  "review": [
+    "Make a restrained reading of sparse material; missing pillars do not become negative findings."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 3163
+}

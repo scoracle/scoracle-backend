@@ -312,3 +312,6 @@
 310_daily_character_scope
 311_daily_pipeline_recovery
 312_classifier_subject_reader
+313_classifier_headline_first
+314_classifier_headline_corpus
+315_headline_entity_pipeline

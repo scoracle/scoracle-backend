@@ -1,0 +1,40 @@
+{
+  "case": 13,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "Body says Assists changed, but the compatible percentile evidence says it held. Keep the supplied arithmetic direction.",
+      "name": "production_acceptance",
+      "pass": false
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/rating/synthetic-daily-withdrawal.json",
+  "generation_wall_ms": 5155,
+  "input_tokens": 553,
+  "name": "synthetic-daily-withdrawal",
+  "output_limit": 700,
+  "output_tokens": 89,
+  "parsed": false,
+  "prompt_version": "s73-single-json",
+  "reading": "Cedar Comets' 2026 season sample of 25 games shows 48 rebounds per game (90th percentile, elite band, rose from 80th) and 23 assists per game (75th percentile, strong band, held). A composite score of 64 is standardized relative to peers. A retraction of a training notice does not establish fitness recovery.",
+  "request_bytes": 2379,
+  "review": [
+    "The fresh report is a correction to an erroneous notice; it does not establish recovery or a return to training.",
+    "Preserve the measured profile without treating cohort size 30 as a percentile or an improvement magnitude.",
+    "A concise measured reading may omit this report if it adds no supported playing characteristic."
+  ],
+  "status": "rejected",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 5170
+}

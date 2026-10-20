@@ -1,0 +1,36 @@
+{
+  "expect": {
+    "body_includes": [
+      "supporters"
+    ]
+  },
+  "name": "synthetic-closed-training-fresh-only",
+  "parts": {
+    "reports": [
+      {
+        "context": "Cedar United confirmed that its training session on 29 September will be closed to supporters. The club gave no reason for the decision.",
+        "id": 210,
+        "published_at_epoch": 1790599725,
+        "source": "Club statement",
+        "title": "Cedar United closes training"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "prompt_version": "n106-single-json",
+  "review": [
+    "Attribute the closed session on 29 September to the club statement.",
+    "The club supplied no reason; do not infer a cause, prior supporter access or prior venue.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "system": "",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\"},\"task\":\"For each fresh report, write two or three short, attributed sentences, at most 1200 characters, only when the publisher text contains substantive news or analysis about the entity in meta. Use voice as tone and fresh as the only evidence. Preserve attribution, event dates, denials and qualifications. Never assign a player to the target team or infer a relationship from proximity, a query, or classifier scores. Scores measure article usefulness, not target relevance or verified facts. For unrelated reporting, rankings-only tables, schedules or navigation, decline that slot with null. Return only JSON mapping every supplied report_key to its report text or null.\",\"voice\":\"Clear, restrained and direct.\",\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Club statement\",\"published_at\":\"2026-09-28T12:48:45Z\",\"publisher_excerpt\":\"Cedar United confirmed that its training session on 29 September will be closed to supporters. The club gave no reason for the decision.\"}]}"
+}

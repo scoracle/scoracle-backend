@@ -1,0 +1,24 @@
+{
+  "case": 29,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/transfer/fizzled-prior-lowrel-skeptic.json",
+  "generation_wall_ms": 3732,
+  "input_tokens": 484,
+  "name": "fizzled-prior-lowrel-skeptic",
+  "output_limit": 1400,
+  "output_tokens": 114,
+  "parsed": false,
+  "prompt_version": "insider-source-v12-single-json",
+  "reading": "duplicate source/counterparty finding",
+  "request_bytes": 2087,
+  "review": [
+    "Distinguish the proposed relationship from speculation, historical affiliation and unrelated people.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 3740
+}

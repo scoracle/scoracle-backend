@@ -1,0 +1,1 @@
+["llama-server", "--model", "/private/tmp/scoracle-emotion-models-20261020/OmniDimen-2.5-4B-Emotion_q4_K_M.gguf", "--alias", "omnidimen", "--host", "127.0.0.1", "--port", "18190", "--ctx-size", "4096", "--parallel", "1", "--n-gpu-layers", "99", "--flash-attn", "on", "--cache-ram", "0", "--jinja", "--reasoning", "off", "--chat-template-kwargs", "{\"enable_thinking\":false}"]

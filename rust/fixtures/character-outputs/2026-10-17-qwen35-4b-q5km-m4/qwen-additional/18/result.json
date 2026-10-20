@@ -1,0 +1,34 @@
+{
+  "case": 18,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/momentum/sparse-samples-stay-steady.json",
+  "generation_wall_ms": 2701,
+  "input_tokens": 198,
+  "name": "sparse-samples-stay-steady",
+  "output_limit": 700,
+  "output_tokens": 52,
+  "parsed": true,
+  "prompt_version": "momentum-s39-single-json",
+  "reading": "Stone's performance and mood readings remain inconclusive due to insufficient data; the thin statistical sample precludes directional comparison, while limited reporting offers no settled emotional direction. These factors leave the current picture unresolved rather than reinforcing or diverging.",
+  "request_bytes": 832,
+  "review": [
+    "Treat sparse history as limited evidence, not proof of either stability or a confident directional trend.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 2715
+}

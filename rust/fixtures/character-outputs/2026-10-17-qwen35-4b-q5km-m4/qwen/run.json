@@ -1,0 +1,28 @@
+{
+  "base_url": "http://127.0.0.1:18081",
+  "concurrency": 1,
+  "context": 32768,
+  "database_access": false,
+  "fixtures": [
+    "fixtures/quality/narratives/late-qualification.json",
+    "fixtures/quality/narratives/rumour-and-denial.json",
+    "fixtures/quality/vibe/clearly-positive.json",
+    "fixtures/quality/vibe/quiet-mixed.json",
+    "fixtures/quality/rating/synthetic-strong.json",
+    "fixtures/quality/rating/synthetic-withdrawn-report.json",
+    "fixtures/quality/transfer/explicit-denial-clears-prior-rumor.json",
+    "fixtures/quality/transfer/reliable-source-heating-steam.json",
+    "fixtures/quality/momentum/mixed-peak-up-vibe-down.json",
+    "fixtures/quality/momentum/rising-confirmed.json",
+    "fixtures/quality/oracle/crossroads-conflict.json",
+    "fixtures/quality/oracle/near-empty-quiet-wire.json",
+    "fixtures/quality/rating/synthetic-daily-withdrawal.json"
+  ],
+  "model": "qwen3.5-4b-q5_k_m",
+  "publishes": false,
+  "qualification": "first-pass fixture outputs; human review required",
+  "retries": 0,
+  "shared_server": true,
+  "started_epoch": 1792292571,
+  "thinking": false
+}

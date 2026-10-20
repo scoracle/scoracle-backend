@@ -1,0 +1,65 @@
+{
+  "case": 16,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "findings=0",
+      "name": "has_source_linked_move",
+      "pass": false
+    },
+    {
+      "detail": "",
+      "name": "stage:speculation",
+      "pass": false
+    },
+    {
+      "detail": "",
+      "name": "body_includes:Sorensen",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:$",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:£",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:€",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:million",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/transfer/fizzled-prior-lowrel-skeptic.json",
+  "generation_wall_ms": 2640,
+  "input_tokens": 430,
+  "name": "fizzled-prior-lowrel-skeptic",
+  "output_limit": 1400,
+  "output_tokens": 36,
+  "parsed": true,
+  "prompt_version": "insider-source-v12-single-json",
+  "reading": "0 finding(s) | Chelsea are reportedly monitoring Kai Sorensen, but no bid or talks have been confirmed.",
+  "request_bytes": 2087,
+  "review": [
+    "Distinguish the proposed relationship from speculation, historical affiliation and unrelated people.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 2655
+}

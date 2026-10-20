@@ -1,0 +1,33 @@
+{
+  "case": 11,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/quality/oracle/crossroads-conflict.json",
+  "generation_wall_ms": 2918,
+  "input_tokens": 300,
+  "name": "crossroads-conflict",
+  "output_limit": 700,
+  "output_tokens": 104,
+  "parsed": true,
+  "prompt_version": "or28-single-json",
+  "reading": "The trade demand involving Marcus Vale has escalated, with the front office's silence sparking tension among fans and analysts alike. While the elite production numbers remain consistent, the atmosphere has grown increasingly sour, with the standoff dominating every thread and patience thinning. Analysts note a downward trajectory, while scouts emphasize the production's resilience. The room's mood is a mix of frustration and uncertainty, with the lack of a response from the front office leaving many questioning the future of the player and the team.",
+  "request_bytes": 1114,
+  "review": [
+    "Preserve disagreement across the supplied pillars rather than forcing unanimous direction."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 2930
+}

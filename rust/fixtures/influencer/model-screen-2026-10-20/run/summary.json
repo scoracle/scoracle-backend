@@ -1,0 +1,10 @@
+{
+  "smollm3": {
+    "calls": 34,
+    "complete": 32,
+    "median_ms": 12780.089166481048,
+    "json_calls": 24,
+    "valid_contract": 0,
+    "expected_decision": 0
+  }
+}

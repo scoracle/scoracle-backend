@@ -1,0 +1,48 @@
+[
+  {
+    "name": "smollm3",
+    "path": "/Users/scotty/.ollama/models/blobs/sha256-048b986bb243c09b5410fc9f73bdc5bf749bf8e24e1a703ca830c1b29b0267f8",
+    "sha256": "048b986bb243c09b5410fc9f73bdc5bf749bf8e24e1a703ca830c1b29b0267f8",
+    "upstream": "HuggingFaceTB/SmolLM3-3B",
+    "quantization": "Q4_K_M"
+  },
+  {
+    "name": "ministral3",
+    "path": "/Users/scotty/.ollama/models/blobs/sha256-053d49ac334f26338e935c2beb6abfc3cca1140d4822c88de0c9bc6f38583e6c",
+    "sha256": "053d49ac334f26338e935c2beb6abfc3cca1140d4822c88de0c9bc6f38583e6c",
+    "upstream": "mistralai/Ministral-3-3B-Instruct-2512",
+    "quantization": "Q4_K_M",
+    "packaging": "Ollama llama.cpp-specific language-model layer; vision projector omitted for text-only tests"
+  },
+  {
+    "name": "granite42",
+    "path": "/Users/scotty/.ollama/models/blobs/sha256-e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+    "sha256": "e0406663965846ae22a403456eb826ccce5f450840491f71952f18a7cb78e7d5",
+    "upstream": "ibm-granite/granite-4.2-3b",
+    "quantization": "Q4_K_M"
+  },
+  {
+    "name": "qwen3_2507",
+    "path": "/private/tmp/scoracle-emotion-models-20261020/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+    "upstream": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
+    "revision": "a06e946bb6b655725eafa393f4a9745d460374c9",
+    "quantization": "Q4_K_M"
+  },
+  {
+    "name": "qwen35",
+    "path": "/private/tmp/scoracle-emotion-models-20261020/Qwen3.5-4B-Q4_K_M.gguf",
+    "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+    "upstream": "unsloth/Qwen3.5-4B-GGUF",
+    "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+    "quantization": "Q4_K_M"
+  },
+  {
+    "name": "omnidimen",
+    "path": "/private/tmp/scoracle-emotion-models-20261020/OmniDimen-2.5-4B-Emotion_q4_K_M.gguf",
+    "sha256": "0836c347aa7b4afbcaf2a56d52b4fe097c0f7f4507f10fc6c0df27e23c595a27",
+    "upstream": "OmniDimen/OmniDimen-v2.5-4B-Emotion-GGUF",
+    "revision": "192cbd7e2bb6c1d196fb17cc02bae3b716de8614",
+    "quantization": "Q4_K_M"
+  }
+]

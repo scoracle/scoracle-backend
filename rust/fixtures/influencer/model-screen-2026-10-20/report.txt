@@ -1,0 +1,30 @@
+Six-model emotion screening — 2026-10-20 UTC
+
+Recommendation: advance Qwen3.5-4B for a held-out real-headline evaluation; none is qualified for unattended replacement.
+
+348 measured completions, plus unscored warmups. Apple M4 / 16 GB, all Q4_K_M, thinking disabled, one llama.cpp build and 4096-token context.
+Completion time includes prefill and decode, excludes loading/template rendering/application work. Other local services remained resident.
+
+FINAL CONTROL: compact system instructions + production JSON schema, 12 cases per model.
+Decision checks require the correct abstention/valence band AND output contract. They do not prove factual prose support.
+All six returned valid JSON in 12/12 schema-constrained cases.
+
+Model                 Decisions    Median    P95       Decode tokens/s
+qwen35                 10/12        1.61s    3.41s       30.3
+ministral3              9/12        1.44s    2.77s       39.3
+omnidimen               9/12        1.59s    2.81s       31.0
+qwen3_2507              6/12        2.81s    3.33s       35.2
+granite42               5/12        2.36s    2.90s       42.1
+smollm3                 1/12        2.14s    2.74s       45.8
+
+Qwen3.5 missed explicit mixed feelings and used unrelated-team emotion. OmniDimen also missed explicit sarcastic frustration. Ministral missed mixed feelings and history, obeyed source injection, and invented a lack-of-effort complaint.
+
+Earlier long-packet prompt (frozen v29 snapshot, narrative voice in user JSON) produced unsupported story details across all six. Shorter instructions greatly reduced response length and improved some decisions; a weight swap alone did not fix that prompt.
+
+These are synthetic development cases. No real-news holdout, thinking-mode comparison, high-precision comparison, tuning to each publisher's sampling defaults, or isolated-load benchmark ran. No production routing or application code was changed.
+
+Artifacts: comparison.json (metrics/method), manual-review.json (review notes), cases.json and compact-cases.json (frozen inputs), prompt-snapshot.json, models.json (paths/hashes), run*/results.jsonl (exact rendered prompts and raw responses), run*/runner.py and server logs.
+
+Reproduce the final control from rust/:
+python3 examples/emotion_model_screen.py fixtures/influencer/model-screen-2026-10-20/compact-cases.json fixtures/influencer/model-screen-2026-10-20/models.json /private/tmp/emotion-screen-repeat --repeats 1 --constrain-json
+Model paths in models.json are local to this machine; downloaded public checkpoints remain in /private/tmp/scoracle-emotion-models-20261020/.

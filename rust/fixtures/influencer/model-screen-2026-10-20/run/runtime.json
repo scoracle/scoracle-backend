@@ -1,0 +1,15 @@
+{
+  "version": "version: 0.6.0 (build 11429, commit d81235049)\nbuilt with AppleClang 21.0.0.21000334 for Darwin arm64\n",
+  "repeats": 2,
+  "cases_sha256": "59bf4116ea194ee49b8a0b53a721c9a2e7b54b2b6a5fb9981964bdb350471740",
+  "runner_sha256": "3a5e48e8c73b23d95837fb131e47953714b07a3d3a893839de60c29920f596f0",
+  "sampling": {
+    "temperature": 0,
+    "top_p": 1,
+    "seed": 42
+  },
+  "thinking": false,
+  "grammar_constrained": false,
+  "cache_prompt": false,
+  "scope": "Synthetic screening; score-band checks are not factual correctness."
+}

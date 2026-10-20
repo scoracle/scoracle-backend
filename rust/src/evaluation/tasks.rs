@@ -1587,10 +1587,12 @@ mod tests {
         assert!(!TransferTask.evaluate(TRUE_TRANSFER, None, None).parsed);
         assert!(TransferTask.gen_options(0.0).is_err());
         let schema = request.options.format_schema.unwrap();
-        assert_eq!(
-            schema["properties"]["findings"]["items"]["properties"]["report_index"]["maximum"],
-            1
-        );
+        for item in schema["properties"]["findings"]["items"]["oneOf"]
+            .as_array()
+            .unwrap()
+        {
+            assert_eq!(item["properties"]["report_index"]["maximum"], 1);
+        }
     }
 
     // --- typographic folding in the property matcher -----------------------------

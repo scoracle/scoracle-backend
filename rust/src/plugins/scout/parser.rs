@@ -383,16 +383,31 @@ fn first_source_shape_error(
                 "The attributed report does not support an emotional, motivational or psychological inference. Keep the reported action or quote without inventing its effect.",
             );
         }
-        // Stability is a cross-time claim. On a thin sample the only supplied timeline is
-        // the snapshot itself, so stability language is a violation when it reaches across
-        // time (seasons, prior form, "no change") — a within-snapshot description of
-        // standing stays free prose.
         let temporal_refers_back = ["season", "last year", "prior", "previous", "across"]
             .iter()
             .any(|word| body_folded.contains(word));
-        let stability_word = body_folded
-            .split(|c: char| !c.is_ascii_alphabetic())
-            .any(|word| {
+        for claim in crate::tools::guards::prose_claims(&body_folded)
+            .into_iter()
+            .flat_map(|claim| claim.split(" but "))
+            .flat_map(|claim| claim.split(" however "))
+        {
+            if [
+                "do not establish",
+                "does not establish",
+                "cannot establish",
+                "doesn't establish",
+                "do not show",
+                "does not show",
+                "no evidence of",
+                "unsupported",
+                "unknown",
+            ]
+            .iter()
+            .any(|phrase| claim.contains(phrase))
+            {
+                continue;
+            }
+            let stability_word = claim.split(|c: char| !c.is_ascii_alphabetic()).any(|word| {
                 matches!(
                     word,
                     "unchanged"
@@ -403,14 +418,9 @@ fn first_source_shape_error(
                         | "reliability"
                 )
             });
-        if (stability_word && temporal_refers_back)
-            || ["no change"]
-                .iter()
-                .any(|phrase| body_folded.contains(phrase))
-        {
-            return Some(
-                "The thin sample has no computed cross-season direction or stability evidence. Remove claims of no change, stable standing, consistency or reliability.",
-            );
+            if (stability_word && temporal_refers_back) || claim.contains("no change") {
+                return Some("The thin sample has no computed cross-season direction or stability evidence. Remove claims of no change, stable standing, consistency or reliability.");
+            }
         }
         // A per-measure direction claim needs per-measure trend evidence, which no thin
         // sample carries. The supplied recent-form line is about overall scores; it does
@@ -462,9 +472,16 @@ fn first_source_shape_error(
                         .ok()
                 })
                 .collect();
-            let qualified = ["recorded", "stored", "snapshot", "source sample"]
-                .iter()
-                .any(|term| claim.contains(term))
+            let qualified = [
+                "recorded",
+                "stored",
+                "snapshot",
+                "source sample",
+                "season data",
+                "data is based on",
+            ]
+            .iter()
+            .any(|term| claim.contains(term))
                 || (claim.contains("sample")
                     && ["minimum", "threshold", "limit"]
                         .iter()

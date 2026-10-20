@@ -1921,3 +1921,20 @@ fn recorded_decimal_counts_and_declared_minimum_are_not_participation_claims() {
         );
     }
 }
+
+#[test]
+fn explicit_denials_of_stability_are_limits_not_positive_stability_claims() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../fixtures/quality/rating/synthetic-sparse.json"
+    ))
+    .unwrap();
+    let parts: super::prompt::Parts = serde_json::from_value(fixture["parts"].clone()).unwrap();
+    let body="Cedar Comets' 2026 season data, based on 3.0 games played, shows 48.0 rebounds per game (90th percentile, elite band) and 23.0 assists per game (75th percentile, strong band). These thin-sample measurements do not establish cross-season comparisons, stability, or ability beyond relative standing within the cohort.";
+    assert!(parts
+        .parse(&serde_json::json!({"body":body}).to_string())
+        .is_ok());
+    for body in ["The profile is stable across seasons.", "There is no change across seasons.",
+        "These measurements do not establish stability, but the player is consistently reliable across seasons."] {
+        assert!(parts.parse(&serde_json::json!({"body":body}).to_string()).is_err(),"{body}");
+    }
+}

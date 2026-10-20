@@ -558,5 +558,12 @@ mod tests {
         assert!(parser
             .parse(&denied.replace(r#""stage":null"#, r#""stage":"speculation""#))
             .is_err());
+        assert!(parser
+            .parse(
+                &denied
+                    .replace(r#""status":"denied""#, r#""status":"reported""#)
+                    .replace(r#""stage":null"#, r#""stage":"concrete_interest""#)
+            )
+            .is_err());
     }
 }

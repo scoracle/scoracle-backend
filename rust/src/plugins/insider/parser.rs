@@ -84,33 +84,32 @@ impl Parser<Reply> for ReplyParser<'_> {
                 .any(|term| quote.contains(term)),
                 "finding quote does not state a move"
             );
-            if finding.status == Status::Denied {
-                ensure!(
-                    [
-                        "deny talks",
-                        "denies talks",
-                        "denied talks",
-                        "no talks",
-                        "not in talks",
-                        "no move",
-                        "no transfer",
-                        "not joining",
-                        "not moving",
-                        "not signing",
-                        "ruled out a move",
-                        "rules out a move",
-                        "denied a move",
-                        "denies a move",
-                        "denied transfer",
-                        "denies transfer",
-                        "rejects a move",
-                        "rejected a move"
-                    ]
-                    .iter()
-                    .any(|term| quote.contains(term)),
-                    "denied finding requires an explicit denial of that move"
-                );
-            }
+            let explicit_denial = [
+                "deny talks",
+                "denies talks",
+                "denied talks",
+                "no talks",
+                "not in talks",
+                "no move",
+                "no transfer",
+                "not joining",
+                "not moving",
+                "not signing",
+                "ruled out a move",
+                "rules out a move",
+                "denied a move",
+                "denies a move",
+                "denied transfer",
+                "denies transfer",
+                "rejects a move",
+                "rejected a move",
+            ]
+            .iter()
+            .any(|term| quote.contains(term));
+            ensure!(
+                (finding.status == Status::Denied) == explicit_denial,
+                "finding status must match an explicit denial of that move"
+            );
             ensure!(
                 seen.insert((finding.report_index, finding.counterparty.as_str())),
                 "duplicate source/counterparty finding"

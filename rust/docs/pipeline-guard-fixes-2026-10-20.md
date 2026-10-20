@@ -13,13 +13,15 @@ and a 7,900-token ceiling including reserved output.
   RSS query provenance and a high relevance score cannot certify identity.
   Historical headlines must also match the current target before entering memory.
 - Insider quotes must name both parties and state a move. Denials require explicit
-  move-denial wording. Missing evidence produces no structured finding.
+  move-denial wording. The native schema couples denied status with a null stage
+  and reported status with a valid stage. Missing evidence produces no structured finding.
 - Journalist production and evaluation share the same named-fact guard. A number
   cannot be reassigned to a named person by combining unrelated citations.
 - Analyst produces an explicit missing-peer reading without inference when either
   performance or mood is unavailable.
 - Scout preserves decimal points within claims, accepts the supplied sample
   minimum, and allows within-snapshot relative standing without a time claim.
+  Explicit statements that stability is unsupported remain valid evidence limits.
 - Native token overflow is a permanent packet-admission result. Reporting stages
   retry preparation once without optional history, then hold complete fresh
   evidence if it still cannot fit. They do not clip sources or repeatedly retry

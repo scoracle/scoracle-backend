@@ -4,7 +4,9 @@
   "prompt_version": "or29-evidence-only",
   "user_prompt": "{\"fresh\":{\"analyst\":{\"body\":\"Feeling is dragging the arc down while the production holds its line.\"},\"influencer\":{\"body\":\"The room has soured — the standoff dominates every thread and the patience is thinning.\"},\"journalist\":[{\"body\":\"A trade-demand story broke this week and hangs over everything; the front office has not responded publicly.\",\"source_age_days\":1,\"source_count\":4,\"title\":\"Marcus Vale trade demand reported\",\"trajectory\":\"heating_up\"}],\"scout\":{\"body\":\"Elite two-way production; the numbers have not blinked through the noise.\"}},\"meta\":{\"entity_type\":\"player\",\"name\":\"Marcus Vale\",\"sport\":\"basketball\"},\"task\":\"Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Preserve the entity type, limits and uncertainty of each card. Do not strengthen a repeated claim or infer a missing connection between cards. Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.\",\"voice\":\"Mystic, arcane, knowing, restrained.\"}",
   "temperature": 0.0,
-  "expect": {},
+  "expect": {
+    "reading_max_sentences": 3
+  },
   "review": [
     "Preserve disagreement across the supplied pillars rather than forcing unanimous direction."
   ]

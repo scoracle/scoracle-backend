@@ -19,7 +19,7 @@ The invalid rumor’s evidence quote was source article 859922’s headline: “
 
 The remaining reading-name guard accepted any matching name word anywhere in the body. Gordon’s incidental teammate mention therefore passed. The fix requires the full canonical subject name at the beginning of the reading, with case, accent and typographic-apostrophe folding and a name boundary. The prompt explicitly requests that form; prompt and parser contracts are versioned as `insider-source-v19-subject` and `insider-reading-findings-v4-subject`. Tests cover wrong-person co-mentions, surname-only matches, name substrings, possessives, accents and initials. Rejected replies follow the existing held-delivery path and cannot publish a product.
 
-This is a structural subject and evidence check, not proof that every generated sentence is factually correct. A model can still make an unsupported assertion after a correct subject prefix. Broader semantic qualification is outside this incident fix.
+This is a structural subject and evidence check, not proof that every generated sentence is factually correct. A model can still make an unsupported assertion after a correct subject prefix. The subsequent [model qualification and availability recovery](2026-10-21-model-qualification-and-availability.md) tested all six characters and found additional release-blocking factual failures.
 
 ## Wider repair and identity findings
 
@@ -54,7 +54,7 @@ Final validation:
 - Twelve public checks passed: Gordon default and October 7 transfers, Articulator p8, October 7 headlines and Sigil; the Siakam and Gibson affected daily transfer pages; Nuggets daily transfers and transfer leaderboard; and same-ID Nuggets, Liverpool and Browns metadata. Gordon no longer serves DeRozan. The Browns retain their owned logo; the other two do not show it.
 - Worker logs confirm commit `722a3d882c28`, database connectivity, model reachability and registered stages. The initial Gordon launcher lacked its adjacent memory helper and failed its startup check; the existing verified helper was added, and both subsequent worker activations passed that check.
 
-Read-only Qwen replay accepted the explicit-denial fixture and rejected two other transfer fixtures because their quotes omitted a full party name. All three began with the correct full subject. This is not a passing model-quality gate: incomplete quotes remain rejected through the existing held-delivery path. The incident repair deliberately invalidated unsafe products instead of forcing regeneration or weakening the evidence guard. Full semantic qualification and the complete database integration suite were not performed.
+Read-only Qwen replay accepted the explicit-denial fixture and rejected two other transfer fixtures because their quotes omitted a full party name. All three began with the correct full subject. This is not a passing model-quality gate: incomplete quotes remain rejected through the existing held-delivery path. The incident repair deliberately invalidated unsafe products instead of forcing regeneration or weakening the evidence guard. Those checks were not part of the initial containment. The subsequent [qualification report](2026-10-21-model-qualification-and-availability.md) records the completed database suite, six-character assessment, runtime follow-up and remaining RED model gate.
 
 ## Recovery receipts
 

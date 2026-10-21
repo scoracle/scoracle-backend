@@ -6,7 +6,6 @@
   "temperature": 0.0,
   "expect": {},
   "review": [
-    "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results.",
-    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+    "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results."
   ]
 }

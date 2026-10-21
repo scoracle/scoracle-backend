@@ -4,7 +4,9 @@
   "prompt_version": "or29-evidence-only",
   "user_prompt": "{\"fresh\":{\"influencer\":{\"body\":\"Cautious optimism around the rebuild; the room likes the business but wants to see it on grass.\"},\"insider\":{\"body\":\"From Fulham to Ipswich Town; confirmed — \\\"The move for Issa Diop is done and the paperwork is filed.\\\"\"},\"journalist\":[{\"body\":\"Two confirmed signings have arrived to rebuild the defensive line before the opener.\",\"source_age_days\":1,\"source_count\":3,\"title\":\"Ipswich reshapes its spine after promotion\",\"trajectory\":\"developing_story...\"}]},\"meta\":{\"entity_type\":\"team\",\"name\":\"Ipswich Town\",\"sport\":\"FOOTBALL\"},\"task\":\"Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Preserve the entity type, limits and uncertainty of each card. Do not strengthen a repeated claim or infer a missing connection between cards. Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.\",\"voice\":\"Mystic, arcane, knowing, restrained.\"}",
   "temperature": 0.0,
-  "expect": {},
+  "expect": {
+    "reading_max_sentences": 3
+  },
   "review": [
     "Use the three supplied readings without implying the missing pillars were also observed."
   ]

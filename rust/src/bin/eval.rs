@@ -1303,9 +1303,10 @@ mod tests {
     #[tokio::test]
     async fn failed_generation_and_malformed_output_cannot_pass_an_empty_rubric() {
         let task = resolve_task("oracle").unwrap();
-        let fx = load_fixtures(&fixtures_dir("oracle"), None)
+        let mut fx = load_fixtures(&fixtures_dir("oracle"), None)
             .unwrap()
             .remove(0);
+        fx.expect = Default::default();
         assert_eq!(expected_property_count(&fx.expect), 0);
         for transport_failure in [false, true] {
             let backend: Arc<dyn Inference> = Arc::new(FailedReply(transport_failure));

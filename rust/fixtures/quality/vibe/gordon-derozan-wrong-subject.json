@@ -1,0 +1,35 @@
+{
+  "name": "gordon-derozan-wrong-subject",
+  "task": "vibe",
+  "prompt_version": "vibe-frame-v31-evidence-only",
+  "user_prompt": "{\"meta\":{\"name\":\"Aaron Gordon\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"reporting_start\":\"2026-09-27T04:00:00Z\",\"reporting_end\":\"2026-09-28T04:00:00Z\",\"reports\":[{\"headline\":\"DeMar DeRozan delights fans at community event\",\"publisher\":\"Example Wire\",\"published_at\":\"2026-09-28T00:00:00Z\",\"publisher_text\":\"Fans said they were delighted to see DeMar DeRozan. Aaron Gordon was listed among Denver Nuggets players; no reactions to Gordon were reported.\"}]},\"memories\":[]}",
+  "parts": {
+    "day": {
+      "cutoff": 1790553601,
+      "end": 1790568000,
+      "start": 1790481600
+    },
+    "excluded": [],
+    "sources": [
+      {
+        "article_id": 42,
+        "classification_id": 1,
+        "context": "Fans said they were delighted to see DeMar DeRozan. Aaron Gordon was listed among Denver Nuggets players; no reactions to Gordon were reported.",
+        "headline": "DeMar DeRozan delights fans at community event",
+        "published_at_epoch": 1790553600,
+        "source": "Example Wire"
+      }
+    ],
+    "subject": {
+      "entity_id": 177,
+      "entity_type": "player",
+      "name": "Aaron Gordon",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Synthetic wrong-subject regression. Positive reactions concern DeRozan alone; Gordon feelings remain unknown. Paired null headline/body and neutral score are warranted."
+  ]
+}

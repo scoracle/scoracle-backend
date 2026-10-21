@@ -7,7 +7,7 @@ use crate::harness::model::GenerateOptions;
 use crate::harness::models::Models;
 use crate::harness::route::RouteKey;
 use crate::harness::Parser;
-use crate::plugins::analyst::parser::parse_momentum_reply;
+use crate::plugins::analyst::parser::MomentumParser;
 use crate::plugins::analyst::prompt::load_momentum_context;
 use crate::plugins::influencer::{prompt::VIBE_NUM_PREDICT, VibeParser};
 use crate::plugins::insider::fresh::preview as preview_insider;
@@ -144,7 +144,7 @@ pub struct CaseVerdict {
 
 impl CaseVerdict {
     pub fn all_checks_pass(&self) -> bool {
-        self.checks.iter().all(|c| c.pass)
+        self.parsed && self.checks.iter().all(|c| c.pass)
     }
 
     pub fn checks_passed(&self) -> usize {
@@ -537,11 +537,11 @@ impl LensTask for NarrativesTask {
                     display: joined,
                 }
             }
-            Err(_) => CaseVerdict {
+            Err(error) => CaseVerdict {
                 parsed: false,
                 abs_err: None,
                 checks: vec![],
-                display: "unparseable".into(),
+                display: format!("{error:#}"),
             },
         }
     }
@@ -717,17 +717,10 @@ impl LensTask for OracleTask {
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let Some(reading) = serde_json::from_str::<serde_json::Value>(raw)
-            .ok()
-            .and_then(|v| v.get("reading").and_then(|x| x.as_str()).map(str::to_owned))
-            .filter(|s| !s.trim().is_empty())
-        else {
-            return CaseVerdict {
-                parsed: false,
-                abs_err: None,
-                checks: Vec::new(),
-                display: "unparseable".into(),
-            };
+        let reading = match crate::plugins::oracle::parser::ReadingParser.parse(raw) {
+            Ok(Some(reading)) => reading,
+            Ok(None) => return rejected("Oracle returned no reading"),
+            Err(error) => return rejected(&format!("{error:#}")),
         };
         let sentences = count_sentences(&reading);
         let mut checks = Vec::new();
@@ -1094,6 +1087,16 @@ impl LensTask for MomentumTask {
         options.temperature = Some(temperature);
         Ok(options)
     }
+    fn prepare_fixture(&self, fixture: &Fixture) -> Result<Prepared> {
+        let mut prepared = Prepared::captured(
+            fixture.user_prompt.clone(),
+            self.gen_options(fixture.temperature)?,
+        );
+        let world: serde_json::Value = serde_json::from_str(&prepared.user_prompt)?;
+        prepared.should_call =
+            world["fresh"]["scout"].is_object() && world["fresh"]["influencer"].is_object();
+        Ok(prepared)
+    }
     async fn build_request(
         &self,
         pool: &sqlx::PgPool,
@@ -1112,7 +1115,7 @@ impl LensTask for MomentumTask {
             entity_id: e.entity_id,
             sport: e.sport.clone(),
         };
-        Ok(Some(Prepared::captured(
+        let mut prepared = Prepared::captured(
             crate::plugins::analyst::prompt::assemble(
                 &subject,
                 context.rating.as_ref(),
@@ -1120,19 +1123,15 @@ impl LensTask for MomentumTask {
                 &context.snapshot,
             ),
             self.gen_options_for(0.0, e)?,
-        )))
+        );
+        prepared.should_call = context.rating.is_some() && context.vibe.is_some();
+        Ok(Some(prepared))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let reply = match parse_momentum_reply(raw) {
-            Some(r) => r,
-            None => {
-                return CaseVerdict {
-                    parsed: false,
-                    abs_err: None,
-                    checks: Vec::new(),
-                    display: "unparseable".into(),
-                }
-            }
+        let reply = match MomentumParser.parse(raw) {
+            Ok(Some(reply)) => reply,
+            Ok(None) => return rejected("Analyst returned no reading"),
+            Err(error) => return rejected(&format!("{error:#}")),
         };
         let mut checks = Vec::new();
 
@@ -1430,7 +1429,7 @@ mod tests {
     #[test]
     fn crown_eval_reading_excludes_catches_pundit_register() {
         // The reading must leave the pundit's register at the door.
-        let raw = r#"{"reading": "Keep an eye on this one going forward.", "score": 60}"#;
+        let raw = r#"{"reading": "Keep an eye on this one going forward."}"#;
         let x = Expect {
             reading_excludes: Some(vec!["keep an eye".into()]),
             ..Default::default()
@@ -1472,7 +1471,7 @@ mod tests {
                 {"publisher":"TV2","headline":"Everton denied talks for Lina Foss",
                  "publisher_excerpt":"Everton denied talks for Lina Foss. Everton are in advanced talks to sign Lina Foss",
                  "co_mentions":[{"name":"Everton","entity_type":"team"}]},
-                {"publisher":"TV2","headline":"Earlier link","publisher_excerpt":"Everton considered Lina Foss",
+                {"publisher":"TV2","headline":"Earlier link","publisher_excerpt":"Everton considered a transfer for Lina Foss",
                  "co_mentions":[{"name":"Everton","entity_type":"team"}]}
             ]
         })).unwrap()
@@ -1536,7 +1535,7 @@ mod tests {
 
     #[test]
     fn transfer_new_denial_supersedes_older_report_in_evaluation() {
-        let raw = r#"{"body":"Lina Foss is not in talks with Everton after an earlier link, according to TV2.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
+        let raw = r#"{"body":"Lina Foss is not in talks with Everton after an earlier link, according to TV2.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered a transfer for Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
         let x = Expect {
             transfer_is_rumor: Some(false),
             ..Default::default()
@@ -1702,8 +1701,22 @@ mod tests {
     #[test]
     fn momentum_parser_extracts_the_read() {
         let raw = r#"{"blurb":"Recent form is rising while the mood is steady, so the current direction is modestly positive."}"#;
-        let parsed = parse_momentum_reply(raw).unwrap();
+        let parsed = crate::plugins::analyst::parser::parse_momentum_reply(raw).unwrap();
         assert!(parsed.blurb.contains("form is rising"));
+    }
+
+    #[test]
+    fn momentum_fixture_skips_inference_when_production_uses_the_unavailable_card() {
+        let missing: Fixture = serde_json::from_str(include_str!(
+            "../../fixtures/quality/momentum/missing-mood-peer.json"
+        ))
+        .unwrap();
+        assert!(!MomentumTask.prepare_fixture(&missing).unwrap().should_call);
+        let complete: Fixture = serde_json::from_str(include_str!(
+            "../../fixtures/quality/momentum/rising-confirmed.json"
+        ))
+        .unwrap();
+        assert!(MomentumTask.prepare_fixture(&complete).unwrap().should_call);
     }
 
     #[test]
@@ -1724,12 +1737,8 @@ mod tests {
         // The s14-era register itself: exactly what the s15 contract inverts.
         let raw = r#"{"blurb":"Vibe is pulling the profile down despite a steadier PEAK read."}"#;
         let v = MomentumTask.evaluate(raw, None, None);
-        let ban = v
-            .checks
-            .iter()
-            .find(|c| c.name == "no_product_names")
-            .expect("invariant present");
-        assert!(!ban.pass, "checks: {:?}", v.checks);
+        assert!(!v.parsed && !v.all_checks_pass());
+        assert!(v.display.contains("names product"));
     }
 
     #[test]

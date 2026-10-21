@@ -32,7 +32,9 @@ trap 'rm -rf "$SCRATCH"' EXIT
 ./sql/migrate.sh "$TEST_DATABASE_URL" | tee "$SCRATCH/migrations.log"
 grep -q 'done — 0 migration(s) applied' "$SCRATCH/migrations.log"
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/253_rating_evidence_contract.sql
+psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/264_rating_source_identity.sql
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/318_coverage_freeze.sql
+psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/319_nba_free_throw_measure.sql
 
 export SCORACLE_MEMORY_STUDY_BIN="$SCRATCH/scoracle-memory-study"
 (

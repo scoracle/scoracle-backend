@@ -20,6 +20,12 @@ SELECT public.compute_rating('NFL',2098);
 
 DO $check$
 BEGIN
+    IF (SELECT count(*) FROM pg_temp.player_stats ps
+        CROSS JOIN LATERAL jsonb_array_elements(ps.rating_breakdown) d
+        WHERE ps.sport='NBA' AND d->>'label'='Foul Drawing'
+          AND d->>'measure'='free throws attempted') <> 3
+        THEN RAISE EXCEPTION 'Stored player Foul Drawing must describe free-throw attempts'; END IF;
+
     IF EXISTS (
         SELECT 1 FROM pg_temp.player_stats ps
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(ps.rating_breakdown,'[]'::jsonb)) d
@@ -94,6 +100,11 @@ SELECT public.compute_team_rating('NFL',2098);
 
 DO $team$
 BEGIN
+    IF (SELECT count(*) FROM pg_temp.team_stats ts
+        CROSS JOIN LATERAL jsonb_array_elements(ts.rating_breakdown) d
+        WHERE ts.sport='NBA' AND d->>'label'='Foul Drawing'
+          AND d->>'measure'='free throws attempted') <> 2
+        THEN RAISE EXCEPTION 'Stored team Foul Drawing must describe free-throw attempts'; END IF;
     IF (SELECT count(*) FROM pg_temp.team_stats ts CROSS JOIN LATERAL jsonb_array_elements(ts.rating_breakdown) d
         WHERE ts.sport='NBA' AND d->>'label'='Rim Protection' AND d->>'measure'='blocks') <> 2
         THEN RAISE EXCEPTION 'Team Rim Protection lost source identity'; END IF;

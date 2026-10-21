@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict M2dSzZDLpFDudetf3Q8s52O3PX1zH2E57lEWe1dGEaLKBSdMaFDCNXeEBnz1hZ7
+\restrict iWrAMwFJZ3CcfkBA1Scw9YHl4dw1iwF1kuBmD83Rye5mgY8mZAxiXb5z2j40ziT
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -3842,7 +3842,7 @@ CREATE FUNCTION public.rating_measurements(p_sport text, p_stats jsonb, p_rate_m
              WHEN 'On-Court Impact' THEN 'plus-minus'
              WHEN 'Ball Security' THEN 'turnovers'
              WHEN 'Discipline' THEN 'personal fouls'
-             WHEN 'Foul Drawing' THEN 'field goals attempted'
+             WHEN 'Foul Drawing' THEN 'free throws attempted'
              ELSE v.label END
     FROM (SELECT (SELECT rm.suffix FROM public.rate_modes rm
                   WHERE rm.sport = 'NBA' AND rm.mode = p_rate_mode) AS suffix) rs
@@ -4072,7 +4072,7 @@ CREATE FUNCTION public.rating_measurements_team(p_sport text, p_stats jsonb) RET
         WHEN 'Scoring' THEN 'points'
         WHEN 'Playmaking' THEN 'assists'
         WHEN '3PT Shooting' THEN 'three-point field goals made'
-        WHEN 'Foul Drawing' THEN 'field goals attempted'
+        WHEN 'Foul Drawing' THEN 'free throws attempted'
         WHEN 'Ball Security' THEN 'turnovers'
         WHEN 'Offensive Rebounds' THEN 'offensive rebounds'
         WHEN 'Rim Protection' THEN 'blocks'
@@ -12078,7 +12078,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict M2dSzZDLpFDudetf3Q8s52O3PX1zH2E57lEWe1dGEaLKBSdMaFDCNXeEBnz1hZ7
+\unrestrict iWrAMwFJZ3CcfkBA1Scw9YHl4dw1iwF1kuBmD83Rye5mgY8mZAxiXb5z2j40ziT
 
 
 \ir reference-data.sql
@@ -12086,7 +12086,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict mPw5AdkVJv4kC1Yh1rNxiA7I9pCB9nNyFf6mEBv9c87nbyICOfHhacdPogW9suv
+\restrict sNYBwl3fOvaKC1iLiQkQdQqUyWHdLnwOcueFPsXXmLEqcBW7gUesqCyhIAxuJ9l
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -15679,4 +15679,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict mPw5AdkVJv4kC1Yh1rNxiA7I9pCB9nNyFf6mEBv9c87nbyICOfHhacdPogW9suv
+\unrestrict sNYBwl3fOvaKC1iLiQkQdQqUyWHdLnwOcueFPsXXmLEqcBW7gUesqCyhIAxuJ9l

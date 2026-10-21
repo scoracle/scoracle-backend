@@ -6,7 +6,6 @@
   "temperature": 0.0,
   "expect": {},
   "review": [
-    "Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement.",
-    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified."
+    "Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement."
   ]
 }

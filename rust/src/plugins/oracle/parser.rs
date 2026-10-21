@@ -2,7 +2,7 @@
 use crate::harness::Parser;
 use anyhow::{bail, Result};
 
-pub(super) struct ReadingParser;
+pub(crate) struct ReadingParser;
 
 impl Parser<String> for ReadingParser {
     fn parse(&self, raw: &str) -> Result<Option<String>> {

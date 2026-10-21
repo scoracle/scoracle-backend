@@ -21,6 +21,9 @@ async fn main() -> Result<()> {
         args.len() >= 4,
         "usage: character_outputs OUTPUT_DIR MODEL_URL MODEL FIXTURE.json [...]"
     );
+    let num_ctx = scoracle_cognition::harness::route::resolve_voice_num_ctx(
+        std::env::var("VOICE_NUM_CTX").ok().as_deref(),
+    );
     let root = Path::new(&args[0]);
     std::fs::create_dir(root).context("output directory must be new")?;
     let backend = LlamaClient::new(&args[1], &args[2], Duration::from_secs(300), Some(false))?;
@@ -28,7 +31,7 @@ async fn main() -> Result<()> {
         root.join("run.json"),
         &json!({
             "started_epoch":SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
-            "model":args[2], "base_url":args[1], "context":32768,
+            "model":args[2], "base_url":args[1], "context":num_ctx,
             "concurrency":1, "thinking":false, "retries":0,
             "shared_server":true, "database_access":false, "publishes":false,
             "fixtures":args[3..], "qualification":"first-pass fixture outputs; human review required"
@@ -53,14 +56,7 @@ Model: {}. Shared server; one request at a time; no retries or publication.
             "stale fixture: {path}"
         );
         let mut assignment = task.prepare_fixture(&fixture)?;
-        assignment.options.num_ctx = 32768;
-        let package: Value = serde_json::from_str(&assignment.user_prompt)?;
-        ensure!(
-            assignment.options.system.is_none()
-                && package["task"].is_string()
-                && package["meta"].get("task").is_none(),
-            "expected a self-contained character package"
-        );
+        assignment.options.num_ctx = num_ctx;
         let case = root.join(format!("{:02}", index + 1));
         std::fs::create_dir(&case)?;
         std::fs::write(case.join("fixture.json"), captured)?;

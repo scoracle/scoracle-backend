@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict xtVDAEnNGo18UmQqaczpv8fFAiNMb88C0qSMVPuaG1qglMgfuHLfRjl9RbHEw3t
+\restrict ydLaVlVacWsrqeOolY0QSZ3qcY4X8wRyk8B13dfO52sNKx4eBUASYMfRAeC7TWL
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -33,13 +33,13 @@ INSERT INTO public.sports (id, display_name, api_base_url, current_season, is_ac
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xtVDAEnNGo18UmQqaczpv8fFAiNMb88C0qSMVPuaG1qglMgfuHLfRjl9RbHEw3t
+\unrestrict ydLaVlVacWsrqeOolY0QSZ3qcY4X8wRyk8B13dfO52sNKx4eBUASYMfRAeC7TWL
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict Xybc8DYw0GtsY6LAzO22vofkdglsr24JCzUtc0q5es7rRVWAcT2AwB2fe78NBYB
+\restrict BtVq6K6gQ6oOKby1j1IC1gItH1FDUuJj2heu31JdMNxk0hHtGRD2qBNqP17blya
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -72,13 +72,13 @@ INSERT INTO public.leagues (id, sport, name, country, logo_url, sportmonks_id, i
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Xybc8DYw0GtsY6LAzO22vofkdglsr24JCzUtc0q5es7rRVWAcT2AwB2fe78NBYB
+\unrestrict BtVq6K6gQ6oOKby1j1IC1gItH1FDUuJj2heu31JdMNxk0hHtGRD2qBNqP17blya
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict CBnkcIcNKhMif12aSPc8KXjhe9iMgZSm5WsgjmPOK840qNE8MRupeszUoxOdJx5
+\restrict oTcjvTad3CLL0EDzopa5WUQgVWcpdwOHavJnWZf8h3A4L6y81h5BuAJeF0UGVkb
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -153,13 +153,13 @@ SELECT pg_catalog.setval('public.provider_seasons_id_seq', 40, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict CBnkcIcNKhMif12aSPc8KXjhe9iMgZSm5WsgjmPOK840qNE8MRupeszUoxOdJx5
+\unrestrict oTcjvTad3CLL0EDzopa5WUQgVWcpdwOHavJnWZf8h3A4L6y81h5BuAJeF0UGVkb
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict voYxbgP0fcpjklzqIW4xpwtVhe29q8gsfNO1W4GHpdU4Skk2gh97JHbGJi6oZKx
+\restrict qDJBdpV4FDAGxuhL37LdCOWfsFCT4yzD21QXXnLTm1e8bc7zKytBEeNxIplDT0i
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -751,13 +751,13 @@ SELECT pg_catalog.setval('public.stat_definitions_id_seq', 1358, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict voYxbgP0fcpjklzqIW4xpwtVhe29q8gsfNO1W4GHpdU4Skk2gh97JHbGJi6oZKx
+\unrestrict qDJBdpV4FDAGxuhL37LdCOWfsFCT4yzD21QXXnLTm1e8bc7zKytBEeNxIplDT0i
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict vOwWNiPQoK9ukcUS2SCevKJFaNdfl9E0QmOmkZTJ50hS5Gqv9msAQyeYgt2NxdV
+\restrict lDUTyjBztL9YCxVQOdo8zGHDTIGFFf5ecrwRyqkNNEt8KI7gd110ftsmbPQKGrT
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -790,13 +790,13 @@ INSERT INTO public.rate_modes (sport, mode, suffix, denom_key, formula, unit, ro
 -- PostgreSQL database dump complete
 --
 
-\unrestrict vOwWNiPQoK9ukcUS2SCevKJFaNdfl9E0QmOmkZTJ50hS5Gqv9msAQyeYgt2NxdV
+\unrestrict lDUTyjBztL9YCxVQOdo8zGHDTIGFFf5ecrwRyqkNNEt8KI7gd110ftsmbPQKGrT
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict fdjnBZvjsskz88KHuXQjlBuAffoplUWckIDccB7WjmPKtZm6CZqWvqcqZA2VNMV
+\restrict UDYB6OLeVFeRTYierDzY9uceFhUmMu9KHzZ98baBGkcrmhmacHmYHSqqi7Vru4G
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -828,13 +828,13 @@ INSERT INTO public.rating_thresholds (sport, stat_key, min_value) VALUES
 -- PostgreSQL database dump complete
 --
 
-\unrestrict fdjnBZvjsskz88KHuXQjlBuAffoplUWckIDccB7WjmPKtZm6CZqWvqcqZA2VNMV
+\unrestrict UDYB6OLeVFeRTYierDzY9uceFhUmMu9KHzZ98baBGkcrmhmacHmYHSqqi7Vru4G
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict QXev7UGfqqWZ0tR5ZRh8ukaXi9RauEWYsEjMRM55acC1Ze3tI5oJUvPGUf8edpd
+\restrict k3NURXEgFgcP3b2wYn69BQ5JotRrru4gkZV6zotToCHyzedYEkgIJi3lm2fsDaW
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1030,13 +1030,13 @@ INSERT INTO public.stat_templates (sport, position_group, stat_key, sort_order, 
 -- PostgreSQL database dump complete
 --
 
-\unrestrict QXev7UGfqqWZ0tR5ZRh8ukaXi9RauEWYsEjMRM55acC1Ze3tI5oJUvPGUf8edpd
+\unrestrict k3NURXEgFgcP3b2wYn69BQ5JotRrru4gkZV6zotToCHyzedYEkgIJi3lm2fsDaW
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict xPy2vhsJupjfv7QbMTTosop2IbWrAum3aXoxulcUwKNryd2dCvs1B9gPXEaIfnf
+\restrict k2TcBb1cuzKVwSOCyaRRDud1cdZojy9hlxMotfsFvChTRynpGb7dPSZgqxbNCzr
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1074,13 +1074,13 @@ INSERT INTO public.entity_fact_policy (entity_type, fact_type, tier) VALUES
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xPy2vhsJupjfv7QbMTTosop2IbWrAum3aXoxulcUwKNryd2dCvs1B9gPXEaIfnf
+\unrestrict k2TcBb1cuzKVwSOCyaRRDud1cdZojy9hlxMotfsFvChTRynpGb7dPSZgqxbNCzr
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict NCEmedW4BRrkSmgU6fmd7JtpiSBeaF0DEyKohgnb5khXHzXsMI4cgbBM3NgBt3p
+\restrict DGA0cAxyXL3Qa2I3eZTydphoG6ISVMogPdr9hdLjhPg7GOgbNEaSEB1yf88SJqZ
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1111,13 +1111,13 @@ INSERT INTO public.transfer_identity_thresholds (sport, min_heat, min_determinis
 -- PostgreSQL database dump complete
 --
 
-\unrestrict NCEmedW4BRrkSmgU6fmd7JtpiSBeaF0DEyKohgnb5khXHzXsMI4cgbBM3NgBt3p
+\unrestrict DGA0cAxyXL3Qa2I3eZTydphoG6ISVMogPdr9hdLjhPg7GOgbNEaSEB1yf88SJqZ
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict tOTPodtaSJat23BWnmoGZ8RI8vo2gqoL5MuWT9lSeVVDW3dI8fgWzptTnDTu136
+\restrict XyqnoYY9D9ldlNg8p9GdMLaOQrkeGoG8DqhO0aUp9vDv6CczTfBZFUaoVAFeVy6
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1152,13 +1152,13 @@ INSERT INTO public.stage_routing_subscriptions (tag, stage, entity_type, note, c
 -- PostgreSQL database dump complete
 --
 
-\unrestrict tOTPodtaSJat23BWnmoGZ8RI8vo2gqoL5MuWT9lSeVVDW3dI8fgWzptTnDTu136
+\unrestrict XyqnoYY9D9ldlNg8p9GdMLaOQrkeGoG8DqhO0aUp9vDv6CczTfBZFUaoVAFeVy6
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict OMNARelR9wVmh83dyKoYAqMRK6m6H7cCJ7DpSDGAqItOveEnn958XhOaRfL1aox
+\restrict 3iWHr8svwI0dLdnlzcSL8TIVQgKJSgIPcmK40DobCEBRsXd2OOsSkkrzLGVIcYQ
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1192,4 +1192,4 @@ SELECT pg_catalog.setval('public.boxscore_sources_id_seq', 7, true);
 -- PostgreSQL database dump complete
 --
 
-\unrestrict OMNARelR9wVmh83dyKoYAqMRK6m6H7cCJ7DpSDGAqItOveEnn958XhOaRfL1aox
+\unrestrict 3iWHr8svwI0dLdnlzcSL8TIVQgKJSgIPcmK40DobCEBRsXd2OOsSkkrzLGVIcYQ

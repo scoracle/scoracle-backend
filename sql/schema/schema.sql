@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict kRbvL1mUDwymcbpHemm60raksnZni5GkmR0Obs8Hi5IyZ2MJ2I9Ib0Y4nnjhefX
+\restrict M2dSzZDLpFDudetf3Q8s52O3PX1zH2E57lEWe1dGEaLKBSdMaFDCNXeEBnz1hZ7
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -2744,17 +2744,24 @@ BEGIN
         UPDATE public.pipeline_work SET status='pending',attempts=0,available_at=clock_timestamp(),
             claim_token=NULL,running_input_version=NULL,last_error=NULL,updated_at=at_time
         WHERE public.coverage_is_character(stage);
+        WITH pending AS MATERIALIZED (
+            SELECT x.sport,x.target->>'entity_type' AS entity_type,
+                x.target->>'entity_id' AS entity_id,d.character,
+                array_agg(x.id ORDER BY x.id) AS spectrum_ids
+            FROM public.classifier_spectrum_deliveries d
+            JOIN public.classifier_spectra x ON x.id=d.spectrum_id
+            WHERE d.status='pending'
+            GROUP BY x.sport,x.target->>'entity_type',x.target->>'entity_id',d.character
+        )
         INSERT INTO public.coverage_assignments(edition_date,stage,entity_type,entity_id,sport,input_version,spectrum_ids)
         SELECT e.edition_date,w.stage,w.entity_type,w.entity_id,w.sport,w.input_version,
-            COALESCE((SELECT array_agg(x.id ORDER BY x.id) FROM public.classifier_spectrum_deliveries d
-                JOIN public.classifier_spectra x ON x.id=d.spectrum_id
-                WHERE d.status='pending' AND x.sport=w.sport
-                  AND x.target->>'entity_type'=w.entity_type
-                  AND x.target->>'entity_id'=w.entity_id::text
-                  AND d.character=CASE w.stage WHEN 'narratives' THEN 'journalist'
-                    WHEN 'vibe' THEN 'influencer' WHEN 'rating' THEN 'scout'
-                    WHEN 'transfers' THEN 'insider' END),'{}'::bigint[])
-        FROM public.pipeline_work w WHERE public.coverage_is_character(w.stage);
+            COALESCE(d.spectrum_ids,'{}'::bigint[])
+        FROM public.pipeline_work w LEFT JOIN pending d
+          ON d.sport=w.sport AND d.entity_type=w.entity_type AND d.entity_id=w.entity_id::text
+          AND d.character=CASE w.stage WHEN 'narratives' THEN 'journalist'
+              WHEN 'vibe' THEN 'influencer' WHEN 'rating' THEN 'scout'
+              WHEN 'transfers' THEN 'insider' END
+        WHERE public.coverage_is_character(w.stage);
         UPDATE public.coverage_editions SET status='characters',frozen_at=at_time,
             character_deadline=LEAST(at_time+s.character_limit,e.cutoff_at+s.drain_limit+s.character_limit)
         WHERE edition_date=e.edition_date;
@@ -12071,7 +12078,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict kRbvL1mUDwymcbpHemm60raksnZni5GkmR0Obs8Hi5IyZ2MJ2I9Ib0Y4nnjhefX
+\unrestrict M2dSzZDLpFDudetf3Q8s52O3PX1zH2E57lEWe1dGEaLKBSdMaFDCNXeEBnz1hZ7
 
 
 \ir reference-data.sql
@@ -12079,7 +12086,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict WecDGsfe1fS7HnSWcj3OGtbb9JaKzkqjV9fd6MNIEbH1Ub5Z0tOwiAM14b5A8hu
+\restrict mPw5AdkVJv4kC1Yh1rNxiA7I9pCB9nNyFf6mEBv9c87nbyICOfHhacdPogW9suv
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -15672,4 +15679,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict WecDGsfe1fS7HnSWcj3OGtbb9JaKzkqjV9fd6MNIEbH1Ub5Z0tOwiAM14b5A8hu
+\unrestrict mPw5AdkVJv4kC1Yh1rNxiA7I9pCB9nNyFf6mEBv9c87nbyICOfHhacdPogW9suv

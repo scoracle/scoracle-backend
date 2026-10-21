@@ -115,6 +115,7 @@ pub fn validate_named_facts(text: &str, sources: &[&str]) -> anyhow::Result<()> 
                     | "Despite"
                     | "With"
                     | "Without"
+                    | "While"
             )
         {
             run.push(cleaned);

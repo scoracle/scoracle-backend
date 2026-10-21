@@ -411,6 +411,55 @@ async fn headlines_archive_and_dispatch_without_publisher_io() -> Result<()> {
         0,
         "backscoring is restart-safe"
     );
+    let old = fresh.iter().find(|s| s.article_id == 910415).unwrap();
+    seed(&pool, 910425, "Cedar FC confirms a new appointment", "").await?;
+    admit(&pool, &handler, 910425).await?;
+    sqlx::query("UPDATE news_articles SET source='Revised publisher' WHERE id=910415")
+        .execute(&pool)
+        .await?;
+    let selected = delivery::load_for_character(
+        &pool,
+        crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+        "team",
+        910415,
+        SPORT,
+    )
+    .await?;
+    assert!(!selected.iter().any(|s| s.article_id == 910415));
+    let current = selected.iter().find(|s| s.article_id == 910425).unwrap();
+    let mut tx = pool.begin().await?;
+    delivery::validate_for_publication(
+        &mut tx,
+        crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+        "team",
+        910415,
+        SPORT,
+        std::slice::from_ref(current),
+    )
+    .await?;
+    tx.rollback().await?;
+    let mut tx = pool.begin().await?;
+    assert!(
+        delivery::validate_for_publication(
+            &mut tx,
+            crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
+            "team",
+            910415,
+            SPORT,
+            std::slice::from_ref(old),
+        )
+        .await
+        .is_err(),
+        "a cited source changed during generation still cannot publish"
+    );
+    tx.rollback().await?;
+    let status: String = sqlx::query_scalar(
+        "SELECT status FROM classifier_spectrum_deliveries WHERE spectrum_id=$1 AND character='journalist'"
+    ).bind(old.classification_id).fetch_one(&pool).await?;
+    assert_eq!(
+        status, "pending",
+        "unread obsolete evidence is retained for reconciliation"
+    );
     sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
         .bind(SPORT)
         .execute(&pool)

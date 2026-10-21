@@ -1174,6 +1174,31 @@ fn request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form() {
 }
 
 #[test]
+fn request_parser_keeps_separate_comparison_clauses_separate() {
+    let directions = BTreeMap::from([
+        ("Rebounding".into(), RelativeDirection::Rose),
+        ("Assists".into(), RelativeDirection::Held),
+    ]);
+    let bands = BTreeMap::new();
+    let parser = RatingRequestParser::new("Comparison supplied.", &directions, &bands);
+    for connector in ["while", "whereas", "but"] {
+        let body = format!("Rebounding rose, {connector} assists held steady.");
+        assert!(parser
+            .parse(&serde_json::json!({"body":body}).to_string())
+            .is_ok());
+    }
+    assert!(parser
+        .parse(r#"{"body":"Rebounding rose; assists held steady."}"#)
+        .is_ok());
+    assert!(parser
+        .parse(r#"{"body":"Rebounding and assists both rose."}"#)
+        .is_err());
+    assert!(parser
+        .parse(r#"{"body":"Rebounding fell while assists held."}"#)
+        .is_err());
+}
+
+#[test]
 fn request_parser_does_not_turn_percentile_movement_into_development() {
     let directions = BTreeMap::new();
     let bands = BTreeMap::new();
@@ -1247,6 +1272,10 @@ fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
         .parse(r#"{"body":"Rogers has 3 appearances and 257 minutes."}"#)
         .unwrap_err();
     assert!(bare_sample.to_string().contains("source coverage"));
+
+    assert!(parser
+        .parse(r#"{"body":"Rogers has a thin sample of 3 appearances and 257 minutes."}"#)
+        .is_ok());
 
     let stability = parser
         .parse(r#"{"body":"No change in relative standing is indicated; he remains reliable and consistently elite."}"#)

@@ -95,7 +95,7 @@ async fn create_with_memories(
             &world,
             &prompt::options_for_reports(num_ctx, subject, reports),
             &ReplyParser { subject, reports },
-            |_| None,
+            crate::harness::session::publishing_correction,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
@@ -322,7 +322,7 @@ mod tests {
     use async_trait::async_trait;
     use std::{sync::Mutex, time::Duration};
 
-    struct Fake(Mutex<usize>);
+    struct Fake(Mutex<usize>, bool);
     #[async_trait]
     impl Inference for Fake {
         async fn generate(
@@ -330,9 +330,12 @@ mod tests {
             _: &str,
             _: &GenerateOptions,
         ) -> Result<(GenerateResult, serde_json::Value)> {
-            *self.0.lock().unwrap() += 1;
+            let mut calls = self.0.lock().unwrap();
+            *calls += 1;
+            let name_only = self.1 && *calls == 1;
+            drop(calls);
             Ok((GenerateResult {
-                response: r#"{"body":"Jordan Sample is linked with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland Browns is monitoring Jordan Sample in trade talks"}]}"#.into(),
+                response: if name_only {r#"{"body":"Jordan Sample","findings":[]}"#} else {r#"{"body":"Jordan Sample is linked with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland Browns is monitoring Jordan Sample in trade talks"}]}"#}.into(),
                 thinking: String::new(), model: "fake".into(), total_duration: Duration::from_millis(1),
                 prompt_eval_count: 10, eval_count: 10, completion_reason: Some("stop".into()), raw_response_body: "{}".into(),
             }, serde_json::json!({})))
@@ -413,7 +416,7 @@ mod tests {
         let item = claimed.context("person transfer claim")?;
         let material = fresh::load_material(&pool, &item).await?;
         assert_eq!(material.sources.len(), 1);
-        let backend = Fake(Mutex::new(0));
+        let backend = Fake(Mutex::new(0), false);
         assert!(matches!(
             execute_prepared(&pool, &backend, 32768, &item, material).await?,
             PluginOutcome::Committed
@@ -456,13 +459,26 @@ mod tests {
                 entity_type: "team".into(),
             }],
         };
-        let fake = Fake(Mutex::new(0));
-        let generated = create(&Studio::new(&fake), &subject, &[report], 4096)
+        for (name_only, calls) in [(false, 1), (true, 2)] {
+            let fake = Fake(Mutex::new(0), name_only);
+            let generated = create(
+                &Studio::new(&fake),
+                &subject,
+                std::slice::from_ref(&report),
+                4096,
+            )
             .await
             .unwrap();
-        assert_eq!(*fake.0.lock().unwrap(), 1);
-        assert_eq!(generated.product.findings.len(), 1);
-        assert!(generated.product.body.contains("Wire"));
+            assert_eq!(*fake.0.lock().unwrap(), calls);
+            assert_eq!(generated.product.findings.len(), 1);
+            assert!(generated.product.body.contains("Wire"));
+            let final_world: serde_json::Value =
+                serde_json::from_str(&generated.call.unwrap().built_prompt).unwrap();
+            let original: serde_json::Value =
+                serde_json::from_str(&prompt::assemble(&subject, std::slice::from_ref(&report)))
+                    .unwrap();
+            assert_eq!(final_world["fresh"], original["fresh"]);
+        }
     }
 
     #[test]

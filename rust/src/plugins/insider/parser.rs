@@ -30,6 +30,11 @@ impl Parser<Reply> for ReplyParser<'_> {
                 }),
             "Insider reading must begin with the full subject name"
         );
+        if !body[subject.len()..].chars().any(char::is_alphanumeric) {
+            return Err(crate::tools::form::SurfaceError(
+                "The body only names the subject. Write a complete attributed sentence from the supplied reports, preserving all evidence limits.".into()
+            ).into());
+        }
         ensure!(
             !crate::tools::guards::has_bookkeeping_citation(&reply.body)
                 && crate::tools::guards::first_product_name(&reply.body).is_none()

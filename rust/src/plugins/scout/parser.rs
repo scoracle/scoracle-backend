@@ -213,7 +213,12 @@ fn first_direction_contradiction(
         ));
     }
 
-    for sentence in folded.split(['.', '!', '?', '\n']) {
+    for sentence in folded
+        .split(['.', '!', '?', ';', '\n'])
+        .flat_map(|sentence| sentence.split(" while "))
+        .flat_map(|clause| clause.split(" whereas "))
+        .flat_map(|clause| clause.split(" but "))
+    {
         let has_positive = POSITIVE.iter().any(|stem| sentence.contains(stem));
         let has_negative = NEGATIVE.iter().any(|stem| sentence.contains(stem));
         if has_positive == has_negative {
@@ -479,6 +484,7 @@ fn first_source_shape_error(
                 "source sample",
                 "season data",
                 "data is based on",
+                "sample of",
             ]
             .iter()
             .any(|term| claim.contains(term))

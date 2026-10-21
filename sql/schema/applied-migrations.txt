@@ -317,3 +317,4 @@
 315_headline_entity_pipeline
 316_headline_identity_boundaries
 317_identity_boundary_candidate_filter
+318_coverage_freeze_set_based

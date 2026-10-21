@@ -119,6 +119,11 @@ pub(crate) async fn load_for_character_on(
         rows.len() <= 20000,
         "Classifier character population exceeds bound"
     );
+    // Obsolete receipts stay pending for reconciliation; current evidence can still be read.
+    let rows: Vec<_> = rows
+        .into_iter()
+        .filter(|row| row.get::<bool, _>("current_source"))
+        .collect();
     let native = rows
         .iter()
         .map(|row| serde_json::from_value::<Source>(row.get("source")))
@@ -127,10 +132,6 @@ pub(crate) async fn load_for_character_on(
     let mut sources = Vec::with_capacity(rows.len());
     let mut articles = std::collections::HashSet::new();
     for ((row, source), identity) in rows.into_iter().zip(native).zip(identities) {
-        ensure!(
-            row.get::<bool, _>("current_source"),
-            "Classifier delivery source changed; headline scoring must reconcile it"
-        );
         let id: i64 = row.get("id");
         ensure!(
             identity == source.provenance["identity_candidates"],

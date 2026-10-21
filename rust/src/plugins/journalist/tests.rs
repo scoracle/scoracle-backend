@@ -447,6 +447,11 @@ fn chelsea_full_headline_packet_fits_without_routing_metadata() {
 
 #[test]
 fn named_facts_cannot_move_between_cited_headlines() {
+    assert!(crate::tools::fresh::validate_named_facts(
+        "While City Wire reported talks, no deal was reached.",
+        &["City Wire: talks were held but no deal was reached."]
+    )
+    .is_ok());
     let sources = [
         "GPL: Ghanaian Midfielder William Bediako Joins Atlético Madrid from Berekum Chelsea",
         "Chelsea player with 23 minutes of playing time this season urged to leave the club",

@@ -15,6 +15,13 @@ pub(super) async fn tick(pool: &PgPool, at: Option<&str>) -> anyhow::Result<Stri
             sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
                 .execute(&mut *tx)
                 .await?;
+            // Cancel on the server before the outer timeout drops the query future.
+            sqlx::query("SET LOCAL statement_timeout='110s'")
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("SET LOCAL lock_timeout='5s'")
+                .execute(&mut *tx)
+                .await?;
             let phase: String = sqlx::query_scalar(
                 "SELECT public.coverage_tick(COALESCE($1::text::timestamptz,clock_timestamp()))",
             )

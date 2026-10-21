@@ -21,9 +21,14 @@ impl Parser<Reply> for ReplyParser<'_> {
             reply.body.chars().count() <= super::prompt::BODY_MAX_CHARS,
             "Insider body exceeds the reading budget"
         );
+        let body = crate::tools::guards::fold_for_match(&reply.body);
+        let subject = crate::tools::guards::fold_for_match(&self.subject.name);
         ensure!(
-            crate::tools::guards::title_names_entity(&reply.body, &self.subject.name),
-            "Insider reading does not name the subject"
+            !subject.is_empty()
+                && body.strip_prefix(&subject).is_some_and(|rest| {
+                    rest.chars().next().is_none_or(|c| !c.is_alphanumeric())
+                }),
+            "Insider reading must begin with the full subject name"
         );
         ensure!(
             !crate::tools::guards::has_bookkeeping_citation(&reply.body)
@@ -122,6 +127,86 @@ impl Parser<Reply> for ReplyParser<'_> {
 #[cfg(test)]
 mod source_fact_tests {
     use super::*;
+
+    #[test]
+    fn derozan_report_cannot_be_published_as_a_gordon_move() {
+        let subject = EntityMeta {
+            name: "Aaron Gordon".into(),
+            entity_type: "player".into(),
+            entity_id: 177,
+            sport: "NBA".into(),
+        };
+        let reports = [Report {
+            classifier_world: None,
+            publisher: "EssentiallySports".into(),
+            published_at: None,
+            headline: "DeMar DeRozan’s Career Takes Stunning Turn After 17 Years in the NBA As Nuggets Reveal New Plan".into(),
+            publisher_excerpt: String::new(),
+            co_mentions: vec![super::super::prompt::Mention {
+                name: "Denver Nuggets".into(),
+                entity_type: "team".into(),
+            }],
+        }];
+        let parser = ReplyParser {
+            subject: &subject,
+            reports: &reports,
+        };
+        let mut reply = serde_json::json!({
+            "body": "DeMar DeRozan joins the Denver Nuggets alongside Nikola Jokic and Aaron Gordon.",
+            "findings": []
+        });
+        for body in [
+            "DeMar DeRozan joins the Denver Nuggets alongside Nikola Jokic and Aaron Gordon.",
+            "Gordon has a new teammate in DeMar DeRozan.",
+            "Aaron Gordonson joins the Denver Nuggets.",
+        ] {
+            reply["body"] = body.into();
+            assert!(parser
+                .parse(&reply.to_string())
+                .unwrap_err()
+                .to_string()
+                .contains("full subject name"));
+        }
+        reply["body"] = "Aaron Gordon has no supported move in this DeMar DeRozan headline.".into();
+        assert!(parser.parse(&reply.to_string()).unwrap().is_some());
+        reply["findings"] = serde_json::json!([{
+            "report_index": 0, "counterparty": "Denver Nuggets", "status": "reported",
+            "stage": "here_we_go", "evidence_quote": reports[0].headline
+        }]);
+        assert!(parser
+            .parse(&reply.to_string())
+            .unwrap_err()
+            .to_string()
+            .contains("both the target and counterparty"));
+    }
+
+    #[test]
+    fn full_subject_prefix_accepts_possessives_accents_and_initials() {
+        for (name, body) in [
+            ("Aaron Gordon", "Aaron Gordon’s wire has no supported move."),
+            (
+                "Nicolás González",
+                "Nicolas Gonzalez has no supported move.",
+            ),
+            (
+                "P. J. Washington",
+                "P. J. Washington has no supported move.",
+            ),
+        ] {
+            let subject = EntityMeta {
+                name: name.into(),
+                entity_type: "player".into(),
+                entity_id: 1,
+                sport: "NBA".into(),
+            };
+            let parser = ReplyParser {
+                subject: &subject,
+                reports: &[],
+            };
+            let raw = serde_json::json!({"body":body,"findings":[]}).to_string();
+            assert!(parser.parse(&raw).unwrap().is_some(), "{name}");
+        }
+    }
     #[test]
     fn a_snub_is_not_a_denial_and_partial_names_are_not_counterparties() {
         let subject = EntityMeta {

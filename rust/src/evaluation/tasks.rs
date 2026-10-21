@@ -1523,7 +1523,7 @@ mod tests {
 
     #[test]
     fn transfer_denial_finding_is_not_a_live_rumor() {
-        let raw = r#"{"body":"TV2 reports that Everton denied talks for Lina Foss.","findings":[{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
+        let raw = r#"{"body":"Lina Foss is not in talks with Everton, according to TV2.","findings":[{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
         let x = Expect {
             transfer_is_rumor: Some(false),
             subject_includes: Some(vec!["Lina Foss".into()]),
@@ -1536,7 +1536,7 @@ mod tests {
 
     #[test]
     fn transfer_new_denial_supersedes_older_report_in_evaluation() {
-        let raw = r#"{"body":"TV2 reports that Everton denied talks for Lina Foss after an earlier link.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
+        let raw = r#"{"body":"Lina Foss is not in talks with Everton after an earlier link, according to TV2.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
         let x = Expect {
             transfer_is_rumor: Some(false),
             ..Default::default()
@@ -1548,7 +1548,7 @@ mod tests {
 
     #[test]
     fn transfer_invented_fee_is_caught_by_body_excludes() {
-        let raw = r#"{"body":"Everton want Lina Foss in a £12m move.","findings":[]}"#;
+        let raw = r#"{"body":"Lina Foss is wanted by Everton in a £12m move.","findings":[]}"#;
         let x = Expect {
             summary_excludes: Some(vec!["£12m".into()]),
             ..Default::default()

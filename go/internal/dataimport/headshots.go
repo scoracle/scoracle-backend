@@ -194,11 +194,11 @@ func validHeadshotURL(raw string) string {
 // setPlayerHeadshot overwrites a provider-managed player image. This is
 // deliberately unlike investigator enrichment's COALESCE: a previous generic
 // search result is not evidence once a league data source identifies the player.
-func setPlayerHeadshot(ctx context.Context, q querier, playerID int, photo string) (bool, error) {
+func setPlayerHeadshot(ctx context.Context, q querier, playerID int, sport, photo string) (bool, error) {
 	tag, err := q.Exec(ctx, `
 		UPDATE players
 		SET photo_url = $2, updated_at = NOW()
-		WHERE id = $1 AND photo_url IS DISTINCT FROM $2`, playerID, photo)
+		WHERE id = $1 AND sport = $3 AND photo_url IS DISTINCT FROM $2`, playerID, photo, sport)
 	if err != nil {
 		return false, err
 	}
@@ -278,7 +278,7 @@ func BackfillNFLHeadshots(ctx context.Context, pool *pgxpool.Pool, seasonOverrid
 			if err != nil {
 				return f, fmt.Errorf("look up NFL player %s: %w", gsis, err)
 			}
-			changed, err := setPlayerHeadshot(ctx, pool, playerID, photo)
+			changed, err := setPlayerHeadshot(ctx, pool, playerID, "NFL", photo)
 			if err != nil {
 				return f, fmt.Errorf("update NFL player %d: %w", playerID, err)
 			}
@@ -330,7 +330,7 @@ func BackfillNFLHeadshots(ctx context.Context, pool *pgxpool.Pool, seasonOverrid
 				continue
 			}
 			f.SourceRows++
-			changed, err := setPlayerHeadshot(ctx, pool, players[0].id, photos[0])
+			changed, err := setPlayerHeadshot(ctx, pool, players[0].id, "NFL", photos[0])
 			if err != nil {
 				return f, fmt.Errorf("update ESPN NFL headshot player %d: %w", players[0].id, err)
 			}
@@ -430,7 +430,7 @@ func BackfillNBAHeadshots(ctx context.Context, pool *pgxpool.Pool) (HeadshotFunn
 		if _, err := pool.Exec(ctx, upsertIdentitySQL, "player", playerID, "NBA", "nba", nbaID); err != nil {
 			return f, fmt.Errorf("bind NBA id %s to player %d: %w", nbaID, playerID, err)
 		}
-		changed, err := setPlayerHeadshot(ctx, pool, playerID,
+		changed, err := setPlayerHeadshot(ctx, pool, playerID, "NBA",
 			"https://cdn.nba.com/headshots/nba/latest/1040x760/"+nbaID+".png")
 		if err != nil {
 			return f, fmt.Errorf("update NBA player %d: %w", playerID, err)

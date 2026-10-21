@@ -308,7 +308,7 @@ func importNFLRoster(ctx context.Context, pool *pgxpool.Pool, res *Resolver, sea
 		// the same roster row. Keep it authoritative over any generic-search
 		// image left by older enrichment runs.
 		if photo := validHeadshotURL(t.Get(i, "headshot_url")); photo != "" {
-			if _, err := setPlayerHeadshot(ctx, pool, pid, photo); err != nil {
+			if _, err := setPlayerHeadshot(ctx, pool, pid, "NFL", photo); err != nil {
 				return fmt.Errorf("headshot update player %d: %w", pid, err)
 			}
 		}

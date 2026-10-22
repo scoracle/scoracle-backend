@@ -9,8 +9,7 @@ pub use super::prompt::MODEL as ROUTE;
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.character.momentum"),
     task: TASK,
-    claim_policy: ClaimPolicy::TEAMS_FIRST
-        .gated_by(&["rating", "vibe"], &["rating_completed", "vibe_completed"]),
+    claim_policy: ClaimPolicy::TEAMS_FIRST,
     inference_routes: &[ROUTE],
     resources: ResourceProfile::grouped(1, crate::harness::fleet::MAC_SLOTS),
     tools: &[ToolGrant::Inference],

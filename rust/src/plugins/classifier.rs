@@ -13,6 +13,8 @@ use std::collections::BTreeMap;
 
 /// Prefix of the `input_version` on character work dispatched from a spectrum obligation.
 /// Character work is dispatched from admitted headline spectra.
+pub const AVAILABILITY_CONTRACT: &str = "classifier-availability-v1";
+
 pub const CONTRACT: &str = "classifier-spectrum-v1";
 
 /// Immutable RSS metadata and candidates; historical rows may also retain article text.

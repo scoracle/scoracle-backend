@@ -90,7 +90,18 @@ impl Inference for GovernedInference {
             .acquire()
             .await
             .map_err(|e| anyhow!("gpu governor semaphore closed: {e}"))?;
-        self.inner.generate(prompt, opts).await
+        let started = std::time::Instant::now();
+        let result = self.inner.generate(prompt, opts).await;
+        match &result {
+            Ok((gen, request)) => tracing::info!(input_hash=%crate::util::hash_components(prompt),
+                request_hash=%crate::util::hash_components(&request.to_string()), model=%gen.model,
+                input_tokens=gen.prompt_eval_count, output_tokens=gen.eval_count,
+                wall_ms=started.elapsed().as_millis() as u64, "character model call completed"),
+            Err(error) => tracing::warn!(input_hash=%crate::util::hash_components(prompt),
+                model=%self.inner.model(), wall_ms=started.elapsed().as_millis() as u64, %error,
+                "character model call failed"),
+        }
+        result
     }
 
     fn model(&self) -> &str {

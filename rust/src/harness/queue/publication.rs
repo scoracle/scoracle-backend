@@ -13,12 +13,14 @@ use sqlx::{PgPool, Postgres, Transaction};
 pub(crate) struct ClaimPublication<'a> {
     tx: Transaction<'a, Postgres>,
     item: &'a Item,
+    started: std::time::Instant,
 }
 
 impl<'a> ClaimPublication<'a> {
     /// Begin a short publication transaction and fence it to the exact lease and input
     /// revision. `None` means the claim was superseded before any domain effect ran.
     pub(crate) async fn begin(pool: &'a PgPool, item: &'a Item) -> Result<Option<Self>> {
+        let started = std::time::Instant::now();
         let mut tx = pool.begin().await.context("begin claim publication")?;
         if !work::lock_claim(&mut tx, item).await? {
             tx.rollback()
@@ -31,7 +33,7 @@ impl<'a> ClaimPublication<'a> {
             .execute(&mut *tx)
             .await
             .context("bind daily publication to its queue lease")?;
-        Ok(Some(Self { tx, item }))
+        Ok(Some(Self { tx, item, started }))
     }
 
     /// Borrow the transaction for plugin-owned domain SQL. Publication coordination
@@ -51,6 +53,14 @@ impl<'a> ClaimPublication<'a> {
 
     /// Atomically commit plugin effects and completion of the exact claim.
     pub(crate) async fn commit_final(mut self) -> Result<()> {
+        sqlx::query("SELECT coverage_resolve_claim($1,$2,$3,$4,$5)")
+            .bind(self.item.stage.as_str())
+            .bind(&self.item.entity_type)
+            .bind(self.item.entity_id)
+            .bind(&self.item.sport)
+            .bind(self.item.require_claim_token()?)
+            .execute(&mut *self.tx)
+            .await?;
         ensure!(
             work::complete_in_transaction(&mut self.tx, self.item).await?,
             "claim changed while its publication transaction held the row lock"
@@ -58,6 +68,10 @@ impl<'a> ClaimPublication<'a> {
         self.tx
             .commit()
             .await
-            .context("commit final claim publication")
+            .context("commit final claim publication")?;
+        tracing::info!(stage=%self.item.stage, entity_type=%self.item.entity_type,
+            entity_id=self.item.entity_id, sport=%self.item.sport, claim_token=?self.item.claim_token,
+            wall_ms=self.started.elapsed().as_millis() as u64, "claim publication completed");
+        Ok(())
     }
 }

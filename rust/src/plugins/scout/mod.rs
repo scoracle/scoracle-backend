@@ -3,6 +3,7 @@
 //! Preparation belongs to `prompt.rs`; performance reads belong to `performance.rs`.
 //! Publication transactions and receipts belong to `publish.rs`.
 
+pub mod availability;
 pub mod manifest;
 pub mod parser;
 pub mod performance;
@@ -133,7 +134,15 @@ async fn generate_rating(
         }
     };
     let assignment = match built {
-        RatingBuild::NoStats { season } => return Ok(no_stats(season, backend.model())),
+        RatingBuild::NoStats {
+            season,
+            availability,
+        } => {
+            let mut output = no_stats(season, backend.model());
+            output.input_components =
+                serde_json::json!({"provenance":{"availability":availability}}).to_string();
+            return Ok(output);
+        }
         RatingBuild::Ready(assignment) => *assignment,
     };
     if skip_unchanged
@@ -300,7 +309,7 @@ impl StudioPlugin for RatingHandler {
                 &item.sport.to_uppercase(),
                 "retired_article",
                 &serde_json::json!({}),
-                &Prepared::Debounced,
+                &Prepared::Debounced(None),
             )
             .await?
             .0);
@@ -339,7 +348,7 @@ impl StudioPlugin for RatingHandler {
         )
         .await?;
         let prepared = prepare(&output);
-        if matches!(prepared, Prepared::Debounced) {
+        if matches!(prepared, Prepared::Debounced(_)) {
             debug!(
                 entity_type = %item.entity_type,
                 entity_id = item.entity_id,

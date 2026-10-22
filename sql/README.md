@@ -35,3 +35,7 @@ scripts/hosting/snapshot-schema.sh "$SOURCE_URL"
 ```
 
 The capture uses one exported read-only snapshot for structure, reference rows and applied history. Commit all baseline files together. CI checks their checksums and lineage, restores them, verifies migration no-op behavior, and runs SQL, Go and Rust database contracts. Source correctness, NULL versus zero, measurement compatibility and durable recovery matter; retired wording does not.
+
+## Recovery candidate (not deployed)
+
+Forward migrations 320–321 add four-question Scout availability delivery, bounded explicit reconciliation, durable drain/assignment outcomes and qualified-edition views. Matching Go/Rust consumers must ship together. `coverage_publication` owns the serving pointer/revision; candidate rows are not approved merely by insertion or by a later edition completing. Legacy rows remain stored without implicit qualification. Until the first qualified pointer, the existing legacy surface remains visible under a legacy response identity. An old active schedule still needs explicit assignment reconciliation before cutover. See [implementation, disposable checks and remaining gates](../docs/progress_docs/2026-10-22-production-recovery.md). The existing generated baseline remains unchanged; fresh validation restores it and applies forward migrations.

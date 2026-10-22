@@ -52,7 +52,7 @@ func TestEntityVibeCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	statement := strings.NewReplacer("public.vibe_scores", "pg_temp.vibe_scores", "public.news_articles", "pg_temp.news_articles").Replace(entityVibeStatement)
+	statement := strings.NewReplacer("public.qualified_vibe_scores", "pg_temp.vibe_scores", "public.news_articles", "pg_temp.news_articles").Replace(entityVibeStatement)
 	var payload []byte
 	if err := tx.QueryRow(ctx, statement, "nfl", "team", 7, nil).Scan(&payload); err != nil {
 		t.Fatal(err)

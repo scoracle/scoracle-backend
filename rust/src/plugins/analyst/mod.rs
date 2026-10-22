@@ -13,7 +13,6 @@ use crate::harness::queue::work::{self, Item};
 use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use parser::MomentumParser;
 use prompt::{Assignment, MOMENTUM_PROMPT_VERSION};
 use publish::{commit_claimed, record_ledger};
 use sqlx::{PgPool, Postgres, Transaction};
@@ -159,7 +158,7 @@ async fn articulate(
         .extract(
             &prompt,
             &opts,
-            &MomentumParser,
+            &parser::RequestParser(&prompt),
             crate::harness::session::structured_correction,
         )
         .await?;

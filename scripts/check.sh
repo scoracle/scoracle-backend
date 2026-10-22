@@ -35,6 +35,7 @@ psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/253_rating_evidence
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/264_rating_source_identity.sql
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/318_coverage_freeze.sql
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/319_nba_free_throw_measure.sql
+psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/321_qualified_visibility.sql
 
 export SCORACLE_MEMORY_STUDY_BIN="$SCRATCH/scoracle-memory-study"
 (

@@ -52,7 +52,7 @@ pub(super) async fn persist_to_vibe_scores(
             sentiment, prompt, hook, input_news_ids,
             model_version, prompt_version, input_hash,
             reporting_start, reporting_end, evidence_cutoff, scoring_version, source_references
-        ) VALUES ($1,$2,$3,'dayic','null'::jsonb,$4,$5,$6,$7,$8,$9,$10,
+        ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8,$9,$10,
             to_timestamp($11::double precision),to_timestamp($12::double precision),
             to_timestamp($13::double precision),$14,
             (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',a.id,'publisher',a.source,'url',a.url,
@@ -97,7 +97,7 @@ pub(super) async fn record_ledger(
             entity_id: item.entity_id_i32()?,
             sport,
             pair_entity: None,
-            trigger_type: "dayic",
+            trigger_type: "periodic",
             trigger_payload: serde_json::Value::Null,
             product_row_ids: vec![product_row_id],
             included_evidence: serde_json::json!({

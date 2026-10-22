@@ -428,10 +428,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		latest_raw AS (
 			SELECT DISTINCT ON (vs.entity_type, vs.entity_id)
 			       vs.entity_type, vs.entity_id, vs.sentiment AS heat, vs.hook AS headline, vs.generated_at
-			FROM public.vibe_scores vs, req
+			FROM public.qualified_vibe_scores vs, req
 			WHERE vs.sport = req.sport
 			  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
-			  AND vs.reporting_date=COALESCE(req.reporting_date,(SELECT max(reporting_date) FROM public.vibe_scores WHERE sport=req.sport))
+			  AND (req.reporting_date IS NULL OR vs.reporting_date=req.reporting_date)
 			ORDER BY vs.entity_type, vs.entity_id, vs.generated_at DESC
 		),
 		latest AS (
@@ -522,12 +522,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		latest_raw AS (
 			SELECT DISTINCT ON (ss.entity_type, ss.entity_id)
 			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.headline, ss.reading, ss.generated_at,ss.reporting_date
-			FROM public.sigil_synthesis ss, req
+			FROM public.qualified_sigil_synthesis ss, req
 			WHERE ss.sport = req.sport
-              AND ss.reporting_date=COALESCE(req.reporting_date,(SELECT max(reporting_date)
-                FROM public.sigil_synthesis WHERE sport=req.sport
-                  AND CASE WHEN req.want_season IS NULL THEN (season=req.cur_season OR season IS NULL)
-                      ELSE season=req.want_season END))
+              AND (req.reporting_date IS NULL OR ss.reporting_date=req.reporting_date)
 			  AND (req.entity_type IS NULL OR ss.entity_type = req.entity_type)
 			  AND CASE WHEN req.want_season IS NULL
 			           THEN (ss.season = req.cur_season OR ss.season IS NULL)
@@ -632,7 +629,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		voice AS (
 			SELECT DISTINCT ON (ms.entity_type, ms.entity_id)
 			       ms.entity_type, ms.entity_id, ms.headline
-			FROM public.momentum_summaries ms, req
+			FROM public.qualified_momentum_summaries ms, req
 			WHERE ms.sport = req.sport AND ms.headline IS NOT NULL
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
 		),
@@ -712,7 +709,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		voice AS (
 			SELECT DISTINCT ON (ms.entity_type, ms.entity_id)
 			       ms.entity_type, ms.entity_id, ms.headline
-			FROM public.momentum_summaries ms, req
+			FROM public.qualified_momentum_summaries ms, req
 			WHERE ms.sport = req.sport AND ms.headline IS NOT NULL
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
 		),
@@ -778,15 +775,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
                 report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
                 (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at
             FROM (SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date)
-                FROM public.news_summaries WHERE sport=req.sport)) report_day FROM req) chosen
+                FROM public.qualified_news_summaries WHERE sport=req.sport)) report_day FROM req) chosen
 		),
 		latest_gen AS (
 			SELECT ns.entity_type, ns.entity_id, max(ns.generated_at) AS gen
-			FROM public.news_summaries ns, req, scope
+			FROM public.qualified_news_summaries ns, req, scope
 			WHERE ns.sport = req.sport
 			  AND (req.entity_type IS NULL OR ns.entity_type = req.entity_type)
 			  AND ns.body IS NOT NULL AND ns.impact IS NOT NULL
-			  AND ns.reporting_date=scope.reporting_date
+			  AND (req.reporting_date IS NULL OR ns.reporting_date=req.reporting_date)
 			GROUP BY ns.entity_type, ns.entity_id
 		),
 		latest AS (
@@ -801,7 +798,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			         ELSE 'Developing story...'
 			       END AS trajectory_label,
 			       ns.generated_at
-			FROM public.news_summaries ns
+			FROM public.qualified_news_summaries ns
 			JOIN latest_gen lg ON lg.entity_type = ns.entity_type AND lg.entity_id = ns.entity_id
 			                  AND ns.generated_at = lg.gen
 			CROSS JOIN req
@@ -874,7 +871,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
                 report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
                 (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at
             FROM (SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date)
-                FROM public.transfer_rumors WHERE sport=req.sport)) report_day FROM req) chosen
+                FROM public.qualified_transfer_rumors WHERE sport=req.sport)) report_day FROM req) chosen
 		),
 		latest AS (
 			-- Newest row per pair regardless of verdict, so a fresh "cleared"
@@ -894,9 +891,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       END AS trajectory_label,
 			       tr.trajectory_components,
 			       tr.generated_at
-			FROM public.transfer_rumors tr, req, scope
+			FROM public.qualified_transfer_rumors tr, req, scope
 			WHERE tr.sport = req.sport
-			  AND tr.reporting_date=scope.reporting_date
+			  AND (req.reporting_date IS NULL OR tr.reporting_date=req.reporting_date)
 			ORDER BY tr.team_id, tr.subject_type, tr.player_id, tr.generated_at DESC
 		),
 		ranked AS (
@@ -1006,7 +1003,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
                 report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
                 (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at
             FROM (SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date)
-                FROM public.news_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id)) report_day FROM req) chosen
+                FROM public.qualified_news_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id)) report_day FROM req) chosen
 		),
 		narr AS (
 			SELECT ns.narrative_title AS headline, ns.narrative_title, ns.body, ns.impact, ns.impact_components,
@@ -1025,11 +1022,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       -- (identical on every row of the generation) ride the CTE for the two
 			       -- top-level keys below; the item subselect deliberately omits them.
 			       ns.card_score AS gen_card_score, ns.headline AS gen_headline
-			FROM public.news_summaries ns CROSS JOIN req CROSS JOIN scope
+			FROM public.qualified_news_summaries ns CROSS JOIN req CROSS JOIN scope
 			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
 			  AND ns.body IS NOT NULL
 			  AND ns.generated_at = (
-			      SELECT max(generated_at) FROM public.news_summaries
+			      SELECT max(generated_at) FROM public.qualified_news_summaries
 			      WHERE entity_type = (SELECT entity_type FROM req) AND entity_id = (SELECT entity_id FROM req)
 			        AND sport = (SELECT sport FROM req)
 			        AND body IS NOT NULL
@@ -1071,7 +1068,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
                 report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
                 (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at
             FROM (SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date)
-                FROM (SELECT reporting_date FROM public.transfer_rumors WHERE sport=req.sport AND ((req.entity_type='team' AND team_id=req.entity_id) OR (req.entity_type IN ('player','person') AND player_id=req.entity_id AND subject_type=req.entity_type)) UNION ALL SELECT reporting_date FROM public.insider_scores WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id) days)) report_day FROM req) chosen
+                FROM (SELECT reporting_date FROM public.qualified_transfer_rumors WHERE sport=req.sport AND ((req.entity_type='team' AND team_id=req.entity_id) OR (req.entity_type IN ('player','person') AND player_id=req.entity_id AND subject_type=req.entity_type)) UNION ALL SELECT reporting_date FROM public.qualified_insider_scores WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id) days)) report_day FROM req) chosen
 		),
 		tr_latest AS (
 			-- subject_type is part of the pair key (mig 235): person/player id
@@ -1090,11 +1087,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       END AS trajectory_label,
 			       tr.trajectory_components,
 			       tr.generated_at
-			FROM public.transfer_rumors tr CROSS JOIN req CROSS JOIN scope
+			FROM public.qualified_transfer_rumors tr CROSS JOIN req CROSS JOIN scope
 			WHERE tr.sport = req.sport
 			  AND ( (req.entity_type = 'team'   AND tr.team_id   = req.entity_id)
 			     OR (req.entity_type IN ('player','person') AND tr.player_id = req.entity_id AND tr.subject_type = req.entity_type) )
-			  AND tr.reporting_date=scope.reporting_date
+			  AND (req.reporting_date IS NULL OR tr.reporting_date=req.reporting_date)
 			ORDER BY tr.team_id, tr.subject_type, tr.player_id, tr.generated_at DESC
 		),
 		tr_ranked AS (
@@ -1129,7 +1126,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- score is NOT NULL by table constraint so the latest row IS latest-non-NULL.
 			-- No row (never wrapped / empty wire) leaves the JSON null → the Veil; an
 			-- emptied board renders EmptyCard anyway, so a lingering score never displays.
-			'heat', (SELECT s.score FROM public.insider_scores s
+			'heat', (SELECT s.score FROM public.qualified_insider_scores s
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
@@ -1139,13 +1136,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- the deck-scores ring actually reads ('heat' kept for existing consumers),
 			-- and the Insider's NEW entity-level hook (mig 232/is5) — NULL until the
 			-- entity's wire re-wraps under is5.
-			'card_score', (SELECT s.score FROM public.insider_scores s
+			'card_score', (SELECT s.score FROM public.qualified_insider_scores s
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
                    AND s.reporting_date=(SELECT reporting_date FROM scope)
 			     ORDER BY s.generated_at DESC LIMIT 1),
-			'headline', (SELECT s.headline FROM public.insider_scores s
+			'headline', (SELECT s.headline FROM public.qualified_insider_scores s
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
@@ -1155,7 +1152,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- the same latest wrap's prose, previously audit/prompt-memory only. Served as
 			-- the card's body so the Insider's voice is user-visible at zero generation cost;
 			-- NULL together with a null card_score when the wire was never wrapped.
-			'wire_read', (SELECT s.read FROM public.insider_scores s
+			'wire_read', (SELECT s.read FROM public.qualified_insider_scores s
 			     WHERE s.entity_type = (SELECT entity_type FROM req)
 			       AND s.entity_id = (SELECT entity_id FROM req)
 			       AND s.sport = (SELECT sport FROM req)
@@ -1175,12 +1172,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
             SELECT report_day AS reporting_date,report_day::timestamp AT TIME ZONE 'America/Detroit' starts_at,
                 (report_day+1)::timestamp AT TIME ZONE 'America/Detroit' ends_at FROM (
                 SELECT COALESCE(req.reporting_date,(SELECT max(reporting_date) FROM (
-                    SELECT reporting_date FROM public.news_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
-                    UNION ALL SELECT reporting_date FROM public.vibe_scores WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
-                    UNION ALL SELECT reporting_date FROM public.stat_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
-                    UNION ALL SELECT reporting_date FROM public.insider_scores WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
-                    UNION ALL SELECT reporting_date FROM public.momentum_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
-                    UNION ALL SELECT reporting_date FROM public.sigil_synthesis WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    SELECT reporting_date FROM public.qualified_news_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.qualified_vibe_scores WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.qualified_stat_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.qualified_insider_scores WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.qualified_momentum_summaries WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
+                    UNION ALL SELECT reporting_date FROM public.qualified_sigil_synthesis WHERE sport=req.sport AND entity_type=req.entity_type AND entity_id=req.entity_id
                 ) dates)) report_day FROM req) chosen
 		),
 		narr_gens AS (
@@ -1190,9 +1187,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       json_agg(json_build_object('title', ns.narrative_title, 'body', ns.body)
 			                ORDER BY ns.impact DESC NULLS LAST)
 			         FILTER (WHERE ns.body IS NOT NULL) AS items
-			FROM public.news_summaries ns, req, win
+			FROM public.qualified_news_summaries ns, req, win
 			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
-			  AND ns.reporting_date=win.reporting_date
+			  AND (req.reporting_date IS NULL OR ns.reporting_date=req.reporting_date)
 			  AND ns.headline IS NOT NULL
 			GROUP BY ns.generated_at
 		),
@@ -1201,33 +1198,33 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM narr_gens
 			UNION ALL
 			SELECT 'transfers', s.generated_at, s.score::int, s.headline, s.read, NULL::json
-			FROM public.insider_scores s, req, win
+			FROM public.qualified_insider_scores s, req, win
 			WHERE s.entity_type = req.entity_type AND s.entity_id = req.entity_id AND s.sport = req.sport
-			  AND s.reporting_date=win.reporting_date
+			  AND (req.reporting_date IS NULL OR s.reporting_date=req.reporting_date)
 			  AND s.headline IS NOT NULL
 			UNION ALL
 			SELECT 'vibe', v.generated_at, v.sentiment::int, v.hook, v.prompt, NULL::json
-			FROM public.vibe_scores v, req, win
+			FROM public.qualified_vibe_scores v, req, win
 			WHERE v.entity_type = req.entity_type AND v.entity_id = req.entity_id AND v.sport = req.sport
-			  AND v.reporting_date=win.reporting_date
+			  AND (req.reporting_date IS NULL OR v.reporting_date=req.reporting_date)
 			  AND v.hook IS NOT NULL
 			UNION ALL
 			SELECT 'momentum', m.generated_at, m.score::int, m.headline, m.blurb, NULL::json
-			FROM public.momentum_summaries m, req, win
+			FROM public.qualified_momentum_summaries m, req, win
 			WHERE m.entity_type = req.entity_type AND m.entity_id = req.entity_id AND m.sport = req.sport
-			  AND m.reporting_date=win.reporting_date
+			  AND (req.reporting_date IS NULL OR m.reporting_date=req.reporting_date)
 			  AND m.headline IS NOT NULL
 			UNION ALL
 			SELECT 'sigil', g.generated_at, g.score::int, g.headline, g.reading, NULL::json
-			FROM public.sigil_synthesis g, req, win
+			FROM public.qualified_sigil_synthesis g, req, win
 			WHERE g.entity_type = req.entity_type AND g.entity_id = req.entity_id AND g.sport = req.sport
-			  AND g.reporting_date=win.reporting_date
+			  AND (req.reporting_date IS NULL OR g.reporting_date=req.reporting_date)
 			  AND g.headline IS NOT NULL
 			UNION ALL
 			SELECT 'scouting', st.generated_at, NULL::int, st.headline, st.body, NULL::json
-			FROM public.stat_summaries st, req, win
+			FROM public.qualified_stat_summaries st, req, win
 			WHERE st.entity_type = req.entity_type AND st.entity_id = req.entity_id AND st.sport = req.sport
-			  AND st.reporting_date=win.reporting_date
+			  AND (req.reporting_date IS NULL OR st.reporting_date=req.reporting_date)
 			  AND st.headline IS NOT NULL
 		),
         entries AS (SELECT DISTINCT ON(card) * FROM entries_raw ORDER BY card,generated_at DESC)
@@ -1262,7 +1259,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       vs.previous_score, vs.headline, vs.reading AS body, vs.omen, vs.voiced_at,
 			       vs.voice_model_version, vs.voice_prompt_version,
 			       vs.model_version, vs.prompt_version, vs.generated_at
-			FROM public.sigil_synthesis vs, req
+			FROM public.qualified_sigil_synthesis vs, req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
 			  AND vs.score IS NOT NULL
 			  AND CASE WHEN req.want_season IS NULL
@@ -1273,7 +1270,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		vibe_hist AS (
 			SELECT vs.score, vs.generated_at
-			FROM public.sigil_synthesis vs, req
+			FROM public.qualified_sigil_synthesis vs, req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
 			  AND vs.score IS NOT NULL
 			  AND CASE WHEN req.want_season IS NULL
@@ -1297,7 +1294,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		summary AS (
 			SELECT ms.direction, ms.score AS heat, ms.headline, ms.blurb AS body, ms.model_version, ms.prompt_version, ms.generated_at
-			FROM public.momentum_summaries ms, req
+			FROM public.qualified_momentum_summaries ms, req
 			WHERE ms.entity_type = req.entity_type AND ms.entity_id = req.entity_id AND ms.sport = req.sport
 			  AND ms.season = COALESCE(req.want_season, req.cur_season)
 			  AND (req.want_season IS NOT NULL OR ms.generated_at > NOW() - INTERVAL '72 hours')
@@ -1523,12 +1520,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 					       COALESCE(s.rating_trajectory, 'steady') AS rating_trajectory,
 					       s.rating_trajectory_label,
 					       s.rating_trajectory_components
-					FROM public.stat_summaries s
+					FROM public.qualified_stat_summaries s
 					WHERE s.entity_type = (SELECT etype FROM req) AND s.entity_id = (SELECT eid FROM req)
 					  AND s.sport = (SELECT sport FROM req) AND s.season = (SELECT season FROM season_pick)
 					  AND s.body IS NOT NULL
 					  AND s.generated_at = (
-					      SELECT max(generated_at) FROM public.stat_summaries
+					      SELECT max(generated_at) FROM public.qualified_stat_summaries
 					      WHERE entity_type = (SELECT etype FROM req) AND entity_id = (SELECT eid FROM req)
 					        AND sport = (SELECT sport FROM req) AND season = (SELECT season FROM season_pick)
 					  )
@@ -1801,7 +1798,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM ranked r
 			JOIN LATERAL (
 				SELECT ns.narrative_title, ns.body, ns.entity_type, ns.entity_id, ns.generated_at
-				FROM public.news_summaries ns
+				FROM public.qualified_news_summaries ns
 				WHERE ns.storyline_id = r.id AND ns.narrative_title IS NOT NULL
 				ORDER BY ns.generated_at DESC LIMIT 1
 			) ch ON true
@@ -1969,7 +1966,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'generated_at', ch.generated_at)
 				FROM (
 					SELECT ns.narrative_title, ns.body, ns.entity_type, ns.entity_id, ns.generated_at
-					FROM public.news_summaries ns
+					FROM public.qualified_news_summaries ns
 					WHERE ns.storyline_id = s.id AND ns.narrative_title IS NOT NULL
 					ORDER BY ns.generated_at DESC LIMIT 1
 				) ch
@@ -2444,7 +2441,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		-- serves AS blurb) — the profile Vibe card renders it. hook (mig 180,
 		-- v13) is The Influencer's card title; NULL on pre-v13 rows.
 		SELECT vs.sentiment, vs.generated_at, vs.trigger_type, vs.prompt, vs.hook
-		FROM vibe_scores vs, req
+		FROM public.qualified_vibe_scores vs, req
 		WHERE vs.entity_type = req.entity_type
 		  AND vs.entity_id = req.entity_id
 		  AND vs.sport = '` + sportID + `'
@@ -2486,7 +2483,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 			DATE_TRUNC('day', vs.generated_at AT TIME ZONE 'UTC')::date AS day,
 			ROUND(AVG(vs.sentiment)::numeric, 0)::int AS sentiment_avg,
 			COUNT(*)::int AS snapshot_count
-		FROM vibe_scores vs, req, vibe_season_anchor anchor
+		FROM public.qualified_vibe_scores vs, req, vibe_season_anchor anchor
 		WHERE vs.entity_type = req.entity_type
 		  AND vs.entity_id = req.entity_id
 		  AND vs.sport = '` + sportID + `'

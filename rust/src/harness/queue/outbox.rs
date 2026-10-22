@@ -144,7 +144,7 @@ pub async fn drain(
             r#"
             SELECT id::text, kind, entity_type, entity_id, sport, source_input_version, attempts
               FROM application_outbox
-             WHERE kind = ANY($1) AND available_at <= NOW()
+             WHERE kind = ANY($1) AND attempts < 5 AND available_at <= NOW()
              ORDER BY available_at, created_at
              FOR UPDATE SKIP LOCKED
              LIMIT 1

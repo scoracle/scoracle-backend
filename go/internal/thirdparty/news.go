@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -35,6 +36,8 @@ const (
 
 // Both the Google query and client-side filter use this window; it must cover the ingest interval.
 const rssLookbackHours = 24
+
+var errCollectionUnavailable = errors.New("coverage collection unavailable")
 
 // Sport-specific search term suffixes for RSS.
 var sportTerms = map[string]string{
@@ -172,7 +175,7 @@ func (s *NewsService) persistArticles(
 		return nil, err
 	}
 	var open bool
-	if err := tx.QueryRow(ctx, "SELECT NOT enabled OR phase='coverage' FROM public.coverage_schedule").Scan(&open); err != nil {
+	if err := tx.QueryRow(ctx, "SELECT public.coverage_collection_open()").Scan(&open); err != nil {
 		return nil, err
 	}
 	if !open {
@@ -338,6 +341,21 @@ func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int,
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ScoracleBot/1.0)")
 	req.Header.Set("Accept", "application/rss+xml, application/xml, text/xml")
 
+	if s.pool != nil {
+		var open bool
+		var deadline *time.Time
+		if err := s.pool.QueryRow(ctx, "WITH t AS MATERIALIZED (SELECT clock_timestamp() at) SELECT public.coverage_collection_open(at),public.coverage_collection_deadline(at) FROM t").Scan(&open, &deadline); err != nil {
+			return nil, fmt.Errorf("%w: %v", errCollectionUnavailable, err)
+		}
+		if !open {
+			return nil, fmt.Errorf("%w: collection is closed", errCollectionUnavailable)
+		}
+		if deadline != nil {
+			requestContext, cancel := context.WithDeadline(ctx, *deadline)
+			defer cancel()
+			req = req.WithContext(requestContext)
+		}
+	}
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("RSS fetch error: %w", err)
@@ -429,6 +447,9 @@ func (s *NewsService) fetchFromRSS(
 			articles, err := s.fetchRSS(ctx, query, rssLookbackHours, edition, &f)
 			if err != nil {
 				f.RSSErrors++
+				if errors.Is(err, errCollectionUnavailable) {
+					return nil, f, err
+				}
 				s.logger.Warn("RSS fetch error", "edition", edition.name, "window_hours", rssLookbackHours, "error", err)
 				continue
 			}

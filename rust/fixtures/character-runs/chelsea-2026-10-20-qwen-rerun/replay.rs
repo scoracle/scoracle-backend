@@ -185,7 +185,7 @@ async fn main() -> Result<()> {
     let mut form = None;
     let mut season = 2026;
     let v = match built {
-        scout::prompt::RatingBuild::NoStats { season } => json!({"no_stats":true,"season":season}),
+        scout::prompt::RatingBuild::NoStats { season, .. } => json!({"no_stats":true,"season":season}),
         scout::prompt::RatingBuild::Ready(a) => {
             save(
                 &root,

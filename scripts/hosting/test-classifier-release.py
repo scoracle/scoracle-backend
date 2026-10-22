@@ -73,7 +73,7 @@ esac''',
     native.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$@"\n')
     native.chmod(0o755)
     for settings, model, name in [
-        ({}, str(root / "models/Kev-0.8B-Q8_0.gguf"), "ggml-org/Kev-0.8B-GGUF"),
+        ({"CLASSIFIER_MODEL_FILE": "/models/d1.gguf"}, "/models/d1.gguf", "LiquidAI/d1-3B-GGUF"),
         ({"CLASSIFIER_MODEL_FILE": "/models/new model.gguf", "CLASSIFIER_MODEL_NAME": "LiquidAI/d1-3B-GGUF", "CLASSIFIER_CONTEXT_SIZE":"32768", "CLASSIFIER_PARALLEL":"4"},
          "/models/new model.gguf", "LiquidAI/d1-3B-GGUF"),
     ]:
@@ -83,6 +83,10 @@ esac''',
         args = result.stdout.splitlines()
         assert args[:4] == ["-m", model, "--alias", name + "@sha256:fixturehash"]
         assert args[args.index("--ctx-size")+1] == settings.get("CLASSIFIER_CONTEXT_SIZE","65536")
-        assert args[args.index("--parallel")+1] == settings.get("CLASSIFIER_PARALLEL","8")
+        assert args[args.index("--parallel")+1] == settings.get("CLASSIFIER_PARALLEL","4")
+    missing_model_env = {k: v for k, v in env.items() if k != "CLASSIFIER_MODEL_FILE"}
+    result = subprocess.run(["bash", str(root / "scripts/hosting/run-classifier-model.sh")],
+                            env=missing_model_env, capture_output=True, text=True)
+    assert result.returncode != 0 and "verified d1 GGUF path" in result.stderr
     assert "EnvironmentFile=-%h/.config/scoracle/classifier-model.env" in (root / "units/scoracle-kev.service").read_text()
 print("Model swap/default launcher, paused release, preflight/build failure, active restart and build-only checks pass.")

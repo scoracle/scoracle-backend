@@ -1,0 +1,238 @@
+{
+  "criteria_version": "classification-criteria-v10-availability",
+  "threshold": 90,
+  "label_status": "assistant-authored provisional, not held-out human gold",
+  "calls": 24,
+  "selected_run": 2,
+  "cases": [
+    {
+      "admitted": true,
+      "expected": {
+        "availability": true,
+        "subject": true
+      },
+      "id": "named-injury",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "b13da8f5bd41279ba4978dcc21200b62bb3656fd8847b1b0fbaf3cb625c517c6",
+      "seconds": 0.365861958,
+      "spectrum": {
+        "availability": 91.75722455521216,
+        "emotion": 2.1083856954574953,
+        "movement": 90.55339640974536,
+        "subject": 79.52785755040108
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": true
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": true,
+        "subject": true
+      },
+      "id": "named-return",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "de39177d5faa75796f27b129bd41e707b62fd1a028d17d29335a50e0a08d3cfd",
+      "seconds": 0.337779375,
+      "spectrum": {
+        "availability": 96.32905418084228,
+        "emotion": 2.335155252853681,
+        "movement": 90.62208987958554,
+        "subject": 81.03282741023678
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": true
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": true,
+        "subject": true
+      },
+      "id": "named-denial",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "df121759352c93d65e78be911b386a9942b1c543f7e292947945dffc765b1344",
+      "seconds": 0.335909625,
+      "spectrum": {
+        "availability": 95.59819119757093,
+        "emotion": 3.11517161429702,
+        "movement": 91.98783117201948,
+        "subject": 76.529816872456
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": true
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": true,
+        "subject": true
+      },
+      "id": "uncertain-return",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "e29c9d15d32e7e20454e65de997abfdd0932a76b3c7f2a4253fa9988f06fd00a",
+      "seconds": 0.520652791,
+      "spectrum": {
+        "availability": 94.72606383752839,
+        "emotion": 2.9340464244335607,
+        "movement": 87.57919713048801,
+        "subject": 68.33654228878618
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": true
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": true,
+        "subject": true
+      },
+      "id": "team-rest",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "dba59b31dbbdef7e665de7c674b387a8fc97429d74bb80b64e72517bb102efa3",
+      "seconds": 0.853231833,
+      "spectrum": {
+        "availability": 97.610306299783,
+        "emotion": 1.7713792096744057,
+        "movement": 76.06037702069915,
+        "subject": 87.46783057965166
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": true
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": true,
+        "subject": true
+      },
+      "id": "team-suspension",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "50f9ab6c524767e5ab926038d3effa10e51842f8e7a656f075b2b4f35d14bada",
+      "seconds": 0.675120292,
+      "spectrum": {
+        "availability": 97.2991576032318,
+        "emotion": 2.2876107758460678,
+        "movement": 24.507724953650744,
+        "subject": 87.63752693247788
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": true
+    },
+    {
+      "admitted": false,
+      "expected": {
+        "availability": false,
+        "subject": false
+      },
+      "id": "irrelevant-identity",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "69e71ff4d1806bc814e4d4b16223091736f94e91a762bf6354adcc56879cf7cc",
+      "seconds": 0.337863916,
+      "spectrum": {
+        "availability": 96.19084795046588,
+        "emotion": 2.8736502742155325,
+        "movement": 3.4908893060067303,
+        "subject": 11.587647159241913
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": false
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": false,
+        "subject": true
+      },
+      "id": "historical-injury",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "7462d5321d65f0b015ec4fa965b265a8a39e53dacf15157d7d6f9dfdee328ca7",
+      "seconds": 0.33672025,
+      "spectrum": {
+        "availability": 65.35899952035247,
+        "emotion": 5.955756907582142,
+        "movement": 12.699479572043067,
+        "subject": 74.44981840659214
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": false
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": false,
+        "subject": true
+      },
+      "id": "transfer-only",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "27540bebfb7ff879a270d2f0aa0a8d0545cefb91673252936bd4f5ddcdfde46f",
+      "seconds": 0.339221209,
+      "spectrum": {
+        "availability": 83.38175580704356,
+        "emotion": 2.1966440280257618,
+        "movement": 94.94468214385763,
+        "subject": 76.77306706790374
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": false
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": false,
+        "subject": true
+      },
+      "id": "result-only",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "12862219660520df110cbe2dab9f555fbe0858c22b40002b96bc3d4205e94840",
+      "seconds": 0.339975083,
+      "spectrum": {
+        "availability": 6.455413306506186,
+        "emotion": 3.713013550946557,
+        "movement": 2.827308041726755,
+        "subject": 84.03439541953172
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": false
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": false,
+        "subject": true
+      },
+      "id": "tactical-substitution",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "e197ea5b292d7980f8b1d0413937c60b489f87200a72f5e51ae7e1a790d25d17",
+      "seconds": 0.33970275,
+      "spectrum": {
+        "availability": 44.161186127216766,
+        "emotion": 2.0088705578990735,
+        "movement": 66.3269482327604,
+        "subject": 81.89625683606079
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": false
+    },
+    {
+      "admitted": true,
+      "expected": {
+        "availability": false,
+        "subject": true
+      },
+      "id": "emotion-only",
+      "model": "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402",
+      "request_hash": "d9ad15a6b184c261d9eca0dacf59bae23d9634435f78c87669128bcf95325a62",
+      "seconds": 3.314668125,
+      "spectrum": {
+        "availability": 8.064576638421611,
+        "emotion": 93.16604755471006,
+        "movement": 2.361776032574621,
+        "subject": 89.66226965708354
+      },
+      "sport": "FOOTBALL",
+      "scout_routed": false
+    }
+  ],
+  "admitted_field": "Subject admission only; scout_routed applies subject >=55 and availability >=90."
+}

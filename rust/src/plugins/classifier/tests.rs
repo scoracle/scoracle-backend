@@ -85,7 +85,7 @@ impl Model {
                         .unwrap()
                         .contains("Unrelated")
                         || payload["state"]["subject_meta"]["identity"]["entity_id"] == 910417;
-                    let answers=payload["questions"].as_object().unwrap().keys().map(|key|(key.clone(),serde_json::json!({"type":"noul","noul":if rejected {0.1}else{0.95}}))).collect::<serde_json::Map<_,_>>();
+                    let answers=payload["questions"].as_object().unwrap().keys().map(|key|(key.clone(),serde_json::json!({"type":"noul","noul":if rejected || (key=="availability" && !payload["state"]["article"]["headline"].as_str().unwrap().contains("availability fixture")) {0.1}else{0.95}}))).collect::<serde_json::Map<_,_>>();
                     captured.lock().unwrap().push(payload);
                     (
                         if failed.swap(false, Ordering::Relaxed) {
@@ -130,10 +130,7 @@ async fn headline_replay_requires_explicit_opt_in() {
     for setting in [None, Some("false"), Some(""), Some("TRUE"), Some("typo")] {
         assert!(adapter::headline_replay(&pool, setting).is_empty());
     }
-    assert_eq!(
-        adapter::headline_replay(&pool, Some("true"))[0].name(),
-        "classifier.admission-replay"
-    );
+    assert!(adapter::headline_replay(&pool, Some("true")).is_empty());
 }
 
 const SPORT: &str = "ZZ_HEADLINE";
@@ -214,8 +211,8 @@ async fn headlines_archive_and_dispatch_without_publisher_io() -> Result<()> {
     assert_eq!(source["body"], "");
     assert_eq!(source["evidence_scope"], "headline");
     for request in model.requests.lock().unwrap().iter() {
-        assert_eq!(request["questions"].as_object().unwrap().len(), 5);
-        assert!(request["questions"].get("clickbait").is_some());
+        assert_eq!(request["questions"].as_object().unwrap().len(), 4);
+        assert!(request["questions"].get("clickbait").is_none());
         assert!(request["state"]["article"].get("body").is_none());
     }
     let sources = delivery::load_for_character(
@@ -230,9 +227,9 @@ async fn headlines_archive_and_dispatch_without_publisher_io() -> Result<()> {
     assert_eq!(sources[0].context, "Cedar FC appoints a coach");
     assert_eq!(
         sources[0].classifier_world.as_ref().unwrap()["spectrum"]["clickbait"],
-        95.0
+        serde_json::Value::Null
     );
-    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.article_id=910415 AND d.status='pending'").fetch_one(&pool).await?,3,"only the admitted subject is delivered, including high clickbait");
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.article_id=910415 AND d.status='pending'").fetch_one(&pool).await?,3,"only the admitted subject is delivered, without clickbait");
     assert_eq!(
         sqlx::query_scalar::<_, i64>(
             "SELECT count(*) FROM pipeline_work WHERE stage='classifier_acquire' AND sport=$1"
@@ -605,6 +602,9 @@ async fn team_rss_extracts_known_roles_and_recovers_reverted_headlines() -> Resu
     assert!(!queued, "rank changes never reopen used evidence");
     // A repaired canonical name index can be reconciled even when RSS no longer returns the URL.
     sqlx::query("DELETE FROM entity_name_surfaces WHERE entity_type='person' AND entity_id=920007 AND sport=$1").bind(sport).execute(&pool).await?;
+    sqlx::query("UPDATE classifier_reconciliation_cursor SET article_id=920000,sport=''")
+        .execute(&pool)
+        .await?;
     let replayed: i64 = sqlx::query_scalar("SELECT classifier_replay_admission(1)")
         .fetch_one(&pool)
         .await?;

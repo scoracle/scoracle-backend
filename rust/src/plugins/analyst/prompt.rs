@@ -211,7 +211,7 @@ async fn load_scout_reading(
             SELECT body, headline, season, generated_at, input_hash
               FROM public.stat_summaries
              WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date() AND season = $4
+           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule)) AND season = $4
              ORDER BY generated_at DESC, id DESC
              LIMIT 1
           ) latest
@@ -247,7 +247,7 @@ async fn load_influencer_reading(
         SELECT prompt, hook, sentiment, generated_at::date::text, input_hash
           FROM public.vibe_scores
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date()
+           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
            AND prompt IS NOT NULL AND btrim(prompt) <> ''
          ORDER BY generated_at DESC, id DESC
          LIMIT 1

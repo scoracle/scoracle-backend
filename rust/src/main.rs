@@ -29,15 +29,14 @@ async fn main() -> Result<()> {
     let mut cfg = config::Config::from_env()?;
     let configured_stages = std::env::var("COGNITION_STAGES").ok();
     let enabled = registration::enabled_from_config(configured_stages.as_deref())?;
-    if enabled.iter().any(|stage| {
-        matches!(
-            stage.as_str(),
-            "narratives" | "vibe" | "rating" | "transfers" | "momentum" | "sigil"
-        )
-    }) {
-        scoracle_cognition::tools::memories::verify_runtime().await?;
-        info!("shared memory helper verified");
-    }
+    // Production shares one Qwen backend; role overrides and candidates remain offline eval tools.
+    cfg.route = config::RouteConfig::production(&cfg.model_base_url);
+    cfg.model_name = config::DEFAULT_MODEL.into();
+    cfg.model_max_concurrent = 4;
+    anyhow::ensure!(
+        cfg.model_timeout < cfg.handler_timeout && cfg.handler_timeout < cfg.stale_lease,
+        "production requires model timeout < handler timeout < stale lease"
+    );
     // Acquisition-only workers have no inference routes or model-host dependency.
     let routes: Vec<_> = scoracle_cognition::harness::fleet::ALL
         .iter()

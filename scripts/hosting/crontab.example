@@ -1,3 +1,4 @@
+# Historical batch example. Use scoracle-coverage.service for hourly recovery collection; do not install these acquisition/batch entries alongside the durable edition controller.
 # Scoracle cron schedule — example crontab entries.
 #
 # Install with:
@@ -11,8 +12,8 @@
 #   EDT (Mar-Nov): 03:00 UTC next day  →  0 3 * * *
 #   EST (Nov-Mar): 04:00 UTC next day  →  0 4 * * *
 # CRON_TZ controls schedule interpretation; TZ controls each job's environment.
-CRON_TZ=America/New_York
-TZ=America/New_York
+CRON_TZ=America/Detroit
+TZ=America/Detroit
 
 # Make sure logs dir exists before cron writes to it:
 #   mkdir -p /home/sheneveld/scoracle/scoracle-backend/logs

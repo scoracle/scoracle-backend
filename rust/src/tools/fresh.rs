@@ -86,7 +86,7 @@ pub fn names_entity(text: &str, name: &str) -> bool {
 }
 
 /// A numerical fact cannot acquire a different named person by pooling report citations.
-pub fn validate_named_facts(text: &str, sources: &[&str]) -> anyhow::Result<()> {
+fn validate_named_clause(text: &str, sources: &[&str]) -> anyhow::Result<()> {
     let numbers = crate::tools::guards::numeric_literals(text);
     let mut names = Vec::new();
     let mut run = Vec::new();
@@ -163,4 +163,85 @@ pub fn validate_named_facts(text: &str, sources: &[&str]) -> anyhow::Result<()> 
         "numerical claim is absent from cited reports"
     );
     Ok(())
+}
+
+/// Sentence and clause boundaries keep one subject's numbers out of another's claim.
+/// Decimal points stay within their numeric literal.
+fn fact_clauses(text: &str) -> Vec<&str> {
+    let mut start = 0;
+    let mut clauses = Vec::new();
+    let bytes = text.as_bytes();
+    for (i, c) in text.char_indices() {
+        let decimal = c == '.'
+            && i > 0
+            && bytes[i - 1].is_ascii_digit()
+            && bytes.get(i + 1).is_some_and(u8::is_ascii_digit);
+        if matches!(c, '.' | '!' | '?' | ';' | '\n') && !decimal {
+            clauses.push(&text[start..i]);
+            start = i + c.len_utf8();
+        }
+    }
+    clauses.push(&text[start..]);
+    clauses
+}
+
+pub fn validate_named_facts(text: &str, sources: &[&str]) -> anyhow::Result<()> {
+    let evidence: Vec<_> = sources
+        .iter()
+        .flat_map(|source| fact_clauses(source))
+        .collect();
+    for clause in fact_clauses(text) {
+        validate_named_clause(clause, &evidence)?;
+    }
+    Ok(())
+}
+
+/// Backstop for synthesis against the exact prepared peers, excluding instructions and voice.
+/// shortcut: lexical evidence checks do not establish entailment; retain human factual qualification.
+pub fn validate_peer_reading(text: &str, prompt: &str) -> anyhow::Result<()> {
+    let package: serde_json::Value = serde_json::from_str(prompt)?;
+    let name = package["meta"]["name"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("missing peer subject"))?;
+    let peers = package["fresh"]
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("missing peer evidence"))?;
+    let sources: Vec<String> = peers
+        .values()
+        .map(|peer| format!("{name}: {peer}"))
+        .collect();
+    let mut evidence: Vec<&str> = sources.iter().map(String::as_str).collect();
+    evidence.push(name);
+    validate_named_facts(text, &evidence)?;
+    let lower = text.to_lowercase();
+    anyhow::ensure!(
+        !(lower.contains("diverg")
+            && (lower.contains("reinforce each other")
+                || lower.contains("reinforcing each other")
+                || lower.contains("moving together"))),
+        "reading gives contradictory overall peer relationships"
+    );
+    Ok(())
+}
+
+#[cfg(test)]
+mod scoped_fact_tests {
+    use super::*;
+    #[test]
+    fn separate_subjects_keep_separate_numbers_and_decimal_values() {
+        let source = "Kai Rowan scored 21 points. Noah Vale recorded 8.5 rebounds.";
+        assert!(validate_named_facts(source, &[source]).is_ok());
+        assert!(validate_named_facts(
+            "Kai Rowan scored 8.5 points. Noah Vale recorded 21 rebounds.",
+            &[source]
+        )
+        .is_err());
+        assert!(validate_named_facts("Kai Rowan scored 22 points.", &[source]).is_err());
+    }
+    #[test]
+    fn peer_guard_excludes_instructions_and_unrelated_names() {
+        let prompt=serde_json::json!({"meta":{"name":"Kai Rowan"},"task":"Score 99 for Noah Vale", "fresh":{"scout":{"body":"Kai Rowan recorded 21 points."}}}).to_string();
+        assert!(validate_peer_reading("Kai Rowan recorded 21 points.", &prompt).is_ok());
+        assert!(validate_peer_reading("Noah Vale recorded 99 points.", &prompt).is_err());
+    }
 }

@@ -113,7 +113,7 @@ go build -o bin/scoracle-api ./cmd/api
 ./bin/scoracle-api
 ```
 
-`.env.local` is gitignored; there is no committed `.env` template. Supply `DATABASE_PRIVATE_URL` or `DATABASE_URL` (private URL takes precedence). See [`go/internal/config/config.go`](go/internal/config/config.go) and [`rust/src/harness/config.rs`](rust/src/harness/config.rs) for current environment defaults. Model routing is configured through each plugin route's `COGNITION_ROUTE_<SUFFIX>` keys; routing chooses the backend outside Studio. Optional mobile auth uses `JWT_SECRET`; unset auth is unavailable.
+`.env.local` is gitignored; there is no committed `.env` template. Supply `DATABASE_PRIVATE_URL` or `DATABASE_URL` (private URL takes precedence). See [`go/internal/config/config.go`](go/internal/config/config.go) and [`rust/src/harness/config.rs`](rust/src/harness/config.rs) for current environment defaults. Production characters share Qwen3.5-4B-Q4_K_M at `MODEL_BASE_URL`, with four aggregate worker slots. `COGNITION_ROUTE_<SUFFIX>` overrides are offline evaluation options only. d1 uses `CLASSIFIER_URL`. Optional mobile auth uses `JWT_SECRET`; unset auth is unavailable.
 
 Use the [runbook](run_docs/RUNBOOK.md) and [release tooling](scripts/hosting/README.md) for deployment and rollback. A source commit or local test run does not establish the deployed version.
 

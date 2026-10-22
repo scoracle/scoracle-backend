@@ -349,6 +349,15 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	if _, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1, nil); err == nil {
 		t.Fatal("character phase accepted discovery")
 	}
+	requests := 0
+	closed := newFixtureService(t, func(w http.ResponseWriter, r *http.Request) { requests++ })
+	closed.pool = pool
+	if _, _, err := closed.GetEntityNews(ctx, "team", 1, "Test Club", "INTAKE_TEST", 0, nil); err == nil || !strings.Contains(err.Error(), "collection is closed") {
+		t.Fatalf("closed collection reported success: %v", err)
+	}
+	if requests != 0 {
+		t.Fatalf("started %d RSS requests after closure", requests)
+	}
 	if _, err := pool.Exec(ctx, "UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL"); err != nil {
 		t.Fatal(err)
 	}

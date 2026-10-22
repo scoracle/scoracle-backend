@@ -241,7 +241,7 @@ async fn enqueue_peak_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -
         match build_rating_request(pool, models.voice_num_ctx, &req, RATING_TEMPERATURE, false)
             .await?
         {
-            RatingBuild::NoStats { season } => rating_work_input_version(season, None),
+            RatingBuild::NoStats { season, .. } => rating_work_input_version(season, None),
             RatingBuild::Ready(r) => rating_work_input_version(r.season, Some(&r.input_hash)),
         };
     let rating = work::Item {

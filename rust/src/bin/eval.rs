@@ -763,7 +763,7 @@ async fn run_capture_assignments(
             )
             .await?
             {
-                RatingBuild::NoStats { season } => {
+                RatingBuild::NoStats { season, .. } => {
                     serde_json::json!({"status":"no_stats", "season":season})
                 }
                 RatingBuild::Ready(a) => {

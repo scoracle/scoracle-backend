@@ -1,10 +1,10 @@
-//! DuckDB ranks retained headline history; Postgres supplies the frozen source slice.
+//! Bounded headline-history ranking over a frozen Postgres source slice.
 use crate::tools::{meta::EntityMeta, source::SourceContext};
-use anyhow::{ensure, Context, Result};
+use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{PgConnection, Row};
-use std::collections::BTreeMap;
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Headline {
@@ -44,7 +44,7 @@ pub async fn load_on(
                 (s.source->>'published_at')::timestamptz AS published
             FROM classifier_spectra x JOIN classifier_sources s ON s.id=x.source_id CROSS JOIN clock c
             WHERE x.sport=$3 AND x.target->>'entity_type'=$1 AND x.target->>'entity_id'=$2::text
-                AND x.criteria_version=$7 AND s.source->>'evidence_scope'='headline'
+                AND x.criteria_version IN ($7,'classification-criteria-v9-headlines') AND s.source->>'evidence_scope'='headline'
                 AND NOT (x.article_id=ANY($5)) AND x.created_at<=c.captured
             ORDER BY x.article_id,x.id DESC
         ), eligible AS (
@@ -101,32 +101,48 @@ async fn select(
     before: i64,
     candidates: Vec<(Headline, i64)>,
 ) -> Result<Vec<Headline>> {
-    if candidates.is_empty() {
-        return Ok(Vec::new());
-    }
-    let selected: Vec<i64> = crate::tools::memories::run(&serde_json::json!({
-        "kind":"headline_memory", "version":"headline-spectrum-memory-v1", "character":character,
-        "from":before - 7 * 86400, "before":before, "limit":20,
-        "observations":candidates.iter().map(|(h, at)| serde_json::json!({
-            "article_id":h.article_id, "reported_at":at, "spectrum":h.spectrum,
-        })).collect::<Vec<_>>(),
-    }))
-    .await?;
+    let criterion = match character {
+        "journalist" => "subject",
+        "influencer" => "emotion",
+        "insider" => "movement",
+        _ => anyhow::bail!("invalid headline memory character"),
+    };
     ensure!(
-        selected.len() <= 20,
-        "unexpected headline memory result count"
+        candidates.len() <= 20000,
+        "headline memory population exceeds bound"
     );
-    let mut retained: BTreeMap<_, _> = candidates
-        .into_iter()
-        .map(|(h, _)| (h.article_id, h))
-        .collect();
-    let mut result = Vec::new();
-    for id in selected {
-        result.push(
-            retained
-                .remove(&id)
-                .context("unknown or duplicate headline memory")?,
+    let mut seen = HashSet::new();
+    let mut ranked = Vec::new();
+    for (headline, at) in candidates {
+        ensure!(
+            headline.article_id > 0 && seen.insert(headline.article_id),
+            "invalid or duplicate headline memory observation"
         );
+        let score = |key: &str| -> Result<f64> {
+            let value = headline.spectrum[key]
+                .as_f64()
+                .ok_or_else(|| anyhow::anyhow!("missing memory score"))?;
+            ensure!(
+                value.is_finite() && (0.0..=100.0).contains(&value),
+                "invalid memory score"
+            );
+            Ok(value)
+        };
+        let lens = score(criterion)?;
+        let subject = score("subject")?;
+        if at >= before.saturating_sub(7 * 86400) && at < before {
+            ranked.push((lens, subject, at, headline));
+        }
+    }
+    ranked.sort_by(|a, b| {
+        b.0.total_cmp(&a.0)
+            .then(b.1.total_cmp(&a.1))
+            .then(b.2.cmp(&a.2))
+            .then(b.3.article_id.cmp(&a.3.article_id))
+    });
+    let mut result = Vec::new();
+    for (_, _, _, headline) in ranked.into_iter().take(20) {
+        result.push(headline);
         if serde_json::to_vec(&result)?.len() > 6000 {
             result.pop();
             break;
@@ -184,8 +200,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "requires SCORACLE_MEMORY_STUDY_BIN"]
-    async fn duckdb_ranks_each_character_and_preserves_complete_headlines() -> Result<()> {
+    async fn rust_ranking_preserves_duckdb_order_and_complete_headlines() -> Result<()> {
         let candidates: Vec<_> = records()
             .into_iter()
             .take(3)
@@ -218,6 +233,46 @@ mod tests {
         oversized.0.headline = "Complete headline ".repeat(500);
         assert!(select("journalist", 200, vec![oversized]).await?.is_empty());
         assert!(select("journalist", 200, vec![]).await?.is_empty());
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore = "requires SCORACLE_MEMORY_STUDY_BIN"]
+    async fn rust_sort_matches_existing_duckdb_for_ties_and_window_edges() -> Result<()> {
+        let before = 800000;
+        let candidates: Vec<_> = (1..=30)
+            .map(|id| {
+                let at = match id {
+                    1 => before,
+                    2 => before - 7 * 86400 - 1,
+                    3 => before - 7 * 86400,
+                    _ => before - id / 2,
+                };
+                (
+                    Headline {
+                        article_id: id,
+                        headline: format!("Report {id}"),
+                        publisher: "Wire".into(),
+                        published_at: crate::util::utc_timestamp(at),
+                        url: format!("https://example.invalid/{id}"),
+                        spectrum: json!({"subject":id%3+90,"emotion":id%4+80,"movement":id%5+70}),
+                    },
+                    at,
+                )
+            })
+            .collect();
+        for character in ["journalist", "influencer", "insider"] {
+            let request = json!({"kind":"headline_memory","version":"headline-spectrum-memory-v1",
+                "character":character,"from":before-7*86400,"before":before,"limit":20,
+                "observations":candidates.iter().map(|(h,at)| json!({"article_id":h.article_id,"reported_at":at,"spectrum":h.spectrum})).collect::<Vec<_>>()});
+            let expected: Vec<i64> = crate::tools::memories::run(&request).await?;
+            let actual: Vec<i64> = select(character, before, candidates.clone())
+                .await?
+                .into_iter()
+                .map(|h| h.article_id)
+                .collect();
+            assert_eq!(actual, expected);
+        }
         Ok(())
     }
 

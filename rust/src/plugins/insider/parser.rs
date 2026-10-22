@@ -125,6 +125,29 @@ impl Parser<Reply> for ReplyParser<'_> {
                 "duplicate source/counterparty finding"
             );
         }
+        let attributed: Vec<String> = self
+            .reports
+            .iter()
+            .map(|report| format!("{}: {}", report.publisher, report.headline))
+            .collect();
+        let mut evidence: Vec<&str> = attributed.iter().map(String::as_str).collect();
+        evidence.push(&self.subject.name);
+        crate::tools::fresh::validate_named_facts(&reply.body, &evidence)?;
+        for relation in ["following", "after", "because", "therefore"] {
+            let stated = reply
+                .body
+                .to_lowercase()
+                .split_whitespace()
+                .any(|word| word.trim_matches(|c: char| !c.is_alphanumeric()) == relation);
+            ensure!(
+                !stated
+                    || self
+                        .reports
+                        .iter()
+                        .any(|report| report.headline.to_lowercase().contains(relation)),
+                "served reading adds unsupported chronology or causality"
+            );
+        }
         Ok(Some(reply))
     }
 }

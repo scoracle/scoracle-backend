@@ -11,7 +11,7 @@ vibe_cur AS (
 	       vs.trigger_type, vs.generated_at,
 	       vs.model_version, vs.prompt_version, vs.input_hash, vs.scoring_version,
            vs.reporting_date, vs.reporting_start, vs.reporting_end, vs.evidence_cutoff
-	FROM public.vibe_scores vs, req
+	FROM public.qualified_vibe_scores vs, req
 	WHERE vs.entity_type = req.entity_type
 	  AND vs.entity_id = req.entity_id
 	  AND vs.sport = req.sport
@@ -25,7 +25,7 @@ vibe_cur AS (
 vibe_window AS (
 	SELECT DISTINCT ON(vs.reporting_date) vs.reporting_date,vs.sentiment, vs.generated_at, vs.trigger_type,
 	       vs.hook AS headline, vs.prompt AS body
-	FROM public.vibe_scores vs, req
+	FROM public.qualified_vibe_scores vs, req
 	WHERE vs.entity_type = req.entity_type
 	  AND vs.entity_id = req.entity_id
 	  AND vs.sport = req.sport

@@ -1,0 +1,42 @@
+{
+  "version": "classification-criteria-v10-availability",
+  "questions": {
+    "subject": {
+      "type": "noul",
+      "instructions": "Is {subject} substantively involved in the headline's reporting? An opponent or directly affected club can qualify. A passing historical comparison alone does not qualify."
+    },
+    "emotion": {
+      "type": "noul",
+      "instructions": "Does the headline express feelings or emotional reactions about {subject}, such as joy, hope, pride, anger, frustration, fear, disappointment, grief or relief? Do not infer feelings from a result alone."
+    },
+    "movement": {
+      "type": "noul",
+      "instructions": "Does the headline report current transfers, trades, loans, signings, departures, contract negotiations or coaching changes involving {subject}? Include rumours and denials. Exclude historical background and fantasy trades."
+    },
+    "availability": {
+      "type": "noul",
+      "instructions": "Does this headline report a CURRENT or UPCOMING participation issue for {subject} or its players: injury, illness, fitness, suspension, eligibility, rest, absence or return? Current denials and uncertain returns qualify as reporting, not confirmed absence or fitness. Answer no for retrospective injuries, last season, historical background, ordinary tactical substitutions and transfers without a participation issue."
+    }
+  },
+  "admission": {
+    "subject": 55
+  },
+  "note": "Availability >=90 separates the 12 synthetic four-question calibration cases on 2026-10-22; provisional labels, not population quality approval. Preserve denials and uncertainty.",
+  "characters": {
+    "journalist": {
+      "subject": 55
+    },
+    "influencer": {
+      "subject": 55,
+      "emotion": 15
+    },
+    "insider": {
+      "subject": 55,
+      "movement": 80
+    },
+    "scout": {
+      "subject": 55,
+      "availability": 90
+    }
+  }
+}

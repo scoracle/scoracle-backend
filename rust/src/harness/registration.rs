@@ -7,9 +7,7 @@
 use crate::harness::models::Models;
 use crate::harness::plugin::StudioPlugin;
 use crate::harness::queue::work;
-use crate::harness::tools::WebBroker;
 use crate::plugins::analyst;
-use crate::plugins::fixture_boxscore::adapter as boxscore;
 use crate::plugins::influencer;
 use crate::plugins::insider;
 use crate::plugins::journalist;
@@ -94,7 +92,6 @@ pub fn build(
     enabled: &HashSet<String>,
 ) -> Result<Vec<Arc<dyn StudioPlugin>>> {
     let mut handlers: Vec<Arc<dyn StudioPlugin>> = Vec::new();
-    let mut web_workspace: Option<Arc<WebBroker>> = None;
 
     if enabled.contains("classifier") {
         handlers.push(Arc::new(
@@ -103,21 +100,6 @@ pub fn build(
                 crate::plugins::classifier::decision::Decision::from_env()?,
             ),
         ));
-    }
-
-    // Structured discovery uses only the scoped web broker.
-    if enabled.contains("investigate_entity") {
-        let web = shared_web_workspace(&mut web_workspace)?;
-        handlers.push(Arc::new(
-            crate::plugins::investigator::adapter::InvestigateEntityHandler::new(pool.clone(), web),
-        ));
-    }
-    if enabled.contains("fixture_boxscore") {
-        let web = shared_web_workspace(&mut web_workspace)?;
-        handlers.push(Arc::new(boxscore::FixtureBoxscoreHandler::new(
-            pool.clone(),
-            web,
-        )));
     }
 
     // Voice registration order is the tested dependency order.
@@ -178,23 +160,9 @@ pub fn build_reactions(pool: PgPool) -> Result<crate::harness::queue::outbox::Re
     crate::harness::queue::outbox::ReactionRegistry::new(reactions)
 }
 
-/// Allocate the process's shared workspace only when an enabled plugin needs it. This keeps an
-/// intentionally idle or voice-only worker from initializing an unused provider capability.
-fn shared_web_workspace(workspace: &mut Option<Arc<WebBroker>>) -> Result<Arc<WebBroker>> {
-    if workspace.is_none() {
-        *workspace = Some(Arc::new(WebBroker::new(0)?));
-    }
-    Ok(workspace
-        .as_ref()
-        .expect("workspace was initialized")
-        .clone())
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{
-        build_reactions, enabled_from_config, known_stages, shared_web_workspace, VOICE_ORDER,
-    };
+    use super::{build_reactions, enabled_from_config, known_stages, VOICE_ORDER};
 
     #[test]
     fn unset_configuration_keeps_classifier_opt_in() {
@@ -209,13 +177,13 @@ mod tests {
 
     #[test]
     fn configured_stages_normalize_and_dedupe() {
-        let stages = enabled_from_config(Some(
-            " fixture_boxscore, rating, momentum, vibe, VIBE ,,sigil ",
-        ))
-        .unwrap();
+        let stages =
+            enabled_from_config(Some(" narratives, rating, momentum, vibe, VIBE ,,sigil "))
+                .unwrap();
         assert_eq!(stages.len(), 5);
         assert!(!stages.contains("editor"));
-        assert!(stages.contains("fixture_boxscore"));
+        assert!(stages.contains("narratives"));
+        assert!(enabled_from_config(Some("fixture_boxscore,investigate_entity")).is_err());
         assert!(stages.contains("rating"));
         assert!(stages.contains("momentum"));
         assert!(stages.contains("vibe"));
@@ -238,14 +206,6 @@ mod tests {
     #[test]
     fn explicit_empty_configuration_is_an_idle_fleet() {
         assert!(enabled_from_config(Some("  ")).unwrap().is_empty());
-    }
-
-    #[test]
-    fn acquisition_plugins_receive_one_shared_web_workspace() {
-        let mut workspace = None;
-        let investigator = shared_web_workspace(&mut workspace).unwrap();
-        let boxscore = shared_web_workspace(&mut workspace).unwrap();
-        assert!(std::sync::Arc::ptr_eq(&investigator, &boxscore));
     }
 
     #[test]

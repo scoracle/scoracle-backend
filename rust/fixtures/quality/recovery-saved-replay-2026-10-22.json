@@ -1,0 +1,327 @@
+{
+  "columns": [
+    "mechanically_accepted",
+    "rejected",
+    "no_call"
+  ],
+  "human_factual_approval": false,
+  "model_calls": 0,
+  "note": "Saved replies were generated under their archived contracts; this is a current-parser regression replay, not model promotion.",
+  "summary": {
+    "momentum": [
+      4,
+      1,
+      1
+    ],
+    "narratives": [
+      8,
+      2,
+      1
+    ],
+    "oracle": [
+      1,
+      3,
+      0
+    ],
+    "rating": [
+      6,
+      5,
+      0
+    ],
+    "transfer": [
+      2,
+      5,
+      0
+    ],
+    "vibe": [
+      5,
+      0,
+      0
+    ]
+  },
+  "saved_run": "identity-availability-20261021-0b3eb01a / final-release",
+  "cases": [
+    {
+      "task": "momentum",
+      "name": "falling-confirmed",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "momentum",
+      "name": "missing-mood-peer",
+      "status": "no_call",
+      "failed_checks": []
+    },
+    {
+      "task": "momentum",
+      "name": "mixed-peak-up-vibe-down",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "momentum",
+      "name": "rising-confirmed",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "momentum",
+      "name": "shared-decline-holdout",
+      "status": "rejected",
+      "failed_checks": []
+    },
+    {
+      "task": "momentum",
+      "name": "sparse-samples-stay-steady",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "conflicting-reports-two-sources-that-contradict-each-other",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "distinct-developments-three-independent-developments,-three-keyed-slots",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "gordon-derozan-wrong-subject",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "headline-corpus-denial-with-prior-rumour",
+      "status": "rejected",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "late-qualification-late-correction-in-the-same-source",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "nba-attribution-basketball-source-under-a-league-namespace",
+      "status": "rejected",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "no-new-material-nothing-eligible:-no-call,-no-package",
+      "status": "no_call",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "one-result-single-result,-named-scorer",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "rumour-and-denial-rumour-with-its-denial-intact",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "synthetic-closed-training-fresh-only",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "narratives",
+      "name": "synthetic-training-time-fresh-only",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "oracle",
+      "name": "ascendant-aligned",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "oracle",
+      "name": "crossroads-conflict",
+      "status": "rejected",
+      "failed_checks": [
+        "reading_max_sentences"
+      ]
+    },
+    {
+      "task": "oracle",
+      "name": "near-empty-quiet-wire",
+      "status": "rejected",
+      "failed_checks": [
+        "reading_max_sentences"
+      ]
+    },
+    {
+      "task": "oracle",
+      "name": "three-card-newcomer",
+      "status": "rejected",
+      "failed_checks": [
+        "reading_max_sentences"
+      ]
+    },
+    {
+      "task": "rating",
+      "name": "football-player-total",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "rating",
+      "name": "nfl-team-zero-interceptions",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "rating",
+      "name": "synthetic-composite",
+      "status": "rejected",
+      "failed_checks": [
+        "production_acceptance"
+      ]
+    },
+    {
+      "task": "rating",
+      "name": "synthetic-daily-withdrawal",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "rating",
+      "name": "synthetic-incompatible",
+      "status": "rejected",
+      "failed_checks": [
+        "production_acceptance"
+      ]
+    },
+    {
+      "task": "rating",
+      "name": "synthetic-measured-memory",
+      "status": "rejected",
+      "failed_checks": [
+        "production_acceptance"
+      ]
+    },
+    {
+      "task": "rating",
+      "name": "synthetic-source-trigger",
+      "status": "rejected",
+      "failed_checks": [
+        "production_acceptance"
+      ]
+    },
+    {
+      "task": "rating",
+      "name": "synthetic-sparse",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "rating",
+      "name": "synthetic-strong",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "rating",
+      "name": "synthetic-withdrawn-report",
+      "status": "rejected",
+      "failed_checks": [
+        "production_acceptance"
+      ]
+    },
+    {
+      "task": "rating",
+      "name": "synthetic-zero-unknown",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "transfer",
+      "name": "explicit-denial-clears-prior-rumor",
+      "status": "rejected",
+      "failed_checks": []
+    },
+    {
+      "task": "transfer",
+      "name": "fizzled-prior-lowrel-skeptic",
+      "status": "rejected",
+      "failed_checks": []
+    },
+    {
+      "task": "transfer",
+      "name": "fully-named-advanced-talks",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "transfer",
+      "name": "fully-named-interest",
+      "status": "rejected",
+      "failed_checks": [
+        "stage:concrete_interest"
+      ]
+    },
+    {
+      "task": "transfer",
+      "name": "gordon-derozan-wrong-subject",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "transfer",
+      "name": "reliable-source-heating-steam",
+      "status": "rejected",
+      "failed_checks": []
+    },
+    {
+      "task": "transfer",
+      "name": "unnamed-signing-no-identity-join",
+      "status": "rejected",
+      "failed_checks": []
+    },
+    {
+      "task": "vibe",
+      "name": "clearly-negative",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "vibe",
+      "name": "clearly-positive",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "vibe",
+      "name": "gordon-derozan-wrong-subject",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "vibe",
+      "name": "quiet-mixed",
+      "status": "accepted",
+      "failed_checks": []
+    },
+    {
+      "task": "vibe",
+      "name": "warm-memory-cold-coverage",
+      "status": "accepted",
+      "failed_checks": []
+    }
+  ]
+}

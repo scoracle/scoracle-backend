@@ -61,9 +61,9 @@ func (c *Cache) Get(key string) (data []byte, etag string, ok bool) {
 // Set stores a value with a TTL.
 func (c *Cache) Set(key string, data []byte, ttl time.Duration) string {
 	if !c.enabled {
-		return ComputeETag(data)
+		return ComputeETag(append([]byte(key+"\x00"), data...))
 	}
-	etag := ComputeETag(data)
+	etag := ComputeETag(append([]byte(key+"\x00"), data...))
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.entries[key] = entry{

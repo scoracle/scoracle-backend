@@ -65,7 +65,7 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 				return ok, fail, ctx.Err()
 			}
 			var open bool
-			if err := pool.QueryRow(ctx, "SELECT NOT enabled OR phase='coverage' FROM public.coverage_schedule").Scan(&open); err != nil || !open {
+			if err := pool.QueryRow(ctx, "SELECT public.coverage_collection_open()").Scan(&open); err != nil || !open {
 				logger.Info("corpus: coverage closed; unfinished discovery retries on reopen", "error", err)
 				if err != nil {
 					return ok, fail, err

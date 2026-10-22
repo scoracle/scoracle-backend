@@ -19,7 +19,9 @@ BEGIN
         '299_classifier_spectra','300_classifier_spectrum_deliveries','301_classifier_spectrum_dispatch',
         '302_classifier_source_revisions','303_classifier_spectrum_consumption',
         '304_classifier_article_spectrum','305_classifier_identity_prefill',
-        '306_pipeline_stage_progress','307_classifier_bounded_acquisition','308_retire_graph','309_continuous_coverage','310_daily_character_scope','311_daily_pipeline_recovery','312_classifier_subject_reader','313_classifier_headline_first','314_classifier_headline_corpus','315_headline_entity_pipeline'] LOOP
+        '306_pipeline_stage_progress','307_classifier_bounded_acquisition','308_retire_graph','309_continuous_coverage','310_daily_character_scope','311_daily_pipeline_recovery','312_classifier_subject_reader','313_classifier_headline_first','314_classifier_headline_corpus','315_headline_entity_pipeline',
+        '318_coverage_freeze_set_based','319_nba_free_throw_measure',
+        '320_scout_availability_and_bounded_reconciliation','321_durable_qualified_editions'] LOOP
         IF NOT EXISTS(SELECT 1 FROM public.schema_migrations m WHERE m.version=migration_version) THEN
             RAISE EXCEPTION 'Missing migration %; migrate before placing binaries',migration_version;
         END IF;
@@ -55,7 +57,11 @@ SELECT classifier_source_id FROM public.news_article_entities LIMIT 0;
 SELECT source_id FROM public.classifier_source_heads LIMIT 0;
 SELECT request_hash,receipt FROM public.classifier_spectra LIMIT 0;
 SELECT stage,completed_at FROM public.pipeline_stage_progress LIMIT 0;
-SELECT enabled,phase,cutoff,timezone,drain_limit,character_limit,last_tick_at FROM public.coverage_schedule;
+SELECT enabled,phase,collection_cutoff,timezone,last_tick_at FROM public.coverage_schedule;
+SELECT edition_date,revision FROM public.coverage_publication;
+SELECT candidate_edition FROM public.qualified_vibe_scores LIMIT 0;
+SELECT resolution FROM public.coverage_assignments LIMIT 0;
+SELECT public.coverage_collection_open(),public.coverage_collection_deadline();
 SELECT public.character_reporting_date();
 SELECT reporting_date,stage FROM public.character_daily_publications LIMIT 0;
 SELECT prepared_input FROM public.coverage_assignments LIMIT 0;

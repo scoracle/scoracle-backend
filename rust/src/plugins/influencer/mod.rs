@@ -16,7 +16,7 @@ use crate::plugins::classifier::delivery::{load_for_character, validate_for_publ
 use crate::tools::meta::lookup_entity_name;
 use crate::tools::meta::EntityMeta;
 use crate::tools::source::SourceContext;
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 pub use parser::VibeParser;
 use prompt::{Assignment, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION, VIBE_TEMPERATURE};
@@ -74,7 +74,6 @@ pub async fn create(
     assignment: &Assignment,
     num_ctx: i32,
 ) -> Result<(Option<VibeOutput>, Value)> {
-    use crate::harness::Parser;
     let world = assignment.parts.assemble();
     anyhow::ensure!(
         world.len() <= prompt::SOURCE_BUDGET_BYTES + 2400,
@@ -113,15 +112,26 @@ pub async fn create(
     receipt["eval_count"] = json!(generated.eval_count);
     receipt["prompt_eval_count"] = json!(generated.prompt_eval_count);
     receipt["wall_ms"] = json!(generated.total_duration.as_millis() as u64);
-    let reply = match VibeParser.parse(&generated.response) {
-        Ok(reply) => reply,
+    receipt["response_model"] = json!(generated.model);
+    match output_from_receipt(assignment, &receipt) {
+        Ok(output) => Ok((output, receipt)),
         Err(error) => {
             receipt["error"] = json!(format!("{error:#}"));
-            return Ok((None, receipt));
+            Ok((None, receipt))
         }
-    };
-    let Some(reply) = reply else {
-        return Ok((None, receipt));
+    }
+}
+
+fn output_from_receipt(assignment: &Assignment, receipt: &Value) -> Result<Option<VibeOutput>> {
+    use crate::harness::Parser;
+    ensure!(receipt.get("error").is_none(), "failed generation receipt");
+    if receipt["reason"] == "no_fresh_evidence" && assignment.parts.sources.is_empty() {
+        return Ok(None);
+    }
+    let Some(reply) =
+        VibeParser.parse(receipt["raw_response"].as_str().context("saved response")?)?
+    else {
+        return Ok(None);
     };
     let mut source_ids: Vec<i64> = assignment
         .parts
@@ -131,27 +141,44 @@ pub async fn create(
         .collect();
     source_ids.sort_unstable();
     source_ids.dedup();
-    Ok((
-        Some(Generation::called(
-            VibeScore {
-                sentiment: Some(reply.score),
-                hook: Some(reply.headline),
-                vibe_prompt: Some(reply.body),
-                parts: assignment.parts.clone(),
-            },
-            generated.model,
-            VIBE_PROMPT_VERSION,
-            source_ids,
-            Some(input_hash),
-            GenerationCall {
-                built_prompt: world,
-                request_body: request,
-                eval_count: Some(generated.eval_count),
-                wall_ms: Some(generated.total_duration.as_millis() as u64),
-            },
-        )),
-        receipt,
-    ))
+    Ok(Some(Generation::called(
+        VibeScore {
+            sentiment: Some(reply.score),
+            hook: Some(reply.headline),
+            vibe_prompt: Some(reply.body),
+            parts: assignment.parts.clone(),
+        },
+        receipt["response_model"]
+            .as_str()
+            .or_else(|| receipt["model_version"].as_str())
+            .context("saved model")?
+            .into(),
+        VIBE_PROMPT_VERSION,
+        source_ids,
+        Some(
+            receipt["input_hash"]
+                .as_str()
+                .context("saved input hash")?
+                .into(),
+        ),
+        GenerationCall {
+            built_prompt: receipt["packet"].as_str().context("saved packet")?.into(),
+            request_body: receipt["request_body"].clone(),
+            eval_count: receipt["eval_count"].as_i64().map(|n| n as i32),
+            wall_ms: receipt["wall_ms"].as_u64(),
+        },
+    )))
+}
+
+async fn reusable_attempt(
+    pool: &PgPool,
+    input_hash: &str,
+    model: &str,
+) -> Result<Option<(i64, Option<i64>, String, Value)>> {
+    Ok(sqlx::query_as(
+        "SELECT id,product_id,outcome,receipt FROM vibe_card_attempts WHERE input_hash=$1 AND model_version=$2
+         AND outcome IN ('generated','published','abstained') ORDER BY id DESC LIMIT 1",
+    ).bind(input_hash).bind(model).fetch_optional(pool).await?)
 }
 
 pub(crate) async fn execute_with_backend(
@@ -230,17 +257,28 @@ pub(crate) async fn execute_with_backend(
         return hold_daily(pool, item, &assignment, &pending, &disposition).await;
     }
     let mut input_hash = prompt::request_hash(backend, &assignment, voice_num_ctx)?;
-    // Reuse a completed attempt only for identical evidence, model and contract.
-    let previous: Option<(i64, Option<i64>)> = sqlx::query_as(
-        "SELECT id,product_id FROM vibe_card_attempts WHERE input_hash=$1 AND model_version=$2
-         AND outcome IN ('published','abstained') ORDER BY id DESC LIMIT 1",
-    )
-    .bind(&input_hash)
-    .bind(backend.model())
-    .fetch_optional(pool)
-    .await?;
-    let (output, attempt_id) = if let Some((id, _)) = previous {
-        (None, id)
+    // A publication rollback must not discard an already validated model response.
+    let mut previous = reusable_attempt(pool, &input_hash, backend.model()).await?;
+    if previous.is_none() && !assignment.parts.memories.is_empty() {
+        let mut parts = assignment.parts.clone();
+        parts.memories.clear();
+        let without_history = Assignment::from_parts(parts)?;
+        let hash = prompt::request_hash(backend, &without_history, voice_num_ctx)?;
+        previous = reusable_attempt(pool, &hash, backend.model()).await?;
+        if previous.is_some() {
+            assignment = without_history;
+            input_hash = hash;
+        }
+    }
+    let (output, attempt_id) = if let Some((id, _, outcome, receipt)) = &previous {
+        (
+            if outcome == "generated" {
+                output_from_receipt(&assignment, receipt)?
+            } else {
+                None
+            },
+            *id,
+        )
     } else {
         let (mut output, mut receipt) = create(backend, &assignment, voice_num_ctx).await?;
         if receipt["context_exceeded"] == true && !assignment.parts.memories.is_empty() {
@@ -272,7 +310,7 @@ pub(crate) async fn execute_with_backend(
     let product_id = if let Some(output) = &output {
         Some(persist_to_vibe_scores(publication.transaction(), item, &sport, output).await?)
     } else {
-        previous.and_then(|p| p.1)
+        previous.as_ref().and_then(|p| p.1)
     };
     let selected: Vec<i64> = assignment
         .parts
@@ -334,7 +372,7 @@ pub(crate) async fn execute_with_backend(
         product_ref,
     )
     .await?;
-    if previous.is_none() {
+    if previous.as_ref().is_none_or(|p| p.2 == "generated") {
         sqlx::query("UPDATE vibe_card_attempts SET product_id=$2,outcome=$3 WHERE id=$1")
             .bind(attempt_id)
             .bind(product_id)

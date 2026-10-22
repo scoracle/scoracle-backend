@@ -326,7 +326,7 @@ mod postgres_publication_fencing_tests {
                 SPORT,
                 "periodic",
                 &serde_json::json!({}),
-                &Prepared::Debounced,
+                &Prepared::Debounced(None),
             )
             .await
             .unwrap(),

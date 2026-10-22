@@ -217,13 +217,13 @@ pub(super) async fn persist_stat_summary(
 }
 
 pub(super) enum Prepared<'a> {
-    Debounced,
+    Debounced(Option<&'a RatingOutput>),
     Product(&'a RatingOutput),
 }
 
 pub(super) fn prepare(out: &RatingOutput) -> Prepared<'_> {
     if out.skipped_unchanged {
-        Prepared::Debounced
+        Prepared::Debounced(Some(out))
     } else {
         Prepared::Product(out)
     }
@@ -241,8 +241,38 @@ pub(super) async fn commit_claimed(
         return Ok((PluginOutcome::Superseded, None));
     };
 
+    let output = match prepared {
+        Prepared::Product(out) | Prepared::Debounced(Some(out)) => Some(*out),
+        _ => None,
+    };
+    if let Some(out) = output {
+        let components: serde_json::Value = serde_json::from_str(&out.input_components)?;
+        if let Some(value) = components.pointer("/provenance/availability") {
+            let availability: super::availability::Availability =
+                serde_json::from_value(value.clone())?;
+            let all: Vec<_> = availability
+                .sources
+                .iter()
+                .chain(&availability.held)
+                .chain(&availability.redundant)
+                .cloned()
+                .collect();
+            crate::plugins::classifier::delivery::validate_for_publication(
+                publication.transaction(),
+                super::manifest::MANIFEST.id.as_str(),
+                &item.entity_type,
+                item.entity_id_i32()?,
+                sport,
+                &all,
+            )
+            .await?;
+            availability
+                .settle(publication.transaction(), item, out.body.is_some())
+                .await?;
+        }
+    }
     let product_row_id = match prepared {
-        Prepared::Debounced => None,
+        Prepared::Debounced(_) => None,
         Prepared::Product(output) => Some(
             insert_stat_summary(
                 publication.transaction(),
@@ -262,6 +292,11 @@ pub(super) async fn commit_claimed(
         matches!(prepared, Prepared::Product(_)),
     )
     .await?;
+    if matches!(prepared, Prepared::Debounced(Some(out)) if out.skipped_unchanged) {
+        sqlx::query("SELECT set_config('scoracle.assignment_resolution','unchanged',true)")
+            .execute(&mut **publication.transaction())
+            .await?;
+    }
     publication.commit_final().await?;
     Ok((PluginOutcome::Committed, product_row_id))
 }

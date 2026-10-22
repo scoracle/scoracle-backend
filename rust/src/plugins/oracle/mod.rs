@@ -12,7 +12,6 @@ use crate::harness::queue::work::{self, Item, TaskKey};
 use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use parser::ReadingParser;
 use prompt::{Assignment, Cards, Readiness, ORACLE_PROMPT_VERSION};
 use publish::{commit_claimed, record_ledger};
 use sqlx::PgPool;
@@ -296,7 +295,7 @@ async fn articulate(
         .extract(
             &prompt,
             &options,
-            &ReadingParser,
+            &parser::RequestParser(&prompt),
             crate::harness::session::structured_correction,
         )
         .await?;

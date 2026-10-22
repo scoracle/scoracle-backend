@@ -12,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s77-qualified-limits";
+pub const RATING_PROMPT_VERSION: &str = "s78-availability-headlines";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -35,7 +35,11 @@ pub struct Subject {
 /// this contract.
 #[derive(Serialize, serde::Deserialize)]
 pub enum RatingBuild {
-    NoStats { season: i32 },
+    NoStats {
+        season: i32,
+        #[serde(default)]
+        availability: super::availability::Availability,
+    },
     Ready(Box<Assignment>),
 }
 
@@ -81,6 +85,11 @@ is a standardized overall score with peer mean 50, not a percentile or a
 measure of any individual skill.
 
 Missing fixture measurements are unknown, not zero.
+availability contains only attributed participation headlines. It cannot change
+measurements or canonical identity. If mentioning availability, include a separate
+paragraph exactly as Publisher: Headline using a supplied publisher and complete
+headline verbatim. Preserve denial and uncertainty. Do not diagnose, predict a
+return date, infer recovery or explain measurements using a headline.
 
 State any thin-sample limit and its supplied sample count explicitly.
 Do not infer cohesion, effectiveness, consistency or ability from relative ranks.
@@ -104,6 +113,8 @@ pub struct Parts {
     pub sport_name: String,
     pub season: i32,
     pub profile: Profile,
+    #[serde(default)]
+    pub availability: super::availability::Availability,
 }
 
 impl Parts {
@@ -175,6 +186,7 @@ impl Parts {
             meta: crate::tools::meta::WritingIdentity<'a>,
             task: &'static str,
             fresh: &'a Profile,
+            availability: serde_json::Value,
             voice: &'static str,
         }
         let mut meta = self.subject.for_writing();
@@ -189,6 +201,7 @@ impl Parts {
             meta,
             task: TASK,
             fresh: &self.profile,
+            availability: self.availability.for_writing(),
             voice: super::voice::VOICE,
         })
         .expect("scout world serializes")
@@ -232,6 +245,16 @@ pub(crate) async fn build_rating_request_on(
     temperature: f64,
     with_enrichment: bool,
 ) -> Result<RatingBuild> {
+    let availability = super::availability::Availability::load(
+        connection,
+        &EntityMeta {
+            name: req.entity_name.clone(),
+            entity_type: req.entity_type.clone(),
+            entity_id: req.entity_id,
+            sport: req.sport.clone(),
+        },
+    )
+    .await?;
     let Some(mut profile) = performance::load_rating_profile(
         connection,
         &req.entity_type,
@@ -243,6 +266,7 @@ pub(crate) async fn build_rating_request_on(
     else {
         return Ok(RatingBuild::NoStats {
             season: req.season.unwrap_or(0),
+            availability,
         });
     };
 
@@ -252,6 +276,7 @@ pub(crate) async fn build_rating_request_on(
     if profile.composite_score.is_none() && profile.breakdown.is_empty() {
         return Ok(RatingBuild::NoStats {
             season: profile.season,
+            availability,
         });
     }
 
@@ -308,6 +333,9 @@ pub(crate) async fn build_rating_request_on(
     let prompt_profile =
         performance::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
     let mut components: serde_json::Value = serde_json::from_str(&base_components)?;
+    components["availability"] = serde_json::json!(availability);
+    components["availability_contract"] =
+        serde_json::json!(crate::plugins::classifier::AVAILABILITY_CONTRACT);
     components["skill_changes"] = serde_json::json!(comparisons);
     let sport_name: String =
         sqlx::query_scalar("SELECT display_name FROM public.sports WHERE id = $1")
@@ -332,6 +360,7 @@ pub(crate) async fn build_rating_request_on(
         },
         sport_name: subject.sport_name.clone(),
         season: profile.season,
+        availability: availability.clone(),
         profile: crate::plugins::scout::performance::profile_parts(
             &prompt_profile,
             supports_cross_season,
@@ -343,6 +372,7 @@ pub(crate) async fn build_rating_request_on(
     if !parts.has_measured_profile() {
         return Ok(RatingBuild::NoStats {
             season: profile.season,
+            availability,
         });
     }
     let input_components = parts.input_components(components);

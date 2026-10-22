@@ -1,5 +1,5 @@
 [Unit]
-Description=Scoracle decision Classifier (native llama.cpp, eight decision slots)
+Description=Scoracle decision Classifier (d1 via native llama.cpp, four decision slots)
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=0

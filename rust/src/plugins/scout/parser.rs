@@ -62,8 +62,9 @@ impl<'a> RatingRequestParser<'a> {
         // Instructions and voice are never evidence for response validation.
         let evidence = serde_json::from_str::<serde_json::Value>(prompt)
             .ok()
-            .and_then(|p| p.get("fresh").cloned())
-            .map(|fresh| serde_json::json!({"fresh": fresh}).to_string());
+            .map(|p| {
+                serde_json::json!({"fresh":p["fresh"],"availability":p["availability"]}).to_string()
+            });
         Self {
             prompt: evidence.unwrap_or_else(|| prompt.to_string()),
             directions,
@@ -115,39 +116,63 @@ impl Parser<RatingReply> for RatingRequestParser<'_> {
         let Some(reply) = RatingParser.parse(raw)? else {
             return Ok(None);
         };
+        let evidence: serde_json::Value = serde_json::from_str(&self.prompt).unwrap_or_default();
+        let allowed: Vec<String> = evidence["availability"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|s| {
+                Some(format!(
+                    "{}: {}",
+                    s["publisher"].as_str()?,
+                    s["headline"].as_str()?
+                ))
+            })
+            .collect();
+        let stats_body = reply
+            .body
+            .split("\n\n")
+            .filter(|p| !allowed.iter().any(|a| a == p.trim()))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        if !allowed.is_empty() {
+            let lower = stats_body.to_lowercase();
+            anyhow::ensure!(!["injur","diagnos","recover","suspend","suspension","eligible","fitness","return to play","ruled out"," sidelined","available to play"].iter().any(|word| lower.contains(word)),
+                "Availability must be a separate verbatim attributed headline; no diagnosis, recovery or participation inference");
+        }
         if let Some((label, stated, expected)) =
-            first_direction_contradiction(&reply.body, self.directions)
+            first_direction_contradiction(&stats_body, self.directions)
         {
             return Err(crate::tools::form::SurfaceError(format!(
                 "Body says {label} {stated}, but the compatible percentile evidence says it {expected}. Keep the supplied arithmetic direction."
             ))
             .into());
         }
-        if has_internal_form_contradiction(&reply.body) {
+        if has_internal_form_contradiction(&stats_body) {
             return Err(crate::tools::form::SurfaceError(
                 "Body describes recent form as both strong/rising and declining/falling. Keep one interpretation supported by the supplied recent-form evidence.".into(),
             )
             .into());
         }
-        if let Some(error) = first_measure_association_error(&reply.body) {
+        if let Some(error) = first_measure_association_error(&stats_body) {
             return Err(crate::tools::form::SurfaceError(error.into()).into());
         }
-        if let Some(error) = first_source_shape_error(&reply.body, &self.prompt, self.bands) {
+        if let Some(error) = first_source_shape_error(&stats_body, &self.prompt, self.bands) {
             return Err(crate::tools::form::SurfaceError(error.into()).into());
         }
-        if let Some((label, stated, expected)) = first_band_contradiction(&reply.body, self.bands) {
+        if let Some((label, stated, expected)) = first_band_contradiction(&stats_body, self.bands) {
             return Err(crate::tools::form::SurfaceError(format!(
                 "Body calls {label} {stated}, but its supplied percentile band is {expected}. Use the supplied band."
             ))
             .into());
         }
-        if let Some(height) = first_unsupported_height(&reply.body, &self.prompt) {
+        if let Some(height) = first_unsupported_height(&stats_body, &self.prompt) {
             return Err(crate::tools::form::SurfaceError(format!(
                 "Body invents height {height:?}, which is absent from the retained evidence. Remove it."
             ))
             .into());
         }
-        if let Some(number) = first_unsupported_number(&reply.body, &self.prompt) {
+        if let Some(number) = first_unsupported_number(&stats_body, &self.prompt) {
             return Err(crate::tools::form::SurfaceError(format!(
                 "Body uses numeric value {number}, which is absent from the retained evidence. Remove it or use the exact supplied measurement."
             ))
@@ -356,6 +381,51 @@ fn first_source_shape_error(
     let profile = &world["fresh"];
     let has_profile = profile.is_object();
     let unsupported_comparison = profile["supports_cross_season"] == false;
+    // A policy minimum and general compatibility are not observations or measured comparisons.
+    for claim in crate::tools::guards::prose_claims(&body_folded) {
+        let qualified = [
+            "no thin",
+            "not thin",
+            "unknown",
+            "cannot",
+            "does not",
+            "do not",
+            "not supported",
+        ]
+        .iter()
+        .any(|word| claim.contains(word));
+        if !qualified
+            && has_profile
+            && profile["limit"].is_null()
+            && (claim.contains("thin-sample") || claim.contains("thin sample"))
+        {
+            return Some("No thin-sample limit was supplied. Do not invent a sample limitation.");
+        }
+        if !qualified
+            && profile["limit"]["kind"] == "unknown_sample"
+            && !numeric_literals(claim).is_empty()
+            && ["recorded", "stored", "sample count", "sample of", "played"]
+                .iter()
+                .any(|word| claim.contains(word))
+        {
+            return Some(
+                "The observed sample count is unknown. A policy minimum is not an observed count.",
+            );
+        }
+        if !qualified
+            && ["supported across seasons", "comparable across seasons"]
+                .iter()
+                .any(|word| claim.contains(word))
+            && !profile["values"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|v| v["prior_percentile"].is_number())
+        {
+            return Some("No per-measure cross-season comparison was supplied. Compatibility alone does not establish one.");
+        }
+    }
+
     if has_profile
         && [
             "development",
@@ -488,7 +558,7 @@ fn first_source_shape_error(
             ]
             .iter()
             .any(|term| claim.contains(term))
-                || (claim.contains("sample")
+                || ((claim.contains("sample") || claim.contains("policy"))
                     && ["minimum", "threshold", "limit"]
                         .iter()
                         .any(|term| claim.contains(term))

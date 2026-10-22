@@ -5,8 +5,8 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 const CRITERIA: &str =
-    include_str!("../../../fixtures/classifier/classification-criteria-v9-headlines.json");
-pub const CRITERIA_VERSION: &str = "classification-criteria-v9-headlines";
+    include_str!("../../../fixtures/classifier/classification-criteria-v10-availability.json");
+pub const CRITERIA_VERSION: &str = "classification-criteria-v10-availability";
 
 pub struct Measurement {
     pub spectrum: BTreeMap<String, f64>,
@@ -17,8 +17,15 @@ pub struct Measurement {
 
 impl Measurement {
     pub(crate) fn from_receipt(receipt: Value) -> Result<Self> {
+        let mut response = receipt["response"].clone();
+        if receipt["request"]["questions"].get("clickbait").is_some() {
+            response["answers"]
+                .as_object_mut()
+                .context("saved decision answers")?
+                .remove("clickbait");
+        }
         Ok(Self {
-            spectrum: decode(&receipt["response"])?,
+            spectrum: decode(&response)?,
             model: model_identity(&receipt["response"])?.to_string(),
             request_hash: super::hash(&receipt["request"].to_string()),
             receipt,
@@ -219,8 +226,8 @@ mod tests {
         let meta = json!({"identity":{"name":"Cedar FC","sport":"FOOTBALL","entity_id":1,"entity_type":"team"},"identity_record":"Historical identity, not article evidence."});
         let payload = request("Cedar FC update", "Fixture Wire", "FOOTBALL", &meta).unwrap();
         assert_eq!(payload["state"]["article"]["publisher"], "Fixture Wire");
-        assert_eq!(payload["questions"].as_object().unwrap().len(), 5);
-        assert!(payload["questions"].get("clickbait").is_some());
+        assert_eq!(payload["questions"].as_object().unwrap().len(), 4);
+        assert!(payload["questions"].get("clickbait").is_none());
         assert!(payload["state"]["article"]["body"].is_null());
         assert!(payload["questions"]["subject"]["instructions"]
             .as_str()
@@ -246,22 +253,49 @@ mod tests {
             ("subject".into(), 95.0),
             ("emotion".into(), 14.9),
             ("movement".into(), 79.9),
-            ("clickbait".into(), 99.0),
+            ("availability".into(), 0.0),
         ]);
         assert_eq!(
             characters(&scores).unwrap(),
-            json!({"journalist":true,"influencer":false,"insider":false})
+            json!({"journalist":true,"influencer":false,"insider":false,"scout":false})
         );
         scores.insert("emotion".into(), 15.0);
         scores.insert("movement".into(), 80.0);
         assert_eq!(
             characters(&scores).unwrap(),
-            json!({"journalist":true,"influencer":true,"insider":true})
+            json!({"journalist":true,"influencer":true,"insider":true,"scout":false})
         );
         scores.insert("subject".into(), 54.9);
         assert_eq!(
             characters(&scores).unwrap(),
-            json!({"journalist":false,"influencer":false,"insider":false})
+            json!({"journalist":false,"influencer":false,"insider":false,"scout":false})
+        );
+    }
+
+    #[test]
+    fn availability_routing_matches_named_denial_and_irrelevant_calibration() {
+        let receipt: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/classifier/availability-calibration-receipt-2026-10-22.json"
+        ))
+        .unwrap();
+        for case in receipt["cases"].as_array().unwrap() {
+            let scores = serde_json::from_value(case["spectrum"].clone()).unwrap();
+            assert_eq!(
+                characters(&scores).unwrap()["scout"],
+                case["expected"]["availability"],
+                "{}",
+                case["id"]
+            );
+        }
+        let scores = BTreeMap::from([
+            ("subject".into(), 55.0),
+            ("emotion".into(), 0.0),
+            ("movement".into(), 0.0),
+            ("availability".into(), 90.0),
+        ]);
+        assert_eq!(
+            characters(&scores).unwrap(),
+            json!({"journalist":true,"influencer":false,"insider":false,"scout":true})
         );
     }
 

@@ -59,3 +59,15 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     }
     Some(MomentumReply { blurb })
 }
+
+/// Evidence-aware parser shared by production and prepared-fixture qualification.
+pub(crate) struct RequestParser<'a>(pub &'a str);
+impl Parser<MomentumReply> for RequestParser<'_> {
+    fn parse(&self, raw: &str) -> Result<Option<MomentumReply>> {
+        let Some(reply) = MomentumParser.parse(raw)? else {
+            return Ok(None);
+        };
+        crate::tools::fresh::validate_peer_reading(&reply.blurb, self.0)?;
+        Ok(Some(reply))
+    }
+}

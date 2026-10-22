@@ -8,20 +8,30 @@ See `run_docs/RUNBOOK.md` for the operations runbook (release/rollback, backup/r
 jobs, durable work queue, incident quick-reference) and `../../../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md`
 for the original strategy + rationale.
 
-## Current production release
+## Recovery candidate — not deployed
 
-The [October 20 release](../../rust/docs/headline-qwen35-deployment-2026-10-20.md)
-is live from commit `17ba32b5`, including the coverage scheduling repair, with migration 315 and matching Go/Rust binaries.
-Archbox runs known-entity headline scoring and hourly team RSS; the Mac runs the
-six character stages. Influencer uses Qwen3.5-4B Q4_K_M with compact instructions
-and score-first decoding. Other character routes retain SmolLM3; d1 is unchanged.
-The retired source-worker and browser-reader units were removed.
+The October 22 recovery work is local and requires a coordinated schema/runtime release.
+See [the recovery receipt](../../docs/progress_docs/2026-10-22-production-recovery.md)
+for completed checks and open factual/capacity gates. Production actions require separate approval.
 
-The release record includes verification and coordinated recovery. The
-[headline corpus](../../rust/docs/headline-corpus.md) and
-[entity pipeline contract](../../rust/docs/headline-entity-pipeline.md) describe
-current evidence and identity handling. Older deployment notes below retain
-their original historical context.
+The production roster is d1 plus six characters sharing one Qwen3.5-4B-Q4_K_M client.
+Set `CLASSIFIER_URL` on the decision worker and `MODEL_BASE_URL` on character workers.
+Production ignores role/candidate routing overrides; those remain offline evaluation options.
+Four running character claims are the aggregate budget across hosts. The shared memory helper
+is still available for offline analytics, but is no longer a character startup dependency.
+Investigator and fixture acquisition remain offline tools; their queue seats are not registered.
+Do not run old acquisition cron jobs or archive existing obligations during this cutover without approval.
+
+The controller closes collection at 22:00 America/Detroit, captures all current decision
+obligations, waits until midnight and the complete drain, then freezes characters. Failures
+remain visible blockers. There is no six-hour expiry. The proposed late-drain and carry-forward
+policies require agreement before cutover. Historical products are retained but not implicitly
+qualified by migration 321. The already-served legacy surface remains visible until the first qualified edition,
+identified as legacy rather than qualified; new candidates remain hidden. Deploy schema and both runtime halves together.
+
+Reconciliation is explicit and cursor-bounded (`classifier::adapter::reconcile`, at most 1,000
+revisions, 15-second statement / 1-second lock limits). `CLASSIFIER_REPLAY_BACKLOG` no longer
+starts a scheduled corpus scan. Ingest-time admission remains active.
 
 ## Install
 
@@ -92,7 +102,7 @@ maintenance; it no longer refreshes relationships or promotes legacy discoveries
 ## Headline Classifier operation
 
 Archbox runs `COGNITION_STAGES=classifier`, `CLASSIFIER_URL`,
-`CLASSIFIER_REPLAY_BACKLOG=true` and the shared coverage controller. The hourly
+the shared coverage controller, and no recurring archive replay. The hourly
 `scoracle-coverage.service` searches team RSS feeds; canonical headline entities
 are scored independently and qualifying reporting deliveries freeze into the
 nightly edition. The Mac runs the character stages. d1 and character model routes
@@ -102,8 +112,9 @@ are unchanged by the source cleanup.
 model alias. Its checkpoint settings live in
 `~/.config/scoracle/classifier-model.env`; the worker refuses an unfingerprinted
 model identity. The historical service name `scoracle-kev.service` remains for
-host compatibility. The production packet has five headline questions; old
-article-reader measurements do not qualify its model quality or throughput.
+host compatibility. The recovery candidate has four headline questions: subject, emotion,
+movement and availability. Historical five-question and article-reader measurements do not
+qualify the new contract or establish its throughput.
 
 `release.sh` performs schema preflight before placing binaries. It restarts only
 previously active cognition/coverage workers. It never starts the retired source

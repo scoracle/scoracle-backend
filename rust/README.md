@@ -10,7 +10,7 @@ The [governing wiki contract](../../scoracle-wiki/wiki/Architecture/Harness,%20P
 
 The Go collector searches team entities. Rust scores the query subjects and known teams, players and people named in the returned headlines. The existing sport-scoped name index resolves unique canonical names and stored aliases. Coaches, agents, owners, executives, officials, family and other known figures retain the canonical `person` type; IDs remain separate from player and team IDs. Ambiguous names stay unresolved. Unknown-person discovery and registration are a [subsequent session task](docs/headline-entity-pipeline.md#follow-up-unknown-entities).
 
-Classifier sends the headline, publisher and canonical subject metadata to d1 through llama.cpp's `/v1/systemone`. Its five scores are subject relevance, emotion, movement, availability and clickbait. Relevance ≥55 selects Journalist; Influencer also requires emotion ≥15, and Insider also requires movement ≥80. Scores describe headline evidence. They do not establish facts, corroboration or relationships; clickbait measures wording, not truth.
+Classifier sends the headline, publisher and canonical subject metadata to d1 through llama.cpp's `/v1/systemone`. Its four scores are subject relevance, emotion, movement and availability. Relevance ≥55 selects Journalist; Influencer also requires emotion ≥15, Insider movement ≥80, and Scout availability ≥90 for teams/players. The new availability threshold is provisionally calibrated on 12 named synthetic cases; it still needs human-reviewed held-out validation. Scores route headline evidence; they do not establish facts, corroboration or relationships.
 
 Classifier performs no publisher fetch, article extraction, browser rendering or full-text scoring. Harvester/Editor replay implementations, browser-reader runtime and the `classifier_acquire` worker are retired. Archived article evidence, decisions and products remain stored.
 
@@ -21,19 +21,19 @@ Each plugin's `fresh.rs` selects and bounds evidence; `prompt.rs` owns instructi
 - Journalist groups supported fresh headlines into up to three narratives, retaining exact contributing report keys.
 - Influencer produces one supported emotional reading, or abstains when feelings are unknown.
 - Insider produces an attributed movement reading with exact headline quotations for supported findings. Co-mentions alone do not establish a move.
-- Scout remains statistics-only. Analyst and Oracle retain their existing peer-product dependencies. These statistical stages run for teams and players; people receive the reporting products.
+- Scout expresses measured statistics, with a separate verbatim attributed availability-only headline section. Analyst and Oracle retain their existing peer-product dependencies. These statistical stages run for teams and players; people receive the reporting products.
 
 Fresh copies from the same publisher are supplied once, regardless of RSS URL or routing scores. Every delivery still receives a durable outcome. Feed rank controls queue ordering and cannot make unchanged evidence fresh again.
 
-Memories are attributed headlines from the prior seven days, using the same character lens, with at most 20 complete records and 6 KB. DuckDB ranks them by relevance for Journalist, emotion then relevance for Influencer, and movement then relevance for Insider, with recency breaking ties. Writing inputs keep headlines, publishers and dates; receipts also retain URLs and scores. The view excludes fresh article IDs and decisions after the edition freeze. Memories describe previous reporting; they cannot establish a new event or today's emotions. See the [headline corpus contract](docs/headline-corpus.md).
+Memories are attributed headlines from the prior seven days, using the same character lens, with at most 20 complete records and 6 KB. A bounded Rust sort ranks them by relevance for Journalist, emotion then relevance for Influencer, and movement then relevance for Insider, with recency breaking ties. Writing inputs keep headlines, publishers and dates; receipts also retain URLs and scores. The view excludes fresh article IDs and decisions after the edition freeze. Memories describe previous reporting; they cannot establish a new event or today's emotions. See the [headline corpus contract](docs/headline-corpus.md).
 
-The shared coverage controller freezes daily assignments at midnight America/Detroit. Queue leases, current-source validation and claim-fenced transactions protect retries and publication. Reverting a headline to an archived revision reconciles its current pointer and outstanding obligations. Completed evidence is not republished merely because its discovery candidates change.
+The recovery candidate closes collection at 22:00 America/Detroit and freezes daily assignments at midnight after every captured d1 obligation settles. Late drain and carry-forward are proposed cutover policies. Unresolved work retains the edition indefinitely; only a qualified complete edition changes serving visibility. Queue leases, current-source validation and claim-fenced transactions protect retries and publication. Reverting a headline to an archived revision reconciles its current pointer and outstanding obligations. Completed evidence is not republished merely because its discovery candidates change.
 
 A complete daily package over the existing 24 KB context budget is held. It is never split into repeated per-article publications. Output parsers retain structural checks, source mappings, attribution boundaries and served-prose guards. Parser acceptance does not establish factual model quality.
 
 ## Serving
 
-The API reads saved products and performs no inference. The reporting routes `/news`, `/vibe`, `/transfers`, `/headlines` and identity route `/meta` accept `team`, `player` and `person`. Reporting reads accept `date=YYYY-MM-DD`; the default selects the latest saved reporting day. Statistical routes remain scoped to teams and players. Weekly reporting filters and `/weeks` are retired.
+The API reads saved products and performs no inference. The reporting routes `/news`, `/vibe`, `/transfers`, `/headlines` and identity route `/meta` accept `team`, `player` and `person`. Reporting reads accept `date=YYYY-MM-DD`; the default selects each entity's latest qualified version, preserving original dates under the explicit carry-forward policy. Statistical routes remain scoped to teams and players. Weekly reporting filters and `/weeks` are retired.
 
 ## Ownership and source map
 
@@ -47,9 +47,9 @@ The API reads saved products and performs no inference. The reporting routes `/n
 
 Share ordinary tool functions when doing so reduces complexity. Plugins assemble clues rather than prewrite conclusions. Preserve dates, uncertainty, unknown values, publisher attribution and complete evidence. Historical prose cannot become measurement evidence. Keep model requests and responses inspectable outside compact character inputs.
 
-`tools/meta.rs` provides canonical identity; `tools/fresh.rs` presents evidence; `classifier/memories.rs` selects headline history through the shared DuckDB runner; `tools/form.rs` owns structural forms and decoding; `tools/guards.rs` owns served-prose checks. Other DuckDB studies remain available for explicit offline work.
+`tools/meta.rs` provides canonical identity; `tools/fresh.rs` presents evidence; `classifier/memories.rs` selects and ranks bounded headline history in Rust; `tools/form.rs` owns structural forms and decoding; `tools/guards.rs` owns served-prose checks. Other DuckDB studies remain available for explicit offline work.
 
-The six character plugins retain their existing interfaces and model routes. `statcommentary` remains an explicit statistics command. Investigator uses structured Wikimedia evidence; `factsweep` remains unavailable pending a qualified discovery gate.
+The six character plugins retain their distinct interfaces and share one production Qwen route. `statcommentary` remains an explicit statistics command. Investigator uses structured Wikimedia evidence; `factsweep` remains unavailable pending a qualified discovery gate.
 
 ## Activation and verification
 
@@ -60,3 +60,10 @@ The [pipeline guard fixes](docs/pipeline-guard-fixes-2026-10-20.md) add conserva
 For a read-only model replay: `CLASSIFIER_URL=http://127.0.0.1:18081 cargo run --release --example classifier_replay -- cases.jsonl 4`. Cases supply `id`, `sport`, `headline`, `publisher` and canonical `meta`.
 
 Use [development guidance](../run_docs/DEVELOPMENT.md), the [operations runbook](../run_docs/RUNBOOK.md), and `scripts/check.sh` with an empty disposable PostgreSQL 18 database. Database checks exercise publication and recovery; live-model replays separately assess evidence fidelity and writing quality. Historical deployment notes and article benchmarks describe their dated implementations.
+
+Production registers only Classifier and the six character plugins. One shared Qwen client and
+four aggregate running character claims replace per-role production routing. Headline-history
+ranking is a bounded Rust sort; DuckDB remains available to offline analytics. Historical
+Investigator/fixture modules are retained for their explicit offline callers.
+
+See [recovery validation and remaining release gates](../docs/progress_docs/2026-10-22-production-recovery.md).

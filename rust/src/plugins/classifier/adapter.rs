@@ -6,7 +6,7 @@ use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 use serde_json::json;
 use sqlx::{PgPool, Row};
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 pub struct ClassifierHandler {
     pool: PgPool,
@@ -171,7 +171,13 @@ impl StudioPlugin for ClassifierHandler {
             let measured =
                 super::decision::Measurement::from_receipt(entry["measurement"].clone())?;
             let accepted = super::decision::admitted(&measured.spectrum)?;
-            let characters = super::decision::characters(&measured.spectrum)?;
+            let mut characters = super::decision::characters(&measured.spectrum)?;
+            if !matches!(
+                entry["target"]["entity_type"].as_str(),
+                Some("team" | "player")
+            ) {
+                characters["scout"] = json!(false);
+            }
             let gate = json!({"coverage":"complete","scope":"headline","admitted":accepted,
                 "characters":characters});
             let spectrum_id: i64 = sqlx::query_scalar("INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt) VALUES($1,$2,$3,$4,$5,$6,'rss-headline-spectrum-v1',$7,$8,$9,$10,$11,$12) ON CONFLICT(source_id,target,model,criteria_version,scrub_version,request_hash) DO UPDATE SET request_hash=EXCLUDED.request_hash RETURNING id")
@@ -248,37 +254,30 @@ async fn validate_admission(
     Ok(Some(accepted))
 }
 
-// Backscoring is explicit; historical jobs archive spectra without creating fresh deliveries.
+// Historical reconciliation is an explicit maintenance operation, never a timer.
 pub(super) fn headline_replay(
-    pool: &PgPool,
-    setting: Option<&str>,
+    _pool: &PgPool,
+    _setting: Option<&str>,
 ) -> Vec<Arc<dyn crate::harness::plugin::ScheduledOperation>> {
-    if setting == Some("true") {
-        vec![Arc::new(Replay(pool.clone()))]
-    } else {
-        vec![]
-    }
+    vec![]
 }
 
-struct Replay(PgPool);
-#[async_trait]
-impl crate::harness::plugin::ScheduledOperation for Replay {
-    fn name(&self) -> &'static str {
-        "classifier.admission-replay"
-    }
-    async fn run(&self, cause: &'static str) -> Duration {
-        match sqlx::query_scalar::<_, i64>("SELECT public.classifier_replay_admission(1000)")
-            .fetch_one(&self.0)
-            .await
-        {
-            Ok(queued) => {
-                tracing::info!(cause, queued, "Classifier admission backlog reconciled");
-                if queued == 1000 {
-                    return Duration::from_secs(5);
-                }
-            }
-            Err(error) => tracing::error!(cause, %error, "Classifier admission replay failed"),
-        }
-        Duration::from_secs(300)
-    }
+pub async fn reconcile(pool: &PgPool, batch: i32) -> Result<i64> {
+    ensure!(
+        (1..=1000).contains(&batch),
+        "reconciliation batch must be 1..1000"
+    );
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET LOCAL statement_timeout='15s'")
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("SET LOCAL lock_timeout='1s'")
+        .execute(&mut *tx)
+        .await?;
+    let count = sqlx::query_scalar("SELECT classifier_replay_admission($1)")
+        .bind(batch)
+        .fetch_one(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(count)
 }

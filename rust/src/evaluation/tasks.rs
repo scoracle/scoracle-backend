@@ -357,7 +357,18 @@ pub trait LensTask: Send + Sync {
         label: Option<f64>,
         expect: Option<&Expect>,
     ) -> CaseVerdict {
-        let _ = request;
+        let evidence_result = match self.name() {
+            "momentum" => crate::plugins::analyst::parser::RequestParser(&request.user_prompt)
+                .parse(raw)
+                .map(|_| ()),
+            "oracle" => crate::plugins::oracle::parser::RequestParser(&request.user_prompt)
+                .parse(raw)
+                .map(|_| ()),
+            _ => Ok(()),
+        };
+        if let Err(error) = evidence_result {
+            return rejected(&format!("{error:#}"));
+        }
         self.evaluate(raw, label, expect)
     }
 }
@@ -1535,7 +1546,7 @@ mod tests {
 
     #[test]
     fn transfer_new_denial_supersedes_older_report_in_evaluation() {
-        let raw = r#"{"body":"Lina Foss is not in talks with Everton after an earlier link, according to TV2.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered a transfer for Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
+        let raw = r#"{"body":"Lina Foss is not in talks with Everton, according to TV2.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered a transfer for Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
         let x = Expect {
             transfer_is_rumor: Some(false),
             ..Default::default()
@@ -1819,7 +1830,7 @@ mod tests {
                         );
                         assert_eq!(
                             package.as_object().unwrap().len(),
-                            if matches!(name, "narratives" | "transfer") {
+                            if matches!(name, "narratives" | "transfer" | "rating") {
                                 5
                             } else {
                                 4

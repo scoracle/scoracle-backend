@@ -110,7 +110,7 @@ pub(crate) async fn load_for_character_on(
         JOIN classifier_sources s ON s.id=x.source_id
         WHERE d.character=$1 AND x.sport=$4
         AND x.target->>'entity_type'=$2 AND x.target->>'entity_id'=$3::text
-        AND d.status='pending' AND x.criteria_version=$5
+        AND d.status='pending' AND x.criteria_version IN ($5,'classification-criteria-v9-headlines')
         AND public.coverage_spectrum_selected(d.character,$2,$3::bigint,$4,x.id)
         ORDER BY published_at_epoch DESC NULLS LAST,x.id DESC LIMIT 20001")
         .bind(character).bind(entity_type).bind(entity_id.to_string()).bind(sport).bind(super::decision::CRITERIA_VERSION)

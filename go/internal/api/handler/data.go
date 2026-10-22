@@ -1130,6 +1130,27 @@ func (h *Handler) serveStatementJSON(
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), dbQueryTimeout)
+	defer cancel()
+	tx, err := h.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "database query failed")
+		return
+	}
+	defer tx.Rollback(ctx)
+	var edition string
+	if err := tx.QueryRow(ctx, "SELECT COALESCE(edition_date::text,'legacy') || ':' || revision::text FROM public.coverage_publication").Scan(&edition); err != nil {
+		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "publication boundary unavailable")
+		return
+	}
+	// Historical requests bypass current carry-forward markers, never qualification.
+	if _, err := tx.Exec(ctx, "SELECT set_config('scoracle.reporting_date',$1,true)", r.URL.Query().Get("date")); err != nil {
+		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "publication boundary unavailable")
+		return
+	}
+	w.Header().Set("X-Scoracle-Edition", edition)
+	cacheKey += ":edition:" + edition
+
 	if data, etag, ok := h.cache.Get(cacheKey); ok {
 		if cache.CheckETagMatch(r.Header.Get("If-None-Match"), etag) {
 			respond.WriteNotModified(w, etag)
@@ -1149,10 +1170,8 @@ func (h *Handler) serveStatementJSON(
 		if data, etag, ok := h.cache.Get(cacheKey); ok {
 			return cachedPayload{data, etag}, nil
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), dbQueryTimeout)
-		defer cancel()
 		var data []byte
-		if err := h.pool.QueryRow(ctx, stmt, args...).Scan(&data); err != nil {
+		if err := tx.QueryRow(ctx, stmt, args...).Scan(&data); err != nil {
 			return nil, err
 		}
 		etag := h.cache.Set(cacheKey, data, ttl)
@@ -1181,10 +1200,27 @@ func (h *Handler) serveStatementJSONNoCache(
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), dbQueryTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), dbQueryTimeout)
 	defer cancel()
+	tx, err := h.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "database query failed")
+		return
+	}
+	defer tx.Rollback(ctx)
+	var edition string
+	if err := tx.QueryRow(ctx, "SELECT COALESCE(edition_date::text,'legacy') || ':' || revision::text FROM public.coverage_publication").Scan(&edition); err != nil {
+		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "publication boundary unavailable")
+		return
+	}
+	// Historical requests bypass current carry-forward markers, never qualification.
+	if _, err := tx.Exec(ctx, "SELECT set_config('scoracle.reporting_date',$1,true)", r.URL.Query().Get("date")); err != nil {
+		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "publication boundary unavailable")
+		return
+	}
+	w.Header().Set("X-Scoracle-Edition", edition)
 	var data []byte
-	err := h.pool.QueryRow(ctx, stmt, args...).Scan(&data)
+	err = tx.QueryRow(ctx, stmt, args...).Scan(&data)
 	if err != nil {
 		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "database query failed")
 		return

@@ -31,7 +31,7 @@ func runMonitor(ctx context.Context, pool *pgxpool.Pool, dbURL, sport string, li
 	for {
 		qctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		var open bool
-		err := pool.QueryRow(qctx, "SELECT enabled AND phase='coverage' FROM public.coverage_schedule").Scan(&open)
+		err := pool.QueryRow(qctx, "SELECT enabled AND public.coverage_collection_open() FROM public.coverage_schedule").Scan(&open)
 		cancel()
 		if err != nil {
 			logger.Error("coverage monitor: clock unavailable; discovery paused", "error", err)

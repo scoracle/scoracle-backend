@@ -12,23 +12,21 @@ pub use crate::plugins::journalist::manifest::MANIFEST as JOURNALIST;
 pub use crate::plugins::oracle::manifest::MANIFEST as ORACLE;
 pub use crate::plugins::scout::manifest::MANIFEST as SCOUT;
 
-/// Concurrent Kev article requests. Eight native slots share each request's question prefix.
-pub const ARCHBOX_SLOTS: (&str, usize) = ("archbox-kev", 4);
+/// Concurrent Kev article requests. Four native slots share each request's question prefix.
+pub const ARCHBOX_SLOTS: (&str, usize) = ("decision-d1", 4);
 /// Shared slots for models hosted on the Mac. Slot-group membership must follow routing.
-pub const MAC_SLOTS: (&str, usize) = ("mac-3b", 4);
+pub const MAC_SLOTS: (&str, usize) = ("characters-qwen", 4);
 
 /// The deployable first-party worker fleet: the six reader-facing characters,
 /// then the internal seats. Registration order in `main.rs` follows the queue's
 /// dependency order instead; this list is the identity roster.
-pub const ALL: [&PluginManifest; 9] = [
+pub const ALL: [&PluginManifest; 7] = [
     &JOURNALIST,
     &INFLUENCER,
     &SCOUT,
     &INSIDER,
     &ANALYST,
     &ORACLE,
-    &INVESTIGATOR,
-    &FIXTURE_BOXSCORE,
     &CLASSIFIER,
 ];
 

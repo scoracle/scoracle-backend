@@ -234,12 +234,12 @@ pub async fn load_narrative_pillar(
                EXTRACT(day FROM NOW() - source_latest_at)::int
           FROM news_summaries
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date()
+           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
            AND body IS NOT NULL
            AND generated_at = (
                SELECT max(generated_at) FROM news_summaries
                 WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date()
+           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
            )
          ORDER BY impact DESC NULLS LAST
         "#,
@@ -279,7 +279,7 @@ pub async fn load_rating_pillar(
                COALESCE(rating_trajectory, 'steady'), COALESCE(rating_trajectory_label, '')
           FROM stat_summaries
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date()
+           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
            AND ($4::int IS NULL OR season = $4)
          ORDER BY generated_at DESC
          LIMIT 1
@@ -316,7 +316,7 @@ pub async fn load_vibe_pillar(
         SELECT sentiment, COALESCE(prompt, '')
           FROM vibe_scores
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date()
+           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
          ORDER BY generated_at DESC
          LIMIT 1
         "#,
@@ -355,7 +355,7 @@ pub async fn load_momentum_pillar(
         SELECT direction, score, blurb, input_hash, COALESCE(input_components, '{}'::jsonb)
           FROM momentum_summaries
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date()
+           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
            AND ($4::int IS NULL OR season = $4)
          ORDER BY generated_at DESC
          LIMIT 1
@@ -401,7 +401,7 @@ pub async fn load_insider_pillar(
 ) -> Result<Option<SynthInsider>> {
     let row: Option<(Option<String>, i16, String)> = sqlx::query_as(
         "SELECT read,score,generated_at::date::text FROM public.insider_scores \
-         WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 AND reporting_date=public.character_reporting_date() \
+         WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule)) \
          ORDER BY generated_at DESC,id DESC LIMIT 1",
     )
     .bind(entity_type)

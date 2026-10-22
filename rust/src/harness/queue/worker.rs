@@ -678,6 +678,8 @@ impl Worker {
     /// watchdog — is the guard for a hung handler; the watchdog remains the backstop for a drain
     /// where *everything* has stopped, which still shows up as a stale beat.
     /// Returns the stage's name so the drain can decrement that stage's in-flight count.
+    #[tracing::instrument(skip_all, fields(stage=%item.stage, entity_type=%item.entity_type,
+        entity_id=item.entity_id, sport=%item.sport, claim_token=?item.claim_token, input_version=?item.input_version))]
     async fn run_one(
         &self,
         plugin: &dyn crate::harness::plugin::StudioPlugin,
@@ -689,7 +691,12 @@ impl Worker {
             "handle {stage} {}/{} {}",
             item.entity_type, item.entity_id, item.sport
         ));
+        let started = Instant::now();
         let outcome = self.execute_bounded(plugin, &item).await;
+        info!(%stage, entity_type=%item.entity_type, entity_id=item.entity_id, sport=%item.sport,
+            claim_token=?item.claim_token, input_version=?item.input_version, attempt=item.attempts+1,
+            wall_ms=started.elapsed().as_millis() as u64, success=outcome.is_ok(),
+            "work execution completed");
         pulse.beat(&format!("bookkeep {stage}"));
         match outcome {
             Ok(crate::harness::plugin::PluginOutcome::Deferred {

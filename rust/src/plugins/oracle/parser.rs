@@ -23,3 +23,15 @@ impl Parser<String> for ReadingParser {
         Ok(Some(reading))
     }
 }
+
+/// Evidence-aware parser shared by production and prepared-fixture qualification.
+pub(crate) struct RequestParser<'a>(pub &'a str);
+impl Parser<String> for RequestParser<'_> {
+    fn parse(&self, raw: &str) -> Result<Option<String>> {
+        let Some(reply) = ReadingParser.parse(raw)? else {
+            return Ok(None);
+        };
+        crate::tools::fresh::validate_peer_reading(&reply, self.0)?;
+        Ok(Some(reply))
+    }
+}

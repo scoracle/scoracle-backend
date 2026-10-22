@@ -442,6 +442,7 @@ fn world(
     let supports_cross_season = supports_cross_season_comparison(profile);
     let selected = model_prompt_profile(profile, supports_cross_season, comparisons);
     crate::plugins::scout::prompt::Parts {
+        availability: Default::default(),
         subject: crate::tools::meta::EntityMeta {
             name: subject.entity_name.clone(),
             entity_type: subject.entity_type.clone(),
@@ -515,7 +516,7 @@ fn serialized_request_is_one_self_contained_json_document() {
     assert!(request.get("tools").is_none());
     let evidence = request["messages"][0]["content"].as_str().unwrap();
     let package: serde_json::Value = serde_json::from_str(evidence).unwrap();
-    assert_eq!(package.as_object().unwrap().len(), 4);
+    assert_eq!(package.as_object().unwrap().len(), 5);
     for part in ["meta", "task", "fresh", "voice"] {
         assert!(package.get(part).is_some(), "package is missing {part}");
     }
@@ -775,6 +776,7 @@ fn a_players_world_is_byte_stable() {
             {"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite"},
             {"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average"}],
             "supports_cross_season":false, "limit":{"kind":"unknown_sample","minimum":10.0}},
+        "availability": [],
         "voice":crate::plugins::scout::voice::VOICE
     });
     assert_eq!(
@@ -1256,7 +1258,7 @@ fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
 fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
     let directions = BTreeMap::new();
     let bands = BTreeMap::new();
-    let prompt = r#"{"fresh":{"supports_cross_season":false,"sample":{"appearances":3,"minutes":257},"values":[{"label":"Discipline","value":1,"measure":"yellow cards + 3 x red cards"}]}}"#;
+    let prompt = r#"{"fresh":{"supports_cross_season":false,"limit":{"kind":"thin_sample","appearances":3,"minimum":10},"sample":{"appearances":3,"minutes":257},"values":[{"label":"Discipline","value":1,"measure":"yellow cards + 3 x red cards"}]}}"#;
     let parser = RatingRequestParser::new(prompt, &directions, &bands);
     let cards = parser
         .parse(r#"{"body":"Discipline is poor: 1 yellow + 3 red cards."}"#)
@@ -1684,6 +1686,7 @@ fn assignment() -> Assignment {
 /// A small world with an elite, source-selected measurement.
 fn scout_parts() -> crate::plugins::scout::prompt::Parts {
     crate::plugins::scout::prompt::Parts {
+        availability: Default::default(),
         subject: crate::tools::meta::EntityMeta {
             name: "Vale Kerr".into(),
             entity_type: "player".into(),
@@ -1966,4 +1969,48 @@ fn explicit_denials_of_stability_are_limits_not_positive_stability_claims() {
         "These measurements do not establish stability, but the player is consistently reliable across seasons."] {
         assert!(parts.parse(&serde_json::json!({"body":body}).to_string()).is_err(),"{body}");
     }
+}
+
+#[test]
+fn availability_is_attributed_without_changing_measurements() {
+    let prompt = serde_json::json!({"fresh":{"values":[{"value":4}]},
+        "availability":[{"publisher":"Wire","headline":"Kai Rowan denies injury and may return after 2 weeks"}]}).to_string();
+    let directions = Default::default();
+    let bands = Default::default();
+    let parser = super::parser::RatingRequestParser::new(&prompt, &directions, &bands);
+    use crate::harness::Parser;
+    assert!(parser.parse(&serde_json::json!({"body":"Recorded 4 goals.\n\nWire: Kai Rowan denies injury and may return after 2 weeks"}).to_string()).unwrap().is_some());
+    assert!(parser
+        .parse(r#"{"body":"Kai Rowan has recovered from injury."}"#)
+        .is_err());
+    assert!(parser.parse(r#"{"body":"Recorded 2 goals."}"#).is_err());
+}
+
+#[test]
+fn sample_policy_never_becomes_an_observation_or_comparison() {
+    use crate::harness::Parser;
+    let directions = Default::default();
+    let bands = Default::default();
+    let prompt =
+        r#"{"fresh":{"sample":{"Games Played":25},"values":[],"supports_cross_season":true}}"#;
+    let parser = super::parser::RatingRequestParser::new(prompt, &directions, &bands);
+    assert!(parser
+        .parse(r#"{"body":"A source sample of 25 games was recorded."}"#)
+        .unwrap()
+        .is_some());
+    assert!(parser
+        .parse(r#"{"body":"A thin-sample limit applies with a sample count of 25."}"#)
+        .is_err());
+    assert!(parser
+        .parse(r#"{"body":"Both measurements are supported across seasons."}"#)
+        .is_err());
+    let prompt = r#"{"fresh":{"values":[],"supports_cross_season":false,"limit":{"kind":"unknown_sample","minimum":10}}}"#;
+    let parser = super::parser::RatingRequestParser::new(prompt, &directions, &bands);
+    assert!(parser
+        .parse(r#"{"body":"The sample count is unknown. The policy minimum is 10 appearances."}"#)
+        .unwrap()
+        .is_some());
+    assert!(parser
+        .parse(r#"{"body":"The stored sample count is 10."}"#)
+        .is_err());
 }

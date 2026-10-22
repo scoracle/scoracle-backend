@@ -248,13 +248,27 @@ pub async fn claim_with_policy(
         .execute(&mut *tx)
         .await
         .context("lock coverage claim boundary")?;
+    let character: bool = sqlx::query_scalar("SELECT public.coverage_is_character($1)")
+        .bind(stage.as_str())
+        .fetch_one(&mut *tx)
+        .await?;
+    let limit = if character {
+        // Serialize only the short reservation; four running claims bound both hosts together.
+        sqlx::query("SELECT pg_advisory_xact_lock(1935896421,2)")
+            .execute(&mut *tx)
+            .await?;
+        let running:i64=sqlx::query_scalar("SELECT count(*) FROM pipeline_work WHERE status='running' AND coverage_is_character(stage)").fetch_one(&mut *tx).await?;
+        limit.min((4 - running).max(0))
+    } else {
+        limit
+    };
     let rows: Vec<(String, i64, String, Option<String>, i32, String)> = sqlx::query_as(&format!(
         r#"
         WITH ready AS (
             SELECT entity_type, entity_id, sport
             FROM pipeline_work
             WHERE stage = $1
-              AND status IN ('pending', 'failed')
+              AND status IN ('pending', 'failed') AND attempts < 5
               AND available_at <= NOW()
               -- Evaluate a paused stage once rather than walking its entire backlog.
               AND (SELECT public.coverage_stage_open($1))
@@ -267,8 +281,7 @@ pub async fn claim_with_policy(
                   WHERE upstream.entity_type = pipeline_work.entity_type
                     AND upstream.entity_id = pipeline_work.entity_id
                     AND upstream.sport = pipeline_work.sport
-                    AND upstream.status <> 'failed'
-                    AND upstream.stage = ANY($3)
+                    AND upstream.stage = ANY(CASE WHEN coverage_is_character($1) THEN coverage_dependencies($1) ELSE $3 END)
               )
               -- Publication may have committed before its next-stage offer.
               -- Do not overtake a durable handoff still awaiting dispatch.
@@ -277,7 +290,7 @@ pub async fn claim_with_policy(
                   WHERE handoff.entity_type = pipeline_work.entity_type
                     AND handoff.entity_id = pipeline_work.entity_id
                     AND handoff.sport = pipeline_work.sport
-                    AND handoff.kind = ANY($4)
+                    AND (CASE WHEN coverage_is_character($1) THEN handoff.source_stage = ANY(coverage_dependencies($1)) ELSE handoff.kind = ANY($4) END)
                     AND (NOT (SELECT enabled FROM public.coverage_schedule)
                          OR handoff.edition_date=(SELECT edition_date FROM public.coverage_schedule))
               )
@@ -590,7 +603,10 @@ mod postgres_claim_fencing_tests {
     }
 
     async fn claim_registered(pool: &PgPool, stage: TaskKey, limit: i64) -> Result<Vec<Item>> {
-        if stage.as_str() == "test_article" {
+        if matches!(
+            stage.as_str(),
+            "test_article" | "fixture_boxscore" | "investigate_entity"
+        ) {
             return claim(pool, stage, limit).await;
         }
         let policy = crate::harness::fleet::ALL
@@ -648,6 +664,45 @@ mod postgres_claim_fencing_tests {
         for job in a.iter().chain(&b) {
             assert!(complete(&first, job).await.unwrap());
         }
+        clean(&first, sport).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn character_budget_is_four_across_hosts_and_roles() {
+        let first = pool().await;
+        let second = pool().await;
+        let sport = "ZZ_SHARED_BUDGET";
+        clean(&first, sport).await;
+        for id in 9_100_200..9_100_205 {
+            for stage in [
+                crate::plugins::scout::manifest::TASK,
+                crate::plugins::influencer::manifest::TASK,
+            ] {
+                enqueue(&first, &pending(stage, id, sport, "v1"))
+                    .await
+                    .unwrap();
+            }
+        }
+        let (a, b) = tokio::join!(
+            claim(&first, crate::plugins::scout::manifest::TASK, 4),
+            claim(&second, crate::plugins::influencer::manifest::TASK, 4)
+        );
+        let (a, b) = (a.unwrap(), b.unwrap());
+        assert_eq!(a.len() + b.len(), 4);
+        assert!(claim(&first, crate::plugins::scout::manifest::TASK, 1)
+            .await
+            .unwrap()
+            .is_empty());
+        for job in a.iter().chain(&b) {
+            assert!(complete(&first, job).await.unwrap());
+        }
+        assert!(
+            !claim(&second, crate::plugins::influencer::manifest::TASK, 1)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         clean(&first, sport).await;
     }
 

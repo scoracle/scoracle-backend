@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 
-pub const DEFAULT_MODEL: &str = "alibayram/smollm3";
+pub const DEFAULT_MODEL: &str = "Qwen3.5-4B-Q4_K_M";
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -60,7 +60,7 @@ impl Config {
             .ok_or_else(|| anyhow!("DATABASE_PRIVATE_URL or DATABASE_URL must be set"))?;
 
         // These fields are also the per-role route defaults.
-        let model_base_url = env_or("MODEL_BASE_URL", "http://localhost:8080");
+        let model_base_url = env_or("MODEL_BASE_URL", "http://localhost:8081");
         let model_name = env_or("MODEL_NAME", DEFAULT_MODEL);
         let route = RouteConfig::from_env(
             &model_name,
@@ -155,6 +155,23 @@ pub struct RouteConfig {
 }
 
 impl RouteConfig {
+    pub fn production(base_url: &str) -> Self {
+        let spec = ModelSpec {
+            backend: Backend::LlamaCpp,
+            model: DEFAULT_MODEL.into(),
+            base_url: normalize_base_url(base_url),
+            think: Some(false),
+        };
+        Self {
+            roles: crate::harness::fleet::inference_routes()
+                .into_iter()
+                .map(|role| (role, spec.clone()))
+                .collect(),
+            candidates: HashMap::new(),
+            backend_concurrency: HashMap::from([(spec.base_url, 4)]),
+        }
+    }
+
     /// Read each role's model, backend, host, think preference, and optional eval candidate from
     /// `COGNITION_ROUTE_<ROLE>*`. Unset roles use `default_model` on `base_url`.
     pub fn from_env(default_model: &str, base_url: &str, routes: &[RouteKey]) -> Self {

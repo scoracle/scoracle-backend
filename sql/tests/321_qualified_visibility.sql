@@ -1,7 +1,8 @@
 BEGIN;
 DO $$ BEGIN IF current_database() NOT LIKE 'classifier_test_coverage%' THEN RAISE EXCEPTION 'disposable database required'; END IF; END $$;
 SET LOCAL statement_timeout='10s';
-UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
+UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL,
+ timezone='America/Detroit',collection_cutoff='22:00';
 TRUNCATE pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations;
 INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_VISIBLE','Visibility test',2026) ON CONFLICT DO NOTHING;
 INSERT INTO coverage_editions(edition_date,cutoff_at,drain_deadline,status)

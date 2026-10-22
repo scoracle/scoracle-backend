@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict iWrAMwFJZ3CcfkBA1Scw9YHl4dw1iwF1kuBmD83Rye5mgY8mZAxiXb5z2j40ziT
+\restrict YSRrww8dPbMVRzKM8DQk1mtTqKvB3iD3CG7QJck8WHtABeT8uAyS87zyhQJjpfj
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1725,7 +1725,7 @@ BEGIN
     SELECT x.criteria_version,x.gate,x.clean_text,s.source INTO STRICT measured
         FROM public.classifier_spectra x JOIN public.classifier_sources s ON s.id=x.source_id
         WHERE x.id=NEW.spectrum_id;
-    IF measured.criteria_version='classification-criteria-v9-headlines' THEN
+    IF measured.criteria_version IN ('classification-criteria-v9-headlines','classification-criteria-v10-availability') THEN
         IF NOT COALESCE((measured.gate->'characters'->>NEW.character)::boolean,false)
             OR measured.source->>'evidence_scope' IS DISTINCT FROM 'headline'
             OR length(btrim(measured.clean_text))=0
@@ -1950,30 +1950,38 @@ COMMENT ON FUNCTION public.classifier_replay_acquisition(batch_limit integer) IS
 --
 
 CREATE FUNCTION public.classifier_replay_admission(batch_limit integer DEFAULT 1000) RETURNS bigint
-    LANGUAGE sql
+    LANGUAGE plpgsql
     AS $$
-    WITH candidates AS MATERIALIZED (
-        SELECT article_id,sport FROM public.harvester_query_provenance
-        UNION SELECT article_id,sport FROM public.news_article_entities
-    ), revisions AS MATERIALIZED (
-        SELECT c.*,a.published_at,a.feed_rank,public.classifier_discovery_version(c.article_id,c.sport) AS version
-        FROM candidates c JOIN public.news_articles a ON a.id=c.article_id WHERE length(btrim(a.title))>0
-    ), batch AS MATERIALIZED (
-        SELECT r.* FROM revisions r WHERE version IS NOT NULL AND NOT EXISTS(
-            SELECT 1 FROM public.classifier_source_heads h JOIN public.classifier_sources s ON s.id=h.source_id
-            WHERE h.article_id=r.article_id AND h.sport=r.sport AND s.discovery_version=r.version)
-        AND NOT EXISTS(SELECT 1 FROM public.pipeline_work w WHERE w.stage='classifier' AND w.entity_type='article'
-            AND w.entity_id=r.article_id AND w.sport=r.sport)
-        ORDER BY published_at DESC NULLS LAST,feed_rank ASC NULLS LAST,article_id,sport
-        LIMIT GREATEST(batch_limit-(SELECT count(*) FROM public.pipeline_work WHERE stage='classifier' AND entity_type='article'
-            AND (status IN ('pending','running') OR (status='failed' AND attempts<5))),0)
-    ), queued AS (
-        INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
-        SELECT 'classifier','article',article_id,sport,
-            CASE WHEN published_at IS NULL OR published_at<now()-interval '48 hours' THEN 'headline-history:' ELSE '' END||version FROM batch
-        ON CONFLICT(stage,entity_type,entity_id,sport) DO NOTHING RETURNING 1
-    ) SELECT count(*) FROM queued
-$$;
+DECLARE cursor_row public.classifier_reconciliation_cursor; candidate record; scanned integer:=0; queued bigint:=0;
+BEGIN
+ IF batch_limit NOT BETWEEN 1 AND 1000 THEN RAISE EXCEPTION 'batch must be 1..1000'; END IF;
+ PERFORM public.coverage_lock();
+ IF NOT public.coverage_collection_open() THEN RETURN 0; END IF;
+ SELECT * INTO cursor_row FROM classifier_reconciliation_cursor FOR UPDATE;
+ FOR candidate IN
+  WITH query_sources AS MATERIALIZED (
+   SELECT DISTINCT article_id,sport FROM harvester_query_provenance
+   WHERE (article_id,sport)>(cursor_row.article_id,cursor_row.sport) ORDER BY article_id,sport LIMIT batch_limit
+  ), named_sources AS MATERIALIZED (
+   SELECT DISTINCT article_id,sport FROM news_article_entities
+   WHERE (article_id,sport)>(cursor_row.article_id,cursor_row.sport) ORDER BY article_id,sport LIMIT batch_limit
+  ) SELECT * FROM (SELECT * FROM query_sources UNION SELECT * FROM named_sources) candidates
+    ORDER BY article_id,sport LIMIT batch_limit
+ LOOP
+  scanned:=scanned+1;
+  IF public.classifier_enqueue_admission(candidate.article_id,candidate.sport) THEN
+   queued:=queued+1;
+   UPDATE pipeline_work w SET input_version='headline-history:'||w.input_version
+   FROM news_articles a WHERE w.stage='classifier' AND w.entity_type='article'
+    AND w.entity_id=candidate.article_id AND w.sport=candidate.sport AND a.id=w.entity_id
+    AND (a.published_at IS NULL OR a.published_at<now()-interval '48 hours')
+    AND w.status='pending' AND w.input_version NOT LIKE 'headline-history:%';
+  END IF;
+  UPDATE classifier_reconciliation_cursor SET article_id=candidate.article_id,sport=candidate.sport;
+ END LOOP;
+ IF scanned=0 THEN UPDATE classifier_reconciliation_cursor SET article_id=0,sport=''; END IF;
+ RETURN queued;
+END $$;
 
 
 --
@@ -2006,7 +2014,8 @@ BEGIN
     IF target_type IS NULL OR target_type NOT IN ('team','player','person') OR target_id IS NULL OR target_id <= 0 THEN
         RAISE EXCEPTION 'Classifier spectrum delivery requires a canonical team/player/person target';
     END IF;
-    revision := 'classifier-spectrum-v1:' || NEW.character || ':s' || NEW.spectrum_id;
+    IF NEW.character='scout' AND target_type NOT IN ('team','player') THEN RAISE EXCEPTION 'Scout requires team or player'; END IF;
+    revision := CASE WHEN NEW.character='scout' THEN 'classifier-availability-v1:' ELSE 'classifier-spectrum-v1:' END || NEW.character || ':s' || NEW.spectrum_id;
     INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
     VALUES(work_stage,target_type,target_id,league,revision)
     ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET
@@ -2520,31 +2529,66 @@ $$;
 
 
 --
+-- Name: coverage_carry_allowed(date, text, text, bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_carry_allowed(candidate date, task text, subject_type text, subject_id bigint, league text) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+ SELECT NULLIF(current_setting('scoracle.reporting_date',true),'') IS NOT NULL OR NOT EXISTS(
+ SELECT 1 FROM coverage_assignments a JOIN coverage_editions e USING(edition_date)
+ WHERE a.edition_date>candidate AND a.edition_date<=published_edition() AND e.status='complete'
+ AND a.stage=task AND a.entity_type=subject_type AND a.entity_id=subject_id AND a.sport=league
+ AND a.resolution NOT IN ('no_new_evidence','unchanged','candidate'))
+$$;
+
+
+--
 -- Name: coverage_claimable(text, text, bigint, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.coverage_claimable(task text, subject_type text, subject_id bigint, league text) RETURNS boolean
     LANGUAGE sql STABLE
     AS $$
-    SELECT NOT s.enabled OR CASE s.phase
-        WHEN 'coverage' THEN NOT public.coverage_is_character(task)
-        WHEN 'draining' THEN task = 'classifier' AND clock_timestamp() < e.drain_deadline
-        WHEN 'characters' THEN clock_timestamp() < e.character_deadline AND EXISTS (
-            SELECT 1 FROM public.coverage_assignments a
-            WHERE a.edition_date=s.edition_date AND a.stage=task
-              AND a.entity_type=subject_type AND a.entity_id=subject_id AND a.sport=league
-              AND a.outcome='pending'
-        ) AND NOT EXISTS (
-            SELECT 1 FROM public.coverage_assignments upstream
-            WHERE upstream.edition_date=s.edition_date AND upstream.entity_type=subject_type
-              AND upstream.entity_id=subject_id AND upstream.sport=league
-              AND upstream.outcome<>'completed' AND upstream.stage=ANY(CASE task
-                  WHEN 'momentum' THEN ARRAY['rating','vibe']
-                  WHEN 'sigil' THEN ARRAY['narratives','rating','vibe','momentum','transfers']
-                  ELSE ARRAY[]::text[] END)
-        ) ELSE false END
-    FROM public.coverage_schedule s
-    LEFT JOIN public.coverage_editions e USING (edition_date)
+ SELECT NOT s.enabled OR CASE s.phase
+ WHEN 'coverage' THEN task='classifier'
+ WHEN 'draining' THEN task='classifier' AND EXISTS(SELECT 1 FROM coverage_drain_obligations d
+   WHERE d.edition_date=s.edition_date AND d.entity_type=subject_type AND d.entity_id=subject_id
+   AND d.sport=league AND d.settled_at IS NULL)
+ WHEN 'characters' THEN EXISTS(SELECT 1 FROM coverage_assignments a
+   WHERE a.edition_date=s.edition_date AND a.stage=task AND a.entity_type=subject_type
+   AND a.entity_id=subject_id AND a.sport=league AND a.outcome='pending')
+ AND NOT EXISTS(SELECT 1 FROM unnest(coverage_dependencies(task)) dep
+   WHERE NOT EXISTS(SELECT 1 FROM coverage_assignments a WHERE a.edition_date=s.edition_date
+     AND a.stage=dep AND a.entity_type=subject_type AND a.entity_id=subject_id AND a.sport=league
+     AND a.outcome='completed' AND a.resolution<>'blocked')) ELSE false END FROM coverage_schedule s
+$$;
+
+
+--
+-- Name: coverage_collection_deadline(timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_collection_deadline(at_time timestamp with time zone DEFAULT clock_timestamp()) RETURNS timestamp with time zone
+    LANGUAGE sql STABLE
+    AS $$
+ SELECT CASE WHEN enabled THEN ((at_time AT TIME ZONE timezone)::date+
+ CASE WHEN (at_time AT TIME ZONE timezone)::time>=collection_cutoff THEN 1 ELSE 0 END+collection_cutoff)
+ AT TIME ZONE timezone END FROM coverage_schedule
+$$;
+
+
+--
+-- Name: coverage_collection_open(timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_collection_open(at_time timestamp with time zone DEFAULT clock_timestamp()) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+ SELECT NOT enabled OR (phase='coverage' AND
+    ((at_time AT TIME ZONE timezone)::time < collection_cutoff OR EXISTS(SELECT 1 FROM coverage_editions WHERE finished_at >= ((at_time AT TIME ZONE timezone)::date+collection_cutoff) AT TIME ZONE timezone)) AND
+    NOT EXISTS(SELECT 1 FROM coverage_editions e WHERE e.status IN ('draining','characters')))
+ FROM coverage_schedule
 $$;
 
 
@@ -2556,16 +2600,25 @@ CREATE FUNCTION public.coverage_completed() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    IF OLD.status='running' THEN
-        UPDATE public.coverage_assignments a SET outcome='completed',finished_at=clock_timestamp()
-        FROM public.coverage_schedule s
-        WHERE s.enabled AND s.phase='characters' AND a.edition_date=s.edition_date
-          AND a.stage=OLD.stage AND a.entity_type=OLD.entity_type AND a.entity_id=OLD.entity_id
-          AND a.sport=OLD.sport AND a.input_version IS NOT DISTINCT FROM OLD.running_input_version
-          AND a.outcome='pending';
-    END IF;
-    RETURN OLD;
-END;
+ IF OLD.stage='classifier' AND OLD.claim_token::text=current_setting('scoracle.claim_token',true) THEN
+  UPDATE coverage_drain_obligations d SET settled_at=clock_timestamp() FROM coverage_schedule s
+  WHERE s.enabled AND s.phase='draining' AND d.edition_date=s.edition_date
+   AND d.entity_type=OLD.entity_type AND d.entity_id=OLD.entity_id AND d.sport=OLD.sport
+   AND d.input_version IS NOT DISTINCT FROM OLD.running_input_version;
+ END IF;
+ RETURN OLD;
+END $$;
+
+
+--
+-- Name: coverage_dependencies(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_dependencies(task text) RETURNS text[]
+    LANGUAGE sql IMMUTABLE
+    AS $$
+ SELECT CASE task WHEN 'momentum' THEN ARRAY['rating','vibe']
+ WHEN 'sigil' THEN ARRAY['narratives','rating','vibe','momentum','transfers'] ELSE ARRAY[]::text[] END
 $$;
 
 
@@ -2617,24 +2670,71 @@ $$;
 
 
 --
+-- Name: coverage_peer_visible(date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_peer_visible(candidate date) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+ SELECT NOT s.enabled OR candidate=s.edition_date OR (candidate<=published_edition() AND
+ EXISTS(SELECT 1 FROM coverage_editions e WHERE e.edition_date=candidate AND e.status='complete'))
+ FROM coverage_schedule s
+$$;
+
+
+--
 -- Name: coverage_publishable(text, text, bigint, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.coverage_publishable(task text, subject_type text, subject_id bigint, league text) RETURNS boolean
     LANGUAGE sql STABLE
     AS $$
-    SELECT NOT s.enabled OR CASE
-        WHEN public.coverage_is_character(task) THEN
-            s.phase='characters' AND clock_timestamp() < e.character_deadline AND EXISTS (
-                SELECT 1 FROM public.coverage_assignments a
-                WHERE a.edition_date=s.edition_date AND a.stage=task
-                  AND a.entity_type=subject_type AND a.entity_id=subject_id AND a.sport=league
-                  AND a.outcome='pending')
-        ELSE s.phase='coverage' OR (s.phase='draining' AND clock_timestamp() < e.drain_deadline)
-        END
-    FROM public.coverage_schedule s
-    LEFT JOIN public.coverage_editions e USING (edition_date)
+ SELECT NOT enabled OR coverage_claimable(task,subject_type,subject_id,league) FROM coverage_schedule
 $$;
+
+
+--
+-- Name: coverage_resolve_claim(text, text, bigint, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_resolve_claim(task text, subject_type text, subject_id bigint, league text, token text) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE a coverage_assignments; has_product boolean; has_record boolean; held boolean; pending boolean; product_table text; body_column text;
+BEGIN
+ SELECT a0.* INTO a FROM coverage_assignments a0 JOIN coverage_schedule s USING(edition_date)
+ WHERE s.enabled AND s.phase='characters' AND a0.stage=task AND a0.entity_type=subject_type
+ AND a0.entity_id=subject_id AND a0.sport=league FOR UPDATE OF a0;
+ IF NOT FOUND THEN RETURN; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pipeline_work w WHERE w.stage=task AND w.entity_type=subject_type
+ AND w.entity_id=subject_id AND w.sport=league AND w.status='running' AND w.claim_token::text=token
+ AND w.running_input_version IS NOT DISTINCT FROM a.input_version) THEN
+ RAISE EXCEPTION 'Cannot resolve an unfenced assignment'; END IF;
+ product_table:=CASE task WHEN 'narratives' THEN 'news_summaries' WHEN 'vibe' THEN 'vibe_scores'
+ WHEN 'rating' THEN 'stat_summaries' WHEN 'transfers' THEN 'insider_scores'
+ WHEN 'momentum' THEN 'momentum_summaries' WHEN 'sigil' THEN 'sigil_synthesis' END;
+ body_column:=CASE task WHEN 'vibe' THEN 'prompt' WHEN 'transfers' THEN 'read'
+ WHEN 'momentum' THEN 'blurb' WHEN 'sigil' THEN 'reading' ELSE 'body' END;
+ EXECUTE format('SELECT count(*)>0,COALESCE(bool_or(length(btrim(%I))>0),false) FROM public.%I
+ WHERE candidate_edition=$1 AND entity_type=$2 AND entity_id=$3 AND sport=$4',body_column,product_table)
+ INTO has_record,has_product USING a.edition_date,subject_type,subject_id,league;
+ SELECT COALESCE(bool_or(d.status='held'),false),COALESCE(bool_or(d.status='pending'),false)
+ INTO held,pending FROM classifier_spectrum_deliveries d WHERE d.spectrum_id=ANY(a.spectrum_ids)
+ AND d.character=CASE task WHEN 'narratives' THEN 'journalist' WHEN 'rating' THEN 'scout'
+ WHEN 'vibe' THEN 'influencer' WHEN 'transfers' THEN 'insider' END;
+ IF pending THEN RAISE EXCEPTION 'Cannot resolve undelivered frozen sources'; END IF;
+ UPDATE coverage_assignments SET outcome=CASE WHEN held THEN 'failed' ELSE 'completed' END,
+ resolution=CASE WHEN held THEN 'blocked' WHEN has_product THEN 'candidate'
+ WHEN task='rating' AND current_setting('scoracle.assignment_resolution',true)='unchanged' THEN 'unchanged'
+ WHEN has_record THEN 'abstained' WHEN cardinality(a.spectrum_ids)=0 THEN 'no_new_evidence' ELSE 'abstained' END,
+ detail=CASE WHEN held THEN 'held source requires explicit resolution'
+ WHEN has_product THEN 'claim-fenced validated product'
+ WHEN task='rating' AND current_setting('scoracle.assignment_resolution',true)='unchanged' THEN 'exact prepared input unchanged'
+ WHEN has_record THEN 'explicit no-material marker'
+ WHEN cardinality(a.spectrum_ids)=0 THEN 'prepared assignment has no new usable evidence'
+ ELSE 'validated source dispositions; no expression' END,finished_at=clock_timestamp()
+ WHERE edition_date=a.edition_date AND stage=task AND entity_type=subject_type AND entity_id=subject_id AND sport=league;
+END $_$;
 
 
 --
@@ -2662,12 +2762,9 @@ $$;
 CREATE FUNCTION public.coverage_stage_open(task text) RETURNS boolean
     LANGUAGE sql STABLE
     AS $$
-    SELECT NOT s.enabled OR CASE s.phase
-        WHEN 'coverage' THEN NOT public.coverage_is_character(task)
-        WHEN 'draining' THEN task='classifier' AND clock_timestamp()<e.drain_deadline
-        WHEN 'characters' THEN public.coverage_is_character(task) AND clock_timestamp()<e.character_deadline
-        ELSE false END
-    FROM public.coverage_schedule s LEFT JOIN public.coverage_editions e USING (edition_date)
+ SELECT NOT enabled OR CASE phase WHEN 'coverage' THEN task='classifier'
+ WHEN 'draining' THEN task='classifier' WHEN 'characters' THEN coverage_is_character(task) ELSE false END
+ FROM coverage_schedule
 $$;
 
 
@@ -2678,60 +2775,33 @@ $$;
 CREATE FUNCTION public.coverage_tick(at_time timestamp with time zone DEFAULT clock_timestamp()) RETURNS text
     LANGUAGE plpgsql
     AS $$
-DECLARE
-    s public.coverage_schedule;
-    e public.coverage_editions;
-    local_day date;
-    boundary timestamptz;
-    deadline boolean;
+DECLARE s coverage_schedule; e coverage_editions; local_day date; boundary timestamptz;
 BEGIN
-    PERFORM pg_advisory_xact_lock(1935896421,1);
-    SELECT * INTO s FROM public.coverage_schedule FOR UPDATE;
-    IF NOT s.enabled THEN RETURN 'disabled'; END IF;
-    UPDATE public.coverage_schedule SET last_tick_at=at_time;
-    IF s.phase='coverage' THEN
-        local_day := (at_time AT TIME ZONE s.timezone)::date;
-        boundary := (local_day+s.cutoff) AT TIME ZONE s.timezone;
-        IF boundary > at_time THEN
-            local_day := local_day-1;
-            boundary := (local_day+s.cutoff) AT TIME ZONE s.timezone;
-        END IF;
-        IF boundary < s.enrolled_at OR EXISTS (
-            SELECT 1 FROM public.coverage_editions WHERE edition_date=local_day
-        ) THEN RETURN 'coverage'; END IF;
-        -- A long outage records a partial edition instead of starting an obsolete night.
-        IF at_time >= boundary+s.drain_limit+s.character_limit THEN
-            INSERT INTO public.coverage_editions
-                (edition_date,cutoff_at,drain_deadline,finished_at,status,reason)
-            VALUES (local_day,boundary,boundary+s.drain_limit,at_time,'partial','controller_missed_window');
-            RETURN 'coverage';
-        END IF;
-        INSERT INTO public.coverage_editions(edition_date,cutoff_at,drain_deadline,status)
-        VALUES(local_day,boundary,boundary+s.drain_limit,'draining');
-        UPDATE public.coverage_schedule SET phase='draining',edition_date=local_day,updated_at=at_time;
-        RETURN 'draining';
-    END IF;
-
-    SELECT * INTO STRICT e FROM public.coverage_editions WHERE edition_date=s.edition_date FOR UPDATE;
-    IF s.phase='draining' THEN
-        IF at_time >= e.cutoff_at+s.drain_limit+s.character_limit THEN
-            UPDATE public.pipeline_work SET status='pending',claim_token=NULL,running_input_version=NULL,
-                updated_at=at_time WHERE status='running';
-            UPDATE public.coverage_editions SET status='partial',finished_at=at_time,
-                reason='controller_missed_window' WHERE edition_date=e.edition_date;
-            UPDATE public.coverage_schedule SET phase='coverage',edition_date=NULL,updated_at=at_time;
-            PERFORM pg_notify('pipeline_work_ready','coverage:open');
-            RETURN 'coverage';
-        END IF;
-        IF at_time < e.drain_deadline AND EXISTS (
-            SELECT 1 FROM public.pipeline_work WHERE
-                (stage='classifier' AND (status='running' OR
-                    (status IN ('pending','failed') AND attempts<5 AND available_at<=at_time)))
-        ) THEN RETURN 'draining'; END IF;
-        -- Publication holds the shared transition lock. Anything left now loses its lease.
-        UPDATE public.pipeline_work SET status='pending',claim_token=NULL,running_input_version=NULL,
-            updated_at=at_time
-        WHERE status='running';
+ PERFORM pg_advisory_xact_lock(1935896421,1);
+ SELECT * INTO s FROM coverage_schedule FOR UPDATE;
+ IF NOT s.enabled THEN RETURN 'disabled'; END IF;
+ UPDATE coverage_schedule SET last_tick_at=at_time;
+ IF s.phase='coverage' THEN
+  local_day := (at_time AT TIME ZONE s.timezone)::date;
+  boundary := (local_day+s.collection_cutoff) AT TIME ZONE s.timezone;
+  IF boundary>at_time THEN local_day:=local_day-1; boundary:=(local_day+s.collection_cutoff) AT TIME ZONE s.timezone; END IF;
+  -- After an overrun, collect until the next normal boundary, without a stack of missed editions.
+  IF boundary<s.enrolled_at OR EXISTS(SELECT 1 FROM coverage_editions WHERE edition_date=local_day+1)
+   OR EXISTS(SELECT 1 FROM coverage_editions WHERE finished_at>=boundary) THEN RETURN 'coverage'; END IF;
+  INSERT INTO coverage_editions(edition_date,cutoff_at,drain_deadline,collection_closed_at,status)
+  VALUES(local_day+1,(local_day+1)::timestamp AT TIME ZONE s.timezone,
+    (local_day+1)::timestamp AT TIME ZONE s.timezone+interval '1 microsecond',boundary,'draining');
+  INSERT INTO coverage_drain_obligations(edition_date,entity_type,entity_id,sport,input_version)
+  SELECT local_day+1,entity_type,entity_id,sport,input_version FROM pipeline_work WHERE stage='classifier';
+  UPDATE coverage_schedule SET phase='draining',edition_date=local_day+1,updated_at=at_time;
+  RETURN 'draining';
+ END IF;
+ SELECT * INTO STRICT e FROM coverage_editions WHERE edition_date=s.edition_date FOR UPDATE;
+ UPDATE coverage_editions SET missed_boundaries=GREATEST(0,(at_time AT TIME ZONE s.timezone)::date-e.edition_date)
+ WHERE edition_date=e.edition_date;
+ IF s.phase='draining' THEN
+  IF at_time<e.cutoff_at OR EXISTS(SELECT 1 FROM coverage_drain_obligations
+     WHERE edition_date=e.edition_date AND settled_at IS NULL) THEN RETURN 'draining'; END IF;
         INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
         SELECT DISTINCT downstream,w.entity_type,w.entity_id,w.sport,
             CASE WHEN downstream='transfers' THEN 'classifier-spectrum-v1:daily:'||e.edition_date
@@ -2741,9 +2811,6 @@ BEGIN
             unnest(ARRAY['narratives','vibe','rating','transfers','momentum','sigil']) downstream
         WHERE public.coverage_is_character(w.stage) AND (w.entity_type IN ('team','player') OR (w.entity_type='person' AND downstream IN ('narratives','vibe','transfers')))
         ON CONFLICT(stage,entity_type,entity_id,sport) DO NOTHING;
-        UPDATE public.pipeline_work SET status='pending',attempts=0,available_at=clock_timestamp(),
-            claim_token=NULL,running_input_version=NULL,last_error=NULL,updated_at=at_time
-        WHERE public.coverage_is_character(stage);
         WITH pending AS MATERIALIZED (
             SELECT x.sport,x.target->>'entity_type' AS entity_type,
                 x.target->>'entity_id' AS entity_id,d.character,
@@ -2762,47 +2829,37 @@ BEGIN
               WHEN 'vibe' THEN 'influencer' WHEN 'rating' THEN 'scout'
               WHEN 'transfers' THEN 'insider' END
         WHERE public.coverage_is_character(w.stage);
-        UPDATE public.coverage_editions SET status='characters',frozen_at=at_time,
-            character_deadline=LEAST(at_time+s.character_limit,e.cutoff_at+s.drain_limit+s.character_limit)
-        WHERE edition_date=e.edition_date;
-        UPDATE public.coverage_schedule SET phase='characters',updated_at=at_time;
-        PERFORM pg_notify('pipeline_work_ready','coverage:characters');
-        RETURN 'characters';
-    END IF;
 
-    UPDATE public.coverage_assignments a SET outcome='failed',finished_at=at_time,detail=w.last_error
-    FROM public.pipeline_work w
-    WHERE a.edition_date=e.edition_date AND a.outcome='pending' AND w.stage=a.stage
-      AND w.entity_type=a.entity_type AND w.entity_id=a.entity_id AND w.sport=a.sport
-      AND w.status='failed' AND w.attempts>=5;
-    deadline := at_time >= e.character_deadline;
-    IF NOT deadline AND (EXISTS (SELECT 1 FROM public.coverage_assignments
-            WHERE edition_date=e.edition_date AND outcome='pending') OR
-        EXISTS (SELECT 1 FROM public.application_outbox WHERE edition_date=e.edition_date)) THEN RETURN 'characters'; END IF;
-    UPDATE public.coverage_assignments SET outcome='expired',finished_at=at_time,detail='character_deadline'
-    WHERE edition_date=e.edition_date AND outcome='pending';
-    UPDATE public.pipeline_work w SET status='pending',claim_token=NULL,running_input_version=NULL,
-        updated_at=at_time
-    FROM public.coverage_assignments a
-    WHERE a.edition_date=e.edition_date AND w.stage=a.stage AND w.entity_type=a.entity_type
-      AND w.entity_id=a.entity_id AND w.sport=a.sport AND w.status='running';
-    UPDATE public.coverage_editions SET finished_at=at_time,
-        status=CASE WHEN deadline OR EXISTS (SELECT 1 FROM public.coverage_assignments
-            WHERE edition_date=e.edition_date AND outcome IN ('failed','expired')) THEN 'partial' ELSE 'complete' END,
-        reason=CASE WHEN deadline THEN 'character_deadline' ELSE NULL END
-    WHERE edition_date=e.edition_date;
-    UPDATE public.coverage_schedule SET phase='coverage',edition_date=NULL,updated_at=at_time;
-    INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
-    SELECT stage,entity_type,entity_id,sport,deferred_versions[cardinality(deferred_versions)]
-    FROM public.coverage_assignments WHERE edition_date=e.edition_date
-        AND cardinality(deferred_versions)>0
-    ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET
-        input_version=EXCLUDED.input_version,status='pending',attempts=0,
-        claim_token=NULL,running_input_version=NULL,available_at=clock_timestamp(),updated_at=at_time,last_error=NULL;
-    PERFORM pg_notify('pipeline_work_ready','coverage:open');
-    RETURN 'coverage';
-END;
-$$;
+  -- Empty news has an explicit dated outcome, without a queue claim or model call.
+  UPDATE coverage_assignments a SET outcome='completed',resolution='no_new_evidence',
+      detail='no pending headline evidence',finished_at=at_time
+  FROM pipeline_work w WHERE a.edition_date=e.edition_date AND a.stage IN ('narratives','vibe','transfers')
+   AND cardinality(a.spectrum_ids)=0 AND a.stage=w.stage AND a.entity_type=w.entity_type
+   AND a.entity_id=w.entity_id AND a.sport=w.sport AND w.status='pending' AND w.attempts=0;
+  DELETE FROM pipeline_work w USING coverage_assignments a WHERE a.edition_date=e.edition_date
+   AND a.resolution='no_new_evidence' AND a.stage=w.stage AND a.entity_type=w.entity_type
+   AND a.entity_id=w.entity_id AND a.sport=w.sport;
+  UPDATE coverage_editions SET status='characters',frozen_at=at_time,character_deadline=NULL,
+   reason=CASE WHEN at_time>e.cutoff_at+interval '1 minute' THEN 'late_drain' END WHERE edition_date=e.edition_date;
+  UPDATE coverage_schedule SET phase='characters',updated_at=at_time;
+  PERFORM pg_notify('pipeline_work_ready','coverage:characters'); RETURN 'characters';
+ END IF;
+ UPDATE coverage_assignments a SET outcome='failed',resolution='blocked',finished_at=at_time,detail=w.last_error
+ FROM pipeline_work w WHERE a.edition_date=e.edition_date AND a.outcome='pending' AND w.stage=a.stage
+ AND w.entity_type=a.entity_type AND w.entity_id=a.entity_id AND w.sport=a.sport AND w.status='failed' AND w.attempts>=5;
+ IF EXISTS(SELECT 1 FROM coverage_assignments WHERE edition_date=e.edition_date AND
+    (outcome<>'completed' OR resolution IS NULL OR resolution='blocked')) OR
+ EXISTS(SELECT 1 FROM application_outbox WHERE edition_date=e.edition_date) THEN RETURN 'characters'; END IF;
+ UPDATE coverage_editions SET status='complete',finished_at=at_time WHERE edition_date=e.edition_date;
+ UPDATE coverage_publication SET edition_date=e.edition_date,revision=revision+1;
+ UPDATE coverage_schedule SET phase='coverage',edition_date=NULL,updated_at=at_time;
+ INSERT INTO pipeline_work(stage,entity_type,entity_id,sport,input_version)
+ SELECT stage,entity_type,entity_id,sport,deferred_versions[cardinality(deferred_versions)] FROM coverage_assignments
+ WHERE edition_date=e.edition_date AND cardinality(deferred_versions)>0
+ ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET input_version=EXCLUDED.input_version,
+ status='pending',attempts=0,claim_token=NULL,running_input_version=NULL,available_at=at_time,updated_at=at_time,last_error=NULL;
+ PERFORM pg_notify('pipeline_work_ready','coverage:open'); RETURN 'coverage';
+END $$;
 
 
 --
@@ -3424,6 +3481,19 @@ COMMENT ON FUNCTION public.harvester_collapse_exact_title_duplicates(p_lookback 
 
 
 --
+-- Name: invalidate_coverage_publication(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.invalidate_coverage_publication() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+ UPDATE coverage_publication SET revision=revision+1;
+ RETURN NULL;
+END $$;
+
+
+--
 -- Name: mark_fixture_seeded(integer, integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3796,6 +3866,18 @@ $$;
 --
 
 COMMENT ON FUNCTION public.promote_narrative_persons(p_sport text) IS 'Nightly candidate->active promotion on accumulated evidence (>=2 sources, >=3 mentions, >=2 days span) PLUS a team-token consistency gate (mig 169): mentions that vote on a team must show a clear-majority (>=60%) modal team, else the candidate is held; the modal team becomes the person''s team_id. Team-less candidates pass the token gate vacuously.';
+
+
+--
+-- Name: published_edition(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.published_edition() RETURNS date
+    LANGUAGE sql STABLE
+    AS $$
+ SELECT COALESCE(NULLIF(current_setting('scoracle.published_edition',true),'' )::date,edition_date)
+ FROM coverage_publication
+$$;
 
 
 --
@@ -5343,10 +5425,10 @@ BEGIN
         SELECT id AS sport,current_season FROM sports WHERE p_sport IS NULL OR id=upper(p_sport)
     ), observations AS (
         SELECT 'rating' rail,s.entity_type,s.entity_id,s.sport,s.id,s.generated_at,s.reporting_date,
-            s.notability::numeric value FROM stat_summaries s JOIN target_sports t ON t.sport=s.sport
+            s.notability::numeric value FROM (SELECT * FROM stat_summaries WHERE coverage_peer_visible(candidate_edition)) s JOIN target_sports t ON t.sport=s.sport
         UNION ALL
         SELECT 'vibe',s.entity_type,s.entity_id,s.sport,s.id,s.generated_at,s.reporting_date,
-            s.sentiment::numeric FROM vibe_scores s JOIN target_sports t ON t.sport=s.sport
+            s.sentiment::numeric FROM (SELECT * FROM vibe_scores WHERE coverage_peer_visible(candidate_edition)) s JOIN target_sports t ON t.sport=s.sport
     ), daily AS (
         SELECT DISTINCT ON(rail,entity_type,entity_id,sport,reporting_date) * FROM observations
         WHERE generated_at<=now() AND reporting_date >= (now() AT TIME ZONE 'America/Detroit')::date-21
@@ -6206,6 +6288,23 @@ $$;
 --
 
 COMMENT ON FUNCTION public.source_reliability_for_pair(p_sport text, p_player_id integer, p_team_id integer) IS 'The measured track record of the sources on one (player, team) pair''s live transfer corpus, as compact prompt lines: for each source shown in the pair''s current News headlines, its GLOBAL per-sport source_performance record — reliability N/100, confirmed/tracked base rate, and early-call count. Sources are the pair''s corpus sources (reuses compute_transfer_heat.news_ids — one corpus definition, no drift); the numbers are each source''s overall record. Ordered most-reliable first, capped at 6. NULL = no corpus source has a measured record. Presented, not gatekept: the transfers voice WEIGHS it for steam vs fizzle, nothing filters by it. Consumed by the transfers prompt builder (t9) — model-facing, never user-facing.';
+
+
+--
+-- Name: stamp_candidate_edition(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.stamp_candidate_edition() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+ SELECT edition_date INTO NEW.candidate_edition FROM coverage_schedule WHERE enabled AND phase='characters';
+ IF TG_TABLE_NAME='transfer_rumors' THEN
+  SELECT w.entity_type,w.entity_id INTO NEW.candidate_entity_type,NEW.candidate_entity_id
+  FROM pipeline_work w WHERE w.claim_token::text=current_setting('scoracle.claim_token',true) AND w.status='running';
+ END IF;
+ RETURN NEW;
+END $$;
 
 
 --
@@ -7868,6 +7967,18 @@ ALTER TABLE public.classifier_measurements ALTER COLUMN id ADD GENERATED ALWAYS 
 
 
 --
+-- Name: classifier_reconciliation_cursor; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.classifier_reconciliation_cursor (
+    singleton boolean DEFAULT true NOT NULL,
+    article_id bigint DEFAULT 0 NOT NULL,
+    sport text DEFAULT ''::text NOT NULL,
+    CONSTRAINT classifier_reconciliation_cursor_singleton_check CHECK (singleton)
+);
+
+
+--
 -- Name: classifier_source_heads; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7973,7 +8084,6 @@ CREATE TABLE public.classifier_spectrum_deliveries (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     reason text,
     product_ref jsonb DEFAULT '{}'::jsonb NOT NULL,
-    CONSTRAINT classifier_no_scout_pending CHECK ((("character" <> 'scout'::text) OR (status <> 'pending'::text))),
     CONSTRAINT classifier_spectrum_deliveries_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'used'::text, 'abstained'::text, 'superseded'::text, 'held'::text, 'redundant'::text])))
 );
 
@@ -8113,8 +8223,24 @@ CREATE TABLE public.coverage_assignments (
     finished_at timestamp with time zone,
     detail text,
     prepared_input jsonb,
+    resolution text,
     CONSTRAINT coverage_assignments_outcome_check CHECK ((outcome = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'expired'::text]))),
+    CONSTRAINT coverage_assignments_resolution_check CHECK ((resolution = ANY (ARRAY['candidate'::text, 'no_new_evidence'::text, 'unchanged'::text, 'abstained'::text, 'blocked'::text]))),
     CONSTRAINT coverage_assignments_stage_check CHECK ((stage = ANY (ARRAY['narratives'::text, 'vibe'::text, 'rating'::text, 'transfers'::text, 'momentum'::text, 'sigil'::text])))
+);
+
+
+--
+-- Name: coverage_drain_obligations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.coverage_drain_obligations (
+    edition_date date NOT NULL,
+    entity_type text NOT NULL,
+    entity_id bigint NOT NULL,
+    sport text NOT NULL,
+    input_version text,
+    settled_at timestamp with time zone
 );
 
 
@@ -8131,8 +8257,22 @@ CREATE TABLE public.coverage_editions (
     finished_at timestamp with time zone,
     status text NOT NULL,
     reason text,
+    collection_closed_at timestamp with time zone,
+    missed_boundaries integer DEFAULT 0 NOT NULL,
     CONSTRAINT coverage_editions_check CHECK ((drain_deadline > cutoff_at)),
     CONSTRAINT coverage_editions_status_check CHECK ((status = ANY (ARRAY['draining'::text, 'characters'::text, 'complete'::text, 'partial'::text])))
+);
+
+
+--
+-- Name: coverage_publication; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.coverage_publication (
+    singleton boolean DEFAULT true NOT NULL,
+    edition_date date,
+    revision bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT coverage_publication_singleton_check CHECK (singleton)
 );
 
 
@@ -8152,6 +8292,7 @@ CREATE TABLE public.coverage_schedule (
     edition_date date,
     last_tick_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    collection_cutoff time without time zone DEFAULT '22:00:00'::time without time zone NOT NULL,
     CONSTRAINT coverage_schedule_character_limit_check CHECK ((character_limit > '00:00:00'::interval)),
     CONSTRAINT coverage_schedule_check CHECK (((NOT enabled) OR (enrolled_at IS NOT NULL))),
     CONSTRAINT coverage_schedule_check1 CHECK (((phase = 'coverage'::text) = (edition_date IS NULL))),
@@ -9209,6 +9350,7 @@ CREATE TABLE public.insider_scores (
     week_season integer,
     week_no integer,
     reporting_date date NOT NULL,
+    candidate_edition date,
     CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
     CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 99)))),
     CONSTRAINT insider_scores_score_check CHECK (((score >= 1) AND (score <= 99)))
@@ -9391,6 +9533,7 @@ CREATE TABLE public.momentum_scores (
     week_season integer,
     week_no integer,
     reporting_date date NOT NULL,
+    candidate_edition date,
     CONSTRAINT momentum_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
 );
 
@@ -9513,6 +9656,7 @@ CREATE TABLE public.momentum_summaries (
     week_season integer,
     week_no integer,
     reporting_date date NOT NULL,
+    candidate_edition date,
     CONSTRAINT momentum_summaries_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text])))),
     CONSTRAINT momentum_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT momentum_summaries_score_check CHECK (((score IS NULL) OR ((score >= '-5'::integer) AND (score <= 5))))
@@ -9926,6 +10070,7 @@ CREATE TABLE public.news_summaries (
     week_season integer,
     week_no integer,
     reporting_date date NOT NULL,
+    candidate_edition date,
     CONSTRAINT news_summaries_card_score_check CHECK (((card_score IS NULL) OR ((card_score >= 1) AND (card_score <= 99)))),
     CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
     CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
@@ -10706,26 +10851,142 @@ ALTER SEQUENCE public.provider_seasons_id_seq OWNED BY public.provider_seasons.i
 
 
 --
--- Name: rate_modes; Type: TABLE; Schema: public; Owner: -
+-- Name: qualified_insider_scores; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE TABLE public.rate_modes (
-    sport text NOT NULL,
-    mode text NOT NULL,
-    suffix text NOT NULL,
-    denom_key text NOT NULL,
-    formula text NOT NULL,
-    unit numeric,
-    round_digits smallint NOT NULL,
-    CONSTRAINT rate_modes_formula_check CHECK ((formula = ANY (ARRAY['div_mul'::text, 'mul_div'::text, 'div'::text, 'mul'::text])))
-);
+CREATE VIEW public.qualified_insider_scores AS
+ SELECT id,
+    sport,
+    entity_type,
+    entity_id,
+    score,
+    previous_score,
+    read,
+    model_version,
+    prompt_version,
+    input_hash,
+    generated_at,
+    headline,
+    week_season,
+    week_no,
+    reporting_date,
+    candidate_edition
+   FROM public.insider_scores p
+  WHERE ((((NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+           FROM public.coverage_editions e
+          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'transfers'::text, entity_type, (entity_id)::bigint, sport)));
 
 
 --
--- Name: COLUMN rate_modes.formula; Type: COMMENT; Schema: public; Owner: -
+-- Name: qualified_momentum_scores; Type: VIEW; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.rate_modes.formula IS 'Exact ROUND expression order (numeric division is inexact, so order matters at rounding ties): div_mul = ROUND(v / denom * unit, d) · mul_div = ROUND(v * unit / denom, d) · div = ROUND(v / denom, d) · mul = ROUND(v * denom, d)';
+CREATE VIEW public.qualified_momentum_scores AS
+ SELECT id,
+    sport,
+    entity_type,
+    entity_id,
+    season,
+    league_id,
+    team_id,
+    "position",
+    position_group,
+    conference,
+    division,
+    vibe_slope,
+    vibe_samples,
+    vibe_window_start,
+    vibe_window_end,
+    rating_slope,
+    rating_samples,
+    rating_window_start,
+    rating_window_end,
+    momentum_score,
+    generated_at,
+    week_season,
+    week_no,
+    reporting_date,
+    candidate_edition
+   FROM public.momentum_scores p
+  WHERE ((((NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+           FROM public.coverage_editions e
+          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'momentum'::text, entity_type, (entity_id)::bigint, sport)));
+
+
+--
+-- Name: qualified_momentum_summaries; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.qualified_momentum_summaries AS
+ SELECT id,
+    entity_type,
+    entity_id,
+    sport,
+    season,
+    trigger_type,
+    trigger_payload,
+    direction,
+    score,
+    blurb,
+    input_components,
+    input_hash,
+    model_version,
+    prompt_version,
+    generated_at,
+    headline,
+    week_season,
+    week_no,
+    reporting_date,
+    candidate_edition
+   FROM public.momentum_summaries p
+  WHERE ((((NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+           FROM public.coverage_editions e
+          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'momentum'::text, entity_type, (entity_id)::bigint, sport)));
+
+
+--
+-- Name: qualified_news_summaries; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.qualified_news_summaries AS
+ SELECT id,
+    entity_type,
+    entity_id,
+    sport,
+    trigger_type,
+    trigger_payload,
+    body,
+    impact,
+    impact_components,
+    input_news_ids,
+    model_version,
+    prompt_version,
+    generated_at,
+    narrative_title,
+    narrative_updated_at,
+    source_count,
+    source_names,
+    source_latest_at,
+    source_oldest_at,
+    trajectory,
+    trajectory_components,
+    input_hash,
+    card_score,
+    card_score_prev,
+    storyline_id,
+    headline,
+    week_season,
+    week_no,
+    reporting_date,
+    candidate_edition
+   FROM public.news_summaries p
+  WHERE ((((NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+           FROM public.coverage_editions e
+          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'narratives'::text, entity_type, (entity_id)::bigint, sport)));
 
 
 --
@@ -10749,6 +11010,7 @@ CREATE TABLE public.rating_history (
     week_season integer,
     week_no integer,
     reporting_date date NOT NULL,
+    candidate_edition date,
     CONSTRAINT rating_history_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT rating_history_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['seed'::text, 'in_season'::text, 'season_close'::text, 'recompute'::text, 'manual'::text])))
 );
@@ -10759,6 +11021,522 @@ CREATE TABLE public.rating_history (
 --
 
 COMMENT ON TABLE public.rating_history IS 'Append-only per-entity rating time-series. One frozen row per concluded season (trigger_type seed/season_close) plus in-season trajectory rows (daily / in_season). Written by snapshot_rating_history(), debounced insert-if-changed. The queryable rating-score series for future ML. season_composite_rank_alltime may be stale/NULL in seed-time rows until the post-backfill recalculate_alltime_ranks pass.';
+
+
+--
+-- Name: qualified_rating_history; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.qualified_rating_history AS
+ SELECT id,
+    entity_type,
+    entity_id,
+    sport,
+    season,
+    league_id,
+    rating,
+    rating_score,
+    rating_rank,
+    season_composite_rank_alltime,
+    rating_modes,
+    trigger_type,
+    generated_at,
+    week_season,
+    week_no,
+    reporting_date,
+    candidate_edition
+   FROM public.rating_history p
+  WHERE ((((NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+           FROM public.coverage_editions e
+          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'rating'::text, entity_type, (entity_id)::bigint, sport)));
+
+
+--
+-- Name: sigil_synthesis; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sigil_synthesis (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    season integer,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    score smallint,
+    previous_score smallint,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
+    model_version text,
+    prompt_version text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    convergence smallint,
+    reading text,
+    omen text,
+    voiced_score smallint,
+    voiced_at timestamp with time zone,
+    voice_model_version text,
+    voice_prompt_version text,
+    headline text,
+    week_season integer,
+    week_no integer,
+    reporting_date date NOT NULL,
+    candidate_edition date,
+    CONSTRAINT sigil_synthesis_convergence_check CHECK (((convergence IS NULL) OR ((convergence >= 1) AND (convergence <= 100)))),
+    CONSTRAINT sigil_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT sigil_synthesis_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
+    CONSTRAINT sigil_synthesis_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 100)))),
+    CONSTRAINT sigil_synthesis_score_check CHECK (((score IS NULL) OR ((score >= 1) AND (score <= 100)))),
+    CONSTRAINT sigil_synthesis_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['narrative_change'::text, 'sentiment_break'::text, 'composite_shift'::text, 'lazy_view'::text, 'periodic'::text, 'manual'::text]))),
+    CONSTRAINT sigil_synthesis_voiced_score_check CHECK (((voiced_score IS NULL) OR ((voiced_score >= 1) AND (voiced_score <= 100))))
+);
+
+
+--
+-- Name: TABLE sigil_synthesis; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sigil_synthesis IS 'The Sigil: the crown. The Oracle lens reads the five pillar cards (PEAK, Vibe, Momentum, narratives, transfers) + the entity''s own prior reads and emits one holistic score + reading (mig 173 crown fold — the panel blurb/disagreement/why_now were retired). omen + convergence are computed deterministically in code.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.convergence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.convergence IS 'Phase 5.3 panel output: how strongly the lenses (PEAK/narrative/vibe/momentum/transfer) agree, 1-100. NULL = model did not emit it (pre-s11 row or omitted this run).';
+
+
+--
+-- Name: COLUMN sigil_synthesis.reading; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.reading IS 'Oracle voice of this decided card (2-4 sentences). NULL = marker or pre-merge row. Carried forward verbatim from the prior row when the re-voice rule skips the model.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.omen; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.omen IS 'Computed omen the current reading was drawn under (closed set; code-computed, never model output).';
+
+
+--
+-- Name: COLUMN sigil_synthesis.voiced_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.voiced_score IS 'Sigil score the current reading was drawn under — the re-voice hysteresis baseline (North Star #8).';
+
+
+--
+-- Name: COLUMN sigil_synthesis.voiced_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.voiced_at IS 'When the current reading was actually drawn; older than generated_at on carried-forward rows.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.headline IS 'The Oracle''s model-emitted card title for this crown (extractive, evidence-traced). NULL = marker row or a pre-headline row → boards omit, profiles render reading alone. Carried forward verbatim with reading when the re-voice hysteresis skips the model (those rows are already identifiable by voiced_at < generated_at — no extra flag).';
+
+
+--
+-- Name: qualified_sigil_synthesis; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.qualified_sigil_synthesis AS
+ SELECT id,
+    entity_type,
+    entity_id,
+    sport,
+    season,
+    trigger_type,
+    trigger_payload,
+    score,
+    previous_score,
+    input_components,
+    input_hash,
+    model_version,
+    prompt_version,
+    generated_at,
+    convergence,
+    reading,
+    omen,
+    voiced_score,
+    voiced_at,
+    voice_model_version,
+    voice_prompt_version,
+    headline,
+    week_season,
+    week_no,
+    reporting_date,
+    candidate_edition
+   FROM public.sigil_synthesis p
+  WHERE ((((NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+           FROM public.coverage_editions e
+          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'sigil'::text, entity_type, (entity_id)::bigint, sport)));
+
+
+--
+-- Name: stat_summaries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stat_summaries (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    body text,
+    notability smallint,
+    notability_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    model_version text,
+    prompt_version text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    season integer,
+    input_hash text,
+    rating_trajectory text,
+    rating_trajectory_label text,
+    rating_trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    headline text,
+    week_season integer,
+    week_no integer,
+    reporting_date date NOT NULL,
+    candidate_edition date,
+    CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
+    CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
+    CONSTRAINT stat_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['stat_change'::text, 'periodic'::text, 'manual'::text, 'transfer'::text, 'availability'::text])))
+);
+
+
+--
+-- Name: TABLE stat_summaries; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.stat_summaries IS 'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: the local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries.';
+
+
+--
+-- Name: COLUMN stat_summaries.trigger_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.trigger_type IS 'What kicked off this generation. ''stat_change'' = the percentile_changed listener; ''periodic'' = the nightly batch; ''manual'' = operator-run; ''transfer'' = an adjudicated move crossed the concrete threshold; ''availability'' = an injury or suspension was applied (mig 229). The last two are the non-statistical triggers — they run with the skip_unchanged debounce disabled, because the input_hash deliberately does not move for them, and this column is the only record of which one woke the seat.';
+
+
+--
+-- Name: COLUMN stat_summaries.season; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.season IS 'The season the commentary describes; reads are latest-per-(entity,sport,season). Previous seasons are immutable (backfilled once); the nightly cadence regenerates only the current season, and only when input_hash changes.';
+
+
+--
+-- Name: COLUMN stat_summaries.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.input_hash IS 'Hash of input_components (the rating snapshot fed to the local model) — the nightly skip-unless-changed signal.';
+
+
+--
+-- Name: COLUMN stat_summaries.rating_trajectory; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.rating_trajectory IS 'Deterministic recent-form marker for the stats rail z-score values: rising, falling, or steady.';
+
+
+--
+-- Name: COLUMN stat_summaries.rating_trajectory_label; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.rating_trajectory_label IS 'Human label for the rating z-score trajectory, e.g. Composite and PEAK z-scores trending down over recent games.';
+
+
+--
+-- Name: COLUMN stat_summaries.rating_trajectory_components; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.rating_trajectory_components IS 'Transparent PEAK trajectory inputs: recent Composite/PEAK z-score samples, slopes, and sample sizes.';
+
+
+--
+-- Name: COLUMN stat_summaries.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.headline IS 'The Scout''s model-emitted card title for this read (extractive, evidence-traced). NULL = insufficient-stats marker or a pre-headline row → the rating card renders body alone.';
+
+
+--
+-- Name: qualified_stat_summaries; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.qualified_stat_summaries AS
+ SELECT id,
+    entity_type,
+    entity_id,
+    sport,
+    trigger_type,
+    trigger_payload,
+    body,
+    notability,
+    notability_components,
+    input_components,
+    model_version,
+    prompt_version,
+    generated_at,
+    season,
+    input_hash,
+    rating_trajectory,
+    rating_trajectory_label,
+    rating_trajectory_components,
+    headline,
+    week_season,
+    week_no,
+    reporting_date,
+    candidate_edition
+   FROM public.stat_summaries p
+  WHERE ((((NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+           FROM public.coverage_editions e
+          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'rating'::text, entity_type, (entity_id)::bigint, sport)));
+
+
+--
+-- Name: transfer_rumors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.transfer_rumors (
+    id bigint NOT NULL,
+    team_id integer NOT NULL,
+    player_id integer NOT NULL,
+    sport text NOT NULL,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    heat smallint,
+    heat_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    is_rumor boolean,
+    direction text,
+    stage text,
+    model_summary text,
+    source_attribution text,
+    confidence numeric(3,2),
+    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    model_version text,
+    prompt_version text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    rumor_updated_at timestamp with time zone,
+    source_count integer DEFAULT 0 NOT NULL,
+    source_names text[] DEFAULT '{}'::text[] NOT NULL,
+    source_latest_at timestamp with time zone,
+    source_oldest_at timestamp with time zone,
+    trajectory text DEFAULT 'developing_story'::text NOT NULL,
+    trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
+    subject_type text DEFAULT 'player'::text NOT NULL,
+    week_season integer,
+    week_no integer,
+    reporting_date date NOT NULL,
+    candidate_entity_type text,
+    candidate_entity_id bigint,
+    candidate_edition date,
+    CONSTRAINT transfer_rumors_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['incoming'::text, 'outgoing'::text, 'unclear'::text])))),
+    CONSTRAINT transfer_rumors_heat_check CHECK (((heat IS NULL) OR ((heat >= 0) AND (heat <= 100)))),
+    CONSTRAINT transfer_rumors_stage_check CHECK (((stage IS NULL) OR (stage = ANY (ARRAY['speculation'::text, 'concrete_interest'::text, 'advanced_talks'::text, 'here_we_go'::text])))),
+    CONSTRAINT transfer_rumors_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'person'::text]))),
+    CONSTRAINT transfer_rumors_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
+    CONSTRAINT transfer_rumors_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text, 'harvester'::text, 'classifier'::text])))
+);
+
+
+--
+-- Name: COLUMN transfer_rumors.rumor_updated_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transfer_rumors.rumor_updated_at IS 'Transfer-rumor freshness timestamp for the News hub. Usually the newest cited source timestamp; falls back to generated_at.';
+
+
+--
+-- Name: COLUMN transfer_rumors.trajectory; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transfer_rumors.trajectory IS 'Transfer-rumor trajectory marker shared with narratives: developing_story, heating_up, or cooling_off.';
+
+
+--
+-- Name: COLUMN transfer_rumors.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transfer_rumors.input_hash IS 'SHA-256 (128-bit hex prefix) of the pair''s material vetting inputs (sorted pair-corpus news ids + distinct_sources from the heat components + the deterministic team relationship); the per-pair transfer debounce key. Static source tiers are deliberately excluded.';
+
+
+--
+-- Name: COLUMN transfer_rumors.subject_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transfer_rumors.subject_type IS 'Which table player_id names (mig 235): ''player'' → public.players, ''person'' → public.persons (kind coach). Part of the pair key everywhere — person and player id sequences overlap, so (team_id, player_id, sport) alone is ambiguous across the two.';
+
+
+--
+-- Name: qualified_transfer_rumors; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.qualified_transfer_rumors AS
+ SELECT id,
+    team_id,
+    player_id,
+    sport,
+    trigger_type,
+    trigger_payload,
+    heat,
+    heat_components,
+    is_rumor,
+    direction,
+    stage,
+    model_summary,
+    source_attribution,
+    confidence,
+    input_news_ids,
+    model_version,
+    prompt_version,
+    generated_at,
+    rumor_updated_at,
+    source_count,
+    source_names,
+    source_latest_at,
+    source_oldest_at,
+    trajectory,
+    trajectory_components,
+    input_hash,
+    subject_type,
+    week_season,
+    week_no,
+    reporting_date,
+    candidate_entity_type,
+    candidate_entity_id,
+    candidate_edition
+   FROM public.transfer_rumors p
+  WHERE ((((NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+           FROM public.coverage_editions e
+          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'transfers'::text, candidate_entity_type, candidate_entity_id, sport)));
+
+
+--
+-- Name: vibe_scores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vibe_scores (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    model_version text NOT NULL,
+    prompt_version text NOT NULL,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    sentiment smallint,
+    prompt text,
+    input_hash text,
+    hook text,
+    week_season integer,
+    week_no integer,
+    reporting_start timestamp with time zone,
+    reporting_end timestamp with time zone,
+    evidence_cutoff timestamp with time zone,
+    scoring_version text,
+    source_references jsonb,
+    reporting_date date NOT NULL,
+    candidate_edition date,
+    CONSTRAINT vibe_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
+    CONSTRAINT vibe_scores_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 0) AND (sentiment <= 100)))),
+    CONSTRAINT vibe_scores_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['milestone'::text, 'manual'::text, 'periodic'::text, 'news_spike'::text])))
+);
+
+
+--
+-- Name: TABLE vibe_scores; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.vibe_scores IS 'The Vibe: the emotional rail end product (was sentiment_scores). sentiment (1-100) + prompt; feeds the Sigil and the Momentum vibe-trajectory. Append-only.';
+
+
+--
+-- Name: COLUMN vibe_scores.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.vibe_scores.input_hash IS 'SHA-256 (128-bit hex prefix) of the generation''s material inputs (latest narrative titles/impacts/trajectories + transfer-heat facts); the Rust harness debounce key. NULL on pre-147 rows.';
+
+
+--
+-- Name: COLUMN vibe_scores.scoring_version; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.vibe_scores.scoring_version IS 'emotional-valence-v1: 0 distressing, 25 troubled, 50 mixed/balanced, 75 hopeful, 100 joyful. Unknown is absence.';
+
+
+--
+-- Name: qualified_vibe_scores; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.qualified_vibe_scores AS
+ SELECT id,
+    entity_type,
+    entity_id,
+    sport,
+    trigger_type,
+    trigger_payload,
+    input_news_ids,
+    model_version,
+    prompt_version,
+    generated_at,
+    sentiment,
+    prompt,
+    input_hash,
+    hook,
+    week_season,
+    week_no,
+    reporting_start,
+    reporting_end,
+    evidence_cutoff,
+    scoring_version,
+    source_references,
+    reporting_date,
+    candidate_edition
+   FROM public.vibe_scores p
+  WHERE ((((NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+           FROM public.coverage_editions e
+          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'vibe'::text, entity_type, (entity_id)::bigint, sport)));
+
+
+--
+-- Name: rate_modes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.rate_modes (
+    sport text NOT NULL,
+    mode text NOT NULL,
+    suffix text NOT NULL,
+    denom_key text NOT NULL,
+    formula text NOT NULL,
+    unit numeric,
+    round_digits smallint NOT NULL,
+    CONSTRAINT rate_modes_formula_check CHECK ((formula = ANY (ARRAY['div_mul'::text, 'mul_div'::text, 'div'::text, 'mul'::text])))
+);
+
+
+--
+-- Name: COLUMN rate_modes.formula; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.rate_modes.formula IS 'Exact ROUND expression order (numeric division is inexact, so order matters at rounding ties): div_mul = ROUND(v / denom * unit, d) · mul_div = ROUND(v * unit / denom, d) · div = ROUND(v / denom, d) · mul = ROUND(v * denom, d)';
 
 
 --
@@ -10835,95 +11613,6 @@ CREATE TABLE public.season_weeks (
 --
 
 COMMENT ON TABLE public.season_weeks IS 'Retained historical reporting calendar. Daily outputs do not read or rebuild it. Fixture and NFL week facts remain in their original tables.';
-
-
---
--- Name: sigil_synthesis; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sigil_synthesis (
-    id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    season integer,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    score smallint,
-    previous_score smallint,
-    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_hash text,
-    model_version text,
-    prompt_version text,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    convergence smallint,
-    reading text,
-    omen text,
-    voiced_score smallint,
-    voiced_at timestamp with time zone,
-    voice_model_version text,
-    voice_prompt_version text,
-    headline text,
-    week_season integer,
-    week_no integer,
-    reporting_date date NOT NULL,
-    CONSTRAINT sigil_synthesis_convergence_check CHECK (((convergence IS NULL) OR ((convergence >= 1) AND (convergence <= 100)))),
-    CONSTRAINT sigil_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT sigil_synthesis_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
-    CONSTRAINT sigil_synthesis_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 100)))),
-    CONSTRAINT sigil_synthesis_score_check CHECK (((score IS NULL) OR ((score >= 1) AND (score <= 100)))),
-    CONSTRAINT sigil_synthesis_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['narrative_change'::text, 'sentiment_break'::text, 'composite_shift'::text, 'lazy_view'::text, 'periodic'::text, 'manual'::text]))),
-    CONSTRAINT sigil_synthesis_voiced_score_check CHECK (((voiced_score IS NULL) OR ((voiced_score >= 1) AND (voiced_score <= 100))))
-);
-
-
---
--- Name: TABLE sigil_synthesis; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.sigil_synthesis IS 'The Sigil: the crown. The Oracle lens reads the five pillar cards (PEAK, Vibe, Momentum, narratives, transfers) + the entity''s own prior reads and emits one holistic score + reading (mig 173 crown fold — the panel blurb/disagreement/why_now were retired). omen + convergence are computed deterministically in code.';
-
-
---
--- Name: COLUMN sigil_synthesis.convergence; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.convergence IS 'Phase 5.3 panel output: how strongly the lenses (PEAK/narrative/vibe/momentum/transfer) agree, 1-100. NULL = model did not emit it (pre-s11 row or omitted this run).';
-
-
---
--- Name: COLUMN sigil_synthesis.reading; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.reading IS 'Oracle voice of this decided card (2-4 sentences). NULL = marker or pre-merge row. Carried forward verbatim from the prior row when the re-voice rule skips the model.';
-
-
---
--- Name: COLUMN sigil_synthesis.omen; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.omen IS 'Computed omen the current reading was drawn under (closed set; code-computed, never model output).';
-
-
---
--- Name: COLUMN sigil_synthesis.voiced_score; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.voiced_score IS 'Sigil score the current reading was drawn under — the re-voice hysteresis baseline (North Star #8).';
-
-
---
--- Name: COLUMN sigil_synthesis.voiced_at; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.voiced_at IS 'When the current reading was actually drawn; older than generated_at on carried-forward rows.';
-
-
---
--- Name: COLUMN sigil_synthesis.headline; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.headline IS 'The Oracle''s model-emitted card title for this crown (extractive, evidence-traced). NULL = marker row or a pre-headline row → boards omit, profiles render reading alone. Carried forward verbatim with reading when the re-voice hysteresis skips the model (those rows are already identifiable by voiced_at < generated_at — no extra flag).';
 
 
 --
@@ -11089,96 +11778,6 @@ COMMENT ON COLUMN public.stat_matchups.adj_delta IS 'matchup_avg minus (baseline
 --
 
 COMMENT ON COLUMN public.stat_matchups.reliability IS 'How much to believe adj_delta, 0-100: n/(n+k) shrinkage weight discounted by recency (meetings in the 2 newest seasons) and direction-consistency across meetings. Breakdown in components. Serve it WITH the fact; never filter by it.';
-
-
---
--- Name: stat_summaries; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stat_summaries (
-    id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    body text,
-    notability smallint,
-    notability_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    model_version text,
-    prompt_version text,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    season integer,
-    input_hash text,
-    rating_trajectory text,
-    rating_trajectory_label text,
-    rating_trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    headline text,
-    week_season integer,
-    week_no integer,
-    reporting_date date NOT NULL,
-    CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
-    CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
-    CONSTRAINT stat_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['stat_change'::text, 'periodic'::text, 'manual'::text, 'transfer'::text, 'availability'::text])))
-);
-
-
---
--- Name: TABLE stat_summaries; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.stat_summaries IS 'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: the local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries.';
-
-
---
--- Name: COLUMN stat_summaries.trigger_type; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.trigger_type IS 'What kicked off this generation. ''stat_change'' = the percentile_changed listener; ''periodic'' = the nightly batch; ''manual'' = operator-run; ''transfer'' = an adjudicated move crossed the concrete threshold; ''availability'' = an injury or suspension was applied (mig 229). The last two are the non-statistical triggers — they run with the skip_unchanged debounce disabled, because the input_hash deliberately does not move for them, and this column is the only record of which one woke the seat.';
-
-
---
--- Name: COLUMN stat_summaries.season; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.season IS 'The season the commentary describes; reads are latest-per-(entity,sport,season). Previous seasons are immutable (backfilled once); the nightly cadence regenerates only the current season, and only when input_hash changes.';
-
-
---
--- Name: COLUMN stat_summaries.input_hash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.input_hash IS 'Hash of input_components (the rating snapshot fed to the local model) — the nightly skip-unless-changed signal.';
-
-
---
--- Name: COLUMN stat_summaries.rating_trajectory; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.rating_trajectory IS 'Deterministic recent-form marker for the stats rail z-score values: rising, falling, or steady.';
-
-
---
--- Name: COLUMN stat_summaries.rating_trajectory_label; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.rating_trajectory_label IS 'Human label for the rating z-score trajectory, e.g. Composite and PEAK z-scores trending down over recent games.';
-
-
---
--- Name: COLUMN stat_summaries.rating_trajectory_components; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.rating_trajectory_components IS 'Transparent PEAK trajectory inputs: recent Composite/PEAK z-score samples, slopes, and sample sizes.';
-
-
---
--- Name: COLUMN stat_summaries.headline; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.headline IS 'The Scout''s model-emitted card title for this read (extractive, evidence-traced). NULL = insufficient-stats marker or a pre-headline row → the rating card renders body alone.';
 
 
 --
@@ -11444,78 +12043,6 @@ CREATE TABLE public.transfer_identity_thresholds (
 
 
 --
--- Name: transfer_rumors; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.transfer_rumors (
-    id bigint NOT NULL,
-    team_id integer NOT NULL,
-    player_id integer NOT NULL,
-    sport text NOT NULL,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    heat smallint,
-    heat_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    is_rumor boolean,
-    direction text,
-    stage text,
-    model_summary text,
-    source_attribution text,
-    confidence numeric(3,2),
-    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    model_version text,
-    prompt_version text,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    rumor_updated_at timestamp with time zone,
-    source_count integer DEFAULT 0 NOT NULL,
-    source_names text[] DEFAULT '{}'::text[] NOT NULL,
-    source_latest_at timestamp with time zone,
-    source_oldest_at timestamp with time zone,
-    trajectory text DEFAULT 'developing_story'::text NOT NULL,
-    trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_hash text,
-    subject_type text DEFAULT 'player'::text NOT NULL,
-    week_season integer,
-    week_no integer,
-    reporting_date date NOT NULL,
-    CONSTRAINT transfer_rumors_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['incoming'::text, 'outgoing'::text, 'unclear'::text])))),
-    CONSTRAINT transfer_rumors_heat_check CHECK (((heat IS NULL) OR ((heat >= 0) AND (heat <= 100)))),
-    CONSTRAINT transfer_rumors_stage_check CHECK (((stage IS NULL) OR (stage = ANY (ARRAY['speculation'::text, 'concrete_interest'::text, 'advanced_talks'::text, 'here_we_go'::text])))),
-    CONSTRAINT transfer_rumors_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'person'::text]))),
-    CONSTRAINT transfer_rumors_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
-    CONSTRAINT transfer_rumors_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text, 'harvester'::text, 'classifier'::text])))
-);
-
-
---
--- Name: COLUMN transfer_rumors.rumor_updated_at; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.transfer_rumors.rumor_updated_at IS 'Transfer-rumor freshness timestamp for the News hub. Usually the newest cited source timestamp; falls back to generated_at.';
-
-
---
--- Name: COLUMN transfer_rumors.trajectory; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.transfer_rumors.trajectory IS 'Transfer-rumor trajectory marker shared with narratives: developing_story, heating_up, or cooling_off.';
-
-
---
--- Name: COLUMN transfer_rumors.input_hash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.transfer_rumors.input_hash IS 'SHA-256 (128-bit hex prefix) of the pair''s material vetting inputs (sorted pair-corpus news ids + distinct_sources from the heat components + the deterministic team relationship); the per-pair transfer debounce key. Static source tiers are deliberately excluded.';
-
-
---
--- Name: COLUMN transfer_rumors.subject_type; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.transfer_rumors.subject_type IS 'Which table player_id names (mig 235): ''player'' → public.players, ''person'' → public.persons (kind coach). Part of the pair key everywhere — person and player id sequences overlap, so (team_id, player_id, sport) alone is ambiguous across the two.';
-
-
---
 -- Name: transfer_rumors_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -11651,60 +12178,6 @@ CREATE SEQUENCE public.vibe_card_attempts_id_seq
 --
 
 ALTER SEQUENCE public.vibe_card_attempts_id_seq OWNED BY public.vibe_card_attempts.id;
-
-
---
--- Name: vibe_scores; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.vibe_scores (
-    id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    model_version text NOT NULL,
-    prompt_version text NOT NULL,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    sentiment smallint,
-    prompt text,
-    input_hash text,
-    hook text,
-    week_season integer,
-    week_no integer,
-    reporting_start timestamp with time zone,
-    reporting_end timestamp with time zone,
-    evidence_cutoff timestamp with time zone,
-    scoring_version text,
-    source_references jsonb,
-    reporting_date date NOT NULL,
-    CONSTRAINT vibe_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
-    CONSTRAINT vibe_scores_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 0) AND (sentiment <= 100)))),
-    CONSTRAINT vibe_scores_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['milestone'::text, 'manual'::text, 'periodic'::text, 'news_spike'::text])))
-);
-
-
---
--- Name: TABLE vibe_scores; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.vibe_scores IS 'The Vibe: the emotional rail end product (was sentiment_scores). sentiment (1-100) + prompt; feeds the Sigil and the Momentum vibe-trajectory. Append-only.';
-
-
---
--- Name: COLUMN vibe_scores.input_hash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.vibe_scores.input_hash IS 'SHA-256 (128-bit hex prefix) of the generation''s material inputs (latest narrative titles/impacts/trajectories + transfer-heat facts); the Rust harness debounce key. NULL on pre-147 rows.';
-
-
---
--- Name: COLUMN vibe_scores.scoring_version; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.vibe_scores.scoring_version IS 'emotional-valence-v1: 0 distressing, 25 troubled, 50 mixed/balanced, 75 hopeful, 100 joyful. Unknown is absence.';
 
 
 --
@@ -12078,7 +12551,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict iWrAMwFJZ3CcfkBA1Scw9YHl4dw1iwF1kuBmD83Rye5mgY8mZAxiXb5z2j40ziT
+\unrestrict YSRrww8dPbMVRzKM8DQk1mtTqKvB3iD3CG7QJck8WHtABeT8uAyS87zyhQJjpfj
 
 
 \ir reference-data.sql
@@ -12086,7 +12559,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict sNYBwl3fOvaKC1iLiQkQdQqUyWHdLnwOcueFPsXXmLEqcBW7gUesqCyhIAxuJ9l
+\restrict dMVYAQLXXyfwCv5R4OXWlrG8aV4VqreA20bmGJWkjktD5jCenCc8zd5iW0nZrjr
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -12210,6 +12683,14 @@ ALTER TABLE ONLY public.classifier_measurements
 
 
 --
+-- Name: classifier_reconciliation_cursor classifier_reconciliation_cursor_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.classifier_reconciliation_cursor
+    ADD CONSTRAINT classifier_reconciliation_cursor_pkey PRIMARY KEY (singleton);
+
+
+--
 -- Name: classifier_source_heads classifier_source_heads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12282,6 +12763,14 @@ ALTER TABLE ONLY public.coverage_assignments
 
 
 --
+-- Name: coverage_drain_obligations coverage_drain_obligations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.coverage_drain_obligations
+    ADD CONSTRAINT coverage_drain_obligations_pkey PRIMARY KEY (edition_date, entity_type, entity_id, sport);
+
+
+--
 -- Name: coverage_editions coverage_editions_cutoff_at_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12295,6 +12784,14 @@ ALTER TABLE ONLY public.coverage_editions
 
 ALTER TABLE ONLY public.coverage_editions
     ADD CONSTRAINT coverage_editions_pkey PRIMARY KEY (edition_date);
+
+
+--
+-- Name: coverage_publication coverage_publication_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.coverage_publication
+    ADD CONSTRAINT coverage_publication_pkey PRIMARY KEY (singleton);
 
 
 --
@@ -14419,6 +14916,69 @@ CREATE TRIGGER entity_aliases_append_only BEFORE UPDATE ON public.entity_aliases
 
 
 --
+-- Name: insider_scores invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_publication AFTER DELETE OR UPDATE ON public.insider_scores FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: momentum_scores invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_publication AFTER DELETE OR UPDATE ON public.momentum_scores FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: momentum_summaries invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_publication AFTER DELETE OR UPDATE ON public.momentum_summaries FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: news_summaries invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_publication AFTER DELETE OR UPDATE ON public.news_summaries FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: rating_history invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_publication AFTER DELETE OR UPDATE ON public.rating_history FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: sigil_synthesis invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_publication AFTER DELETE OR UPDATE ON public.sigil_synthesis FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: stat_summaries invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_publication AFTER DELETE OR UPDATE ON public.stat_summaries FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: transfer_rumors invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_publication AFTER DELETE OR UPDATE ON public.transfer_rumors FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: vibe_scores invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_publication AFTER DELETE OR UPDATE ON public.vibe_scores FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
 -- Name: event_box_scores mark_momentum_refresh_event_box_scores; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -14465,6 +15025,69 @@ CREATE TRIGGER pipeline_work_notify_insert AFTER INSERT ON public.pipeline_work 
 --
 
 CREATE TRIGGER pipeline_work_notify_update AFTER UPDATE ON public.pipeline_work REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.notify_pipeline_work_ready();
+
+
+--
+-- Name: insider_scores stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_candidate BEFORE INSERT ON public.insider_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_candidate_edition();
+
+
+--
+-- Name: momentum_scores stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_candidate BEFORE INSERT ON public.momentum_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_candidate_edition();
+
+
+--
+-- Name: momentum_summaries stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_candidate BEFORE INSERT ON public.momentum_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_candidate_edition();
+
+
+--
+-- Name: news_summaries stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_candidate BEFORE INSERT ON public.news_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_candidate_edition();
+
+
+--
+-- Name: rating_history stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_candidate BEFORE INSERT ON public.rating_history FOR EACH ROW EXECUTE FUNCTION public.stamp_candidate_edition();
+
+
+--
+-- Name: sigil_synthesis stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_candidate BEFORE INSERT ON public.sigil_synthesis FOR EACH ROW EXECUTE FUNCTION public.stamp_candidate_edition();
+
+
+--
+-- Name: stat_summaries stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_candidate BEFORE INSERT ON public.stat_summaries FOR EACH ROW EXECUTE FUNCTION public.stamp_candidate_edition();
+
+
+--
+-- Name: transfer_rumors stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_candidate BEFORE INSERT ON public.transfer_rumors FOR EACH ROW EXECUTE FUNCTION public.stamp_candidate_edition();
+
+
+--
+-- Name: vibe_scores stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER stamp_candidate BEFORE INSERT ON public.vibe_scores FOR EACH ROW EXECUTE FUNCTION public.stamp_candidate_edition();
 
 
 --
@@ -15679,4 +16302,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict sNYBwl3fOvaKC1iLiQkQdQqUyWHdLnwOcueFPsXXmLEqcBW7gUesqCyhIAxuJ9l
+\unrestrict dMVYAQLXXyfwCv5R4OXWlrG8aV4VqreA20bmGJWkjktD5jCenCc8zd5iW0nZrjr

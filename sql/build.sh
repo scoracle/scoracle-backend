@@ -19,10 +19,12 @@ psql "$TGT" -X -v ON_ERROR_STOP=1 --single-transaction \
   -c "\copy public.schema_migrations(version) FROM '$BASE/applied-migrations.txt'" \
   -f - <<'SQL'
 -- Runtime schedules are excluded from snapshots; fresh installs start disabled.
-DO $$ BEGIN
-  IF to_regclass('public.coverage_schedule') IS NOT NULL THEN
-    EXECUTE 'INSERT INTO public.coverage_schedule(singleton) VALUES (true) ON CONFLICT DO NOTHING';
-  END IF;
+DO $$ DECLARE singleton_table text; BEGIN
+  FOREACH singleton_table IN ARRAY ARRAY['coverage_schedule','coverage_publication','classifier_reconciliation_cursor'] LOOP
+    IF to_regclass('public.' || singleton_table) IS NOT NULL THEN
+      EXECUTE format('INSERT INTO public.%I(singleton) VALUES (true) ON CONFLICT DO NOTHING', singleton_table);
+    END IF;
+  END LOOP;
 END $$;
 SQL
 printf 'Baseline restored. Apply later changes with sql/migrate.sh.\n'

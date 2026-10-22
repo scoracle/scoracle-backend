@@ -28,6 +28,15 @@ database="$(psql "$TEST_DATABASE_URL" -X -Atv ON_ERROR_STOP=1 -c 'SELECT current
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
 ./sql/build.sh "$TEST_DATABASE_URL"
+psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+DO $$ BEGIN
+    IF (SELECT count(*) FROM coverage_schedule WHERE NOT enabled) <> 1
+       OR (SELECT count(*) FROM coverage_publication WHERE edition_date IS NULL AND revision=0) <> 1
+       OR (SELECT count(*) FROM classifier_reconciliation_cursor WHERE article_id=0 AND sport='') <> 1 THEN
+        RAISE EXCEPTION 'Fresh baseline must initialize disabled coverage and empty publication/reconciliation state';
+    END IF;
+END $$;
+SQL
 ./sql/migrate.sh "$TEST_DATABASE_URL"
 ./sql/migrate.sh "$TEST_DATABASE_URL" | tee "$SCRATCH/migrations.log"
 grep -q 'done — 0 migration(s) applied' "$SCRATCH/migrations.log"

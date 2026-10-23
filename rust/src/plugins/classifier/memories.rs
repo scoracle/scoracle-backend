@@ -114,6 +114,9 @@ async fn select(
     let mut seen = HashSet::new();
     let mut ranked = Vec::new();
     for (headline, at) in candidates {
+        if crate::tools::source::is_headline_spam(&headline.headline) {
+            continue;
+        }
         ensure!(
             headline.article_id > 0 && seen.insert(headline.article_id),
             "invalid or duplicate headline memory observation"
@@ -228,6 +231,11 @@ mod tests {
             let selected = select(character, 200, candidates.clone()).await?;
             assert_eq!(selected.len(), 3);
             assert_eq!(selected[0], candidates[index].0);
+        }
+        let mut spam = candidates[0].clone();
+        spam.0.headline = "[+[LIVE@STREAMs]+] Cedar FC vs Maple United".into();
+        for character in ["journalist", "influencer", "insider"] {
+            assert!(select(character, 200, vec![spam.clone()]).await?.is_empty());
         }
         let mut oversized = candidates[0].clone();
         oversized.0.headline = "Complete headline ".repeat(500);

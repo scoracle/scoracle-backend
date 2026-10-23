@@ -1,0 +1,24 @@
+{
+  "version": "headline-routing-v2",
+  "admission": {
+    "subject": 55
+  },
+  "characters": {
+    "journalist": {
+      "subject": 55
+    },
+    "influencer": {
+      "subject": 55,
+      "emotion": 15
+    },
+    "insider": {
+      "subject": 55,
+      "movement": 80
+    },
+    "scout": {
+      "subject": 55,
+      "availability": 85
+    }
+  },
+  "note": "Scout availability 85 was selected by the user after the 2026-10-22 production review. Owners being arena-banned are valid team material. Obvious livestream spam is excluded from all characters. This routing choice is not a population accuracy calibration."
+}

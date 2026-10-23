@@ -71,7 +71,13 @@ async fn main() -> Result<()> {
         match result {
             Ok(measurement) => {
                 let spectrum = measurement.spectrum;
-                let gate = decision::admitted(&spectrum)?;
+                let gate = decision::gate(
+                    &spectrum,
+                    &case.headline,
+                    case.meta["identity"]["entity_type"]
+                        .as_str()
+                        .context("entity type")?,
+                )?;
                 for (key, expected) in &case.expected {
                     let probability = spectrum
                         .get(key)
@@ -86,7 +92,7 @@ async fn main() -> Result<()> {
                 println!(
                     "{}",
                     json!({"id":case.id,"sport":case.sport,"seconds":elapsed,
-                    "spectrum":spectrum,"admitted":gate,"expected":case.expected,
+                    "spectrum":spectrum,"admitted":gate["admitted"],"gate":gate,"expected":case.expected,
                     "model":measurement.model,"request_hash":measurement.request_hash})
                 );
             }

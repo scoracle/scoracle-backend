@@ -126,7 +126,8 @@ impl StudioPlugin for ClassifierHandler {
         };
         let discovery_hash = input_hash(&before)?;
         let key = hash(&format!(
-            "{discovery_hash}\n{}",
+            "{discovery_hash}\n{}\n{}",
+            super::decision::ROUTING_VERSION,
             serde_json::to_string(&measurements)?
         ));
         let mut source = before.clone();
@@ -144,6 +145,10 @@ impl StudioPlugin for ClassifierHandler {
             .await?
             .context("admission changed during measurement")?;
         source.provenance.insert("admitted".into(), json!(admitted));
+        source.provenance.insert(
+            "routing_version".into(),
+            json!(super::decision::ROUTING_VERSION),
+        );
         source
             .provenance
             .insert("evidence_scope".into(), json!("headline"));
@@ -170,20 +175,19 @@ impl StudioPlugin for ClassifierHandler {
         {
             let measured =
                 super::decision::Measurement::from_receipt(entry["measurement"].clone())?;
-            let accepted = super::decision::admitted(&measured.spectrum)?;
-            let mut characters = super::decision::characters(&measured.spectrum)?;
-            if !matches!(
-                entry["target"]["entity_type"].as_str(),
-                Some("team" | "player")
-            ) {
-                characters["scout"] = json!(false);
-            }
-            let gate = json!({"coverage":"complete","scope":"headline","admitted":accepted,
-                "characters":characters});
+            let gate = super::decision::gate(
+                &measured.spectrum,
+                before.provenance["title"].as_str().context("headline")?,
+                entry["target"]["entity_type"]
+                    .as_str()
+                    .context("target type")?,
+            )?;
+            let accepted = gate["admitted"] == true;
+            let characters = &gate["characters"];
             let spectrum_id: i64 = sqlx::query_scalar("INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt) VALUES($1,$2,$3,$4,$5,$6,'rss-headline-spectrum-v1',$7,$8,$9,$10,$11,$12) ON CONFLICT(source_id,target,model,criteria_version,scrub_version,request_hash) DO UPDATE SET request_hash=EXCLUDED.request_hash RETURNING id")
                 .bind(source_id).bind(item.entity_id).bind(&item.sport).bind(&entry["target"]).bind(&measured.model).bind(super::decision::CRITERIA_VERSION)
                 .bind(before.provenance["title"].as_str().context("headline")?).bind(hash(before.provenance["title"].as_str().context("headline")?))
-                .bind(json!(measured.spectrum)).bind(gate).bind(&measured.request_hash).bind(&measured.receipt).fetch_one(&mut **publication.transaction()).await?;
+                .bind(json!(measured.spectrum)).bind(&gate).bind(&measured.request_hash).bind(&measured.receipt).fetch_one(&mut **publication.transaction()).await?;
             if accepted
                 && !item
                     .input_version
@@ -249,7 +253,12 @@ async fn validate_admission(
         } else {
             model = Some(measured.model.clone());
         }
-        accepted |= super::decision::admitted(&measured.spectrum)?;
+        accepted |= super::decision::gate(
+            &measured.spectrum,
+            before.provenance["title"].as_str().context("headline")?,
+            target["entity_type"].as_str().context("target type")?,
+        )?["admitted"]
+            == true;
     }
     Ok(Some(accepted))
 }

@@ -44,9 +44,43 @@ pub fn contains_instruction_override(source: &str) -> bool {
     .any(|marker| normalized.contains(marker))
 }
 
+/// Reject decorated stream solicitations without rejecting ordinary broadcast reporting.
+pub fn is_headline_spam(headline: &str) -> bool {
+    use unicode_normalization::UnicodeNormalization;
+    let decoded = crate::tools::fetch::decode_entities(headline);
+    let normalized = decoded.nfkc().collect::<String>().to_lowercase();
+    let compact: String = normalized.chars().filter(|c| c.is_alphanumeric()).collect();
+    let streaming = ["livestream", "freestream", "livefree", "watchfree"]
+        .iter()
+        .any(|marker| compact.contains(marker))
+        || (compact.contains("endirect") && compact.contains("gratuit"));
+    // shortcut: catches observed stream solicitations; plain-text spam needs a labelled source-quality review.
+    let decorated = decoded.chars().any(|c| {
+        matches!(c as u32,
+        0x1D400..=0x1D7FF | 0xFF21..=0xFF3A | 0xFF41..=0xFF5A)
+    }) || ["[+", "++>", "@!", "live@", "[here's way", "[heres way"]
+        .iter()
+        .any(|marker| normalized.contains(marker));
+    streaming && decorated
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn livestream_spam_preserves_broadcast_reporting_and_availability() {
+        let cases: serde_json::Value = serde_json::from_str(include_str!(
+            "../../fixtures/classifier/headline-spam-2026-10-22.json"
+        ))
+        .unwrap();
+        for (key, blocked) in [("blocked", true), ("allowed", false)] {
+            for title in cases[key].as_array().unwrap() {
+                let title = title.as_str().unwrap();
+                assert_eq!(is_headline_spam(title), blocked, "{title}");
+            }
+        }
+    }
+
     #[test]
     fn instruction_guard_folds_case_punctuation_and_line_wrapping() {
         assert!(contains_instruction_override(

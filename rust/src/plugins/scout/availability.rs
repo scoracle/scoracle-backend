@@ -99,7 +99,20 @@ impl Availability {
             ),
             (&self.redundant, "redundant", Some("known_copy")),
         ] {
-            let ids: Vec<_> = sources.iter().map(|s| s.classification_id).collect();
+            let (spam, accepted): (Vec<_>, Vec<_>) = sources
+                .iter()
+                .partition(|s| crate::tools::source::is_headline_spam(&s.context));
+            let spam_ids: Vec<_> = spam.iter().map(|s| s.classification_id).collect();
+            crate::plugins::classifier::delivery::settle(
+                connection,
+                super::manifest::MANIFEST.id.as_str(),
+                &spam_ids,
+                "abstained",
+                Some("livestream_spam"),
+                serde_json::json!({}),
+            )
+            .await?;
+            let ids: Vec<_> = accepted.iter().map(|s| s.classification_id).collect();
             crate::plugins::classifier::delivery::settle(
                 connection,
                 super::manifest::MANIFEST.id.as_str(),
@@ -135,10 +148,12 @@ mod tests {
         let mut irrelevant = source(4);
         irrelevant.classifier_world.as_mut().unwrap()["gate"]["characters"]["scout"] =
             serde_json::json!(false);
-        let a = Availability::pack(vec![source(1), source(2), future, irrelevant], 200);
+        let mut spam = source(5);
+        spam.context = "[+[LIVE@STREAMs]+] Cedar FC vs Maple United".into();
+        let a = Availability::pack(vec![source(1), source(2), future, irrelevant, spam], 200);
         assert_eq!(a.sources.len(), 1);
         assert_eq!(a.redundant.len(), 1);
-        assert_eq!(a.held.len(), 2);
+        assert_eq!(a.held.len(), 3);
         assert_eq!(a.for_writing()[0]["headline"], "Kai Rowan may return");
     }
 }

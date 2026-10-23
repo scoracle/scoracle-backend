@@ -192,7 +192,8 @@ pub(crate) async fn execute_with_backend(
     let plugin_id = manifest::MANIFEST.id.as_str();
     let pending = load_for_character(pool, plugin_id, &item.entity_type, entity_id, &sport).await?;
     let unresolved = |source: &SourceContext| {
-        !source.published_at_epoch.is_some_and(|date| date <= now())
+        crate::tools::source::is_headline_spam(&source.context)
+            || !source.published_at_epoch.is_some_and(|date| date <= now())
             || source
                 .classifier_world
                 .as_ref()
@@ -213,7 +214,10 @@ pub(crate) async fn execute_with_backend(
         )
         .await?;
         for source in &held {
-            let reason = if source.published_at_epoch.is_none() {
+            let spam = crate::tools::source::is_headline_spam(&source.context);
+            let reason = if spam {
+                "livestream_spam"
+            } else if source.published_at_epoch.is_none() {
                 "unknown_publication_time"
             } else if source.published_at_epoch.is_some_and(|date| date > now()) {
                 "future_publication_time"
@@ -224,7 +228,7 @@ pub(crate) async fn execute_with_backend(
                 publication.transaction(),
                 plugin_id,
                 &[source.classification_id],
-                "held",
+                if spam { "abstained" } else { "held" },
                 Some(reason),
                 json!({}),
             )

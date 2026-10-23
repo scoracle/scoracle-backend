@@ -115,6 +115,8 @@ pub fn prepare(
             Some("unresolved_target_identity")
         } else if item.context.trim().is_empty() || item.source.trim().is_empty() {
             Some("missing_source_material")
+        } else if crate::tools::source::is_headline_spam(&item.context) {
+            Some("livestream_spam")
         } else if crate::tools::source::contains_instruction_override(&item.context) {
             Some("source_instruction_override")
         } else if item.published_at_epoch.is_none() {

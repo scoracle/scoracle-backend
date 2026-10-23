@@ -212,6 +212,8 @@ async fn execute_prepared(
                 &[source.classification_id],
                 if *reason == "known_copy" {
                     "redundant"
+                } else if *reason == "livestream_spam" {
+                    "abstained"
                 } else {
                     "held"
                 },

@@ -85,7 +85,7 @@ impl Model {
                         .unwrap()
                         .contains("Unrelated")
                         || payload["state"]["subject_meta"]["identity"]["entity_id"] == 910417;
-                    let answers=payload["questions"].as_object().unwrap().keys().map(|key|(key.clone(),serde_json::json!({"type":"noul","noul":if rejected || (key=="availability" && !payload["state"]["article"]["headline"].as_str().unwrap().contains("availability fixture")) {0.1}else{0.95}}))).collect::<serde_json::Map<_,_>>();
+                    let answers=payload["questions"].as_object().unwrap().keys().map(|key|(key.clone(),serde_json::json!({"type":"noul","noul":if rejected || (key=="availability" && !payload["state"]["article"]["headline"].as_str().unwrap().contains("availability fixture")) {0.1}else if key=="availability" {0.85}else{0.95}}))).collect::<serde_json::Map<_,_>>();
                     captured.lock().unwrap().push(payload);
                     (
                         if failed.swap(false, Ordering::Relaxed) {
@@ -183,7 +183,7 @@ async fn headlines_archive_and_dispatch_without_publisher_io() -> Result<()> {
         .bind(SPORT)
         .execute(&pool)
         .await?;
-    sqlx::query("DELETE FROM news_articles WHERE id BETWEEN 910415 AND 910425")
+    sqlx::query("DELETE FROM news_articles WHERE id BETWEEN 910415 AND 910426")
         .execute(&pool)
         .await?;
     sqlx::query("DELETE FROM entity_name_surfaces WHERE sport=$1")
@@ -408,6 +408,30 @@ async fn headlines_archive_and_dispatch_without_publisher_io() -> Result<()> {
         0,
         "backscoring is restart-safe"
     );
+    seed(
+        &pool,
+        910426,
+        "[+[LIVE@STREAMs]+] Cedar FC vs Maple United",
+        "retained archive",
+    )
+    .await?;
+    admit(&pool, &handler, 910426).await?;
+    let gate: Value = sqlx::query_scalar(
+        "SELECT gate FROM classifier_spectra WHERE article_id=910426 ORDER BY id DESC LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(gate["admitted"], false);
+    assert_eq!(gate["reason"], "livestream_spam");
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.article_id=910426").fetch_one(&pool).await?, 0);
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT full_text FROM news_articles WHERE id=910426")
+            .fetch_one(&pool)
+            .await?,
+        "retained archive"
+    );
+    assert_eq!(sqlx::query_scalar::<_,String>("SELECT s.source->>'admitted' FROM classifier_source_heads h JOIN classifier_sources s ON s.id=h.source_id WHERE h.article_id=910426 AND h.sport=$1").bind(SPORT).fetch_one(&pool).await?, "false");
+
     let old = fresh.iter().find(|s| s.article_id == 910415).unwrap();
     seed(&pool, 910425, "Cedar FC confirms a new appointment", "").await?;
     admit(&pool, &handler, 910425).await?;
@@ -898,6 +922,109 @@ async fn exact_token_overflow_drops_history_then_holds_each_complete_character_p
         failed, 0,
         "permanent token admission must not enter the retry queue"
     );
+    sqlx::query("DELETE FROM application_outbox WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM pipeline_work WHERE sport=$1")
+        .bind(sport)
+        .execute(&pool)
+        .await?;
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires disposable migrated TEST_DATABASE_URL; run serially"]
+async fn already_queued_spam_settles_without_inference_or_edition_blockers() -> Result<()> {
+    use crate::harness::model::{GenerateOptions, GenerateResult, Inference};
+    use crate::plugins::{influencer, insider, journalist, scout};
+    struct NoCall;
+    #[async_trait::async_trait]
+    impl Inference for NoCall {
+        async fn generate(&self, _: &str, _: &GenerateOptions) -> Result<(GenerateResult, Value)> {
+            panic!("spam must not reach a writing model")
+        }
+        fn model(&self) -> &str {
+            "spam-no-call"
+        }
+        fn request_body(&self, _: &str, _: &GenerateOptions) -> Value {
+            serde_json::json!({})
+        }
+    }
+    let pool = crate::harness::dbtest::pool("disposable spam database").await;
+    plumbing_tests::setup_disposable(&pool).await?;
+    let sport = "ZZ_SPAM";
+    sqlx::raw_sql("UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
+        DELETE FROM application_outbox WHERE sport='ZZ_SPAM';
+        DELETE FROM pipeline_work WHERE sport='ZZ_SPAM';
+        DELETE FROM news_articles WHERE id=924001;
+        DELETE FROM entity_name_surfaces WHERE sport='ZZ_SPAM';
+        INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_SPAM','Spam fixture',2026) ON CONFLICT DO NOTHING;
+        INSERT INTO teams(id,sport,name) VALUES(924001,'ZZ_SPAM','Cedar FC') ON CONFLICT DO NOTHING;
+        INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind) VALUES('team',924001,'ZZ_SPAM','cedar fc','name');
+        INSERT INTO news_articles(id,url,url_hash,title,source,published_at) VALUES(924001,'https://example.invalid/spam',md5('spam'),'[+[LIVE@STREAMs]+] Cedar FC vs Maple United','Wire',now()-interval '1 minute');
+        INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport) VALUES(924001,'team',924001,'ZZ_SPAM');
+        SELECT classifier_enqueue_admission(924001,'ZZ_SPAM');").execute(&pool).await?;
+    let model = Model::new()?;
+    let classifier = adapter::ClassifierHandler::new(pool.clone(), model.decision()?);
+    for item in work::claim(&pool, manifest::TASK, 1000).await? {
+        if item.sport == sport {
+            classifier.execute(&item).await?;
+        } else {
+            work::release(&pool, &item).await?;
+        }
+    }
+    // Simulate retained v10 obligations created before the spam gate existed.
+    sqlx::raw_sql("UPDATE classifier_spectra SET gate=jsonb_build_object('coverage','complete','scope','headline','admitted',true,'characters',jsonb_build_object('journalist',true,'influencer',true,'insider',true,'scout',true)) WHERE article_id=924001;
+        INSERT INTO classifier_spectrum_deliveries(spectrum_id,character) SELECT x.id,k FROM classifier_spectra x CROSS JOIN unnest(ARRAY['journalist','influencer','insider','scout']) k WHERE x.article_id=924001;").execute(&pool).await?;
+    for stage in [
+        journalist::manifest::TASK,
+        influencer::manifest::TASK,
+        insider::manifest::TASK,
+        scout::manifest::TASK,
+    ] {
+        let mut claimed = None;
+        for item in work::claim(&pool, stage, 1000).await? {
+            if item.sport == sport {
+                claimed = Some(item);
+            } else {
+                work::release(&pool, &item).await?;
+            }
+        }
+        let item = claimed.expect("legacy spam obligation");
+        let result = match stage.as_str() {
+            "narratives" => journalist::execute_with_backend(&pool, &NoCall, 7900, &item).await?,
+            "vibe" => influencer::execute_with_backend(&pool, &NoCall, 7900, &item).await?,
+            "transfers" => insider::execute_with_backend(&pool, &NoCall, 7900, &item).await?,
+            _ => {
+                let subject = crate::tools::meta::EntityMeta {
+                    name: "Cedar FC".into(),
+                    entity_type: "team".into(),
+                    entity_id: 924001,
+                    sport: sport.into(),
+                };
+                let a =
+                    scout::availability::Availability::load(&mut *pool.acquire().await?, &subject)
+                        .await?;
+                assert!(a.sources.is_empty());
+                assert_eq!(a.held.len(), 1);
+                let mut publication =
+                    crate::harness::queue::publication::ClaimPublication::begin(&pool, &item)
+                        .await?
+                        .unwrap();
+                a.settle(publication.transaction(), &item, false).await?;
+                publication.commit_final().await?;
+                PluginOutcome::Committed
+            }
+        };
+        assert_eq!(result, PluginOutcome::Committed);
+    }
+    let outcomes: Vec<(String,String,Option<String>)> = sqlx::query_as("SELECT character,status,reason FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.article_id=924001 ORDER BY character").fetch_all(&pool).await?;
+    assert_eq!(outcomes.len(), 4);
+    for (character, status, reason) in outcomes {
+        assert_eq!(status, "abstained", "{character}");
+        assert_eq!(reason.as_deref(), Some("livestream_spam"), "{character}");
+    }
     sqlx::query("DELETE FROM application_outbox WHERE sport=$1")
         .bind(sport)
         .execute(&pool)

@@ -56,5 +56,7 @@ async-trait = "0.1"
 # Deterministic provenance hash (sigil input_hash): sha256 + hex.
 sha2 = "0.10"
 hex = "0.4"
+# Fold compatibility glyphs used to disguise RSS spam.
+unicode-normalization = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -6,6 +6,8 @@ use std::collections::BTreeMap;
 
 const CRITERIA: &str =
     include_str!("../../../fixtures/classifier/classification-criteria-v10-availability.json");
+const ROUTING: &str = include_str!("../../../fixtures/classifier/headline-routing-v2.json");
+pub const ROUTING_VERSION: &str = "headline-routing-v2";
 pub const CRITERIA_VERSION: &str = "classification-criteria-v10-availability";
 
 pub struct Measurement {
@@ -185,7 +187,7 @@ fn decode(response: &Value) -> Result<BTreeMap<String, f64>> {
 
 /// Admission is independent of downstream character selection.
 pub fn admitted(spectrum: &BTreeMap<String, f64>) -> Result<bool> {
-    let criteria: Value = serde_json::from_str(CRITERIA)?;
+    let criteria: Value = serde_json::from_str(ROUTING)?;
     Ok(*spectrum
         .get("subject")
         .context("missing subject probability")?
@@ -196,7 +198,7 @@ pub fn admitted(spectrum: &BTreeMap<String, f64>) -> Result<bool> {
 
 /// Character relevance is measured on the same headline, through that character's lens.
 pub fn characters(spectrum: &BTreeMap<String, f64>) -> Result<Value> {
-    let criteria: Value = serde_json::from_str(CRITERIA)?;
+    let criteria: Value = serde_json::from_str(ROUTING)?;
     let mut selected = serde_json::Map::new();
     for (character, cutoffs) in criteria["characters"]
         .as_object()
@@ -212,6 +214,29 @@ pub fn characters(spectrum: &BTreeMap<String, f64>) -> Result<Value> {
         selected.insert(character.clone(), json!(relevant));
     }
     Ok(Value::Object(selected))
+}
+
+/// Preserve model scores while recording the separate delivery policy and rejection reason.
+pub fn gate(spectrum: &BTreeMap<String, f64>, headline: &str, entity_type: &str) -> Result<Value> {
+    let spam = crate::tools::source::is_headline_spam(headline);
+    let accepted = admitted(spectrum)? && !spam;
+    let mut selected = characters(spectrum)?;
+    if spam {
+        for value in selected
+            .as_object_mut()
+            .context("character selection")?
+            .values_mut()
+        {
+            *value = json!(false);
+        }
+    } else if !matches!(entity_type, "team" | "player") {
+        selected["scout"] = json!(false);
+    }
+    Ok(
+        json!({"coverage":"complete","scope":"headline","admitted":accepted,
+        "characters":selected,"routing_version":ROUTING_VERSION,
+        "reason":if spam {Some("livestream_spam")} else {None}}),
+    )
 }
 
 #[cfg(test)]
@@ -273,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn availability_routing_matches_named_denial_and_irrelevant_calibration() {
+    fn availability_routing_preserves_named_denial_and_irrelevant_calibration() {
         let receipt: Value = serde_json::from_str(include_str!(
             "../../../fixtures/classifier/availability-calibration-receipt-2026-10-22.json"
         ))
@@ -291,11 +316,64 @@ mod tests {
             ("subject".into(), 55.0),
             ("emotion".into(), 0.0),
             ("movement".into(), 0.0),
-            ("availability".into(), 90.0),
+            ("availability".into(), 85.0),
         ]);
         assert_eq!(
             characters(&scores).unwrap(),
             json!({"journalist":true,"influencer":false,"insider":false,"scout":true})
+        );
+    }
+
+    #[test]
+    fn routing_holds_spam_and_opens_scout_at_eighty_five_without_changing_scores() {
+        let mut scores = BTreeMap::from([
+            ("subject".into(), 95.0),
+            ("emotion".into(), 95.0),
+            ("movement".into(), 95.0),
+            ("availability".into(), 84.9),
+        ]);
+        let headline = "Broncos' Jaylen Waddle: Participating in Thursday's practice";
+        assert_eq!(
+            gate(&scores, headline, "player").unwrap()["characters"]["scout"],
+            false
+        );
+        scores.insert("availability".into(), 85.0);
+        assert_eq!(
+            gate(&scores, headline, "player").unwrap()["characters"]["scout"],
+            true
+        );
+        assert_eq!(
+            gate(&scores, headline, "person").unwrap()["characters"]["scout"],
+            false
+        );
+        assert_eq!(
+            gate(
+                &scores,
+                "Clippers begin season without banned owner",
+                "team"
+            )
+            .unwrap()["characters"]["scout"],
+            true
+        );
+        let rejected = gate(
+            &scores,
+            "[+[LIVE@STREAMs]+] Cedar FC vs Maple United",
+            "team",
+        )
+        .unwrap();
+        assert_eq!(rejected["admitted"], false);
+        assert_eq!(rejected["reason"], "livestream_spam");
+        assert_eq!(rejected["routing_version"], ROUTING_VERSION);
+        assert!(rejected["characters"]
+            .as_object()
+            .unwrap()
+            .values()
+            .all(|v| v == false));
+        assert_eq!(scores["subject"], 95.0);
+        scores.insert("subject".into(), 54.9);
+        assert_eq!(
+            gate(&scores, headline, "player").unwrap()["characters"]["scout"],
+            false
         );
     }
 

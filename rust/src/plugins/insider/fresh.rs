@@ -155,6 +155,8 @@ impl Material {
                 Some("unresolved_target_identity")
             } else if !source.published_at_epoch.is_some_and(|t| t <= now) {
                 Some("unresolved_publication_time")
+            } else if crate::tools::source::is_headline_spam(&source.context) {
+                Some("livestream_spam")
             } else if crate::tools::source::contains_instruction_override(&source.context) {
                 Some("source_instruction_override")
             } else if assemble(&self.subject, std::slice::from_ref(&report)).len()
@@ -253,11 +255,22 @@ mod tests {
             mentions: vec![vec![]; 2],
             held: vec![],
         };
+        let mut spam = material.sources[0].clone();
+        spam.classification_id = 3;
+        spam.article_id = 3;
+        spam.context = "[+[LIVE@STREAMs]+] Cedar FC vs Maple United".into();
+        spam.headline = spam.context.clone();
+        let mut report = material.reports[0].clone();
+        report.headline = spam.headline.clone();
+        material.sources.push(spam);
+        material.reports.push(report);
+        material.mentions.push(vec![]);
         material.pack(200);
         assert_eq!(material.sources.len(), 1);
         assert_eq!(material.reports.len(), 1);
-        assert_eq!(material.held.len(), 1);
+        assert_eq!(material.held.len(), 2);
         assert_eq!(material.held[0].1, "known_copy");
+        assert_eq!(material.held[1].1, "livestream_spam");
     }
 
     #[test]

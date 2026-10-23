@@ -89,6 +89,18 @@ pub async fn validate(tx: &mut Transaction<'_, Postgres>, parts: &Parts) -> Resu
 mod tests {
     use super::*;
     #[test]
+    fn already_queued_spam_is_dispositioned() {
+        assert_eq!(
+            source_disposition("[+[LIVE@STREAMs]+] Cedar FC vs Maple United"),
+            Some("livestream_spam")
+        );
+        assert_eq!(
+            source_disposition("How to watch Cedar FC: live stream and TV channel"),
+            None
+        );
+    }
+
+    #[test]
     fn duplicate_headlines_do_not_consume_the_daily_budget() {
         let source = |id| SourceContext {
             classification_id: id,
@@ -181,6 +193,8 @@ pub fn source_disposition(text: &str) -> Option<&'static str> {
         Some("empty_source")
     } else if text.len() > SOURCE_BUDGET_BYTES {
         Some("source_budget_exceeded")
+    } else if crate::tools::source::is_headline_spam(text) {
+        Some("livestream_spam")
     } else if crate::tools::source::contains_instruction_override(text) {
         Some("source_instruction_override")
     } else {

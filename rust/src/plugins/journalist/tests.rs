@@ -532,3 +532,10 @@ fn retained_chelsea_identity_merge_is_rejected_by_production_parser() {
             .parsed
     );
 }
+
+#[test]
+fn livestream_spam_is_dispositioned_before_articulation() {
+    let a = prepared(vec![item(1, "[+[LIVE@STREAMs]+] Cedar FC vs Maple United")]);
+    assert!(a.selected.is_empty());
+    assert_eq!(a.dispositions[0].reason, "livestream_spam");
+}

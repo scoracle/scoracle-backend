@@ -94,6 +94,16 @@ pub async fn create(
         Ok(result) => result,
         Err(error) => {
             if let Some(failure) = error.downcast_ref::<crate::harness::model::ResponseFailure>() {
+                crate::harness::rejections::record(
+                    backend.model(),
+                    &world,
+                    &backend.request_body(&world, &options),
+                    None,
+                    &failure.raw_response_body,
+                    &error,
+                    1,
+                )
+                .await?;
                 receipt["raw_response_body"] = json!(failure.raw_response_body);
             }
             receipt["context_exceeded"] =
@@ -112,6 +122,16 @@ pub async fn create(
     match output_from_receipt(assignment, &receipt) {
         Ok(output) => Ok((output, receipt)),
         Err(error) => {
+            crate::harness::rejections::record(
+                &generated.model,
+                &world,
+                &request,
+                Some(&generated.response),
+                &generated.raw_response_body,
+                &error,
+                1,
+            )
+            .await?;
             receipt["error"] = json!(format!("{error:#}"));
             Ok((None, receipt))
         }

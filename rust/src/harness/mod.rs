@@ -15,6 +15,7 @@ pub mod products;
 pub mod providers;
 pub mod queue;
 pub mod registration;
+pub mod rejections;
 pub mod route;
 pub mod session;
 pub mod tools;

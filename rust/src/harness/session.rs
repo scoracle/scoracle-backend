@@ -3,13 +3,13 @@
 use super::model::GenerateOptions;
 use super::{Extracted, Parser};
 use crate::tools::form::SurfaceError;
-use anyhow::{Context, Result};
+use anyhow::Result;
 #[cfg(test)]
 use std::time::Duration;
 
 pub fn publishing_correction(error: &anyhow::Error) -> Option<String> {
-    if error.is::<SurfaceError>() {
-        return Some(format!("{error} Return the complete requested JSON with nonblank prose in concise paragraphs, preserving the supplied evidence and schema."));
+    if let Some(detail) = error.downcast_ref::<SurfaceError>() {
+        return Some(format!("{detail} Return the complete requested JSON with nonblank prose in concise paragraphs, preserving the supplied evidence and schema."));
     }
     structured_correction(error)
 }
@@ -29,14 +29,38 @@ pub(super) async fn extract_with_backend<T, P: Parser<T>>(
     let mut built_prompt = prompt.to_string();
     for attempt in 0..3 {
         let result = async {
-            let (gen, request_body) = backend
-                .generate(&built_prompt, opts)
-                .await
-                .context("model generate")?;
-            let value =
-                parser
-                    .parse(&gen.response)
-                    .with_context(|| super::model::RejectedReply {
+            let (gen, request_body) = match backend.generate(&built_prompt, opts).await {
+                Ok(result) => result,
+                Err(error) => {
+                    if let Some(failure) = error.downcast_ref::<super::model::ResponseFailure>() {
+                        super::rejections::record(
+                            backend.model(),
+                            &built_prompt,
+                            &backend.request_body(&built_prompt, opts),
+                            None,
+                            &failure.raw_response_body,
+                            &error,
+                            attempt + 1,
+                        )
+                        .await?;
+                    }
+                    return Err(error.context("model generate"));
+                }
+            };
+            let value = match parser.parse(&gen.response) {
+                Ok(value) => value,
+                Err(error) => {
+                    super::rejections::record(
+                        &gen.model,
+                        &built_prompt,
+                        &request_body,
+                        Some(&gen.response),
+                        &gen.raw_response_body,
+                        &error,
+                        attempt + 1,
+                    )
+                    .await?;
+                    return Err(error.context(super::model::RejectedReply {
                         raw_response_body: if gen.raw_response_body.is_empty() {
                             gen.response.clone()
                         } else {
@@ -44,7 +68,9 @@ pub(super) async fn extract_with_backend<T, P: Parser<T>>(
                         },
                         request_body: request_body.clone(),
                         built_prompt: built_prompt.clone(),
-                    })?;
+                    }));
+                }
+            };
             Ok::<_, anyhow::Error>((gen, request_body, value))
         }
         .await;
@@ -133,6 +159,86 @@ mod surface_tests {
             crate::tools::form::validate_body(raw)?;
             Ok(Some(raw.to_string()))
         }
+    }
+
+    #[tokio::test]
+    async fn every_correction_is_archived_with_claim_and_useful_error_feedback() {
+        let path = std::env::temp_dir().join(format!(
+            "session-rejections-{}.jsonl",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let backend = Backend(Mutex::new(vec![
+            " ".into(),
+            " ".into(),
+            "Grounded prose.".into(),
+        ]));
+        let item = crate::harness::queue::work::Item {
+            stage: crate::harness::queue::work::TaskKey::new("narratives"),
+            entity_type: "team".into(),
+            entity_id: 7,
+            sport: "NBA".into(),
+            input_version: Some("revision".into()),
+            claim_token: Some("token".into()),
+            attempts: 2,
+        };
+        let output = super::super::rejections::TEST_PATH
+            .scope(
+                path.clone(),
+                super::super::rejections::with_claim(
+                    &item,
+                    extract_with_backend(
+                        &backend,
+                        "Evidence",
+                        &GenerateOptions::default(),
+                        &BodyParser,
+                        publishing_correction,
+                    ),
+                ),
+            )
+            .await
+            .unwrap();
+        let records: Vec<serde_json::Value> = std::fs::read_to_string(&path)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(records.len(), 2);
+        for (i, record) in records.iter().enumerate() {
+            assert_eq!(record["generation_attempt"], i + 1);
+            assert_eq!(record["response"], " ");
+            assert_eq!(record["claim"]["job_attempt"], 3);
+            assert_eq!(record["claim"]["claim_token"], "token");
+            assert_eq!(record["request"]["prompt"], record["built_prompt"]);
+        }
+        let detail = BodyParser.parse(" ").unwrap_err().to_string();
+        assert!(output.built_prompt.contains(&detail));
+        assert!(!output
+            .built_prompt
+            .contains("Output correction: model reply rejected"));
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[tokio::test]
+    async fn archive_failure_stops_before_another_generation() {
+        let backend = Backend(Mutex::new(vec![" ".into(), "unused".into()]));
+        let error = super::super::rejections::TEST_PATH
+            .scope(
+                "/dev/null/rejections.jsonl".into(),
+                extract_with_backend(
+                    &backend,
+                    "Evidence",
+                    &GenerateOptions::default(),
+                    &BodyParser,
+                    publishing_correction,
+                ),
+            )
+            .await
+            .unwrap_err();
+        assert!(format!("{error:#}").contains("persist rejected model output"));
+        assert_eq!(backend.0.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]

@@ -643,6 +643,11 @@ impl Worker {
                 continue;
             }
 
+            // Fill remaining stage capacity through another fair rotation before waiting.
+            if claimed_any && inflight.len() < budget {
+                continue;
+            }
+
             // Wait for exactly one item to finish, then loop to top up. Finishing one item
             // frees one host slot AND may have enqueued downstream work, so re-claiming here
             // is what keeps every machine's slots offered work continuously.
@@ -692,7 +697,9 @@ impl Worker {
             item.entity_type, item.entity_id, item.sport
         ));
         let started = Instant::now();
-        let outcome = self.execute_bounded(plugin, &item).await;
+        let outcome =
+            crate::harness::rejections::with_claim(&item, self.execute_bounded(plugin, &item))
+                .await;
         info!(%stage, entity_type=%item.entity_type, entity_id=item.entity_id, sport=%item.sport,
             claim_token=?item.claim_token, input_version=?item.input_version, attempt=item.attempts+1,
             wall_ms=started.elapsed().as_millis() as u64, success=outcome.is_ok(),
@@ -1075,6 +1082,80 @@ mod postgres_recovery_rehearsal {
     use super::*;
     use crate::harness::plugin::{PluginOutcome, StudioPlugin};
     use crate::harness::queue::work::Item;
+
+    struct Parallel {
+        pool: PgPool,
+        barrier: tokio::sync::Barrier,
+        active: std::sync::atomic::AtomicUsize,
+        maximum: std::sync::atomic::AtomicUsize,
+    }
+    #[async_trait::async_trait]
+    impl StudioPlugin for Parallel {
+        fn manifest(&self) -> &'static crate::harness::plugin::PluginManifest {
+            const MANIFEST: crate::harness::plugin::PluginManifest =
+                crate::harness::plugin::PluginManifest {
+                    id: crate::harness::plugin::PluginId::new("test.parallel"),
+                    task: crate::plugins::journalist::manifest::TASK,
+                    claim_policy: crate::harness::queue::work::ClaimPolicy::FIFO,
+                    inference_routes: &[],
+                    resources: crate::harness::plugin::ResourceProfile::grouped(2, ("parallel", 2)),
+                    tools: &[],
+                };
+            &MANIFEST
+        }
+        async fn execute(&self, item: &Item) -> Result<PluginOutcome> {
+            let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+            self.maximum.fetch_max(active, Ordering::SeqCst);
+            self.barrier.wait().await;
+            let mut tx = self.pool.begin().await?;
+            assert!(work::lock_claim(&mut tx, item).await?);
+            assert!(work::complete_in_transaction(&mut tx, item).await?);
+            tx.commit().await?;
+            self.active.fetch_sub(1, Ordering::SeqCst);
+            Ok(PluginOutcome::Committed)
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
+    async fn a_single_ready_stage_fills_its_capacity_without_exceeding_it() {
+        let pool = fixture("ZZ_PARALLEL").await;
+        let handler = Arc::new(Parallel {
+            pool: pool.clone(),
+            barrier: tokio::sync::Barrier::new(2),
+            active: std::sync::atomic::AtomicUsize::new(0),
+            maximum: std::sync::atomic::AtomicUsize::new(0),
+        });
+        for id in 9_600_200..9_600_204 {
+            work::enqueue(
+                &pool,
+                &item(
+                    crate::plugins::journalist::manifest::TASK,
+                    "ZZ_PARALLEL",
+                    id,
+                ),
+            )
+            .await
+            .unwrap();
+        }
+        let worker = Worker::new(
+            pool,
+            vec![handler.clone()],
+            crate::harness::queue::outbox::ReactionRegistry::empty(),
+            Duration::from_secs(60),
+            Duration::from_secs(1800),
+            Duration::from_secs(5),
+            Duration::ZERO,
+            Some(4),
+        );
+        tokio::time::timeout(
+            Duration::from_secs(3),
+            worker.drain_all("test", &Pulse::new()),
+        )
+        .await
+        .unwrap();
+        assert_eq!(handler.maximum.load(Ordering::SeqCst), 2);
+    }
 
     async fn fixture(sport: &str) -> PgPool {
         let pool = sqlx::postgres::PgPoolOptions::new()

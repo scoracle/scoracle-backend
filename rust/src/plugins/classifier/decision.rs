@@ -97,15 +97,27 @@ impl Decision {
             .context("classifier decision request")?;
         let status = response.status();
         let raw = response.text().await.context("classifier decision body")?;
-        (|| {
+        let result = (|| {
             ensure!(status.is_success(), "classifier decision HTTP {status}");
             let response: Value = serde_json::from_str(&raw)?;
             Measurement::from_receipt(
                 json!({"request":payload,"response":response,"endpoint":self.url,
                 "elapsed_ms":started.elapsed().as_millis()}),
             )
-        })()
-        .map_err(|error| {
+        })();
+        if let Err(error) = &result {
+            crate::harness::rejections::record(
+                "classifier-decision",
+                &payload.to_string(),
+                &payload,
+                None,
+                &raw,
+                error,
+                1,
+            )
+            .await?;
+        }
+        result.map_err(|error| {
             crate::harness::model::ResponseFailure {
                 raw_response_body: raw,
                 error,

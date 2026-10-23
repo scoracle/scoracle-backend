@@ -27,6 +27,7 @@ async fn main() -> Result<()> {
         .init();
 
     let mut cfg = config::Config::from_env()?;
+    scoracle_cognition::harness::rejections::verify()?;
     let configured_stages = std::env::var("COGNITION_STAGES").ok();
     let enabled = registration::enabled_from_config(configured_stages.as_deref())?;
     // Production shares one Qwen backend; role overrides and candidates remain offline eval tools.

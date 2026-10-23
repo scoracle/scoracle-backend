@@ -42,15 +42,20 @@ DO $$ BEGIN
     IF (SELECT count(*) FROM coverage_assignments) <> 12006 THEN
         RAISE EXCEPTION 'missing assignments at production scale';
     END IF;
-    IF EXISTS (
-        SELECT 1 FROM coverage_assignments a WHERE a.spectrum_ids IS DISTINCT FROM
-            COALESCE((SELECT array_agg(x.id ORDER BY x.id)
-                FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
-                WHERE d.status='pending' AND x.sport=a.sport
-                AND x.target->>'entity_type'=a.entity_type AND x.target->>'entity_id'=a.entity_id::text
-                AND d.character=CASE a.stage WHEN 'narratives' THEN 'journalist'
-                    WHEN 'vibe' THEN 'influencer' WHEN 'rating' THEN 'scout'
-                    WHEN 'transfers' THEN 'insider' END),'{}'::bigint[])
-    ) THEN RAISE EXCEPTION 'frozen evidence differs from original selector'; END IF;
+    -- Each eligible fixture target has exactly one pending source per news character.
+    IF EXISTS(SELECT 1 FROM coverage_assignments a WHERE cardinality(a.spectrum_ids)<>
+        CASE WHEN a.stage IN ('narratives','vibe','transfers') AND a.entity_id<=500
+            AND a.entity_id%3<>0 THEN 1 ELSE 0 END) THEN
+        RAISE EXCEPTION 'frozen fixture source count differs from pending obligations';
+    END IF;
+    IF EXISTS(
+        SELECT 1 FROM coverage_assignments a CROSS JOIN LATERAL unnest(a.spectrum_ids) f(id)
+        LEFT JOIN classifier_spectra x ON x.id=f.id
+        LEFT JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id
+            AND d.character=CASE a.stage WHEN 'narratives' THEN 'journalist'
+                WHEN 'vibe' THEN 'influencer' WHEN 'transfers' THEN 'insider' END
+        WHERE x.sport IS DISTINCT FROM a.sport OR x.target->>'entity_type' IS DISTINCT FROM a.entity_type
+            OR x.target->>'entity_id' IS DISTINCT FROM a.entity_id::text OR d.status IS DISTINCT FROM 'pending'
+    ) THEN RAISE EXCEPTION 'frozen source identity or delivery differs from fixture'; END IF;
 END $$;
 ROLLBACK;

@@ -48,16 +48,28 @@ pub async fn load_on(
                 AND NOT (x.article_id=ANY($5)) AND x.created_at<=c.captured
             ORDER BY x.article_id,x.id DESC
         ), eligible AS (
-            SELECT DISTINCT ON (source->>'title',source->>'source') * FROM archive
+            SELECT DISTINCT ON (public.headline_content_key(source->>'title')) * FROM archive
             WHERE gate->>'admitted'='true' AND gate->'characters'->>$6='true'
+                AND cardinality($5)<public.headline_entity_cap()
+                AND NOT EXISTS(SELECT 1 FROM classifier_spectra previous
+                    JOIN classifier_spectrum_deliveries receipt ON receipt.spectrum_id=previous.id
+                    WHERE previous.sport=$3 AND previous.target->>'entity_type'=$1
+                        AND previous.target->>'entity_id'=$2::text AND receipt.character=$6
+                        AND receipt.status IN ('used','abstained')
+                        AND receipt.reason IS DISTINCT FROM 'ranked_below_entity_cap'
+                        AND public.headline_content_key(previous.clean_text)=public.headline_content_key(source->>'title'))
+                AND NOT EXISTS(SELECT 1 FROM classifier_spectra current
+                    WHERE current.article_id=ANY($5) AND current.sport=$3
+                        AND public.headline_content_key(current.clean_text)=public.headline_content_key(source->>'title'))
                 AND EXISTS(SELECT 1 FROM jsonb_array_elements(public.classifier_identity_candidates($3,source->>'title','')) identity
                     WHERE identity->>'entity_type'=$1 AND identity->>'entity_id'=$2::text)
                 AND published<before AND published>=before-interval '7 days'
                 AND length(btrim(source->>'title'))>0 AND length(btrim(source->>'source'))>0
                 AND length(btrim(source->>'url'))>0
-            ORDER BY source->>'title',source->>'source',published DESC,article_id DESC
+            ORDER BY public.headline_content_key(source->>'title'),published DESC,article_id DESC
         ) SELECT article_id,source,spectrum,floor(extract(epoch FROM published))::bigint AS published_at_epoch,
-            floor(extract(epoch FROM before))::bigint AS before_epoch
+            floor(extract(epoch FROM before))::bigint AS before_epoch,
+            public.headline_entity_cap()-cardinality($5) AS memory_slots
             FROM eligible ORDER BY published DESC,article_id DESC LIMIT 20001")
         .bind(&subject.entity_type).bind(subject.entity_id.to_string()).bind(&subject.sport)
         .bind(before as f64).bind(exclude).bind(character).bind(super::decision::CRITERIA_VERSION)
@@ -70,6 +82,7 @@ pub async fn load_on(
         return Ok(Vec::new());
     };
     let before = first.get::<i64, _>("before_epoch");
+    let slots = first.get::<i32, _>("memory_slots") as usize;
     let mut candidates = Vec::new();
     for row in rows {
         let source: Value = row.get("source");
@@ -93,7 +106,9 @@ pub async fn load_on(
             reported_at,
         ));
     }
-    select(character, before, candidates).await
+    let mut memories = select(character, before, candidates).await?;
+    memories.truncate(slots);
+    Ok(memories)
 }
 
 async fn select(
@@ -400,6 +415,31 @@ mod tests {
         assert!(fresh.iter().all(|s| s.context == s.headline));
         let memories = load_on(&mut tx, &subject, &fresh, "journalist").await?;
         assert_eq!(memories.len(), 4);
+        sqlx::query("SAVEPOINT reviewed_memory")
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("INSERT INTO classifier_spectrum_deliveries(spectrum_id,character,status) VALUES($1,'journalist','used')")
+            .bind(spectrum_ids[0]).execute(&mut *tx).await?;
+        let unread = load_on(&mut tx, &subject, &fresh, "journalist").await?;
+        assert_eq!(unread.len(), 3);
+        assert!(unread
+            .iter()
+            .all(|m| m.article_id != records[0]["article_id"].as_i64().unwrap()));
+        sqlx::query("ROLLBACK TO SAVEPOINT reviewed_memory")
+            .execute(&mut *tx)
+            .await?;
+        let mut full_packet = fresh.clone();
+        full_packet.resize(39, fresh[0].clone());
+        assert_eq!(
+            load_on(&mut tx, &subject, &full_packet, "journalist")
+                .await?
+                .len(),
+            1
+        );
+        full_packet.push(fresh[0].clone());
+        assert!(load_on(&mut tx, &subject, &full_packet, "journalist")
+            .await?
+            .is_empty());
         let mut assignment = crate::plugins::journalist::fresh::prepare(
             subject.clone(),
             fresh

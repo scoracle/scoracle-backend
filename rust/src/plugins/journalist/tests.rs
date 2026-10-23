@@ -84,7 +84,7 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
     assert_eq!(result.narratives[0].input_news_ids, vec![2]);
 }
 #[test]
-fn dates_missing_material_and_oversized_reports_have_distinct_dispositions() {
+fn dates_and_missing_material_are_held_without_discarding_large_complete_reports() {
     let a = prepared(vec![
         CorpusItem {
             published_at_epoch: None,
@@ -101,7 +101,11 @@ fn dates_missing_material_and_oversized_reports_have_distinct_dispositions() {
         item(4, ""),
         item(5, &"x".repeat(SOURCE_BUDGET_BYTES + 1)),
     ]);
-    assert!(a.selected.is_empty());
+    assert_eq!(
+        a.selected.iter().map(|r| r.id).collect::<Vec<_>>(),
+        vec![5, 2]
+    );
+    assert_eq!(a.selected[0].context, "x".repeat(SOURCE_BUDGET_BYTES + 1));
     let reasons = a
         .dispositions
         .iter()
@@ -111,15 +115,13 @@ fn dates_missing_material_and_oversized_reports_have_distinct_dispositions() {
         reasons,
         HashSet::from([
             "unknown_publication_time",
-            "daily_package_exceeds_context_budget",
             "future_publication_time",
             "missing_source_material",
-            "complete_report_exceeds_context_budget"
         ])
     );
 }
 #[test]
-fn an_oversized_daily_package_is_held_without_partial_publication() {
+fn large_daily_packages_reach_exact_token_admission_without_clipping() {
     let a = prepared(
         (1..=4)
             .map(|id| {
@@ -133,13 +135,18 @@ fn an_oversized_daily_package_is_held_without_partial_publication() {
             })
             .collect(),
     );
-    assert!(a.selected.is_empty());
-    assert!(prompt(&a).len() <= SOURCE_BUDGET_BYTES);
-    assert_eq!(a.dispositions.len(), 4);
-    assert!(a
-        .dispositions
-        .iter()
-        .all(|d| d.reason == "daily_package_exceeds_context_budget"));
+    assert_eq!(a.selected.len(), 4);
+    assert!(prompt(&a).len() > SOURCE_BUDGET_BYTES);
+    assert!(a.dispositions.is_empty());
+    let reversed = prepare(
+        subject(),
+        a.selected.iter().cloned().rev().collect(),
+        &[],
+        NOW,
+    )
+    .unwrap();
+    assert_eq!(prompt(&a), prompt(&reversed));
+    assert_eq!(a.input_hash, reversed.input_hash);
 }
 #[test]
 fn prior_sourced_text_prevents_republication_without_becoming_new_evidence() {

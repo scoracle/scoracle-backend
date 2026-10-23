@@ -57,7 +57,7 @@ type Item struct {
 //
 // Conflict policy: a fresh row starts 'pending'. An existing row is REOPENED to
 // 'pending' (attempts reset, backoff cleared) only when its input_version
-// changed or it was 'failed' — so a changed input reopens completed/failed work.
+// changed. Repeated offers preserve failures and their remaining retry budget.
 // An already-pending or in-flight 'running' row of the SAME input_version is left
 // untouched, so duplicate enqueues collapse to one row without yanking a live
 // lease. A changed revision clears the active claim; the Rust acknowledgement path
@@ -84,7 +84,6 @@ func Enqueue(ctx context.Context, q Querier, it Item) error {
 		    running_input_version = NULL,
 		    claim_token = NULL
 		WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
-		   OR pipeline_work.status = 'failed'
 	`, string(it.Stage), it.EntityType, it.EntityID, it.Sport, NullIfEmpty(it.InputVersion))
 	if err != nil {
 		return fmt.Errorf("enqueue %s %s/%d (%s): %w", it.Stage, it.EntityType, it.EntityID, it.Sport, err)
@@ -93,13 +92,16 @@ func Enqueue(ctx context.Context, q Querier, it Item) error {
 }
 
 // RequeueStale flips 'running' rows whose lease has expired (updated_at older
-// than lease) back to 'pending', recovering work abandoned by a crashed worker.
+// than lease) back to pending, counting abandoned executions against the five-attempt
+// budget. The final abandoned execution becomes a dead letter.
 // Returns the number of rows recovered.
 func RequeueStale(ctx context.Context, q Querier, lease time.Duration) (int64, error) {
 	tag, err := q.Exec(ctx, `
 		UPDATE pipeline_work
-		   SET status = 'pending', running_input_version = NULL, claim_token = NULL,
-		       updated_at = NOW(), available_at = NOW()
+		   SET status = CASE WHEN attempts+1>=5 THEN 'failed' ELSE 'pending' END,
+		       attempts=attempts+1, last_error='worker lease expired before completion',
+		       running_input_version = NULL, claim_token = NULL, updated_at = NOW(),
+		       available_at=CASE WHEN attempts+1>=5 THEN NOW()+INTERVAL '100 years' ELSE NOW() END
 		 WHERE status = 'running'
 		   AND updated_at < NOW() - make_interval(secs => $1)
 	`, int(lease.Seconds()))

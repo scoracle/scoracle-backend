@@ -3,7 +3,7 @@ DO $$ BEGIN IF current_database() NOT LIKE 'classifier_test_coverage%' THEN RAIS
 SET LOCAL statement_timeout='10s';
 UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL,
  timezone='America/Detroit',collection_cutoff='22:00';
-TRUNCATE pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations;
+TRUNCATE coverage_failures,pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations;
 INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_VISIBLE','Visibility test',2026) ON CONFLICT DO NOTHING;
 INSERT INTO coverage_editions(edition_date,cutoff_at,drain_deadline,status)
 VALUES('2026-10-20','2026-10-20T00:00:00-04:00','2026-10-20T00:01:00-04:00','complete'),

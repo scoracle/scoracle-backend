@@ -134,6 +134,76 @@ async fn headline_replay_requires_explicit_opt_in() {
 }
 
 const SPORT: &str = "ZZ_HEADLINE";
+
+#[tokio::test]
+#[ignore = "requires disposable migrated TEST_DATABASE_URL; run serially"]
+async fn exact_reviewed_requests_reuse_decisions_across_reposted_article_ids() -> Result<()> {
+    let pool = crate::harness::dbtest::pool("disposable repost cache database").await;
+    plumbing_tests::setup_disposable(&pool).await?;
+    sqlx::raw_sql("UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
+        DELETE FROM pipeline_work WHERE sport='ZZ_REPOST_CACHE';
+        DELETE FROM news_articles WHERE id BETWEEN 926101 AND 926104;
+        DELETE FROM entity_name_surfaces WHERE sport='ZZ_REPOST_CACHE';
+        INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_REPOST_CACHE','Repost cache',2026) ON CONFLICT DO NOTHING;
+        INSERT INTO teams(id,sport,name) VALUES(926001,'ZZ_REPOST_CACHE','Cedar Repost') ON CONFLICT DO NOTHING;
+        INSERT INTO entity_name_surfaces(entity_type,entity_id,sport,norm,surface_kind)
+            VALUES('team',926001,'ZZ_REPOST_CACHE','cedar repost','name');").execute(&pool).await?;
+    let model = Model::new()?;
+    let handler = adapter::ClassifierHandler::new(pool.clone(), model.decision()?);
+    for (offset, title, publisher, calls) in [
+        (1, "Cedar Repost considers talks for a transfer", "Wire", 1),
+        (2, "Cedar Repost considers talks for a transfer", "Wire", 1),
+        (
+            3,
+            "Cedar Repost considers talks for a transfer",
+            "Other Wire",
+            2,
+        ),
+        (4, "Cedar Repost denies talks for a transfer", "Wire", 3),
+    ] {
+        let id = 926100_i64 + offset;
+        sqlx::query(
+            "INSERT INTO news_articles(id,url,url_hash,title,source,published_at)
+            VALUES($1,'https://example.invalid/repost/'||$1,md5($1::text),$2,$3,now())",
+        )
+        .bind(id)
+        .bind(title)
+        .bind(publisher)
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            "INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport)
+            VALUES($1,'team',926001,'ZZ_REPOST_CACHE')",
+        )
+        .bind(id)
+        .execute(&pool)
+        .await?;
+        sqlx::query("SELECT classifier_enqueue_admission($1,'ZZ_REPOST_CACHE')")
+            .bind(id)
+            .execute(&pool)
+            .await?;
+        let mut selected = None;
+        for item in work::claim(&pool, manifest::TASK, 1000).await? {
+            if item.entity_id == id && item.sport == "ZZ_REPOST_CACHE" {
+                selected = Some(item);
+            } else {
+                work::release(&pool, &item).await?;
+            }
+        }
+        handler
+            .execute(&selected.expect("repost decision claim"))
+            .await?;
+        assert_eq!(model.calls(), calls, "{title}: {publisher}");
+    }
+    sqlx::query("DELETE FROM pipeline_work WHERE sport='ZZ_REPOST_CACHE'")
+        .execute(&pool)
+        .await?;
+    sqlx::query("DELETE FROM application_outbox WHERE sport='ZZ_REPOST_CACHE'")
+        .execute(&pool)
+        .await?;
+    Ok(())
+}
+
 async fn seed(pool: &PgPool, id: i64, title: &str, body: &str) -> Result<()> {
     sqlx::query("INSERT INTO news_articles(id,url,url_hash,title,source,full_text,published_at) VALUES($1,'https://example.invalid/'||$1,md5($1::text),$2,'Fixture Wire',$3,now())")
         .bind(id).bind(title).bind(body).execute(pool).await?;

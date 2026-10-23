@@ -18,7 +18,7 @@ async fn setup() -> Result<PgPool> {
         "requires dedicated classifier_test_coverage database"
     );
     sqlx::raw_sql("UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
-        TRUNCATE pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations; UPDATE coverage_publication SET edition_date=NULL,revision=revision+1;
+        TRUNCATE coverage_failures,pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations; UPDATE coverage_publication SET edition_date=NULL,revision=revision+1;
         INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_COVERAGE','Coverage test',2026)
             ON CONFLICT(id) DO UPDATE SET current_season=2026;
         DELETE FROM team_stats WHERE sport='ZZ_COVERAGE';
@@ -33,7 +33,7 @@ async fn finish(pool: &PgPool) -> Result<()> {
         "UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
         DELETE FROM momentum_summaries WHERE sport='ZZ_COVERAGE';
         DELETE FROM character_daily_publications WHERE sport='ZZ_COVERAGE';
-        TRUNCATE pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations; UPDATE coverage_publication SET edition_date=NULL,revision=revision+1;",
+        TRUNCATE coverage_failures,pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations; UPDATE coverage_publication SET edition_date=NULL,revision=revision+1;",
     )
     .execute(pool)
     .await?;
@@ -77,66 +77,226 @@ async fn claim(pool: &PgPool, stage: &'static str) -> Result<Vec<Item>> {
 
 #[tokio::test]
 #[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
-async fn cutoff_retains_backoff_and_exhausted_decisions_until_they_settle() -> Result<()> {
+async fn exhausted_decisions_are_reported_and_release_the_drain_without_retry_reset() -> Result<()>
+{
     let pool = setup().await?;
-    work::enqueue(&pool, &item("classifier", 202, "revision-1")).await?;
+    let offered = item("classifier", 202, "revision-1");
+    work::enqueue(&pool, &offered).await?;
     enroll(&pool).await?;
     assert_eq!(tick(&pool, 0.0).await?, "draining");
-    sqlx::query("UPDATE pipeline_work SET status='failed',attempts=5,available_at=now()+interval '100 years'").execute(&pool).await?;
-    assert_eq!(tick(&pool, 86400.0).await?, "draining");
+    for attempt in 1..=work::MAX_ATTEMPTS {
+        let decision = claim(&pool, "classifier").await?.remove(0);
+        assert_eq!(decision.attempts, attempt - 1);
+        assert!(
+            work::fail(
+                &pool,
+                &decision,
+                "decision provider unavailable",
+                Duration::ZERO,
+                work::MAX_ATTEMPTS
+            )
+            .await?
+        );
+        work::enqueue(&pool, &offered).await?;
+        if attempt < work::MAX_ATTEMPTS {
+            assert_eq!(tick(&pool, 0.0).await?, "draining");
+        }
+    }
     assert!(claim(&pool, "classifier").await?.is_empty());
-    // Explicit operator repair in this fixture; the controller never resets it.
-    sqlx::query("UPDATE pipeline_work SET status='pending',attempts=0,available_at=now()")
-        .execute(&pool)
+    let restarted = PgPoolOptions::new()
+        .connect(&std::env::var("TEST_DATABASE_URL")?)
         .await?;
-    let decision = claim(&pool, "classifier").await?.remove(0);
-    ClaimPublication::begin(&pool, &decision)
-        .await?
-        .unwrap()
-        .commit_final()
-        .await?;
-    let unsettled: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM coverage_drain_obligations WHERE settled_at IS NULL",
+    assert_eq!(tick(&restarted, 0.0).await?, "characters");
+    assert_eq!(tick(&restarted, 0.0).await?, "coverage");
+    let receipt: (String, i32, String) = sqlx::query_as(
+        "SELECT kind,attempts,error FROM coverage_failures WHERE sport='ZZ_COVERAGE'",
     )
     .fetch_one(&pool)
     .await?;
-    assert_eq!(unsettled, 0);
-    assert_eq!(tick(&pool, 0.0).await?, "characters");
+    assert_eq!(
+        receipt,
+        (
+            "decision_exhausted".into(),
+            5,
+            "decision provider unavailable".into()
+        )
+    );
+    let (status, published): (String, Option<String>) = sqlx::query_as(
+        "SELECT e.status,p.edition_date::text FROM coverage_editions e CROSS JOIN coverage_publication p",
+    ).fetch_one(&pool).await?;
+    assert_eq!(status, "partial");
+    assert!(published.is_none());
+    assert!(
+        sqlx::query_scalar::<_, bool>("SELECT coverage_collection_open()")
+            .fetch_one(&pool)
+            .await?
+    );
+    assert_eq!(tick(&restarted, 0.0).await?, "coverage");
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM coverage_failures")
+            .fetch_one(&pool)
+            .await?,
+        1
+    );
+    work::enqueue(&pool, &item("classifier", 202, "revision-2")).await?;
+    let revised = claim(&pool, "classifier").await?.remove(0);
+    assert_eq!(revised.attempts, 0);
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT input_version FROM coverage_failures")
+            .fetch_one(&pool)
+            .await?,
+        "revision-1"
+    );
+    restarted.close().await;
     finish(&pool).await?;
     Ok(())
 }
 
 #[tokio::test]
 #[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
-async fn failures_remain_blockers_past_six_hours_and_another_midnight() -> Result<()> {
+async fn failed_characters_skip_dependents_finish_other_work_and_reopen_without_publication(
+) -> Result<()> {
     let pool = setup().await?;
     work::enqueue(&pool, &item("rating", 101, "stats-v1")).await?;
+    work::enqueue(&pool, &item("rating", 102, "healthy-v1")).await?;
     enroll(&pool).await?;
     tick(&pool, 0.0).await?;
     tick(&pool, 0.0).await?;
-    let rating = claim(&pool, "rating").await?.remove(0);
-    work::fail(&pool, &rating, "exhausted", Duration::ZERO, 1).await?;
-    sqlx::query("UPDATE pipeline_work SET attempts=5 WHERE stage='rating'")
+    sqlx::raw_sql("INSERT INTO coverage_editions(edition_date,cutoff_at,drain_deadline,status)
+        SELECT edition_date-1,cutoff_at-interval '1 day',drain_deadline-interval '1 day','complete' FROM coverage_editions;
+        UPDATE coverage_publication SET edition_date=(SELECT min(edition_date) FROM coverage_editions),revision=revision+1;")
+        .execute(&pool).await?;
+    let publication: (String, i64) =
+        sqlx::query_as("SELECT edition_date::text,revision FROM coverage_publication")
+            .fetch_one(&pool)
+            .await?;
+    let mut ratings = claim(&pool, "rating").await?;
+    let healthy = ratings.remove(ratings.iter().position(|i| i.entity_id == 102).unwrap());
+    let mut failing = ratings.pop().unwrap();
+    for attempt in 1..=work::MAX_ATTEMPTS {
+        assert_eq!(failing.attempts, attempt - 1);
+        work::fail(
+            &pool,
+            &failing,
+            "unsupported model claim",
+            Duration::ZERO,
+            work::MAX_ATTEMPTS,
+        )
+        .await?;
+        if attempt < work::MAX_ATTEMPTS {
+            assert_eq!(tick(&pool, 0.0).await?, "characters");
+            failing = claim(&pool, "rating").await?.remove(0);
+        }
+    }
+    work::enqueue(&pool, &item("rating", 101, "stats-v1")).await?;
+    assert_eq!(
+        tick(&pool, 0.0).await?,
+        "characters",
+        "healthy work must finish first"
+    );
+    assert!(claim(&pool, "momentum").await?.is_empty());
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM coverage_failures WHERE entity_id=101")
+            .fetch_one(&pool)
+            .await?,
+        3
+    );
+    let restarted = PgPoolOptions::new()
+        .connect(&std::env::var("TEST_DATABASE_URL")?)
+        .await?;
+    ClaimPublication::begin(&restarted, &healthy)
+        .await?
+        .unwrap()
+        .commit_final()
+        .await?;
+    let current = claim(&restarted, "momentum").await?.remove(0);
+    assert_eq!(current.entity_id, 102);
+    let mut publication_tx = ClaimPublication::begin(&restarted, &current)
+        .await?
+        .unwrap();
+    sqlx::query("INSERT INTO momentum_summaries(entity_type,entity_id,sport,season,blurb,model_version,prompt_version)
+        VALUES('team',102,'ZZ_COVERAGE',2026,'Healthy candidate.','fixture','bounded-failures')")
+        .execute(&mut **publication_tx.transaction()).await?;
+    publication_tx.commit_final().await?;
+    let sigil = claim(&restarted, "sigil").await?.remove(0);
+    ClaimPublication::begin(&restarted, &sigil)
+        .await?
+        .unwrap()
+        .commit_final()
+        .await?;
+    assert_eq!(tick(&restarted, 0.0).await?, "coverage");
+    assert_eq!(
+        sqlx::query_as::<_, (String, i64)>(
+            "SELECT edition_date::text,revision FROM coverage_publication"
+        )
+        .fetch_one(&pool)
+        .await?,
+        publication
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM qualified_momentum_summaries WHERE sport='ZZ_COVERAGE'"
+        )
+        .fetch_one(&pool)
+        .await?,
+        0,
+        "partial candidates stay hidden"
+    );
+    assert!(
+        sqlx::query_scalar::<_, bool>("SELECT coverage_collection_open()")
+            .fetch_one(&pool)
+            .await?
+    );
+    work::enqueue(&pool, &item("rating", 101, "stats-v1")).await?;
+    assert_eq!(sqlx::query_scalar::<_,i32>("SELECT attempts FROM pipeline_work WHERE sport='ZZ_COVERAGE' AND entity_id=101 AND stage='rating'").fetch_one(&pool).await?,5);
+    work::enqueue(&pool, &item("rating", 101, "stats-v2")).await?;
+    assert_eq!(sqlx::query_scalar::<_,i32>("SELECT attempts FROM pipeline_work WHERE sport='ZZ_COVERAGE' AND entity_id=101 AND stage='rating'").fetch_one(&pool).await?,0);
+    assert_eq!(
+        sqlx::query_scalar::<_, i32>(
+            "SELECT attempts FROM coverage_failures WHERE kind='character_exhausted'"
+        )
+        .fetch_one(&pool)
+        .await?,
+        5
+    );
+    restarted.close().await;
+    finish(&pool).await?;
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
+async fn exhausted_handoffs_stay_reportable_without_stalling_collection() -> Result<()> {
+    let pool = setup().await?;
+    enroll(&pool).await?;
+    tick(&pool, 0.0).await?;
+    tick(&pool, 0.0).await?;
+    sqlx::query("INSERT INTO application_outbox(kind,source_stage,source_claim_token,entity_type,entity_id,sport,edition_date,attempts,last_error)
+        SELECT 'vibe_completed','vibe',gen_random_uuid(),'team',101,'ZZ_COVERAGE',edition_date,4,'handoff unavailable' FROM coverage_schedule")
+        .execute(&pool).await?;
+    assert_eq!(tick(&pool, 0.0).await?, "characters");
+    sqlx::query("UPDATE application_outbox SET attempts=5 WHERE sport='ZZ_COVERAGE'")
         .execute(&pool)
         .await?;
-    for seconds in [22600.0, 86400.0, 172800.0] {
-        assert_eq!(tick(&pool, seconds).await?, "characters");
-    }
-    assert!(claim(&pool, "momentum").await?.is_empty());
-    let state: (String, i32) =
-        sqlx::query_as("SELECT status,attempts FROM pipeline_work WHERE stage='rating'")
+    assert_eq!(tick(&pool, 0.0).await?, "coverage");
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM application_outbox WHERE attempts=5")
             .fetch_one(&pool)
-            .await?;
-    assert_eq!(state, ("failed".into(), 5));
-    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM coverage_editions")
-        .fetch_one(&pool)
-        .await?;
-    assert_eq!(count, 1);
-    let published: Option<String> =
-        sqlx::query_scalar("SELECT edition_date::text FROM coverage_publication")
+            .await?,
+        1
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT kind FROM coverage_failures")
             .fetch_one(&pool)
-            .await?;
-    assert!(published.is_none());
+            .await?,
+        "handoff_exhausted"
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT status FROM coverage_editions")
+            .fetch_one(&pool)
+            .await?,
+        "partial"
+    );
     finish(&pool).await?;
     Ok(())
 }

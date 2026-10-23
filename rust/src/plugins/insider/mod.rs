@@ -85,10 +85,6 @@ async fn create_with_memories(
 ) -> Result<Generation<Reply>> {
     ensure!(!reports.is_empty(), "Insider needs a verified source");
     let world = prompt::assemble_with_memories(subject, reports, memories);
-    ensure!(
-        world.len() <= prompt::CONTEXT_BUDGET_BYTES,
-        "Insider article package exceeds reading budget"
-    );
     let hash = crate::util::hash_components(&world);
     let extracted = studio
         .extract(
@@ -324,7 +320,7 @@ mod tests {
     use async_trait::async_trait;
     use std::{sync::Mutex, time::Duration};
 
-    struct Fake(Mutex<usize>, bool);
+    struct Fake(Mutex<usize>, Option<&'static str>);
     #[async_trait]
     impl Inference for Fake {
         async fn generate(
@@ -334,13 +330,25 @@ mod tests {
         ) -> Result<(GenerateResult, serde_json::Value)> {
             let mut calls = self.0.lock().unwrap();
             *calls += 1;
-            let name_only = self.1 && *calls == 1;
+            let first_body = self.1.filter(|_| *calls == 1);
             drop(calls);
-            Ok((GenerateResult {
-                response: if name_only {r#"{"body":"Jordan Sample","findings":[]}"#} else {r#"{"body":"Jordan Sample is linked with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland Browns is monitoring Jordan Sample in trade talks"}]}"#}.into(),
-                thinking: String::new(), model: "fake".into(), total_duration: Duration::from_millis(1),
-                prompt_eval_count: 10, eval_count: 10, completion_reason: Some("stop".into()), raw_response_body: "{}".into(),
-            }, serde_json::json!({})))
+            Ok((
+                GenerateResult {
+                    response: if let Some(body) = first_body {
+                        serde_json::json!({"body":body,"findings":[]}).to_string()
+                    } else {
+                        r#"{"body":"Jordan Sample is linked with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland Browns is monitoring Jordan Sample in trade talks"}]}"#.into()
+                    },
+                    thinking: String::new(),
+                    model: "fake".into(),
+                    total_duration: Duration::from_millis(1),
+                    prompt_eval_count: 10,
+                    eval_count: 10,
+                    completion_reason: Some("stop".into()),
+                    raw_response_body: "{}".into(),
+                },
+                serde_json::json!({}),
+            ))
         }
         fn model(&self) -> &str {
             "fake"
@@ -418,7 +426,7 @@ mod tests {
         let item = claimed.context("person transfer claim")?;
         let material = fresh::load_material(&pool, &item).await?;
         assert_eq!(material.sources.len(), 1);
-        let backend = Fake(Mutex::new(0), false);
+        let backend = Fake(Mutex::new(0), None);
         assert!(matches!(
             execute_prepared(&pool, &backend, 32768, &item, material).await?,
             PluginOutcome::Committed
@@ -461,8 +469,15 @@ mod tests {
                 entity_type: "team".into(),
             }],
         };
-        for (name_only, calls) in [(false, 1), (true, 2)] {
-            let fake = Fake(Mutex::new(0), name_only);
+        for (first_body, calls) in [
+            (None, 1),
+            (Some("Jordan Sample"), 2),
+            (
+                Some("Jordan Sample is linked with Cleveland in Week 7, according to Wire."),
+                2,
+            ),
+        ] {
+            let fake = Fake(Mutex::new(0), first_body);
             let generated = create(
                 &Studio::new(&fake),
                 &subject,

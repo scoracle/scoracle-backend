@@ -9,7 +9,7 @@ unset DATABASE_URL DATABASE_PRIVATE_URL
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null && pwd)"
 cd "$ROOT"
 
-for tool in psql go cargo; do
+for tool in psql go cargo python3; do
     command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
 done
 psql --version | grep -Eq 'PostgreSQL\) 18\.' || {
@@ -45,6 +45,10 @@ psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/264_rating_source_i
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/318_coverage_freeze.sql
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/319_nba_free_throw_measure.sql
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/321_qualified_visibility.sql
+psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/323_headline_selection.sql
+psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/324_terminal_failures.sql
+
+python3 scripts/ops/test_headline_budget_recovery.py
 
 export SCORACLE_MEMORY_STUDY_BIN="$SCRATCH/scoracle-memory-study"
 (

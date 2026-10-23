@@ -12,32 +12,15 @@ import (
 	"time"
 )
 
-// ingestCronPeriodHours is the period of the hosting ingest cron
-// (`0 2 * * *` in scripts/hosting/crontab.example). Keep the two in step.
-const ingestCronPeriodHours = 24
-
-// The lookback window is both the `when:` token sent to Google News and the
-// cutoff in filterArticlesByLookback, so it bounds what a single sweep can see.
-// Narrower than the cron's period means every run leaves a gap that no later run
-// recovers -- news dropped twice over, with no error and nothing missing from
-// pipeline_work to reveal it. Widening is safe (already-seen URLs dedupe);
-// narrowing below the cron period is the direction that loses data silently.
-func TestRSSLookbackCoversIngestCronPeriod(t *testing.T) {
-	if rssLookbackHours < ingestCronPeriodHours {
-		t.Fatalf(
-			"rssLookbackHours = %d, but the ingest cron runs every %dh -- a window narrower "+
-				"than the cron period silently drops the news in between",
-			rssLookbackHours, ingestCronPeriodHours,
-		)
-	}
-}
-
 func TestRSSWhenTokenSpansSubDayAndDayWindows(t *testing.T) {
 	for _, tc := range []struct {
 		hours int
 		want  string
 	}{
+		{1, "1h"},
 		{12, "12h"},
+		{49, "3d"},
+		{1000, "42d"},
 		{24, "1d"},
 	} {
 		if got := rssWhenToken(tc.hours); got != tc.want {
@@ -121,7 +104,7 @@ func TestLimitRSSArticles_PositiveLimitCapsReturnedOnly(t *testing.T) {
 	}
 }
 
-func TestFilterArticlesByLookbackDropsStaleRSSItems(t *testing.T) {
+func TestFilterArticlesByWindowDropsStaleUnknownAndFutureRSSItems(t *testing.T) {
 	now := time.Date(2026, 7, 23, 18, 0, 0, 0, time.UTC)
 	articles := []Article{
 		{Title: "fresh", PublishedAt: now.Add(-11 * time.Hour).Format(time.RFC1123Z)},
@@ -130,9 +113,9 @@ func TestFilterArticlesByLookbackDropsStaleRSSItems(t *testing.T) {
 		{Title: "unknown date", PublishedAt: "not a date"},
 	}
 
-	got := filterArticlesByLookback(articles, 12, now)
-	if len(got) != 3 {
-		t.Fatalf("recent articles = %d, want 3: %#v", len(got), got)
+	got := filterArticlesByWindow(articles, newsWindow{since: now.Add(-12 * time.Hour), through: now})
+	if len(got) != 1 {
+		t.Fatalf("recent articles = %d, want 1: %#v", len(got), got)
 	}
 	for _, a := range got {
 		if a.Title == "stale" {
@@ -317,7 +300,7 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	blocked := make(chan error, 1)
 	go func() {
 		_, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1,
-			[]Article{{URL: "https://example.test/late-discovery", Title: "Must not persist"}})
+			[]Article{{URL: "https://example.test/late-discovery", Title: "Must not persist"}}, newsWindow{}, false)
 		blocked <- err
 	}()
 	select {
@@ -346,7 +329,7 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	if _, err := pool.Exec(ctx, "UPDATE coverage_schedule SET phase='characters'"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1, nil); err == nil {
+	if _, err := NewNewsService(pool, nil).persistArticles(ctx, "INTAKE_TEST", "team", 1, nil, newsWindow{}, false); err == nil {
 		t.Fatal("character phase accepted discovery")
 	}
 	requests := 0
@@ -376,7 +359,7 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	service := NewNewsService(pool, nil)
 	ingest := func(want int) {
 		t.Helper()
-		ids, err := service.persistArticles(ctx, "INTAKE_TEST", "team", 1, []Article{article})
+		ids, err := service.persistArticles(ctx, "INTAKE_TEST", "team", 1, []Article{article}, newsWindow{}, false)
 		if err != nil || len(ids) != want {
 			t.Fatalf("queued=%v error=%v, want %d", ids, err, want)
 		}
@@ -425,9 +408,146 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	ingest(0) // A completed current revision is not recreated.
 	article.FeedRank = 1
 	ingest(0) // Feed rank only affects queue order, never evidence identity.
+	t.Run("reposts_and_persistent_fetch_progress", func(t *testing.T) {
+		if _, err := pool.Exec(ctx, "DELETE FROM headline_fetch_watermarks WHERE sport='INTAKE_TEST'"); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			pool.Exec(ctx, "DELETE FROM pipeline_work WHERE sport='INTAKE_TEST'")
+			pool.Exec(ctx, "DELETE FROM harvester_query_provenance WHERE sport='INTAKE_TEST'")
+			pool.Exec(ctx, "DELETE FROM news_articles WHERE url LIKE 'https://example.test/repost-%'")
+			pool.Exec(ctx, "DELETE FROM headline_fetch_watermarks WHERE sport='INTAKE_TEST'")
+		})
+		published := time.Now().Add(-30 * time.Minute).Truncate(time.Second)
+		original := Article{URL: "https://example.test/repost-original", Title: "Test Club denies reaching a transfer agreement with Cedar FC", Source: "Example", PublishedAt: published.Format(time.RFC3339)}
+		first, err := service.persistArticles(ctx, "INTAKE_TEST", "team", 1, []Article{original}, newsWindow{}, false)
+		if err != nil || len(first) != 1 {
+			t.Fatalf("first discovery=%v error=%v", first, err)
+		}
+		copy := original
+		copy.URL = "https://example.test/repost-copy"
+		copy.Title = "TEST CLUB denies  reaching a transfer agreement with Cedar FC"
+		copy.Source = "Other Outlet"
+		copy.PublishedAt = published.Add(10 * time.Minute).Format(time.RFC3339)
+		queued, err := service.persistArticles(ctx, "INTAKE_TEST", "team", 1, []Article{copy}, newsWindow{}, false)
+		if err != nil || len(queued) != 0 {
+			t.Fatalf("repost queued=%v error=%v", queued, err)
+		}
+		var canonical int64
+		if err := pool.QueryRow(ctx, "SELECT duplicate_of FROM news_articles WHERE url=$1", copy.URL).Scan(&canonical); err != nil || canonical != first[0] {
+			t.Fatalf("repost canonical=%d error=%v", canonical, err)
+		}
+		original.PublishedAt = published.Add(15 * time.Minute).Format(time.RFC3339)
+		if ids, err := service.persistArticles(ctx, "INTAKE_TEST", "team", 1, []Article{original}, newsWindow{}, false); err != nil || len(ids) != 0 {
+			t.Fatalf("timestamp-only repost queued=%v error=%v", ids, err)
+		}
+		var retained time.Time
+		if err := pool.QueryRow(ctx, "SELECT published_at FROM news_articles WHERE id=$1", canonical).Scan(&retained); err != nil || !retained.Equal(published) {
+			t.Fatalf("original reporting time changed: %v %v", retained, err)
+		}
+		copy.Title = "Test Club confirms reaching a transfer agreement with Cedar FC"
+		if ids, err := service.persistArticles(ctx, "INTAKE_TEST", "team", 1, []Article{copy}, newsWindow{}, false); err != nil || len(ids) != 1 || ids[0] == canonical {
+			t.Fatalf("changed claim was suppressed: %v %v", ids, err)
+		}
+		through := time.Now().Add(-2 * time.Hour).Truncate(time.Microsecond)
+		window := newsWindow{since: through.Add(-8 * time.Hour), through: through}
+		rechecked := newsWindow{since: window.since, through: through.Add(time.Hour)}
+		for _, step := range []struct {
+			complete bool
+			window   newsWindow
+			want     time.Time
+		}{
+			{false, window, window.since},
+			{true, window, window.since},
+			{true, window, window.since},
+			{false, rechecked, window.since},
+			{true, rechecked, rechecked.through},
+			{false, window, rechecked.through},
+		} {
+			if _, err := service.persistArticles(ctx, "INTAKE_TEST", "team", 1, nil, step.window, step.complete); err != nil {
+				t.Fatal(err)
+			}
+			if err := pool.QueryRow(ctx, "SELECT fetched_through FROM headline_fetch_watermarks WHERE sport='INTAKE_TEST' AND entity_id=1").Scan(&retained); err != nil || !retained.Equal(step.want) {
+				t.Fatalf("fetch progress=%v want=%v error=%v", retained, step.want, err)
+			}
+		}
+	})
+
+	t.Run("fetch_resumes_hourly_then_catches_up_after_character_work", func(t *testing.T) {
+		now := time.Now().Truncate(time.Second)
+		cursor := now.Add(-45 * time.Minute)
+		var queries []string
+		fetcher := newFixtureService(t, func(w http.ResponseWriter, r *http.Request) {
+			q := r.URL.Query().Get("q")
+			queries = append(queries, q)
+			if strings.Contains(q, "Broken Alias") {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			w.Header().Set("Content-Type", "application/xml")
+			w.Write([]byte(rssFixture(
+				rssFixtureItem{"Test Club confirms a fresh development", "Wire", "https://example.test/resume-fresh", now.Add(-10 * time.Minute), ""},
+				rssFixtureItem{"Test Club announces an overnight development", "Wire", "https://example.test/resume-overnight", now.Add(-2 * time.Hour), ""},
+			)))
+		})
+		fetcher.pool = pool
+		t.Cleanup(func() {
+			pool.Exec(ctx, "DELETE FROM pipeline_work WHERE sport='INTAKE_TEST'")
+			pool.Exec(ctx, "DELETE FROM harvester_query_provenance WHERE sport='INTAKE_TEST'")
+			pool.Exec(ctx, "DELETE FROM news_articles WHERE url LIKE 'https://example.test/resume-%'")
+			pool.Exec(ctx, "DELETE FROM headline_fetch_watermarks WHERE sport='INTAKE_TEST'")
+		})
+		setCursor := func(at time.Time) {
+			t.Helper()
+			if _, err := pool.Exec(ctx, `INSERT INTO headline_fetch_watermarks(entity_type,entity_id,sport,fetched_through)
+				VALUES('team',1,'INTAKE_TEST',$1) ON CONFLICT(entity_type,entity_id,sport) DO UPDATE SET fetched_through=EXCLUDED.fetched_through`, at); err != nil {
+				t.Fatal(err)
+			}
+		}
+		setCursor(cursor)
+		ids, _, err := fetcher.GetEntityNews(ctx, "team", 1, "Test Club", "INTAKE_TEST", 0, nil)
+		if err != nil || len(ids) != 1 || len(queries) != 1 || !strings.Contains(queries[0], "when:1h") {
+			t.Fatalf("hourly fetch ids=%v queries=%v error=%v", ids, queries, err)
+		}
+		var through time.Time
+		if err := pool.QueryRow(ctx, "SELECT fetched_through FROM headline_fetch_watermarks WHERE sport='INTAKE_TEST'").Scan(&through); err != nil || !through.After(cursor) {
+			t.Fatalf("successful fetch did not advance progress: %v %v", through, err)
+		}
+		morningSince := now.Add(-9*time.Hour - 30*time.Minute)
+		setCursor(morningSince)
+		ids, _, err = fetcher.GetEntityNews(ctx, "team", 1, "Test Club", "INTAKE_TEST", 0, nil)
+		if err != nil || len(ids) != 1 || !strings.Contains(queries[1], "when:10h") {
+			t.Fatalf("morning catch-up ids=%v queries=%v error=%v", ids, queries, err)
+		}
+		if err := pool.QueryRow(ctx, "SELECT fetched_through FROM headline_fetch_watermarks WHERE sport='INTAKE_TEST'").Scan(&through); err != nil || !through.Equal(morningSince) {
+			t.Fatalf("first catch-up advanced before recheck: %v %v", through, err)
+		}
+		// Simulate the next hourly boundary without a wall-clock sleep.
+		if _, err := pool.Exec(ctx, "UPDATE headline_fetch_watermarks SET recheck_after=clock_timestamp()-interval '1 second' WHERE sport='INTAKE_TEST'"); err != nil {
+			t.Fatal(err)
+		}
+		resumed := NewNewsService(pool, nil)
+		resumed.rssBaseURL, resumed.httpClient = fetcher.rssBaseURL, fetcher.httpClient
+		ids, _, err = resumed.GetEntityNews(ctx, "team", 1, "Test Club", "INTAKE_TEST", 0, nil)
+		if err != nil || len(ids) != 0 || !strings.Contains(queries[2], "when:10h") {
+			t.Fatalf("recheck repeated model work or changed the catch-up window: %v %v %v", ids, queries, err)
+		}
+		if err := pool.QueryRow(ctx, "SELECT fetched_through FROM headline_fetch_watermarks WHERE sport='INTAKE_TEST' AND recheck_after IS NULL").Scan(&through); err != nil || !through.After(morningSince) {
+			t.Fatalf("successful recheck did not advance progress: %v %v", through, err)
+		}
+		setCursor(cursor)
+		_, funnel, err := fetcher.GetEntityNews(ctx, "team", 1, "Test Club", "INTAKE_TEST", 0, []string{"Broken Alias"})
+		if err != nil || funnel.RSSErrors != 1 {
+			t.Fatalf("partial fetch errors=%d error=%v", funnel.RSSErrors, err)
+		}
+		if err := pool.QueryRow(ctx, "SELECT fetched_through FROM headline_fetch_watermarks WHERE sport='INTAKE_TEST'").Scan(&through); err != nil || !through.Equal(cursor) {
+			t.Fatalf("partial fetch skipped uncollected time: %v %v", through, err)
+		}
+	})
+
 	failing := newFixtureService(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/xml")
-		w.Write([]byte(rssFixture(rssFixtureItem{"New report", "Example", "https://example.test/failed-intake", time.Now(), "report"})))
+		w.Write([]byte(rssFixture(rssFixtureItem{"New report", "Example", "https://example.test/failed-intake", time.Now().Add(-time.Minute), "report"})))
 	})
 	failing.pool = pool
 	// Force a database rejection after a successful RSS fetch.
@@ -437,5 +557,23 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 	defer pool.Exec(ctx, "ALTER TABLE news_articles DROP CONSTRAINT intake_test_rejection")
 	if _, _, err := failing.GetEntityNews(ctx, "team", 1, "Test Club", "INTAKE_TEST", 0, nil); err == nil || !strings.Contains(err.Error(), "persist RSS discovery") {
 		t.Fatalf("persistence failure reported as success: %v", err)
+	}
+}
+
+func TestRSSWindowCoversHourlyLateAndMorningFetches(t *testing.T) {
+	through := time.Date(2026, 10, 23, 8, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		gap   time.Duration
+		hours int
+	}{{time.Hour, 1}, {time.Hour + time.Minute, 2}, {10 * time.Hour, 10}, {25 * time.Hour, 25}} {
+		window := newsWindow{since: through.Add(-tc.gap), through: through}
+		if got := window.hours(); got != tc.hours {
+			t.Fatalf("gap=%v hours=%d want=%d", tc.gap, got, tc.hours)
+		}
+	}
+	window := newsWindow{since: through.Add(-time.Hour), through: through}
+	articles := []Article{{Title: "lower", PublishedAt: window.since.Format(time.RFC3339)}, {Title: "upper", PublishedAt: through.Format(time.RFC3339)}, {Title: "future", PublishedAt: through.Add(time.Second).Format(time.RFC3339)}}
+	if got := filterArticlesByWindow(articles, window); len(got) != 2 {
+		t.Fatalf("window boundaries=%v", got)
 	}
 }

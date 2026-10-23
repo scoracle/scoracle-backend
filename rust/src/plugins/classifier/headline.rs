@@ -45,8 +45,8 @@ pub(super) async fn measure(
         let target = json!({"entity_type":meta["identity"]["entity_type"],"entity_id":meta["identity"]["entity_id"],"sport":item.sport});
         let request = decision::request(title, &before.source, &item.sport, &meta)?;
         let request_hash = hash(&request.to_string());
-        let cached: Option<Value> = sqlx::query_scalar("SELECT receipt->'measurement' FROM classifier_measurements WHERE article_id=$1 AND sport=$2 AND request_hash=$3 AND status='source_bound_provisional' AND receipt#>>'{measurement,response,model}'=$4 ORDER BY id DESC LIMIT 1")
-            .bind(item.entity_id).bind(&item.sport).bind(&request_hash).bind(&model).fetch_optional(pool).await?;
+        let cached: Option<Value> = sqlx::query_scalar("SELECT receipt->'measurement' FROM classifier_measurements WHERE sport=$1 AND request_hash=$2 AND status='source_bound_provisional' AND receipt#>>'{measurement,response,model}'=$3 ORDER BY id DESC LIMIT 1")
+            .bind(&item.sport).bind(&request_hash).bind(&model).fetch_optional(pool).await?;
         if let Some(receipt) = cached {
             ensure!(
                 receipt["request"] == request,

@@ -7,7 +7,7 @@ DO $$ BEGIN
 END $$;
 SET LOCAL statement_timeout='10s';
 UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
-TRUNCATE pipeline_work,application_outbox,coverage_assignments,coverage_editions;
+TRUNCATE coverage_failures,pipeline_work,application_outbox,coverage_assignments,coverage_editions;
 INSERT INTO sports(id,display_name,current_season) VALUES ('ZZ_FREEZE_A','Freeze A',2026),('ZZ_FREEZE_B','Freeze B',2026);
 INSERT INTO news_articles(id,url,url_hash,title,source,published_at)
 VALUES (9318001,'https://example.invalid/freeze',md5('freeze'),'Freeze fixture','Fixture Wire',now());

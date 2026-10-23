@@ -43,11 +43,6 @@ impl Availability {
                 result.sources.push(source);
             }
         }
-        if result.sources.len() > 8
-            || serde_json::to_vec(&result.sources).map_or(true, |v| v.len() > 4000)
-        {
-            result.held.append(&mut result.sources);
-        }
         result
     }
     pub fn for_writing(&self) -> serde_json::Value {
@@ -130,6 +125,30 @@ impl Availability {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn nine_complete_headlines_are_budgeted_as_model_input_instead_of_receipts() {
+        let sources = (1..=9)
+            .map(|id| SourceContext {
+                classification_id: id,
+                article_id: id,
+                headline: format!("Kai Rowan availability update {id}"),
+                context: format!("Kai Rowan availability update {id}"),
+                source: "Wire".into(),
+                published_at_epoch: Some(100 + id),
+                classifier_world: Some(serde_json::json!({
+                    "target_identity_resolved":true,"gate":{"characters":{"scout":true}},
+                    "url":format!("https://example.invalid/{}", "long-routing-receipt".repeat(60)),
+                })),
+            })
+            .collect::<Vec<_>>();
+        assert!(serde_json::to_vec(&sources).unwrap().len() > 4000);
+        let a = Availability::pack(sources.clone(), 200);
+        assert_eq!(a.sources, sources);
+        assert!(a.held.is_empty());
+        assert_eq!(a.for_writing().as_array().unwrap().len(), 9);
+        assert!(a.for_writing().to_string().len() < 4000);
+    }
+
     #[test]
     fn only_current_resolved_availability_enters_a_bounded_profile() {
         let source = |id| SourceContext {

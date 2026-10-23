@@ -10,7 +10,7 @@ use serde_json::json;
 use sqlx::PgPool;
 use std::collections::HashSet;
 
-const FRESH_VERSION: &str = "journalist-fresh-v10-json";
+const FRESH_VERSION: &str = "journalist-fresh-v11-token-admission";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CorpusItem {
@@ -135,26 +135,10 @@ pub fn prepare(
             });
             continue;
         }
-        if assemble(&subject, std::slice::from_ref(&item)).len() > SOURCE_BUDGET_BYTES {
-            dispositions.push(Disposition {
-                article_id: item.id,
-                reason: "complete_report_exceeds_context_budget",
-            });
-            continue;
-        }
         seen.insert(key);
         selected.push(item);
     }
-    if assemble(&subject, &selected).len() > SOURCE_BUDGET_BYTES
-        || dispositions
-            .iter()
-            .any(|d| d.reason == "complete_report_exceeds_context_budget")
-    {
-        dispositions.extend(selected.drain(..).map(|item| Disposition {
-            article_id: item.id,
-            reason: "daily_package_exceeds_context_budget",
-        }));
-    }
+    // The provider admits the complete request using exact tokens plus reserved output.
     let rendered = assemble(&subject, &selected);
     let input_hash = crate::util::hash_components(
         &json!({

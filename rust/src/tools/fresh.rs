@@ -183,6 +183,11 @@ fn fact_clauses(text: &str) -> Vec<&str> {
     }
     clauses.push(&text[start..]);
     clauses
+        .into_iter()
+        .flat_map(|clause| clause.split(" while "))
+        .flat_map(|clause| clause.split(" whereas "))
+        .flat_map(|clause| clause.split(" but "))
+        .collect()
 }
 
 pub fn validate_named_facts(text: &str, sources: &[&str]) -> anyhow::Result<()> {
@@ -192,6 +197,82 @@ pub fn validate_named_facts(text: &str, sources: &[&str]) -> anyhow::Result<()> 
         .collect();
     for clause in fact_clauses(text) {
         validate_named_clause(clause, &evidence)?;
+    }
+    Ok(())
+}
+
+pub struct ReportEvidence<'a> {
+    pub publisher: &'a str,
+    pub text: String,
+    pub published_at: Option<String>,
+}
+
+/// A reporting date is provenance, not a score or a date of the reported event.
+// shortcut: recognizes explicit "Publisher dated" dates; extend only for a reproduced alternative.
+pub fn validate_report_facts(text: &str, reports: &[ReportEvidence<'_>]) -> anyhow::Result<()> {
+    let sources: Vec<_> = reports.iter().map(|report| report.text.as_str()).collect();
+    for clause in fact_clauses(text) {
+        let mut claim = clause.to_owned();
+        for report in reports {
+            let Some(date) = report.published_at.as_deref().and_then(|at| at.get(..10)) else {
+                continue;
+            };
+            let Some(year) = date
+                .get(..4)
+                .filter(|year| year.bytes().all(|c| c.is_ascii_digit()))
+            else {
+                continue;
+            };
+            let Some(month) = date.get(5..7).and_then(|month| month.parse::<usize>().ok()) else {
+                continue;
+            };
+            let Some(month) = month.checked_sub(1).and_then(|month| {
+                [
+                    "January",
+                    "February",
+                    "March",
+                    "April",
+                    "May",
+                    "June",
+                    "July",
+                    "August",
+                    "September",
+                    "October",
+                    "November",
+                    "December",
+                ]
+                .get(month)
+                .copied()
+            }) else {
+                continue;
+            };
+            let Some(day) = date.get(8..10).and_then(|day| day.parse::<u32>().ok()) else {
+                continue;
+            };
+            for date in [date.to_owned(), format!("{month} {day}, {year}")] {
+                let attribution = format!("{} dated {date}", report.publisher);
+                if claim.contains(&attribution)
+                    && claim.match_indices(&attribution).all(|(at, _)| {
+                        claim[at + attribution.len()..]
+                            .chars()
+                            .next()
+                            .is_none_or(|c| !c.is_alphanumeric() && c != '-')
+                    })
+                {
+                    let candidate = claim.replace(&attribution, report.publisher);
+                    // Bind the date, publisher and subjects to the same report.
+                    if validate_named_facts(&candidate, &[&report.text]).is_ok() {
+                        claim = candidate;
+                    }
+                }
+            }
+        }
+        anyhow::ensure!(
+            !reports.iter().any(|report| !report.publisher.is_empty()
+                && claim.contains(&format!("{} dated ", report.publisher))),
+            "publication date is not supported by the attributed report"
+        );
+        validate_named_facts(&claim, &sources)?;
     }
     Ok(())
 }
@@ -227,6 +308,67 @@ pub fn validate_peer_reading(text: &str, prompt: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod scoped_fact_tests {
     use super::*;
+    #[test]
+    fn contrast_clauses_keep_each_subjects_numbers_and_denials_separate() {
+        let sources = [
+            "Cedar United's interest in West Vale was denied after a £40m claim.",
+            "Kai Rowan is out for up to three months.",
+        ];
+        for connector in ["while", "whereas", "but"] {
+            assert!(validate_named_facts(&format!(
+                "Cedar United's interest in West Vale was denied after a £40m claim, {connector} Kai Rowan is out for up to three months."
+            ), &sources).is_ok());
+            assert!(validate_named_facts(&format!(
+                "Cedar United's interest in West Vale was denied, {connector} Kai Rowan is out for 40 months."
+            ), &sources).is_err());
+        }
+        assert!(validate_named_facts("Kai Rowan is out for 40 months.", &sources).is_err());
+    }
+
+    #[test]
+    fn publication_dates_bind_to_their_publisher_and_subject_without_becoming_statistics() {
+        let reports = [
+            ReportEvidence {
+                publisher: "City Wire",
+                text: "City Wire: Kai Rowan could sign a new deal".into(),
+                published_at: Some("2026-10-22T12:01:00Z".into()),
+            },
+            ReportEvidence {
+                publisher: "City Wire",
+                text: "City Wire: Noah Vale could return".into(),
+                published_at: Some("2026-10-21T12:01:00Z".into()),
+            },
+        ];
+        for date in ["October 22, 2026", "2026-10-22"] {
+            assert!(validate_report_facts(
+                &format!("Kai Rowan could sign a new deal, according to City Wire dated {date}."),
+                &reports
+            )
+            .is_ok());
+        }
+        for body in [
+            "Kai Rowan scored 22 points, according to City Wire dated October 22, 2026.",
+            "Kai Rowan could sign a new deal, according to City Wire dated October 21, 2026.",
+            "Kai Rowan could sign a new deal, according to City Wire dated October 23, 2026.",
+            "Kai Rowan could sign a new deal, according to Other Wire dated October 22, 2026.",
+            "Kai Rowan could sign a new deal, according to City Wire dated October 22, 20260.",
+            "Noah Vale could return, according to City Wire dated October 22, 2026.",
+            "Kai Rowan could sign a new deal in Week 7.",
+        ] {
+            assert!(validate_report_facts(body, &reports).is_err(), "{body}");
+        }
+        let unknown_date = [ReportEvidence {
+            publisher: "City Wire",
+            text: reports[0].text.clone(),
+            published_at: None,
+        }];
+        assert!(validate_report_facts(
+            "Kai Rowan could sign a new deal, according to City Wire dated October 22, 2026.",
+            &unknown_date
+        )
+        .is_err());
+    }
+
     #[test]
     fn separate_subjects_keep_separate_numbers_and_decimal_values() {
         let source = "Kai Rowan scored 21 points. Noah Vale recorded 8.5 rebounds.";

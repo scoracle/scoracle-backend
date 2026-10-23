@@ -818,10 +818,6 @@ impl LensTask for TransferTask {
     fn assemble(&self, parts: &serde_json::Value) -> Result<Prepared> {
         let selected: InsiderParts = serde_json::from_value(parts.clone())?;
         let user_prompt = selected.assemble();
-        anyhow::ensure!(
-            user_prompt.len() <= crate::plugins::insider::prompt::CONTEXT_BUDGET_BYTES,
-            "Insider article package exceeds reading budget"
-        );
         Ok(Prepared {
             user_prompt,
             options: crate::plugins::insider::prompt::options_for_reports(
@@ -1529,6 +1525,26 @@ mod tests {
         let v = TransferTask.evaluate_prepared(&transfer_request("Mika Salo"), raw, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn an_unresolved_signing_fixture_preserves_the_reported_transaction() {
+        let fixture: Fixture = serde_json::from_str(include_str!(
+            "../../fixtures/quality/transfer/headline-unnamed-signing.json"
+        ))
+        .unwrap();
+        let prepared = TransferTask.prepare_fixture(&fixture).unwrap();
+        let supported = TransferTask.evaluate_prepared(&prepared,
+            r#"{"body":"Cedar Bears announced an unnamed signing, according to Example Wire.","findings":[]}"#,
+            None, Some(&fixture.expect));
+        assert!(supported.all_checks_pass());
+        let contradiction = TransferTask.evaluate_prepared(
+            &prepared,
+            r#"{"body":"Cedar Bears have no confirmed signings.","findings":[]}"#,
+            None,
+            Some(&fixture.expect),
+        );
+        assert!(contradiction.parsed && !contradiction.all_checks_pass());
     }
 
     #[test]

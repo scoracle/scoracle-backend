@@ -95,12 +95,16 @@ pub(super) fn parse_reports(
                     .unwrap()
                     - 1;
                 let report = &reports[index];
-                format!("{}: {} {}", report.source, report.title, report.context)
+                crate::tools::fresh::ReportEvidence {
+                    publisher: &report.source,
+                    text: format!("{}: {} {}", report.source, report.title, report.context),
+                    published_at: report.published_at_epoch.map(crate::util::utc_timestamp),
+                }
             })
             .collect();
-        crate::tools::fresh::validate_named_facts(
+        crate::tools::fresh::validate_report_facts(
             &format!("{}. {}", prose.headline, prose.body),
-            &sources.iter().map(String::as_str).collect::<Vec<_>>(),
+            &sources,
         )
         .map_err(|error| crate::tools::form::SurfaceError(error.to_string()))?;
     }

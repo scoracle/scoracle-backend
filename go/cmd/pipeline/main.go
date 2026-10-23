@@ -43,15 +43,8 @@ func main() {
 	mode := flag.String("mode", "ingest", "monitor (hourly RSS during coverage) | ingest (RSS sweep) | data (stats gap-fill) | headshots (provider-image repair)")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (default all)")
 	season := flag.Int("season", 0, "[data/headshots] one season only (0 = current + next / all stored NFL seasons)")
-	// 100 is one page: Google News RSS returns at most 100 items per request, so this takes
-	// what a single search gives and truncates nothing that was ever offered. At 12 the cap
-	// never bound on a quiet club (Spezia returns 3) and bound ONLY on the entities with the
-	// most news (Arsenal returns 100, kept 12) -- it exclusively starved the biggest stories,
-	// which are the ones this product exists to tell.
-	//
-	// Each alias lane runs before the result cap; duplicate discoveries do not
-	// reset acquisition work. The monitor reuses this same bounded sweep.
-	rssLimit := flag.Int("rss-limit", 100, "[sweep] max articles per entity, one Google News page; 0 = no truncation")
+	// Collect all alias lanes; character inputs are capped after decision scoring.
+	rssLimit := flag.Int("rss-limit", 0, "[sweep] optional acquisition cap per entity; 0 = retain all results for decision scoring")
 	rssPauseMs := flag.Int("rss-pause-ms", 100, "[sweep] pause between team RSS calls (polite to Google News)")
 	logLevel := flag.String("log-level", "info", "debug | info | warn | error; debug adds the per-team fetch funnel")
 	flag.Parse()

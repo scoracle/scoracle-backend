@@ -22,6 +22,12 @@ pub(super) async fn tick(pool: &PgPool, at: Option<&str>) -> anyhow::Result<Stri
             sqlx::query("SET LOCAL lock_timeout='5s'")
                 .execute(&mut *tx)
                 .await?;
+            let (previous, edition, failures_before): (String, Option<String>, i64) = sqlx::query_as(
+                "SELECT phase,edition_date::text,(SELECT count(*) FROM coverage_failures f
+                 WHERE f.edition_date=c.edition_date) FROM coverage_schedule c",
+            )
+                .fetch_one(&mut *tx)
+                .await?;
             let phase: String = sqlx::query_scalar(
                 "SELECT public.coverage_tick(COALESCE($1::text::timestamptz,clock_timestamp()))",
             )
@@ -29,9 +35,39 @@ pub(super) async fn tick(pool: &PgPool, at: Option<&str>) -> anyhow::Result<Stri
             .fetch_one(&mut *tx)
             .await?;
             if phase == "characters" {
+                if previous != "characters" {
+                    let headlines: Vec<(i64, String)> = sqlx::query_as(
+                        "SELECT DISTINCT x.id,x.clean_text FROM coverage_assignments a
+                        JOIN coverage_schedule c USING(edition_date)
+                        JOIN classifier_spectra x ON x.id=ANY(a.spectrum_ids)
+                        JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id
+                        WHERE c.enabled AND c.phase='characters' AND d.status='pending'",
+                    )
+                    .fetch_all(&mut *tx)
+                    .await?;
+                    let spam: Vec<i64> = headlines
+                        .into_iter()
+                        .filter(|(_, title)| crate::tools::source::is_headline_spam(title))
+                        .map(|(id, _)| id)
+                        .collect();
+                    sqlx::query("SELECT public.coverage_select_headlines($1)")
+                        .bind(spam)
+                        .execute(&mut *tx)
+                        .await?;
+                }
                 crate::plugins::scout::snapshot::freeze(&mut tx).await?;
             }
+            let failures_after: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM coverage_failures WHERE edition_date=$1::text::date",
+            )
+            .bind(&edition)
+            .fetch_one(&mut *tx)
+            .await?;
             tx.commit().await?;
+            if failures_after > failures_before {
+                error!(edition=?edition, new_failures=failures_after-failures_before,
+                    total_failures=failures_after, "terminal coverage failures retained for reporting; partial editions will reopen collection");
+            }
             Ok(phase)
         }
         .await;

@@ -195,7 +195,9 @@ async fn main() -> Result<()> {
                     &Studio::new(model),
                     &assignment,
                     case.now,
-                    4096,
+                    scoracle_cognition::harness::route::resolve_voice_num_ctx(
+                        std::env::var("VOICE_NUM_CTX").ok().as_deref(),
+                    ),
                 )
                 .await
                 {

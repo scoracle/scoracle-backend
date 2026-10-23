@@ -125,14 +125,22 @@ impl Parser<Reply> for ReplyParser<'_> {
                 "duplicate source/counterparty finding"
             );
         }
-        let attributed: Vec<String> = self
+        let mut evidence: Vec<_> = self
             .reports
             .iter()
-            .map(|report| format!("{}: {}", report.publisher, report.headline))
+            .map(|report| crate::tools::fresh::ReportEvidence {
+                publisher: &report.publisher,
+                text: format!("{}: {}", report.publisher, report.headline),
+                published_at: report.published_at.clone(),
+            })
             .collect();
-        let mut evidence: Vec<&str> = attributed.iter().map(String::as_str).collect();
-        evidence.push(&self.subject.name);
-        crate::tools::fresh::validate_named_facts(&reply.body, &evidence)?;
+        evidence.push(crate::tools::fresh::ReportEvidence {
+            publisher: "",
+            text: self.subject.name.clone(),
+            published_at: None,
+        });
+        crate::tools::fresh::validate_report_facts(&reply.body, &evidence)
+            .map_err(|error| crate::tools::form::SurfaceError(error.to_string()))?;
         for relation in ["following", "after", "because", "therefore"] {
             let stated = reply
                 .body

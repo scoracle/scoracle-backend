@@ -749,9 +749,13 @@ impl Worker {
             %stage,
             entity = item.entity_id,
             backoff_secs = backoff.as_secs(),
-            "plugin failed; backing off"
+            "plugin execution failed"
         );
         match work::fail(&self.pool, item, cause, backoff, MAX_ATTEMPTS).await {
+            Ok(true) if item.attempts + 1 >= MAX_ATTEMPTS => error!(
+                error = %cause, %stage, entity = item.entity_id, sport = %item.sport,
+                attempts = item.attempts + 1, "plugin retry budget exhausted; failure retained for reporting"
+            ),
             Ok(true) => {}
             Ok(false) => debug!(
                 %stage,

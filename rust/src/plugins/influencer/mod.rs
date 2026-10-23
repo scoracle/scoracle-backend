@@ -75,10 +75,6 @@ pub async fn create(
     num_ctx: i32,
 ) -> Result<(Option<VibeOutput>, Value)> {
     let world = assignment.parts.assemble();
-    anyhow::ensure!(
-        world.len() <= prompt::SOURCE_BUDGET_BYTES + 2400,
-        "Influencer packet exceeds reading budget"
-    );
     let input_hash = prompt::request_hash(backend, assignment, num_ctx)?;
     let options = prompt::generation_options(VIBE_TEMPERATURE, num_ctx, VIBE_NUM_PREDICT);
     let mut receipt = json!({"model_version":backend.model(),"prompt_version":VIBE_PROMPT_VERSION,

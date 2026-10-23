@@ -74,7 +74,7 @@ pub async fn create(
                 assignment,
                 activity: &activity,
             },
-            |_| None,
+            crate::harness::session::publishing_correction,
         )
         .await?;
     let call = GenerationCall::from(&output);

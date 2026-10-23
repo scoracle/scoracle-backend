@@ -458,14 +458,14 @@ fn first_source_shape_error(
                 "The attributed report does not support an emotional, motivational or psychological inference. Keep the reported action or quote without inventing its effect.",
             );
         }
-        let temporal_refers_back = ["season", "last year", "prior", "previous", "across"]
-            .iter()
-            .any(|word| body_folded.contains(word));
         for claim in crate::tools::guards::prose_claims(&body_folded)
             .into_iter()
             .flat_map(|claim| claim.split(" but "))
             .flat_map(|claim| claim.split(" however "))
         {
+            let temporal_refers_back = ["season", "last year", "prior", "previous", "across"]
+                .iter()
+                .any(|word| claim.contains(word));
             if [
                 "do not establish",
                 "does not establish",
@@ -652,6 +652,17 @@ pub(super) fn clean_commentary(raw: &str) -> String {
 
 #[cfg(test)]
 mod package_tests {
+    #[test]
+    fn a_current_season_sentence_does_not_reject_a_supported_sample_limit() {
+        use crate::harness::Parser;
+        let prompt = r#"{"fresh":{"season":2026,"supports_cross_season":false,"limit":{"kind":"thin_sample","appearances":6,"minimum":10},"values":[]}}"#;
+        let directions = std::collections::BTreeMap::new();
+        let bands = std::collections::BTreeMap::new();
+        let parser = super::RatingRequestParser::new(prompt, &directions, &bands);
+        assert!(parser.parse(r#"{"body":"The 2026 season measurements reflect relative standing. These figures use a thin sample of 6 appearances, below the 10 minimum required for reliable comparison."}"#).is_ok());
+        assert!(parser.parse(r#"{"body":"The 2026 season measurements reflect relative standing. He is reliable across seasons."}"#).is_err());
+    }
+
     #[test]
     fn task_numbers_cannot_substitute_for_measured_evidence() {
         let package =

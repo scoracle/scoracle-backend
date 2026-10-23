@@ -1,5 +1,5 @@
 //! Load and bound fresh movement headlines and canonical candidate names.
-use super::prompt::{assemble, assemble_with_memories, Parts, CONTEXT_BUDGET_BYTES};
+use super::prompt::{assemble_with_memories, Parts, CONTEXT_BUDGET_BYTES};
 use crate::harness::queue::work::Item;
 use crate::plugins::classifier::delivery::{load_for_character, load_spectrum_sources_on};
 use crate::tools::{meta::EntityMeta, source::SourceContext};
@@ -159,10 +159,6 @@ impl Material {
                 Some("livestream_spam")
             } else if crate::tools::source::contains_instruction_override(&source.context) {
                 Some("source_instruction_override")
-            } else if assemble(&self.subject, std::slice::from_ref(&report)).len()
-                > CONTEXT_BUDGET_BYTES
-            {
-                Some("complete_report_exceeds_context_budget")
             } else {
                 None
             };
@@ -180,21 +176,6 @@ impl Material {
             self.sources.push(source);
             self.reports.push(report);
             self.mentions.push(mentions);
-        }
-        // A daily reading cannot omit a complete report that could qualify or deny another.
-        if assemble(&self.subject, &self.reports).len() > CONTEXT_BUDGET_BYTES
-            || self
-                .held
-                .iter()
-                .any(|(_, reason)| *reason == "complete_report_exceeds_context_budget")
-        {
-            self.held.extend(
-                self.sources
-                    .drain(..)
-                    .map(|s| (s, "daily_package_exceeds_context_budget")),
-            );
-            self.reports.clear();
-            self.mentions.clear();
         }
     }
 }
@@ -274,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn batches_keep_complete_articles_oldest_first_and_hold_single_oversized_reports() {
+    fn large_reports_reach_exact_token_admission_without_losing_identity_holds() {
         let source = |id, text: String| SourceContext {
             classifier_world: None,
             classification_id: id,
@@ -318,11 +299,14 @@ mod tests {
             held: vec![],
         };
         material.pack(200);
-        assert!(material.sources.is_empty());
-        assert_eq!(material.held.len(), 5);
-        assert!(material
-            .held
-            .iter()
-            .any(|(_, r)| *r == "daily_package_exceeds_context_budget"));
+        assert_eq!(material.sources.len(), 4);
+        assert_eq!(material.reports.len(), 4);
+        assert_eq!(material.mentions.len(), 4);
+        assert_eq!(material.held.len(), 1);
+        assert_eq!(material.held[0].1, "unresolved_target_identity");
+        assert_eq!(
+            material.sources[3].context,
+            "Oversized report. ".repeat(2000)
+        );
     }
 }

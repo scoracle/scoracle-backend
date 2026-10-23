@@ -50,18 +50,50 @@ pub fn is_headline_spam(headline: &str) -> bool {
     let decoded = crate::tools::fetch::decode_entities(headline);
     let normalized = decoded.nfkc().collect::<String>().to_lowercase();
     let compact: String = normalized.chars().filter(|c| c.is_alphanumeric()).collect();
-    let streaming = ["livestream", "freestream", "livefree", "watchfree"]
-        .iter()
-        .any(|marker| compact.contains(marker))
+    let streaming = [
+        "livestream",
+        "freestream",
+        "livefree",
+        "watchfree",
+        "watchlive",
+        "liveonline",
+        "livereddit",
+        "livebroadcasttodaygame",
+    ]
+    .iter()
+    .any(|marker| compact.contains(marker))
         || (compact.contains("endirect") && compact.contains("gratuit"));
-    // shortcut: catches observed stream solicitations; plain-text spam needs a labelled source-quality review.
+    // shortcut: observed stream solicitations only; broader source quality still needs review.
     let decorated = decoded.chars().any(|c| {
         matches!(c as u32,
         0x1D400..=0x1D7FF | 0xFF21..=0xFF3A | 0xFF41..=0xFF5A)
-    }) || ["[+", "++>", "@!", "live@", "[here's way", "[heres way"]
-        .iter()
-        .any(|marker| normalized.contains(marker));
-    streaming && decorated
+    }) || [
+        "[+",
+        "++>",
+        "++[",
+        "@!",
+        "live@",
+        "play@",
+        "!$+",
+        "~$!",
+        "[[[",
+        "[here's way",
+        "[heres way",
+        "xd835_",
+    ]
+    .iter()
+    .any(|marker| normalized.contains(marker));
+    let words: Vec<_> = normalized
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .collect();
+    let mut phrases = std::collections::HashMap::new();
+    let stuffed = words.windows(7).any(|phrase| {
+        let count = phrases.entry(phrase).or_insert(0);
+        *count += 1;
+        *count >= 3
+    });
+    (streaming && decorated) || (compact.contains("footballlive") && stuffed)
 }
 
 #[cfg(test)]

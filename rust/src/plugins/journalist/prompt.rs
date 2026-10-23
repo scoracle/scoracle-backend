@@ -10,8 +10,9 @@ pub const TASK: &str = "Use only the supplied evidence. Do not fill in gaps. Do 
 
 pub const NARRATIVES_PROMPT_VERSION: &str = "n111-source-facts";
 pub const NUM_PREDICT: i32 = 900;
-pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v14-source-groups";
+pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v15-scoped-report-facts";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
+// Optional memory trimming only; the provider budgets complete fresh input in tokens.
 pub const SOURCE_BUDGET_BYTES: usize = 24000;
 
 #[derive(Clone, Debug)]

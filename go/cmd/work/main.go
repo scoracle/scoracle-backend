@@ -76,6 +76,7 @@ func main() {
 }
 
 func runStatus(ctx context.Context, pool *pgxpool.Pool) {
+	defer runCoverageFailures(ctx, pool)
 	counts, err := work.Counts(ctx, pool)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "status failed: %v\n", err)
@@ -110,6 +111,7 @@ func runRequeueStale(ctx context.Context, pool *pgxpool.Pool, lease time.Duratio
 // pipeline_work rows parked past the retry cap, and fixtures stuck at the
 // seed-retry cap so get_pending_fixtures no longer selects them.
 func runDeadLetters(ctx context.Context, pool *pgxpool.Pool, retryCap int) {
+	defer runCoverageFailures(ctx, pool)
 	// 1) pipeline_work dead-letters.
 	dls, err := work.DeadLetters(ctx, pool)
 	if err != nil {
@@ -171,6 +173,37 @@ func runDeadLetters(ctx context.Context, pool *pgxpool.Pool, retryCap int) {
 	} else {
 		_ = tw.Flush()
 	}
+}
+
+// Retain edition failures in the normal operator reports after their queue jobs disappear.
+func runCoverageFailures(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := pool.Query(ctx, `
+		SELECT edition_date::text,kind,stage,entity_type,entity_id,sport,
+		       COALESCE(attempts::text,'unknown'),error
+		FROM coverage_failures ORDER BY failed_at DESC,edition_date DESC,stage,entity_id LIMIT 100`)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "coverage failure report failed: %v\n", err)
+		os.Exit(1)
+	}
+	defer rows.Close()
+	fmt.Println("\n== terminal coverage failures (latest 100; full history in coverage_failures) ==")
+	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintln(tw, "EDITION\tKIND\tSTAGE\tENTITY\tSPORT\tATTEMPTS\tERROR")
+	for rows.Next() {
+		var edition, kind, stage, entityType, sport, attempts, cause string
+		var entityID int64
+		if err := rows.Scan(&edition, &kind, &stage, &entityType, &entityID, &sport, &attempts, &cause); err != nil {
+			fmt.Fprintf(os.Stderr, "scan coverage failure: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s/%d\t%s\t%s\t%s\n",
+			edition, kind, stage, entityType, entityID, sport, attempts, oneLine(cause, 120))
+	}
+	if err := rows.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "iterate coverage failures: %v\n", err)
+		os.Exit(1)
+	}
+	_ = tw.Flush()
 }
 
 // oneLine flattens an error/reason to a single bounded line for the table.

@@ -21,7 +21,7 @@ BEGIN
         '304_classifier_article_spectrum','305_classifier_identity_prefill',
         '306_pipeline_stage_progress','307_classifier_bounded_acquisition','308_retire_graph','309_continuous_coverage','310_daily_character_scope','311_daily_pipeline_recovery','312_classifier_subject_reader','313_classifier_headline_first','314_classifier_headline_corpus','315_headline_entity_pipeline',
         '318_coverage_freeze_set_based','319_nba_free_throw_measure',
-        '320_scout_availability_and_bounded_reconciliation','321_durable_qualified_editions'] LOOP
+        '320_scout_availability_and_bounded_reconciliation','321_durable_qualified_editions','323_bounded_headline_inputs','324_nonblocking_coverage_failures'] LOOP
         IF NOT EXISTS(SELECT 1 FROM public.schema_migrations m WHERE m.version=migration_version) THEN
             RAISE EXCEPTION 'Missing migration %; migrate before placing binaries',migration_version;
         END IF;
@@ -29,7 +29,9 @@ BEGIN
     IF to_regprocedure('public.classifier_enqueue_admission(bigint,text)') IS NULL
        OR to_regprocedure('public.classifier_replay_admission(integer)') IS NULL
        OR to_regprocedure('public.classifier_headline_subjects(bigint,text)') IS NULL
-       OR to_regprocedure('public.classifier_identity_candidates(text,text,text)') IS NULL THEN
+       OR to_regprocedure('public.classifier_identity_candidates(text,text,text)') IS NULL
+       OR to_regprocedure('public.coverage_select_headlines(bigint[],jsonb)') IS NULL
+       OR to_regprocedure('public.headline_entity_cap()') IS NULL THEN
         RAISE EXCEPTION 'Classifier headline intake functions missing';
     END IF;
     IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.classifier_spectrum_deliveries'::regclass
@@ -53,6 +55,9 @@ DO $$ BEGIN
         RAISE EXCEPTION 'Headline evidence readiness trigger missing or disabled';
     END IF;
 END $$;
+SELECT edition_date,kind,stage,entity_type,entity_id,sport,input_version,attempts,error,receipt,failed_at FROM coverage_failures LIMIT 0;
+SELECT entity_type,entity_id,sport,fetched_through,recheck_after FROM public.headline_fetch_watermarks LIMIT 0;
+SELECT public.headline_entity_cap();
 SELECT classifier_source_id FROM public.news_article_entities LIMIT 0;
 SELECT source_id FROM public.classifier_source_heads LIMIT 0;
 SELECT request_hash,receipt FROM public.classifier_spectra LIMIT 0;

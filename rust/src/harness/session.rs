@@ -168,6 +168,35 @@ mod surface_tests {
     }
 
     #[tokio::test]
+    async fn repeated_rejection_stops_after_the_existing_three_attempt_limit() {
+        let backend = Backend(Mutex::new(vec![
+            " ".into(),
+            " ".into(),
+            " ".into(),
+            "unused".into(),
+        ]));
+        let error = extract_with_backend(
+            &backend,
+            "Complete evidence",
+            &GenerateOptions::default(),
+            &BodyParser,
+            publishing_correction,
+        )
+        .await
+        .err()
+        .unwrap();
+        assert!(error.is::<SurfaceError>());
+        assert_eq!(backend.0.lock().unwrap().len(), 1);
+        let rejected = error
+            .downcast_ref::<super::super::model::RejectedReply>()
+            .unwrap();
+        assert_eq!(
+            rejected.built_prompt.matches("Output correction:").count(),
+            2
+        );
+    }
+
+    #[tokio::test]
     async fn a_rejected_complete_reply_retains_its_attempt_and_original_error_type() {
         let backend = Backend(Mutex::new(vec![" ".into(), "unused".into()]));
         let error = extract_with_backend(

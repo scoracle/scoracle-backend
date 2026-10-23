@@ -37,11 +37,8 @@ fn pack(subject: EntityMeta, day: Day, sources: Vec<SourceContext>) -> Result<Pa
         excluded: vec![],
     };
     let mut seen = std::collections::HashSet::new();
-    let mut bytes = 0;
     for source in sources {
         let key = crate::tools::fresh::evidence_key(&source.source, &source.context);
-        let size =
-            serde_json::to_vec(&crate::tools::fresh::reports(std::slice::from_ref(&source)))?.len();
         let reason = if source.published_at_epoch.is_none() {
             Some("unknown_publication_time")
         } else if source
@@ -58,15 +55,13 @@ fn pack(subject: EntityMeta, day: Day, sources: Vec<SourceContext>) -> Result<Pa
         } else if seen.contains(&key) {
             Some("known_copy")
         } else {
-            source_disposition(&source.context).or((bytes + size > SOURCE_BUDGET_BYTES)
-                .then_some("daily_package_exceeds_context_budget"))
+            source_disposition(&source.context)
         };
         if let Some(reason) = reason {
             parts.excluded.push(json!({"article_id":source.article_id,
                 "classification_id":source.classification_id,"in_day":true,"reason":reason}));
         } else {
             seen.insert(key);
-            bytes += size;
             parts.sources.push(source);
         }
     }
@@ -134,7 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn overflow_holds_one_daily_package_without_clipping_a_denial() {
+    fn large_daily_packages_keep_the_denial_for_exact_token_admission() {
         let source = |id, text: String| SourceContext {
             classification_id: id,
             article_id: id,
@@ -162,12 +157,13 @@ mod tests {
             ],
         )
         .unwrap();
-        assert_eq!(parts.sources.len(), 1);
-        assert_eq!(parts.excluded[0]["article_id"], 2);
-        assert_eq!(
-            parts.hold_reason(),
-            Some("daily_package_exceeds_context_budget")
-        );
+        assert_eq!(parts.sources.len(), 2);
+        assert!(parts.excluded.is_empty());
+        assert_eq!(parts.hold_reason(), None);
+        assert!(parts.assemble().len() > SOURCE_BUDGET_BYTES);
+        assert!(parts
+            .assemble()
+            .contains(&"The club denied that report. ".repeat(600)));
         assert!(!parts.assemble().contains("RELEVANT HISTORY"));
     }
 }
@@ -191,8 +187,6 @@ pub(super) fn evidence(parts: &Parts) -> Evidence<'_> {
 pub fn source_disposition(text: &str) -> Option<&'static str> {
     if text.trim().is_empty() {
         Some("empty_source")
-    } else if text.len() > SOURCE_BUDGET_BYTES {
-        Some("source_budget_exceeded")
     } else if crate::tools::source::is_headline_spam(text) {
         Some("livestream_spam")
     } else if crate::tools::source::contains_instruction_override(text) {

@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/albapepper/scoracle-data/internal/work"
@@ -27,15 +28,19 @@ import (
 // Constants
 // ---------------------------------------------------------------------------
 
-const (
-	newsRSSTimeout = 15 * time.Second
-	// Allow a small overlap around the cron boundary so a slightly late run does
-	// not miss items published just before the lookback boundary.
-	newsLookbackSlack = 15 * time.Minute
-)
+const newsRSSTimeout = 15 * time.Second
 
-// Both the Google query and client-side filter use this window; it must cover the ingest interval.
-const rssLookbackHours = 24
+type newsWindow struct {
+	since, through time.Time
+}
+
+func (w newsWindow) hours() int {
+	hours := int((w.through.Sub(w.since) + time.Hour - 1) / time.Hour)
+	if hours < 1 {
+		return 1
+	}
+	return hours
+}
 
 var errCollectionUnavailable = errors.New("coverage collection unavailable")
 
@@ -139,15 +144,30 @@ func (s *NewsService) GetEntityNews(
 	limit int,
 	aliases []string,
 ) ([]int64, Funnel, error) {
-	matched, funnel, err := s.fetchFromRSS(ctx, entityType, entityName, sport, limit, aliases)
+	through := time.Now()
+	window := newsWindow{since: through.Add(-24 * time.Hour), through: through}
+	if s.pool != nil && entityType != "" && entityID > 0 {
+		err := s.pool.QueryRow(ctx, `WITH clock AS (SELECT clock_timestamp() AS at)
+			SELECT COALESCE((SELECT fetched_through FROM headline_fetch_watermarks
+				WHERE entity_type=$1 AND entity_id=$2 AND sport=$3),
+				(SELECT max(started_at) FROM pipeline_runs WHERE job='pipeline' AND status='success'),
+				at-interval '24 hours'),at FROM clock`, entityType, entityID, strings.ToUpper(sport)).Scan(&window.since, &window.through)
+		if err != nil {
+			return nil, Funnel{}, fmt.Errorf("read RSS fetch progress: %w", err)
+		}
+	}
+	if window.since.After(window.through) {
+		return nil, Funnel{}, fmt.Errorf("RSS fetch progress is ahead of the database clock")
+	}
+	matched, funnel, err := s.fetchFromRSS(ctx, entityType, entityName, sport, limit, aliases, window)
 	if err != nil {
 		return nil, funnel, err
 	}
 
 	// Persist discovery and enqueue scoring in the same transaction.
 	var affected []int64
-	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
-		affected, err = s.persistArticles(ctx, sport, entityType, entityID, matched)
+	if s.pool != nil && entityType != "" && entityID > 0 {
+		affected, err = s.persistArticles(ctx, sport, entityType, entityID, matched, window, funnel.RSSErrors == 0 && funnel.LimitTruncated == 0)
 		if err != nil {
 			return nil, funnel, fmt.Errorf("persist RSS discovery: %w", err)
 		}
@@ -163,6 +183,8 @@ func (s *NewsService) persistArticles(
 	sport, primaryEntityType string,
 	primaryEntityID int,
 	articles []Article,
+	window newsWindow,
+	complete bool,
 ) ([]int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -217,20 +239,48 @@ func (s *NewsService) persistArticles(
 			}
 		}
 
-		var articleID int64
+		var articleID, queueID int64
 		err := tx.QueryRow(ctx, `
 			INSERT INTO news_articles (url_hash, url, source, title, description, published_at, feed_rank, raw)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT (url_hash) DO UPDATE SET
-			    title       = EXCLUDED.title,
+			    title       = CASE WHEN public.headline_content_key(news_articles.title)=public.headline_content_key(EXCLUDED.title)
+			        THEN news_articles.title ELSE EXCLUDED.title END,
+			    duplicate_of = CASE WHEN public.headline_content_key(news_articles.title)=public.headline_content_key(EXCLUDED.title)
+			        THEN news_articles.duplicate_of ELSE NULL END,
 			    description = EXCLUDED.description,
 			    source      = COALESCE(EXCLUDED.source, news_articles.source),
-			    published_at = COALESCE(EXCLUDED.published_at, news_articles.published_at),
+			    published_at = CASE WHEN public.headline_content_key(news_articles.title)=public.headline_content_key(EXCLUDED.title)
+			        AND news_articles.source IS NOT DISTINCT FROM EXCLUDED.source
+			        THEN COALESCE(news_articles.published_at, EXCLUDED.published_at)
+			        ELSE COALESCE(EXCLUDED.published_at, news_articles.published_at) END,
 			    feed_rank   = LEAST(COALESCE(news_articles.feed_rank, EXCLUDED.feed_rank), EXCLUDED.feed_rank)
-			RETURNING id
-		`, hash, a.URL, work.NullIfEmpty(a.Source), a.Title, work.NullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID)
+			RETURNING id,COALESCE(duplicate_of,id)
+		`, hash, a.URL, work.NullIfEmpty(a.Source), a.Title, work.NullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID, &queueID)
 		if err != nil {
 			return nil, fmt.Errorf("upsert article: %w", err)
+		}
+		if publishedAt != nil {
+			// shortcut: exact normalized reposts within 72 hours; changed wording remains new evidence.
+			var canonical int64
+			err := tx.QueryRow(ctx, `SELECT c.id FROM news_articles c
+				WHERE c.id<$1 AND c.duplicate_of IS NULL
+				AND public.headline_content_key(c.title)=public.headline_content_key($2)
+				AND length(public.headline_content_key(c.title))>=30
+				AND c.published_at BETWEEN $3::timestamptz-interval '72 hours' AND $3::timestamptz+interval '72 hours'
+				AND EXISTS(SELECT 1 FROM harvester_query_provenance p WHERE p.article_id=c.id
+					AND p.entity_type=$4 AND p.entity_id=$5 AND p.sport=$6)
+				ORDER BY c.id LIMIT 1 FOR UPDATE OF c NOWAIT`, articleID, a.Title, publishedAt,
+				primaryEntityType, primaryEntityID, sportUpper).Scan(&canonical)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return nil, fmt.Errorf("find repost: %w", err)
+			}
+			if err == nil {
+				queueID = canonical
+				if _, err := tx.Exec(ctx, "UPDATE news_articles SET duplicate_of=$2 WHERE id=$1", articleID, canonical); err != nil {
+					return nil, err
+				}
+			}
 		}
 		// Preserve every entity-query edge, including URLs another sweep first inserted.
 		// This is retrieval provenance, never an authoritative article/entity link.
@@ -241,7 +291,12 @@ func (s *NewsService) persistArticles(
 		if err != nil {
 			return nil, fmt.Errorf("encode harvester query: %w", err)
 		}
-		_, err = tx.Exec(ctx, `
+		provenanceIDs := []int64{articleID}
+		if queueID != articleID {
+			provenanceIDs = append(provenanceIDs, queueID)
+		}
+		for _, provenanceID := range provenanceIDs {
+			_, err = tx.Exec(ctx, `
 			INSERT INTO public.harvester_query_provenance
 			    (article_id, entity_type, entity_id, sport, feed_rank, query_terms)
 			VALUES ($1, $2, $3, $4, $5, jsonb_build_array($6::jsonb))
@@ -251,13 +306,14 @@ func (s *NewsService) persistArticles(
 			                       THEN harvester_query_provenance.query_terms
 			                       ELSE harvester_query_provenance.query_terms || EXCLUDED.query_terms END,
 			    last_seen_at = NOW()
-		`, articleID, primaryEntityType, primaryEntityID, sportUpper, a.FeedRank, hit)
-		if err != nil {
-			return nil, fmt.Errorf("upsert harvester query provenance: %w", err)
+		`, provenanceID, primaryEntityType, primaryEntityID, sportUpper, a.FeedRank, hit)
+			if err != nil {
+				return nil, fmt.Errorf("upsert harvester query provenance: %w", err)
+			}
 		}
-		if !seen[articleID] {
-			seen[articleID] = true
-			discovered = append(discovered, articleID)
+		if !seen[queueID] {
+			seen[queueID] = true
+			discovered = append(discovered, queueID)
 		}
 	}
 
@@ -269,6 +325,37 @@ func (s *NewsService) persistArticles(
 		}
 		if changed {
 			queued = append(queued, id)
+		}
+	}
+	if !window.through.IsZero() {
+		var recheckAfter *time.Time
+		err := tx.QueryRow(ctx, `SELECT recheck_after FROM headline_fetch_watermarks
+			WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 FOR UPDATE`,
+			primaryEntityType, primaryEntityID, sportUpper).Scan(&recheckAfter)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("read catch-up recheck: %w", err)
+		}
+		through := window.since
+		if complete {
+			switch {
+			case recheckAfter != nil && window.through.Before(*recheckAfter):
+				// An immediate manual retry cannot substitute for the next hourly recheck.
+			case recheckAfter != nil:
+				through, recheckAfter = window.through, nil
+			case window.through.Sub(window.since) > 2*time.Hour:
+				// Recheck long catch-ups after an hour for delayed Google indexing.
+				next := window.through.Add(time.Hour)
+				recheckAfter = &next
+			default:
+				through = window.through
+			}
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO headline_fetch_watermarks(entity_type,entity_id,sport,fetched_through,recheck_after)
+			VALUES($1,$2,$3,$4,$5) ON CONFLICT(entity_type,entity_id,sport) DO UPDATE
+			SET fetched_through=GREATEST(headline_fetch_watermarks.fetched_through,EXCLUDED.fetched_through),
+				recheck_after=EXCLUDED.recheck_after`,
+			primaryEntityType, primaryEntityID, sportUpper, through, recheckAfter); err != nil {
+			return nil, fmt.Errorf("save RSS fetch progress: %w", err)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -322,13 +409,13 @@ type rssItem struct {
 // survive the lookback filter. It records the raw item count and the window drop
 // into f — the window is the first place an article can vanish, and until now
 // the only trace of it was a smaller number downstream.
-func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int, edition rssEdition, f *Funnel) ([]Article, error) {
+func (s *NewsService) fetchRSS(ctx context.Context, query string, window newsWindow, edition rssEdition, f *Funnel) ([]Article, error) {
 	u, err := url.Parse(s.rssBaseURL)
 	if err != nil {
 		return nil, err
 	}
 	q := u.Query()
-	q.Set("q", fmt.Sprintf("%s when:%s", query, rssWhenToken(hoursBack)))
+	q.Set("q", fmt.Sprintf("%s when:%s", query, rssWhenToken(window.hours())))
 	q.Set("hl", edition.hl)
 	q.Set("gl", edition.gl)
 	q.Set("ceid", edition.ceid)
@@ -406,7 +493,7 @@ func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int,
 		})
 	}
 
-	kept := filterArticlesByLookback(articles, hoursBack, time.Now())
+	kept := filterArticlesByWindow(articles, window)
 	f.RSSItems += len(articles)
 	f.WindowDropped += len(articles) - len(kept)
 	return kept, nil
@@ -418,6 +505,7 @@ func (s *NewsService) fetchFromRSS(
 	entityName, sport string,
 	limit int,
 	aliases []string,
+	window newsWindow,
 ) ([]Article, Funnel, error) {
 	searchQueries := buildRSSSearchQueries(entityName, sport, aliases)
 	editions := rssEditionsForEntity(entityType, sport)
@@ -429,13 +517,7 @@ func (s *NewsService) fetchFromRSS(
 		QueriesPlanned:  len(editions) * len(searchQueries),
 	}
 
-	// EVERY lane runs, every time. The `-rss-limit` cap used to end the query plan early, and a
-	// hand-rolled exemption (`runRSSQueryPastLimit`) existed on top of it to guarantee team lanes
-	// survived the cap — an exemption that only made sense while alias lanes were RANKED and the
-	// good ones needed protecting. With every name asked equally there is nothing to protect and
-	// nothing to rank: the plan is small (1.8–2.0 aliases per team on average, 7 at the outlier)
-	// and the cap belongs on the RESULTS, where `limitRSSArticles` applies it after Google's own
-	// feed rank has decided which articles are the best ones to keep (PLAN-one-rail 8.9).
+	// Run every alias lane before any explicitly requested acquisition limit.
 	for _, edition := range editions {
 		f.EditionsQueried++
 		for queryIdx, query := range searchQueries {
@@ -444,13 +526,13 @@ func (s *NewsService) fetchFromRSS(
 				return nil, f, err
 			}
 			f.RSSCalls++
-			articles, err := s.fetchRSS(ctx, query, rssLookbackHours, edition, &f)
+			articles, err := s.fetchRSS(ctx, query, window, edition, &f)
 			if err != nil {
 				f.RSSErrors++
 				if errors.Is(err, errCollectionUnavailable) {
 					return nil, f, err
 				}
-				s.logger.Warn("RSS fetch error", "edition", edition.name, "window_hours", rssLookbackHours, "error", err)
+				s.logger.Warn("RSS fetch error", "edition", edition.name, "window_hours", window.hours(), "error", err)
 				continue
 			}
 
@@ -465,7 +547,7 @@ func (s *NewsService) fetchFromRSS(
 				articles[i].queryTerm = query
 				articles[i].queryLane = lane
 				articles[i].queryEdition = edition.ceid
-				articles[i].queryWindow = rssWhenToken(rssLookbackHours)
+				articles[i].queryWindow = rssWhenToken(window.hours())
 			}
 
 			// The decision model determines subject relevance downstream.
@@ -546,28 +628,22 @@ func formatRSSQueryTerm(term string) string {
 
 func rssWhenToken(hoursBack int) string {
 	// Google News RSS accepts when:Nh / Nd / Ny. Use hours directly when
-	// under a day so the six-hour cron searches only the matching lookback.
+	// under a day and round longer gaps up; the exact cursor window filters results.
 	switch {
 	case hoursBack <= 0:
 		return "1d"
 	case hoursBack < 24:
 		return fmt.Sprintf("%dh", hoursBack)
-	case hoursBack <= 168:
-		return fmt.Sprintf("%dd", (hoursBack+23)/24)
 	default:
-		return "30d"
+		return fmt.Sprintf("%dd", (hoursBack+23)/24)
 	}
 }
 
-func filterArticlesByLookback(articles []Article, hoursBack int, now time.Time) []Article {
-	if hoursBack <= 0 || now.IsZero() {
-		return articles
-	}
-	cutoff := now.Add(-time.Duration(hoursBack)*time.Hour - newsLookbackSlack)
+func filterArticlesByWindow(articles []Article, window newsWindow) []Article {
 	out := make([]Article, 0, len(articles))
 	for _, a := range articles {
 		published := parseArticleDate(a.PublishedAt)
-		if published.IsZero() || !published.Before(cutoff) {
+		if !published.IsZero() && !published.Before(window.since) && !published.After(window.through) {
 			out = append(out, a)
 		}
 	}

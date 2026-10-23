@@ -276,6 +276,39 @@ mod tests {
 mod context_tests {
     use super::*;
     #[test]
+    fn complete_input_and_output_reservation_share_the_effective_token_window() {
+        let prompt = "headline evidence ".repeat(2000);
+        assert!(prompt.len() > 24000);
+        let options = GenerateOptions {
+            system: Some("Preserve denials and attribution.".into()),
+            num_ctx: 10000,
+            num_predict: 2100,
+            ..Default::default()
+        };
+        let mut prepared = PreparedRequest {
+            request: serde_json::json!({"n_predict":2100}),
+            coverage: Some(InputCoverage {
+                rendered_prompt: format!("{}\n{prompt}", options.system.as_ref().unwrap()),
+                token_ids: vec![1; 7900],
+                context: 10240,
+                provider: serde_json::Value::Null,
+            }),
+        };
+        assert!(prepared.verify_input(&prompt, &options).is_ok());
+        prepared.coverage.as_mut().unwrap().token_ids.push(1);
+        assert!(prepared
+            .verify_input(&prompt, &options)
+            .unwrap_err()
+            .is::<ContextExceeded>());
+        prepared.coverage.as_mut().unwrap().token_ids.pop();
+        prepared.coverage.as_mut().unwrap().context = 9999;
+        assert!(prepared
+            .verify_input(&prompt, &options)
+            .unwrap_err()
+            .is::<ContextExceeded>());
+    }
+
+    #[test]
     fn exact_token_overflow_is_a_distinct_permanent_admission_result() {
         let options = GenerateOptions {
             num_ctx: 7900,

@@ -251,3 +251,53 @@ func TestEnqueueNewVersionWhileRunningReopens(t *testing.T) {
 		t.Fatalf("new revision must clear old claim, got version=%q token=%v", runningVersion, hasToken)
 	}
 }
+
+func TestRepeatedOfferPreservesRetryBudgetAndChangedInputReopens(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+	if err := Enqueue(ctx, pool, item(StageRating, 60, "v1")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE pipeline_work SET status='failed',attempts=5,
+		last_error='model unavailable',available_at=now()+interval '100 years'
+		WHERE sport=$1 AND entity_id=60`, testSport); err != nil {
+		t.Fatal(err)
+	}
+	if err := Enqueue(ctx, pool, item(StageRating, 60, "v1")); err != nil {
+		t.Fatal(err)
+	}
+	var attempts int
+	if err := pool.QueryRow(ctx, `SELECT attempts FROM pipeline_work WHERE sport=$1 AND entity_id=60`, testSport).Scan(&attempts); err != nil || attempts != 5 {
+		t.Fatalf("duplicate offer reset retry budget: attempts=%d error=%v", attempts, err)
+	}
+	if err := Enqueue(ctx, pool, item(StageRating, 60, "v2")); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT attempts FROM pipeline_work WHERE sport=$1 AND entity_id=60`, testSport).Scan(&attempts); err != nil || attempts != 0 {
+		t.Fatalf("changed input did not reopen: attempts=%d error=%v", attempts, err)
+	}
+}
+
+func TestRepeatedWorkerCrashesExhaustTheBudget(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+	if err := Enqueue(ctx, pool, item(StageRating, 61, "v1")); err != nil {
+		t.Fatal(err)
+	}
+	for attempt := 1; attempt <= 5; attempt++ {
+		markRunning(t, pool, StageRating, 61, "3600")
+		if recovered, err := RequeueStale(ctx, pool, time.Minute); err != nil || recovered != 1 {
+			t.Fatalf("recovery attempt %d: count=%d error=%v", attempt, recovered, err)
+		}
+	}
+	letters, err := DeadLetters(ctx, pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range letters {
+		if row.Sport == testSport && row.EntityID == 61 && row.Attempts == 5 {
+			return
+		}
+	}
+	t.Fatal("crashed job did not become a visible dead letter after five executions")
+}

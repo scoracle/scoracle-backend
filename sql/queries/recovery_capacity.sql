@@ -25,6 +25,11 @@ SELECT stage,edition_date,count(*) product_rows FROM (
 ) products WHERE edition_date>=current_date-14 GROUP BY stage,edition_date ORDER BY edition_date,stage;
 SELECT edition_date,count(*) handoffs,max(attempts) worst_attempts,max(now()-created_at) oldest_age
 FROM application_outbox GROUP BY edition_date;
+SELECT edition_date,kind,stage,count(*) failures,max(failed_at) latest_failure
+FROM coverage_failures WHERE edition_date>=current_date-14
+GROUP BY edition_date,kind,stage ORDER BY edition_date DESC,kind,stage;
+SELECT edition_date,kind,stage,entity_type,entity_id,sport,input_version,attempts,error,failed_at
+FROM coverage_failures ORDER BY failed_at DESC LIMIT 50;
 SELECT stage,input_hash,model_version,prompt_version,count(*) recorded_generations,
  sum((context_budget->>'eval_count')::bigint) output_tokens,
  sum((context_budget->>'wall_ms')::numeric)/1000 recorded_call_seconds

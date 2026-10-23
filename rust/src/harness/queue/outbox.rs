@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use sqlx::{Postgres, Row, Transaction};
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use tracing::warn;
+use tracing::{error, warn};
 
 pub(crate) struct NewEvent<'a> {
     pub(crate) kind: &'static str,
@@ -199,15 +199,20 @@ pub async fn drain(
                 .await
                 .context("back off application outbox event")?;
                 tx.commit().await.context("commit outbox backoff")?;
-                warn!(
-                    error = %format!("{error:#}"),
-                    entity_type = %event.entity_type,
-                    entity_id = event.entity_id,
-                    sport = %event.sport,
-                    backoff_secs = backoff.as_secs(),
-                    kind = %event.kind,
-                    "application completion reconciliation failed; durable retry scheduled"
-                );
+                if event.attempts + 1 >= 5 {
+                    error!(error=%format!("{error:#}"), kind=%event.kind, entity_id=event.entity_id,
+                        sport=%event.sport, "handoff retry budget exhausted; failure retained for reporting");
+                } else {
+                    warn!(
+                        error = %format!("{error:#}"),
+                        entity_type = %event.entity_type,
+                        entity_id = event.entity_id,
+                        sport = %event.sport,
+                        backoff_secs = backoff.as_secs(),
+                        kind = %event.kind,
+                        "application completion reconciliation failed; durable retry scheduled"
+                    );
+                }
             }
         }
     }

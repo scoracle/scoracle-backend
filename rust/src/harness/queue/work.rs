@@ -291,6 +291,7 @@ pub async fn claim_with_policy(
                     AND handoff.entity_id = pipeline_work.entity_id
                     AND handoff.sport = pipeline_work.sport
                     AND (CASE WHEN coverage_is_character($1) THEN handoff.source_stage = ANY(coverage_dependencies($1)) ELSE handoff.kind = ANY($4) END)
+                    AND handoff.attempts < 5
                     AND (NOT (SELECT enabled FROM public.coverage_schedule)
                          OR handoff.edition_date=(SELECT edition_date FROM public.coverage_schedule))
               )
@@ -447,22 +448,25 @@ pub async fn release(pool: &PgPool, it: &Item) -> Result<bool> {
 }
 
 /// requeue_stale flips 'running' rows whose lease has expired (updated_at older
-/// than `lease`) back to 'pending', recovering work abandoned by a crashed
-/// worker. Returns the number of rows recovered.
+/// than `lease`) back to pending, counting the abandoned execution against the
+/// retry budget. The final abandoned execution becomes a dead letter.
 pub async fn requeue_stale(pool: &PgPool, lease: Duration) -> Result<u64> {
     let res = sqlx::query(
         r#"
         UPDATE pipeline_work
-           SET status = 'pending',
+           SET status = CASE WHEN attempts+1 >= $2 THEN 'failed' ELSE 'pending' END,
+               attempts = attempts+1,
+               last_error = 'worker lease expired before completion',
                running_input_version = NULL,
                claim_token = NULL,
                updated_at = NOW(),
-               available_at = NOW()
+               available_at = CASE WHEN attempts+1 >= $2 THEN NOW()+INTERVAL '100 years' ELSE NOW() END
          WHERE status = 'running'
            AND updated_at < NOW() - make_interval(secs => $1)
         "#,
     )
     .bind(lease.as_secs_f64())
+    .bind(MAX_ATTEMPTS)
     .execute(pool)
     .await
     .context("requeue stale")?;
@@ -471,8 +475,7 @@ pub async fn requeue_stale(pool: &PgPool, lease: Duration) -> Result<u64> {
 
 /// enqueue records that (stage, entity, sport) needs work. Idempotent and safe
 /// for downstream hand-offs (e.g. vibe → sigil). Conflict policy mirrors Go: a
-/// row is REOPENED to 'pending' only when its input_version changed or it was
-/// 'failed'; an unchanged pending/running row is left untouched.
+/// row is reopened only when input_version changes; repeated offers preserve retries.
 pub async fn enqueue<'e>(
     pool: impl sqlx::Executor<'e, Database = Postgres>,
     it: &Item,
@@ -497,7 +500,6 @@ pub async fn enqueue<'e>(
             running_input_version = NULL,
             claim_token = NULL
         WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
-           OR pipeline_work.status = 'failed'
         "#,
     )
     .bind(it.stage.as_str())
@@ -799,6 +801,56 @@ mod postgres_claim_fencing_tests {
         let oracle = one_claim(&first, crate::plugins::oracle::manifest::TASK).await;
         assert!(complete(&first, &oracle).await.unwrap());
         clean(&first, sport).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+    async fn crashed_claims_consume_retries_and_duplicate_offers_cannot_reset_them() {
+        let pool = pool().await;
+        let sport = "ZZ_CRASH_BUDGET";
+        clean(&pool, sport).await;
+        let offered = pending(TaskKey::new("test_article"), 9_100_001, sport, "v1");
+        enqueue(&pool, &offered).await.unwrap();
+        for attempt in 1..=MAX_ATTEMPTS {
+            let current = one_claim(&pool, TaskKey::new("test_article")).await;
+            assert_eq!(current.attempts, attempt - 1);
+            sqlx::query(
+                "UPDATE pipeline_work SET updated_at=now()-interval '1 hour' WHERE sport=$1",
+            )
+            .bind(sport)
+            .execute(&pool)
+            .await
+            .unwrap();
+            assert_eq!(
+                requeue_stale(&pool, Duration::from_secs(60)).await.unwrap(),
+                1
+            );
+            enqueue(&pool, &offered).await.unwrap();
+        }
+        assert!(claim(&pool, TaskKey::new("test_article"), 1)
+            .await
+            .unwrap()
+            .is_empty());
+        let state: (String, i32) =
+            sqlx::query_as("SELECT status,attempts FROM pipeline_work WHERE sport=$1")
+                .bind(sport)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(state, ("failed".into(), 5));
+        enqueue(
+            &pool,
+            &pending(TaskKey::new("test_article"), 9_100_001, sport, "v2"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            one_claim(&pool, TaskKey::new("test_article"))
+                .await
+                .attempts,
+            0
+        );
+        clean(&pool, sport).await;
     }
 
     #[tokio::test]

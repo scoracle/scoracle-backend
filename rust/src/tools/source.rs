@@ -83,6 +83,7 @@ pub fn is_headline_spam(headline: &str) -> bool {
     ]
     .iter()
     .any(|marker| normalized.contains(marker));
+    let decorated = decorated || (normalized.contains('✪') && normalized.contains('◇'));
     let words: Vec<_> = normalized
         .split(|c: char| !c.is_alphanumeric())
         .filter(|w| !w.is_empty())

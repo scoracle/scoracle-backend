@@ -2778,6 +2778,7 @@ BEGIN
                 JOIN classifier_spectrum_deliveries receipt ON receipt.spectrum_id=previous.id
                 WHERE previous.sport=e.sport AND previous.target->>'entity_type'=e.target->>'entity_type'
                     AND previous.target->>'entity_id'=e.target->>'entity_id'
+                    AND md5(public.headline_content_key(previous.clean_text))=md5(e.content_key)
                     AND public.headline_content_key(previous.clean_text)=e.content_key
                     AND receipt.character=e.character AND receipt.status IN ('used','abstained')
                     AND receipt.reason IS DISTINCT FROM 'ranked_below_entity_cap'
@@ -13897,7 +13898,7 @@ CREATE INDEX classifier_spectra_headline_archive ON public.classifier_spectra US
 -- Name: classifier_spectra_reviewed_headline; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX classifier_spectra_reviewed_headline ON public.classifier_spectra USING btree (sport, ((target ->> 'entity_type'::text)), ((target ->> 'entity_id'::text)), public.headline_content_key(clean_text));
+CREATE INDEX classifier_spectra_reviewed_headline ON public.classifier_spectra USING btree (sport, ((target ->> 'entity_type'::text)), ((target ->> 'entity_id'::text)), md5(public.headline_content_key(clean_text)));
 
 
 --
@@ -15059,7 +15060,7 @@ CREATE INDEX insider_scores_entity_latest ON public.insider_scores USING btree (
 -- Name: news_articles_headline_content; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX news_articles_headline_content ON public.news_articles USING btree (public.headline_content_key(title), id) WHERE (duplicate_of IS NULL);
+CREATE INDEX news_articles_headline_content ON public.news_articles USING btree (md5(public.headline_content_key(title)), id) WHERE (duplicate_of IS NULL);
 
 
 --

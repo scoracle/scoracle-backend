@@ -57,6 +57,7 @@ pub async fn load_on(
                         AND previous.target->>'entity_id'=$2::text AND receipt.character=$6
                         AND receipt.status IN ('used','abstained')
                         AND receipt.reason IS DISTINCT FROM 'ranked_below_entity_cap'
+                        AND md5(public.headline_content_key(previous.clean_text))=md5(public.headline_content_key(source->>'title'))
                         AND public.headline_content_key(previous.clean_text)=public.headline_content_key(source->>'title'))
                 AND NOT EXISTS(SELECT 1 FROM classifier_spectra current
                     WHERE current.article_id=ANY($5) AND current.sport=$3

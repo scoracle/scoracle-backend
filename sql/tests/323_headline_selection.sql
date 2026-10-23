@@ -77,4 +77,14 @@ DO $$ DECLARE role text; criterion text; BEGIN
        OR headline_content_key('Cedar denies talks')=headline_content_key('Cedar confirms talks') THEN
         RAISE EXCEPTION 'Fingerprint erased a factual difference'; END IF;
 END $$;
+-- Legacy archives can contain long full text; fixed-size index keys must preserve it.
+DO $$ DECLARE archived text; BEGIN
+    SELECT string_agg(md5(i::text),' ' ORDER BY i) INTO archived FROM generate_series(1,10000) i;
+    UPDATE news_articles SET title=archived WHERE id=925100;
+    UPDATE classifier_spectra SET clean_text=archived,clean_sha256=md5(archived),
+        receipt=jsonb_set(receipt,'{request,state,article,headline}',to_jsonb(archived)) WHERE article_id=925100;
+    IF (SELECT min(octet_length(clean_text)) FROM classifier_spectra WHERE article_id=925100)<300000 THEN
+        RAISE EXCEPTION 'Archived long text was lost';
+    END IF;
+END $$;
 ROLLBACK;

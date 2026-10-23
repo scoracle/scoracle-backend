@@ -17,7 +17,8 @@
 \endif
 BEGIN;
 SET LOCAL lock_timeout='3s';
-SET LOCAL statement_timeout='180s';
+-- One-time currency validation can span thousands of archived sources; writers are paused.
+SET LOCAL statement_timeout='600s';
 SELECT pg_advisory_xact_lock(1935896421,1);
 CREATE TEMP TABLE recovery_scope ON COMMIT DROP AS
 SELECT * FROM jsonb_to_recordset(:'assignment_scope'::jsonb)

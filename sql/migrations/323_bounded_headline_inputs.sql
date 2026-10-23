@@ -15,12 +15,13 @@ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $$
     SELECT lower(btrim(regexp_replace(translate(normalize(headline,NFKC),
         '‘’“”–—','''''""--'), '[[:space:]]+', ' ', 'g')))
 $$;
+-- Hash only the index key: archived text can exceed a B-tree entry; lookups also compare full text.
 CREATE INDEX news_articles_headline_content ON public.news_articles
-    (public.headline_content_key(title),id) WHERE duplicate_of IS NULL;
+    (md5(public.headline_content_key(title)),id) WHERE duplicate_of IS NULL;
 CREATE INDEX classifier_measurement_request_reuse ON public.classifier_measurements
     (sport,request_hash,id DESC) WHERE status='source_bound_provisional';
 CREATE INDEX classifier_spectra_reviewed_headline ON public.classifier_spectra
-    (sport,(target->>'entity_type'),(target->>'entity_id'),public.headline_content_key(clean_text));
+    (sport,(target->>'entity_type'),(target->>'entity_id'),md5(public.headline_content_key(clean_text)));
 
 CREATE FUNCTION public.headline_entity_cap() RETURNS integer
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT 40 $$;
@@ -60,6 +61,7 @@ BEGIN
                 JOIN classifier_spectrum_deliveries receipt ON receipt.spectrum_id=previous.id
                 WHERE previous.sport=e.sport AND previous.target->>'entity_type'=e.target->>'entity_type'
                     AND previous.target->>'entity_id'=e.target->>'entity_id'
+                    AND md5(public.headline_content_key(previous.clean_text))=md5(e.content_key)
                     AND public.headline_content_key(previous.clean_text)=e.content_key
                     AND receipt.character=e.character AND receipt.status IN ('used','abstained')
                     AND receipt.reason IS DISTINCT FROM 'ranked_below_entity_cap'

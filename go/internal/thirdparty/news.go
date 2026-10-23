@@ -265,6 +265,7 @@ func (s *NewsService) persistArticles(
 			var canonical int64
 			err := tx.QueryRow(ctx, `SELECT c.id FROM news_articles c
 				WHERE c.id<$1 AND c.duplicate_of IS NULL
+				AND md5(public.headline_content_key(c.title))=md5(public.headline_content_key($2))
 				AND public.headline_content_key(c.title)=public.headline_content_key($2)
 				AND length(public.headline_content_key(c.title))>=30
 				AND c.published_at BETWEEN $3::timestamptz-interval '72 hours' AND $3::timestamptz+interval '72 hours'

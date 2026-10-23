@@ -1,10 +1,12 @@
 """Preview/apply/fencing contracts; run only on an isolated TEST_DATABASE_URL."""
 import json
 import os
+import sys
 from pathlib import Path
 import subprocess
 import tempfile
 
+BACKLOG = '--backlog' in sys.argv
 DATABASE = os.environ['TEST_DATABASE_URL']
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -48,20 +50,32 @@ try:
         assert (result.returncode == 0) == succeeds, result.stdout + result.stderr
         return result
 
-    sql("UPDATE classifier_sources SET discovery_version='stale' WHERE sport='ZZ_SELECTION'")
-    result = run(succeeds=False)
-    assert 'stale or unresolved' in result.stderr, result.stdout + result.stderr
-    sql("UPDATE classifier_sources SET discovery_version=classifier_discovery_version(article_id,sport) WHERE sport='ZZ_SELECTION'")
-    sql("UPDATE classifier_spectrum_deliveries SET reason='unresolved_target_identity' WHERE spectrum_id=" + spam_id + " AND character='journalist'")
-    assert 'separate reconciliation' in run(succeeds=False).stderr
-    sql("UPDATE classifier_spectrum_deliveries SET reason='daily_package_exceeds_context_budget' WHERE spectrum_id=" + spam_id + " AND character='journalist'")
-    sql("UPDATE pipeline_work SET status='running',claim_token='00000000-0000-0000-0000-000000000123' WHERE sport='ZZ_SELECTION' AND stage='narratives'")
-    assert 'drain before recovery' in run(succeeds=False).stderr
-    sql("UPDATE pipeline_work SET status='failed',claim_token=NULL WHERE sport='ZZ_SELECTION' AND stage='narratives'")
-    assert 'Unknown assignment key' in run('-v', 'assignment_scope=' + scope.replace('925001', '925002'), succeeds=False).stderr
+    if not BACKLOG:
+        sql("UPDATE classifier_sources SET discovery_version='stale' WHERE sport='ZZ_SELECTION'")
+        result = run(succeeds=False)
+        assert 'stale or unresolved' in result.stderr, result.stdout + result.stderr
+        sql("UPDATE classifier_sources SET discovery_version=classifier_discovery_version(article_id,sport) WHERE sport='ZZ_SELECTION'")
+        sql("UPDATE classifier_spectrum_deliveries SET reason='unresolved_target_identity' WHERE spectrum_id=" + spam_id + " AND character='journalist'")
+        assert 'separate reconciliation' in run(succeeds=False).stderr
+        sql("UPDATE classifier_spectrum_deliveries SET reason='daily_package_exceeds_context_budget' WHERE spectrum_id=" + spam_id + " AND character='journalist'")
+        sql("UPDATE pipeline_work SET status='running',claim_token='00000000-0000-0000-0000-000000000123' WHERE sport='ZZ_SELECTION' AND stage='narratives'")
+        assert 'drain before recovery' in run(succeeds=False).stderr
+        sql("UPDATE pipeline_work SET status='failed',claim_token=NULL WHERE sport='ZZ_SELECTION' AND stage='narratives'")
+        assert 'Unknown assignment key' in run('-v', 'assignment_scope=' + scope.replace('925001', '925002'), succeeds=False).stderr
     sql("DELETE FROM pipeline_work WHERE sport='ZZ_SELECTION' AND stage='narratives'")
+    if BACKLOG:
+        command += ['-v','backlog=true']
+        sql("""UPDATE classifier_sources SET discovery_version='stale' WHERE article_id=925153;
+        UPDATE classifier_sources SET source=jsonb_set(source,'{identity_candidates}','[]') WHERE article_id=925154;
+        UPDATE classifier_spectrum_deliveries d SET status='pending',reason=NULL FROM classifier_spectra x
+          WHERE x.id=d.spectrum_id AND x.sport='ZZ_SELECTION' AND x.article_id>=925130 AND d.character='journalist';
+        UPDATE classifier_spectrum_deliveries d SET status='held',reason='model_reply_rejected' FROM classifier_spectra x
+          WHERE x.id=d.spectrum_id AND x.article_id=925152 AND d.character='journalist';""")
+    deferred = sql("SELECT deferred_versions::text FROM coverage_assignments WHERE sport='ZZ_SELECTION' AND stage='narratives'")
+    before = sql("SELECT jsonb_agg(to_jsonb(d) ORDER BY spectrum_id) FROM classifier_spectrum_deliveries d WHERE character='journalist'")
     run()
-    assert sql("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport='ZZ_SELECTION' AND d.character='journalist' AND d.status='held'") == '55', 'preview mutated deliveries'
+    assert sql("SELECT jsonb_agg(to_jsonb(d) ORDER BY spectrum_id) FROM classifier_spectrum_deliveries d WHERE character='journalist'") == before, 'preview mutated deliveries'
+    assert BACKLOG or sql("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport='ZZ_SELECTION' AND d.character='journalist' AND d.status='held'") == '55', 'preview mutated deliveries'
     with tempfile.TemporaryDirectory() as directory:
         backup = Path(directory) / 'before.jsonl'
         run('-v', 'apply=true', '-v', 'backup_file=' + str(backup))
@@ -76,10 +90,16 @@ try:
         assert sql("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport='ZZ_SELECTION' AND d.character='journalist' AND d.status='pending'") == '40'
         assert sql("SELECT count(*) FROM classifier_spectrum_deliveries WHERE spectrum_id=" + spam_id + " AND character='journalist' AND reason='livestream_spam'") == '1'
         assert sql("SELECT jsonb_agg(to_jsonb(d) ORDER BY spectrum_id,character) FROM classifier_spectrum_deliveries d WHERE character<>'journalist'") == untouched, 'recovery modified another character'
+        assert sql("SELECT deferred_versions::text FROM coverage_assignments WHERE sport='ZZ_SELECTION' AND stage='narratives'") == deferred
+        if BACKLOG:
+            assert sql("SELECT count(*) FROM classifier_spectrum_deliveries WHERE reason='model_reply_rejected'") == '1'
+            assert sql("SELECT count(*) FROM classifier_spectrum_deliveries WHERE reason='stale_frozen_source'") == '1'
+            assert sql("SELECT count(*) FROM classifier_spectrum_deliveries WHERE reason='unresolved_target_identity'") == '1'
+            sql("UPDATE coverage_assignments SET input_version='unchanged' WHERE sport='ZZ_SELECTION' AND stage='narratives'; UPDATE pipeline_work SET input_version='unchanged' WHERE sport='ZZ_SELECTION' AND stage='narratives'")
         sql("UPDATE pipeline_work SET attempts=2 WHERE sport='ZZ_SELECTION' AND stage='narratives'")
         run('-v', 'apply=true', '-v', 'backup_file=' + str(Path(directory) / 'repeat.jsonl'))
         assert sql("SELECT attempts FROM pipeline_work WHERE sport='ZZ_SELECTION' AND stage='narratives'") == '2', 'repeated recovery reset attempts'
-    print('Scoped recovery: preview rollback, backups, strongest-40 selection, spam, unchanged other characters, stale/identity/claim fencing and repeat no-op passed')
+    print(('Backlog' if BACKLOG else 'Scoped')+' recovery: preview rollback, backups, strongest-40 selection, spam, unchanged other characters, stale/identity/claim fencing and repeat no-op passed')
 finally:
     sql("""
     SET session_replication_role=replica;

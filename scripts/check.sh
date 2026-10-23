@@ -49,6 +49,7 @@ psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/323_headline_select
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/324_terminal_failures.sql
 
 python3 scripts/ops/test_headline_budget_recovery.py
+python3 scripts/ops/test_headline_budget_recovery.py --backlog
 
 export SCORACLE_MEMORY_STUDY_BIN="$SCRATCH/scoracle-memory-study"
 (

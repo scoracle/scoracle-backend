@@ -46,6 +46,11 @@ CREATE TEMP TABLE recovery_assignments ON COMMIT DROP AS
 SELECT a.* FROM coverage_assignments a JOIN recovery_scope k USING(stage,entity_type,entity_id,sport)
 JOIN recovery_parameters p USING(edition_date)
 WHERE (SELECT backlog FROM recovery_parameters) OR a.input_version IS NULL OR a.input_version NOT LIKE 'headline-policy-v2:%';
+CREATE TEMP TABLE recovery_ids ON COMMIT DROP AS
+SELECT DISTINCT unnest(spectrum_ids) spectrum_id FROM recovery_assignments;
+ALTER TABLE recovery_ids ADD PRIMARY KEY(spectrum_id);
+ANALYZE recovery_assignments;
+ANALYZE recovery_ids;
 DO $$ BEGIN
     IF EXISTS(SELECT 1 FROM recovery_assignments a LEFT JOIN pipeline_work w
         USING(stage,entity_type,entity_id,sport)
@@ -101,14 +106,15 @@ SELECT sport,count(*) assignments,sum(cardinality(spectrum_ids)) frozen FROM rec
     JOIN recovery_assignments a USING(stage,entity_type,entity_id,sport)
   UNION ALL SELECT jsonb_build_object('table','classifier_spectrum_deliveries','row',to_jsonb(d))
     FROM classifier_spectrum_deliveries d WHERE d.character='journalist'
-        AND EXISTS(SELECT 1 FROM recovery_assignments a WHERE d.spectrum_id=ANY(a.spectrum_ids));
+        AND d.spectrum_id IN (SELECT spectrum_id FROM recovery_ids);
   \o
   \pset tuples_only off
   \pset format aligned
 \endif
 CREATE TEMP TABLE recovery_deliveries ON COMMIT DROP AS
 SELECT d.* FROM classifier_spectrum_deliveries d WHERE d.character='journalist'
-    AND EXISTS(SELECT 1 FROM recovery_assignments a WHERE d.spectrum_id=ANY(a.spectrum_ids));
+    AND d.spectrum_id IN (SELECT spectrum_id FROM recovery_ids);
+ALTER TABLE recovery_deliveries ADD PRIMARY KEY(spectrum_id,character);
 \if :backlog
 CREATE TEMP TABLE recovery_current ON COMMIT DROP AS
 WITH sources AS MATERIALIZED (
@@ -134,15 +140,15 @@ WHERE d.spectrum_id=x.id AND d.character='journalist' AND
 UPDATE classifier_spectrum_deliveries d SET status='pending',reason=NULL,updated_at=clock_timestamp(),
     product_ref=jsonb_build_object('recovery_policy','headline-policy-v2','previous_delivery',to_jsonb(d))
 WHERE d.character='journalist' AND d.status='held' AND d.reason IN
-    ('daily_package_exceeds_context_budget','complete_report_exceeds_context_budget','daily_package_exceeds_token_budget') AND EXISTS(
-    SELECT 1 FROM recovery_assignments a WHERE d.spectrum_id=ANY(a.spectrum_ids));
+    ('daily_package_exceeds_context_budget','complete_report_exceeds_context_budget','daily_package_exceeds_token_budget') AND d.spectrum_id IN (SELECT spectrum_id FROM recovery_ids);
 SELECT public.coverage_select_headlines(p.spam_spectra,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('stage',stage,'entity_type',entity_type,'entity_id',entity_id,'sport',sport))
         FROM recovery_assignments),'[]'::jsonb)) AS excluded_without_model_call FROM recovery_parameters p;
 CREATE TEMP TABLE recovery_changes ON COMMIT DROP AS
 SELECT a.* FROM recovery_assignments a WHERE EXISTS(
-    SELECT 1 FROM recovery_deliveries before JOIN classifier_spectrum_deliveries d USING(spectrum_id,character)
-    WHERE d.spectrum_id=ANY(a.spectrum_ids) AND (d.status IS DISTINCT FROM before.status OR d.reason IS DISTINCT FROM before.reason));
+    SELECT 1 FROM unnest(a.spectrum_ids) f(id) JOIN recovery_deliveries before ON before.spectrum_id=f.id
+    JOIN classifier_spectrum_deliveries d USING(spectrum_id,character)
+    WHERE d.status IS DISTINCT FROM before.status OR d.reason IS DISTINCT FROM before.reason);
 UPDATE coverage_assignments a SET outcome='pending',resolution=NULL,finished_at=NULL,
     detail='headline backlog recovery: headline-selection-v2',deferred_versions=r.deferred_versions,
     input_version='headline-policy-v2:'||COALESCE(a.input_version,'')
@@ -166,7 +172,7 @@ WHERE NOT EXISTS(SELECT 1 FROM pipeline_work w WHERE w.stage=a.stage AND w.entit
 UPDATE coverage_schedule SET enabled=true;
 SELECT count(*) AS changed_packets FROM recovery_changes;
 SELECT d.status,d.reason,count(*) FROM classifier_spectrum_deliveries d
-WHERE d.character='journalist' AND EXISTS(SELECT 1 FROM recovery_assignments a WHERE d.spectrum_id=ANY(a.spectrum_ids))
+WHERE d.character='journalist' AND d.spectrum_id IN (SELECT spectrum_id FROM recovery_ids)
 GROUP BY d.status,d.reason ORDER BY 1,2;
 \if :apply
   COMMIT;

@@ -1,0 +1,22 @@
+{
+  "version": "classification-criteria-v11-targeted",
+  "questions": {
+    "subject": {
+      "type": "noul",
+      "instructions": "Does the headline substantively report on {subject}? Match the specific canonical entity and sport, not merely a shared word, surname or nickname. Distinguish different clubs, professional and college teams, and current versus former affiliations. An explicitly involved opponent or directly affected club qualifies. A target mentioned only as a historical comparison or former affiliation does not qualify. A historical comparison does not disqualify reporting that also directly concerns the target now."
+    },
+    "emotion": {
+      "type": "noul",
+      "instructions": "Does the headline explicitly express feelings, emotional reactions or personal praise about {subject}? Examples include joy, hope, pride, relief, grief, anger, frustration, worry or fear. Evaluate whose feelings and which target they concern. Do not infer emotion from a win, loss, ranking, prediction, job uncertainty, injury status or contract possibility alone. Metaphors about future talks or opportunities are not expressions of feelings."
+    },
+    "movement": {
+      "type": "noul",
+      "instructions": "Does the headline report current or proposed transfers, trades, loans, signings, departures, contract discussions, extensions or coaching changes involving {subject}? Include an agent discussing possible future contract talks, rumours and denials. Exclude historical affiliation, fantasy trades, tactical choices, playing-time competition and medical clearance to return."
+    },
+    "availability": {
+      "type": "noul",
+      "instructions": "Does the headline report a current or upcoming participation issue for {subject}, its players or personnel: injury, illness, fitness, suspension, eligibility, rest, absence, exclusion or return? Explicit denials of injury and uncertain fitness or returns ARE participation reporting. Include an owner's ban from attending the team's arena. Exclude historical injuries, general safety concerns without a participation issue, tactical or starting-lineup choices, and transfers or contract changes without a participation issue."
+    }
+  },
+  "note": "d3 Q8_0 candidate selected on 82 development inputs and checked on 40 frozen fresh inputs; assistant provisional labels. Routing stays headline-routing-v2. Preserve v9/v10 receipts without rescoring."
+}

@@ -105,10 +105,11 @@ Archbox runs `COGNITION_STAGES=classifier`, `CLASSIFIER_URL`,
 the shared coverage controller, and no recurring archive replay. The hourly
 `scoracle-coverage.service` searches team RSS feeds; canonical headline entities
 are scored independently and qualifying reporting deliveries freeze into the
-nightly edition. The Mac runs the character stages. d1 and character model routes
-are unchanged by the source cleanup.
+nightly edition. The Mac runs the character stages. The d3 rollout changes only the classifier; character model routes remain unchanged.
 
-`run-classifier-model.sh` starts the configured native checkpoint with a SHA-256
+`run-d3-classifier.sh` starts the pinned official Q8_0 checkpoint using the CUDA 12 runtime bundled with Ollama 0.40.12. `D3_RELEASE_DIR` selects the verified release directory; the launcher verifies its model hash and uses 4096-token batch and microbatch settings required by non-causal decision attention. The rollout installs a service drop-in while retaining the original d1 launcher and configuration for rollback. See [qualification and rollout](../../docs/progress_docs/2026-10-27-d3-classifier.md).
+
+The retained `run-classifier-model.sh` starts the configured native checkpoint with a SHA-256
 model alias. Its checkpoint settings live in
 `~/.config/scoracle/classifier-model.env`; the worker refuses an unfingerprinted
 model identity. The historical service name `scoracle-kev.service` remains for

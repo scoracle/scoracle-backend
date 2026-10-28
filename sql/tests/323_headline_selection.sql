@@ -24,7 +24,7 @@ FROM policy_sources;
 INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,
     scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt)
 SELECT s.id,p.article_id,'ZZ_SELECTION','{"entity_type":"team","entity_id":925001,"sport":"ZZ_SELECTION"}',
-    'fixture','classification-criteria-v10-availability','rss-headline-spectrum-v1',p.headline,md5(p.headline),
+    'fixture',CASE WHEN p.i%2=0 THEN 'classification-criteria-v10-availability' ELSE 'classification-criteria-v11-targeted' END,'rss-headline-spectrum-v1',p.headline,md5(p.headline),
     CASE WHEN p.i IN (53,55) THEN '{"subject":100,"emotion":100,"movement":100,"availability":100}'::jsonb
     ELSE jsonb_build_object('subject',55+p.i%46,'emotion',100-p.i,'movement',60+p.i*7%40,'availability',85+p.i%15) END,
     '{"coverage":"complete","admitted":true,"characters":{"journalist":true,"influencer":true,"insider":true,"scout":true}}',
@@ -86,5 +86,25 @@ DO $$ DECLARE archived text; BEGIN
     IF (SELECT min(octet_length(clean_text)) FROM classifier_spectra WHERE article_id=925100)<300000 THEN
         RAISE EXCEPTION 'Archived long text was lost';
     END IF;
+END $$;
+-- The new prompt version must retain the same provenance and routing guard.
+DO $$ DECLARE sid bigint; caught boolean; bad integer; BEGIN
+    SELECT id INTO STRICT sid FROM classifier_spectra WHERE article_id=925101 AND sport='ZZ_SELECTION';
+    FOR bad IN 1..3 LOOP
+        caught:=false;
+        BEGIN
+            IF bad=1 THEN UPDATE classifier_spectra SET gate=jsonb_set(gate,'{characters,journalist}','false') WHERE id=sid;
+            ELSIF bad=2 THEN UPDATE classifier_sources SET source=jsonb_set(source,'{title}','"different headline"')
+                WHERE id=(SELECT source_id FROM classifier_spectra WHERE id=sid);
+            ELSE UPDATE classifier_sources SET source=jsonb_set(source,'{evidence_scope}','"article"')
+                WHERE id=(SELECT source_id FROM classifier_spectra WHERE id=sid);
+            END IF;
+            UPDATE classifier_spectrum_deliveries SET status='pending' WHERE spectrum_id=sid AND character='journalist';
+        EXCEPTION WHEN raise_exception THEN
+            IF SQLERRM NOT LIKE 'Headline delivery requires%' THEN RAISE; END IF;
+            caught:=true;
+        END;
+        IF NOT caught THEN RAISE EXCEPTION 'v11 skipped headline guard case %',bad; END IF;
+    END LOOP;
 END $$;
 ROLLBACK;

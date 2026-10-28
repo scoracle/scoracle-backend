@@ -1725,7 +1725,7 @@ BEGIN
     SELECT x.criteria_version,x.gate,x.clean_text,s.source INTO STRICT measured
         FROM public.classifier_spectra x JOIN public.classifier_sources s ON s.id=x.source_id
         WHERE x.id=NEW.spectrum_id;
-    IF measured.criteria_version IN ('classification-criteria-v9-headlines','classification-criteria-v10-availability') THEN
+    IF measured.criteria_version IN ('classification-criteria-v9-headlines','classification-criteria-v10-availability','classification-criteria-v11-targeted') THEN
         IF NOT COALESCE((measured.gate->'characters'->>NEW.character)::boolean,false)
             OR measured.source->>'evidence_scope' IS DISTINCT FROM 'headline'
             OR length(btrim(measured.clean_text))=0

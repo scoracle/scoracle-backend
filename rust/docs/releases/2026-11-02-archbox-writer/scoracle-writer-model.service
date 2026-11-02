@@ -1,0 +1,16 @@
+[Unit]
+Description=Scoracle Qwen writer model (one GPU slot)
+After=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart=/mnt/data/backup/scoracle/archbox-writer-20261102/run-scoracle-writer-model.sh
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGINT
+TimeoutStopSec=90
+
+[Install]
+WantedBy=default.target

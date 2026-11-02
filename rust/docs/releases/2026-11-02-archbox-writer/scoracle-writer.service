@@ -1,0 +1,19 @@
+[Unit]
+Description=Scoracle shared Journalist worker (one Archbox slot)
+After=network-online.target scoracle-writer-model.service
+Wants=network-online.target scoracle-writer-model.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sheneveld/scoracle/scoracle-backend
+EnvironmentFile=/home/sheneveld/scoracle/scoracle-backend/.env.local
+ExecStartPre=/usr/bin/curl --fail --silent --max-time 5 http://127.0.0.1:8082/health
+ExecStart=/usr/bin/env COGNITION_STAGES=narratives COGNITION_COVERAGE_CONTROLLER=false COGNITION_DRAIN_CONCURRENCY=1 COGNITION_DB_MAX_CONNS=4 MODEL_BASE_URL=http://127.0.0.1:8082 VOICE_NUM_CTX=10000 /mnt/data/backup/scoracle/releases/paragraphs-20261102-93e3aa7d/build-9a00d628/scoracle-cognition
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGINT
+TimeoutStopSec=90
+
+[Install]
+WantedBy=default.target

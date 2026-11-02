@@ -1,0 +1,1183 @@
+{
+  "name": "real-team:2:NBA-narratives",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n120-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Boston Celtics\",\"entity_type\":\"team\",\"sport\":\"basketball\",\"database_record\":\"Boston Celtics — East Atlantic. Venue: TD Garden. City: Boston. Country: United States. Coach on record: John Thompson.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1428025,\"url\":\"https://news.google.com/rss/articles/CBMipAFBVV95cUxNUVo2TGE5NnllRTF1TkMyRmJrcXdTRU1kcFRUejFEV1VESFV5R2ZkRldfM1F5bk1ObHFLY2NBRU1PVGl0cE5SRU5XcjdlRXh4S3ZvSTRGeVJEVzZ5S0laeXk5Ry0tZ2FSaTEwVXZqMC1DeFBVb2ZrWW9DMVJSVWphcGJpVHBlRjl5RXdxZ1EzSXJBQnJ5dExEbHpDellqMUtzTmZWQQ?oc=5\",\"headline\":\"Parquet Report: Why I’m all-in on the Celtics, and you should be too\",\"publisher\":\"The Huntington News\",\"published_at\":\"2026-10-23T01:14:39Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1417836,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxOeVhFNTNabGV4OVYzVWRRLUpkNnBzSjhicjlVVV8yXzB5R3hWdHYtRHVIVU9LTEJfRVlMcnY2SFN3VDVuSkY5SGljY1VDSkU4X2s4dW1sUTVwOGo2ZV91WTRuQ21pWjVJcFkwd0xSLUpxYk8zb09Ec2ZZYzNLVDNublEzRHdXbkRJN0dwMlJiWFJkc2RsdkFhN1A4eVB3ZHBzM0ZNeUE4Slc5Y1pz?oc=5\",\"headline\":\"3 Mitchell Robinson Weaknesses Knicks Can Exploit vs. Celtics\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-23T00:00:01Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1419504,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxNM18zNFZUTlZpeF9xZ2NpZV9GUGowSUdqcmowVkktNlBIZTE1dWp1TDh1RDNHMUswRDhQZ0hmTU5xd3d3T2dTYXg2RFJqS1Y5XzR3MERScFVtbnVNb19Bb0VVWDRHUlJhRmpfZXMxeFFVbTN6NWMzaWx1RDQ5dlRRbkhfSWg0X3BIY0J6ZkVrTDdjYTZPT3cwTDlScGM?oc=5\",\"headline\":\"Knicks look to bounce back against Mitchell Robinson, Celtics\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T23:59:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1428018,\"url\":\"https://news.google.com/rss/articles/CBMibEFVX3lxTE9Ga1ROV0hmU1hCLXZvbXJoYUdIN2pqUGkzeWZOSGNsOVlacVd6bFJkVW94aUtFSkVlcjcxMVc2OUhqWVR4eWdZbThST21OdGJLTXQ5anhrblZmUElua05xREFDaXhmVk9YRXhRTQ?oc=5\",\"headline\":\"Winless Knicks, Celtics square off on reunion night in Boston\",\"publisher\":\"The Olympian\",\"published_at\":\"2026-10-22T23:58:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1417820,\"url\":\"https://news.google.com/rss/articles/CBMiuAFBVV95cUxNSjlzb2dnWmZxbHVqWDNJb3otUE9HX3hMcWRHUEVBSGdJODhOc0dreXBod1F0S2NSTkY2c2E5d0N3VmxPOWVSeFJtQUZsWm9xdjNYTEFnczdYOVVlc3JDeG1MaW82ZWhUQ3p5RmdQejZrdWxkRldyNVExOTN0Z1p1VjB3Y0xIY2E5TkVuclh5TkNLVW12b0drRGYzS1dNTWQzdThmaWlHbVBLUGsxeE5nVjhaWEpRcXZn?oc=5\",\"headline\":\"​​’I played like a–:’ Mitchell Robinson wasn’t happy with his Celtics debut\",\"publisher\":\"Boston.com\",\"published_at\":\"2026-10-22T23:39:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1417815,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxQR1d6SVEtaW1xcTctVFJQNG5ZeHVWUnpFSTBpTkJuZDBIbERTUWdNcExzNzRzaGR4aFNZLTVKbjFGRnNPSzhWTXZMclQzOVNOOEpVeC1qZmh4M2o1RElsaXZQQ3U1SjUtM0pBU3AxMmZpV1pYNzlCZ1ByYXVwWk1La3AxR21YVHFpY3c?oc=5\",\"headline\":\"How Boston Celtics Season Opener Made NBA Ratings History\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T23:38:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1417858,\"url\":\"https://news.google.com/rss/articles/CBMi3AFBVV95cUxOZnotWEhPcm03S1FfNnk0YmpyZlBLdmtfLTRMOHlSNmZXYThmQlIyLVlKYTRQQnAtNVBpLW1DcVFpTVZnVEZ4dnZZVGNEcWZCV0VPQk8xbW5tUThPX0ZGbkpnQ0hhMDJrZFBjb0U1OHd1WmU4T3loUEtmSEdtYnZ3MklJMHREbU9HOVY0eU8zNEpkSlRIQVpsUVA1Q1hGZkNXeG5ZQTh0Smg2Um9ORkhzN1NwQk5jYlQ0WTEwM0x2RjYxVEl0V2ZFMzVQbmVKUXo1TkRlcml6OE9zNUZl?oc=5\",\"headline\":\"Oklahoma City Thunder (EQUALIZER) @ Boston Celtics (STING) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T22:13:40Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1347144,\"url\":\"https://news.google.com/rss/articles/CBMiuAFBVV95cUxOZE1NQTZ4VUlTbkZhaXpjTm44ZmdQVHlaRlotWThwVDhoaWtsWHBBWnVIbEEtMUR0a1EtQXBzSEpGNEI2TXdxZVdBSU5DVVJXLTJsM2tDSHJrZmpMNndOdzhyVFY2NVl6UGp5bElRUzBLZ1UxTWpPMklHblgxQjhqMVFVQmY4X0U1VHh0MTFLek9odnVCaGhWM1FoXzB3dDg4TUNZWjdKRnRzNGM4ejhpeG1OR0RweS1M?oc=5\",\"headline\":\"New York Knicks vs. Boston Celtics Free Pick & NBA Betting Prediction, 10/23/26\",\"publisher\":\"Sports Cappers Picks\",\"published_at\":\"2026-10-22T21:46:13Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1377238,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxQM3UyMmF0MW5KWnlROVhoeVlsZERFeEJ4S05vQWRycXR4STd3R0V2WExQOEVLTVNhZ2ZOYkpsNTk0cnF5SDAtSlM5aHBiN3NKYldMbENjVDZldjVzVHl4Z1o2S1Rtajc1RkxrZjczM0pKVl9kN1Z2TzFlZVgxOUFKbGt0YXc4T2hHTzFmMUpIOWhwaF80bWR3djc1eDlJMXh4Z2NZdG4weDZLUGdwSjJYc1JEV0I3SEVzS01xa0pzRU9FX3B1N1BXU2EwQURwUQ?oc=5\",\"headline\":\"Three Most Interesting Things Said at Celtics Practice Thursday, Including Paul Pierce\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T20:02:16Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1399224,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxPR3NHNk5hbTBvQW1Wb3BuY3pfczljWXFTM3dCNkVqTW84YWQ4YVg0NnVaSFMyanJreHZsakNCSUZMVlJHV0VWcWR5Y1hPcEJWSzlTRFc1MHBIRFJIV082Tzc0LVMzcjd2ZkZ2OGItaVhnZ3haMU45MWs4emtVbE55anNBbVIyTm11NGw5NkpTSzRZMU0?oc=5\",\"headline\":\"Knicks vs. Celtics Prediction, Picks & Odds for Oct. 23\",\"publisher\":\"Sportsbook Review\",\"published_at\":\"2026-10-22T19:52:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1397498,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxQTmkyYmFaWDlkenNyVXRncXc2OGp4REVXVm1weTRuNlRVclhBVFhNaWVjWEIzQVR6b1d5V2k1Y1RnOG43ZHpJdXBfY1FaUXRaUUlRam5aQmo4RFdfbThqelZ0VEQzWTFVN1k2QWlFRzdxdVJhaV9WdkNkekRtVnFLWTNIdUY?oc=5\",\"headline\":\"Boston Celtics Daily Links 10/22/26\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T19:46:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1377208,\"url\":\"https://news.google.com/rss/articles/CBMi2gFBVV95cUxQNFJUVWI4aDItRTNtbTl5b2dNVGFjQTRkYVdZQTlpcXkwMlVDTjVoNmpZdVNzYl9Pd0w1N0FlZThyLXZqeTRnTERMVVlyei1INGk1ZGxiTUVLeGxSdVlBX0F0LVp2TFBnazByTS1BOEl6ZVFIMVgwZ2pOZU1mV1pqOWpLY1plaWZMMjFwazlnUnBQTjJjMWtLZTBxanlmcGozOGI1ejhGU3Naamp5YktNTVlGaGkyUzh2WkcwTmxiOXNWUHhzOVVHbmZldFdXMmZiUC1CbWdrNl9PQQ?oc=5\",\"headline\":\"Celtics fans heading to TD Garden for the team’s home opener Friday will have some creative new options waiting for them at the concession stands.\",\"publisher\":\"Facebook\",\"published_at\":\"2026-10-22T19:32:59Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":963967,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxNZHcwUWRRTE95djVrNE5IelVxT2o1Z2xwc1F3YlFrNmFyWmN3Ri15X2V4MjJVbTBMYmhraDh6QmtnU1FvR2c5MVhLUTRCUHhFYWdxNFZrdjVSY0ExRzFlNUE5V0dRLWhVTlZVVU5rdjlYVUp3YzV4Z2ZtcnpuZG9VUnhZRVVrVHZweDEyWnpoaDliVTl3Y1I5NkZ5eDNHVVdtbVE?oc=5\",\"headline\":\"Watch Detroit Pistons vs Boston Celtics\",\"publisher\":\"TOD\",\"published_at\":\"2026-10-22T19:10:35Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1357104,\"url\":\"https://news.google.com/rss/articles/CBMi1AFBVV95cUxObjZFRzRJbU9qVlR6SHNQY1FmbkJDYWdHMUVybHNkZ3lMUnR6NFdHVGp0WlZweHY0MUkxVFN6SlVaRjdCa3VaekVfS0x1NlJSSklwbVhraThadmFLMDh0VTA3dGlIRUpiMDhBVWpIYmIxQ01DeEZUdjd4cEdXQ3pRR1hSeHZmalE5UWh3NVhpUFNKZ2dGQmxYUXkyQlc4akw3LUZpSzE2Z1h4cXZHNmFrV3FReHlCVldldHRDT0RZcE9GRVhiWDJNSC1TRXZ4YVZIbUdXbw?oc=5\",\"headline\":\"Los Angeles Lakers (ARACHNE) @ Boston Celtics (ZION) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T18:39:58Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1327306,\"url\":\"https://news.google.com/rss/articles/CBMi1AFBVV95cUxOb0ctWDFvODd6S25sUllTeFBReFhRa0RCY2l4Q0JRQmJxRE9FUURrc3pDWk5laEkxWGVVSFFUSEFQMzFyNWo0Ykxtd1EzeGQxa202WnZyQWltUWRKSF9TQThDTW5aNUEzZjNrTWlFVWRUR1VydG5YNW5DNzhxQm9BWVlrR2RlU0hKRkd4cTc2ZFdKRlJzeE8wNTNhUmVnTlFVdUtZRWs0UWh6QzJBUTZTMEN5VXlTRldLUVlkYzZoZWxLV1BJN2tKWVpPaDRndThmeXZQOQ?oc=5\",\"headline\":\"New York Knicks (DEFIANT) @ Boston Celtics (PROWLER) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T16:43:11Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1327283,\"url\":\"https://news.google.com/rss/articles/CBMi0AFBVV95cUxQUU1VX3F4WWRnUUd0aEl3SmdWVlJyZldtU19yVTBFemtLWUZMWXBvLXRFalVBNU9jOGg4RjhlWlZDOUx6b3FBRVh3cGlzM1Y2WXdoZ2RSNDNIclNHTnF4X2p5MDZJTEJVaHhrSTFMNVdDdFlnUEp4MDg2M2NZb0lQZFpxYlNrcXdMR0pjNU1pVXN4aWFVTVJ2ZXlQUDJ0MmxwOElPUmZwSnAyd25KWXR6N0kzMnhQdHlaQzM0Xy1IaVBDeUVrd1JGZ1MxSHZLTEZt?oc=5\",\"headline\":\"The Boston Celtics Need One Position to Play Great Every Night to be Their Best Selves\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T16:04:47Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1367252,\"url\":\"https://news.google.com/rss/articles/CBMi3gFBVV95cUxQbFdHOFdOeHdnZ3Q5bDVSVHlhU2RMdjZXTkY2Q0lmcm1fVGloTkVqSi1KbGlJdTNabG8ycm1OeGd3elloX0g3SklUekFMaWRhbXIxYzBzNWJPREFaeFZHWVBZSzlld3VpVTh5UFRGYXRSY3l6TUk5anJHd2x3cUJKblFsU0l3UFAtNDVCaU1aTFhhclpMNmI4RmpURFpxTWRxWU45V055T19GaUZrSDJMTWV0eEZnWGpoWFFZX0ljQUpleXNrS05yV3lpcE4wcTJhdGFRNFlxeU5LVENKd3c?oc=5\",\"headline\":\"New York Knicks vs Boston Celtics Picks, Prediction, Odds, and Line Movement for Friday October 23 2026\",\"publisher\":\"Winners & Whiners\",\"published_at\":\"2026-10-22T15:18:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1327268,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxNSFpEdVowQW80cVYzREtMNllfaDlQTFppcXdqNl91cHN5THVMYlpUOWVCaUFXVm9rdURQMGxVZXlQVF9xUWpGNUVvUDhFY2U2SW1zNlVHcF9kX2M5cnh3VU5UQ19NMG53LXZnQW43RlVlTVE2NUNKZXhDWmZQd2lIZ0NyRW02V0FmQVUwZGpB?oc=5\",\"headline\":\"Detroit Pistons: 3 Takeaways After Comeback Win Vs. Boston Celtics\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T15:00:39Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1307893,\"url\":\"https://news.google.com/rss/articles/CBMi1gFBVV95cUxPTmNHdjRlaVIybi1QdWh4SFVxQnBwcmwwdDlYNkxMLVBQY19wdldZOVdacXlMOE92TlZZYVVHUGxoRl9vNVBqdzZYY2x4ejc0a2lIWnRhNnNjdjJlcGZDNWt5OVI5VGE2NXdoQlIzUmpCOUlhWWRrX0VuTEhsR2VqaWJuMXBBb2djVVhIT2JzVVBaOTFfMlJTWk81SHhZRm00SXZzSHd2MHhjdjY4dE9RTms2dmVaYWp0LWFZWWtTbkJIUUx6bVQ1Y1RMTTloeHo5aXdxbXVR?oc=5\",\"headline\":\"Los Angeles Lakers (CHARM) @ Boston Celtics (MACHINE) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T14:12:11Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1317595,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPcGZRNFVKREdMTENxOWxuQVh0QnNnUmRDZGxPV3VuMmRlaEN6ZFdBMWdNNlotUDNNYnFyY01EaWV5TnY5VktFUFo4dTJtanQzUnduUmFUdGVhT0dJSVMtRnpERkdXOWIxT0IzVHFqaXJnMW81YlFtT0dIakJwZXVpaF9PdTY0bDQ?oc=5\",\"headline\":\"Celtics unveil new sneaker beer cup, sweet treat for fans at TD Garden\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T12:49:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1278858,\"url\":\"https://news.google.com/rss/articles/CBMi1wFBVV95cUxQY3o1QzI0Rkw1S0Fja1VDNnRJUWdpbzJCdEZWWE1TV2l1VUVkaWllVFNYTkZUamtaWEtub0ZUTlp1bDdVRHM3ekd3TVg3cmZBb084ejNMQzNyZ0JNaEtRbzNHSVZwSmVuOHd5eUU1RVFFZ3FJX2dJNHFEY1ZyQWh6TV9uUW9lVjJTbVBZdzZlOGNVclVCd0x0QnkyT0psWkZWR3NHdGdXcTlXeXZleS1VWnd2eWl2c0lXN2s5MEF6MUlzelY0d3l4R1E3TXhKc1lpZ19iM2NNWQ?oc=5\",\"headline\":\"New York Knicks (RIDER) @ Boston Celtics (TRANQUILITY) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T11:50:52Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1278827,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxObFd1dm5DbWJNMEZ2WGNBdlA3aUtncmRheDZMOF8yVmE0SHVpWWJaLWs0TFVZQTJXTDZFNXlBSXlSRFRab3dITkNsU0JvdlZab2ZiMlYxRVhGZFZSaDVZOWF1SVRTXzZSa2twSGREaUtIdUVVVV9HdFRyNkdFSGVSRURMTi0tSXlWYzBPSlVn?oc=5\",\"headline\":\"Detroit Pistons: Javonte Green Breaks Down Clutch Shooting Vs. Celtics\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T11:00:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1269242,\"url\":\"https://news.google.com/rss/articles/CBMi3wFBVV95cUxQdy0xLUNCQkFaOWNrSGxORG43TEx1WnRHd2N6cUtIVzZVdEl2VTNBVGNlcVJ4b3lKdTdEb3NqQmlWVUY3b1lOWS16N2xlWnloZEw3bjVIUlRxc0JwcHFYWFpNd2QyMW82eVUwdXluWDNMVHZCOE9LZENoTUdJeUVFVEZHUzdwTVpCQWlwZjd1anZnOTk4M2tGXzlqWU5kZjRxTFcwVnZweDJHeEhzalVZQ2gzSG5RU3JCVlpzaFlCNU9LV2VvcXNVaExuSXpndjMxOGo5OUVXM1k1WVhNZmlz?oc=5\",\"headline\":\"Los Angeles Lakers (PUNISHER) @ Boston Celtics (TRANQUILITY) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T10:52:29Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1269260,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxPTkhJcTFFQkVNU1JHZFFvZUQta0V1WGNqOFJDVldBLWcxT2tZV25STEhrQ19tbWhpVFZrcXpJcmRLbFhfREdfMEhkNzU1RmJvMEZ1anJmWEJtTTQ0TnhZYUJtT09fQmxoaXd2VGpvNWR2ZS1YNGdlSWVNV2xlOXduOVRzNHJjYS1Pc19GeDRUSkU?oc=5\",\"headline\":\"Celtics’ Paul George Makes Revealing Admission After Boston Debut\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T10:46:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1269174,\"url\":\"https://news.google.com/rss/articles/CBMihgJBVV95cUxPUkhmSnhqbndEY3Y0QTZBdjRhV1NRZUU0ZzBwWFNNYW8wc3I5eWpOaE0wczZ3UHRmZ1JzSURNWW9id0pCeVNNeVhGbXVPQi0yMFlZYV9ka0Vfa0VXOENRTV9Ici1YLVR1MEFxc2E4bm1aVERwWHlVNDdYaWhQWGtkcnBVZWtBcEtZSDhmb3daUEs3dUhLLTFIYlJ4QTFPcmdIa1haakQyWXVhX0tlOXYtWmsxRi1rUGxYZUEtNGFFVTZRdUpCZlRjc3hYbk5Ea2xnM0dfdzR2U2xNMjVFN0FjdjRoSFlYbGp6dGFONmhiM1NpWGVQRnppSjJJZ2JUZ0hxYjdTODZR?oc=5\",\"headline\":\"Today in Boston Celtics history: Stevens born; Brooks, McCarty trades; Timelord, Jones, Sanders debut; Murphy passes\",\"publisher\":\"Celtics Wire\",\"published_at\":\"2026-10-22T10:01:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1259570,\"url\":\"https://news.google.com/rss/articles/CBMi4AFBVV95cUxOOGczaXFMZmJEWWdNOS1uWTJkT3VVOC1hNHh1Nm5zWkR4YUg5emNCMlVaRnZiSHM2RnBUXzc1aEZVam00TklQNHlFV21JbmdaQ3hvSU9mM041UTVFbjdlTEhPeFRLMGFLSFFRU1E0bWo1VXFYbHc0RF9YWXdtcHdQWVM4Zkl1VWFUOGt2ZGhlalZHa2dMTzlWSzJqMFdZTU9aZ3gzNC15aVJwS0Vxc1ZSVGJWYWlJMmN6bnpPVGF1Vm42eHBmZFpKcjFwMEVvM3Q1dHNlWmNldGhiUEY0U3FWbw?oc=5\",\"headline\":\"Oklahoma City Thunder (ACCORD) @ Boston Celtics (TRANQUILITY) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T09:54:13Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1337136,\"url\":\"https://news.google.com/rss/articles/CBMiqwRBVV95cUxQaldqbjZnUF9BTENHMmFISmJCWTJkVVJycUhxOG9xNWFpa3hBZEFZZGh3RGwtMFZxRG1tT3ZUSlYxNmRmWDRLZ3gwb2xBMEc5VjNKVnJJeE1qUmZZY1RGT0RMaHBubzk4S0o2ZE5XMkZxNS1GT0ZoY25JT2Rkd3djcU80cXBld192MmRFY2EzWXozRElvVTh3UzFrVmdVdXRjeUFJYzRQWThxLWkwQ0lodVpXTDJvRFZJelNsZjY4Q1lCM0tBd2t0cXB4YUJJQkQzN2lXUy1DN2NlLTZmRUFWeXdGNXlyWkc4cm5zMWFoRmVoS1VVdGhlcDdSaVVGRHNNbnVMU0x6U0V6cWotbGxXY3JUZUowRWk5RnJQLWpnLUYtVmFIaGZnX2pLUGlJMXFfam1oZG1qeE1tcUVGT2dkU3NJd3ZsVVVrd0E1c2g5S0NvdzVvMVRIYml4bEdhbGxpbWFfbWpheTN3UFVsMzVvVGswNGdBbk9FeHFTc1l1VklnbXZkOVZoYmJMX0J4NVFKZmVYTURJZGJGVjdBTW9acTNkcEY3OTFMS3dZendyQTBydFctTXdOOVA2TktzUkRvSUh0UjhXWHRwRkFuZTVBajhyM01CSlNhaDZKam5XUkJqU3FLckctSG82NmZfQjlyaFRCUDNfNmpaU0w0aUc3cjlKakpmTmRsRTV4VVdmUklwNTFxU1NsMTc1ZW1CLWN3bG9OeUpkazk2Vkk?oc=5\",\"headline\":\"Boston Celtics vs Chicago Bulls Mar 9, 2027 Game Summary\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T09:40:40Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1259505,\"url\":\"https://news.google.com/rss/articles/CBMi2AFBVV95cUxOLURZQ19zMElHeDJUcWY2YXdvYUxZWUlnR0xYaHRxRGcxWmdVZmNKZmUtTTZVcWFrbXJFV3dpU3pwd2NMVXJiTUJWUHRpSFFFVVhoOWQxX0xTQlVxSVE3d0RWeVNwanRaNEF6TWJEN0VwVGJkRldDTW1HUmM3Rjd1c0RsNVNBZDR4SEk3WWIyUm44SHIzOURpeERJNjZpV1FRX3FaQjhNTjNXejRvNDE1UnZoa2FyT2tLb0VHWmRaS3dGaGJCbTVtZlFrdlNLTGRBMzhJYVQ0M2Q?oc=5\",\"headline\":\"NBA season tips off with Pistons rallying to beat Celtics, spoiling Paul George’s debut\",\"publisher\":\"Dailypress.net\",\"published_at\":\"2026-10-22T05:22:09Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1357088,\"url\":\"https://news.google.com/rss/articles/CBMiqARBVV95cUxORGRLRGUya0hxVi04di1BVVVzREFvYlRzTmp5UjAwakZTUF9JQXpKUFp0SlJfdjRVY2J2V1l4VkF5bHNSNmtXTldXY3M1UFVtU3c1ZkluTVd4akJkZTBRVHZFTkNrNF84UURuLXRpLVczenJ0elBnQ243czhwcVVfaGxSZVpfRjNpM2dRbFpxVWR1QW44WjFjSFUxNEVJOGx6OHE4SWZ5eVBDQ2lVeGZJVW5PekQ5WGlvZkMyVS03Ulk2VHZtQ2l6ZEZCYk5uN2JZOHp5NjNpcFhKZjBtOXcta01UWWdRdDRnMmFpYTFlTV84eG5oUkZaMmVNYUp4bzZ1bzFuMmttT1Z0ZDlEQ1JVbVc1XzVsTk82djQ2MlRqQ3pTdlkyNnhaZ2lJZWxrZkdUc09VWE1aa3J1eFU5dWdyeGhrdVNjZWJlRnZucnVaNFhFbFFBMHVqX0FYR2dCcUZlYmFiYkdmWWJqWUc1Vi1aYmU5X1g0UHRuaHUyLWtLYk9WREI4NE9MYU1naXhDZmxtZ240ODJyV2FEcWxKYU9wUWV5anVVdFh2aTFacXBmcFo3LU5peGhCc2FQeE51RHpRdVIwSG9HM0FNN0VkSHhPRVltNHVFVEwwcjhVdXljUzZaWUI2NmozMnNXWFpLdjc3c25GUjZOZVBHT1Z5Q3NiOFFBZFc0RVhvTjVFdmxhOXJOTTVRMkNOWFJNdVM5Z3l0RUotSkVTS1o?oc=5\",\"headline\":\"Brooklyn Nets vs Boston Celtics Oct 27, 2026 Game Summary\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T04:38:56Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1259528,\"url\":\"https://news.google.com/rss/articles/CBMi3gFBVV95cUxPUDk2UzRrQXdnR05fbWVxekwzOHNEaEFVMjdITTJWN29lV3VLb280Q1NxTS1MWDNUQTlTU2R2Nkd4ZlJyYnYzTG1UcmhxRzlzcUo0dVR2bW0tTi1kZW9aM19sSW1YTHdzeU9oZlRlamxFM0JjQ0dldHp4S2FPNmZSWmtyYmZZalc3MUUxV0ZxSmtCZzNLLWNldlN0Vkx5UW1wRkdLYlJWa0pIUEZCMUZLOFp6X0hyWnE1em1fc0E2b2VhSkFzbDJwaURHblZBSUNZT05ob3RJUm5qcVZ5QXc?oc=5\",\"headline\":\"The Detroit Pistons opened their 2026-27 NBA regular-season campaign with an emphatic come-from-behind win over the Boston Celtics, 121-113, on Oct. 21, 2026, at Little Caesars Arena in Michigan. Link to the full story in comment section.\",\"publisher\":\"Facebook\",\"published_at\":\"2026-10-22T04:31:01Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1259535,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxPR3NzdlA0S1owRDhDaDczZ2Y1Q2Z4X2czblJaZnB2c2VEWXBITHJBM09wRV9XdUd2WmpSZTJyNlpFQUx3RjBFMm9ZZVhUUkU0Tjh1VDdpR1BXOUNJVHUtMTZmNlQ5amZTRDlMdDRSSWE1UlM4RDhVVERoQlhGZG1GWVJzRGVEWGFFZHhEQ18yYWNkdw?oc=5\",\"headline\":\"Celtics' Mitchell Robinson Already Being Viewed as Eventual Trade Candidate\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T03:43:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":367135,\"url\":\"https://news.google.com/rss/articles/CBMie0FVX3lxTE1TQ3dYZFRUQ3RDVDJwNEtNSmh1UlM5WmF4UXhUV1IwcWFha21vRVpVaURjaTFhTGtoZXpqM0tVZ3ZzQnYtb1c3azFoek45XzhsdEFVUDJXMm9LMUk4Wmp4aTZ3Ti1nbzNmSlpkLUlMRlhCZThxZGNoSVZTdw?oc=5\",\"headline\":\"New York Knicks @ Boston Celtics: Live game updates, stats, play-by-play\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T02:04:16Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1327343,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxPYTBwMUx5MnhGcEtSclpCWW5iaUdzdXZEMXBrLU4zN25MaVllYmhaU1RpNFdRenk5UEF0SkZuT3k2OEdpajdhYUJBbWxPc2w2NUJtTnY3blprdEpNVDM4b3lrUUpIcmgwejVPc3hZckRQMDJIVk1QYkgtNHd2cE04X1pzSWtyUnRzSUhST2FtQUV4bmZMYVpSWmpYRUg1MnN5ajAyQWpETkFsSEoz?oc=5\",\"headline\":\"Boston Celtics' Paul George hit with flopping fine after 38-point debut ends in collapse\",\"publisher\":\"Fox News\",\"published_at\":\"2026-10-22T01:35:40Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1230647,\"url\":\"https://news.google.com/rss/articles/CBMi2AFBVV95cUxObWxtUjVuQXZGQlRGVFlDNlE1eV9TM0NqcFJuSG1DRlotOERFN1QzWlVoYXVvMUhlN0hfME1WYkF0TEJER0h3MkdwNUVQT1R5SlpPQ0RnNS03c284RDJjb29EVUp5SzNtSHVGejRQdjVOWnMwVXZpMnV6U1hnc3NFSVpVVVBSSGVLMHZwTG1fWGpUNUtjUEtGZGhZNFRCdmdIdldYS09DMG1pNXhzZlo5WlhNRHRBUW5Gekd1T29zQlVIaHZBZXpuaXk5UzlZdHZEd1cwZ2pJeHE?oc=5\",\"headline\":\"Oklahoma City Thunder (KOBRA) @ Boston Celtics (DAGGER) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T00:38:11Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1337843,\"url\":\"https://news.google.com/rss/articles/CBMiYEFVX3lxTFBRbXhtQWhCZlI1c2RIUmVnblFrV2hQa0V1SUpKaHFiYVVnWHpVQ2JfbHJhSFVxaDluc3gwaDVYSmhtVkJkdV9DUzZsWjJhRmJnMG5iT0c5S3pLQ05uTEMwVg?oc=5\",\"headline\":\"Boston Celtics: roster, news, schedule and stats\",\"publisher\":\"BasketNews.com\",\"published_at\":\"2026-10-21T23:52:01Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":1240336,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxNQjk3Nk5xMWlvZ01JRlNtTzY1TWhmWGNDcm5nNmJKTmRwa3FGelc5WklmODY2OHNfVGdRczZBN3Q4UFYwd1liaWs5YlpBMlNMTmNOODRmVUEtNFQzN3NoV2NnNnBPQ3k4bERQNmJRYkpsWUxpOFdFSnBRQVoyellxa3k0MVBYdDlhbVE?oc=5\",\"headline\":\"Boston Celtics Star Paul George Hit With NBA Fine After Historic Debut\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-21T22:57:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":1299926,\"url\":\"https://news.google.com/rss/articles/CBMi2gFBVV95cUxPblZLNlF2YUpyTHZ3d2FfNXpIOWJoQy1TSmlFa001WFIzMVpULWE2QXdDTDYtUXRvclV6U2Zxb3lzRGhVVFhKQkV1M05kV1o1cHZvcFBHUXVzZXhKSzhkUWsxNWNidlJoNlBQWVZocVc2bTNodE5TZVRRZDF2b0k4TGc1ZUcydzk5aFZid3BKa29ZcUg1eUFpcy1ERWJmazFKQm9SNDJ4VzRBMjFHMExoT3JMWTRNcWtoM2JDZVNEQUpGTlpBS0d1OHlQTmFPODgtekZCeFowcHFoQQ?oc=5\",\"headline\":\"Oklahoma City Thunder (LEGACY) @ Boston Celtics (VANITY) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-21T20:33:32Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":1337148,\"url\":\"https://news.google.com/rss/articles/CBMiugFBVV95cUxNSW5KZlZXb1A5RG9OQVphdVdKczNuQVMtWXFEYm9nR1E2NWFjWTB1bkVhLXA4QWxWUExrajJEM0RsQmViMFhqMkV3WFMxQk43OElvVFdPX3pQTWZaSjlFLWYxa04wb242MWRLeUZWWUZhczlMc0hmSlI4b1o4ZzRMbEFSRzR3MzZjeFVUeTlwamE0Y0ZjSl9najMtQ3pMRFROc3pPSUwxOXo1Uk5KWnFkVTh5ekQ2bWF5MWc?oc=5\",\"headline\":\"Robert Franks Talks Boston Celtics and 36ers at NBA Summer League\",\"publisher\":\"Adelaide 36ers\",\"published_at\":\"2026-10-21T18:55:30Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":1201624,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxNQnJPQ0JrelZ5aDFTbHdvcDk0UWUzUE5WUExxTE9BZENqcmducnhwV20xMkVzQmE1bEVzbXJTMXBFd2hYMG83cHlmU2RXMXUtOUtmZFc5V1R3eTYybUp3SWlnWjZxaFRyZlZqcmdvM1lrV2ZHQ3JCMFY3Nzc3bGEwZTZNSTRqUk80SENHbQ?oc=5\",\"headline\":\"Boston Celtics Opener Proves What We Thought All Offseason\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T18:05:11Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":1269825,\"url\":\"https://news.google.com/rss/articles/CBMixgFBVV95cUxNWVB4MGl0ck5iZVRuM3dXeHlRYThCcXZTZ0kyYzMxcGEtTHh0QVFFUUVBQzhOVE5zNTd2SlhMNjZqSkQxZkNXMmNNSGk4d3pjWDd3YUQ1eDM2VzRoQjFETjc3X1lLTDQ2Vm1mNHlUMkU5c1k0eEFDVXFDdWZCWHdIS0RUcFpoSmI2Z2N2ZFNlSnhyWFVyRWlMX0c4TUtHeFVWd1hvOWxNNzFuLThPcmxTVG1iU1pPLW5yYmN3WXlVNmt2bVF2N1E?oc=5\",\"headline\":\"NBA season tips off with Pistons rallying to beat Celtics 121-113, spoiling Paul George's debut\",\"publisher\":\"WHEC.com\",\"published_at\":\"2026-10-21T16:45:30Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Boston Celtics — East Atlantic. Venue: TD Garden. City: Boston. Country: United States. Coach on record: John Thompson.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.488979225233033,
+            "emotion": 18.741514696748304,
+            "movement": 11.038908628426343,
+            "subject": 94.5323533370464
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxNUVo2TGE5NnllRTF1TkMyRmJrcXdTRU1kcFRUejFEV1VESFV5R2ZkRldfM1F5bk1ObHFLY2NBRU1PVGl0cE5SRU5XcjdlRXh4S3ZvSTRGeVJEVzZ5S0laeXk5Ry0tZ2FSaTEwVXZqMC1DeFBVb2ZrWW9DMVJSVWphcGJpVHBlRjl5RXdxZ1EzSXJBQnJ5dExEbHpDellqMUtzTmZWQQ?oc=5"
+        },
+        "context": "Parquet Report: Why I’m all-in on the Celtics, and you should be too",
+        "id": 1428025,
+        "published_at_epoch": 1792718079,
+        "source": "The Huntington News",
+        "title": "Parquet Report: Why I’m all-in on the Celtics, and you should be too"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 12.55642143467248,
+            "emotion": 2.3627438605294655,
+            "movement": 5.113018744964157,
+            "subject": 94.55091671705502
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxOeVhFNTNabGV4OVYzVWRRLUpkNnBzSjhicjlVVV8yXzB5R3hWdHYtRHVIVU9LTEJfRVlMcnY2SFN3VDVuSkY5SGljY1VDSkU4X2s4dW1sUTVwOGo2ZV91WTRuQ21pWjVJcFkwd0xSLUpxYk8zb09Ec2ZZYzNLVDNublEzRHdXbkRJN0dwMlJiWFJkc2RsdkFhN1A4eVB3ZHBzM0ZNeUE4Slc5Y1pz?oc=5"
+        },
+        "context": "3 Mitchell Robinson Weaknesses Knicks Can Exploit vs. Celtics",
+        "id": 1417836,
+        "published_at_epoch": 1792713601,
+        "source": "Sports Illustrated",
+        "title": "3 Mitchell Robinson Weaknesses Knicks Can Exploit vs. Celtics"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 65.65597875347792,
+            "emotion": 6.713675556240907,
+            "movement": 4.793807800853654,
+            "subject": 96.21133443887436
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxNM18zNFZUTlZpeF9xZ2NpZV9GUGowSUdqcmowVkktNlBIZTE1dWp1TDh1RDNHMUswRDhQZ0hmTU5xd3d3T2dTYXg2RFJqS1Y5XzR3MERScFVtbnVNb19Bb0VVWDRHUlJhRmpfZXMxeFFVbTN6NWMzaWx1RDQ5dlRRbkhfSWg0X3BIY0J6ZkVrTDdjYTZPT3cwTDlScGM?oc=5"
+        },
+        "context": "Knicks look to bounce back against Mitchell Robinson, Celtics",
+        "id": 1419504,
+        "published_at_epoch": 1792713540,
+        "source": "CBS Sports",
+        "title": "Knicks look to bounce back against Mitchell Robinson, Celtics"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 21.948908150883963,
+            "emotion": 2.148049639094958,
+            "movement": 2.788374073838976,
+            "subject": 95.33856152311336
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE9Ga1ROV0hmU1hCLXZvbXJoYUdIN2pqUGkzeWZOSGNsOVlacVd6bFJkVW94aUtFSkVlcjcxMVc2OUhqWVR4eWdZbThST21OdGJLTXQ5anhrblZmUElua05xREFDaXhmVk9YRXhRTQ?oc=5"
+        },
+        "context": "Winless Knicks, Celtics square off on reunion night in Boston",
+        "id": 1428018,
+        "published_at_epoch": 1792713480,
+        "source": "The Olympian",
+        "title": "Winless Knicks, Celtics square off on reunion night in Boston"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 72.43377928484952,
+            "emotion": 50.42938130525436,
+            "movement": 6.297905124015932,
+            "subject": 94.44880860921324
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxNSjlzb2dnWmZxbHVqWDNJb3otUE9HX3hMcWRHUEVBSGdJODhOc0dreXBod1F0S2NSTkY2c2E5d0N3VmxPOWVSeFJtQUZsWm9xdjNYTEFnczdYOVVlc3JDeG1MaW82ZWhUQ3p5RmdQejZrdWxkRldyNVExOTN0Z1p1VjB3Y0xIY2E5TkVuclh5TkNLVW12b0drRGYzS1dNTWQzdThmaWlHbVBLUGsxeE5nVjhaWEpRcXZn?oc=5"
+        },
+        "context": "​​’I played like a–:’ Mitchell Robinson wasn’t happy with his Celtics debut",
+        "id": 1417820,
+        "published_at_epoch": 1792712340,
+        "source": "Boston.com",
+        "title": "​​’I played like a–:’ Mitchell Robinson wasn’t happy with his Celtics debut"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.593284517541738,
+            "emotion": 1.8752693911609968,
+            "movement": 3.382296140477805,
+            "subject": 94.54722059862192
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxQR1d6SVEtaW1xcTctVFJQNG5ZeHVWUnpFSTBpTkJuZDBIbERTUWdNcExzNzRzaGR4aFNZLTVKbjFGRnNPSzhWTXZMclQzOVNOOEpVeC1qZmh4M2o1RElsaXZQQ3U1SjUtM0pBU3AxMmZpV1pYNzlCZ1ByYXVwWk1La3AxR21YVHFpY3c?oc=5"
+        },
+        "context": "How Boston Celtics Season Opener Made NBA Ratings History",
+        "id": 1417815,
+        "published_at_epoch": 1792712323,
+        "source": "Yahoo Sports",
+        "title": "How Boston Celtics Season Opener Made NBA Ratings History"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.5697061315522935,
+            "emotion": 1.5193329017504678,
+            "movement": 4.88940434331508,
+            "subject": 94.79444836826208
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3AFBVV95cUxOZnotWEhPcm03S1FfNnk0YmpyZlBLdmtfLTRMOHlSNmZXYThmQlIyLVlKYTRQQnAtNVBpLW1DcVFpTVZnVEZ4dnZZVGNEcWZCV0VPQk8xbW5tUThPX0ZGbkpnQ0hhMDJrZFBjb0U1OHd1WmU4T3loUEtmSEdtYnZ3MklJMHREbU9HOVY0eU8zNEpkSlRIQVpsUVA1Q1hGZkNXeG5ZQTh0Smg2Um9ORkhzN1NwQk5jYlQ0WTEwM0x2RjYxVEl0V2ZFMzVQbmVKUXo1TkRlcml6OE9zNUZl?oc=5"
+        },
+        "context": "Oklahoma City Thunder (EQUALIZER) @ Boston Celtics (STING) Odds",
+        "id": 1417858,
+        "published_at_epoch": 1792707220,
+        "source": "FanDuel Sportsbook",
+        "title": "Oklahoma City Thunder (EQUALIZER) @ Boston Celtics (STING) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.5771062277777865,
+            "emotion": 1.7279402986995966,
+            "movement": 3.3287871094526995,
+            "subject": 95.76260567321926
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxOZE1NQTZ4VUlTbkZhaXpjTm44ZmdQVHlaRlotWThwVDhoaWtsWHBBWnVIbEEtMUR0a1EtQXBzSEpGNEI2TXdxZVdBSU5DVVJXLTJsM2tDSHJrZmpMNndOdzhyVFY2NVl6UGp5bElRUzBLZ1UxTWpPMklHblgxQjhqMVFVQmY4X0U1VHh0MTFLek9odnVCaGhWM1FoXzB3dDg4TUNZWjdKRnRzNGM4ejhpeG1OR0RweS1M?oc=5"
+        },
+        "context": "New York Knicks vs. Boston Celtics Free Pick & NBA Betting Prediction, 10/23/26",
+        "id": 1347144,
+        "published_at_epoch": 1792705573,
+        "source": "Sports Cappers Picks",
+        "title": "New York Knicks vs. Boston Celtics Free Pick & NBA Betting Prediction, 10/23/26"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 54.41424163937029,
+            "emotion": 2.569763892311133,
+            "movement": 6.073275087629255,
+            "subject": 96.69227461535964
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxQM3UyMmF0MW5KWnlROVhoeVlsZERFeEJ4S05vQWRycXR4STd3R0V2WExQOEVLTVNhZ2ZOYkpsNTk0cnF5SDAtSlM5aHBiN3NKYldMbENjVDZldjVzVHl4Z1o2S1Rtajc1RkxrZjczM0pKVl9kN1Z2TzFlZVgxOUFKbGt0YXc4T2hHTzFmMUpIOWhwaF80bWR3djc1eDlJMXh4Z2NZdG4weDZLUGdwSjJYc1JEV0I3SEVzS01xa0pzRU9FX3B1N1BXU2EwQURwUQ?oc=5"
+        },
+        "context": "Three Most Interesting Things Said at Celtics Practice Thursday, Including Paul Pierce",
+        "id": 1377238,
+        "published_at_epoch": 1792699336,
+        "source": "Sports Illustrated",
+        "title": "Three Most Interesting Things Said at Celtics Practice Thursday, Including Paul Pierce"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.714794775126517,
+            "emotion": 1.7766604813596771,
+            "movement": 3.893422644726402,
+            "subject": 94.21077169640776
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxPR3NHNk5hbTBvQW1Wb3BuY3pfczljWXFTM3dCNkVqTW84YWQ4YVg0NnVaSFMyanJreHZsakNCSUZMVlJHV0VWcWR5Y1hPcEJWSzlTRFc1MHBIRFJIV082Tzc0LVMzcjd2ZkZ2OGItaVhnZ3haMU45MWs4emtVbE55anNBbVIyTm11NGw5NkpTSzRZMU0?oc=5"
+        },
+        "context": "Knicks vs. Celtics Prediction, Picks & Odds for Oct. 23",
+        "id": 1399224,
+        "published_at_epoch": 1792698720,
+        "source": "Sportsbook Review",
+        "title": "Knicks vs. Celtics Prediction, Picks & Odds for Oct. 23"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 17.48773869703579,
+            "emotion": 1.8717558862988384,
+            "movement": 10.766632138372376,
+            "subject": 94.461425464745
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxQTmkyYmFaWDlkenNyVXRncXc2OGp4REVXVm1weTRuNlRVclhBVFhNaWVjWEIzQVR6b1d5V2k1Y1RnOG43ZHpJdXBfY1FaUXRaUUlRam5aQmo4RFdfbThqelZ0VEQzWTFVN1k2QWlFRzdxdVJhaV9WdkNkekRtVnFLWTNIdUY?oc=5"
+        },
+        "context": "Boston Celtics Daily Links 10/22/26",
+        "id": 1397498,
+        "published_at_epoch": 1792698403,
+        "source": "Yahoo Sports",
+        "title": "Boston Celtics Daily Links 10/22/26"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 61.42389989125856,
+            "emotion": 1.930584711927392,
+            "movement": 2.3949938035622846,
+            "subject": 94.76895848326716
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi2gFBVV95cUxQNFJUVWI4aDItRTNtbTl5b2dNVGFjQTRkYVdZQTlpcXkwMlVDTjVoNmpZdVNzYl9Pd0w1N0FlZThyLXZqeTRnTERMVVlyei1INGk1ZGxiTUVLeGxSdVlBX0F0LVp2TFBnazByTS1BOEl6ZVFIMVgwZ2pOZU1mV1pqOWpLY1plaWZMMjFwazlnUnBQTjJjMWtLZTBxanlmcGozOGI1ejhGU3Naamp5YktNTVlGaGkyUzh2WkcwTmxiOXNWUHhzOVVHbmZldFdXMmZiUC1CbWdrNl9PQQ?oc=5"
+        },
+        "context": "Celtics fans heading to TD Garden for the team’s home opener Friday will have some creative new options waiting for them at the concession stands.",
+        "id": 1377208,
+        "published_at_epoch": 1792697579,
+        "source": "Facebook",
+        "title": "Celtics fans heading to TD Garden for the team’s home opener Friday will have some creative new options waiting for them at the concession stands."
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 11.735463422787316,
+            "emotion": 1.8029618966913543,
+            "movement": 4.412850013291337,
+            "subject": 95.459751496854
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxNZHcwUWRRTE95djVrNE5IelVxT2o1Z2xwc1F3YlFrNmFyWmN3Ri15X2V4MjJVbTBMYmhraDh6QmtnU1FvR2c5MVhLUTRCUHhFYWdxNFZrdjVSY0ExRzFlNUE5V0dRLWhVTlZVVU5rdjlYVUp3YzV4Z2ZtcnpuZG9VUnhZRVVrVHZweDEyWnpoaDliVTl3Y1I5NkZ5eDNHVVdtbVE?oc=5"
+        },
+        "context": "Watch Detroit Pistons vs Boston Celtics",
+        "id": 963967,
+        "published_at_epoch": 1792696235,
+        "source": "TOD",
+        "title": "Watch Detroit Pistons vs Boston Celtics"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.673988910452918,
+            "emotion": 1.61897956771377,
+            "movement": 3.8889430930248823,
+            "subject": 94.6862738120764
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi1AFBVV95cUxObjZFRzRJbU9qVlR6SHNQY1FmbkJDYWdHMUVybHNkZ3lMUnR6NFdHVGp0WlZweHY0MUkxVFN6SlVaRjdCa3VaekVfS0x1NlJSSklwbVhraThadmFLMDh0VTA3dGlIRUpiMDhBVWpIYmIxQ01DeEZUdjd4cEdXQ3pRR1hSeHZmalE5UWh3NVhpUFNKZ2dGQmxYUXkyQlc4akw3LUZpSzE2Z1h4cXZHNmFrV3FReHlCVldldHRDT0RZcE9GRVhiWDJNSC1TRXZ4YVZIbUdXbw?oc=5"
+        },
+        "context": "Los Angeles Lakers (ARACHNE) @ Boston Celtics (ZION) Odds",
+        "id": 1357104,
+        "published_at_epoch": 1792694398,
+        "source": "FanDuel Sportsbook",
+        "title": "Los Angeles Lakers (ARACHNE) @ Boston Celtics (ZION) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.778665562088329,
+            "clickbait": 17.301458474269257,
+            "emotion": 8.298326193394628,
+            "movement": 3.621180059784316,
+            "subject": 95.14287783824528
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi1AFBVV95cUxOb0ctWDFvODd6S25sUllTeFBReFhRa0RCY2l4Q0JRQmJxRE9FUURrc3pDWk5laEkxWGVVSFFUSEFQMzFyNWo0Ykxtd1EzeGQxa202WnZyQWltUWRKSF9TQThDTW5aNUEzZjNrTWlFVWRUR1VydG5YNW5DNzhxQm9BWVlrR2RlU0hKRkd4cTc2ZFdKRlJzeE8wNTNhUmVnTlFVdUtZRWs0UWh6QzJBUTZTMEN5VXlTRldLUVlkYzZoZWxLV1BJN2tKWVpPaDRndThmeXZQOQ?oc=5"
+        },
+        "context": "New York Knicks (DEFIANT) @ Boston Celtics (PROWLER) Odds",
+        "id": 1327306,
+        "published_at_epoch": 1792687391,
+        "source": "FanDuel Sportsbook",
+        "title": "New York Knicks (DEFIANT) @ Boston Celtics (PROWLER) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.95330494542207,
+            "clickbait": 8.324300245805654,
+            "emotion": 3.2539029649862306,
+            "movement": 4.570825298866567,
+            "subject": 97.17398599881936
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi0AFBVV95cUxQUU1VX3F4WWRnUUd0aEl3SmdWVlJyZldtU19yVTBFemtLWUZMWXBvLXRFalVBNU9jOGg4RjhlWlZDOUx6b3FBRVh3cGlzM1Y2WXdoZ2RSNDNIclNHTnF4X2p5MDZJTEJVaHhrSTFMNVdDdFlnUEp4MDg2M2NZb0lQZFpxYlNrcXdMR0pjNU1pVXN4aWFVTVJ2ZXlQUDJ0MmxwOElPUmZwSnAyd25KWXR6N0kzMnhQdHlaQzM0Xy1IaVBDeUVrd1JGZ1MxSHZLTEZt?oc=5"
+        },
+        "context": "The Boston Celtics Need One Position to Play Great Every Night to be Their Best Selves",
+        "id": 1327283,
+        "published_at_epoch": 1792685087,
+        "source": "Sports Illustrated",
+        "title": "The Boston Celtics Need One Position to Play Great Every Night to be Their Best Selves"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.81817115344506,
+            "emotion": 2.0111433761138313,
+            "movement": 3.0667465757890864,
+            "subject": 94.26485664344078
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxQbFdHOFdOeHdnZ3Q5bDVSVHlhU2RMdjZXTkY2Q0lmcm1fVGloTkVqSi1KbGlJdTNabG8ycm1OeGd3elloX0g3SklUekFMaWRhbXIxYzBzNWJPREFaeFZHWVBZSzlld3VpVTh5UFRGYXRSY3l6TUk5anJHd2x3cUJKblFsU0l3UFAtNDVCaU1aTFhhclpMNmI4RmpURFpxTWRxWU45V055T19GaUZrSDJMTWV0eEZnWGpoWFFZX0ljQUpleXNrS05yV3lpcE4wcTJhdGFRNFlxeU5LVENKd3c?oc=5"
+        },
+        "context": "New York Knicks vs Boston Celtics Picks, Prediction, Odds, and Line Movement for Friday October 23 2026",
+        "id": 1367252,
+        "published_at_epoch": 1792682280,
+        "source": "Winners & Whiners",
+        "title": "New York Knicks vs Boston Celtics Picks, Prediction, Odds, and Line Movement for Friday October 23 2026"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.423190651421122,
+            "clickbait": 4.775542719455506,
+            "emotion": 2.740413046121965,
+            "movement": 4.197514064974105,
+            "subject": 94.41629840387144
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNSFpEdVowQW80cVYzREtMNllfaDlQTFppcXdqNl91cHN5THVMYlpUOWVCaUFXVm9rdURQMGxVZXlQVF9xUWpGNUVvUDhFY2U2SW1zNlVHcF9kX2M5cnh3VU5UQ19NMG53LXZnQW43RlVlTVE2NUNKZXhDWmZQd2lIZ0NyRW02V0FmQVUwZGpB?oc=5"
+        },
+        "context": "Detroit Pistons: 3 Takeaways After Comeback Win Vs. Boston Celtics",
+        "id": 1327268,
+        "published_at_epoch": 1792681239,
+        "source": "Yahoo Sports",
+        "title": "Detroit Pistons: 3 Takeaways After Comeback Win Vs. Boston Celtics"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.6340477957821484,
+            "clickbait": 4.798057698438211,
+            "emotion": 1.554954467014209,
+            "movement": 4.259289679480414,
+            "subject": 94.17444252094376
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi1gFBVV95cUxPTmNHdjRlaVIybi1QdWh4SFVxQnBwcmwwdDlYNkxMLVBQY19wdldZOVdacXlMOE92TlZZYVVHUGxoRl9vNVBqdzZYY2x4ejc0a2lIWnRhNnNjdjJlcGZDNWt5OVI5VGE2NXdoQlIzUmpCOUlhWWRrX0VuTEhsR2VqaWJuMXBBb2djVVhIT2JzVVBaOTFfMlJTWk81SHhZRm00SXZzSHd2MHhjdjY4dE9RTms2dmVaYWp0LWFZWWtTbkJIUUx6bVQ1Y1RMTTloeHo5aXdxbXVR?oc=5"
+        },
+        "context": "Los Angeles Lakers (CHARM) @ Boston Celtics (MACHINE) Odds",
+        "id": 1307893,
+        "published_at_epoch": 1792678331,
+        "source": "FanDuel Sportsbook",
+        "title": "Los Angeles Lakers (CHARM) @ Boston Celtics (MACHINE) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.3724546220848064,
+            "clickbait": 7.201527087449884,
+            "emotion": 2.4914431442406753,
+            "movement": 2.5472959395302577,
+            "subject": 96.3093425337491
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPcGZRNFVKREdMTENxOWxuQVh0QnNnUmRDZGxPV3VuMmRlaEN6ZFdBMWdNNlotUDNNYnFyY01EaWV5TnY5VktFUFo4dTJtanQzUnduUmFUdGVhT0dJSVMtRnpERkdXOWIxT0IzVHFqaXJnMW81YlFtT0dIakJwZXVpaF9PdTY0bDQ?oc=5"
+        },
+        "context": "Celtics unveil new sneaker beer cup, sweet treat for fans at TD Garden",
+        "id": 1317595,
+        "published_at_epoch": 1792673345,
+        "source": "Yahoo Sports",
+        "title": "Celtics unveil new sneaker beer cup, sweet treat for fans at TD Garden"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.726032563325771,
+            "clickbait": 6.166772388722451,
+            "emotion": 1.5876473409170078,
+            "movement": 5.506917156802902,
+            "subject": 94.71470359787106
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxQY3o1QzI0Rkw1S0Fja1VDNnRJUWdpbzJCdEZWWE1TV2l1VUVkaWllVFNYTkZUamtaWEtub0ZUTlp1bDdVRHM3ekd3TVg3cmZBb084ejNMQzNyZ0JNaEtRbzNHSVZwSmVuOHd5eUU1RVFFZ3FJX2dJNHFEY1ZyQWh6TV9uUW9lVjJTbVBZdzZlOGNVclVCd0x0QnkyT0psWkZWR3NHdGdXcTlXeXZleS1VWnd2eWl2c0lXN2s5MEF6MUlzelY0d3l4R1E3TXhKc1lpZ19iM2NNWQ?oc=5"
+        },
+        "context": "New York Knicks (RIDER) @ Boston Celtics (TRANQUILITY) Odds",
+        "id": 1278858,
+        "published_at_epoch": 1792669852,
+        "source": "FanDuel Sportsbook",
+        "title": "New York Knicks (RIDER) @ Boston Celtics (TRANQUILITY) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.5142398050575157,
+            "clickbait": 10.2267928482203,
+            "emotion": 2.443140798655861,
+            "movement": 3.3182768244505105,
+            "subject": 94.16910355152908
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxObFd1dm5DbWJNMEZ2WGNBdlA3aUtncmRheDZMOF8yVmE0SHVpWWJaLWs0TFVZQTJXTDZFNXlBSXlSRFRab3dITkNsU0JvdlZab2ZiMlYxRVhGZFZSaDVZOWF1SVRTXzZSa2twSGREaUtIdUVVVV9HdFRyNkdFSGVSRURMTi0tSXlWYzBPSlVn?oc=5"
+        },
+        "context": "Detroit Pistons: Javonte Green Breaks Down Clutch Shooting Vs. Celtics",
+        "id": 1278827,
+        "published_at_epoch": 1792666842,
+        "source": "Yahoo Sports",
+        "title": "Detroit Pistons: Javonte Green Breaks Down Clutch Shooting Vs. Celtics"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.919211651332307,
+            "clickbait": 20.311969866780327,
+            "emotion": 3.439794599381744,
+            "movement": 4.838935497151278,
+            "subject": 94.93091390523398
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3wFBVV95cUxQdy0xLUNCQkFaOWNrSGxORG43TEx1WnRHd2N6cUtIVzZVdEl2VTNBVGNlcVJ4b3lKdTdEb3NqQmlWVUY3b1lOWS16N2xlWnloZEw3bjVIUlRxc0JwcHFYWFpNd2QyMW82eVUwdXluWDNMVHZCOE9LZENoTUdJeUVFVEZHUzdwTVpCQWlwZjd1anZnOTk4M2tGXzlqWU5kZjRxTFcwVnZweDJHeEhzalVZQ2gzSG5RU3JCVlpzaFlCNU9LV2VvcXNVaExuSXpndjMxOGo5OUVXM1k1WVhNZmlz?oc=5"
+        },
+        "context": "Los Angeles Lakers (PUNISHER) @ Boston Celtics (TRANQUILITY) Odds",
+        "id": 1269242,
+        "published_at_epoch": 1792666349,
+        "source": "FanDuel Sportsbook",
+        "title": "Los Angeles Lakers (PUNISHER) @ Boston Celtics (TRANQUILITY) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 12.035640382723605,
+            "clickbait": 17.771106555923616,
+            "emotion": 2.3465268572007867,
+            "movement": 10.983811079440525,
+            "subject": 94.16904071281444
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxPTkhJcTFFQkVNU1JHZFFvZUQta0V1WGNqOFJDVldBLWcxT2tZV25STEhrQ19tbWhpVFZrcXpJcmRLbFhfREdfMEhkNzU1RmJvMEZ1anJmWEJtTTQ0TnhZYUJtT09fQmxoaXd2VGpvNWR2ZS1YNGdlSWVNV2xlOXduOVRzNHJjYS1Pc19GeDRUSkU?oc=5"
+        },
+        "context": "Celtics’ Paul George Makes Revealing Admission After Boston Debut",
+        "id": 1269260,
+        "published_at_epoch": 1792665978,
+        "source": "Heavy.com",
+        "title": "Celtics’ Paul George Makes Revealing Admission After Boston Debut"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 18.135040674745262,
+            "clickbait": 4.637854342325552,
+            "emotion": 1.927308463157089,
+            "movement": 88.69653992369696,
+            "subject": 96.9276692565142
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgJBVV95cUxPUkhmSnhqbndEY3Y0QTZBdjRhV1NRZUU0ZzBwWFNNYW8wc3I5eWpOaE0wczZ3UHRmZ1JzSURNWW9id0pCeVNNeVhGbXVPQi0yMFlZYV9ka0Vfa0VXOENRTV9Ici1YLVR1MEFxc2E4bm1aVERwWHlVNDdYaWhQWGtkcnBVZWtBcEtZSDhmb3daUEs3dUhLLTFIYlJ4QTFPcmdIa1haakQyWXVhX0tlOXYtWmsxRi1rUGxYZUEtNGFFVTZRdUpCZlRjc3hYbk5Ea2xnM0dfdzR2U2xNMjVFN0FjdjRoSFlYbGp6dGFONmhiM1NpWGVQRnppSjJJZ2JUZ0hxYjdTODZR?oc=5"
+        },
+        "context": "Today in Boston Celtics history: Stevens born; Brooks, McCarty trades; Timelord, Jones, Sanders debut; Murphy passes",
+        "id": 1269174,
+        "published_at_epoch": 1792663260,
+        "source": "Celtics Wire",
+        "title": "Today in Boston Celtics history: Stevens born; Brooks, McCarty trades; Timelord, Jones, Sanders debut; Murphy passes"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.154654655678999,
+            "clickbait": 8.31799981177131,
+            "emotion": 1.8000836796778787,
+            "movement": 4.585531986649528,
+            "subject": 94.24670200028493
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi4AFBVV95cUxOOGczaXFMZmJEWWdNOS1uWTJkT3VVOC1hNHh1Nm5zWkR4YUg5emNCMlVaRnZiSHM2RnBUXzc1aEZVam00TklQNHlFV21JbmdaQ3hvSU9mM041UTVFbjdlTEhPeFRLMGFLSFFRU1E0bWo1VXFYbHc0RF9YWXdtcHdQWVM4Zkl1VWFUOGt2ZGhlalZHa2dMTzlWSzJqMFdZTU9aZ3gzNC15aVJwS0Vxc1ZSVGJWYWlJMmN6bnpPVGF1Vm42eHBmZFpKcjFwMEVvM3Q1dHNlWmNldGhiUEY0U3FWbw?oc=5"
+        },
+        "context": "Oklahoma City Thunder (ACCORD) @ Boston Celtics (TRANQUILITY) Odds",
+        "id": 1259570,
+        "published_at_epoch": 1792662853,
+        "source": "FanDuel Sportsbook",
+        "title": "Oklahoma City Thunder (ACCORD) @ Boston Celtics (TRANQUILITY) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.655483090363231,
+            "clickbait": 6.177199390047241,
+            "emotion": 2.024004769942263,
+            "movement": 3.835150720019691,
+            "subject": 94.22652223408308
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqwRBVV95cUxQaldqbjZnUF9BTENHMmFISmJCWTJkVVJycUhxOG9xNWFpa3hBZEFZZGh3RGwtMFZxRG1tT3ZUSlYxNmRmWDRLZ3gwb2xBMEc5VjNKVnJJeE1qUmZZY1RGT0RMaHBubzk4S0o2ZE5XMkZxNS1GT0ZoY25JT2Rkd3djcU80cXBld192MmRFY2EzWXozRElvVTh3UzFrVmdVdXRjeUFJYzRQWThxLWkwQ0lodVpXTDJvRFZJelNsZjY4Q1lCM0tBd2t0cXB4YUJJQkQzN2lXUy1DN2NlLTZmRUFWeXdGNXlyWkc4cm5zMWFoRmVoS1VVdGhlcDdSaVVGRHNNbnVMU0x6U0V6cWotbGxXY3JUZUowRWk5RnJQLWpnLUYtVmFIaGZnX2pLUGlJMXFfam1oZG1qeE1tcUVGT2dkU3NJd3ZsVVVrd0E1c2g5S0NvdzVvMVRIYml4bEdhbGxpbWFfbWpheTN3UFVsMzVvVGswNGdBbk9FeHFTc1l1VklnbXZkOVZoYmJMX0J4NVFKZmVYTURJZGJGVjdBTW9acTNkcEY3OTFMS3dZendyQTBydFctTXdOOVA2TktzUkRvSUh0UjhXWHRwRkFuZTVBajhyM01CSlNhaDZKam5XUkJqU3FLckctSG82NmZfQjlyaFRCUDNfNmpaU0w0aUc3cjlKakpmTmRsRTV4VVdmUklwNTFxU1NsMTc1ZW1CLWN3bG9OeUpkazk2Vkk?oc=5"
+        },
+        "context": "Boston Celtics vs Chicago Bulls Mar 9, 2027 Game Summary",
+        "id": 1337136,
+        "published_at_epoch": 1792662040,
+        "source": "NBA.com",
+        "title": "Boston Celtics vs Chicago Bulls Mar 9, 2027 Game Summary"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.663774855666189,
+            "clickbait": 9.83135920887856,
+            "emotion": 3.0247914403368834,
+            "movement": 3.5542697534621075,
+            "subject": 94.5988883123714
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi2AFBVV95cUxOLURZQ19zMElHeDJUcWY2YXdvYUxZWUlnR0xYaHRxRGcxWmdVZmNKZmUtTTZVcWFrbXJFV3dpU3pwd2NMVXJiTUJWUHRpSFFFVVhoOWQxX0xTQlVxSVE3d0RWeVNwanRaNEF6TWJEN0VwVGJkRldDTW1HUmM3Rjd1c0RsNVNBZDR4SEk3WWIyUm44SHIzOURpeERJNjZpV1FRX3FaQjhNTjNXejRvNDE1UnZoa2FyT2tLb0VHWmRaS3dGaGJCbTVtZlFrdlNLTGRBMzhJYVQ0M2Q?oc=5"
+        },
+        "context": "NBA season tips off with Pistons rallying to beat Celtics, spoiling Paul George’s debut",
+        "id": 1259505,
+        "published_at_epoch": 1792646529,
+        "source": "Dailypress.net",
+        "title": "NBA season tips off with Pistons rallying to beat Celtics, spoiling Paul George’s debut"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.860189747240369,
+            "emotion": 2.1744057866541735,
+            "movement": 4.109647923098332,
+            "subject": 95.16019491905564
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqARBVV95cUxORGRLRGUya0hxVi04di1BVVVzREFvYlRzTmp5UjAwakZTUF9JQXpKUFp0SlJfdjRVY2J2V1l4VkF5bHNSNmtXTldXY3M1UFVtU3c1ZkluTVd4akJkZTBRVHZFTkNrNF84UURuLXRpLVczenJ0elBnQ243czhwcVVfaGxSZVpfRjNpM2dRbFpxVWR1QW44WjFjSFUxNEVJOGx6OHE4SWZ5eVBDQ2lVeGZJVW5PekQ5WGlvZkMyVS03Ulk2VHZtQ2l6ZEZCYk5uN2JZOHp5NjNpcFhKZjBtOXcta01UWWdRdDRnMmFpYTFlTV84eG5oUkZaMmVNYUp4bzZ1bzFuMmttT1Z0ZDlEQ1JVbVc1XzVsTk82djQ2MlRqQ3pTdlkyNnhaZ2lJZWxrZkdUc09VWE1aa3J1eFU5dWdyeGhrdVNjZWJlRnZucnVaNFhFbFFBMHVqX0FYR2dCcUZlYmFiYkdmWWJqWUc1Vi1aYmU5X1g0UHRuaHUyLWtLYk9WREI4NE9MYU1naXhDZmxtZ240ODJyV2FEcWxKYU9wUWV5anVVdFh2aTFacXBmcFo3LU5peGhCc2FQeE51RHpRdVIwSG9HM0FNN0VkSHhPRVltNHVFVEwwcjhVdXljUzZaWUI2NmozMnNXWFpLdjc3c25GUjZOZVBHT1Z5Q3NiOFFBZFc0RVhvTjVFdmxhOXJOTTVRMkNOWFJNdVM5Z3l0RUotSkVTS1o?oc=5"
+        },
+        "context": "Brooklyn Nets vs Boston Celtics Oct 27, 2026 Game Summary",
+        "id": 1357088,
+        "published_at_epoch": 1792643936,
+        "source": "NBA.com",
+        "title": "Brooklyn Nets vs Boston Celtics Oct 27, 2026 Game Summary"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9109373026393577,
+            "clickbait": 6.92595290330948,
+            "emotion": 3.7552481334039496,
+            "movement": 2.6276911535767287,
+            "subject": 94.42692748410649
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxPUDk2UzRrQXdnR05fbWVxekwzOHNEaEFVMjdITTJWN29lV3VLb280Q1NxTS1MWDNUQTlTU2R2Nkd4ZlJyYnYzTG1UcmhxRzlzcUo0dVR2bW0tTi1kZW9aM19sSW1YTHdzeU9oZlRlamxFM0JjQ0dldHp4S2FPNmZSWmtyYmZZalc3MUUxV0ZxSmtCZzNLLWNldlN0Vkx5UW1wRkdLYlJWa0pIUEZCMUZLOFp6X0hyWnE1em1fc0E2b2VhSkFzbDJwaURHblZBSUNZT05ob3RJUm5qcVZ5QXc?oc=5"
+        },
+        "context": "The Detroit Pistons opened their 2026-27 NBA regular-season campaign with an emphatic come-from-behind win over the Boston Celtics, 121-113, on Oct. 21, 2026, at Little Caesars Arena in Michigan. Link to the full story in comment section.",
+        "id": 1259528,
+        "published_at_epoch": 1792643461,
+        "source": "Facebook",
+        "title": "The Detroit Pistons opened their 2026-27 NBA regular-season campaign with an emphatic come-from-behind win over the Boston Celtics, 121-113, on Oct. 21, 2026, at Little Caesars Arena in Michigan. Link to the full story in comment section."
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8852206815279715,
+            "clickbait": 13.549661738325089,
+            "emotion": 1.7322142679552746,
+            "movement": 75.70321360157179,
+            "subject": 94.33682638022874
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxPR3NzdlA0S1owRDhDaDczZ2Y1Q2Z4X2czblJaZnB2c2VEWXBITHJBM09wRV9XdUd2WmpSZTJyNlpFQUx3RjBFMm9ZZVhUUkU0Tjh1VDdpR1BXOUNJVHUtMTZmNlQ5amZTRDlMdDRSSWE1UlM4RDhVVERoQlhGZG1GWVJzRGVEWGFFZHhEQ18yYWNkdw?oc=5"
+        },
+        "context": "Celtics' Mitchell Robinson Already Being Viewed as Eventual Trade Candidate",
+        "id": 1259535,
+        "published_at_epoch": 1792640580,
+        "source": "Yahoo Sports",
+        "title": "Celtics' Mitchell Robinson Already Being Viewed as Eventual Trade Candidate"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.652744837583906,
+            "clickbait": 4.50055292369264,
+            "emotion": 1.5708116898653726,
+            "movement": 3.5385200558972687,
+            "subject": 94.59736782959818
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTE1TQ3dYZFRUQ3RDVDJwNEtNSmh1UlM5WmF4UXhUV1IwcWFha21vRVpVaURjaTFhTGtoZXpqM0tVZ3ZzQnYtb1c3azFoek45XzhsdEFVUDJXMm9LMUk4Wmp4aTZ3Ti1nbzNmSlpkLUlMRlhCZThxZGNoSVZTdw?oc=5"
+        },
+        "context": "New York Knicks @ Boston Celtics: Live game updates, stats, play-by-play",
+        "id": 367135,
+        "published_at_epoch": 1792634656,
+        "source": "Yahoo Sports",
+        "title": "New York Knicks @ Boston Celtics: Live game updates, stats, play-by-play"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 10.79356238686719,
+            "clickbait": 17.40145996192544,
+            "emotion": 6.392673139503491,
+            "movement": 2.848402488313264,
+            "subject": 95.64318203356844
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxPYTBwMUx5MnhGcEtSclpCWW5iaUdzdXZEMXBrLU4zN25MaVllYmhaU1RpNFdRenk5UEF0SkZuT3k2OEdpajdhYUJBbWxPc2w2NUJtTnY3blprdEpNVDM4b3lrUUpIcmgwejVPc3hZckRQMDJIVk1QYkgtNHd2cE04X1pzSWtyUnRzSUhST2FtQUV4bmZMYVpSWmpYRUg1MnN5ajAyQWpETkFsSEoz?oc=5"
+        },
+        "context": "Boston Celtics' Paul George hit with flopping fine after 38-point debut ends in collapse",
+        "id": 1327343,
+        "published_at_epoch": 1792632940,
+        "source": "Fox News",
+        "title": "Boston Celtics' Paul George hit with flopping fine after 38-point debut ends in collapse"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.6895254448153127,
+            "emotion": 1.5315901724485512,
+            "movement": 4.129340797038869,
+            "subject": 94.6480752239252
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi2AFBVV95cUxObWxtUjVuQXZGQlRGVFlDNlE1eV9TM0NqcFJuSG1DRlotOERFN1QzWlVoYXVvMUhlN0hfME1WYkF0TEJER0h3MkdwNUVQT1R5SlpPQ0RnNS03c284RDJjb29EVUp5SzNtSHVGejRQdjVOWnMwVXZpMnV6U1hnc3NFSVpVVVBSSGVLMHZwTG1fWGpUNUtjUEtGZGhZNFRCdmdIdldYS09DMG1pNXhzZlo5WlhNRHRBUW5Gekd1T29zQlVIaHZBZXpuaXk5UzlZdHZEd1cwZ2pJeHE?oc=5"
+        },
+        "context": "Oklahoma City Thunder (KOBRA) @ Boston Celtics (DAGGER) Odds",
+        "id": 1230647,
+        "published_at_epoch": 1792629491,
+        "source": "FanDuel Sportsbook",
+        "title": "Oklahoma City Thunder (KOBRA) @ Boston Celtics (DAGGER) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.3234084525029837,
+            "clickbait": 3.179009643425696,
+            "emotion": 1.481143602352557,
+            "movement": 14.27777506025301,
+            "subject": 95.68767079889096
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTFBRbXhtQWhCZlI1c2RIUmVnblFrV2hQa0V1SUpKaHFiYVVnWHpVQ2JfbHJhSFVxaDluc3gwaDVYSmhtVkJkdV9DUzZsWjJhRmJnMG5iT0c5S3pLQ05uTEMwVg?oc=5"
+        },
+        "context": "Boston Celtics: roster, news, schedule and stats",
+        "id": 1337843,
+        "published_at_epoch": 1792626721,
+        "source": "BasketNews.com",
+        "title": "Boston Celtics: roster, news, schedule and stats"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 12.281551957875228,
+            "clickbait": 22.340154833038778,
+            "emotion": 2.4444913460878763,
+            "movement": 3.349508988781371,
+            "subject": 95.31522107473158
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNQjk3Nk5xMWlvZ01JRlNtTzY1TWhmWGNDcm5nNmJKTmRwa3FGelc5WklmODY2OHNfVGdRczZBN3Q4UFYwd1liaWs5YlpBMlNMTmNOODRmVUEtNFQzN3NoV2NnNnBPQ3k4bERQNmJRYkpsWUxpOFdFSnBRQVoyellxa3k0MVBYdDlhbVE?oc=5"
+        },
+        "context": "Boston Celtics Star Paul George Hit With NBA Fine After Historic Debut",
+        "id": 1240336,
+        "published_at_epoch": 1792623425,
+        "source": "Heavy.com",
+        "title": "Boston Celtics Star Paul George Hit With NBA Fine After Historic Debut"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.7054324533231235,
+            "clickbait": 35.56323912816636,
+            "emotion": 2.2275714774542155,
+            "movement": 4.306532424583067,
+            "subject": 94.48185662212536
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi2gFBVV95cUxPblZLNlF2YUpyTHZ3d2FfNXpIOWJoQy1TSmlFa001WFIzMVpULWE2QXdDTDYtUXRvclV6U2Zxb3lzRGhVVFhKQkV1M05kV1o1cHZvcFBHUXVzZXhKSzhkUWsxNWNidlJoNlBQWVZocVc2bTNodE5TZVRRZDF2b0k4TGc1ZUcydzk5aFZid3BKa29ZcUg1eUFpcy1ERWJmazFKQm9SNDJ4VzRBMjFHMExoT3JMWTRNcWtoM2JDZVNEQUpGTlpBS0d1OHlQTmFPODgtekZCeFowcHFoQQ?oc=5"
+        },
+        "context": "Oklahoma City Thunder (LEGACY) @ Boston Celtics (VANITY) Odds",
+        "id": 1299926,
+        "published_at_epoch": 1792614812,
+        "source": "FanDuel Sportsbook",
+        "title": "Oklahoma City Thunder (LEGACY) @ Boston Celtics (VANITY) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.721186213573534,
+            "clickbait": 3.801862625314435,
+            "emotion": 1.883446924080505,
+            "movement": 13.060431853373323,
+            "subject": 94.54259712830368
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiugFBVV95cUxNSW5KZlZXb1A5RG9OQVphdVdKczNuQVMtWXFEYm9nR1E2NWFjWTB1bkVhLXA4QWxWUExrajJEM0RsQmViMFhqMkV3WFMxQk43OElvVFdPX3pQTWZaSjlFLWYxa04wb242MWRLeUZWWUZhczlMc0hmSlI4b1o4ZzRMbEFSRzR3MzZjeFVUeTlwamE0Y0ZjSl9najMtQ3pMRFROc3pPSUwxOXo1Uk5KWnFkVTh5ekQ2bWF5MWc?oc=5"
+        },
+        "context": "Robert Franks Talks Boston Celtics and 36ers at NBA Summer League",
+        "id": 1337148,
+        "published_at_epoch": 1792608930,
+        "source": "Adelaide 36ers",
+        "title": "Robert Franks Talks Boston Celtics and 36ers at NBA Summer League"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.637591712480681,
+            "clickbait": 12.349253842753969,
+            "emotion": 3.022878597573878,
+            "movement": 9.48814380670497,
+            "subject": 95.0386250531402
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxNQnJPQ0JrelZ5aDFTbHdvcDk0UWUzUE5WUExxTE9BZENqcmducnhwV20xMkVzQmE1bEVzbXJTMXBFd2hYMG83cHlmU2RXMXUtOUtmZFc5V1R3eTYybUp3SWlnWjZxaFRyZlZqcmdvM1lrV2ZHQ3JCMFY3Nzc3bGEwZTZNSTRqUk80SENHbQ?oc=5"
+        },
+        "context": "Boston Celtics Opener Proves What We Thought All Offseason",
+        "id": 1201624,
+        "published_at_epoch": 1792605911,
+        "source": "Yahoo Sports",
+        "title": "Boston Celtics Opener Proves What We Thought All Offseason"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.765948642671415,
+            "clickbait": 8.999984843560437,
+            "emotion": 2.9857176652674156,
+            "movement": 2.9560169739481728,
+            "subject": 94.47910142093268
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxNWVB4MGl0ck5iZVRuM3dXeHlRYThCcXZTZ0kyYzMxcGEtTHh0QVFFUUVBQzhOVE5zNTd2SlhMNjZqSkQxZkNXMmNNSGk4d3pjWDd3YUQ1eDM2VzRoQjFETjc3X1lLTDQ2Vm1mNHlUMkU5c1k0eEFDVXFDdWZCWHdIS0RUcFpoSmI2Z2N2ZFNlSnhyWFVyRWlMX0c4TUtHeFVWd1hvOWxNNzFuLThPcmxTVG1iU1pPLW5yYmN3WXlVNmt2bVF2N1E?oc=5"
+        },
+        "context": "NBA season tips off with Pistons rallying to beat Celtics 121-113, spoiling Paul George's debut",
+        "id": 1269825,
+        "published_at_epoch": 1792601130,
+        "source": "WHEC.com",
+        "title": "NBA season tips off with Pistons rallying to beat Celtics 121-113, spoiling Paul George's debut"
+      }
+    ],
+    "subject": {
+      "entity_id": 2,
+      "entity_type": "team",
+      "name": "Boston Celtics",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

@@ -1,0 +1,1183 @@
+{
+  "name": "real-person:8:NFL-narratives",
+  "task": "narratives",
+  "sport": "NFL",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Dan Quinn\",\"entity_type\":\"person\",\"sport\":\"American football\",\"database_record\":\"Dan Quinn — coach; club: Philadelphia Eagles; checked: 2026-09-30.\\ndate_of_birth: 1970-09-11 [2026-10-05; source 130990]\\nrole: coach [2026-09-05; source 66340]\\nteam_affiliation: Philadelphia Eagles [2026-09-30; source 126380]\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1402962,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQc3ZNU0RwNTZMeUs2WnN3clM3elpuUWFPOXMzRXFFanBxSmhlazh6TFhjUHY3ZGotOGsxanJEekYzNW5jc21TWUFqbU1Vb25kaURSVjNWcUFGbm1uNlByS09jZ2IxMmJnZDc3U3Nzcm4tYVYwU01ubTJGUWlvaXVhVUo5RllTS1FZdG1sR2JIOA?oc=5\",\"headline\":\"Commanders and coach Dan Quinn are at a crossroads entering their bye week\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T21:55:36Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1371739,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxOb3d2X0VMMkVMX2tfXzhSc245LXJOM2dQdGYzbnRrS0ZMMjk1eTNwSVhtMWRfa3pKZndval9zXzF0Ukd3WGR3U3BXeS0yOFhodmE3M1cyNER1SmhULVdUT0liVi1nd3ZnT0FvYy1iN2FMTHpnam1kTTBidUhndnI3cC1ucU9WUQ?oc=5\",\"headline\":\"Dan Quinn is exposing the NFL’s problem with defensive-minded head coaches\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T19:15:44Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1381778,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxOMy1RejQtMm03R3VwdzExOWZYaTlYd3NrRWFqX2pyQ1h2ZVR3elhjOHFWSjJoVzlZbkt4LThTNWZGSk5YSzN2WE9hQmJ6QXlGMFlsLUpPREE1RDZ1WFNUX2RZYWRUbGtrRWVIWEVnN2NoVENYTnZTMWd2WXZmUVR1cFJZQzA?oc=5\",\"headline\":\"Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T14:40:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1371779,\"url\":\"https://news.google.com/rss/articles/CBMiowFBVV95cUxNZ3gzRzNFM1BHV0dJVi0zLVVZOWJPdU5vdk5PV0tRdWVSOTlRY1RrWEhnZVZ6c29UOHRQSTNDT2pPUF90Z1lRckRBM08wSk9nY09FMEkxZ2FjZnRXWVZ0Ni1pSVpXZWtEU0pCQXVYdy1Vcy11cXFWbVFjTC12ckI0Q1h4dmhEbVpUQ0R1YnpqcWlFZ3lBRldvV2NjOGJRYkxCclBr?oc=5\",\"headline\":\"Commanders’ Dan Quinn again takes blame for late gaffe, still ‘furious’\",\"publisher\":\"Field Level Media\",\"published_at\":\"2026-10-22T14:23:48Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1263489,\"url\":\"https://news.google.com/rss/articles/CBMipgFBVV95cUxPZXBNMzlnQ1MzQ3BFOTJSOEN3SVpXWmdhOW1IQmtsazNpellQYlRGaFZGaXhOcXEtZy0wY3F4akxIYUZZUGlLY1BHakloNUVXYnZXb1lFcHNudlFFSFRKTUtURlRmbGFmOUpSUVlNS1ZsR1FNNTFSaVA4TnlHaGJXbEgwbTYwN1hvQTRsWkpRRUMwN1RjREZQdDVoNFloSzNDdGNlODhB?oc=5\",\"headline\":\"Who has the hottest seat in the NFL? Bo Nix, Mike McDaniel, Dan Quinn and more\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-22T09:30:45Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1244854,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxOOW96WlMxTW5aV2lLNVpnemVnYy1NM1BhQTZ0ZUd0SGhPNzE4YUtBVURTVnF4cWRKSUdycXgtd0pEaHdyLWY2Qjk2Vm1DVmw2bTBOQnFRU2pZNnpKT0FOSndhZ2xUb2QxRHpHSUlwSlE2aTlKS3V3aXpGOGxRRko0OEhwbi1vU3Jqd3k1bQ?oc=5\",\"headline\":\"Dan Quinn Puts Commanders Offensive Position Group on Notice During Bye Week\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T01:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1264048,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxOc0VRQVo1MmhZdU5qTHlYUVRJRmpJUGtaV2Nnd2tvZk1DYzhIa0txWl9VWmVHYzk4cFVxcGxHTnY2eVdWeWg5eWxJLVg0ZGRVdEVCazRQdVJPeldmSFpxbHlPeUZ0NTlVVGdDWHVCSUc5U0V0ZHhaTEd1eko4ekRUQ1V2bTh4MWxYWGNmbk0zZw?oc=5\",\"headline\":\"Former Commanders’ HC Names ‘Impressive’ Dan Quinn Replacement\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T00:40:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1402176,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxNUUxNUlJXYUtPN3R6SjZRYmtvRjN2c0VieFNZZmdsOU1aMEZ1WWdPNG9meUZiM3FxWVgySi0xX1d1QjlOWWh1YVczVmNkZEtFVFFVR2JUUVRLS25sR3h3UXppakpGNFlGY2NEdE5USGlaNmt2SjlHOEFaOEdRSVBIbEFUaFg5dDQ?oc=5\",\"headline\":\"'It's over for Dan Quinn, this is it': Stephen A. Smith does not hold back on Commanders coach\",\"publisher\":\"The Comeback\",\"published_at\":\"2026-10-22T00:27:38Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1402174,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxQRkRpSjkxUHpua25saS1uSm5iV1Nxd3dySnMtOXA2MW5DZ3J4Mkk5Z0pfZFVWMmlFTjlDX3VSQWZRRFdjWjNPU1VvRnBBRk03QmhPS1RLck5wY25mRHhWRlZjZDFRaXFXdFpVTnlTc3dWTVA0d182ZlJVUXFtcnY4TTF6ZG56cUhpdmVUd25JSmtCRWwwV3dfb3Rpaw?oc=5\",\"headline\":\"Dan Quinn Hires Former Head Coach Amid Uncertain Future With Commanders\",\"publisher\":\"The Spun\",\"published_at\":\"2026-10-21T23:07:44Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1215821,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxObnVGVm1RaHZ6Tm81LWN4aFNGYnZsTlBvMHVlSGhIcFhDT0NJUlVtd3I2VXAwclZBQzdicXdsb1AzWS1oWTE2YWZCSDdCU3BNV3ZsNC1IRjJWNDRuVHFtajdIZFh5S1duZEE5UHAwN1AtQ2JVaGo2ZUx2d0l4WTdlUG5kU1ZzMGhXZnpKbmlyZWtIQWF6R2ZuVUlHaXY?oc=5\",\"headline\":\"Commanders Expected to Make Some Tweaks During the Bye While Dan Quinn Keeps His Job\",\"publisher\":\"Athlon Sports\",\"published_at\":\"2026-10-21T22:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1361683,\"url\":\"https://news.google.com/rss/articles/CBMisgFBVV95cUxQVkltRllQZS11NW9fX3NHbzJQTUh3aEZuSTF0REY2TldsdUNFR1dsMnJ4Rm9BNG8zc0VUUWJLcjBjUVFSZHpYMUFjNTBlNVVka2JJUENhcFg5N3pkV2FCRzRqSDBxY3E0WmVPYUJZRV93aVQtM205cWpNSjZJQkxBWEQ1cnJuN0R4cFd2c2VhNzFhSGdETTFScWN6T0lEckFjcE9ROVoyUFY4YXlXbjZTTVhR?oc=5\",\"headline\":\"Dan Quinn's Situational Mistakes Costly Again in Commanders Week 6 Loss Stream of National Football League\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-21T21:31:39Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1197458,\"url\":\"https://news.google.com/rss/articles/CBMiigJBVV95cUxNT3FLTEpkWVJ4YXdNcnBsOXBLZHB5OHRkRWVXdlBQWEZzZGYwd2x0QlhxTUp4dG1ZeEhNcndOc2dDYnJzeGNjSDRPVUE3eVdwUGdXRnd0ZGFpWTBTTmRVV0I0RUZYZUx3aHdKbjZHQldZQi0wTHFfbHQ1RjRhQUdkemIwSDFuR1dGUkg2NU45OUJGcm5SR044Vmo4aEY1M0tfbVdpcEJXOFJRSm9rUWM0TzhIOU9KZDhFQTFfMW9MeHVqWXhWREYyeGxuMG93eVFQUjNDNUJjZ3pOdFAtOVJzYlFuamdqUUktd1pER25Ya3B5VTFQdjE4UmJkSVhGWjRKVmpWRkRjY2Y1UQ?oc=5\",\"headline\":\"NFL hot seat coaches led by Dan Quinn after another Commanders blunder\",\"publisher\":\"AppleValleyNewsNow.com\",\"published_at\":\"2026-10-21T19:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1186799,\"url\":\"https://news.google.com/rss/articles/CBMixgFBVV95cUxNenBFQzBqQ1VBQURNWjBRZ0ZhN1pGY0NIaG95d3ZNdWNsTlQyRkx4c25qUU5PWlpDdFBQb3dZRHVGdDM2M3hEWVAzejNyUjRRZms4VWcyTjRnNmtBVU5BSUFzcFo2aGxMMW1qenpZaHUyOEdhMGxJMWxVbjl2SWlvWV9lZlRsdDl0MUdpTm4zMnoxTkRMWW94RUdtSWw2Y2lpaTJZdU42NE5fcDc2aWkyQkV2bkVqX3dTa3ZjaUVaSjl5dk5tdmc?oc=5\",\"headline\":\"Dan Quinn and the Washington Commanders add former NFL head coach Steve Wilks to staff\",\"publisher\":\"FootballScoop.com\",\"published_at\":\"2026-10-21T18:59:21Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1196545,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxQVnpYc0tYZDRzNVpHMDJIdHZMajhJbWZCWUp2aC1ZLTNqSjlaSVMtLUR2WE1NalE5dE5hTTRDUUdVX0d3aHJWS3l3UkI3TTRIVnhZRE4xU2QxYUdqdHN5SVJlcFZ4bnYyS0hmdEhMZ2dyZXJ0RmJhTloxWUpYUFJTeGRycVZTc005anRhRUp4UVhJUVZma1HSAZYBQVVfeXFMUFZ6WHNLWGQ0czVaRzAySHR2TGo4SW1mQllKdmgtWS0zako5WklTLS1EdlhNTWpROXROYU00Q1FHVV9Hd2hyVkt5d1JCN000SFZ4WUROMVNkMWFHanRzeUlSZXBWeG52MktIZnRITGdncmVydEZiYU5aMVlKWFBSU3hkcnFWU3NNOWp0YUVKeFFYSVFWZmtR?oc=5\",\"headline\":\"Commanders to ignore fans with Dan Quinn call after 'inexcusable' error\",\"publisher\":\"The Mirror US\",\"published_at\":\"2026-10-21T17:15:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1196532,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxOQk9zSjBrS21RNmFOM29ralA5VVh0SlBBUzNnekhJeFJrYV82TmZRWkhUT2FxaU9kbnk5cjlWT2dOTkVLRlJqa3J3SXVmT2ZSRHZ0aDJyOVA1cjREMUNYaVFjeWliVlBKQWZHU041QWpTcktIRVNSMXpsc0VLYm45bTZqMmdNZnNtaHc?oc=5\",\"headline\":\"Commanders Hold Off On Replacing Dan Quinn During Bye Week\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T16:29:09Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1186842,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxNcWtOUHZCOGlRclBHRjNjN0VNeFNVZ3RkQ29nZmNVT1h6SmY4RGhnNG5XRnU3YzhZclp3cnhuRXN0dDdkLXE0MzlpMXZCQkFNTVVmWHFfX0xsNlMxdEZ6V2pXVnJJLVRXbTItWlE3VFVNYzlISUc0d3FJSGJJaHBDWXAyV0FZdw?oc=5\",\"headline\":\"Commanders save Dan Quinn’s job with late-game push\",\"publisher\":\"Lyndy's Sports Annuals\",\"published_at\":\"2026-10-21T15:09:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1186851,\"url\":\"https://news.google.com/rss/articles/CBMi2wFBVV95cUxPdndqMVE4dHdQSlJoVHo3cjVyYW96bWNXRVJtZWNKeHFiYkdGTHdqV2xJVERnQjh3U2w1VWRWR1JNZkFDbllyRGVGTXNVSHdkcFpLR0JLZDhha1FNYmFXeFgwcUwxRnNjNjRub0gza1F6MnBsU3BVZTlkMjNMWVVTTGRhN3BwNGhWUFJCTWx2aXJpWUVjd2ZPOUdORXNOSG5SMVNyQ0l5Zk8yYkNBZWZ2a2dGVGJES2ZpVkx0NV93UVcxZHB2Qzd5ZVZtZE80aXpCVmNWWFpOZDcwalU?oc=5\",\"headline\":\"Streaky play by Jayden Daniels keeps pressure on head coach Dan Quinn - Daily Slop\",\"publisher\":\"Hogs Haven\",\"published_at\":\"2026-10-21T14:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1180516,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxOVmtYRTlmVWZwMlNfMEVBYUVoTjZwYUF4YVdKUllqaXFyaTUwYUlvMEF0UXotV3hMai1pLW8yOEZKeGNRRmlJQnlxZlZmaWJKdU9KUnc1a2J0dWhkckZrQVBfT012QjJ2OVBzMWpybjRPMjNEekV1S1VaMzBJT0c1N0F4aEk0djRnLUtsM1hB?oc=5\",\"headline\":\"Dan Quinn on Jayden Daniels' 4th-down throwaway in loss to 49ers: 'You still take your shot, man'\",\"publisher\":\"NFL.com\",\"published_at\":\"2026-10-21T13:35:56Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1160781,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxOa3hWUWR2dVAyX1BuU2ZkaHRwMUV3UDBtSWZhNFpuMmtQMk5VZ3Z1UHpkTGFOTVZXMW00UFl3Z2JDWjVfdWtlZ2ZCQTRNRTBWSWhRRjVxVGFQc2hNcDhNUG5ZTTc4NnZuWVJ4WmU4S2tpbTdETUhTNmN4SFdhWlBQc2pzUm1JY1RIN1dvNE5Ndy1yalJO?oc=5\",\"headline\":\"Commanders’ Dan Quinn Sends Blunt Message to Jayden Daniels\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-21T10:55:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1159900,\"url\":\"https://news.google.com/rss/articles/CBMifkFVX3lxTE5vbHZtRklCWllLN1lXT0FZbkk4RnhtZHpSOEdjNTNLYjdVbkdINW9QaW5RbnJfVWFjejM5X202NnlMX0xxRW5ReEZ4c2JsNjYzN1BUckZIVHJEWk5yWVlIWHdNWlFmcFd1VEZVVkJqcmoxWTRtZlJEdW5EVzNkZw?oc=5\",\"headline\":\"NFL hot seat coaches led by Dan Quinn after another Commanders' blunder\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T10:04:53Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1160752,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxORzdtRTdHMkN4SjNEMF8zWl92eHJTU1dXQzdWZjJHVkNtVWw1eUVDTlhrblZDYkRPVlh3dWxSMm9BNWd3LXJ6ZmNVbHhoZExnX0dQdS1uSVlNcjQwT1Z1ZDNucDJKc0NESjFXY3ZzUmF6OHRJWW81bWZXajJ5SEFjRWd5b2tnUms?oc=5\",\"headline\":\"Commanders HC Dan Quinn reveals message to Jayden Daniels after baffling 4th-down blunder\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T08:14:40Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1142244,\"url\":\"https://news.google.com/rss/articles/CBMi_gFBVV95cUxObWRPTUcwcHVhei0wbDEyVy1EWmo5X0ctaEg1dWNXVGI5OXJkN3ZDdno3UVdZTTg1SS1iVktzZ1E1ZXNaRTg1cEg4Sl9Fd3JXNFlzamktSy16V05paVZuQklEZ01lVlV1Y0hiX3lpcEdyeEpxRC0xYW43dkZqT2N0dU9OQUx5LXZZbXVwZmdnSmRUN0wxdUd4dWNETmJjRmZxUmVmVDdVZnAzSWEyMEo4SXk5anVTZDlZOVJnLUlpRENCNGQxa284bFMzbjBBU0dOb3gwN3l5Y25wbDZUa2dISHBpQVpIeENlaXVILUJIZGdRSEtHYWJkQVJnN1FJdw?oc=5\",\"headline\":\"Dan Quinn says he talked to Jayden Daniels about ill-advised fourth-down throwaway vs. 49ers, wants QB to take his 'shot'\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T23:47:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1122269,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxPRUE4Ri1Lak1TYTJ3MzFIUDJYbzhEV253dnZtTDVCNmI0bnBodGo2SkJrVFVGRC1iUDBsTGFOTE5zRzR6MklsOTQ0R2Y0OWs4Y0pNZmNPSE1ZS3MzbXRTVklVUWdZbnp1QzUyUWJUeGdUUThqckc4UVNJTlJKX25UVHVnTm1yMnE1Y3c?oc=5\",\"headline\":\"Commanders’ Dan Quinn Says Changes Are Coming After Loss to 49ers\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T23:14:13Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1112757,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxPR3gtUWJDSk8xU1poMUJ0MEk3QUVmcjNwektfZHBjSzJGcWhvbVpOQm9UZ1Z6V0k2bk5jTExZVzdMeDNUb1dqcWpCQkZXZU9NeUc1bWxFQXBiVFJpR2NldFVTNm12cVR1by1ZSHpOZXhBSl9RM2tDclBWOWdKeVFkaHNFUUpkRGhX?oc=5\",\"headline\":\"Commanders HC Dan Quinn Confirms ‘Brutal’ Injury News on WR Terry McLaurin\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T22:13:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1103290,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxOVzJYNE00dUoyRzBmMHF0d2UxMHhNX3ZKOTdFZ3V4dlp1YWNmbkJzYjljYWNqZGg0ekF3Ni1GYm1xbER0Mi1jT0hvSDl4RkczMm9aa2xNcWhLNU93WHlCZEhNaWVwMW95YnFQXzRUWWRoUjRIenlHLVc5d09hcjdnZUVOWnRhVXh0VTJvRw?oc=5\",\"headline\":\"‘Setting Your QB Up for Failure’ — ESPN Commentator Defends Jayden Daniels, Rips Commanders HC Dan Quinn After Loss to 49ers\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T20:48:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1131821,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxNcEtyYjg3bVNwQmJKZ1g4bEJaUE44bnUySUViV2dzSV95NnRoNHJ1OUtFX3A4TGlockxvT3ZoMmdEVDctQUFmZEtpZGVRT0hZQW93cndrM3RtVzBTbHhVSXB4OGNVZDd5RUI3U2g0cFl4TjVCcU9NLU5sRmthenVYVnB1dURSOG51RlAw?oc=5\",\"headline\":\"Commanders Keep Fighting, but Dan Quinn Keeps Falling Short | Hughes' View\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T20:29:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1160776,\"url\":\"https://news.google.com/rss/articles/CBMifEFVX3lxTFB0XzZ5dGhxbUkwX3RjNUM5bmJ3RVA3R0lJdzhDUWZUN082Y3Z4SFMwQmExWWJvUFNPZlZFOHkxLXBHa0VfcmJDc0N6RDhRUkllOHlyUmlrSzBVUWlTMFBybWo0NHBnU1V3RFNyM0o5aVhxREdneEUwaW5PME0?oc=5\",\"headline\":\"‘You Cannot Be This Bad,’ ‘It’s Time to Move On’ — Colin Cowherd Delivers Verdict on Commanders HC Dan Quinn’s NFL Future\",\"publisher\":\"Pro Football Network\",\"published_at\":\"2026-10-20T20:25:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1084364,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxQR0lMSVUtZUFRbWUyTEpwcmQ2NnI5MHA1MFRtNXJZYW9XTlB2UmlLUXhEcFlFQ0hrMnY2VFBySGpQRWJUem9zY0l3a3dSZER5cmxvaTdnc2hET1ItMWdpUDdMVWJ6QUxCTkg4SWdFQm4zRUtaYW1Ta1hUNV9neDNKWFpBNVFLQQ?oc=5\",\"headline\":\"Dan Quinn: OL performance was below the standard we set for ourselves\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T19:42:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1103252,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxOeGx5cTBzUlJubW4yVmhkWC1IeWxhMFlVZFFvS1BHTTcyR3JsQkw0Sm1DWkxXdzVBMEdVbDNPUkNkbi1JVUk4TGN6YXdDaHlvb29qTWRTV0FsR1FmR19WVVdRdHVQdkxmYXdxT2tWeXZUM2pPc3NRWUNsdDNLMmJQMGc3dkR3SVJuVGc?oc=5\",\"headline\":\"Commanders Sink Toward the Bottom of NFL Power Rankings as the Heat Builds on Dan Quinn\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T18:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":992946,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxNR01meS05U0JpcE5zNkxIMkdwbUJjNVNsa2M4b0F0ZHhyNjE1WlZSMTRuY2EtNHk4QlFCOHUzanktSHFkTnk3QS1Pb1pzQWZYZDJ1UHNTMWowd1AzMXRmNnl0MU1MSzJYd1RpLTg1THpXMHg3N1JTVDVlSlpibkJTNHZfbmhNbEV5VFJVcjhHSXU5OS1tNlZWemRlVmJGamVKR255bE5HbndUZw?oc=5\",\"headline\":\"How much of a microscope is Dan Quinn under? People are trying to read his lips\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-20T16:15:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1050418,\"url\":\"https://news.google.com/rss/articles/CBMitwFBVV95cUxPaVRDbk9RWXNQVlJZNmNYbVp4M3g2Q3AwYlpZa05aUUUteW01TjVjQWJMOEFrZnUyd1YwUFhEVEFfLU9WdnFpTG1lYlJVblJ5ckdSNm9OTnZqREJ1TnBweHpTeTJFWFZvVld0NGxZR2o4aWZHWWNJaVZPYnhvZXh0dFFxLVNCT044SWl0UzBDY3hMalg4blAwbDM2UEhkZTRfVTBUVDRERTZzcGRKRW0xc1RVUHFDZlE?oc=5\",\"headline\":\"More scrutiny for Dan Quinn’s game management - Daily Slop\",\"publisher\":\"Hogs Haven\",\"published_at\":\"2026-10-20T16:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1050443,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxOWjJIOWh2cnQ4SWdWbHF3NE5UWEpIb05hN3YzOXdkdzlSazNKcjdJM0NfajkwYW1oZjNtNFdHbTN6N1I2LVM5SFQzdTBQWnJYWXFrUXVoUHA3cm85WkFkcmFLekp2UF9LaTgzUU9KZlA3US1Rb2YxbXl4T3hIRjFwTTN1MEhNY29ZMXlVYnR3?oc=5\",\"headline\":\"Stephen A. Smith thinks ‘it’s over’ for Commanders head coach Dan Quinn\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T15:39:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1021730,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxQVG1BZHo4ZFA3ZEMtYWlfZnhBbzk1emN1dC0zajBXY2JfRENZNHVadjJ4VGt3b1BZTXg4QmFzSjhBc2dZZkdJUnJjbWJRazRucGZyWkVENlo4OE5LWXNZRjVvWUtSUkNpQWhYZTFJb0w2RW0yazV3SnlrQU00UU5TczNBb2xnNG8?oc=5\",\"headline\":\"Dan Quinn had total situational awareness in viral 4th down confusion clip\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T13:04:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1060621,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE1VdENsNmI3OXZ4bEFRWnhoOENFMkFLREFaaFgwdmhMelE2a21YbjRJSmRwOFNyTGR4bWV3cjZQTFpIckx6SmU2a3lEaWlpZHNDaWtyV0FUNUQzQndMX0ktWVBjZVZ0WElyRUJCc2xhdGhSWkY5T3ptcUtzOVdEaDQ?oc=5\",\"headline\":\"Did Dan Quinn Know It Was Fourth Down? Commanders Coach Says the Headset Moment Was Misread\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T13:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1012030,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxPTDhQMHZLeXctTG9IcWVENmxNQW4tOUxHQTVrakM2SUFnam93cnIxOUlpMndJVlptZFE3RUVZQ1ktZ3VpUDlEdHhWZTlMRVJVVnBVMHpxTWVnTm15TzRmY2Q5d3h4V0dJd3RxYVNtMW5GN2l3dnVUM0hZMFJ2QWplMXk5dEZWS21C?oc=5\",\"headline\":\"Fire Dan Quinn: Commanders’ Latest Embarrassment Should Be the Final Straw\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T12:30:20Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":992914,\"url\":\"https://news.google.com/rss/articles/CBMiwwFBVV95cUxOV2lJLXMwZUVYTFdMcDdFODJSZVRiUWI1cDJOWjlCaFZxWWtFUzNKcWZDbTY0cV9ENmJNeGxUb3E2Nl8zbDJFaWRYcmdoUG5Xbm9rNHNrREtFamp0bG82eE9vOEROWEFaSTRRaldkMmNSNjViWlZ2enRvU2RualRYanE5aUg3TlVXcHhLeEY1cHdtdTA5WFF4LUY4NGdXWG1GMEREQjAzQ1VVRld2UFZKSFNqdGxPMGlYR0JubHV3OEhFRmM?oc=5\",\"headline\":\"Commanders' Dan Quinn appears to lose track of downs one week after clock debacle – but he has an explanation\",\"publisher\":\"Fox News\",\"published_at\":\"2026-10-20T11:09:36Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":993420,\"url\":\"https://news.google.com/rss/articles/CBMidEFVX3lxTFBfUWE0TUdWbWpFQ0JtTUdINW1LUEdkckliUVhjRkdxWUUxV3d5bTVOeGl0Q3RGTFJoQ1FfeVkxM0UtS3o5S3pBdmp4V3JQU2pzX1FhYlVZbEtlQzk5dUFKWUdiRDNmcllHU2l3SGZJNzdVQkhr?oc=5\",\"headline\":\"‘Why Even Try to Lie,’ ‘You’re So Fired’ — NFL Fans Not Buying Commanders HC Dan Quinn’s Explanation For Viral Moment of Confusion vs. 49ers\",\"publisher\":\"AOL.com\",\"published_at\":\"2026-10-20T09:07:38Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":1122319,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxOWUtyTUUyQ1Z3Ry0xdGNTUDBNQ0twZjA3c2JsMGQ2bzByUHN5LTFWWTNubWt5TDJCb2dfNzJIOC1LT0Iza2xxdTVObnE5NzFkbFNZZXdaQWVnNDYxVFZhOU5aS2JZMVBabmRMYWFOSlZuVEkwdFRZZU1zOWt5cEdIdl96MmF6Zw?oc=5\",\"headline\":\"NFL fans think this ‘inexcusable’ Dan Quinn moment will lead to Commanders firing him\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T04:23:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":1021603,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE02WDBZTE1lbXQ4RTdSc2JNb2ZsQ1AzVXNjenRXdTc4N2hLd0NxYmRYcmVuLVAxZE92b0NmcXktYlNFNmozX184ZkEtTHdhbHdvSmRoamJNQlAxTGM0OVBLRzdlX3czTzJfUW96RHZHemV5R0NIdmNYaTNPQXR0dFU?oc=5\",\"headline\":\"‘Very Tough Look for Dan Quinn,’ ‘Why Is He Still Employed?’ — NFL Fans React to Commanders HC Being Confused vs. 49ers on MNF\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T02:15:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":985537,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxNWEtYMUxNWC1LcmRvZWZVUC1fZ3ZzemtNRWNtSGJMU1ZxQVVQNmxwQjcteko0SXFUeGxrYkV4M29DdWJoY1lvMUNtdWU3TG5tMklZQ3V1aUFma3VCWlFZRkkyNS1HaGl0MFRQQ0FUdVh0MEYyczBXY0o0UHFMRU50QTF5dlZMRlBXeC16UVRPTW5Odw?oc=5\",\"headline\":\"Insider Issues Eye-Opening Update on Commanders HC Dan Quinn’s Job Status\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-18T14:04:32Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Dan Quinn — coach; club: Philadelphia Eagles; checked: 2026-09-30.\ndate_of_birth: 1970-09-11 [2026-10-05; source 130990]\nrole: coach [2026-09-05; source 66340]\nteam_affiliation: Philadelphia Eagles [2026-09-30; source 126380]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 74.32688387070647,
+            "emotion": 2.4831715768867695,
+            "movement": 70.65081207057364,
+            "subject": 92.11466019803248
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQc3ZNU0RwNTZMeUs2WnN3clM3elpuUWFPOXMzRXFFanBxSmhlazh6TFhjUHY3ZGotOGsxanJEekYzNW5jc21TWUFqbU1Vb25kaURSVjNWcUFGbm1uNlByS09jZ2IxMmJnZDc3U3Nzcm4tYVYwU01ubTJGUWlvaXVhVUo5RllTS1FZdG1sR2JIOA?oc=5"
+        },
+        "context": "Commanders and coach Dan Quinn are at a crossroads entering their bye week",
+        "id": 1402962,
+        "published_at_epoch": 1792706136,
+        "source": "Yahoo Sports",
+        "title": "Commanders and coach Dan Quinn are at a crossroads entering their bye week"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.796423195274988,
+            "emotion": 2.861855554420219,
+            "movement": 26.945436535760308,
+            "subject": 85.10899648030114
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOb3d2X0VMMkVMX2tfXzhSc245LXJOM2dQdGYzbnRrS0ZMMjk1eTNwSVhtMWRfa3pKZndval9zXzF0Ukd3WGR3U3BXeS0yOFhodmE3M1cyNER1SmhULVdUT0liVi1nd3ZnT0FvYy1iN2FMTHpnam1kTTBidUhndnI3cC1ucU9WUQ?oc=5"
+        },
+        "context": "Dan Quinn is exposing the NFL’s problem with defensive-minded head coaches",
+        "id": 1371739,
+        "published_at_epoch": 1792696544,
+        "source": "Yahoo Sports",
+        "title": "Dan Quinn is exposing the NFL’s problem with defensive-minded head coaches"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 88.16760040590039,
+            "emotion": 4.78202610398659,
+            "movement": 80.2872701287389,
+            "subject": 88.21005656876628
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxOMy1RejQtMm03R3VwdzExOWZYaTlYd3NrRWFqX2pyQ1h2ZVR3elhjOHFWSjJoVzlZbkt4LThTNWZGSk5YSzN2WE9hQmJ6QXlGMFlsLUpPREE1RDZ1WFNUX2RZYWRUbGtrRWVIWEVnN2NoVENYTnZTMWd2WXZmUVR1cFJZQzA?oc=5"
+        },
+        "context": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+        "id": 1381778,
+        "published_at_epoch": 1792680000,
+        "source": "Yahoo Sports",
+        "title": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 25.646083167120047,
+            "emotion": 91.75428118730494,
+            "movement": 15.394747704697997,
+            "subject": 95.26468853912152
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxNZ3gzRzNFM1BHV0dJVi0zLVVZOWJPdU5vdk5PV0tRdWVSOTlRY1RrWEhnZVZ6c29UOHRQSTNDT2pPUF90Z1lRckRBM08wSk9nY09FMEkxZ2FjZnRXWVZ0Ni1pSVpXZWtEU0pCQXVYdy1Vcy11cXFWbVFjTC12ckI0Q1h4dmhEbVpUQ0R1YnpqcWlFZ3lBRldvV2NjOGJRYkxCclBr?oc=5"
+        },
+        "context": "Commanders’ Dan Quinn again takes blame for late gaffe, still ‘furious’",
+        "id": 1371779,
+        "published_at_epoch": 1792679028,
+        "source": "Field Level Media",
+        "title": "Commanders’ Dan Quinn again takes blame for late gaffe, still ‘furious’"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 14.294871737768949,
+            "emotion": 13.332152442939664,
+            "movement": 35.60188676854511,
+            "subject": 91.8936927193448
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPZXBNMzlnQ1MzQ3BFOTJSOEN3SVpXWmdhOW1IQmtsazNpellQYlRGaFZGaXhOcXEtZy0wY3F4akxIYUZZUGlLY1BHakloNUVXYnZXb1lFcHNudlFFSFRKTUtURlRmbGFmOUpSUVlNS1ZsR1FNNTFSaVA4TnlHaGJXbEgwbTYwN1hvQTRsWkpRRUMwN1RjREZQdDVoNFloSzNDdGNlODhB?oc=5"
+        },
+        "context": "Who has the hottest seat in the NFL? Bo Nix, Mike McDaniel, Dan Quinn and more",
+        "id": 1263489,
+        "published_at_epoch": 1792661445,
+        "source": "The New York Times",
+        "title": "Who has the hottest seat in the NFL? Bo Nix, Mike McDaniel, Dan Quinn and more"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.709325942669083,
+            "clickbait": 10.32101769213967,
+            "emotion": 2.362092733675619,
+            "movement": 70.36003824091294,
+            "subject": 89.66797867508328
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxOOW96WlMxTW5aV2lLNVpnemVnYy1NM1BhQTZ0ZUd0SGhPNzE4YUtBVURTVnF4cWRKSUdycXgtd0pEaHdyLWY2Qjk2Vm1DVmw2bTBOQnFRU2pZNnpKT0FOSndhZ2xUb2QxRHpHSUlwSlE2aTlKS3V3aXpGOGxRRko0OEhwbi1vU3Jqd3k1bQ?oc=5"
+        },
+        "context": "Dan Quinn Puts Commanders Offensive Position Group on Notice During Bye Week",
+        "id": 1244854,
+        "published_at_epoch": 1792632600,
+        "source": "Yahoo Sports",
+        "title": "Dan Quinn Puts Commanders Offensive Position Group on Notice During Bye Week"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.8456457820578622,
+            "clickbait": 10.068140045782776,
+            "emotion": 7.088300011669391,
+            "movement": 87.03172404039577,
+            "subject": 89.69544186909243
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxOc0VRQVo1MmhZdU5qTHlYUVRJRmpJUGtaV2Nnd2tvZk1DYzhIa0txWl9VWmVHYzk4cFVxcGxHTnY2eVdWeWg5eWxJLVg0ZGRVdEVCazRQdVJPeldmSFpxbHlPeUZ0NTlVVGdDWHVCSUc5U0V0ZHhaTEd1eko4ekRUQ1V2bTh4MWxYWGNmbk0zZw?oc=5"
+        },
+        "context": "Former Commanders’ HC Names ‘Impressive’ Dan Quinn Replacement",
+        "id": 1264048,
+        "published_at_epoch": 1792629600,
+        "source": "Yahoo Sports",
+        "title": "Former Commanders’ HC Names ‘Impressive’ Dan Quinn Replacement"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 67.6213277946741,
+            "emotion": 45.153433417843665,
+            "movement": 82.90691309231862,
+            "subject": 87.60434283978736
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNUUxNUlJXYUtPN3R6SjZRYmtvRjN2c0VieFNZZmdsOU1aMEZ1WWdPNG9meUZiM3FxWVgySi0xX1d1QjlOWWh1YVczVmNkZEtFVFFVR2JUUVRLS25sR3h3UXppakpGNFlGY2NEdE5USGlaNmt2SjlHOEFaOEdRSVBIbEFUaFg5dDQ?oc=5"
+        },
+        "context": "'It's over for Dan Quinn, this is it': Stephen A. Smith does not hold back on Commanders coach",
+        "id": 1402176,
+        "published_at_epoch": 1792628858,
+        "source": "The Comeback",
+        "title": "'It's over for Dan Quinn, this is it': Stephen A. Smith does not hold back on Commanders coach"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 74.20020370320168,
+            "emotion": 1.8812487521860983,
+            "movement": 94.03782997157234,
+            "subject": 92.39447610454548
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQRkRpSjkxUHpua25saS1uSm5iV1Nxd3dySnMtOXA2MW5DZ3J4Mkk5Z0pfZFVWMmlFTjlDX3VSQWZRRFdjWjNPU1VvRnBBRk03QmhPS1RLck5wY25mRHhWRlZjZDFRaXFXdFpVTnlTc3dWTVA0d182ZlJVUXFtcnY4TTF6ZG56cUhpdmVUd25JSmtCRWwwV3dfb3Rpaw?oc=5"
+        },
+        "context": "Dan Quinn Hires Former Head Coach Amid Uncertain Future With Commanders",
+        "id": 1402174,
+        "published_at_epoch": 1792624064,
+        "source": "The Spun",
+        "title": "Dan Quinn Hires Former Head Coach Amid Uncertain Future With Commanders"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.498733364795047,
+            "clickbait": 4.9242111865234754,
+            "emotion": 1.9273373049714968,
+            "movement": 65.17116895875493,
+            "subject": 86.35995693706886
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxObnVGVm1RaHZ6Tm81LWN4aFNGYnZsTlBvMHVlSGhIcFhDT0NJUlVtd3I2VXAwclZBQzdicXdsb1AzWS1oWTE2YWZCSDdCU3BNV3ZsNC1IRjJWNDRuVHFtajdIZFh5S1duZEE5UHAwN1AtQ2JVaGo2ZUx2d0l4WTdlUG5kU1ZzMGhXZnpKbmlyZWtIQWF6R2ZuVUlHaXY?oc=5"
+        },
+        "context": "Commanders Expected to Make Some Tweaks During the Bye While Dan Quinn Keeps His Job",
+        "id": 1215821,
+        "published_at_epoch": 1792621800,
+        "source": "Athlon Sports",
+        "title": "Commanders Expected to Make Some Tweaks During the Bye While Dan Quinn Keeps His Job"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.75699353274732,
+            "emotion": 7.117662082368676,
+            "movement": 18.9875257342132,
+            "subject": 89.9309100631843
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxQVkltRllQZS11NW9fX3NHbzJQTUh3aEZuSTF0REY2TldsdUNFR1dsMnJ4Rm9BNG8zc0VUUWJLcjBjUVFSZHpYMUFjNTBlNVVka2JJUENhcFg5N3pkV2FCRzRqSDBxY3E0WmVPYUJZRV93aVQtM205cWpNSjZJQkxBWEQ1cnJuN0R4cFd2c2VhNzFhSGdETTFScWN6T0lEckFjcE9ROVoyUFY4YXlXbjZTTVhR?oc=5"
+        },
+        "context": "Dan Quinn's Situational Mistakes Costly Again in Commanders Week 6 Loss Stream of National Football League",
+        "id": 1361683,
+        "published_at_epoch": 1792618299,
+        "source": "CBS Sports",
+        "title": "Dan Quinn's Situational Mistakes Costly Again in Commanders Week 6 Loss Stream of National Football League"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.058558436444949,
+            "clickbait": 12.808526615251086,
+            "emotion": 3.6445241412018583,
+            "movement": 79.77436754305761,
+            "subject": 80.56184498044131
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigJBVV95cUxNT3FLTEpkWVJ4YXdNcnBsOXBLZHB5OHRkRWVXdlBQWEZzZGYwd2x0QlhxTUp4dG1ZeEhNcndOc2dDYnJzeGNjSDRPVUE3eVdwUGdXRnd0ZGFpWTBTTmRVV0I0RUZYZUx3aHdKbjZHQldZQi0wTHFfbHQ1RjRhQUdkemIwSDFuR1dGUkg2NU45OUJGcm5SR044Vmo4aEY1M0tfbVdpcEJXOFJRSm9rUWM0TzhIOU9KZDhFQTFfMW9MeHVqWXhWREYyeGxuMG93eVFQUjNDNUJjZ3pOdFAtOVJzYlFuamdqUUktd1pER25Ya3B5VTFQdjE4UmJkSVhGWjRKVmpWRkRjY2Y1UQ?oc=5"
+        },
+        "context": "NFL hot seat coaches led by Dan Quinn after another Commanders blunder",
+        "id": 1197458,
+        "published_at_epoch": 1792611000,
+        "source": "AppleValleyNewsNow.com",
+        "title": "NFL hot seat coaches led by Dan Quinn after another Commanders blunder"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.1622473532796063,
+            "clickbait": 5.7223395363410905,
+            "emotion": 1.3567279160064116,
+            "movement": 87.25237728141099,
+            "subject": 80.31822389047167
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxNenBFQzBqQ1VBQURNWjBRZ0ZhN1pGY0NIaG95d3ZNdWNsTlQyRkx4c25qUU5PWlpDdFBQb3dZRHVGdDM2M3hEWVAzejNyUjRRZms4VWcyTjRnNmtBVU5BSUFzcFo2aGxMMW1qenpZaHUyOEdhMGxJMWxVbjl2SWlvWV9lZlRsdDl0MUdpTm4zMnoxTkRMWW94RUdtSWw2Y2lpaTJZdU42NE5fcDc2aWkyQkV2bkVqX3dTa3ZjaUVaSjl5dk5tdmc?oc=5"
+        },
+        "context": "Dan Quinn and the Washington Commanders add former NFL head coach Steve Wilks to staff",
+        "id": 1186799,
+        "published_at_epoch": 1792609161,
+        "source": "FootballScoop.com",
+        "title": "Dan Quinn and the Washington Commanders add former NFL head coach Steve Wilks to staff"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.2499193617632445,
+            "clickbait": 22.525913136823224,
+            "emotion": 37.39923656407587,
+            "movement": 41.012950837140906,
+            "subject": 85.1784081341007
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQVnpYc0tYZDRzNVpHMDJIdHZMajhJbWZCWUp2aC1ZLTNqSjlaSVMtLUR2WE1NalE5dE5hTTRDUUdVX0d3aHJWS3l3UkI3TTRIVnhZRE4xU2QxYUdqdHN5SVJlcFZ4bnYyS0hmdEhMZ2dyZXJ0RmJhTloxWUpYUFJTeGRycVZTc005anRhRUp4UVhJUVZma1HSAZYBQVVfeXFMUFZ6WHNLWGQ0czVaRzAySHR2TGo4SW1mQllKdmgtWS0zako5WklTLS1EdlhNTWpROXROYU00Q1FHVV9Hd2hyVkt5d1JCN000SFZ4WUROMVNkMWFHanRzeUlSZXBWeG52MktIZnRITGdncmVydEZiYU5aMVlKWFBSU3hkcnFWU3NNOWp0YUVKeFFYSVFWZmtR?oc=5"
+        },
+        "context": "Commanders to ignore fans with Dan Quinn call after 'inexcusable' error",
+        "id": 1196545,
+        "published_at_epoch": 1792602900,
+        "source": "The Mirror US",
+        "title": "Commanders to ignore fans with Dan Quinn call after 'inexcusable' error"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.326115566998391,
+            "clickbait": 5.586779345604992,
+            "emotion": 2.0348354296727886,
+            "movement": 90.3431742549882,
+            "subject": 91.66719529874791
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxOQk9zSjBrS21RNmFOM29ralA5VVh0SlBBUzNnekhJeFJrYV82TmZRWkhUT2FxaU9kbnk5cjlWT2dOTkVLRlJqa3J3SXVmT2ZSRHZ0aDJyOVA1cjREMUNYaVFjeWliVlBKQWZHU041QWpTcktIRVNSMXpsc0VLYm45bTZqMmdNZnNtaHc?oc=5"
+        },
+        "context": "Commanders Hold Off On Replacing Dan Quinn During Bye Week",
+        "id": 1196532,
+        "published_at_epoch": 1792600149,
+        "source": "Yahoo Sports",
+        "title": "Commanders Hold Off On Replacing Dan Quinn During Bye Week"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.6570029923454817,
+            "clickbait": 5.893524450985,
+            "emotion": 3.1243376717225777,
+            "movement": 69.32616789550275,
+            "subject": 91.72540289549308
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxNcWtOUHZCOGlRclBHRjNjN0VNeFNVZ3RkQ29nZmNVT1h6SmY4RGhnNG5XRnU3YzhZclp3cnhuRXN0dDdkLXE0MzlpMXZCQkFNTVVmWHFfX0xsNlMxdEZ6V2pXVnJJLVRXbTItWlE3VFVNYzlISUc0d3FJSGJJaHBDWXAyV0FZdw?oc=5"
+        },
+        "context": "Commanders save Dan Quinn’s job with late-game push",
+        "id": 1186842,
+        "published_at_epoch": 1792595340,
+        "source": "Lyndy's Sports Annuals",
+        "title": "Commanders save Dan Quinn’s job with late-game push"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.6127756124015449,
+            "clickbait": 7.937839802146312,
+            "emotion": 2.923207215100272,
+            "movement": 15.10701152600899,
+            "subject": 90.88374766268872
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi2wFBVV95cUxPdndqMVE4dHdQSlJoVHo3cjVyYW96bWNXRVJtZWNKeHFiYkdGTHdqV2xJVERnQjh3U2w1VWRWR1JNZkFDbllyRGVGTXNVSHdkcFpLR0JLZDhha1FNYmFXeFgwcUwxRnNjNjRub0gza1F6MnBsU3BVZTlkMjNMWVVTTGRhN3BwNGhWUFJCTWx2aXJpWUVjd2ZPOUdORXNOSG5SMVNyQ0l5Zk8yYkNBZWZ2a2dGVGJES2ZpVkx0NV93UVcxZHB2Qzd5ZVZtZE80aXpCVmNWWFpOZDcwalU?oc=5"
+        },
+        "context": "Streaky play by Jayden Daniels keeps pressure on head coach Dan Quinn - Daily Slop",
+        "id": 1186851,
+        "published_at_epoch": 1792591200,
+        "source": "Hogs Haven",
+        "title": "Streaky play by Jayden Daniels keeps pressure on head coach Dan Quinn - Daily Slop"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.3877318723927528,
+            "clickbait": 6.576426515076328,
+            "emotion": 4.572730880386643,
+            "movement": 7.103615217497566,
+            "subject": 76.34169391775842
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOVmtYRTlmVWZwMlNfMEVBYUVoTjZwYUF4YVdKUllqaXFyaTUwYUlvMEF0UXotV3hMai1pLW8yOEZKeGNRRmlJQnlxZlZmaWJKdU9KUnc1a2J0dWhkckZrQVBfT012QjJ2OVBzMWpybjRPMjNEekV1S1VaMzBJT0c1N0F4aEk0djRnLUtsM1hB?oc=5"
+        },
+        "context": "Dan Quinn on Jayden Daniels' 4th-down throwaway in loss to 49ers: 'You still take your shot, man'",
+        "id": 1180516,
+        "published_at_epoch": 1792589756,
+        "source": "NFL.com",
+        "title": "Dan Quinn on Jayden Daniels' 4th-down throwaway in loss to 49ers: 'You still take your shot, man'"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.1790800928337757,
+            "clickbait": 11.29437999966824,
+            "emotion": 19.267075148108766,
+            "movement": 48.90345038879464,
+            "subject": 89.63759871362254
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxOa3hWUWR2dVAyX1BuU2ZkaHRwMUV3UDBtSWZhNFpuMmtQMk5VZ3Z1UHpkTGFOTVZXMW00UFl3Z2JDWjVfdWtlZ2ZCQTRNRTBWSWhRRjVxVGFQc2hNcDhNUG5ZTTc4NnZuWVJ4WmU4S2tpbTdETUhTNmN4SFdhWlBQc2pzUm1JY1RIN1dvNE5Ndy1yalJO?oc=5"
+        },
+        "context": "Commanders’ Dan Quinn Sends Blunt Message to Jayden Daniels",
+        "id": 1160781,
+        "published_at_epoch": 1792580108,
+        "source": "Heavy.com",
+        "title": "Commanders’ Dan Quinn Sends Blunt Message to Jayden Daniels"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.941408245555086,
+            "clickbait": 11.134798367088385,
+            "emotion": 2.856499758358447,
+            "movement": 76.04870576284506,
+            "subject": 82.84877498301024
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE5vbHZtRklCWllLN1lXT0FZbkk4RnhtZHpSOEdjNTNLYjdVbkdINW9QaW5RbnJfVWFjejM5X202NnlMX0xxRW5ReEZ4c2JsNjYzN1BUckZIVHJEWk5yWVlIWHdNWlFmcFd1VEZVVkJqcmoxWTRtZlJEdW5EVzNkZw?oc=5"
+        },
+        "context": "NFL hot seat coaches led by Dan Quinn after another Commanders' blunder",
+        "id": 1159900,
+        "published_at_epoch": 1792577093,
+        "source": "Yahoo Sports",
+        "title": "NFL hot seat coaches led by Dan Quinn after another Commanders' blunder"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.185513563877859,
+            "clickbait": 18.59746245731065,
+            "emotion": 4.4782422211339865,
+            "movement": 38.83230508109226,
+            "subject": 87.28738281972916
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxORzdtRTdHMkN4SjNEMF8zWl92eHJTU1dXQzdWZjJHVkNtVWw1eUVDTlhrblZDYkRPVlh3dWxSMm9BNWd3LXJ6ZmNVbHhoZExnX0dQdS1uSVlNcjQwT1Z1ZDNucDJKc0NESjFXY3ZzUmF6OHRJWW81bWZXajJ5SEFjRWd5b2tnUms?oc=5"
+        },
+        "context": "Commanders HC Dan Quinn reveals message to Jayden Daniels after baffling 4th-down blunder",
+        "id": 1160752,
+        "published_at_epoch": 1792570480,
+        "source": "Yahoo Sports",
+        "title": "Commanders HC Dan Quinn reveals message to Jayden Daniels after baffling 4th-down blunder"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8419540947989737,
+            "clickbait": 12.21052966771822,
+            "emotion": 1.779551931546764,
+            "movement": 15.463264188657549,
+            "subject": 78.77603170038006
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi_gFBVV95cUxObWRPTUcwcHVhei0wbDEyVy1EWmo5X0ctaEg1dWNXVGI5OXJkN3ZDdno3UVdZTTg1SS1iVktzZ1E1ZXNaRTg1cEg4Sl9Fd3JXNFlzamktSy16V05paVZuQklEZ01lVlV1Y0hiX3lpcEdyeEpxRC0xYW43dkZqT2N0dU9OQUx5LXZZbXVwZmdnSmRUN0wxdUd4dWNETmJjRmZxUmVmVDdVZnAzSWEyMEo4SXk5anVTZDlZOVJnLUlpRENCNGQxa284bFMzbjBBU0dOb3gwN3l5Y25wbDZUa2dISHBpQVpIeENlaXVILUJIZGdRSEtHYWJkQVJnN1FJdw?oc=5"
+        },
+        "context": "Dan Quinn says he talked to Jayden Daniels about ill-advised fourth-down throwaway vs. 49ers, wants QB to take his 'shot'",
+        "id": 1142244,
+        "published_at_epoch": 1792540047,
+        "source": "Yahoo Sports",
+        "title": "Dan Quinn says he talked to Jayden Daniels about ill-advised fourth-down throwaway vs. 49ers, wants QB to take his 'shot'"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.833908708377803,
+            "clickbait": 9.452756471193457,
+            "emotion": 8.423418023114406,
+            "movement": 68.82916698221891,
+            "subject": 77.78982170106637
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPRUE4Ri1Lak1TYTJ3MzFIUDJYbzhEV253dnZtTDVCNmI0bnBodGo2SkJrVFVGRC1iUDBsTGFOTE5zRzR6MklsOTQ0R2Y0OWs4Y0pNZmNPSE1ZS3MzbXRTVklVUWdZbnp1QzUyUWJUeGdUUThqckc4UVNJTlJKX25UVHVnTm1yMnE1Y3c?oc=5"
+        },
+        "context": "Commanders’ Dan Quinn Says Changes Are Coming After Loss to 49ers",
+        "id": 1122269,
+        "published_at_epoch": 1792538053,
+        "source": "Yahoo Sports",
+        "title": "Commanders’ Dan Quinn Says Changes Are Coming After Loss to 49ers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 87.19394411610043,
+            "clickbait": 49.04110269214142,
+            "emotion": 8.566161166311574,
+            "movement": 25.408578972386035,
+            "subject": 82.54900042670388
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxPR3gtUWJDSk8xU1poMUJ0MEk3QUVmcjNwektfZHBjSzJGcWhvbVpOQm9UZ1Z6V0k2bk5jTExZVzdMeDNUb1dqcWpCQkZXZU9NeUc1bWxFQXBiVFJpR2NldFVTNm12cVR1by1ZSHpOZXhBSl9RM2tDclBWOWdKeVFkaHNFUUpkRGhX?oc=5"
+        },
+        "context": "Commanders HC Dan Quinn Confirms ‘Brutal’ Injury News on WR Terry McLaurin",
+        "id": 1112757,
+        "published_at_epoch": 1792534388,
+        "source": "Yahoo Sports",
+        "title": "Commanders HC Dan Quinn Confirms ‘Brutal’ Injury News on WR Terry McLaurin"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.185460557885333,
+            "clickbait": 35.98297369230111,
+            "emotion": 32.989412769919,
+            "movement": 12.02837271075494,
+            "subject": 79.48478359269268
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxOVzJYNE00dUoyRzBmMHF0d2UxMHhNX3ZKOTdFZ3V4dlp1YWNmbkJzYjljYWNqZGg0ekF3Ni1GYm1xbER0Mi1jT0hvSDl4RkczMm9aa2xNcWhLNU93WHlCZEhNaWVwMW95YnFQXzRUWWRoUjRIenlHLVc5d09hcjdnZUVOWnRhVXh0VTJvRw?oc=5"
+        },
+        "context": "‘Setting Your QB Up for Failure’ — ESPN Commentator Defends Jayden Daniels, Rips Commanders HC Dan Quinn After Loss to 49ers",
+        "id": 1103290,
+        "published_at_epoch": 1792529284,
+        "source": "Yahoo Sports",
+        "title": "‘Setting Your QB Up for Failure’ — ESPN Commentator Defends Jayden Daniels, Rips Commanders HC Dan Quinn After Loss to 49ers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.981096898804916,
+            "clickbait": 9.440959806220697,
+            "emotion": 22.33684588559938,
+            "movement": 38.34329543741268,
+            "subject": 90.8517123766078
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxNcEtyYjg3bVNwQmJKZ1g4bEJaUE44bnUySUViV2dzSV95NnRoNHJ1OUtFX3A4TGlockxvT3ZoMmdEVDctQUFmZEtpZGVRT0hZQW93cndrM3RtVzBTbHhVSXB4OGNVZDd5RUI3U2g0cFl4TjVCcU9NLU5sRmthenVYVnB1dURSOG51RlAw?oc=5"
+        },
+        "context": "Commanders Keep Fighting, but Dan Quinn Keeps Falling Short | Hughes' View",
+        "id": 1131821,
+        "published_at_epoch": 1792528181,
+        "source": "Yahoo Sports",
+        "title": "Commanders Keep Fighting, but Dan Quinn Keeps Falling Short | Hughes' View"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.037034470363618,
+            "clickbait": 11.949621294206036,
+            "emotion": 17.782787955326143,
+            "movement": 63.367684235072105,
+            "subject": 91.4568319071724
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMifEFVX3lxTFB0XzZ5dGhxbUkwX3RjNUM5bmJ3RVA3R0lJdzhDUWZUN082Y3Z4SFMwQmExWWJvUFNPZlZFOHkxLXBHa0VfcmJDc0N6RDhRUkllOHlyUmlrSzBVUWlTMFBybWo0NHBnU1V3RFNyM0o5aVhxREdneEUwaW5PME0?oc=5"
+        },
+        "context": "‘You Cannot Be This Bad,’ ‘It’s Time to Move On’ — Colin Cowherd Delivers Verdict on Commanders HC Dan Quinn’s NFL Future",
+        "id": 1160776,
+        "published_at_epoch": 1792527905,
+        "source": "Pro Football Network",
+        "title": "‘You Cannot Be This Bad,’ ‘It’s Time to Move On’ — Colin Cowherd Delivers Verdict on Commanders HC Dan Quinn’s NFL Future"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.606337209489271,
+            "clickbait": 5.148967971519287,
+            "emotion": 36.39201422771386,
+            "movement": 8.394786563534499,
+            "subject": 83.96163675838714
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQR0lMSVUtZUFRbWUyTEpwcmQ2NnI5MHA1MFRtNXJZYW9XTlB2UmlLUXhEcFlFQ0hrMnY2VFBySGpQRWJUem9zY0l3a3dSZER5cmxvaTdnc2hET1ItMWdpUDdMVWJ6QUxCTkg4SWdFQm4zRUtaYW1Ta1hUNV9neDNKWFpBNVFLQQ?oc=5"
+        },
+        "context": "Dan Quinn: OL performance was below the standard we set for ourselves",
+        "id": 1084364,
+        "published_at_epoch": 1792525325,
+        "source": "Yahoo Sports",
+        "title": "Dan Quinn: OL performance was below the standard we set for ourselves"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.2942459151810857,
+            "clickbait": 25.89462522746554,
+            "emotion": 13.93190581280422,
+            "movement": 47.15530843369327,
+            "subject": 87.66158098417584
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxOeGx5cTBzUlJubW4yVmhkWC1IeWxhMFlVZFFvS1BHTTcyR3JsQkw0Sm1DWkxXdzVBMEdVbDNPUkNkbi1JVUk4TGN6YXdDaHlvb29qTWRTV0FsR1FmR19WVVdRdHVQdkxmYXdxT2tWeXZUM2pPc3NRWUNsdDNLMmJQMGc3dkR3SVJuVGc?oc=5"
+        },
+        "context": "Commanders Sink Toward the Bottom of NFL Power Rankings as the Heat Builds on Dan Quinn",
+        "id": 1103252,
+        "published_at_epoch": 1792521000,
+        "source": "Yahoo Sports",
+        "title": "Commanders Sink Toward the Bottom of NFL Power Rankings as the Heat Builds on Dan Quinn"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.914717111297716,
+            "clickbait": 59.58903722295447,
+            "emotion": 4.057421160500771,
+            "movement": 33.58390705925405,
+            "subject": 77.5720308507479
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxNR01meS05U0JpcE5zNkxIMkdwbUJjNVNsa2M4b0F0ZHhyNjE1WlZSMTRuY2EtNHk4QlFCOHUzanktSHFkTnk3QS1Pb1pzQWZYZDJ1UHNTMWowd1AzMXRmNnl0MU1MSzJYd1RpLTg1THpXMHg3N1JTVDVlSlpibkJTNHZfbmhNbEV5VFJVcjhHSXU5OS1tNlZWemRlVmJGamVKR255bE5HbndUZw?oc=5"
+        },
+        "context": "How much of a microscope is Dan Quinn under? People are trying to read his lips",
+        "id": 992946,
+        "published_at_epoch": 1792512908,
+        "source": "The New York Times",
+        "title": "How much of a microscope is Dan Quinn under? People are trying to read his lips"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.7585278794225925,
+            "clickbait": 14.219210789898154,
+            "emotion": 5.998052619432381,
+            "movement": 74.04820008364699,
+            "subject": 88.38919667177221
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxPaVRDbk9RWXNQVlJZNmNYbVp4M3g2Q3AwYlpZa05aUUUteW01TjVjQWJMOEFrZnUyd1YwUFhEVEFfLU9WdnFpTG1lYlJVblJ5ckdSNm9OTnZqREJ1TnBweHpTeTJFWFZvVld0NGxZR2o4aWZHWWNJaVZPYnhvZXh0dFFxLVNCT044SWl0UzBDY3hMalg4blAwbDM2UEhkZTRfVTBUVDRERTZzcGRKRW0xc1RVUHFDZlE?oc=5"
+        },
+        "context": "More scrutiny for Dan Quinn’s game management - Daily Slop",
+        "id": 1050418,
+        "published_at_epoch": 1792512000,
+        "source": "Hogs Haven",
+        "title": "More scrutiny for Dan Quinn’s game management - Daily Slop"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.5287776472432304,
+            "clickbait": 32.125201656375786,
+            "emotion": 16.521974864855,
+            "movement": 73.9454760965787,
+            "subject": 84.895287697276
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOWjJIOWh2cnQ4SWdWbHF3NE5UWEpIb05hN3YzOXdkdzlSazNKcjdJM0NfajkwYW1oZjNtNFdHbTN6N1I2LVM5SFQzdTBQWnJYWXFrUXVoUHA3cm85WkFkcmFLekp2UF9LaTgzUU9KZlA3US1Rb2YxbXl4T3hIRjFwTTN1MEhNY29ZMXlVYnR3?oc=5"
+        },
+        "context": "Stephen A. Smith thinks ‘it’s over’ for Commanders head coach Dan Quinn",
+        "id": 1050443,
+        "published_at_epoch": 1792510742,
+        "source": "Yahoo Sports",
+        "title": "Stephen A. Smith thinks ‘it’s over’ for Commanders head coach Dan Quinn"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.7965671230316873,
+            "clickbait": 13.427093839570034,
+            "emotion": 3.3197334773235547,
+            "movement": 14.022652468371644,
+            "subject": 82.47278702019024
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQVG1BZHo4ZFA3ZEMtYWlfZnhBbzk1emN1dC0zajBXY2JfRENZNHVadjJ4VGt3b1BZTXg4QmFzSjhBc2dZZkdJUnJjbWJRazRucGZyWkVENlo4OE5LWXNZRjVvWUtSUkNpQWhYZTFJb0w2RW0yazV3SnlrQU00UU5TczNBb2xnNG8?oc=5"
+        },
+        "context": "Dan Quinn had total situational awareness in viral 4th down confusion clip",
+        "id": 1021730,
+        "published_at_epoch": 1792501483,
+        "source": "Yahoo Sports",
+        "title": "Dan Quinn had total situational awareness in viral 4th down confusion clip"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8375141907251,
+            "clickbait": 13.135331465849143,
+            "emotion": 2.969198847605735,
+            "movement": 20.33124126552788,
+            "subject": 80.69961482523566
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE1VdENsNmI3OXZ4bEFRWnhoOENFMkFLREFaaFgwdmhMelE2a21YbjRJSmRwOFNyTGR4bWV3cjZQTFpIckx6SmU2a3lEaWlpZHNDaWtyV0FUNUQzQndMX0ktWVBjZVZ0WElyRUJCc2xhdGhSWkY5T3ptcUtzOVdEaDQ?oc=5"
+        },
+        "context": "Did Dan Quinn Know It Was Fourth Down? Commanders Coach Says the Headset Moment Was Misread",
+        "id": 1060621,
+        "published_at_epoch": 1792501200,
+        "source": "Yahoo Sports",
+        "title": "Did Dan Quinn Know It Was Fourth Down? Commanders Coach Says the Headset Moment Was Misread"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.3877280060040107,
+            "clickbait": 23.669607187665836,
+            "emotion": 32.373995128703925,
+            "movement": 35.543660173117594,
+            "subject": 76.96552495975149
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxPTDhQMHZLeXctTG9IcWVENmxNQW4tOUxHQTVrakM2SUFnam93cnIxOUlpMndJVlptZFE3RUVZQ1ktZ3VpUDlEdHhWZTlMRVJVVnBVMHpxTWVnTm15TzRmY2Q5d3h4V0dJd3RxYVNtMW5GN2l3dnVUM0hZMFJ2QWplMXk5dEZWS21C?oc=5"
+        },
+        "context": "Fire Dan Quinn: Commanders’ Latest Embarrassment Should Be the Final Straw",
+        "id": 1012030,
+        "published_at_epoch": 1792499420,
+        "source": "Yahoo Sports",
+        "title": "Fire Dan Quinn: Commanders’ Latest Embarrassment Should Be the Final Straw"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8899009500257231,
+            "clickbait": 16.257989201818294,
+            "emotion": 7.565131915214157,
+            "movement": 32.3622204778753,
+            "subject": 93.58688897964052
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxOV2lJLXMwZUVYTFdMcDdFODJSZVRiUWI1cDJOWjlCaFZxWWtFUzNKcWZDbTY0cV9ENmJNeGxUb3E2Nl8zbDJFaWRYcmdoUG5Xbm9rNHNrREtFamp0bG82eE9vOEROWEFaSTRRaldkMmNSNjViWlZ2enRvU2RualRYanE5aUg3TlVXcHhLeEY1cHdtdTA5WFF4LUY4NGdXWG1GMEREQjAzQ1VVRld2UFZKSFNqdGxPMGlYR0JubHV3OEhFRmM?oc=5"
+        },
+        "context": "Commanders' Dan Quinn appears to lose track of downs one week after clock debacle – but he has an explanation",
+        "id": 992914,
+        "published_at_epoch": 1792494576,
+        "source": "Fox News",
+        "title": "Commanders' Dan Quinn appears to lose track of downs one week after clock debacle – but he has an explanation"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.647459736182078,
+            "clickbait": 25.92549157641637,
+            "emotion": 6.165801218457374,
+            "movement": 16.928755942338842,
+            "subject": 76.12484591389807
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMidEFVX3lxTFBfUWE0TUdWbWpFQ0JtTUdINW1LUEdkckliUVhjRkdxWUUxV3d5bTVOeGl0Q3RGTFJoQ1FfeVkxM0UtS3o5S3pBdmp4V3JQU2pzX1FhYlVZbEtlQzk5dUFKWUdiRDNmcllHU2l3SGZJNzdVQkhr?oc=5"
+        },
+        "context": "‘Why Even Try to Lie,’ ‘You’re So Fired’ — NFL Fans Not Buying Commanders HC Dan Quinn’s Explanation For Viral Moment of Confusion vs. 49ers",
+        "id": 993420,
+        "published_at_epoch": 1792487258,
+        "source": "AOL.com",
+        "title": "‘Why Even Try to Lie,’ ‘You’re So Fired’ — NFL Fans Not Buying Commanders HC Dan Quinn’s Explanation For Viral Moment of Confusion vs. 49ers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.937693528304447,
+            "clickbait": 49.618489993811984,
+            "emotion": 88.81416102000534,
+            "movement": 81.86028655787001,
+            "subject": 77.60287662493488
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOWUtyTUUyQ1Z3Ry0xdGNTUDBNQ0twZjA3c2JsMGQ2bzByUHN5LTFWWTNubWt5TDJCb2dfNzJIOC1LT0Iza2xxdTVObnE5NzFkbFNZZXdaQWVnNDYxVFZhOU5aS2JZMVBabmRMYWFOSlZuVEkwdFRZZU1zOWt5cEdIdl96MmF6Zw?oc=5"
+        },
+        "context": "NFL fans think this ‘inexcusable’ Dan Quinn moment will lead to Commanders firing him",
+        "id": 1122319,
+        "published_at_epoch": 1792470180,
+        "source": "Yahoo Sports",
+        "title": "NFL fans think this ‘inexcusable’ Dan Quinn moment will lead to Commanders firing him"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 12.395429328311993,
+            "clickbait": 24.51570107498703,
+            "emotion": 68.13421884015179,
+            "movement": 48.48378905558446,
+            "subject": 84.66148661830822
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE02WDBZTE1lbXQ4RTdSc2JNb2ZsQ1AzVXNjenRXdTc4N2hLd0NxYmRYcmVuLVAxZE92b0NmcXktYlNFNmozX184ZkEtTHdhbHdvSmRoamJNQlAxTGM0OVBLRzdlX3czTzJfUW96RHZHemV5R0NIdmNYaTNPQXR0dFU?oc=5"
+        },
+        "context": "‘Very Tough Look for Dan Quinn,’ ‘Why Is He Still Employed?’ — NFL Fans React to Commanders HC Being Confused vs. 49ers on MNF",
+        "id": 1021603,
+        "published_at_epoch": 1792462500,
+        "source": "Yahoo Sports",
+        "title": "‘Very Tough Look for Dan Quinn,’ ‘Why Is He Still Employed?’ — NFL Fans React to Commanders HC Being Confused vs. 49ers on MNF"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 26.458283061887727,
+            "clickbait": 28.750284109539155,
+            "emotion": 6.848746440227993,
+            "movement": 85.65115752833611,
+            "subject": 87.29884978232546
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxNWEtYMUxNWC1LcmRvZWZVUC1fZ3ZzemtNRWNtSGJMU1ZxQVVQNmxwQjcteko0SXFUeGxrYkV4M29DdWJoY1lvMUNtdWU3TG5tMklZQ3V1aUFma3VCWlFZRkkyNS1HaGl0MFRQQ0FUdVh0MEYyczBXY0o0UHFMRU50QTF5dlZMRlBXeC16UVRPTW5Odw?oc=5"
+        },
+        "context": "Insider Issues Eye-Opening Update on Commanders HC Dan Quinn’s Job Status",
+        "id": 985537,
+        "published_at_epoch": 1792332272,
+        "source": "Heavy.com",
+        "title": "Insider Issues Eye-Opening Update on Commanders HC Dan Quinn’s Job Status"
+      }
+    ],
+    "subject": {
+      "entity_id": 8,
+      "entity_type": "person",
+      "name": "Dan Quinn",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

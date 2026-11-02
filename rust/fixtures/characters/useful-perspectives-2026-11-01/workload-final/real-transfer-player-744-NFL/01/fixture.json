@@ -1,0 +1,508 @@
+{
+  "name": "real-transfer-player-744-NFL",
+  "task": "transfer",
+  "sport": "NFL",
+  "prompt_version": "insider-source-v21-perspective",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Sam LaPorta\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1422758,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi3AFBVV95cUxQd1hCNzBYUUVMOEpiTUdCcVA5TjlWa2lJZWM3bUZjZEQya3lkcE0xc0x4cm5VUVRTYnV3MS1NMVptd3JfWVQzdTVnMVVhUUZTUGMwR0VVakp2S3EwbkU5dkVHa0g0M1ZwbHh4LWp3dGFXODdScExtRlN6VmEyZFFDckVJM01WMnBuOFNFSFZ5SXEtR2NqVEJFakxnUFN2b0Zwd3hMYVFQZ3lBU0g5bzVvbGUwN050Sm55MGotMm9xT0xHcVNoY1d3RVVuOEt6WnZmUEg2NVViUVFidlFS?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Detroit Lions\"}],\"headline\":\"Former Iowa football TE Sam LaPorta gets candid on Lions contract\",\"published_at\":\"2026-10-22T23:55:00Z\",\"publisher\":\"Hawkeyes Wire\"},{\"classifier_world\":{\"article_id\":1422820,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxNb0lKRzU3WGxxR3dGWGhKMWkzZnhmMEs1M3l5ZmNvYjJDX3B0cWhTZlROQzhMLXZ6NkxsZkpHTEhDcC1sUmhGMkJUMTk4RlpjczdiSVFCYl8tWFFaQmNMcXplRWhZTUpnd3ltVlF6VDZ5dFY1d0tKaTV4SzkzaDVVcXY4TkU?oc=5\"},\"co_mentions\":[],\"headline\":\"Adam Schefter Drops Major Sam LaPorta Contract Update\",\"published_at\":\"2026-10-22T23:05:18Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1391343,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxQb1k3WEZJMWZVd19fbll3YUpvWE9MQnVCdzdtWUl6OTQwYVI3MlI3ZlVUcE5qNDFIb29FTlJYV3ZWWFpBRlFWbDlJLVJZVEpCSFlfbXo3TmpzUENpMlM2UE1ZaVJOWUEyTVRmTHlQQjdYYl9VeUlXN1FERUkwZGl5azhBZmJsa0s3cmllbHd5TllYYkpnZGt5dGtR?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Denver Broncos\"},{\"entity_type\":\"team\",\"name\":\"Carolina Panthers\"}],\"headline\":\"Broncos, Panthers Among Potential Sam LaPorta Suitors\",\"published_at\":\"2026-10-22T21:22:22Z\",\"publisher\":\"ProFootballRumors.com\"},{\"classifier_world\":{\"article_id\":1342148,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMisgFBVV95cUxPcGtMbTBBT0p4cjgzeVZhdFFEWFhyM1J3ZF9SNi1LNk1DY1BfVnN0Y05vX0JIUkZGMGNray1kN3NxckxpMWQwTzluYVVnMEczaW9ZN3huMXpleDd6LUNYbEhMdm1OdjZQbzY0LXF5ODhGSE9FSi1obC1XbS1PaDd1aFQ4X2k0eGxTaVBQMnRxc1l1QlFsWXZIdXdIMjRjeHk3MXFVdlRkSnZ0V01MQTU3Nm1R?oc=5\"},\"co_mentions\":[{\"entity_type\":\"person\",\"name\":\"Drew Petzing\"},{\"entity_type\":\"team\",\"name\":\"Detroit Lions\"}],\"headline\":\"Drew Petzing praises Sam LaPorta in midst of Lions contract kerfuffle\",\"published_at\":\"2026-10-22T19:55:00Z\",\"publisher\":\"Detroit Free Press\"},{\"classifier_world\":{\"article_id\":1352093,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPZ3gwLWdENEFzMjBxNmd6UHpLUmRQVDRTNEJuRTlXSDl5dndsU1pCSDFsZV9KZnREbmUxbHoxeWR2Y2MyR3dPcmVld2cyYWY1NDBkb3dZc3d0bnNSOVhtUm1OU3pYdU5STUZ1WHkzRU5PUkYwdmgxQUVkMXptTGREb1BTME1JbVU?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Detroit Lions\"}],\"headline\":\"Sam LaPorta Trade Pitch Targets the Lions’ Biggest Hole\",\"published_at\":\"2026-10-22T18:00:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1342156,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi8gFBVV95cUxPbzFBTlBEbGNDTFNmSXJqYlFuUFAwZnNWdjYtdTdPWUw0b3ZxSFIxOXlDd2h1ZGwtNlF4RWdaZlV2clJ4dnJwUUl3Rl9YTjY1TU5rZi1JcTlKdk9iUW53VzhXUnR5VmZHT2JmYzhGMS05d1I1emg4NEpfbzR4OG4wa0V2bEpvd3lZUlg5MUZlVHpVVmg5RS1Wd3BVSzkxbTBMa1dibWFwa0lNUzFraHU5aHRQTXBxbFI4Wkgtclg1WmFyLVo5S0k4YkhHQm9GMUo4Q2pHaFRUbF85aXQ0Z1dqUEp6WTdZa3ljRmFfdkQ1RUdGQQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Detroit Lions\"}],\"headline\":\"Sam LaPorta disappointed Lions 'not showing the love' in contract talks\",\"published_at\":\"2026-10-22T16:57:00Z\",\"publisher\":\"Grand Haven Tribune\"},{\"classifier_world\":{\"article_id\":1392353,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMixgFBVV95cUxPZnFrQ1UtbkdPX1FNMFdXWFd5N0Q4YkpMdDBnVm82V1VEVVZMYTUxWXE1S18xbmpVdkJSeGtTM2NMN2pfa3l3XzhfX3ZWS0dGNC1pQXVuaDVNQXFhQ0kxeVN0bElZU3Z1X2RsbDdYa1IwcTRjWC1KcjRjb01OdG5QMWdYZnljX1diU2RoMWt4T2xtendiQ0U1Yjh2amdxdXZPYVh2Wl9qX3pNZzFrSjJoT1dJczlENUxlZ29jdWVKQ042dUNZMGc?oc=5\"},\"co_mentions\":[],\"headline\":\"Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?\",\"published_at\":\"2026-10-22T14:47:55Z\",\"publisher\":\"Last Word On Sports\"},{\"classifier_world\":{\"article_id\":1352087,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMidkFVX3lxTFAzTXNqdEdHZjM1YjhidnlvZE5ucjdjbHVrNGN6Q2N4WmFNR1RqOUdhZ2pvN3l2WUR1RWNCLVFLZmF1TWoxUWVQVkZJelRDdjJyZjhWM3pGbGVrSUtZbU1LcFA3WUxhWVRzcWVUU1d1RzBaZGYzYlE?oc=5\"},\"co_mentions\":[],\"headline\":\"Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?\",\"published_at\":\"2026-10-22T14:47:55Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1312856,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxOZzFjUEM0M3RoeTh6X19oemd5WjNJNHg3N3lJcXhaMHJPQjRVSUluenoxLTRUSzAyYkRtbUJiNFJTcVl6Si03NWRtZ2J6Sko1dld4ZGE3Sm0zaUktUE9tTndWZTk0b1pBVUZoUlN4S2RxcU9pRHU0NXJiQm1pZnlqSnRacnVKX3daeHVMaUxhSEZrcWhlMmhkVFFSLWhmRzltdkhvdHY1WEEtcDNDTGc?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Detroit Lions\"}],\"headline\":\"Detroit Lions Star Tight End Sam Laporta Goes Scorched Earth On Team Over Lack Of Contract Extension\",\"published_at\":\"2026-10-22T14:36:23Z\",\"publisher\":\"BroBible\"},{\"classifier_world\":{\"article_id\":1293415,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi3wFBVV95cUxNYk9mOTdyVTQtOWJSRHFYX0ViRU1LTDI5VjJDaXByODRjWk9ndVRtWDFUb2dSX3dJdThsMF9fMXRxN2plYVdIdEJLb3o1QXBRSWVsR3lkZlZkNmdzU09YU0M2NnE4Vnd3VXNiM3BnRVE1ZmdiR3pSWEc2aVAtUWpXRTFCd2pkbWN0UEtMNUcxSnJGX1VlbmVINGxXTkhVMG1BQUt3cm1DcXBtZm1BQk04elZ6RXY1TEZNU2lac2ZxMHRWRjlFeU9kNzBBOUdraExONGZfN3luU1EyUjF0YmZr?oc=5\"},\"co_mentions\":[],\"headline\":\"Sam LaPorta sounds ready for free agency and he could be in line for a huge payday. See link below ⬇️ 📸 Junfu Han, Detroit Free Press\",\"published_at\":\"2026-10-22T12:00:21Z\",\"publisher\":\"Facebook\"},{\"classifier_world\":{\"article_id\":1312845,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxQajdMLTk1Ujkxd1BiYnlEZ2hjdmx1QkM3QS1QTU5rQUhpWG5QdDlfMHpiMHMyRFh4b282WmFBZFFVWi04STg2ZWpKc3BpQS0wNV9ySWVNUmUyS2pCY0M2ZlZDcGJQeEQ1WDZocUo4YnI0WUtGQ1dxQzIxUW9xYjBId2Y4SXd5cTkx?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Kansas City Chiefs\"},{\"entity_type\":\"team\",\"name\":\"Detroit Lions\"}],\"headline\":\"Lions Predicted to Flip Unhappy Sam LaPorta for Chiefs DB, First-Round Pick\",\"published_at\":\"2026-10-22T02:15:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1196920,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxObU13MkJsZ3hDeURmUXlhM0lsb1h1VWpqYlVpekh0dlhDMVFXa3ZyTU5ydTBSWXFZbGdwVzBFYURIOVBNOWpER0pnQWxBekhGQkhnZ1BwUnpOZ2hRZ2xhTGFoTnNsSEhPdG9QVFJuemNleGcyZ29MSm5kVlhTNkhqTVhIQQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Detroit Lions\"}],\"headline\":\"Sam LaPorta talks Lions contract extension on 'Pardon My Take'\",\"published_at\":\"2026-10-21T20:17:53Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1194843,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxOQ3doVDUyVmVDWnNycXdBWjFlM1pLSjN2SDd1T1I4SE02WktOdXF5Y2RJNGE3MjFtVUdhV3lTZXlxQnFsdDhZRGU5OUhRQWlRZGNCSTZwZVJJWkZvYS1ieGk1ODNYSXJFRExFM2pyVmZrRWhkTTAta0FYMHNicjZLcTZ3dURVTVhzcU10eE1Ib2hYMGVXS251WE9fR0F2SXpaYmV1SDFseGdhOWFMTS1ZTFA0cVRQQQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Detroit Lions\"}],\"headline\":\"Sam LaPorta fumes over Lions contract talks: ‘Break my f–king back for the team’\",\"published_at\":\"2026-10-21T20:17:00Z\",\"publisher\":\"New York Post\"},{\"classifier_world\":{\"article_id\":1342155,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxQZEVMa083U3RrQTZjbGR3Z0RhdXFJXzNQVlZWOGFoa29mVElWdDJNWWZQMjR3eFh0SE1aV2poOE9rUHRESWNVQ25yUER2aU9od3VDSmphSnl6T1pneEE1Nm5qN3BsQVNVMFBRZjJxaE0yV1R2dUtxbkdva3poMktfZzhpczZhejg?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Detroit Lions\"}],\"headline\":\"Sam LaPorta says he is prepared to leave Detroit if the Lions won't give him a new contract\",\"published_at\":\"2026-10-21T20:10:55Z\",\"publisher\":\"Yahoo Sports\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 744,
+      "entity_type": "player",
+      "name": "Sam LaPorta",
+      "sport": "NFL"
+    },
+    "database_record": "Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi3AFBVV95cUxQd1hCNzBYUUVMOEpiTUdCcVA5TjlWa2lJZWM3bUZjZEQya3lkcE0xc0x4cm5VUVRTYnV3MS1NMVptd3JfWVQzdTVnMVVhUUZTUGMwR0VVakp2S3EwbkU5dkVHa0g0M1ZwbHh4LWp3dGFXODdScExtRlN6VmEyZFFDckVJM01WMnBuOFNFSFZ5SXEtR2NqVEJFakxnUFN2b0Zwd3hMYVFQZ3lBU0g5bzVvbGUwN050Sm55MGotMm9xT0xHcVNoY1d3RVVuOEt6WnZmUEg2NVViUVFidlFS?oc=5",
+          "spectrum": {
+            "emotion": 2.5720571185092496,
+            "subject": 93.9702843964694,
+            "movement": 89.28575572545789,
+            "availability": 16.952238941456564
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1422758
+        },
+        "publisher": "Hawkeyes Wire",
+        "published_at": "2026-10-22T23:55:00Z",
+        "headline": "Former Iowa football TE Sam LaPorta gets candid on Lions contract",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Detroit Lions",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxNb0lKRzU3WGxxR3dGWGhKMWkzZnhmMEs1M3l5ZmNvYjJDX3B0cWhTZlROQzhMLXZ6NkxsZkpHTEhDcC1sUmhGMkJUMTk4RlpjczdiSVFCYl8tWFFaQmNMcXplRWhZTUpnd3ltVlF6VDZ5dFY1d0tKaTV4SzkzaDVVcXY4TkU?oc=5",
+          "spectrum": {
+            "emotion": 2.192590933370019,
+            "subject": 91.42123681302871,
+            "movement": 87.71735894477678,
+            "availability": 48.925279234414916
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1422820
+        },
+        "publisher": "Yahoo Sports",
+        "published_at": "2026-10-22T23:05:18Z",
+        "headline": "Adam Schefter Drops Major Sam LaPorta Contract Update",
+        "publisher_excerpt": "",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxQb1k3WEZJMWZVd19fbll3YUpvWE9MQnVCdzdtWUl6OTQwYVI3MlI3ZlVUcE5qNDFIb29FTlJYV3ZWWFpBRlFWbDlJLVJZVEpCSFlfbXo3TmpzUENpMlM2UE1ZaVJOWUEyTVRmTHlQQjdYYl9VeUlXN1FERUkwZGl5azhBZmJsa0s3cmllbHd5TllYYkpnZGt5dGtR?oc=5",
+          "spectrum": {
+            "emotion": 1.8723305086954327,
+            "subject": 77.85809264740615,
+            "movement": 91.66962802958587,
+            "availability": 24.064561239447812
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1391343
+        },
+        "publisher": "ProFootballRumors.com",
+        "published_at": "2026-10-22T21:22:22Z",
+        "headline": "Broncos, Panthers Among Potential Sam LaPorta Suitors",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Denver Broncos",
+            "entity_type": "team"
+          },
+          {
+            "name": "Carolina Panthers",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxPcGtMbTBBT0p4cjgzeVZhdFFEWFhyM1J3ZF9SNi1LNk1DY1BfVnN0Y05vX0JIUkZGMGNray1kN3NxckxpMWQwTzluYVVnMEczaW9ZN3huMXpleDd6LUNYbEhMdm1OdjZQbzY0LXF5ODhGSE9FSi1obC1XbS1PaDd1aFQ4X2k0eGxTaVBQMnRxc1l1QlFsWXZIdXdIMjRjeHk3MXFVdlRkSnZ0V01MQTU3Nm1R?oc=5",
+          "spectrum": {
+            "emotion": 32.68389603783526,
+            "subject": 90.89442469135773,
+            "movement": 94.34056492427672,
+            "availability": 83.02978914531113
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1342148
+        },
+        "publisher": "Detroit Free Press",
+        "published_at": "2026-10-22T19:55:00Z",
+        "headline": "Drew Petzing praises Sam LaPorta in midst of Lions contract kerfuffle",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Drew Petzing",
+            "entity_type": "person"
+          },
+          {
+            "name": "Detroit Lions",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPZ3gwLWdENEFzMjBxNmd6UHpLUmRQVDRTNEJuRTlXSDl5dndsU1pCSDFsZV9KZnREbmUxbHoxeWR2Y2MyR3dPcmVld2cyYWY1NDBkb3dZc3d0bnNSOVhtUm1OU3pYdU5STUZ1WHkzRU5PUkYwdmgxQUVkMXptTGREb1BTME1JbVU?oc=5",
+          "spectrum": {
+            "emotion": 2.140133993925582,
+            "subject": 84.16022766384877,
+            "movement": 92.68359252939857,
+            "availability": 25.298265287786354
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1352093
+        },
+        "publisher": "Yahoo Sports",
+        "published_at": "2026-10-22T18:00:00Z",
+        "headline": "Sam LaPorta Trade Pitch Targets the Lions’ Biggest Hole",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Detroit Lions",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi8gFBVV95cUxPbzFBTlBEbGNDTFNmSXJqYlFuUFAwZnNWdjYtdTdPWUw0b3ZxSFIxOXlDd2h1ZGwtNlF4RWdaZlV2clJ4dnJwUUl3Rl9YTjY1TU5rZi1JcTlKdk9iUW53VzhXUnR5VmZHT2JmYzhGMS05d1I1emg4NEpfbzR4OG4wa0V2bEpvd3lZUlg5MUZlVHpVVmg5RS1Wd3BVSzkxbTBMa1dibWFwa0lNUzFraHU5aHRQTXBxbFI4Wkgtclg1WmFyLVo5S0k4YkhHQm9GMUo4Q2pHaFRUbF85aXQ0Z1dqUEp6WTdZa3ljRmFfdkQ1RUdGQQ?oc=5",
+          "spectrum": {
+            "emotion": 96.5316466224405,
+            "subject": 95.42241437747364,
+            "movement": 97.81570118080471,
+            "clickbait": 10.069608092740532,
+            "availability": 1.702596199935414
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1342156
+        },
+        "publisher": "Grand Haven Tribune",
+        "published_at": "2026-10-22T16:57:00Z",
+        "headline": "Sam LaPorta disappointed Lions 'not showing the love' in contract talks",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Detroit Lions",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxPZnFrQ1UtbkdPX1FNMFdXWFd5N0Q4YkpMdDBnVm82V1VEVVZMYTUxWXE1S18xbmpVdkJSeGtTM2NMN2pfa3l3XzhfX3ZWS0dGNC1pQXVuaDVNQXFhQ0kxeVN0bElZU3Z1X2RsbDdYa1IwcTRjWC1KcjRjb01OdG5QMWdYZnljX1diU2RoMWt4T2xtendiQ0U1Yjh2amdxdXZPYVh2Wl9qX3pNZzFrSjJoT1dJczlENUxlZ29jdWVKQ042dUNZMGc?oc=5",
+          "spectrum": {
+            "emotion": 3.211362830347196,
+            "subject": 92.69584444482308,
+            "movement": 97.09286844735901,
+            "availability": 13.601870602368896
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1392353
+        },
+        "publisher": "Last Word On Sports",
+        "published_at": "2026-10-22T14:47:55Z",
+        "headline": "Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?",
+        "publisher_excerpt": "",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTFAzTXNqdEdHZjM1YjhidnlvZE5ucjdjbHVrNGN6Q2N4WmFNR1RqOUdhZ2pvN3l2WUR1RWNCLVFLZmF1TWoxUWVQVkZJelRDdjJyZjhWM3pGbGVrSUtZbU1LcFA3WUxhWVRzcWVUU1d1RzBaZGYzYlE?oc=5",
+          "spectrum": {
+            "emotion": 2.977127592378358,
+            "subject": 92.48668161090292,
+            "movement": 96.99745782482321,
+            "availability": 13.630092937958175
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1352087
+        },
+        "publisher": "Yahoo Sports",
+        "published_at": "2026-10-22T14:47:55Z",
+        "headline": "Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?",
+        "publisher_excerpt": "",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOZzFjUEM0M3RoeTh6X19oemd5WjNJNHg3N3lJcXhaMHJPQjRVSUluenoxLTRUSzAyYkRtbUJiNFJTcVl6Si03NWRtZ2J6Sko1dld4ZGE3Sm0zaUktUE9tTndWZTk0b1pBVUZoUlN4S2RxcU9pRHU0NXJiQm1pZnlqSnRacnVKX3daeHVMaUxhSEZrcWhlMmhkVFFSLWhmRzltdkhvdHY1WEEtcDNDTGc?oc=5",
+          "spectrum": {
+            "emotion": 37.35508303780927,
+            "subject": 95.17475622962584,
+            "movement": 86.67280551159226,
+            "clickbait": 56.857349240416525,
+            "availability": 3.4319096607469817
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1312856
+        },
+        "publisher": "BroBible",
+        "published_at": "2026-10-22T14:36:23Z",
+        "headline": "Detroit Lions Star Tight End Sam Laporta Goes Scorched Earth On Team Over Lack Of Contract Extension",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Detroit Lions",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi3wFBVV95cUxNYk9mOTdyVTQtOWJSRHFYX0ViRU1LTDI5VjJDaXByODRjWk9ndVRtWDFUb2dSX3dJdThsMF9fMXRxN2plYVdIdEJLb3o1QXBRSWVsR3lkZlZkNmdzU09YU0M2NnE4Vnd3VXNiM3BnRVE1ZmdiR3pSWEc2aVAtUWpXRTFCd2pkbWN0UEtMNUcxSnJGX1VlbmVINGxXTkhVMG1BQUt3cm1DcXBtZm1BQk04elZ6RXY1TEZNU2lac2ZxMHRWRjlFeU9kNzBBOUdraExONGZfN3luU1EyUjF0YmZr?oc=5",
+          "spectrum": {
+            "emotion": 2.466515930704106,
+            "subject": 93.19832814596576,
+            "movement": 82.86475961981904,
+            "clickbait": 31.48358691102468,
+            "availability": 11.843487338948904
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1293415
+        },
+        "publisher": "Facebook",
+        "published_at": "2026-10-22T12:00:21Z",
+        "headline": "Sam LaPorta sounds ready for free agency and he could be in line for a huge payday. See link below ⬇️ 📸 Junfu Han, Detroit Free Press",
+        "publisher_excerpt": "",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxQajdMLTk1Ujkxd1BiYnlEZ2hjdmx1QkM3QS1QTU5rQUhpWG5QdDlfMHpiMHMyRFh4b282WmFBZFFVWi04STg2ZWpKc3BpQS0wNV9ySWVNUmUyS2pCY0M2ZlZDcGJQeEQ1WDZocUo4YnI0WUtGQ1dxQzIxUW9xYjBId2Y4SXd5cTkx?oc=5",
+          "spectrum": {
+            "emotion": 32.85428976291353,
+            "subject": 89.24379018600148,
+            "movement": 88.8796125479955,
+            "clickbait": 24.05194635356175,
+            "availability": 8.548564417507027
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1312845
+        },
+        "publisher": "Yahoo Sports",
+        "published_at": "2026-10-22T02:15:00Z",
+        "headline": "Lions Predicted to Flip Unhappy Sam LaPorta for Chiefs DB, First-Round Pick",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Kansas City Chiefs",
+            "entity_type": "team"
+          },
+          {
+            "name": "Detroit Lions",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxObU13MkJsZ3hDeURmUXlhM0lsb1h1VWpqYlVpekh0dlhDMVFXa3ZyTU5ydTBSWXFZbGdwVzBFYURIOVBNOWpER0pnQWxBekhGQkhnZ1BwUnpOZ2hRZ2xhTGFoTnNsSEhPdG9QVFJuemNleGcyZ29MSm5kVlhTNkhqTVhIQQ?oc=5",
+          "spectrum": {
+            "emotion": 2.1949973435134296,
+            "subject": 94.6808203176347,
+            "movement": 91.41261652112685,
+            "availability": 30.220442189086643
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1196920
+        },
+        "publisher": "Yahoo Sports",
+        "published_at": "2026-10-21T20:17:53Z",
+        "headline": "Sam LaPorta talks Lions contract extension on 'Pardon My Take'",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Detroit Lions",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxOQ3doVDUyVmVDWnNycXdBWjFlM1pLSjN2SDd1T1I4SE02WktOdXF5Y2RJNGE3MjFtVUdhV3lTZXlxQnFsdDhZRGU5OUhRQWlRZGNCSTZwZVJJWkZvYS1ieGk1ODNYSXJFRExFM2pyVmZrRWhkTTAta0FYMHNicjZLcTZ3dURVTVhzcU10eE1Ib2hYMGVXS251WE9fR0F2SXpaYmV1SDFseGdhOWFMTS1ZTFA0cVRQQQ?oc=5",
+          "spectrum": {
+            "emotion": 86.69532800731476,
+            "subject": 95.57237113264866,
+            "movement": 97.4012533675301,
+            "clickbait": 67.11102979655537,
+            "availability": 11.318728944337172
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1194843
+        },
+        "publisher": "New York Post",
+        "published_at": "2026-10-21T20:17:00Z",
+        "headline": "Sam LaPorta fumes over Lions contract talks: ‘Break my f–king back for the team’",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Detroit Lions",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQZEVMa083U3RrQTZjbGR3Z0RhdXFJXzNQVlZWOGFoa29mVElWdDJNWWZQMjR3eFh0SE1aV2poOE9rUHRESWNVQ25yUER2aU9od3VDSmphSnl6T1pneEE1Nm5qN3BsQVNVMFBRZjJxaE0yV1R2dUtxbkdva3poMktfZzhpczZhejg?oc=5",
+          "spectrum": {
+            "emotion": 3.1169912214927535,
+            "subject": 95.05214289491708,
+            "movement": 96.1773158957553,
+            "clickbait": 9.644186549433384,
+            "availability": 2.317278847629461
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1342155
+        },
+        "publisher": "Yahoo Sports",
+        "published_at": "2026-10-21T20:10:55Z",
+        "headline": "Sam LaPorta says he is prepared to leave Detroit if the Lions won't give him a new contract",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Detroit Lions",
+            "entity_type": "team"
+          }
+        ]
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

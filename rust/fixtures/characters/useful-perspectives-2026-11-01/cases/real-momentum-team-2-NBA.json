@@ -1,0 +1,41 @@
+{
+  "name": "real-team:2:NBA-momentum",
+  "task": "momentum",
+  "sport": "NBA",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Boston Celtics\",\"entity_type\":\"team\",\"sport\":\"basketball\",\"database_record\":\"Boston Celtics — East Atlantic. Venue: TD Garden. City: Boston. Country: United States. Coach on record: John Thompson.\"},\"fresh\":{\"scout\":{\"body\":\"In the 2025 season with 89 games played, the Boston Celtics recorded 106.9 points allowed (elite percentile, 100.0), 46.4 total rebounds (elite, 93.1), 5.0 blocks (average, 58.6), 7.0 steals (poor, 3.4), 15.5 three-point field goals made (elite, 93.1), 11.5 turnovers (elite, 100.0), 18.8 free throws attempted (poor, 0.0), 24.6 assists (poor, 10.3), and 114.2 points scored (poor, 31.0). Their standardized composite score is 54.2, and the data supports cross-season comparisons. Missing fixture measurements are unknown.\",\"season\":2025,\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "Boston Celtics — East Atlantic. Venue: TD Garden. City: Boston. Country: United States. Coach on record: John Thompson.",
+    "influencer": null,
+    "scout": {
+      "body": "In the 2025 season with 89 games played, the Boston Celtics recorded 106.9 points allowed (elite percentile, 100.0), 46.4 total rebounds (elite, 93.1), 5.0 blocks (average, 58.6), 7.0 steals (poor, 3.4), 15.5 three-point field goals made (elite, 93.1), 11.5 turnovers (elite, 100.0), 18.8 free throws attempted (poor, 0.0), 24.6 assists (poor, 10.3), and 114.2 points scored (poor, 31.0). Their standardized composite score is 54.2, and the data supports cross-season comparisons. Missing fixture measurements are unknown.",
+      "generated_at": "2026-10-23",
+      "headline": "Boston Celtics: measured profile",
+      "input_hash": "fe9a50613487fbcf7718f36fbcc63d82",
+      "season": 2025
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 2,
+      "entity_type": "team",
+      "name": "Boston Celtics",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

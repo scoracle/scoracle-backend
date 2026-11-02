@@ -1,0 +1,13 @@
+{
+  "arm": "eligible-worked",
+  "checks": [],
+  "input_tokens": 3092,
+  "name": "player-37550443-FOOTBALL",
+  "output_tokens": 136,
+  "parser_detail": "finding quote does not state a move",
+  "receipt": "07-player-37550443-FOOTBALL-eligible-worked",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 12786
+}

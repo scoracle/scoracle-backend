@@ -1,0 +1,618 @@
+{
+  "reviewer": "Codex, unblinded source review against saved inputs; not independent human adjudication",
+  "rubric": "Usable: supported central reading and useful role fulfillment, tolerating awkward wording. Minor edit: central reading supported but a small factual/wording correction is needed. Material error: misleading meaning, subject, status, measurement or relationship. Contract errors and unavailable cases are separate. These purposive development samples do not estimate routine population accuracy.",
+  "records": [
+    {
+      "run": "workload-final",
+      "case": "real-momentum-player-129602-FOOTBALL",
+      "task": "momentum",
+      "mechanical_status": "no_call",
+      "grade": "no_generation",
+      "note": "Identity hold or missing peer; see exact prepared fixture and case provenance. No generated card.",
+      "receipt": "workload-final/real-momentum-player-129602-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-momentum-player-237-NBA",
+      "task": "momentum",
+      "mechanical_status": "no_call",
+      "grade": "no_generation",
+      "note": "Identity hold or missing peer; see exact prepared fixture and case provenance. No generated card.",
+      "receipt": "workload-final/real-momentum-player-237-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-momentum-player-744-NFL",
+      "task": "momentum",
+      "mechanical_status": "accepted",
+      "grade": "material_error",
+      "note": "Turns high relative ranks into measured success and stated frustration into lack of team support. Incorrectly treats missing dated comparisons as preventing a current performance/mood assessment.",
+      "receipt": "workload-final/real-momentum-player-744-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-momentum-team-2-NBA",
+      "task": "momentum",
+      "mechanical_status": "no_call",
+      "grade": "no_generation",
+      "note": "Identity hold or missing peer; see exact prepared fixture and case provenance. No generated card.",
+      "receipt": "workload-final/real-momentum-team-2-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-momentum-team-8-FOOTBALL",
+      "task": "momentum",
+      "mechanical_status": "no_call",
+      "grade": "no_generation",
+      "note": "Identity hold or missing peer; see exact prepared fixture and case provenance. No generated card.",
+      "receipt": "workload-final/real-momentum-team-8-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-person-23-FOOTBALL",
+      "task": "narratives",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (12933) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-narratives-person-23-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-person-86-FOOTBALL",
+      "task": "narratives",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Preserves the two discussions, named speaker and uncertainty; same-development grouping is supported by the supplied headlines.",
+      "receipt": "workload-final/real-narratives-person-86-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-person-959-NFL",
+      "task": "narratives",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (8943) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-narratives-person-959-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-player-129602-FOOTBALL",
+      "task": "narratives",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (22519) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-narratives-player-129602-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-player-237-NBA",
+      "task": "narratives",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (55837) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-narratives-player-237-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-player-37-NBA",
+      "task": "narratives",
+      "mechanical_status": "rejected",
+      "grade": "minor_edit",
+      "note": "Central absence/jersey reading is supported. Expands Sacramento to Sacramento Kings without that full name in evidence; parser rejects the expansion. No jersey retirement invention remains.",
+      "receipt": "workload-final/real-narratives-player-37-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-player-60-NFL",
+      "task": "narratives",
+      "mechanical_status": "rejected",
+      "grade": "material_error",
+      "note": "Assigns seven interceptions to Lock and adds a retain-or-trade decision not supplied by the ambiguous headlines. Parser also rejects the title phrase Seahawks QB.",
+      "receipt": "workload-final/real-narratives-player-60-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-player-744-NFL",
+      "task": "narratives",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (18757) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-narratives-player-744-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-team-2-NBA",
+      "task": "narratives",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (40728) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-narratives-team-2-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-team-22-NFL",
+      "task": "narratives",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (41408) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-narratives-team-22-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-narratives-team-8-FOOTBALL",
+      "task": "narratives",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (27322) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-narratives-team-8-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-oracle-player-129602-FOOTBALL",
+      "task": "oracle",
+      "mechanical_status": "accepted",
+      "grade": "material_error",
+      "note": "Invents a gap between measured potential and operational reality from missing mood and a thin sample.",
+      "receipt": "workload-final/real-oracle-player-129602-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-oracle-player-237-NBA",
+      "task": "oracle",
+      "mechanical_status": "accepted",
+      "grade": "material_error",
+      "note": "Strengthens strong scoring/discipline bands into elite execution and capability, while omitting the 2025 measurement window. Some overclaiming is already present in the saved upstream card.",
+      "receipt": "workload-final/real-oracle-player-237-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-oracle-player-744-NFL",
+      "task": "oracle",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Synthesizes high relative measurements, the small sample and conditional willingness to leave. Future commitment remains an uncertainty, not a completed move.",
+      "receipt": "workload-final/real-oracle-player-744-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-oracle-team-2-NBA",
+      "task": "oracle",
+      "mechanical_status": "accepted",
+      "grade": "material_error",
+      "note": "Reverses elite rebounding and turnover standings into weaknesses, confuses attempts with free-throw execution, and invents lack of cohesion. This recurring serious error passes the parser.",
+      "receipt": "workload-final/real-oracle-team-2-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-oracle-team-8-FOOTBALL",
+      "task": "oracle",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "A smaller reading of the supplied strong defensive profile and seven-appearance limit; broader stability remains unknown. Resilience is loose wording, not a new event or forecast.",
+      "receipt": "workload-final/real-oracle-team-8-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-rating-player-129602-FOOTBALL",
+      "task": "rating",
+      "mechanical_status": "rejected",
+      "grade": "usable",
+      "note": "Supported percentile contrast and seven-appearance limit. The production guard rejects Across 7 appearances despite the preceding recorded-profile qualifier; it requires narrower recorded/stored/snapshot-appearances wording.",
+      "receipt": "workload-final/real-rating-player-129602-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-rating-player-237-NBA",
+      "task": "rating",
+      "mechanical_status": "accepted",
+      "grade": "minor_edit",
+      "note": "Supplied ranks and directions are preserved, but the opening calls this a team profile and the final sentence repeats instructions. Needs editorial cleanup.",
+      "receipt": "workload-final/real-rating-player-237-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-rating-player-744-NFL",
+      "task": "rating",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Preserves the supplied aggregate labels, values, ranks and five-appearance limit. The upstream Air Yards Responsible label is unusual; its supplied definition is an aggregate, not standard air-yard depth.",
+      "receipt": "workload-final/real-rating-player-744-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-rating-team-2-NBA",
+      "task": "rating",
+      "mechanical_status": "accepted",
+      "grade": "material_error",
+      "note": "Assigns Boston measurements to the whole cohort and calls rebounds, blocks, steals and attempts points. Numeric copying does not preserve measurement meaning.",
+      "receipt": "workload-final/real-rating-team-2-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-rating-team-22-NFL",
+      "task": "rating",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Preserves team identity, defensive measurements, percentiles and six-appearance limit; no invented player cohort.",
+      "receipt": "workload-final/real-rating-team-22-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-rating-team-8-FOOTBALL",
+      "task": "rating",
+      "mechanical_status": "rejected",
+      "grade": "minor_edit",
+      "note": "Central relative-strength reading and sample limit are supported, but silently truncates 84.2/73.7 to 84/73. Parser rejects; this is a precision issue, not an invented performance story.",
+      "receipt": "workload-final/real-rating-team-8-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-transfer-person-959-NFL",
+      "task": "transfer",
+      "mechanical_status": "rejected",
+      "grade": "usable",
+      "note": "A cautious buyer/seller interpretation of the supplied Jones headlines with no fabricated pair finding. Parser rejects Dallas Cowboys expansion, although canonical identity supplies Dallas and reporting says Cowboys.",
+      "receipt": "workload-final/real-transfer-person-959-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-transfer-player-237-NBA",
+      "task": "transfer",
+      "mechanical_status": "rejected",
+      "grade": "material_error",
+      "note": "Turns the publication date into a game date, imports roster metadata into news, and invents absence of official confirmation.",
+      "receipt": "workload-final/real-transfer-player-237-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-transfer-player-744-NFL",
+      "task": "transfer",
+      "mechanical_status": "rejected",
+      "grade": "material_error",
+      "note": "Strengthens a payday opinion into publicly stated intention, overstates lack of engagement, and emits a finding quote under the wrong report index.",
+      "receipt": "workload-final/real-transfer-player-744-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-transfer-team-2-NBA",
+      "task": "transfer",
+      "mechanical_status": "rejected",
+      "grade": "material_error",
+      "note": "Declares a completed transaction and links Tatum to movement from a co-mention/accusation. Reported claims and pair findings are not preserved.",
+      "receipt": "workload-final/real-transfer-team-2-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-transfer-team-22-NFL",
+      "task": "transfer",
+      "mechanical_status": "rejected",
+      "grade": "material_error",
+      "note": "The two Zeitler findings point to unrelated reports and infer concrete interest from a vague decision headline. Body also drops meaningful reported uncertainty.",
+      "receipt": "workload-final/real-transfer-team-22-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-transfer-team-8-FOOTBALL",
+      "task": "transfer",
+      "mechanical_status": "rejected",
+      "grade": "material_error",
+      "note": "Strengthens possible bids into active negotiations and invents a movement finding for Iraola. Second finding has the wrong report index.",
+      "receipt": "workload-final/real-transfer-team-8-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-vibe-person-23-FOOTBALL",
+      "task": "vibe",
+      "mechanical_status": "accepted",
+      "grade": "minor_edit",
+      "note": "Optimistic coverage and De Zerbi reactions are supported. Visible delight, leadership assessment and current momentum go beyond the compact reported reaction; trim these rather than treat this as fabricated consensus.",
+      "receipt": "workload-final/real-vibe-person-23-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-vibe-person-86-FOOTBALL",
+      "task": "vibe",
+      "mechanical_status": "accepted",
+      "grade": "minor_edit",
+      "note": "Praise and enthusiasm are supported, but the object of praise is narrowed to player potential without evidence. No invented signing remains.",
+      "receipt": "workload-final/real-vibe-person-86-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-vibe-person-959-NFL",
+      "task": "vibe",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Negative coverage is scoped to criticism and Jones disappointment. It does not reverse the critic/subject or invent positive balance.",
+      "receipt": "workload-final/real-vibe-person-959-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-vibe-player-129602-FOOTBALL",
+      "task": "vibe",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (8003) plus reserved output (600) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-vibe-player-129602-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-vibe-player-237-NBA",
+      "task": "vibe",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (33295) plus reserved output (600) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-vibe-player-237-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-vibe-player-744-NFL",
+      "task": "vibe",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "complete input (10715) plus reserved output (600) exceeds actual model context (7900); no source was clipped",
+      "receipt": "workload-final/real-vibe-player-744-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-vibe-team-2-NBA",
+      "task": "vibe",
+      "mechanical_status": "no_call",
+      "grade": "no_generation",
+      "note": "Identity hold or missing peer; see exact prepared fixture and case provenance. No generated card.",
+      "receipt": "workload-final/real-vibe-team-2-NBA/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-vibe-team-22-NFL",
+      "task": "vibe",
+      "mechanical_status": "no_call",
+      "grade": "no_generation",
+      "note": "Identity hold or missing peer; see exact prepared fixture and case provenance. No generated card.",
+      "receipt": "workload-final/real-vibe-team-22-NFL/01/result.json"
+    },
+    {
+      "run": "workload-final",
+      "case": "real-vibe-team-8-FOOTBALL",
+      "task": "vibe",
+      "mechanical_status": "no_call",
+      "grade": "no_generation",
+      "note": "Identity hold or missing peer; see exact prepared fixture and case provenance. No generated card.",
+      "receipt": "workload-final/real-vibe-team-8-FOOTBALL/01/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "missing-mood-peer",
+      "task": "momentum",
+      "mechanical_status": "no_call",
+      "grade": "no_generation",
+      "note": "Missing mood peer and no dated comparison: intended no-call path.",
+      "receipt": "final-screen/01/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "mixed-peak-up-vibe-down",
+      "task": "momentum",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Contrasts the supplied peer readings without declaring either false.",
+      "receipt": "final-screen/02/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "rising-confirmed",
+      "task": "momentum",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Uses the explicit peer comparisons while declining a durable-trend claim.",
+      "receipt": "final-screen/03/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "synthetic-dated-divergence",
+      "task": "momentum",
+      "mechanical_status": "accepted",
+      "grade": "material_error",
+      "note": "Says same window although rating starts October 20 and tone October 19; drops the two-observation limit.",
+      "receipt": "final-screen/04/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "synthetic-dated-missing-peer",
+      "task": "momentum",
+      "mechanical_status": "accepted",
+      "grade": "material_error",
+      "note": "Merges distinct windows and imports detached/economical from tone into a claim about coverage; missing peer limit omitted.",
+      "receipt": "final-screen/05/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "distinct-developments-three-independent-developments,-three-keyed-slots",
+      "task": "narratives",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Three separate supported developments with valid source keys.",
+      "receipt": "final-screen/06/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "nba-attribution-basketball-source-under-a-league-namespace",
+      "task": "narratives",
+      "mechanical_status": "rejected",
+      "grade": "usable",
+      "note": "Faithful score/player/availability summary; conservative named-number guard rejects joining the two source sentences.",
+      "receipt": "final-screen/07/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "rumour-and-denial-rumour-with-its-denial-intact",
+      "task": "narratives",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Reported talks remain uncertain; no agreement and declined comment survive.",
+      "receipt": "final-screen/08/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "crossroads-conflict",
+      "task": "oracle",
+      "mechanical_status": "accepted",
+      "grade": "minor_edit",
+      "note": "Central performance/contract tension is supported but created a thinning atmosphere makes a causal claim from separate cards.",
+      "receipt": "final-screen/09/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "near-empty-quiet-wire",
+      "task": "oracle",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Sparse preseason report stays narrow with unknown other dimensions.",
+      "receipt": "final-screen/10/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "three-card-newcomer",
+      "task": "oracle",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Confirmed arrival comes from the supplied finished card, not outside knowledge; cautious synthesis adds a useful distinction.",
+      "receipt": "final-screen/11/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "football-player-total",
+      "task": "rating",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Correct supplied goals, appearances, percentile and band without invented thin-sample limit.",
+      "receipt": "final-screen/12/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "nfl-team-zero-interceptions",
+      "task": "rating",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Relative standing and composite are supported; verbose and omits the raw zero, but no fabricated measurement or direction.",
+      "receipt": "final-screen/13/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "synthetic-sparse",
+      "task": "rating",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Supported contrast with explicit three-game thin-sample limit.",
+      "receipt": "final-screen/14/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "explicit-denial-clears-prior-rumor",
+      "task": "transfer",
+      "mechanical_status": "rejected",
+      "grade": "minor_edit",
+      "note": "Denial status and null stage are correct. Pronoun her is unstated; parser rejects sourced chronology after earlier reports, illustrating a false-positive guard.",
+      "receipt": "final-screen/15/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "fully-named-interest",
+      "task": "transfer",
+      "mechanical_status": "rejected",
+      "grade": "contract_error",
+      "note": "Useful interest prose, but the selected quote does not name the target; cannot publish its finding.",
+      "receipt": "final-screen/16/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "unnamed-signing-no-identity-join",
+      "task": "transfer",
+      "mechanical_status": "accepted",
+      "grade": "material_error",
+      "note": "Avoids an invented transfer but attributes community-event attendance reporting to the Nuggets without support.",
+      "receipt": "final-screen/17/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "clearly-negative",
+      "task": "vibe",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Reported fury stays with the supporters who expressed it.",
+      "receipt": "final-screen/18/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "clearly-positive",
+      "task": "vibe",
+      "mechanical_status": "accepted",
+      "grade": "usable",
+      "note": "Reported delight stays with the supporters; no invented community activity.",
+      "receipt": "final-screen/19/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "quiet-mixed",
+      "task": "vibe",
+      "mechanical_status": "accepted",
+      "grade": "appropriate_abstention",
+      "note": "Null reading for absent supported emotional content.",
+      "receipt": "final-screen/20/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "regression-ac-milan-known",
+      "task": "narratives",
+      "mechanical_status": "error",
+      "grade": "unavailable",
+      "note": "Complete 5827-token input plus 2100 reserved output exceeds 7900; no generation or clipping.",
+      "receipt": "final-screen/21/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "regression-ac-milan-reserved",
+      "task": "narratives",
+      "mechanical_status": "rejected",
+      "grade": "material_error",
+      "note": "Combines Chukwueze and Athekame into one invented name.",
+      "receipt": "final-screen/22/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "regression-chicago-bears-known",
+      "task": "narratives",
+      "mechanical_status": "rejected",
+      "grade": "minor_edit",
+      "note": "Central trade opinion and tribute are supported; the Patriots opponent detail comes from report_2, omitted from that topic source keys.",
+      "receipt": "final-screen/23/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "regression-chicago-bears-reserved",
+      "task": "narratives",
+      "mechanical_status": "accepted",
+      "grade": "material_error",
+      "note": "Invents a Thanksgiving-playing streak from an unexplained TNF 27-year streak; parser accepts.",
+      "receipt": "final-screen/24/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "regression-la-clippers-known",
+      "task": "narratives",
+      "mechanical_status": "rejected",
+      "grade": "usable",
+      "note": "Small faithful injury-status/schedule reading; parser rejects the LA Clippers full-name expansion where the injury headline only says Clippers.",
+      "receipt": "final-screen/25/result.json"
+    },
+    {
+      "run": "final-screen",
+      "case": "regression-la-clippers-reserved",
+      "task": "narratives",
+      "mechanical_status": "rejected",
+      "grade": "material_error",
+      "note": "Asserts Acuff and Murray were in the same game, which the supplied headlines do not establish.",
+      "receipt": "final-screen/26/result.json"
+    }
+  ]
+}

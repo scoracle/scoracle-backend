@@ -1,0 +1,458 @@
+{
+  "name": "real-player:17896040:NBA-narratives",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Jalen Johnson\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Jalen Johnson — F, on record at Atlanta Hawks. Nationality: USA. Record: roster; observed 2026-07-04.\\ndate_of_birth: 2001-12-18 [2026-09-12; source 88859]\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1356979,\"url\":\"https://news.google.com/rss/articles/CBMi7wFBVV95cUxOT2MtTHBmZFZmN05UUEpMT0FLemF4ZjR5Nm82XzBSU216YmhETFJDQ3dPZ29wQU1VbnBmd0dicFVSUHFIYnRfY2Y0QTF6SVdaS1l6MExqYUdldEdQZHR5RXRjeUN2TlFKSjVfS21DZDNGemotam9Say1fZUNQek9uT1JUODhpQ1FsSldtcVNPWHBrallhU1FuRGVpRll1dTR4UXBuenpwSFdOOV9QVkl3TmdzVThtc3prWGRCYmF0TUxvVzBTbk9lQW13Tm1ucS1GRFY5ZDgzVDI2M0N5LURYelBpNXNrdmlkeE9fWmRVVQ?oc=5\",\"headline\":\"Duke in the NBA: Jalen Johnson and Paolo Banchero square off\",\"publisher\":\"Duke Wire\",\"published_at\":\"2026-10-22T16:01:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1417728,\"url\":\"https://news.google.com/rss/articles/CBMioAFBVV95cUxPVHhLZncyNHZRZnRJN3l1alhhR3NtOEFETHRNeHZuZ280dUJVbnhUemEzVzY0NTN3T3c5VVAtS1d4V2w2TFB6WVB1SDhfX0NyeFBjSUhzTVRDZW03RkM1RGtOMlZkUC1Qc0RxWWlxVWRad1l4aTJtVmlwWnFnOUZ2RXIzUUJyY2VXYnhMcU1hSUtxd20xelVXUlFwWTFYNmRZ0gGmAUFVX3lxTE0xbXhiRGdOSUlodDhCOElrYlZqaDNFYUYtSVFGcmhxdmZqS2I5WUlia3dYc1VGNWtodkdBcFBLMkdzLWpvdkV5ZnNLZE9Ed0ZwYXFRMzhObnBZTXZaRzE3RTBQeE9RMFAzSVRtX291bThKV21qNk1lSGhkb2wwdmJEUS1PU2NRbmUwbVFIcEEwWlEtQWY3UG1RMTJ3M3o3eHZyaEZJaEE?oc=5\",\"headline\":\"Jalen Johnson posts big double-double in season opener\",\"publisher\":\"FantasyPros\",\"published_at\":\"2026-10-22T15:07:36Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1298083,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxNSUZmZDNJMHl1ZHB1eXNpWVZuZ0lGcFo1Rk9uS2NaWXFTR3BLMGNZQWVuNElDVVNpclprcEpLdlJCUUJGUGVvRDFzZFhsVnNnM0FYeGZGa0JDdV9vcFJ5VkEwYlZfZFRnS21OcmlGRGhRUGFkV1VWa1ozQkZydjBkOGtWMFA?oc=5\",\"headline\":\"Quin Snyder Explains Why He Kept Trusting Jalen Johnson Despite Foul Trouble\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T13:17:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1288323,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxQbFBNLVpHTml0Ny1ReWNyQjdXR0d3dV9oTlBGWUV4b01QX3RTcGRvd1ZNUTg2STFNOXpwQmRkcW90eHpfa3JQalMxZzJHLWhpbENHQW55b0E1SllGS2RnUUs3OHVTUzBTRDFfOEZsSXhwZ1h4TVB4Y2E3bTl6M0dGSWt6eDRES0Y3ZjlN?oc=5\",\"headline\":\"Paolo Banchero Reacts to Heated Jalen Johnson Exchange Following Loss to Hawks\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T11:00:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1261370,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxOQklVeXhnR09YMnlaYnpuY1pvZkFCVUNfT2hhVlJQcGJ5OURTaklPVDJJVDhWc0NWVGFMdWtoMWlIek9uc2hBV2lob0xMSnFDbEoxVlA0OEtaZThfeFc3cWgwRXU1ZURMOXVSZ1RmcUVZRm9jZnI0ZXU3bUpJMXR2X1Rpb090MWs4?oc=5\",\"headline\":\"Magic star Paolo Banchero speaks up on tense confrontation with Jalen Johnson\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T08:40:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1249896,\"url\":\"https://news.google.com/rss/articles/CBMitwFBVV95cUxPZ0daRkZjZ0RTMGFGdjc1UlVSM0hxSVhvSGh1YjBVM0xDbHJ0UTZvTmFLV2FFSVpSUFZ1NzE1aEhrZVFzVF80T2wwNzFycEl5SVpYeE1lN2Q5alBnWHF5dDlzNE8zYjd4WEZkUmVMZm1BZHBFMEQ1M2hIX1JnZzdLQUZMbDRBNHEzdHpNTWpLYjgtbmo5cWpMLUp5YWx6dXcyR1Q0aGZGSTk3bjRmRDBLZVQxemhyQTA?oc=5\",\"headline\":\"Jalen Johnson has 20/14/6 line in win over Magic\",\"publisher\":\"NBC Sports\",\"published_at\":\"2026-10-22T05:11:28Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1259443,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxPOXBGdE1KQi1qR1FrT01WaGhDcnVmRkQtcHp1ZllsdXktM3BPMEZlSmIzVEs0OXc1cGpHY0tjQ056TmEyN0xBa2QyQm1LMmw2X2F6WDBQNGZsY2l1NUIzY1hpVHdKWFg3emM0UXYzNW95YUNWdUlZdEdIVXVaX3dWZm8waUFSUQ?oc=5\",\"headline\":\"NBA stars Paolo Banchero, Jalen Johnson have to be seperated after tense end to Hawks-Magic\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T03:49:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1249892,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxPcUNaT2pLR3ZrV3EtRlY2dDYtT1NHTURvRGZZQzY0MUVSRTZlTjdhMlF0bzE4Z3E5cGxveUF1TkR1MmdDbU03cDd6ZFNrUGpoX04wWFhDQUdmYjZFa3YxV2o1Yy00aGFUbDE0UGRoZk9PbmRQRGdRN0ZSS2d2UFJVZ1hsdFpDcmlJbkR4ZTJzQ0JzbUYzcDN1MFBvMWk?oc=5\",\"headline\":\"Hawks' Jalen Johnson: Double-doubles in victory\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T02:48:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1259730,\"url\":\"https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBpaGpfbzdSS1dJNnpiTnZ5ajl3MEJndk9LN09haWlQOV9GTDl5WEtHclk1QW1fdlhfNHVkMkU5cG9yZHNVLWRCMG41NGhpYmdZZzdFVUxfZ1FfUTNIVUlVbVNISDhBVDQ?oc=5\",\"headline\":\"Jalen Johnson Fantasy Outlook & Stats\",\"publisher\":\"FantasySP\",\"published_at\":\"2026-10-22T02:37:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1240249,\"url\":\"https://news.google.com/rss/articles/CBMiwAFBVV95cUxQbUliQVJ6M3paWkdVeDdSdGptZjBnVFNnelRYRjZkaEhzM25BRVVKTkgyM19pRGs0U0xzWWhVZURvY21nN2hpYi1fQVBtUG5mYjgxb05nc29zXzFOazR3S3hmOHJqeEtUb2tNQzZnWG1scWZDVTJuanljNGlzMFYwcTVtV1dkN0cwVVd6eW1mOTM4bXpadjdnU3Bma0txZTVPMEg0S3pZM2NfYmpMLUpLU3FsOWQtdmpueDZuaXpWNnA?oc=5\",\"headline\":\"Hawks' Quin Snyder Surprises Fans by Playing Lu Dort at Backup Power Forward Behind Jalen Johnson\",\"publisher\":\"SSBCrack\",\"published_at\":\"2026-10-22T00:07:30Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1201436,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxNU3JFWTlrUUR3ZmVZLW1GV2lZeWpZQ2tFSE1LS3lUeEkycGlYU0ZhWUxoN3I4MzFhZEJzY3QybVVFWHdmTjN4VlVVYXp5bzNtaDBoNXJ0UFpyYzNkOVNadldfZnVidlBkMkJrblE3UXdWZjc2QTVfOFpHdG41ZHJYaHBRbTBvbUVlUXJSTnRVTEZrVmJW?oc=5\",\"headline\":\"Carl Dukes: Jalen Johnson has to prove 'he's that dude' for Hawks\",\"publisher\":\"Audacy\",\"published_at\":\"2026-10-21T21:42:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1183711,\"url\":\"https://news.google.com/rss/articles/CBMiugFBVV95cUxOQnhUcHg0OWhZME1OSW9oNUdtcUV4eG9KTmRscWxKVG1fQU1UbEF5aHVrUng0M1lXV2lqcHlYcW5CQ1EtdFhLX0RDQWd5Z3BSdjRYVVJiU1BfYzVHVEVrZmpzZFd1dFZIUVc2eDc1RXJ4elllQzVhdWhqdno0eFNsNThRVkE0NkU1YXZrMEpoMU1XZ3hSMHpiQjF2T2pxUVQzNmlEV3otbmo2VDRaeVNjUE9nWU1BWklCMWc?oc=5\",\"headline\":\"NBA DFS: Top DraftKings, FanDuel daily Fantasy basketball picks for Wednesday, Oct. 21 include Jalen Johnson\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-21T17:26:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1156084,\"url\":\"https://news.google.com/rss/articles/CBMi2wJBVV95cUxQZUpQeExWNHZfeXlKSlBvR3J5M2R4UGFrVC02dDN6Q2xfcnBRWU1oWElBMlJkcmNFcEp4aWVmcVhMWUxZSjU5VjNoRXRDN2oyYUc1QmRKcWp1ZlVoQndtZUVieHJMYS05VEhVNHZ3a3ZCaTQwUWRXYTgxWWdnUjhBRHNLaVpabXFfbkF2ZmhvVkd5WnJ1cjQ3Y2drYTEtZVhTSWVFb25NSlA3OEVDc2dfb2RSbVI1SVVQNTNMWFllZVJhU3QzcUIzTUFobW9ESVpTSmNrZUVCOWs4cGpOUGxuQ191TzNKOGwzbGxCVURXLUEtY2Q3N1NDcWRibmFydDB4UHhJY3VHSzBuZXFWTS1Qck00VmFheTFlYkZHRWZxdndUUVUyb1BtamtrYXZKOEh0UmNRczJzQ0ppQUZVeWk3RDZKVzdudGFMSGo0dHRYcXZjVVdBSlpSbUNOYw?oc=5\",\"headline\":\"Watch the Atlanta Hawks masterfully dissect defenses with slick ball movement and clutch shooting! Jalen Johnson's playmaking and fierce defense make them a team to fear. 🔥 #NBA #Hawks\",\"publisher\":\"NewsBreak: Local News & Alerts\",\"published_at\":\"2026-10-21T04:45:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1175758,\"url\":\"https://news.google.com/rss/articles/CBMiqwFBVV95cUxOSk5icmZNcExIVUgzVDJ1MGVsX2V3LXNHdzd4NFhQMXhsZGlwYmVCVE9DRF9ENzgyMkJYVUp4WThtNmxJdUdENF9tT2RPZHhoNEcwd1c4WE5PYUFZN0lWU09tREhTT2MwelNPcmtJUlFpczNzdHk4YWRLMGlQSFpjb2l4X0plYXFBTVU4MncyMDFncFh0RGdwYUdZRVlxQWs2b2FDMW9fQkN6em8?oc=5\",\"headline\":\"Here’s why Hawks All-Star Jalen Johnson can be even better this season\",\"publisher\":\"The Atlanta Journal-Constitution\",\"published_at\":\"2026-10-21T00:18:14Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1098804,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxOczhSbFVUSTNhRDRVZFZpcm9acmlxcUxac1JIY0RwVnJsdDkzaW45bm9PTlIwX0t4TTR5Ukp2N29yN0hPYjMwOXoyZ2hyMm5hVmhmS0NaQWxGVGtTWk5fWGkxWUItd3hVMm5lZjBlTU80YjVINTZoc0gyZnd4eFRHam1tVkU0QQ?oc=5\",\"headline\":\"Onsi Saleh Warns That Jalen Johnson Still Has ‘Another One or Two Levels’\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T21:26:24Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Jalen Johnson — F, on record at Atlanta Hawks. Nationality: USA. Record: roster; observed 2026-07-04.\ndate_of_birth: 2001-12-18 [2026-09-12; source 88859]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 16.776893962915505,
+            "emotion": 2.3548015396297735,
+            "movement": 10.482331693624047,
+            "subject": 87.7412999079332
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi7wFBVV95cUxOT2MtTHBmZFZmN05UUEpMT0FLemF4ZjR5Nm82XzBSU216YmhETFJDQ3dPZ29wQU1VbnBmd0dicFVSUHFIYnRfY2Y0QTF6SVdaS1l6MExqYUdldEdQZHR5RXRjeUN2TlFKSjVfS21DZDNGemotam9Say1fZUNQek9uT1JUODhpQ1FsSldtcVNPWHBrallhU1FuRGVpRll1dTR4UXBuenpwSFdOOV9QVkl3TmdzVThtc3prWGRCYmF0TUxvVzBTbk9lQW13Tm1ucS1GRFY5ZDgzVDI2M0N5LURYelBpNXNrdmlkeE9fWmRVVQ?oc=5"
+        },
+        "context": "Duke in the NBA: Jalen Johnson and Paolo Banchero square off",
+        "id": 1356979,
+        "published_at_epoch": 1792684860,
+        "source": "Duke Wire",
+        "title": "Duke in the NBA: Jalen Johnson and Paolo Banchero square off"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.022953780707711,
+            "emotion": 2.342666329619312,
+            "movement": 1.8160906071840912,
+            "subject": 93.16777179296577
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxPVHhLZncyNHZRZnRJN3l1alhhR3NtOEFETHRNeHZuZ280dUJVbnhUemEzVzY0NTN3T3c5VVAtS1d4V2w2TFB6WVB1SDhfX0NyeFBjSUhzTVRDZW03RkM1RGtOMlZkUC1Qc0RxWWlxVWRad1l4aTJtVmlwWnFnOUZ2RXIzUUJyY2VXYnhMcU1hSUtxd20xelVXUlFwWTFYNmRZ0gGmAUFVX3lxTE0xbXhiRGdOSUlodDhCOElrYlZqaDNFYUYtSVFGcmhxdmZqS2I5WUlia3dYc1VGNWtodkdBcFBLMkdzLWpvdkV5ZnNLZE9Ed0ZwYXFRMzhObnBZTXZaRzE3RTBQeE9RMFAzSVRtX291bThKV21qNk1lSGhkb2wwdmJEUS1PU2NRbmUwbVFIcEEwWlEtQWY3UG1RMTJ3M3o3eHZyaEZJaEE?oc=5"
+        },
+        "context": "Jalen Johnson posts big double-double in season opener",
+        "id": 1417728,
+        "published_at_epoch": 1792681656,
+        "source": "FantasyPros",
+        "title": "Jalen Johnson posts big double-double in season opener"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 71.23166167432201,
+            "clickbait": 5.998708657851647,
+            "emotion": 3.636896074692291,
+            "movement": 13.49323542401692,
+            "subject": 91.96422492706566
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxNSUZmZDNJMHl1ZHB1eXNpWVZuZ0lGcFo1Rk9uS2NaWXFTR3BLMGNZQWVuNElDVVNpclprcEpLdlJCUUJGUGVvRDFzZFhsVnNnM0FYeGZGa0JDdV9vcFJ5VkEwYlZfZFRnS21OcmlGRGhRUGFkV1VWa1ozQkZydjBkOGtWMFA?oc=5"
+        },
+        "context": "Quin Snyder Explains Why He Kept Trusting Jalen Johnson Despite Foul Trouble",
+        "id": 1298083,
+        "published_at_epoch": 1792675061,
+        "source": "Yahoo Sports",
+        "title": "Quin Snyder Explains Why He Kept Trusting Jalen Johnson Despite Foul Trouble"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.8083481344223933,
+            "clickbait": 13.941171098578838,
+            "emotion": 40.82601711202662,
+            "movement": 6.10365854715831,
+            "subject": 88.99969248592565
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxQbFBNLVpHTml0Ny1ReWNyQjdXR0d3dV9oTlBGWUV4b01QX3RTcGRvd1ZNUTg2STFNOXpwQmRkcW90eHpfa3JQalMxZzJHLWhpbENHQW55b0E1SllGS2RnUUs3OHVTUzBTRDFfOEZsSXhwZ1h4TVB4Y2E3bTl6M0dGSWt6eDRES0Y3ZjlN?oc=5"
+        },
+        "context": "Paolo Banchero Reacts to Heated Jalen Johnson Exchange Following Loss to Hawks",
+        "id": 1288323,
+        "published_at_epoch": 1792666841,
+        "source": "Yahoo Sports",
+        "title": "Paolo Banchero Reacts to Heated Jalen Johnson Exchange Following Loss to Hawks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.1602204980426745,
+            "clickbait": 12.867946254924105,
+            "emotion": 10.00553708451916,
+            "movement": 6.401592949107755,
+            "subject": 93.72493913076644
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxOQklVeXhnR09YMnlaYnpuY1pvZkFCVUNfT2hhVlJQcGJ5OURTaklPVDJJVDhWc0NWVGFMdWtoMWlIek9uc2hBV2lob0xMSnFDbEoxVlA0OEtaZThfeFc3cWgwRXU1ZURMOXVSZ1RmcUVZRm9jZnI0ZXU3bUpJMXR2X1Rpb090MWs4?oc=5"
+        },
+        "context": "Magic star Paolo Banchero speaks up on tense confrontation with Jalen Johnson",
+        "id": 1261370,
+        "published_at_epoch": 1792658408,
+        "source": "Yahoo Sports",
+        "title": "Magic star Paolo Banchero speaks up on tense confrontation with Jalen Johnson"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.732894266669583,
+            "emotion": 1.8779562116462376,
+            "movement": 1.7868309111883605,
+            "subject": 91.162235122385
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxPZ0daRkZjZ0RTMGFGdjc1UlVSM0hxSVhvSGh1YjBVM0xDbHJ0UTZvTmFLV2FFSVpSUFZ1NzE1aEhrZVFzVF80T2wwNzFycEl5SVpYeE1lN2Q5alBnWHF5dDlzNE8zYjd4WEZkUmVMZm1BZHBFMEQ1M2hIX1JnZzdLQUZMbDRBNHEzdHpNTWpLYjgtbmo5cWpMLUp5YWx6dXcyR1Q0aGZGSTk3bjRmRDBLZVQxemhyQTA?oc=5"
+        },
+        "context": "Jalen Johnson has 20/14/6 line in win over Magic",
+        "id": 1249896,
+        "published_at_epoch": 1792645888,
+        "source": "NBC Sports",
+        "title": "Jalen Johnson has 20/14/6 line in win over Magic"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 12.906703464206656,
+            "clickbait": 18.06887319526297,
+            "emotion": 5.421946144288014,
+            "movement": 83.38466283040835,
+            "subject": 91.41734668036656
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPOXBGdE1KQi1qR1FrT01WaGhDcnVmRkQtcHp1ZllsdXktM3BPMEZlSmIzVEs0OXc1cGpHY0tjQ056TmEyN0xBa2QyQm1LMmw2X2F6WDBQNGZsY2l1NUIzY1hpVHdKWFg3emM0UXYzNW95YUNWdUlZdEdIVXVaX3dWZm8waUFSUQ?oc=5"
+        },
+        "context": "NBA stars Paolo Banchero, Jalen Johnson have to be seperated after tense end to Hawks-Magic",
+        "id": 1259443,
+        "published_at_epoch": 1792640940,
+        "source": "Yahoo Sports",
+        "title": "NBA stars Paolo Banchero, Jalen Johnson have to be seperated after tense end to Hawks-Magic"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8574151256350029,
+            "clickbait": 6.303377648404644,
+            "emotion": 2.8973116294803027,
+            "movement": 2.0261656185629664,
+            "subject": 94.31393719390547
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxPcUNaT2pLR3ZrV3EtRlY2dDYtT1NHTURvRGZZQzY0MUVSRTZlTjdhMlF0bzE4Z3E5cGxveUF1TkR1MmdDbU03cDd6ZFNrUGpoX04wWFhDQUdmYjZFa3YxV2o1Yy00aGFUbDE0UGRoZk9PbmRQRGdRN0ZSS2d2UFJVZ1hsdFpDcmlJbkR4ZTJzQ0JzbUYzcDN1MFBvMWk?oc=5"
+        },
+        "context": "Hawks' Jalen Johnson: Double-doubles in victory",
+        "id": 1249892,
+        "published_at_epoch": 1792637307,
+        "source": "CBS Sports",
+        "title": "Hawks' Jalen Johnson: Double-doubles in victory"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.65932882928891,
+            "emotion": 1.7874167676238772,
+            "movement": 3.1305149273394153,
+            "subject": 94.4307605247238
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBpaGpfbzdSS1dJNnpiTnZ5ajl3MEJndk9LN09haWlQOV9GTDl5WEtHclk1QW1fdlhfNHVkMkU5cG9yZHNVLWRCMG41NGhpYmdZZzdFVUxfZ1FfUTNIVUlVbVNISDhBVDQ?oc=5"
+        },
+        "context": "Jalen Johnson Fantasy Outlook & Stats",
+        "id": 1259730,
+        "published_at_epoch": 1792636624,
+        "source": "FantasySP",
+        "title": "Jalen Johnson Fantasy Outlook & Stats"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.851699266981243,
+            "clickbait": 37.07240558886281,
+            "emotion": 4.042160811343684,
+            "movement": 5.266185170502473,
+            "subject": 89.31653467444622
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwAFBVV95cUxQbUliQVJ6M3paWkdVeDdSdGptZjBnVFNnelRYRjZkaEhzM25BRVVKTkgyM19pRGs0U0xzWWhVZURvY21nN2hpYi1fQVBtUG5mYjgxb05nc29zXzFOazR3S3hmOHJqeEtUb2tNQzZnWG1scWZDVTJuanljNGlzMFYwcTVtV1dkN0cwVVd6eW1mOTM4bXpadjdnU3Bma0txZTVPMEg0S3pZM2NfYmpMLUpLU3FsOWQtdmpueDZuaXpWNnA?oc=5"
+        },
+        "context": "Hawks' Quin Snyder Surprises Fans by Playing Lu Dort at Backup Power Forward Behind Jalen Johnson",
+        "id": 1240249,
+        "published_at_epoch": 1792627650,
+        "source": "SSBCrack",
+        "title": "Hawks' Quin Snyder Surprises Fans by Playing Lu Dort at Backup Power Forward Behind Jalen Johnson"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.744811406172976,
+            "clickbait": 21.26143096025999,
+            "emotion": 6.2625199894172106,
+            "movement": 8.185627951100116,
+            "subject": 92.83113772770724
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNU3JFWTlrUUR3ZmVZLW1GV2lZeWpZQ2tFSE1LS3lUeEkycGlYU0ZhWUxoN3I4MzFhZEJzY3QybVVFWHdmTjN4VlVVYXp5bzNtaDBoNXJ0UFpyYzNkOVNadldfZnVidlBkMkJrblE3UXdWZjc2QTVfOFpHdG41ZHJYaHBRbTBvbUVlUXJSTnRVTEZrVmJW?oc=5"
+        },
+        "context": "Carl Dukes: Jalen Johnson has to prove 'he's that dude' for Hawks",
+        "id": 1201436,
+        "published_at_epoch": 1792618920,
+        "source": "Audacy",
+        "title": "Carl Dukes: Jalen Johnson has to prove 'he's that dude' for Hawks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.340437563148116,
+            "clickbait": 5.15816051298141,
+            "emotion": 1.85993061914684,
+            "movement": 4.191290388687317,
+            "subject": 89.24833000371737
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiugFBVV95cUxOQnhUcHg0OWhZME1OSW9oNUdtcUV4eG9KTmRscWxKVG1fQU1UbEF5aHVrUng0M1lXV2lqcHlYcW5CQ1EtdFhLX0RDQWd5Z3BSdjRYVVJiU1BfYzVHVEVrZmpzZFd1dFZIUVc2eDc1RXJ4elllQzVhdWhqdno0eFNsNThRVkE0NkU1YXZrMEpoMU1XZ3hSMHpiQjF2T2pxUVQzNmlEV3otbmo2VDRaeVNjUE9nWU1BWklCMWc?oc=5"
+        },
+        "context": "NBA DFS: Top DraftKings, FanDuel daily Fantasy basketball picks for Wednesday, Oct. 21 include Jalen Johnson",
+        "id": 1183711,
+        "published_at_epoch": 1792603603,
+        "source": "CBS Sports",
+        "title": "NBA DFS: Top DraftKings, FanDuel daily Fantasy basketball picks for Wednesday, Oct. 21 include Jalen Johnson"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.587677142391153,
+            "clickbait": 56.82473585943361,
+            "emotion": 27.042753495584115,
+            "movement": 2.153854414839193,
+            "subject": 91.94246300869196
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi2wJBVV95cUxQZUpQeExWNHZfeXlKSlBvR3J5M2R4UGFrVC02dDN6Q2xfcnBRWU1oWElBMlJkcmNFcEp4aWVmcVhMWUxZSjU5VjNoRXRDN2oyYUc1QmRKcWp1ZlVoQndtZUVieHJMYS05VEhVNHZ3a3ZCaTQwUWRXYTgxWWdnUjhBRHNLaVpabXFfbkF2ZmhvVkd5WnJ1cjQ3Y2drYTEtZVhTSWVFb25NSlA3OEVDc2dfb2RSbVI1SVVQNTNMWFllZVJhU3QzcUIzTUFobW9ESVpTSmNrZUVCOWs4cGpOUGxuQ191TzNKOGwzbGxCVURXLUEtY2Q3N1NDcWRibmFydDB4UHhJY3VHSzBuZXFWTS1Qck00VmFheTFlYkZHRWZxdndUUVUyb1BtamtrYXZKOEh0UmNRczJzQ0ppQUZVeWk3RDZKVzdudGFMSGo0dHRYcXZjVVdBSlpSbUNOYw?oc=5"
+        },
+        "context": "Watch the Atlanta Hawks masterfully dissect defenses with slick ball movement and clutch shooting! Jalen Johnson's playmaking and fierce defense make them a team to fear. 🔥 #NBA #Hawks",
+        "id": 1156084,
+        "published_at_epoch": 1792557908,
+        "source": "NewsBreak: Local News & Alerts",
+        "title": "Watch the Atlanta Hawks masterfully dissect defenses with slick ball movement and clutch shooting! Jalen Johnson's playmaking and fierce defense make them a team to fear. 🔥 #NBA #Hawks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.370359209746326,
+            "clickbait": 7.299740201336068,
+            "emotion": 7.9878548475172435,
+            "movement": 3.4673126239774033,
+            "subject": 94.31265847964754
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxOSk5icmZNcExIVUgzVDJ1MGVsX2V3LXNHdzd4NFhQMXhsZGlwYmVCVE9DRF9ENzgyMkJYVUp4WThtNmxJdUdENF9tT2RPZHhoNEcwd1c4WE5PYUFZN0lWU09tREhTT2MwelNPcmtJUlFpczNzdHk4YWRLMGlQSFpjb2l4X0plYXFBTVU4MncyMDFncFh0RGdwYUdZRVlxQWs2b2FDMW9fQkN6em8?oc=5"
+        },
+        "context": "Here’s why Hawks All-Star Jalen Johnson can be even better this season",
+        "id": 1175758,
+        "published_at_epoch": 1792541894,
+        "source": "The Atlanta Journal-Constitution",
+        "title": "Here’s why Hawks All-Star Jalen Johnson can be even better this season"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.907937731227655,
+            "clickbait": 12.854073512052464,
+            "emotion": 4.793059214090724,
+            "movement": 6.118991174655762,
+            "subject": 90.02029814405161
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOczhSbFVUSTNhRDRVZFZpcm9acmlxcUxac1JIY0RwVnJsdDkzaW45bm9PTlIwX0t4TTR5Ukp2N29yN0hPYjMwOXoyZ2hyMm5hVmhmS0NaQWxGVGtTWk5fWGkxWUItd3hVMm5lZjBlTU80YjVINTZoc0gyZnd4eFRHam1tVkU0QQ?oc=5"
+        },
+        "context": "Onsi Saleh Warns That Jalen Johnson Still Has ‘Another One or Two Levels’",
+        "id": 1098804,
+        "published_at_epoch": 1792531584,
+        "source": "Yahoo Sports",
+        "title": "Onsi Saleh Warns That Jalen Johnson Still Has ‘Another One or Two Levels’"
+      }
+    ],
+    "subject": {
+      "entity_id": 17896040,
+      "entity_type": "player",
+      "name": "Jalen Johnson",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

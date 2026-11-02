@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / real-team:22:NFL-rating [accepted]
+The Green Bay Packers' 2026 defensive profile records 9 interceptions (100th percentile, elite band) and 423 total tackles (83.9th percentile, strong band) across a thin sample of 6 appearances, with a minimum required of 10. Cross-season comparisons are unsupported.

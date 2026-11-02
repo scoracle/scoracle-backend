@@ -1,0 +1,16 @@
+{
+  "case": 7,
+  "error": "llama.cpp template omitted or changed supplied input",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-crossroads-conflict.json",
+  "name": "crossroads-conflict",
+  "output_limit": 700,
+  "prompt_version": "or30-five-perspectives",
+  "request_bytes": 803,
+  "review": [
+    "Preserve disagreement across the supplied pillars rather than forcing unanimous direction."
+  ],
+  "status": "error",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 2
+}

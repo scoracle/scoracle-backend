@@ -1,0 +1,78 @@
+{
+  "name": "real-team:37:FOOTBALL-rating",
+  "task": "rating",
+  "sport": "FOOTBALL",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Roma\",\"entity_type\":\"team\",\"sport\":\"Football (Soccer)\",\"database_record\":\"Roma — Serie A (Italy). Venue: Stadio Olimpico. City: Roma. Country: Italy. Coach on record: Mirko Vučinić.\"},\"fresh\":{\"season\":2025,\"sample\":{\"Matches Played\":38.0},\"values\":[{\"label\":\"Interceptions\",\"measure\":\"possession-adjusted interceptions\",\"value\":408.0,\"percentile\":96.8,\"cohort\":96.0,\"band\":\"elite\",\"prior_percentile\":61.1,\"standing_change\":\"rose\"},{\"label\":\"SoT Allowed\",\"measure\":\"SoT Allowed\",\"value\":138.0,\"percentile\":80.0,\"cohort\":96.0,\"band\":\"strong\",\"prior_percentile\":56.8,\"standing_change\":\"rose\"},{\"label\":\"Tackling\",\"measure\":\"possession-adjusted tackles\",\"value\":657.0,\"percentile\":76.8,\"cohort\":96.0,\"band\":\"strong\",\"prior_percentile\":48.4,\"standing_change\":\"rose\"},{\"label\":\"Possession Lost\",\"measure\":\"Possession Lost\",\"value\":5035.0,\"percentile\":10.5,\"cohort\":96.0,\"band\":\"poor\",\"prior_percentile\":76.8,\"standing_change\":\"fell\"}],\"composite\":59.9,\"supports_cross_season\":true,\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Roma — Serie A (Italy). Venue: Stadio Olimpico. City: Roma. Country: Italy. Coach on record: Mirko Vučinić.",
+    "profile": {
+      "composite": 59.9,
+      "sample": {
+        "Matches Played": 38.0
+      },
+      "season": 2025,
+      "supports_cross_season": true,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 96.0,
+          "label": "Interceptions",
+          "measure": "possession-adjusted interceptions",
+          "percentile": 96.8,
+          "prior_percentile": 61.1,
+          "standing_change": "rose",
+          "value": 408.0
+        },
+        {
+          "band": "strong",
+          "cohort": 96.0,
+          "label": "SoT Allowed",
+          "measure": "SoT Allowed",
+          "percentile": 80.0,
+          "prior_percentile": 56.8,
+          "standing_change": "rose",
+          "value": 138.0
+        },
+        {
+          "band": "strong",
+          "cohort": 96.0,
+          "label": "Tackling",
+          "measure": "possession-adjusted tackles",
+          "percentile": 76.8,
+          "prior_percentile": 48.4,
+          "standing_change": "rose",
+          "value": 657.0
+        },
+        {
+          "band": "poor",
+          "cohort": 96.0,
+          "label": "Possession Lost",
+          "measure": "Possession Lost",
+          "percentile": 10.5,
+          "prior_percentile": 76.8,
+          "standing_change": "fell",
+          "value": 5035.0
+        }
+      ]
+    },
+    "season": 2025,
+    "sport_name": "Football (Soccer)",
+    "subject": {
+      "entity_id": 37,
+      "entity_type": "team",
+      "name": "Roma",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

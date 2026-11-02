@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — transfer / player-529856-FOOTBALL [accepted]
+0 finding(s) | Jean-Clair Todibo remains on loan at Lens from West Ham, with no plans to terminate the deal.

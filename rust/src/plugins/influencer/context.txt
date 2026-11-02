@@ -1,0 +1,9 @@
+fresh.reports contains source reports about meta.name. Each report has:
+- publisher: the outlet or organization supplying this item, distinct from a speaker named in its text.
+- headline: the supplied article title; publisher_text: a supplied passage, when present.
+- evidence_scope: headline means only the title is available; publisher_excerpt means a provided passage is available.
+- published_at: publication time, not necessarily event time.
+- article_id and url: source references, not extra content.
+- classifier_world: upstream selection context. target_identity_resolved identifies an identity match, not a verified claim; evidence_scope describes text availability; qualified_claims retain qualifications when supplied.
+fresh.reporting_start and reporting_end define the package window, not a change in feelings.
+Relate every reaction to its expressed speaker and object: the target's feelings, another person's feelings about the target, and a publisher's tone about the target are different readings. The supplied wording establishes which is available. Repetition does not turn one speaker's view into a population's view.

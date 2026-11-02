@@ -1,0 +1,38 @@
+{
+  "case": 6,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    },
+    {
+      "detail": "sentences=2 ≤ 3",
+      "name": "reading_max_sentences",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-three-card-newcomer.json",
+  "generation_wall_ms": 3071,
+  "input_tokens": 537,
+  "name": "three-card-newcomer",
+  "output_limit": 700,
+  "output_tokens": 53,
+  "parsed": true,
+  "prompt_version": "or30-five-perspectives",
+  "reading": "Ipswich Town has confirmed two defensive signings to rebuild its spine, with the move for Issa Diop being a settled fact. This structural reinforcement exists within a cautious atmosphere where business is approved but its on-field impact remains untested.",
+  "request_bytes": 721,
+  "review": [
+    "Use the three supplied readings without implying the missing pillars were also observed."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 3078
+}

@@ -1,0 +1,99 @@
+{
+  "name": "real-player:529856:FOOTBALL-rating",
+  "task": "rating",
+  "sport": "FOOTBALL",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Jean-Clair Todibo\",\"entity_type\":\"player\",\"sport\":\"Football (Soccer)\",\"database_record\":\"Jean-Clair Todibo — Defender, on record at West Ham United (Premier League). Nationality: France. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"season\":2025,\"sample\":{\"Appearances\":23.0,\"Minutes Played\":1820.0},\"values\":[{\"label\":\"Creation\",\"measure\":\"assists\",\"value\":1.0,\"percentile\":33.7,\"cohort\":1956.0,\"band\":\"poor\",\"prior_percentile\":0.0,\"standing_change\":\"rose\"},{\"label\":\"Discipline\",\"measure\":\"yellow cards + 3 x red cards\",\"value\":8.0,\"percentile\":7.8,\"cohort\":1956.0,\"band\":\"poor\",\"prior_percentile\":45.0,\"standing_change\":\"fell\"},{\"label\":\"Dribbling\",\"measure\":\"successful dribbles\",\"value\":4.0,\"percentile\":22.4,\"cohort\":1956.0,\"band\":\"poor\",\"prior_percentile\":49.0,\"standing_change\":\"fell\"},{\"label\":\"Goalscoring\",\"measure\":\"goals\",\"value\":0.0,\"percentile\":0.0,\"cohort\":1956.0,\"band\":\"poor\",\"prior_percentile\":0.0,\"standing_change\":\"held\"},{\"label\":\"Interceptions\",\"measure\":\"possession-adjusted interceptions\",\"value\":14.79,\"percentile\":57.5,\"cohort\":1956.0,\"band\":\"average\",\"prior_percentile\":82.9,\"standing_change\":\"fell\"},{\"label\":\"Shooting\",\"measure\":\"shots on target\",\"value\":0.0,\"percentile\":0.0,\"cohort\":1956.0,\"band\":\"poor\",\"prior_percentile\":0.0,\"standing_change\":\"held\"}],\"composite\":40.5,\"supports_cross_season\":true,\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Jean-Clair Todibo — Defender, on record at West Ham United (Premier League). Nationality: France. Record: roster; observed 2026-07-04.",
+    "profile": {
+      "composite": 40.5,
+      "sample": {
+        "Appearances": 23.0,
+        "Minutes Played": 1820.0
+      },
+      "season": 2025,
+      "supports_cross_season": true,
+      "values": [
+        {
+          "band": "poor",
+          "cohort": 1956.0,
+          "label": "Creation",
+          "measure": "assists",
+          "percentile": 33.7,
+          "prior_percentile": 0.0,
+          "standing_change": "rose",
+          "value": 1.0
+        },
+        {
+          "band": "poor",
+          "cohort": 1956.0,
+          "label": "Discipline",
+          "measure": "yellow cards + 3 x red cards",
+          "percentile": 7.8,
+          "prior_percentile": 45.0,
+          "standing_change": "fell",
+          "value": 8.0
+        },
+        {
+          "band": "poor",
+          "cohort": 1956.0,
+          "label": "Dribbling",
+          "measure": "successful dribbles",
+          "percentile": 22.4,
+          "prior_percentile": 49.0,
+          "standing_change": "fell",
+          "value": 4.0
+        },
+        {
+          "band": "poor",
+          "cohort": 1956.0,
+          "label": "Goalscoring",
+          "measure": "goals",
+          "percentile": 0.0,
+          "prior_percentile": 0.0,
+          "standing_change": "held",
+          "value": 0.0
+        },
+        {
+          "band": "average",
+          "cohort": 1956.0,
+          "label": "Interceptions",
+          "measure": "possession-adjusted interceptions",
+          "percentile": 57.5,
+          "prior_percentile": 82.9,
+          "standing_change": "fell",
+          "value": 14.79
+        },
+        {
+          "band": "poor",
+          "cohort": 1956.0,
+          "label": "Shooting",
+          "measure": "shots on target",
+          "percentile": 0.0,
+          "prior_percentile": 0.0,
+          "standing_change": "held",
+          "value": 0.0
+        }
+      ]
+    },
+    "season": 2025,
+    "sport_name": "Football (Soccer)",
+    "subject": {
+      "entity_id": 529856,
+      "entity_type": "player",
+      "name": "Jean-Clair Todibo",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

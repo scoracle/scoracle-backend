@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / narratives-player-37-NBA [rejected]
+cited reports do not connect Chris Paul with numerical fact 3

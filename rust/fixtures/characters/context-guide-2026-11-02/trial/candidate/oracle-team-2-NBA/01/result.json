@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/candidate/oracle-team-2-NBA.json",
+  "generation_wall_ms": 6209,
+  "input_tokens": 1484,
+  "name": "oracle-team-2-NBA",
+  "output_limit": 700,
+  "output_tokens": 66,
+  "parsed": true,
+  "prompt_version": "or33-context-guide",
+  "reading": "The Boston Celtics present a fractured defensive profile where elite shot prevention clashes with poor rebounding and turnover management, creating a defensive inconsistency that undermines their offensive strength. This internal tension between high-level perimeter defense and fundamental breakdowns suggests a team capable of scoring but struggling to contain opponents across the full spectrum of play.",
+  "request_bytes": 4777,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 6217
+}

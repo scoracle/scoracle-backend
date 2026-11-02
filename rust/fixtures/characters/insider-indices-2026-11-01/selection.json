@@ -1,0 +1,74 @@
+{
+  "selected_before_generation": true,
+  "cases": [
+    {
+      "entity_type": "player",
+      "entity_id": 529856,
+      "sport": "FOOTBALL"
+    },
+    {
+      "entity_type": "team",
+      "entity_id": 37,
+      "sport": "FOOTBALL"
+    },
+    {
+      "entity_type": "player",
+      "entity_id": 37550443,
+      "sport": "FOOTBALL"
+    },
+    {
+      "entity_type": "person",
+      "entity_id": 107,
+      "sport": "FOOTBALL"
+    },
+    {
+      "entity_type": "team",
+      "entity_id": 7,
+      "sport": "NBA"
+    },
+    {
+      "entity_type": "player",
+      "entity_id": 322,
+      "sport": "NBA"
+    },
+    {
+      "entity_type": "player",
+      "entity_id": 185,
+      "sport": "NBA"
+    },
+    {
+      "entity_type": "player",
+      "entity_id": 17896040,
+      "sport": "NBA"
+    },
+    {
+      "entity_type": "player",
+      "entity_id": 45,
+      "sport": "NFL"
+    },
+    {
+      "entity_type": "player",
+      "entity_id": 83946,
+      "sport": "NFL"
+    },
+    {
+      "entity_type": "player",
+      "entity_id": 278370,
+      "sport": "NFL"
+    },
+    {
+      "entity_type": "person",
+      "entity_id": 8,
+      "sport": "NFL"
+    }
+  ],
+  "rationale": "Four packages per sport, excluding all eleven prior workload subjects. Includes reported signings, conditional intentions, speculative proposals, an explicit shut-down headline, staff appointments and unrelated co-mentions. Selected from source headlines before outputs.",
+  "excluded_before_generation": [
+    {
+      "entity_type": "team",
+      "entity_id": 1,
+      "sport": "FOOTBALL",
+      "reason": "All twelve frozen sources lack the original D3 target identity. Replaced with Jean-Clair Todibo, whose own assignment covers an explicit no-termination report."
+    }
+  ]
+}

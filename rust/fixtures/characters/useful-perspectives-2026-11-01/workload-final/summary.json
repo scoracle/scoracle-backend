@@ -1,0 +1,20 @@
+{
+  "concurrency": 4,
+  "wall_seconds": 174.1952686253935,
+  "requests": 42,
+  "generation_calls": 24,
+  "input_tokens": 46852,
+  "output_tokens": 2528,
+  "sum_request_wall_ms": 672775,
+  "max_queue_wait_ms": 150512,
+  "status_counts": {
+    "accepted": 14,
+    "error": 11,
+    "no_call": 7,
+    "rejected": 10
+  },
+  "database_access": false,
+  "publishes": false,
+  "retries": 0,
+  "qualification": "Bounded frozen-workload replay, not a production queue drain. Peer inputs are saved finished cards; parser acceptance is not a semantic quality judgment."
+}

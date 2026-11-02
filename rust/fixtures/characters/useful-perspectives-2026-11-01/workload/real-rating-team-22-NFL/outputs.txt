@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / real-team:22:NFL-rating [accepted]
+The Packers' 2026 season measurements indicate elite interception production at the 100th percentile and strong total tackling at the 83.9th percentile, both derived from a thin sample of 6 appearances. The interceptions and tackles figures are relative standing within a 32-person cohort and do not support a comparison to prior seasons or inference of cause or tactical role.

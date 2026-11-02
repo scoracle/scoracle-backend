@@ -1,0 +1,33 @@
+{
+  "case": 3,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-momentum-rising-confirmed.json",
+  "generation_wall_ms": 3310,
+  "input_tokens": 577,
+  "name": "rising-confirmed",
+  "output_limit": 700,
+  "output_tokens": 59,
+  "parsed": true,
+  "prompt_version": "momentum-s42-dated-perspective",
+  "reading": "Carter's creation and finishing are strengthening together, while coverage remains emphatically positive and warming; the alignment between improving performance and upbeat tone suggests a consistent narrative, though the lack of dated comparisons prevents assessment of whether this balance is a new trend or a stable state.",
+  "request_bytes": 412,
+  "review": [
+    "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 3318
+}

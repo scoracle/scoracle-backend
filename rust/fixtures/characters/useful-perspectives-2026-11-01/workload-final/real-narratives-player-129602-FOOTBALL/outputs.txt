@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / real-narratives-player-129602-FOOTBALL [error]
+complete input (22519) plus reserved output (2100) exceeds actual model context (7900); no source was clipped

@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-oracle-player-237-NBA.json",
+  "generation_wall_ms": 13510,
+  "input_tokens": 788,
+  "name": "real-player:237:NBA-oracle",
+  "output_limit": 700,
+  "output_tokens": 62,
+  "parsed": true,
+  "prompt_version": "or30-five-perspectives",
+  "reading": "The data paints a picture of a player whose elite playmaking and discipline anchor a strong overall profile, yet a significant weakness in ball security creates a fragile foundation. This measured strength exists in tension with the reported uncertainty of his roster status, leaving the full impact of his performance unconfirmed.",
+  "request_bytes": 1516,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 13517
+}

@@ -1,0 +1,13 @@
+{
+  "arm": "worked",
+  "checks": [],
+  "input_tokens": 2780,
+  "name": "person-107-FOOTBALL",
+  "output_tokens": 63,
+  "parser_detail": "named claim is absent from cited reports: Newcastle United",
+  "receipt": "06-person-107-FOOTBALL-worked",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9453
+}

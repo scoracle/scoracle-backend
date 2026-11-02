@@ -1,0 +1,38 @@
+{
+  "case": 11,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    },
+    {
+      "detail": "sentences=2 ≤ 3",
+      "name": "reading_max_sentences",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-three-card-newcomer.json",
+  "generation_wall_ms": 3259,
+  "input_tokens": 637,
+  "name": "three-card-newcomer",
+  "output_limit": 700,
+  "output_tokens": 60,
+  "parsed": true,
+  "prompt_version": "or31-five-perspectives",
+  "reading": "Ipswich Town is executing a focused defensive rebuild anchored by the confirmed arrival of Issa Diop, creating a clear structural shift for the upcoming season. However, the narrative remains cautious, balancing this concrete business move against a broader desire to see tangible results on the pitch.",
+  "request_bytes": 721,
+  "review": [
+    "Use the three supplied readings without implying the missing pillars were also observed."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 3269
+}

@@ -1,0 +1,516 @@
+{
+  "runs": {
+    "baseline": {
+      "attempts": 18,
+      "calls": 17,
+      "input_tokens": 15764,
+      "output_tokens": 1349,
+      "summed_request_seconds": 75.221,
+      "statuses": {
+        "no_call": 1,
+        "accepted": 10,
+        "rejected": 7
+      },
+      "by_task": {
+        "momentum": {
+          "attempts": 3,
+          "calls": 2,
+          "input_tokens": 639,
+          "output_tokens": 84,
+          "summed_request_seconds": 6.412,
+          "statuses": {
+            "no_call": 1,
+            "accepted": 2
+          }
+        },
+        "narratives": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 9431,
+          "output_tokens": 258,
+          "summed_request_seconds": 19.853,
+          "statuses": {
+            "accepted": 2,
+            "rejected": 1
+          }
+        },
+        "oracle": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 962,
+          "output_tokens": 365,
+          "summed_request_seconds": 14.75,
+          "statuses": {
+            "rejected": 2,
+            "accepted": 1
+          }
+        },
+        "rating": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 1525,
+          "output_tokens": 238,
+          "summed_request_seconds": 12.06,
+          "statuses": {
+            "rejected": 2,
+            "accepted": 1
+          }
+        },
+        "transfer": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 1812,
+          "output_tokens": 264,
+          "summed_request_seconds": 13.685,
+          "statuses": {
+            "accepted": 1,
+            "rejected": 2
+          }
+        },
+        "vibe": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 1395,
+          "output_tokens": 140,
+          "summed_request_seconds": 8.461,
+          "statuses": {
+            "accepted": 3
+          }
+        }
+      },
+      "uncached_input_tokens": 10354,
+      "server_prompt_seconds": 30.162803,
+      "server_decode_seconds": 44.854336
+    },
+    "candidate-screen": {
+      "attempts": 24,
+      "calls": 3,
+      "input_tokens": 2882,
+      "output_tokens": 277,
+      "summed_request_seconds": 14.348,
+      "statuses": {
+        "no_call": 1,
+        "error": 20,
+        "accepted": 2,
+        "rejected": 1
+      },
+      "by_task": {
+        "momentum": {
+          "attempts": 3,
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "summed_request_seconds": 0.027,
+          "statuses": {
+            "no_call": 1,
+            "error": 2
+          }
+        },
+        "narratives": {
+          "attempts": 9,
+          "calls": 3,
+          "input_tokens": 2882,
+          "output_tokens": 277,
+          "summed_request_seconds": 14.308,
+          "statuses": {
+            "accepted": 2,
+            "rejected": 1,
+            "error": 6
+          }
+        },
+        "oracle": {
+          "attempts": 3,
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "summed_request_seconds": 0.004,
+          "statuses": {
+            "error": 3
+          }
+        },
+        "rating": {
+          "attempts": 3,
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "summed_request_seconds": 0.003,
+          "statuses": {
+            "error": 3
+          }
+        },
+        "transfer": {
+          "attempts": 3,
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "summed_request_seconds": 0.003,
+          "statuses": {
+            "error": 3
+          }
+        },
+        "vibe": {
+          "attempts": 3,
+          "calls": 0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "summed_request_seconds": 0.003,
+          "statuses": {
+            "error": 3
+          }
+        }
+      },
+      "uncached_input_tokens": 1820,
+      "server_prompt_seconds": 4.981758,
+      "server_decode_seconds": 9.165298
+    },
+    "candidate-screen-admitted": {
+      "attempts": 21,
+      "calls": 20,
+      "input_tokens": 22678,
+      "output_tokens": 2149,
+      "summed_request_seconds": 128.838,
+      "statuses": {
+        "no_call": 1,
+        "accepted": 12,
+        "rejected": 8
+      },
+      "by_task": {
+        "momentum": {
+          "attempts": 3,
+          "calls": 2,
+          "input_tokens": 1153,
+          "output_tokens": 115,
+          "summed_request_seconds": 6.713,
+          "statuses": {
+            "no_call": 1,
+            "accepted": 2
+          }
+        },
+        "narratives": {
+          "attempts": 6,
+          "calls": 6,
+          "input_tokens": 13567,
+          "output_tokens": 1318,
+          "summed_request_seconds": 80.449,
+          "statuses": {
+            "rejected": 5,
+            "accepted": 1
+          }
+        },
+        "oracle": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 1556,
+          "output_tokens": 176,
+          "summed_request_seconds": 9.74,
+          "statuses": {
+            "accepted": 3
+          }
+        },
+        "rating": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 2196,
+          "output_tokens": 239,
+          "summed_request_seconds": 12.654,
+          "statuses": {
+            "rejected": 1,
+            "accepted": 2
+          }
+        },
+        "transfer": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 2070,
+          "output_tokens": 185,
+          "summed_request_seconds": 10.741,
+          "statuses": {
+            "rejected": 2,
+            "accepted": 1
+          }
+        },
+        "vibe": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 2136,
+          "output_tokens": 116,
+          "summed_request_seconds": 8.541,
+          "statuses": {
+            "accepted": 3
+          }
+        }
+      },
+      "uncached_input_tokens": 21417,
+      "server_prompt_seconds": 57.186919,
+      "server_decode_seconds": 71.40379399999999
+    },
+    "workload": {
+      "attempts": 42,
+      "calls": 24,
+      "input_tokens": 40640,
+      "output_tokens": 3106,
+      "summed_request_seconds": 625.625,
+      "statuses": {
+        "error": 11,
+        "rejected": 12,
+        "accepted": 12,
+        "no_call": 7
+      },
+      "by_task": {
+        "momentum": {
+          "attempts": 5,
+          "calls": 1,
+          "input_tokens": 747,
+          "output_tokens": 81,
+          "summed_request_seconds": 4.877,
+          "statuses": {
+            "no_call": 4,
+            "accepted": 1
+          }
+        },
+        "narratives": {
+          "attempts": 11,
+          "calls": 3,
+          "input_tokens": 6803,
+          "output_tokens": 614,
+          "summed_request_seconds": 112.956,
+          "statuses": {
+            "error": 8,
+            "rejected": 2,
+            "accepted": 1
+          }
+        },
+        "oracle": {
+          "attempts": 5,
+          "calls": 5,
+          "input_tokens": 3608,
+          "output_tokens": 335,
+          "summed_request_seconds": 57.151,
+          "statuses": {
+            "accepted": 5
+          }
+        },
+        "rating": {
+          "attempts": 6,
+          "calls": 6,
+          "input_tokens": 5363,
+          "output_tokens": 820,
+          "summed_request_seconds": 147.658,
+          "statuses": {
+            "rejected": 4,
+            "accepted": 2
+          }
+        },
+        "transfer": {
+          "attempts": 6,
+          "calls": 6,
+          "input_tokens": 16216,
+          "output_tokens": 881,
+          "summed_request_seconds": 244.275,
+          "statuses": {
+            "rejected": 6
+          }
+        },
+        "vibe": {
+          "attempts": 9,
+          "calls": 3,
+          "input_tokens": 7903,
+          "output_tokens": 375,
+          "summed_request_seconds": 58.708,
+          "statuses": {
+            "accepted": 3,
+            "error": 3,
+            "no_call": 3
+          }
+        }
+      },
+      "uncached_input_tokens": 39795,
+      "server_prompt_seconds": 173.589383,
+      "server_decode_seconds": 425.688052,
+      "elapsed_seconds": 163.92173124942929,
+      "max_queue_wait_seconds": 139.978
+    },
+    "final-screen": {
+      "attempts": 26,
+      "calls": 24,
+      "input_tokens": 41400,
+      "output_tokens": 1773,
+      "summed_request_seconds": 152.345,
+      "statuses": {
+        "no_call": 1,
+        "accepted": 17,
+        "rejected": 7,
+        "error": 1
+      },
+      "by_task": {
+        "momentum": {
+          "attempts": 5,
+          "calls": 4,
+          "input_tokens": 2966,
+          "output_tokens": 213,
+          "summed_request_seconds": 13.53,
+          "statuses": {
+            "no_call": 1,
+            "accepted": 4
+          }
+        },
+        "narratives": {
+          "attempts": 9,
+          "calls": 8,
+          "input_tokens": 29144,
+          "output_tokens": 888,
+          "summed_request_seconds": 97.725,
+          "statuses": {
+            "accepted": 3,
+            "rejected": 5,
+            "error": 1
+          }
+        },
+        "oracle": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 1856,
+          "output_tokens": 160,
+          "summed_request_seconds": 8.968,
+          "statuses": {
+            "accepted": 3
+          }
+        },
+        "rating": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 2604,
+          "output_tokens": 214,
+          "summed_request_seconds": 12.355,
+          "statuses": {
+            "accepted": 3
+          }
+        },
+        "transfer": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 2469,
+          "output_tokens": 203,
+          "summed_request_seconds": 11.804,
+          "statuses": {
+            "rejected": 2,
+            "accepted": 1
+          }
+        },
+        "vibe": {
+          "attempts": 3,
+          "calls": 3,
+          "input_tokens": 2361,
+          "output_tokens": 95,
+          "summed_request_seconds": 7.963,
+          "statuses": {
+            "accepted": 3
+          }
+        }
+      },
+      "uncached_input_tokens": 33288,
+      "server_prompt_seconds": 92.174508,
+      "server_decode_seconds": 59.863203999999996
+    },
+    "workload-final": {
+      "attempts": 42,
+      "calls": 24,
+      "input_tokens": 46852,
+      "output_tokens": 2528,
+      "summed_request_seconds": 672.775,
+      "statuses": {
+        "error": 11,
+        "rejected": 10,
+        "accepted": 14,
+        "no_call": 7
+      },
+      "by_task": {
+        "momentum": {
+          "attempts": 5,
+          "calls": 1,
+          "input_tokens": 809,
+          "output_tokens": 76,
+          "summed_request_seconds": 4.962,
+          "statuses": {
+            "no_call": 4,
+            "accepted": 1
+          }
+        },
+        "narratives": {
+          "attempts": 11,
+          "calls": 3,
+          "input_tokens": 12977,
+          "output_tokens": 374,
+          "summed_request_seconds": 159.759,
+          "statuses": {
+            "error": 8,
+            "rejected": 2,
+            "accepted": 1
+          }
+        },
+        "oracle": {
+          "attempts": 5,
+          "calls": 5,
+          "input_tokens": 4108,
+          "output_tokens": 347,
+          "summed_request_seconds": 63.209,
+          "statuses": {
+            "accepted": 5
+          }
+        },
+        "rating": {
+          "attempts": 6,
+          "calls": 6,
+          "input_tokens": 6179,
+          "output_tokens": 810,
+          "summed_request_seconds": 192.465,
+          "statuses": {
+            "rejected": 2,
+            "accepted": 4
+          }
+        },
+        "transfer": {
+          "attempts": 6,
+          "calls": 6,
+          "input_tokens": 17014,
+          "output_tokens": 690,
+          "summed_request_seconds": 209.931,
+          "statuses": {
+            "rejected": 6
+          }
+        },
+        "vibe": {
+          "attempts": 9,
+          "calls": 3,
+          "input_tokens": 5765,
+          "output_tokens": 231,
+          "summed_request_seconds": 42.449,
+          "statuses": {
+            "accepted": 3,
+            "error": 3,
+            "no_call": 3
+          }
+        }
+      },
+      "uncached_input_tokens": 45716,
+      "server_prompt_seconds": 214.75747099999998,
+      "server_decode_seconds": 421.756606,
+      "elapsed_seconds": 174.1952686253935,
+      "max_queue_wait_seconds": 150.512
+    }
+  },
+  "total": {
+    "attempts": 173,
+    "calls": 112,
+    "input_tokens": 170216,
+    "output_tokens": 11182,
+    "summed_request_seconds": 1669.152,
+    "statuses": {
+      "no_call": 18,
+      "accepted": 67,
+      "rejected": 45,
+      "error": 43
+    }
+  },
+  "caveat": "Request durations overlap in four-slot runs. Server durations sum per-slot work; none is an electricity or full-night capacity measurement."
+}

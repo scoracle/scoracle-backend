@@ -1,0 +1,17 @@
+{
+  "settings": {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 20,
+    "min_p": 0.0,
+    "presence_penalty": 1.5,
+    "repeat_penalty": 1.0,
+    "seed": 42
+  },
+  "retries": 0,
+  "concurrency": 1,
+  "database_access": false,
+  "publishes": false,
+  "design": "Four worked-example requests; only sampler parameters differ. One fixed seed is diagnostic, not a stability estimate.",
+  "source": "https://huggingface.co/Qwen/Qwen3.5-4B"
+}

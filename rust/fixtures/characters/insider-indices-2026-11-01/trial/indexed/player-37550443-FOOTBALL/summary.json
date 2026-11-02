@@ -1,0 +1,27 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/insider-indices-2026-11-01/cases/indexed/player-37550443-FOOTBALL.json",
+      "generation_wall_ms": 11461,
+      "input_tokens": 2514,
+      "name": "player-37550443-FOOTBALL",
+      "output_limit": 1400,
+      "output_tokens": 143,
+      "parsed": false,
+      "prompt_version": "insider-source-v22-report-indices",
+      "reading": "finding quote does not state a move",
+      "request_bytes": 4014,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 11471
+    }
+  ],
+  "completed": 1
+}

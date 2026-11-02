@@ -1,0 +1,38 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "No thin-sample limit was supplied. Do not invent a sample limitation.",
+      "name": "production_acceptance",
+      "pass": false
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-rating-team-2-NBA.json",
+  "generation_wall_ms": 45852,
+  "input_tokens": 1020,
+  "name": "real-team:2:NBA-rating",
+  "output_limit": 700,
+  "output_tokens": 229,
+  "parsed": false,
+  "prompt_version": "s79-measured-perspective",
+  "reading": "The Boston Celtics' 2025 season data rests on a thin sample of 89 games. Rebounding is the strongest relative measure, ranking at the 93.1st percentile in an elite band, a significant improvement of 20.7 points from the prior 72.4th percentile. Rim protection (5.0 blocks) holds an average band at the 58.6th percentile, having declined 20.9 points from the prior 79.3th percentile. Playmaking (24.6 assists) and scoring (114.2 points) both rank in the poor band at the 10.3th and 31.0th percentiles respectively, with both measures falling from their prior standings. Steals (7.0) and foul drawing (18.8 free throw attempts) remain at the 3.4th and 0.0th percentiles in poor bands, with neither measure showing a standing change. The composite score is 54.2. No availability data is supplied.",
+  "request_bytes": 1340,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "rejected",
+  "task": "rating",
+  "temperature": 0.6,
+  "wall_ms": 45859
+}

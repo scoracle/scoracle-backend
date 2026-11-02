@@ -1,0 +1,63 @@
+{
+  "case": 14,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "findings=1",
+      "name": "has_source_linked_move",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "stage:concrete_interest",
+      "pass": false
+    },
+    {
+      "detail": "",
+      "name": "body_includes:Sorensen",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:$",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:£",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:€",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:million",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/transfer-fully-named-interest.json",
+  "generation_wall_ms": 5189,
+  "input_tokens": 609,
+  "name": "fully-named-interest",
+  "output_limit": 1400,
+  "output_tokens": 107,
+  "parsed": true,
+  "prompt_version": "insider-source-v19-subject",
+  "reading": "1 finding(s) | Kai Sorensen is the subject of a report indicating Chelsea are monitoring him, though no bid or talks are mentioned.",
+  "request_bytes": 3032,
+  "review": [
+    "Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 5199
+}

@@ -1,0 +1,22 @@
+{
+  "case": 11,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-transfer-fully-named-interest.json",
+  "generation_wall_ms": 3433,
+  "input_tokens": 695,
+  "name": "fully-named-interest",
+  "output_limit": 1400,
+  "output_tokens": 62,
+  "parsed": false,
+  "prompt_version": "insider-source-v20-perspective",
+  "reading": "Insider reading must begin with the full subject name",
+  "request_bytes": 410,
+  "review": [
+    "Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 3442
+}

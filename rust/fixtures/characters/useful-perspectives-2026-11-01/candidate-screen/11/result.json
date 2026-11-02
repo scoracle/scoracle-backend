@@ -1,0 +1,16 @@
+{
+  "case": 11,
+  "error": "llama.cpp template omitted or changed supplied input",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-rating-nfl-team-zero-interceptions.json",
+  "name": "nfl-team-zero-interceptions",
+  "output_limit": 700,
+  "prompt_version": "s79-measured-perspective",
+  "request_bytes": 387,
+  "review": [
+    "NFL team positive control: zero interceptions thrown is measured, not forcing opponent interceptions or quarterback skill. No team-to-player identity conversion."
+  ],
+  "status": "error",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 1
+}

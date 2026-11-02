@@ -1,0 +1,38 @@
+{
+  "case": 9,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    },
+    {
+      "detail": "sentences=2 ≤ 3",
+      "name": "reading_max_sentences",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-crossroads-conflict.json",
+  "generation_wall_ms": 2963,
+  "input_tokens": 643,
+  "name": "crossroads-conflict",
+  "output_limit": 700,
+  "output_tokens": 51,
+  "parsed": true,
+  "prompt_version": "or31-five-perspectives",
+  "reading": "Marcus Vale's profile centers on elite, stable production that remains unshaken by the surrounding tension. A reported trade demand has created a thinning atmosphere of patience, yet the available evidence shows no shift in his on-court performance.",
+  "request_bytes": 803,
+  "review": [
+    "Preserve disagreement across the supplied pillars rather than forcing unanimous direction."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 2972
+}

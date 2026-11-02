@@ -6,12 +6,12 @@ use crate::harness::queue::work::Item;
 use crate::tools::source::DEFAULT_TRAJECTORY;
 use crate::util::{hash_components, round1};
 use anyhow::{Context, Result};
-use serde::Serialize;
+
 use sqlx::PgPool;
 
-pub const ORACLE_PROMPT_VERSION: &str = "or29-evidence-only";
+pub const ORACLE_PROMPT_VERSION: &str = "or34-context-guide";
 
-pub const ORACLE_SYSTEM_PROMPT: &str = "Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Preserve the entity type, limits and uncertainty of each card. Do not strengthen a repeated claim or infer a missing connection between cards. Synthesize only the five supplied finished character cards into one current reading. Show where they agree or pull apart. A missing card is unknown; do not fill it from memory or guess. These cards may share underlying sources, so repetition is not independent confirmation. Attribute reported claims, preserve qualifications and dates, and do not forecast. Return only a JSON object with one key, reading, containing concise prose.";
+pub const ORACLE_SYSTEM_PROMPT: &str = include_str!("instructions.txt");
 
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;
@@ -21,7 +21,7 @@ pub const ORACLE_NUM_PREDICT: i32 = 700;
 
 pub fn generation_options(temperature: f64, num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: None,
+        system: Some(ORACLE_SYSTEM_PROMPT.trim().to_owned()),
         temperature: Some(temperature),
         num_predict: ORACLE_NUM_PREDICT,
         num_ctx,
@@ -33,20 +33,26 @@ pub fn generation_options(temperature: f64, num_ctx: i32) -> GenerateOptions {
 
 /// One narrative from the entity's latest generation. `impact` is widened from a database
 /// integer and rendered without a fractional part.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SynthNarrative {
+    #[serde(default)]
+    pub source_article_ids: Vec<i64>,
+    #[serde(default)]
+    pub generated_at: Option<String>,
     pub title: String,
     pub body: String,
     pub impact: f64,
     pub trajectory: String,
-    /// Prompt-only corroboration and freshness; excluded from the material hash.
+    /// Source membership and freshness; repeated memberships are not independent confirmation.
     pub source_count: i32,
     pub source_age_days: Option<i32>,
 }
 
 /// The Scout's rating pillar. A latest NULL body suppresses the pillar.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SynthRating {
+    #[serde(default)]
+    pub generated_at: Option<String>,
     pub body: String,
     pub notability: i32,
     pub rating_trajectory: String,
@@ -54,15 +60,20 @@ pub struct SynthRating {
 }
 
 /// The vibe pillar (P3): the latest felt-read product, distinct from the Momentum trajectory.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SynthVibe {
+    #[serde(default)]
+    pub generated_at: Option<String>,
     pub sentiment: i32,
     pub prompt: String,
 }
 
 /// The momentum pillar (P4): durable trajectory values from `momentum_scores`.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct SynthMomentum {
+    #[serde(default)]
+    pub generated_at: Option<String>,
     pub direction: Option<String>,
     pub blurb: Option<String>,
     pub input_hash: Option<String>,
@@ -74,7 +85,7 @@ pub struct SynthMomentum {
 }
 
 /// The Insider's finished card. Its score is kept for product math, not prose input.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SynthInsider {
     pub body: String,
     pub score: i32,
@@ -83,7 +94,7 @@ pub struct SynthInsider {
 
 /// The five cards handed to the Oracle. Missing cards remain explicit rather than being filled
 /// from older products or raw evidence.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Cards {
     pub narratives: Vec<SynthNarrative>,
     pub rating: Option<SynthRating>,
@@ -137,12 +148,14 @@ impl Cards {
 }
 
 /// Subject of an Oracle assignment. Durable ids and work revisions stay outside Studio.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Subject {
     pub entity_id: i32,
     pub entity_type: String,
     pub entity_name: String,
     pub sport: String,
+    #[serde(default)]
+    pub database_record: Option<crate::tools::meta::DatabaseRecord>,
 }
 
 /// Complete prepared assignment for one crown.
@@ -177,24 +190,25 @@ pub fn build_synthesis_input_components(cards: &Cards) -> String {
             serde_json::json!({
                 "title": n.title, "body": n.body, "impact": n.impact,
                 "trajectory": n.trajectory, "source_count": n.source_count,
-                "source_age_days": n.source_age_days,
+                "source_age_days": n.source_age_days, "source_article_ids": n.source_article_ids, "generated_at": n.generated_at,
             })
         })
         .collect();
     narratives.sort_by(|a, b| a["title"].as_str().cmp(&b["title"].as_str()));
     serde_json::json!({
         "prompt_version": ORACLE_PROMPT_VERSION,
+        "instructions": ORACLE_SYSTEM_PROMPT,
         "narratives": narratives,
         "rating": cards.rating.as_ref().map(|r| serde_json::json!({
             "body": r.body, "notability": r.notability,
             "trajectory": r.rating_trajectory,
-            "trajectory_label": r.rating_trajectory_label,
+            "trajectory_label": r.rating_trajectory_label, "generated_at": r.generated_at,
         })),
         "vibe": cards.vibe.as_ref().map(|v| serde_json::json!({
-            "body": v.prompt, "sentiment": v.sentiment,
+            "body": v.prompt, "sentiment": v.sentiment, "generated_at": v.generated_at,
         })),
         "momentum": serde_json::json!({
-            "body": cards.momentum.blurb,
+            "body": cards.momentum.blurb, "generated_at": cards.momentum.generated_at,
             "direction": cards.momentum.direction,
             "input_hash": cards.momentum.input_hash,
             "rating_slope": cards.momentum.rating_slope.map(round1),
@@ -227,11 +241,11 @@ pub async fn load_narrative_pillar(
     entity_id: i32,
     sport: &str,
 ) -> Result<Vec<SynthNarrative>> {
-    let rows: Vec<(String, String, i32, String, i32, Option<i32>)> = sqlx::query_as(
+    let rows: Vec<(String, String, i32, String, i32, Option<i32>, String, Vec<i64>)> = sqlx::query_as(
         r#"
         SELECT narrative_title, body, COALESCE(impact, 0), COALESCE(trajectory, $4),
                COALESCE(source_count, 0),
-               EXTRACT(day FROM NOW() - source_latest_at)::int
+               EXTRACT(day FROM NOW() - source_latest_at)::int, generated_at::text, COALESCE(input_news_ids, ARRAY[]::bigint[])
           FROM news_summaries
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
            AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
@@ -254,7 +268,18 @@ pub async fn load_narrative_pillar(
     Ok(rows
         .into_iter()
         .map(
-            |(title, body, impact, trajectory, source_count, source_age_days)| SynthNarrative {
+            |(
+                title,
+                body,
+                impact,
+                trajectory,
+                source_count,
+                source_age_days,
+                generated_at,
+                source_article_ids,
+            )| SynthNarrative {
+                generated_at: Some(generated_at),
+                source_article_ids,
                 title,
                 body,
                 impact: f64::from(impact),
@@ -273,10 +298,10 @@ pub async fn load_rating_pillar(
     sport: &str,
     season: Option<i32>,
 ) -> Result<Option<SynthRating>> {
-    let row: Option<(Option<String>, i32, String, String)> = sqlx::query_as(
+    let row: Option<(Option<String>, i32, String, String, String)> = sqlx::query_as(
         r#"
         SELECT body, COALESCE(notability, 0),
-               COALESCE(rating_trajectory, 'steady'), COALESCE(rating_trajectory_label, '')
+               COALESCE(rating_trajectory, 'steady'), COALESCE(rating_trajectory_label, ''), generated_at::text
           FROM stat_summaries
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
            AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
@@ -293,14 +318,19 @@ pub async fn load_rating_pillar(
     .await
     .with_context(|| format!("load rating pillar {entity_type}/{entity_id}"))?;
     Ok(match row {
-        Some((Some(body), notability, rating_trajectory, rating_trajectory_label)) => {
-            Some(SynthRating {
-                body,
-                notability,
-                rating_trajectory,
-                rating_trajectory_label,
-            })
-        }
+        Some((
+            Some(body),
+            notability,
+            rating_trajectory,
+            rating_trajectory_label,
+            generated_at,
+        )) => Some(SynthRating {
+            generated_at: Some(generated_at),
+            body,
+            notability,
+            rating_trajectory,
+            rating_trajectory_label,
+        }),
         _ => None,
     })
 }
@@ -311,9 +341,9 @@ pub async fn load_vibe_pillar(
     entity_id: i32,
     sport: &str,
 ) -> Result<Option<SynthVibe>> {
-    let row: Option<(Option<i16>, String)> = sqlx::query_as(
+    let row: Option<(Option<i16>, String, String)> = sqlx::query_as(
         r#"
-        SELECT sentiment, COALESCE(prompt, '')
+        SELECT sentiment, COALESCE(prompt, ''), generated_at::text
           FROM vibe_scores
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
            AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
@@ -328,7 +358,8 @@ pub async fn load_vibe_pillar(
     .await
     .with_context(|| format!("load vibe pillar {entity_type}/{entity_id}"))?;
     Ok(match row {
-        Some((Some(sentiment), prompt)) => Some(SynthVibe {
+        Some((Some(sentiment), prompt, generated_at)) => Some(SynthVibe {
+            generated_at: Some(generated_at),
             sentiment: i32::from(sentiment),
             prompt,
         }),
@@ -350,9 +381,10 @@ pub async fn load_momentum_pillar(
         Option<String>,
         Option<String>,
         serde_json::Value,
+        String,
     )> = sqlx::query_as(
         r#"
-        SELECT direction, score, blurb, input_hash, COALESCE(input_components, '{}'::jsonb)
+        SELECT direction, score, blurb, input_hash, COALESCE(input_components, '{}'::jsonb), generated_at::text
           FROM momentum_summaries
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
            AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
@@ -368,10 +400,11 @@ pub async fn load_momentum_pillar(
     .fetch_optional(pool)
     .await
     .with_context(|| format!("load momentum pillar {entity_type}/{entity_id}"))?;
-    let Some((direction, score, blurb, input_hash, components)) = row else {
+    let Some((direction, score, blurb, input_hash, components, generated_at)) = row else {
         return Ok(SynthMomentum::default());
     };
     Ok(SynthMomentum {
+        generated_at: Some(generated_at),
         direction: direction.filter(|value| !value.trim().is_empty()),
         blurb: blurb.filter(|value| !value.trim().is_empty()),
         input_hash,
@@ -465,13 +498,29 @@ pub(super) async fn load_assignment(
         let hash = hash_components(&components);
         (components, hash)
     };
-    Ok(Assignment {
-        subject: Subject {
+    let subject = Subject {
+        entity_id,
+        entity_type: item.entity_type.clone(),
+        database_record: crate::tools::meta::load_character_identity(
+            pool,
+            &item.entity_type,
             entity_id,
-            entity_type: item.entity_type.clone(),
-            entity_name: name,
-            sport: item.sport.clone(),
-        },
+            &item.sport,
+        )
+        .await?,
+        entity_name: name,
+        sport: item.sport.clone(),
+    };
+    let input_hash = if input_hash.is_empty() {
+        input_hash
+    } else {
+        hash_components(&serde_json::to_string(&(
+            &input_hash,
+            assemble(&subject, &cards),
+        ))?)
+    };
+    Ok(Assignment {
+        subject,
         season,
         cards,
         input_components_json,
@@ -487,20 +536,25 @@ pub fn assemble(subject: &Subject, cards: &Cards) -> String {
         entity_id: subject.entity_id,
         sport: subject.sport.clone(),
     };
-    #[derive(Serialize)]
-    struct Input<'a> {
-        meta: crate::tools::meta::WritingIdentity<'a>,
-        task: &'static str,
-        fresh: super::fresh::Fresh<'a>,
-        voice: &'static str,
+    crate::tools::context::assemble(
+        ORACLE_SYSTEM_PROMPT,
+        include_str!("context.txt"),
+        meta.for_writing(),
+        subject.database_record.as_ref(),
+        super::fresh::readings(cards),
+        super::voice::VOICE,
+    )
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Parts {
+    pub subject: Subject,
+    pub cards: Cards,
+}
+impl Parts {
+    pub fn assemble(&self) -> String {
+        assemble(&self.subject, &self.cards)
     }
-    serde_json::to_string(&Input {
-        meta: meta.for_writing(),
-        task: ORACLE_SYSTEM_PROMPT,
-        fresh: super::fresh::readings(cards),
-        voice: crate::plugins::oracle::voice::VOICE,
-    })
-    .expect("oracle world serializes")
 }
 
 pub fn prose() -> crate::tools::form::Prose {
@@ -514,6 +568,7 @@ mod tests {
     #[test]
     fn oracle_receives_five_cards_and_no_memory() {
         let subject = Subject {
+            database_record: None,
             entity_id: 7,
             entity_type: "team".into(),
             entity_name: "Cleveland Browns".into(),
@@ -528,7 +583,7 @@ mod tests {
             ..Cards::default()
         };
         let world = assemble(&subject, &cards);
-        assert!(world.starts_with(r#"{"meta":"#));
+        assert!(world.starts_with(r#"{"job":"#));
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
         assert!(value.get("memories").is_none());
         assert_eq!(

@@ -1,0 +1,1432 @@
+{
+  "totals": {
+    "control": {
+      "calls": 4,
+      "input_tokens": 9072,
+      "output_tokens": 373,
+      "measured_wall_ms": 39592,
+      "missing_wall_measurements": 0,
+      "accepted": 0,
+      "findings": 4,
+      "exact_quotes": 4
+    },
+    "layout": {
+      "calls": 4,
+      "input_tokens": 10584,
+      "output_tokens": 420,
+      "measured_wall_ms": 42588,
+      "missing_wall_measurements": 0,
+      "accepted": 0,
+      "findings": 4,
+      "exact_quotes": 4
+    },
+    "instructions": {
+      "calls": 4,
+      "input_tokens": 10032,
+      "output_tokens": 541,
+      "measured_wall_ms": 45381,
+      "missing_wall_measurements": 0,
+      "accepted": 1,
+      "findings": 4,
+      "exact_quotes": 4
+    },
+    "both": {
+      "calls": 4,
+      "input_tokens": 11544,
+      "output_tokens": 570,
+      "measured_wall_ms": 50399,
+      "missing_wall_measurements": 0,
+      "accepted": 1,
+      "findings": 4,
+      "exact_quotes": 4
+    },
+    "control-ordered": {
+      "calls": 4,
+      "input_tokens": 9072,
+      "output_tokens": 336,
+      "measured_wall_ms": 35334,
+      "missing_wall_measurements": 0,
+      "accepted": 1,
+      "findings": 2,
+      "exact_quotes": 2
+    },
+    "instructions-ordered": {
+      "calls": 4,
+      "input_tokens": 10032,
+      "output_tokens": 335,
+      "measured_wall_ms": 37905,
+      "missing_wall_measurements": 0,
+      "accepted": 0,
+      "findings": 1,
+      "exact_quotes": 1
+    },
+    "worked": {
+      "calls": 12,
+      "input_tokens": 34547,
+      "output_tokens": 1229,
+      "measured_wall_ms": 134241,
+      "missing_wall_measurements": 0,
+      "accepted": 0,
+      "findings": 14,
+      "exact_quotes": 12
+    },
+    "worked-ordered": {
+      "calls": 4,
+      "input_tokens": 11484,
+      "output_tokens": 342,
+      "measured_wall_ms": 42278,
+      "missing_wall_measurements": 0,
+      "accepted": 0,
+      "findings": 2,
+      "exact_quotes": 2
+    },
+    "eligible-worked": {
+      "calls": 12,
+      "input_tokens": 34547,
+      "output_tokens": 987,
+      "measured_wall_ms": 115356,
+      "missing_wall_measurements": 0,
+      "accepted": 0,
+      "findings": 8,
+      "exact_quotes": 6
+    },
+    "sampled": {
+      "calls": 4,
+      "input_tokens": 11484,
+      "output_tokens": 385,
+      "measured_wall_ms": 31029,
+      "missing_wall_measurements": 1,
+      "accepted": 1,
+      "findings": 3,
+      "exact_quotes": 3
+    },
+    "metadata-ablation": {
+      "calls": 2,
+      "input_tokens": 6742,
+      "output_tokens": 116,
+      "measured_wall_ms": 21900,
+      "missing_wall_measurements": 0,
+      "accepted": 2,
+      "findings": 0,
+      "exact_quotes": 0
+    }
+  },
+  "calls": 58,
+  "input_tokens": 159140,
+  "output_tokens": 5634,
+  "measured_wall_seconds": 596.003,
+  "missing_wall_measurements": 1,
+  "eligibility_preserves_all_12_bodies": true,
+  "records": [
+    {
+      "run": "trial",
+      "case": "01-team-37-FOOTBALL-control",
+      "arm": "control",
+      "output": {
+        "body": "Roma are currently managing a significant injury crisis with coach Mirko Vučinić sidelined for 6-8 weeks, while simultaneously rejecting offers for Pisilli and looking to make two signings in January. Interest in Roma's squad is evident through reports of potential deals involving Thuram and Bakola, though no specific agreements have been confirmed.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Mirko Vučinić",
+      "receipt": "trial/01-team-37-FOOTBALL-control/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "02-team-37-FOOTBALL-layout",
+      "arm": "layout",
+      "output": {
+        "body": "Roma faces a severe squad crisis with coach Mirko Vučinić and key figures Pellegrini and Svilar out for extended periods, while the club has rejected offers for Pisilli and is reportedly looking for two January signings. Interest in Roma is currently linked to a €50m package involving RB Leipzig and Brighton's Gruda, though no specific agreement has been confirmed.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Mirko Vučinić",
+      "receipt": "trial/02-team-37-FOOTBALL-layout/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "03-team-37-FOOTBALL-instructions",
+      "arm": "instructions",
+      "output": {
+        "body": "Roma are likely to retain Brighton's Gruda and Roma's El Aynaoui for a €50m package, according to Bulinews. Additionally, Roma have rejected three offers for Pisilli this summer, reported by Yahoo Sports, and are looking to make two signings in January, per Yahoo Sports.",
+        "findings": []
+      },
+      "references": [],
+      "status": "accepted",
+      "parser_detail": "0 finding(s) | Roma are likely to retain Brighton's Gruda and Roma's El Aynaoui for a €50m package, according to Bulinews. Additionally, Roma have rejected three offers for Pisilli this summer, reported by Yahoo Sports, and are looking to make two signings in January, per Yahoo Sports.",
+      "receipt": "trial/03-team-37-FOOTBALL-instructions/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "04-team-37-FOOTBALL-both",
+      "arm": "both",
+      "output": {
+        "body": "Roma are currently managing a significant injury crisis, with coach Pellegrini sidelined for at least six to eight weeks due to a serious injury, according to multiple sources including LiveScore, Yahoo Sports, and Football Italia. Additionally, the club is reportedly looking to make two signings in January, as noted by Yahoo Sports.",
+        "findings": []
+      },
+      "references": [],
+      "status": "accepted",
+      "parser_detail": "0 finding(s) | Roma are currently managing a significant injury crisis, with coach Pellegrini sidelined for at least six to eight weeks due to a serious injury, according to multiple sources including LiveScore, Yahoo Sports, and Football Italia. Additionally, the club is reportedly looking to make two signings in January, as noted by Yahoo Sports.",
+      "receipt": "trial/04-team-37-FOOTBALL-both/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "05-player-322-NBA-layout",
+      "arm": "layout",
+      "output": {
+        "body": "Donovan Mitchell has formally committed to retiring with the Cleveland Cavaliers, with no reported movement or trade negotiations involving other entities.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "trial/05-player-322-NBA-layout/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "06-player-322-NBA-instructions",
+      "arm": "instructions",
+      "output": {
+        "body": "Donovan Mitchell plans to retire with the Cleveland Cavaliers unless the team trades him, according to Yahoo Sports. Conversely, Sports Illustrated reports that Mitchell has formally committed to Cleveland, stating he wants to retire there.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "trial/06-player-322-NBA-instructions/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "07-player-322-NBA-both",
+      "arm": "both",
+      "output": {
+        "body": "Donovan Mitchell has formally committed to retiring with the Cleveland Cavaliers, according to Sports Illustrated, while Yahoo Sports reports he plans to retire there unless the team trades him.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "trial/07-player-322-NBA-both/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "08-player-322-NBA-control",
+      "arm": "control",
+      "output": {
+        "body": "Donovan Mitchell is reported to have formally committed to retiring with the Cleveland Cavaliers, with no active trade negotiations or departures mentioned in the provided evidence.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "trial/08-player-322-NBA-control/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "09-person-8-NFL-instructions",
+      "arm": "instructions",
+      "output": {
+        "body": "Stephen A. Smith has stated that Dan Quinn's tenure with the Washington Commanders is over, a sentiment echoed by multiple outlets on October 22, 2026. While Quinn has reportedly hired a former head coach amid an uncertain future, Smith's comments suggest his time in Washington has concluded.",
+        "findings": [
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+            "report_index": 0,
+            "stage": "speculation",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+            "report_index": 1,
+            "stage": "speculation",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "Insider reading must begin with the full subject name",
+      "receipt": "trial/09-person-8-NFL-instructions/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "10-person-8-NFL-both",
+      "arm": "both",
+      "output": {
+        "body": "Stephen A. Smith has stated that Dan Quinn's tenure with the Washington Commanders is over, a claim reported by Yahoo Sports and The Comeback. Concurrently, reports indicate Quinn has hired a former head coach while his future with the Commanders remains uncertain.",
+        "findings": [
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+            "report_index": 0,
+            "stage": "speculation",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "Dan Quinn Hires Former Head Coach Amid Uncertain Future With Commanders",
+            "report_index": 4,
+            "stage": "speculation",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "Insider reading must begin with the full subject name",
+      "receipt": "trial/10-person-8-NFL-both/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "11-person-8-NFL-control",
+      "arm": "control",
+      "output": {
+        "body": "Dan Quinn faces a reported end to his tenure with the Washington Commanders, with multiple outlets citing Stephen A. Smith declaring his time in Washington over. Reports also note Quinn has hired a former head coach amid this uncertain future.",
+        "findings": [
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+            "report_index": 0,
+            "stage": "speculation",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "'It's over for Dan Quinn, this is it': Stephen A. Smith does not hold back on Commanders coach",
+            "report_index": 3,
+            "stage": "speculation",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "trial/11-person-8-NFL-control/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "12-person-8-NFL-layout",
+      "arm": "layout",
+      "output": {
+        "body": "Dan Quinn faces a reported departure from the Washington Commanders following Stephen A. Smith's comments that his time there is over. While Quinn has hired a former head coach amid this uncertainty, no specific replacement or new team affiliation has been confirmed.",
+        "findings": [
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+            "report_index": 0,
+            "stage": "speculation",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "'It's over for Dan Quinn, this is it': Stephen A. Smith does not hold back on Commanders coach",
+            "report_index": 3,
+            "stage": "speculation",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "trial/12-person-8-NFL-layout/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "13-player-45-NFL-both",
+      "arm": "both",
+      "output": {
+        "body": "Justin Herbert is the subject of conflicting trade rumors involving the Minnesota Vikings and Cleveland Browns, with the Los Angeles Chargers explicitly denying any talks with the Vikings. While Yahoo Sports, CBS Sports, and Sports Illustrated discuss potential landing spots and capital requirements for a blockbuster deal, Gridiron Heroics reports the Browns are linked to such a trade, whereas NDTV Sports states the Chargers have shut down discussions with the Vikings.",
+        "findings": [
+          {
+            "counterparty": "Minnesota Vikings",
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "report_index": 4,
+            "stage": "here_we_go",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Cleveland Browns",
+            "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+            "report_index": 3,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "trial/13-player-45-NFL-both/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "14-player-45-NFL-control",
+      "arm": "control",
+      "output": {
+        "body": "Justin Herbert remains on the Chargers roster as trade rumors swirl, with reports of interest from the Vikings and Browns but no confirmed moves.",
+        "findings": [
+          {
+            "counterparty": "Minnesota Vikings",
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "report_index": 4,
+            "stage": "concrete_interest",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Cleveland Browns",
+            "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+            "report_index": 3,
+            "stage": "concrete_interest",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "trial/14-player-45-NFL-control/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "15-player-45-NFL-layout",
+      "arm": "layout",
+      "output": {
+        "body": "Justin Herbert remains rostered with the Los Angeles Chargers as of late October 2026, though multiple reports indicate active trade speculation involving the Minnesota Vikings, Cleveland Browns, and other teams. While the Chargers have publicly shut down talks with the Vikings, other outlets suggest potential blockbuster deals or capital-heavy moves are being considered by various franchises.",
+        "findings": [
+          {
+            "counterparty": "Minnesota Vikings",
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "report_index": 4,
+            "stage": "concrete_interest",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Cleveland Browns",
+            "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+            "report_index": 3,
+            "stage": "concrete_interest",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "trial/15-player-45-NFL-layout/response.json"
+    },
+    {
+      "run": "trial",
+      "case": "16-player-45-NFL-instructions",
+      "arm": "instructions",
+      "output": {
+        "body": "Justin Herbert is the subject of a denial: NDTV Sports reports that the Los Angeles Chargers shut down trade talks with the Minnesota Vikings. Conversely, Gridiron Heroics reports that the Cleveland Browns are linked to a blockbuster trade with the Chargers, while Yahoo Sports and CBS Sports discuss potential landing spots for Herbert and the Vikings' case for acquiring him.",
+        "findings": [
+          {
+            "counterparty": "Minnesota Vikings",
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "report_index": 4,
+            "stage": "here_we_go",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Cleveland Browns",
+            "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+            "report_index": 3,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "trial/16-player-45-NFL-instructions/response.json"
+    },
+    {
+      "run": "ordered",
+      "case": "01-team-37-FOOTBALL-control-ordered",
+      "arm": "control-ordered",
+      "output": {
+        "findings": [],
+        "body": "Roma are currently managing a serious injury to coach Pellegrini, with reports indicating a 6-8 week absence. The club has also rejected offers for Pisilli and is looking to make two signings in January. No specific movement involving Roma and a named counterparty was supported by the supplied evidence."
+      },
+      "references": [],
+      "status": "accepted",
+      "parser_detail": "0 finding(s) | Roma are currently managing a serious injury to coach Pellegrini, with reports indicating a 6-8 week absence. The club has also rejected offers for Pisilli and is looking to make two signings in January. No specific movement involving Roma and a named counterparty was supported by the supplied evidence.",
+      "receipt": "ordered/01-team-37-FOOTBALL-control-ordered/response.json"
+    },
+    {
+      "run": "ordered",
+      "case": "02-team-37-FOOTBALL-instructions-ordered",
+      "arm": "instructions-ordered",
+      "output": {
+        "findings": [],
+        "body": "Roma are currently managing a serious injury to coach Mirko Vučinić, expected to last 6-8 weeks, while also rejecting three summer offers for player Pisilli. Reports indicate the club is looking to make two signings in January and is involved in discussions regarding Thuram and Bakola, though no specific agreements or denials regarding these potential moves were reported."
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Mirko Vučinić",
+      "receipt": "ordered/02-team-37-FOOTBALL-instructions-ordered/response.json"
+    },
+    {
+      "run": "ordered",
+      "case": "03-player-322-NBA-instructions-ordered",
+      "arm": "instructions-ordered",
+      "output": {
+        "findings": [],
+        "body": "Donovan Mitchell plans to retire with the Cleveland Cavaliers unless they trade him, according to Yahoo Sports. Conversely, Sports Illustrated reports that Mitchell has formally committed to retiring in Cleveland, stating, 'I Want To Retire Here.'"
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "ordered/03-player-322-NBA-instructions-ordered/response.json"
+    },
+    {
+      "run": "ordered",
+      "case": "04-player-322-NBA-control-ordered",
+      "arm": "control-ordered",
+      "output": {
+        "findings": [],
+        "body": "Donovan Mitchell is reported to have formally committed to retiring with the Cleveland Cavaliers, with no active transfer negotiations or departures from the team mentioned in the provided evidence."
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "ordered/04-player-322-NBA-control-ordered/response.json"
+    },
+    {
+      "run": "ordered",
+      "case": "05-person-8-NFL-instructions-ordered",
+      "arm": "instructions-ordered",
+      "output": {
+        "findings": [
+          {
+            "report_index": 4,
+            "evidence_quote": "Dan Quinn Hires Former Head Coach Amid Uncertain Future With Commanders",
+            "counterparty": "Washington Commanders",
+            "status": "reported",
+            "stage": "advanced_talks"
+          }
+        ],
+        "body": "Stephen A. Smith has stated that Dan Quinn's tenure with the Washington Commanders is over, a sentiment echoed by multiple outlets as Quinn reportedly hires a former head coach amid an uncertain future with the team."
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "Insider reading must begin with the full subject name",
+      "receipt": "ordered/05-person-8-NFL-instructions-ordered/response.json"
+    },
+    {
+      "run": "ordered",
+      "case": "06-person-8-NFL-control-ordered",
+      "arm": "control-ordered",
+      "output": {
+        "findings": [],
+        "body": "Dan Quinn is currently affiliated with the Philadelphia Eagles per database records, though multiple reports from late October 2026 discuss his tenure with the Washington Commanders. Stephen A. Smith has stated Quinn's time in Washington is over, and the Commanders have hired a replacement, but these reports do not confirm a transfer to Philadelphia or any other team. The evidence limit prevents confirming a move between the named entities in the reports and the database record."
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "cited reports do not connect Dan Quinn with numerical fact 2026",
+      "receipt": "ordered/06-person-8-NFL-control-ordered/response.json"
+    },
+    {
+      "run": "ordered",
+      "case": "07-player-45-NFL-control-ordered",
+      "arm": "control-ordered",
+      "output": {
+        "findings": [
+          {
+            "report_index": 3,
+            "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+            "counterparty": "Cleveland Browns",
+            "status": "reported",
+            "stage": "speculation"
+          },
+          {
+            "report_index": 4,
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "counterparty": "Minnesota Vikings",
+            "status": "denied",
+            "stage": null
+          }
+        ],
+        "body": "Justin Herbert remains on the Chargers roster as trade rumors swirl. Gridiron Heroics reports the Browns are linked to a potential blockbuster deal, while NDTV Sports states the Chargers have shut down trade talks with the Vikings."
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "ordered/07-player-45-NFL-control-ordered/response.json"
+    },
+    {
+      "run": "ordered",
+      "case": "08-player-45-NFL-instructions-ordered",
+      "arm": "instructions-ordered",
+      "output": {
+        "findings": [],
+        "body": "Justin Herbert is the subject of multiple trade discussions involving the Minnesota Vikings and Cleveland Browns, with the Los Angeles Chargers reportedly shutting down talks with the Vikings. Reports suggest the Chargers would give up significant capital in a deal, though no agreement has been reached."
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Browns",
+      "receipt": "ordered/08-player-45-NFL-instructions-ordered/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "01-team-37-FOOTBALL-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Roma are looking to make two signings in January, according to Yahoo Sports. The club has also rejected three offers for Pisilli this summer, while Mirko Vučinić is on record as the coach.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Mirko Vučinić",
+      "receipt": "worked/01-team-37-FOOTBALL-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "02-player-322-NBA-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Donovan Mitchell has formally committed to retiring with the Cleveland Cavaliers, according to Sports Illustrated. Yahoo Sports reports that this plan holds unless the team trades him.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "worked/02-player-322-NBA-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "03-person-8-NFL-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Dan Quinn has hired a former head coach amid uncertainty over his future with the Washington Commanders, according to The Spun. Stephen A. Smith has stated that Quinn's time in Washington is over as the team enters their bye week.",
+        "findings": [
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+            "report_index": 0,
+            "stage": null,
+            "status": "denied"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "worked/03-person-8-NFL-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "04-player-45-NFL-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Justin Herbert is the subject of conflicting trade reports: Gridiron Heroics links the Chargers to a blockbuster deal with Cleveland, while NDTV Sports states the Chargers have shut down trade talks with Minnesota. Yahoo Sports and CBS Sports discuss potential landing spots for Herbert, including Minnesota, but do not confirm active negotiations.",
+        "findings": [
+          {
+            "counterparty": "Cleveland Browns",
+            "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+            "report_index": 3,
+            "stage": "here_we_go",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Minnesota Vikings",
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "report_index": 4,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "worked/04-player-45-NFL-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "05-player-529856-FOOTBALL-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Jean-Clair Todibo's loan at Lens is set to continue, as Lens confirm they are not planning to terminate the deal. This report comes from Lens themselves, addressing rumors of the loan ending.",
+        "findings": [
+          {
+            "counterparty": "Lens",
+            "evidence_quote": "Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo",
+            "report_index": 0,
+            "stage": "here_we_go",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Lens",
+            "evidence_quote": "Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo",
+            "report_index": 1,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote does not state a move",
+      "receipt": "worked/05-player-529856-FOOTBALL-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "06-person-107-FOOTBALL-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Eddie Howe is making a decision regarding his future at Manchester United, with reports suggesting he is weighing options including a potential return to Newcastle United. The situation at Old Trafford is described as a 'civil war' as the club finalizes its choice on the former Newcastle boss.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Newcastle United",
+      "receipt": "worked/06-person-107-FOOTBALL-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "07-player-37550443-FOOTBALL-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Alex Scott faces a transfer crisis as Bournemouth owner warns of 'star struck' decision and admits fears of poaching by Chelsea and Manchester City. The club has sent a message to Scott regarding these specific transfer interests from the Premier League giants.",
+        "findings": [
+          {
+            "counterparty": "Chelsea",
+            "evidence_quote": "Bournemouth send message to Alex Scott over Chelsea and Man City transfer interest",
+            "report_index": 4,
+            "stage": "concrete_interest",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Manchester City",
+            "evidence_quote": "Bournemouth owner admits Alex Scott could be lured by Chelsea or Manchester City",
+            "report_index": 1,
+            "stage": "concrete_interest",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote does not state a move",
+      "receipt": "worked/07-player-37550443-FOOTBALL-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "08-player-185-NBA-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Draymond Green is linked to a potential exit from the Golden State Warriors alongside Stephen Curry, with reports suggesting the team is looking to trade Kristaps Porzingis. Kerr has hinted at a Warriors exit involving both Curry and Green, while Curry and Green are noted as ready to move past Porzingis amid trade rumors.",
+        "findings": [
+          {
+            "counterparty": "Golden State Warriors",
+            "evidence_quote": "Warriors Looking to Trade Him",
+            "report_index": 1,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "worked/08-player-185-NBA-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "09-player-17896040-NBA-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Jalen Johnson and Paolo Banchero have been separated following a tense conclusion to the Hawks-Magic matchup, according to Yahoo Sports and ClutchPoints.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "served reading adds unsupported chronology or causality",
+      "receipt": "worked/09-player-17896040-NBA-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "10-team-7-NBA-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Dallas Mavericks have signed Walter Clayton Jr. to a two-way contract, with reports indicating he was waived by the Memphis Grizzlies before the deal. The team also signed another former first-rounder after waiving Dwight Powell.",
+        "findings": [
+          {
+            "counterparty": "Walter Clayton Jr.",
+            "evidence_quote": "Walter Clayton Jr. Signs Two-Way NBA Deal With Mavericks",
+            "report_index": 1,
+            "stage": "here_we_go",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Walter Clayton Jr.",
+            "evidence_quote": "Mavericks Emerge As Potential Suitor For Walter Clayton Jr. After Grizzlies Waive Him",
+            "report_index": 5,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": false,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "worked/10-team-7-NBA-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "11-player-83946-NFL-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Evan Neal has officially signed with the Philadelphia Eagles after being released by the Las Vegas Raiders, according to multiple outlets. The Eagles confirmed the move by adding Neal to their practice squad alongside Jaydon Blue and Anfernee Orji.",
+        "findings": [
+          {
+            "counterparty": "Las Vegas Raiders",
+            "evidence_quote": "Eagles sign Giants bust Evan Neal to practice squad after Raiders release",
+            "report_index": 1,
+            "stage": "here_we_go",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Philadelphia Eagles",
+            "evidence_quote": "Eagles sign OL Evan Neal",
+            "report_index": 4,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "worked/11-player-83946-NFL-worked/response.json"
+    },
+    {
+      "run": "worked",
+      "case": "12-player-278370-NFL-worked",
+      "arm": "worked",
+      "output": {
+        "body": "Brian Thomas Jr. faces significant trade pressure as ESPN proposes moving him to a fellow AFC team while the Las Vegas Raiders are urged to finalize a deal amid rising Jaguars tension. Conversely, reports suggest the Seattle Seahawks have made a blockbuster trade proposal for the wide receiver.",
+        "findings": [
+          {
+            "counterparty": "Las Vegas Raiders",
+            "evidence_quote": "Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks",
+            "report_index": 5,
+            "stage": "here_we_go",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Seattle Seahawks",
+            "evidence_quote": "Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr.",
+            "report_index": 6,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": false,
+          "supplied_counterparty": false
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "worked/12-player-278370-NFL-worked/response.json"
+    },
+    {
+      "run": "worked-ordered",
+      "case": "01-team-37-FOOTBALL-worked-ordered",
+      "arm": "worked-ordered",
+      "output": {
+        "findings": [],
+        "body": "Roma are looking to make two signings in January, according to Yahoo Sports. The club has also rejected three offers for Pisilli this summer, while reports indicate a crisis ahead involving the departure of Pellegrini and Svilar. Additionally, a headline suggests Roma might be involved in a deal for El Aynaoui for €50m, though this is presented as a package involving RB Leipzig and Brighton's Gruda rather than a confirmed move for Roma alone."
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: RB Leipzig",
+      "receipt": "worked-ordered/01-team-37-FOOTBALL-worked-ordered/response.json"
+    },
+    {
+      "run": "worked-ordered",
+      "case": "02-player-322-NBA-worked-ordered",
+      "arm": "worked-ordered",
+      "output": {
+        "findings": [],
+        "body": "Donovan Mitchell has formally committed to retiring with the Cleveland Cavaliers, according to Sports Illustrated. Yahoo Sports reports that this plan holds unless the team trades him."
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "worked-ordered/02-player-322-NBA-worked-ordered/response.json"
+    },
+    {
+      "run": "worked-ordered",
+      "case": "03-person-8-NFL-worked-ordered",
+      "arm": "worked-ordered",
+      "output": {
+        "findings": [],
+        "body": "Dan Quinn has hired a former head coach amid uncertainty over his future with the Washington Commanders, according to The Spun. Stephen A. Smith has stated that Quinn's time in Washington is over as the team enters their bye week, while Yahoo Sports reports that the former Commanders' head coach has named an impressive replacement."
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Washington Commanders",
+      "receipt": "worked-ordered/03-person-8-NFL-worked-ordered/response.json"
+    },
+    {
+      "run": "worked-ordered",
+      "case": "04-player-45-NFL-worked-ordered",
+      "arm": "worked-ordered",
+      "output": {
+        "findings": [
+          {
+            "report_index": 3,
+            "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+            "counterparty": "Cleveland Browns",
+            "status": "reported",
+            "stage": "concrete_interest"
+          },
+          {
+            "report_index": 4,
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "counterparty": "Minnesota Vikings",
+            "status": "denied",
+            "stage": null
+          }
+        ],
+        "body": "Justin Herbert is the subject of conflicting trade reports. Gridiron Heroics links the Browns to a blockbuster deal with the Chargers, while NDTV Sports reports that the Chargers have shut down trade talks with the Minnesota Vikings."
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "worked-ordered/04-player-45-NFL-worked-ordered/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "01-team-37-FOOTBALL-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Roma are looking to make two signings in January, according to Yahoo Sports. The club has also rejected three offers for Pisilli this summer, while Mirko Vučinić is on record as the coach.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Mirko Vučinić",
+      "receipt": "eligible/01-team-37-FOOTBALL-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "02-player-322-NBA-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Donovan Mitchell has formally committed to retiring with the Cleveland Cavaliers, according to Sports Illustrated. Yahoo Sports reports that this plan holds unless the team trades him.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "eligible/02-player-322-NBA-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "03-person-8-NFL-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Dan Quinn has hired a former head coach amid uncertainty over his future with the Washington Commanders, according to The Spun. Stephen A. Smith has stated that Quinn's time in Washington is over as the team enters their bye week.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Washington Commanders",
+      "receipt": "eligible/03-person-8-NFL-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "04-player-45-NFL-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Justin Herbert is the subject of conflicting trade reports: Gridiron Heroics links the Chargers to a blockbuster deal with Cleveland, while NDTV Sports states the Chargers have shut down trade talks with Minnesota. Yahoo Sports and CBS Sports discuss potential landing spots for Herbert, including Minnesota, but do not confirm active negotiations.",
+        "findings": [
+          {
+            "counterparty": "Los Angeles Chargers",
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "report_index": 4,
+            "stage": null,
+            "status": "denied"
+          },
+          {
+            "counterparty": "Minnesota Vikings",
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "report_index": 4,
+            "stage": null,
+            "status": "denied"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding status must match an explicit denial of that move",
+      "receipt": "eligible/04-player-45-NFL-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "05-player-529856-FOOTBALL-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Jean-Clair Todibo's loan at Lens is set to continue, as Lens confirm they are not planning to terminate the deal. This report comes from Lens themselves, addressing rumors of the loan ending.",
+        "findings": [
+          {
+            "counterparty": "Lens",
+            "evidence_quote": "Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo",
+            "report_index": 0,
+            "stage": "here_we_go",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Lens",
+            "evidence_quote": "Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo",
+            "report_index": 1,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote does not state a move",
+      "receipt": "eligible/05-player-529856-FOOTBALL-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "06-person-107-FOOTBALL-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Eddie Howe is making a decision regarding his future at Manchester United, with reports suggesting he is weighing options including a potential return to Newcastle United. The situation at Old Trafford is described as a 'civil war' as the club finalizes its choice on the former Newcastle boss.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Newcastle United",
+      "receipt": "eligible/06-person-107-FOOTBALL-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "07-player-37550443-FOOTBALL-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Alex Scott faces a transfer crisis as Bournemouth owner warns of 'star struck' decision and admits fears of poaching by Chelsea and Manchester City. The club has sent a message to Scott regarding these specific transfer interests from the Premier League giants.",
+        "findings": [
+          {
+            "counterparty": "Chelsea",
+            "evidence_quote": "Bournemouth send message to Alex Scott over Chelsea and Man City transfer interest",
+            "report_index": 4,
+            "stage": "concrete_interest",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Manchester City",
+            "evidence_quote": "Bournemouth owner admits Alex Scott could be lured by Chelsea or Manchester City",
+            "report_index": 1,
+            "stage": "concrete_interest",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote does not state a move",
+      "receipt": "eligible/07-player-37550443-FOOTBALL-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "08-player-185-NBA-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Draymond Green is linked to a potential exit from the Golden State Warriors alongside Stephen Curry, with reports suggesting the team is looking to trade Kristaps Porzingis. Kerr has hinted at a Warriors exit involving both Curry and Green, while Curry and Green are noted as ready to move past Porzingis amid trade rumors.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Golden State Warriors",
+      "receipt": "eligible/08-player-185-NBA-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "09-player-17896040-NBA-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Jalen Johnson and Paolo Banchero have been separated following a tense conclusion to the Hawks-Magic matchup, according to Yahoo Sports and ClutchPoints.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "served reading adds unsupported chronology or causality",
+      "receipt": "eligible/09-player-17896040-NBA-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "10-team-7-NBA-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Dallas Mavericks have signed Walter Clayton Jr. to a two-way contract, with reports indicating he was waived by the Memphis Grizzlies before the deal. The team also signed another former first-rounder after waiving Dwight Powell.",
+        "findings": [
+          {
+            "counterparty": "Walter Clayton Jr.",
+            "evidence_quote": "Walter Clayton Jr. Signs Two-Way NBA Deal With Mavericks",
+            "report_index": 5,
+            "stage": "here_we_go",
+            "status": "reported"
+          },
+          {
+            "counterparty": "Walter Clayton Jr.",
+            "evidence_quote": "Mavericks Emerge As Potential Suitor For Walter Clayton Jr. After Grizzlies Waive Him",
+            "report_index": 5,
+            "stage": "here_we_go",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": false,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": false,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote is not an exact publisher span",
+      "receipt": "eligible/10-team-7-NBA-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "11-player-83946-NFL-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Evan Neal has officially signed with the Philadelphia Eagles after being released by the Las Vegas Raiders, according to multiple outlets. The Eagles confirmed the move by adding Neal to their practice squad alongside Jaydon Blue and Anfernee Orji.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Las Vegas Raiders",
+      "receipt": "eligible/11-player-83946-NFL-eligible-worked/response.json"
+    },
+    {
+      "run": "eligible",
+      "case": "12-player-278370-NFL-eligible-worked",
+      "arm": "eligible-worked",
+      "output": {
+        "body": "Brian Thomas Jr. faces significant trade pressure as ESPN proposes moving him to a fellow AFC team while the Las Vegas Raiders are urged to finalize a deal amid rising Jaguars tension. Conversely, reports suggest the Seattle Seahawks have made a blockbuster trade proposal for the wide receiver.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Las Vegas Raiders",
+      "receipt": "eligible/12-player-278370-NFL-eligible-worked/response.json"
+    },
+    {
+      "run": "sampled",
+      "case": "01-team-37-FOOTBALL-worked",
+      "arm": "sampled",
+      "output": {
+        "body": "Roma are likely to retain Gruda and El Aynaoui from Brighton for a €50m package as Leipzig move forward with that deal. The club is also looking to make two January signings while rejecting three summer offers for Pisilli.",
+        "findings": []
+      },
+      "references": [],
+      "status": "accepted",
+      "parser_detail": "0 finding(s) | Roma are likely to retain Gruda and El Aynaoui from Brighton for a €50m package as Leipzig move forward with that deal. The club is also looking to make two January signings while rejecting three summer offers for Pisilli.",
+      "receipt": "sampled/01-team-37-FOOTBALL-worked/response.json"
+    },
+    {
+      "run": "sampled-rest",
+      "case": "02-player-322-NBA-worked",
+      "arm": "sampled",
+      "output": {
+        "body": "Donovan Mitchell has formally committed to retiring with the Cleveland Cavaliers, according to Sports Illustrated. Yahoo Sports reports this plan holds unless the team decides to trade him.",
+        "findings": []
+      },
+      "references": [],
+      "status": "rejected",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "sampled-rest/02-player-322-NBA-worked/response.json"
+    },
+    {
+      "run": "sampled-rest",
+      "case": "03-person-8-NFL-worked",
+      "arm": "sampled",
+      "output": {
+        "body": "Dan Quinn has hired a former head coach to lead the Washington Commanders amid reports that his tenure there is over. Stephen A. Smith suggests the situation is final as the team enters its bye week.",
+        "findings": [
+          {
+            "counterparty": "Washington Commanders",
+            "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+            "report_index": 0,
+            "stage": "speculation",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding quote must name both the target and counterparty in full",
+      "receipt": "sampled-rest/03-person-8-NFL-worked/response.json"
+    },
+    {
+      "run": "sampled-rest",
+      "case": "04-player-45-NFL-worked",
+      "arm": "sampled",
+      "output": {
+        "body": "Justin Herbert is the subject of conflicting trade signals: while Gridiron Heroics reports that Cleveland Browns are linked to a blockbuster deal with the Chargers, NDtv Sports states that Los Angeles Chargers have shut down Justin Herbert trade talk with Minnesota Vikings. Yahoo Sports and CBS Sports list both teams as potential landing spots, though no agreement has been reached.",
+        "findings": [
+          {
+            "counterparty": "Los Angeles Chargers",
+            "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+            "report_index": 4,
+            "stage": null,
+            "status": "denied"
+          },
+          {
+            "counterparty": "Cleveland Browns",
+            "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+            "report_index": 3,
+            "stage": "concrete_interest",
+            "status": "reported"
+          }
+        ]
+      },
+      "references": [
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        },
+        {
+          "exact_quote": true,
+          "supplied_counterparty": true
+        }
+      ],
+      "status": "rejected",
+      "parser_detail": "finding status must match an explicit denial of that move",
+      "receipt": "sampled-rest/04-player-45-NFL-worked/response.json"
+    },
+    {
+      "run": "metadata",
+      "case": "01-team-37-FOOTBALL-metadata-ablation",
+      "arm": "metadata-ablation",
+      "output": {
+        "body": "Roma are looking to make two signings in January, according to Yahoo Sports. The club has also rejected three offers for Pisilli this summer, while head coach Pellegrini is expected to be out for six to eight weeks due to a serious injury.",
+        "findings": []
+      },
+      "references": [],
+      "status": "accepted",
+      "parser_detail": "0 finding(s) | Roma are looking to make two signings in January, according to Yahoo Sports. The club has also rejected three offers for Pisilli this summer, while head coach Pellegrini is expected to be out for six to eight weeks due to a serious injury.",
+      "receipt": "metadata/01-team-37-FOOTBALL-metadata-ablation/response.json"
+    },
+    {
+      "run": "metadata",
+      "case": "02-person-107-FOOTBALL-metadata-ablation",
+      "arm": "metadata-ablation",
+      "output": {
+        "body": "Eddie Howe is making a decision on his future at Manchester United, with reports indicating the choice is nearing completion amidst internal conflict at the club. He is being considered as a standout candidate to replace Michael Carrick, though no agreement has been reached yet.",
+        "findings": []
+      },
+      "references": [],
+      "status": "accepted",
+      "parser_detail": "0 finding(s) | Eddie Howe is making a decision on his future at Manchester United, with reports indicating the choice is nearing completion amidst internal conflict at the club. He is being considered as a standout candidate to replace Michael Carrick, though no agreement has been reached yet.",
+      "receipt": "metadata/02-person-107-FOOTBALL-metadata-ablation/response.json"
+    }
+  ]
+}

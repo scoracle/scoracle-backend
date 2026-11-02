@@ -1,0 +1,142 @@
+{
+  "name": "regression-la-clippers-reserved",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n120-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"LA Clippers\",\"entity_type\":\"team\",\"sport\":\"basketball\",\"database_record\":\"LA Clippers — West Pacific. Coach on record: Will Hardy.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1260557,\"url\":\"https://news.google.com/rss/articles/CBMitwFBVV95cUxOWHNGRHd6bm14YmJ3WkM3QjdyV1poTE9JMG5MZjM0TWk3Wmo3cGxveG9lV0pZYUpxNXB1ZURpbnctSjJ0TE9raHZFVDBkRFQtMUJ0a0hXSGdDTm9sb0tyNlFWSGpRQmR0VENlZjZleV80S1llZ0VxVDloNExXa25XS01SQ0ZQYlVTYjhjdF9tOEswbUN5M1RObDc2ZTBNWmFKM1FwUDdKanJaVlN0d2tHN096Q0Z3N2c?oc=5\",\"headline\":\"Darius Acuff Jr. has brutal NBA debut vs. Clippers\",\"publisher\":\"NBC Sports\",\"published_at\":\"2026-10-22T20:08:56Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1338223,\"url\":\"https://news.google.com/rss/articles/CBMisgFBVV95cUxOdTR3NGRGZUVZNDRTNGpwVEhSUzllekU0QVlQcGI3XzVhWDluWnViZ0N0OGx2X0hhZTB5VjNmQkVYNnVzNkxQM045SE54YmZhc1ZmcGJ0SlA0WlgweVRqQjFhVy1TMFZUWWRkMUJ1N0hKdGFGajhsUFFadjhqU1dlbDhtc2l6MXJpNjY0TzUwaGpzWFZHTHF5S05ib1pBZWpUS2xUMXRIVEhJc3B0T24yRGxn?oc=5\",\"headline\":\"Keegan Murray struggles mightily vs. Clippers\",\"publisher\":\"NBC Sports\",\"published_at\":\"2026-10-22T16:58:56Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1221840,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxPeGc3RnluVE9kd2JFNkViZGxfSEgyTlFoQWE1eDRTc3NXZU5vdUxobWltQ20zc3VORkwza1owcWRJUllyblRmaUpTWWNTNjdoeDhFa1p3QnN1V25kUHdDTm5CdFlQWklIMV9hVTQ2ZVVjTWdaLTRzcnV4Q1phYmV6N1pFRnhlWnVsbzEw?oc=5\",\"headline\":\"How Clippers fans can get free parking and new jerseys on opening night\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T23:02:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1192912,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxONUFYOTZjb1kzUk1ZdmhqeTNkWDF2X1hnUDIxYWh3YXI5MEpadHJGRmZBekVXdUx0X3lqTHIxdmJlOHR2andrdkxJVTNZSFRxSS1ZWk1MSlY3aUxtVXNnc3JjQm9LWE5qUTEwVjNpRVB4UTZ4ZDZnOEFBYUkyenJBcWt5T0xDVFlOamVRaEg1WTRSYi1ibDFGbFdpNzR4ZXNBZHfSAacBQVVfeXFMUEU1NUJic05JNnczazVDWjh4S0YzZ0tJZzUwU1M0M2pPejY2Nk0wTlZJSUlucVV4Wm1PWHAtSnhqajNwd19wVkliNEp5eWFOM2d4bGlUbmhMelY5UDdlOXFVck9fQlJ2bUlEVDROZmFBbl8zWEFQQ1JhMzFjMGV0UDVQYXlGUEgwRXZORGlhV1VWWHpTcnBzb0RHNUZoMTFaeFo2dXY2N2c?oc=5\",\"headline\":\"L.A. Clippers usher in new season with jersey swap and free parking\",\"publisher\":\"KTLA\",\"published_at\":\"2026-10-21T15:47:40Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "LA Clippers — West Pacific. Coach on record: Will Hardy.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.749577268327581,
+            "emotion": 6.484695828655275,
+            "movement": 3.2790526822461934,
+            "subject": 94.22260914071946
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxOWHNGRHd6bm14YmJ3WkM3QjdyV1poTE9JMG5MZjM0TWk3Wmo3cGxveG9lV0pZYUpxNXB1ZURpbnctSjJ0TE9raHZFVDBkRFQtMUJ0a0hXSGdDTm9sb0tyNlFWSGpRQmR0VENlZjZleV80S1llZ0VxVDloNExXa25XS01SQ0ZQYlVTYjhjdF9tOEswbUN5M1RObDc2ZTBNWmFKM1FwUDdKanJaVlN0d2tHN096Q0Z3N2c?oc=5"
+        },
+        "context": "Darius Acuff Jr. has brutal NBA debut vs. Clippers",
+        "id": 1260557,
+        "published_at_epoch": 1792699736,
+        "source": "NBC Sports",
+        "title": "Darius Acuff Jr. has brutal NBA debut vs. Clippers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.422156796665332,
+            "clickbait": 19.418747800591163,
+            "emotion": 6.299627477607231,
+            "movement": 3.901123611705888,
+            "subject": 94.48801880711686
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxOdTR3NGRGZUVZNDRTNGpwVEhSUzllekU0QVlQcGI3XzVhWDluWnViZ0N0OGx2X0hhZTB5VjNmQkVYNnVzNkxQM045SE54YmZhc1ZmcGJ0SlA0WlgweVRqQjFhVy1TMFZUWWRkMUJ1N0hKdGFGajhsUFFadjhqU1dlbDhtc2l6MXJpNjY0TzUwaGpzWFZHTHF5S05ib1pBZWpUS2xUMXRIVEhJc3B0T24yRGxn?oc=5"
+        },
+        "context": "Keegan Murray struggles mightily vs. Clippers",
+        "id": 1338223,
+        "published_at_epoch": 1792688336,
+        "source": "NBC Sports",
+        "title": "Keegan Murray struggles mightily vs. Clippers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.3369103879766833,
+            "clickbait": 15.62544595351657,
+            "emotion": 1.8257405404072315,
+            "movement": 2.840717034163288,
+            "subject": 94.16961671058743
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPeGc3RnluVE9kd2JFNkViZGxfSEgyTlFoQWE1eDRTc3NXZU5vdUxobWltQ20zc3VORkwza1owcWRJUllyblRmaUpTWWNTNjdoeDhFa1p3QnN1V25kUHdDTm5CdFlQWklIMV9hVTQ2ZVVjTWdaLTRzcnV4Q1phYmV6N1pFRnhlWnVsbzEw?oc=5"
+        },
+        "context": "How Clippers fans can get free parking and new jerseys on opening night",
+        "id": 1221840,
+        "published_at_epoch": 1792623757,
+        "source": "Yahoo Sports",
+        "title": "How Clippers fans can get free parking and new jerseys on opening night"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.789420146405713,
+            "clickbait": 5.014915733486925,
+            "emotion": 1.6762871926244052,
+            "movement": 41.47215187340783,
+            "subject": 95.69467790187775
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxONUFYOTZjb1kzUk1ZdmhqeTNkWDF2X1hnUDIxYWh3YXI5MEpadHJGRmZBekVXdUx0X3lqTHIxdmJlOHR2andrdkxJVTNZSFRxSS1ZWk1MSlY3aUxtVXNnc3JjQm9LWE5qUTEwVjNpRVB4UTZ4ZDZnOEFBYUkyenJBcWt5T0xDVFlOamVRaEg1WTRSYi1ibDFGbFdpNzR4ZXNBZHfSAacBQVVfeXFMUEU1NUJic05JNnczazVDWjh4S0YzZ0tJZzUwU1M0M2pPejY2Nk0wTlZJSUlucVV4Wm1PWHAtSnhqajNwd19wVkliNEp5eWFOM2d4bGlUbmhMelY5UDdlOXFVck9fQlJ2bUlEVDROZmFBbl8zWEFQQ1JhMzFjMGV0UDVQYXlGUEgwRXZORGlhV1VWWHpTcnBzb0RHNUZoMTFaeFo2dXY2N2c?oc=5"
+        },
+        "context": "L.A. Clippers usher in new season with jersey swap and free parking",
+        "id": 1192912,
+        "published_at_epoch": 1792597660,
+        "source": "KTLA",
+        "title": "L.A. Clippers usher in new season with jersey swap and free parking"
+      }
+    ],
+    "subject": {
+      "entity_id": 13,
+      "entity_type": "team",
+      "name": "LA Clippers",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

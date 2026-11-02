@@ -1,0 +1,7 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / real-vibe-person-959-NFL [accepted]
+Jerry Jones faces criticism and self-identified disappointment amid roster struggles
+
+Coverage presents a mixed emotional tone regarding Jerry Jones. One headline frames him as taking a swipe at the owner amid team struggles, suggesting external frustration or anger. Conversely, another report explicitly labels Jones himself as 'disappointed,' indicating internal dissatisfaction. This combination of external criticism and self-reported unhappiness creates a balanced, conflicted narrative without overwhelming positivity or despair.

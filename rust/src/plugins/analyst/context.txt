@@ -1,0 +1,10 @@
+fresh relates two current prepared readings and any computed comparisons to meta.name:
+- scout.body: the target's performance interpretation.
+- influencer.body: its coverage tone or attributed reactions. The speaker and conditions in this reading remain part of the claim.
+- season: the performance reading's season; generated_at: when a reading was produced, not when an event happened.
+- comparisons: separately computed changes over time. Each item is its own observation window.
+- comparisons[].measure: rating_notability means statistical distinctiveness; coverage_tone means estimated coverage tone. These are not ability or population feeling.
+- comparisons[].change, unit and direction: the computed difference, its unit and its direction for that measure.
+- comparisons[].samples: observations used for that item.
+- comparisons[].window_start and window_end: that item's exact time window; computed_at: when its calculation was made; limit: the stated interpretation boundary.
+The bodies are prepared interpretations, not independent raw reporting. Explain their current relationship. Explain change only within each supplied comparison's own window; two comparisons do not necessarily share dates. An absent reading or comparison supplies no judgment for the missing dimension.

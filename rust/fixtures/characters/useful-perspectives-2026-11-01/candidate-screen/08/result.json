@@ -1,0 +1,16 @@
+{
+  "case": 8,
+  "error": "llama.cpp template omitted or changed supplied input",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-near-empty-quiet-wire.json",
+  "name": "near-empty-quiet-wire",
+  "output_limit": 700,
+  "prompt_version": "or30-five-perspectives",
+  "request_bytes": 460,
+  "review": [
+    "Make a restrained reading of sparse material; missing pillars do not become negative findings."
+  ],
+  "status": "error",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 1
+}

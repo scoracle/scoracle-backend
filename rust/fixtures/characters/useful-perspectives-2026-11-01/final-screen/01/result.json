@@ -1,0 +1,15 @@
+{
+  "case": 1,
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-momentum-missing-mood-peer.json",
+  "name": "missing-mood-peer",
+  "output_limit": 700,
+  "prompt_version": "momentum-s43-dated-perspective",
+  "request_bytes": 293,
+  "review": [
+    "Performance strengthens; mood is absent. Do not invent neutrality, agreement or divergence. Explicitly say performance/mood agreement cannot be assessed."
+  ],
+  "status": "no_call",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 0
+}

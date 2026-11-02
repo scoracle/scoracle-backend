@@ -1,0 +1,1183 @@
+{
+  "name": "real-player:185:NBA-narratives",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Draymond Green\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\\nrole: player [2026-09-05; source 65552]\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1418551,\"url\":\"https://news.google.com/rss/articles/CBMinwFBVV95cUxQM040Qjh3QWNUUmdWWUpaM05sWE81aEx5WldOeHQtRmwwVm9odC1NWWR5ZzlpMDltWlhRVmVDLWdyVGJCRm1oV1lhbUFLRmt6SWRwTTRyckRiTDc0MVFyaVdHMzNtODhNRmJSOEg5WXJmVm1RR3I3aV9IZkxVTzRWdGdkRm9sTEVFQ2I3WHpxaW1wRE9nUEcwcUllNjRGcFnSAacBQVVfeXFMT0Q2SW1zQmtRd0t6bGZqVU9jQnRYM0F4VG9BakowVjdxZ2JmNTlsVktsYW5ieEhsMDF6Ymd3UHlUc3N5NUJzaVBzemlCNUx4aW12dEU1Ykl4aVFyMTl0aW1sMmNKREZDS0JwWVByNlJ4UEFQSEhoUFVSTnNtTG5SWFNHM2ljUlNMb3pfNUxhaVZmeU5mM253WGFqbjM2aDRueE9rdGZ3SWs?oc=5\",\"headline\":\"Draymond Green wants to retire a Warrior, but plans to play in 2027-28 season\",\"publisher\":\"NBC Sports Bay Area & California\",\"published_at\":\"2026-10-22T23:53:59Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1418532,\"url\":\"https://news.google.com/rss/articles/CBMiqwFBVV95cUxQVnFOT1hqWFczMFNwZ293dlE0OHl1TzFoWUNfSjFSb3BSME5vazZyeTQ4bFpram1FdHpSNDV0c3U5RWpXWVdOU3NxYzVyaVpDSUJWWm5VODRwdEVKQVlIQWlqS2tjNlNUNmdDNFFIMnpwYXNTTldVSmVHVEc5T1l2WmxSTy1RYWlMYVhtbVdmZkUzQU5zSVpvN3NwOEtwb0tjYzZFX0VfaGNweknSAbMBQVVfeXFMT1hsV0Eyb0t4Q2d0aTFMUmI3NHpYbFdVQl9ON0hVeU5Hd190aWZRZUtFUHktdktNMHJxSjY3RUV6NlNYZVdWbmx4Vm9ZNTg5YnU2NmxIV2N4cENYc2l3b3EwN29JN0xSUi1qUTV3YlF3aUtEc0JRdFhzS0NDeVpZWG4wa0MwWHJYUkxhcGxoSkVHYl8xV1ZCdTNlQ3VTaHhzajNmU25sNGQydEUyTWdvc1FOZDg?oc=5\",\"headline\":\"Draymond Green names the one thing he would change about the NBA as commissioner\",\"publisher\":\"NBC Sports Bay Area & California\",\"published_at\":\"2026-10-22T23:38:36Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1398241,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxQU3NxUENnMElRUmVzaTd3YTAxbURieWU3SVJoNE83Mm1XN2t4TWh0TTM0R3JrV2tYLUxWMlNtRDdRaC1remdEMk12VnRsaU5zTUVfYl9TdGhVTjhXMGlvRW13TGZmTmxEUm5CX01VVE11NzU0emxHdkxWZm5VWG5tT1g5MFp1RzdwbTg5S3RUY2tuRjFm?oc=5\",\"headline\":\"Warriors’ Draymond Green Defends Lendeborg’s Trash Talk With Doncic\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T21:30:24Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1378029,\"url\":\"https://news.google.com/rss/articles/CBMiwwFBVV95cUxPZnhXYWpOQklVUER0YzNLVlBfXy1LaTY1b0hULWhiaWRYallfVS1lWXZKQy1fWmVhMFRlZS1CV3hZWUMzNDgteklkZ0tvRGlVTVVwd1d1dWJwUnNTeDU4Mm1SOUJNMjlIUGRidUdSRldoRlpBUUlVX2JqNXkwa05wc25CZk1nU1JQTXUtZm83YXBmWTltdE5ISFlvZnhFS3hRa0duOVRROVdhN2E5ajYtMUh1Mm5FRW95Qm5iRmktR190VlU?oc=5\",\"headline\":\"\\\"That's actually what Steph Curry would do\\\" - Draymond Green on realizing the Warriors found their next face of the franchise\",\"publisher\":\"Basketball Network\",\"published_at\":\"2026-10-22T20:23:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1388055,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxPZ2xSZWdtU3RuZ2Z4WGlYQ1MwN01aYUsybmtMRHlDcE1FYmdFdThMSXpwRHVsT19FdnBxSENIUmU2VVpLM1ktVW5FNnJ5SzJ2ejhMamNVZUhtQ081TnpmVm9QVVFDdV9oVm4tdTRocmtZc3c0ZEdLSE5OYmRwcUZMQldjRU5tNHZQUEVjVFMyOW0?oc=5\",\"headline\":\"Draymond Green Reacts to Yaxel Lendeborg's Exchange With Luka Doncic\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:22:28Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1337909,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxNUXdmc3hSY1NwZkhDcTF1bDRMZ2gxSDVQVmUyS1dUeW9meFRYZjEwSnNneWdXNFl1c2R6SE53YnU1dDFtV2FtZXYxcUdLczQyM285TEZmNzNjMUlWQllva2RtZV9zMEZmUWl4eG13RTB6RXpzeWZqOEhBbDk3dXV5TnZ1NWljZWFUUDJtWA?oc=5\",\"headline\":\"Steve Kerr Hints at Potential Warriors Exit With Steph Curry and Draymond Green\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T17:06:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1328024,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxPMnpfVU9feFhYbUEwU2Q1U1FBWVNhRUN1N082TlFjTjhRNW1rNm1XcC1ZMmxqR1JBUF9HYTYtNDVldFI1LTNQNTBKcW5QRlhKTzhKZGdlR3g2aTJWc1QxakQtLXRLc3FMMDl4MmIycE0xdGFpNF94Sm43clZHVVB6V2FQR2dURFJoSmE0?oc=5\",\"headline\":\"Stephen Curry, Draymond Green Ready to Move Past Kristaps Porzingis Amid Reports on Warriors Looking to Trade Him\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T11:45:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1260238,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxNRlB5Ynl4bXV4QUtsdlZXTkRMT3NLeHR0UFdXRmxQUXQ2ci14VXJKenNkQW5BSFZfclp2ckVFb2drOF9ld3Q4NDdZWnNyY1RjZVpfU01hSjM5d0N2TlpBMkg2bWlzcUFodGd6NHRvUkQ4YUJQY0FuSkl4Rmx1RFdBY2hsaEpVUG5RY1o0YWN2VzVUVFVoenk5SGowZVJKaWt5Z3B1bjJIMjlCMmk4aFV1OA?oc=5\",\"headline\":\"CNBC Sport: Draymond Green on his Warriors future and the business of the NBA\",\"publisher\":\"CNBC\",\"published_at\":\"2026-10-22T10:00:14Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1260274,\"url\":\"https://news.google.com/rss/articles/CBMisgFBVV95cUxNaDhSTzM5Z0FpdFZXeXJndTlXcGg4aVZ0RS1ZUzIxenNyX1k0Smh5ZlhWeGNoLVNjcGVGNzlpTDVVU0hxR2tXX184RUpuUEp0ckNieWEtUExZQmRfZjJIMXMzQk1tYTdUNEUwaTQtX1M0NFFieFU0V2FUMG9Zelk1bmxCV2I5M3RfS2ZYcTJxVXNob0tockQ3NURwYUNackRvWnVydHBxZ294aDB1cVM3RDF3?oc=5\",\"headline\":\"Draymond Green with 8 assists against Lakers\",\"publisher\":\"NBC Sports\",\"published_at\":\"2026-10-22T05:13:17Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1251137,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxQSkk2OHZhM3J1VGtrenFEUVNlSW9JQXk2eGdmQXc0NHUzdll3UVFzUC1IN2Ywb1dCdllGWXY4SlJUVjlmX3pRWE9qYkg1aVZDZzJZNlpfRmJHMXNHRjd5NUptT3lDMlIwYnBaVEZOTFpqQXR5eXBxS2NNbkxkSUlQd3E0MTdNQQ?oc=5\",\"headline\":\"Draymond Green Makes Bold Luka Doncic Prediction Ahead of Lakers-Warriors Opener\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T22:00:03Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1231303,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxOVnJOWTZoY281ZXh6Wko1d2ZQYXFtX3B1SU9HbS13MlVOdXdhQzZWUDhUekt1ZF9XMFgzNGFkRGRTamR6aXRuTnZaNHpOZ2ljd2NJcVNXZnJLcC1xZHBKN094cFREU2xNYlMtQWFlSUpsd3MwUEtyOTlQaF9TVlVqWHdkbUk?oc=5\",\"headline\":\"\\\"I don't have every luxury that Steph Curry has\\\" - Draymond Green is well aware this season could be his last in Golden State\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T21:31:50Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1192642,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxONWJHOEdac2dKVVVlVzNOQW5nY2RsSi05STFyQ0pNbV9Xcno3TVIxRFc2ODdBVFQ4eVJQdFBWM1Bmc2EyZzZ4TWt2Mmg0TkFWNGFoNnNCMF9YeHJuS2Y2SWsxZFRNVTZiRHNpT0dwZWhDb29DeHIxNFdJV3ZJWnlRM1Y2dERkOFU?oc=5\",\"headline\":\"\\\"There's a reason he's still here\\\" - Stephen Curry opens up about the career of Draymond Green\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T20:40:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1192618,\"url\":\"https://news.google.com/rss/articles/CBMitwFBVV95cUxOUFU1d0EwcUJhdm1rbEJPQmxiS3lOcHVIdmVWYVNTS0xibE04dTNiR2JpVUdMRWx5TnNidkF0VzhhTnpiYWdNZHA2VVBVQWVCS3F5aElLQjc1bDRabVdVakZqN0FsY0ZWNy1tQi04YWY1NzFtT2tVM1hUNmZsbVlJcUJSUncxbjhnb2ZWR25IZUZzYm9ob0VRSUdUM0tlaVlmZnFYZ3dTYXh3MkQ2OUdQVHlrb1JEWXc?oc=5\",\"headline\":\"Year 15 for the NBA's Longest‑Tenured Active Duo: Stephen Curry and Draymond Green\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-21T20:32:54Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1192661,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxPTXZLeXZLMzd3TnBjYUx4MFNJanliZkVrRVlpdTJ0T1JWajFwZGx4NFdaRmZMZkdCdXRWNWtxM2hWQXdnMGhKcGpxQkMwZWxhX0licFlqS1Nkd1htbDRLVkgxdDlJRDRuMTU2bjJuRUdQeXFTLTkwc0p1MVdra21oVU9tNFBHUHN6RXBuV2pn?oc=5\",\"headline\":\"Warriors’ Steve Kerr makes prediction on his retirement alongside Stephen Curry, Draymond Green\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T20:31:59Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1231721,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxObjFfdHN4V3FEbENHeEdPSkdxLXI3enNZVGRHRm5mVTBwM04yc0xLdUc4Qk9NM0IyTTlVdnVMeUhUeDJJNDhnQnI1WFJUUDVQblBPV3EzblZDdmpPQjdzZjNhOW9qS3FSdnRKQ1prZ0RMOXdOMWNoZFlIQk52ZGxUUnNxQ1Bldw?oc=5\",\"headline\":\"Draymond Green Makes Grim Luka Doncic MVP Prediction While Comparing Lakers Star to LeBron James\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T20:14:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1182951,\"url\":\"https://news.google.com/rss/articles/CBMiugFBVV95cUxNUEd5N0NJTk53Ty13ZnVtYkN0WDgxeWY2YTExYTRuRm55Z0hybGRnTEF6LUpsdFRfS3NmZ3dHZVEtLXlHNG9XUDNrVGVhaGVwMXppdlhFQlNmSE0yLUF1ZVRXRWVBRklMQ3VZcnh0WmVuX0lMNXZudGo4RkpZWHh1M0Y3QU5wMlBSUldaWUNDb3M1YTZpNXYtaGJORUNnMy1uUUhVTnpkSDB4QjZLMGZsRDRZalByUm1LVHc?oc=5\",\"headline\":\"Draymond Green explains why Luka Doncic will never win the NBA MVP award: \\\"People get fatigued of it\\\"\",\"publisher\":\"Basketball Network\",\"published_at\":\"2026-10-21T17:32:03Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1182903,\"url\":\"https://news.google.com/rss/articles/CBMitAFBVV95cUxPdXk1MF9aZjNyMFZwWE1aZ2U3R2g0dzlDV1liR1RGTnZ4Z3AyZF9Hak5zLTYtZHJZRl9tRDIzbFZ2Vmw0YVEzbF9QM0k1WWxBSDIwaUowLWRScEpZektEWnhCZE9fYjdXbkQ0MS1GNVJ1ZTlaelMyaWhyTi1pelpFMGhzc3YyVFZ6eDZTdXNHOURIWWlxbkkySWNRSkJ6U3o3QnFfY09pUF9ESkcyQUpmRTFibHU?oc=5\",\"headline\":\"Draymond Green cites Steph Curry when explaining why he could leave Warriors\",\"publisher\":\"New York Post\",\"published_at\":\"2026-10-21T15:44:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1182985,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxPMWZNR093X3lMRkZSd09TZUxqVGl6cFdhbzMyMVM1M3o5OXpXOGljbUpHUFlHN1NRc2FDRkt0NHZlUmJYdzUxQ2VaMDBkRFBBcVJkZ21RWUk0NnR5OXZQc1FVb1FKdWZmNTl5bUVPNVQ0TW82bmFBdmZBNGNiRWJSQ2VtNUJEYmR6SFp0cnVuNHlWcDE2SF94Qm9yTXQxbU4tNS14TlpHdlkxb3JoWjB1YQ?oc=5\",\"headline\":\"Draymond Green Plans To Play Next Season, Even If Not With Warriors\",\"publisher\":\"RealGM\",\"published_at\":\"2026-10-21T14:50:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1176576,\"url\":\"https://news.google.com/rss/articles/CBMilwFBVV95cUxQYUhoMEw3VXJuZHNJNTFjQTNfQUdvanU5dDBFdF9hYzdsR2haZDJzZmhNZHUzemFZMHBsUFZqaThHNWJQamdEeDYwdnRPUFoyR1dqdWR0Z20yMlA5ck44U3A5cVM1WHpWLU5NQW5mblRESlNDRHFzOE9HeEZER1JTUy10WUktcXVNVXk3Q1BlTXZrY3BpWmd3?oc=5\",\"headline\":\"How ‘unc’ Draymond Green is guiding Yaxel Lendeborg into the Warriors’ future\",\"publisher\":\"The Mercury News\",\"published_at\":\"2026-10-21T12:15:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1147224,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPazd1TUZIaEpEZkdVS0ViZDdCTWNSZm1TLUIxbjM0QVZobEJwVmFpWnRxUXo4QW1JdzlPQmx4MlphcUhSZTFUcG44eTQ1Ri1DdndORVZEdHpRd3NkV2ZyY0VRV1lhTUFVdnJjSEdHZVUwT2hxM21OZENBZnFCVnl1V3N3ZkV3WjNyQUVhZQ?oc=5\",\"headline\":\"Warriors' Draymond Green names Yaxel Lendeborg Steph Curry's successor in Golden State\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T02:53:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1182984,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxPQXJLX19pR1NWX0FQOFdpc1Z0Y0Z3anBLeGRFME01M1RsRVpSZExiMzRJQWE1VW5aV1BoSFZ6SUdGY3N4clZMRG9nSkxRbzZWZVNqR0IwdTRvTU85UnhoNHFibkNhMVVMbWh0M0c2YXc4aGlEdFJtUmsxSnR1QTc5cTJyb0k3OGEzVnVr?oc=5\",\"headline\":\"“The next face of the franchise” - Draymond Green makes a stunning prediction about Yaxel Lendeborg\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T01:45:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1156884,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxNRF8yNU4ta05wd1QtWUpJM0lMWW5vOV83UmVBUWl3V0l0anM5N1djbnZIaTJkWHA2Sk82UUVqMDJLd1JYNXpaV1JzZGpRd0x6TktvOWFXem5SU0c5MWpqVks0VGFJLU52aVg1cF9SMWFOZDh3TzZHbm50Q2lPd2NfeVAxcC1iMVpNOHJ1NklkWQ?oc=5\",\"headline\":\"Warriors Draymond Green anoints Yaxel Lendeborg “the next face of the franchise”\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T01:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1128025,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxPd0JoaU5lVjJtLVhsNU9fQVdYUjh3RkphUWtTSVdYWmhtaXViRjJQVTE2SkI3a2RwelRna1YwTThlWXlHTVJUVC1obFRzU09TZEUxQTRUYlBuZ3psWktSTUh6eldWVUdKYXMwRUdfdWhoQ3E1N0dsMTVpeEFzSTUxQlZocw?oc=5\",\"headline\":\"“Passing of the Torch Right in Front of Our Eyes”: Dub Nation Celebrates Draymond Green Anointing Yaxel Lendeborg as Steph Curry’s Successor\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T00:52:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1128095,\"url\":\"https://news.google.com/rss/articles/CBMinwFBVV95cUxPeVFROU5GSTBKN1dEbm5yYzJoZEQxY1BqUUpROTB3eVB1MUdEN2lqSk5pM0RKd2xiTURhNExsei1nckl5MTYxX2NVeWw4RmpISUtMRU5PY3ExMjNmU1g2ZE8tQ2owdU9ldkxvaXA2bzJrUW1CQjl5d1NkeXVvNGRFOFBXY0l0dlpudXNGQjhIT0V0Vzl2dThKSlZvRWwzaUk?oc=5\",\"headline\":\"Draymond Green Gives Negative Update On Warriors Future\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-21T00:15:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1118631,\"url\":\"https://news.google.com/rss/articles/CBMi8wFBVV95cUxOQlU3WVVCbTgyWHhVVjdsRU9FZ3RJSmlTTmt6TzhpNHJGQTFhS2pmek1xeVhwcEZYS3BESDlmcm81bUw2dkd3X3M0OXI0M1NWQXE0SzZZbWtlLTJLMTh4amRJZEc1M3d6NVIzX2kwTlg0eGhKNXg1bVNLYmJTMFRickhxaHJTbmxWRnlSZXJhR0NSQjdyZ2FxekJqT2VpVjAzUXlNd3ZVdEJRV3NtOUIwcktfdVc0RzFJRW5MTFV6MnRTR2MwWk1sM29HTHptTFhXLV84aXZ3YnRwREhmTlBFby04VGI2eDl6aWxOZTV0RjNLalk?oc=5\",\"headline\":\"\\\"Podz will be mad\\\", \\\"Punch Incoming\\\" - NBA Fans Lose It Over Draymond Green’s Bombshell On Warriors' Next Face After Steph Curry\",\"publisher\":\"Sportskeeda\",\"published_at\":\"2026-10-20T23:34:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1099620,\"url\":\"https://news.google.com/rss/articles/CBMinwFBVV95cUxQZWdxQVRPYjN2RUFmdDVaMEVwN3VhWGJQZ1pxajRBT2Z2aC1CTWRCZnZ3elZxV2Y5Z21MYmJ6ZXVXSk9jUEFQRnB4ZkJua3Fnc1V3cnZLcnRGWTVYX0l4dkJ4d3ZjUUpsTWpsdG5JbGMxcVl6VHRkRXk3NTJ2bmV2MVhCanpNUkRpZDRjeTNmVjk1M1gzMjlyM2hwOUI2MXPSAaQBQVVfeXFMUDRNc01UOU1GTXNpc2F6SS12em9HNTFuQmE0UUZ2RVlKYkRDLWNuazE5c0l5Rkdxek1NU015cFhhcjJfMTJlZXhZNkdFRGFqQVc2dTMtOFBhUHl2ZVJ6Y2x1bkxzMHVVa1Z4ZnpaaThQQ3hIRDFqQVBXdk1pR3h0bTE1dlY5Z2ppdGVLRGdvY2pwNzlSeTdMUDZKRDFZVm1lcTBvNTM?oc=5\",\"headline\":\"Draymond Green hints 2026-27 NBA season could be his last with Warriors\",\"publisher\":\"Bolavip US\",\"published_at\":\"2026-10-20T21:13:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1090196,\"url\":\"https://news.google.com/rss/articles/CBMijAJBVV95cUxNMXBvMkxLY3dFZmNTNWk1OGJBcHhlVV9tR29ZeUxESUJmNVozSHFncHNCQk1xWWJBUWw0MC1MM3NKeWxvTDhPUE9vdGxiT29xTjQyYlJNZkhvbUpjRXl4UWVpcFVYUDV5Qm04MTd3OUd5bUd2VTdNa0dXeGhJQU1YSW9vTVVyblN3LTUyR3BMOExqUjhpZHJEZU5BZndmMVVBQlA4WjRqU1BoUV8zZmZKWUJucXpXekVOSkFUaEU0alhSY2NRMmdFc0ZBYlNfSHZmeWZuekxBZ3UzRTEzWXpXWUdzZFNjd0VWTk1QVXBaaVFyS3prYUNnMXhYTVJ0ZllDWDdOMWZzeGFQR291?oc=5\",\"headline\":\"“Found the Next Face of the Franchise”: Draymond Green Reveals Who Will Take the Torch From Stephen Curry in Golden State\",\"publisher\":\"EssentiallySports\",\"published_at\":\"2026-10-20T20:55:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1080657,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxNYXNVVjRPNWhFbFlYTFR2Vzh1OWpJUVU2QjdmN21RY1lQLTVRU1FmWWl0SmVvOWludlVTX3phNG9FVEVlU2hQOGxrd0czNHVJcWtjQ0VONVhHd0VNdWgtQUxCM0pERTdYak1FRWlqbWNQQUlrQk9hTkJWd0plUjNrVGx5emFHN1UxdHdWb2pkZW8teGdUbm5yY2ZiQU5GOHNJdEZSWkplRkZETzVzVGFV?oc=5\",\"headline\":\"Season-defining questions for Steph Curry, Draymond Green and Warriors’ key figures\",\"publisher\":\"San Francisco Chronicle\",\"published_at\":\"2026-10-20T19:55:36Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1110587,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTFA2QnRIZkQ3dUhjbmpuWFA5bTFLZ0dYczQzOThycW0zaEFSLXVXdVQ3cjBYSjZpTUpGVmY4SGIyRFF2Q05oLXRFV1lXZHpUWXdWSU0wUk1xaTJkT2EySWVuNVBuOTJHZXlENnJUR1I1YzRKRGFReFdjNGxPdTVZTTA?oc=5\",\"headline\":\"NBA Notes: Warriors, Draymond Green, Kings, Ben Simmons, Magic\",\"publisher\":\"Hoops Wire\",\"published_at\":\"2026-10-20T19:32:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1056904,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxOT2lhTzl6aUVQR0RtS3hmcjFwME1rb1UxZlE2OTNGUU1KcWpnNnJIT3M2VUhJQkphMnlkSVB4cjdlTlctRTdXX3dCX0xpNnIxQTVTYWhONDl6NjZEMU1Ba0xmVGEyUTlZTTBDdjVaRzJ6WEZfTEs2OW1OXzBYVUlPcno2a01JRm1tcVVycW5UajNWczVfTmxYTlJsOGV5aXJxMnFEMklSNlUyZDUzbHBQcEp3a1pQLU9Qa2UtMXpiaU80bzFjc01OVjJ2eGtGZw?oc=5\",\"headline\":\"Warriors news: Draymond Green can’t stop gushing about ‘next face of franchise’ Yaxel Lendeborg\",\"publisher\":\"ClutchPoints\",\"published_at\":\"2026-10-20T18:40:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1099588,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPWTByb3lqZHJMNGJROTF4Y05raHpzTUpNRUVSQWY2akg1UmxacjREU0RnWkFGclNDOEtnQkNWTHZObUNqSXNJUzdsS3BRS3JxNUNNVVcwT09lODgtaTBzWVFsWXZTaFpvRVdKR2JCQnQyLURhaERjRGVHd3VNSGpBWnlTUS02LW8?oc=5\",\"headline\":\"Did Draymond Green just use Stephen Curry to hint this could be final season with Warriors?\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T18:21:35Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1066421,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxQcld0cXdHVVkxUlVfWkp6bnlfSWpZVEVlWUdDQjNEcDdzN1ZGeHNxTWp4TDllRm8yNVItQ2RiTDhRNndUTkdUdUczVi1RYkFMMzJBX1BzeUdSTkhCVW1XaXgxMkEya3djZDMyM3N4eV9rNTlaM3RJZnJJRDg2VlNDeGJ4bzNyUVdneU9SYldxWlNNNWlKb2M4czl6ZS14TE0xNWhzV1h5MXdzQQ?oc=5\",\"headline\":\"Warriors’ Draymond Green Declares Team Has Found Its Next Franchise Star\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-20T17:47:45Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1118637,\"url\":\"https://news.google.com/rss/articles/CBMilwFBVV95cUxPZzhJUTVHaEFDVzZ3WnVIU09iSEFrYkJCOHdNeTJXVjEwSGQ4czM4Tnc5dnN0c1M1SFZubE5TZmJkZ2VxLUJacEhpNVpQQ05aZF91QzJQY3BLaVdZbG5BdWRpVzRHN18teUxlZENNYzJzOW5EY2R5M0ttd1EyVmI2TG5jMTBIYUY2dzE2MEpfVTFtbFloY3VN?oc=5\",\"headline\":\"Draymond Green names next face of Warriors franchise\",\"publisher\":\"BasketNews.com\",\"published_at\":\"2026-10-20T17:17:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1046739,\"url\":\"https://news.google.com/rss/articles/CBMiU0FVX3lxTE84eVpNWUhOZEE1OHBwSzQ1NEZ1NlNieVlWSTR1dzdyLV84QkpCa3FENzY0YXpZVTRwNklSSDE1VjNXeGVHUFBxcnRjV2F3UDZoR1Y4?oc=5\",\"headline\":\"\\\"Not Going To Retire\\\": Draymond Green Open To Leaving Warriors To Continue NBA Career\",\"publisher\":\"شبكة تواصل الإخبارية\",\"published_at\":\"2026-10-20T16:17:51Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1099622,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxNNGVvRV82ZjJXRjZhWEszOUY1XzFsSnZMTlA4dExTeVF1bXp3ZjlIR3R5WURqQXRfbXFISEtORFM4N3p2ZTh1T3BGeENfdnVKZE9md000RDAzakt5SHVBcl9WQ0pRemZGMVF5SWYzN3p2UGY5bGN0NWR2MXdVWUlJWXFOaW5zbms1VFVZ?oc=5\",\"headline\":\"Draymond Green claims rookie Yaxel Lendeborg is next face of Warriors franchise\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T14:39:33Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":1008310,\"url\":\"https://news.google.com/rss/articles/CBMiqwFBVV95cUxOQ2J1eURPeHkzb3I0cEVZNnh6VEptMDF4RThnQ2c4VU9taktjMGlhYkgzclo0Um96OUROMFZ1RVQ1ZjlzNjhGMVE4X2Z6LTJKLXdxWFE1WkFkdU9mem5SeGU5RHBySTNYUkZqYW84eWR2dlBRczcxZGJDN0J1QUxDLWtVdjZSVUJ2aDNvc285LXVsb05MdTlKSmVVenFqQUN3bG1WRTFiQmEwdzTSAasBQVVfeXFMTkNidXlET3h5M29yNHBFWTZ4elRKbTAxeEU4Z0NnOFVPbWpLYzBpYWJIM3JaNFJvejlETjBWdUVUNWY5czY4RjFROF9mei0ySi13cVhRNVpBZHVPZnpuUnhlOURwckkzWFJGamFvOHlkdnZQUXM3MWRiQzdCdUFMQy1rVXY2UlVCdmgzb3NvOS11bG9OTHU5SkplVXpxakFDd2xtVkUxYkJhMHc0?oc=5\",\"headline\":\"Draymond Green says he's 'not Steph Curry,' wants to play another year even if he leaves Golden State Warriors\",\"publisher\":\"CNBC\",\"published_at\":\"2026-10-20T12:00:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":989734,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxOWUNUWEhCRjdmMWxST1E1TVRrdnVSNm5vOHphQm5iYVVwdm9QaG5DNXhrRGk2TXdrZkVGLTBqdFdYZDNrSUxNQkk5alhhazVDc1FDSEtCeWRxQXI5bWR5azEtelI5UWlBZWlES1F1ZmtCcXRPTnBWT21mdnlLMVI1M2NCZVlOYmsyYXc?oc=5\",\"headline\":\"Warriors’ Draymond Green Gets Real On 76ers Before Opener vs Knicks\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T03:20:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":986489,\"url\":\"https://news.google.com/rss/articles/CBMixAFBVV95cUxOU0tkMHFKdENHLW9hZXhNeWV1SE5IVWd1eHJ1aGRVV1gzUFNTeVhPcTRyajBjMzBpcG5meEdJUWZ1amxOVUZtWkdqeVBhR2FYNDBmMHVQd2Yxb3I2SDVLY2pnc0Mwdnhaajl1ajBHZ3d1ZmJjdlhTMzJhSC1tVDluNzNuYS1tcnlzQUlPMml1aXpvc1hkbXRQU0tYc3FCd2xPdDBZUHF1UHVvem9BQ1YxbHRheW5kNmZmZDV3cFJVTTVuakRX?oc=5\",\"headline\":\"“It's going to be painful” - Olden Polynice explains why Draymond Green can't be the Warriors' full-time center\",\"publisher\":\"Basketball Network\",\"published_at\":\"2026-10-20T00:55:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":990875,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxQcDV5dGdVRHJSdzJqOGFBS29fUTlZdFp6amRyRkxlZ1ZfUlpra19RV3FMY04xMXc3TGpWX3ZobEFrYkZhRVVrTU9DVFBHMFROZy1oeG9pRmtnNU41ZjgwQzBNdmV2SHMyd1VLV3NWbEttSnh6YkFoMXZIc2NuWnJ1cFNvajRUQQ?oc=5\",\"headline\":\"‘Who’s Your Number 1?’ – Draymond Green Raises Questions Over 76ers’ Title Chances After LeBron James, Jaylen Brown Moves\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-19T20:10:12Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":986527,\"url\":\"https://news.google.com/rss/articles/CBMiuAFBVV95cUxNU0M4aFYzWHBoRkthazk1MnRKbTJSSXc1ZzE4ejIwN0lGM0VnSjFSVGVJYkh5UmRwTC1YdUJnUHZPQzBHZkQyd3NZMmg1VUVabmpQR3Y3Zl84VUYzSzhsSFQ5MmQwdWpUSW9fc0JEMThiTklDZEl2YkYzWWcyQmtobnc0MHNvaDhzSjBDOHEyY3ZNUmFTS2w5TG01bFN3NWlBZTRMWmtfNzdqRGNuQVd3U2NvWmRZdWR6?oc=5\",\"headline\":\"Byron Scott and Olden Polynice disagree on Draymond Green playing at center for the Warriors\",\"publisher\":\"NBA Analysis Network\",\"published_at\":\"2026-10-19T18:03:58Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\nrole: player [2026-09-05; source 65552]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 86.2569764468678,
+            "emotion": 1.7661100456350762,
+            "movement": 34.04286529105048,
+            "subject": 95.39393705240664
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxQM040Qjh3QWNUUmdWWUpaM05sWE81aEx5WldOeHQtRmwwVm9odC1NWWR5ZzlpMDltWlhRVmVDLWdyVGJCRm1oV1lhbUFLRmt6SWRwTTRyckRiTDc0MVFyaVdHMzNtODhNRmJSOEg5WXJmVm1RR3I3aV9IZkxVTzRWdGdkRm9sTEVFQ2I3WHpxaW1wRE9nUEcwcUllNjRGcFnSAacBQVVfeXFMT0Q2SW1zQmtRd0t6bGZqVU9jQnRYM0F4VG9BakowVjdxZ2JmNTlsVktsYW5ieEhsMDF6Ymd3UHlUc3N5NUJzaVBzemlCNUx4aW12dEU1Ykl4aVFyMTl0aW1sMmNKREZDS0JwWVByNlJ4UEFQSEhoUFVSTnNtTG5SWFNHM2ljUlNMb3pfNUxhaVZmeU5mM253WGFqbjM2aDRueE9rdGZ3SWs?oc=5"
+        },
+        "context": "Draymond Green wants to retire a Warrior, but plans to play in 2027-28 season",
+        "id": 1418551,
+        "published_at_epoch": 1792713239,
+        "source": "NBC Sports Bay Area & California",
+        "title": "Draymond Green wants to retire a Warrior, but plans to play in 2027-28 season"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.954079874484595,
+            "emotion": 2.166799460609978,
+            "movement": 3.3117600585643907,
+            "subject": 94.360958616761
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxQVnFOT1hqWFczMFNwZ293dlE0OHl1TzFoWUNfSjFSb3BSME5vazZyeTQ4bFpram1FdHpSNDV0c3U5RWpXWVdOU3NxYzVyaVpDSUJWWm5VODRwdEVKQVlIQWlqS2tjNlNUNmdDNFFIMnpwYXNTTldVSmVHVEc5T1l2WmxSTy1RYWlMYVhtbVdmZkUzQU5zSVpvN3NwOEtwb0tjYzZFX0VfaGNweknSAbMBQVVfeXFMT1hsV0Eyb0t4Q2d0aTFMUmI3NHpYbFdVQl9ON0hVeU5Hd190aWZRZUtFUHktdktNMHJxSjY3RUV6NlNYZVdWbmx4Vm9ZNTg5YnU2NmxIV2N4cENYc2l3b3EwN29JN0xSUi1qUTV3YlF3aUtEc0JRdFhzS0NDeVpZWG4wa0MwWHJYUkxhcGxoSkVHYl8xV1ZCdTNlQ3VTaHhzajNmU25sNGQydEUyTWdvc1FOZDg?oc=5"
+        },
+        "context": "Draymond Green names the one thing he would change about the NBA as commissioner",
+        "id": 1418532,
+        "published_at_epoch": 1792712316,
+        "source": "NBC Sports Bay Area & California",
+        "title": "Draymond Green names the one thing he would change about the NBA as commissioner"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.724617075026481,
+            "emotion": 5.531882503607706,
+            "movement": 3.954484589968494,
+            "subject": 93.74129702076524
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxQU3NxUENnMElRUmVzaTd3YTAxbURieWU3SVJoNE83Mm1XN2t4TWh0TTM0R3JrV2tYLUxWMlNtRDdRaC1remdEMk12VnRsaU5zTUVfYl9TdGhVTjhXMGlvRW13TGZmTmxEUm5CX01VVE11NzU0emxHdkxWZm5VWG5tT1g5MFp1RzdwbTg5S3RUY2tuRjFm?oc=5"
+        },
+        "context": "Warriors’ Draymond Green Defends Lendeborg’s Trash Talk With Doncic",
+        "id": 1398241,
+        "published_at_epoch": 1792704624,
+        "source": "Yahoo Sports",
+        "title": "Warriors’ Draymond Green Defends Lendeborg’s Trash Talk With Doncic"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.439630007508626,
+            "emotion": 4.032022724726074,
+            "movement": 4.503135933716306,
+            "subject": 93.70518950533354
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxPZnhXYWpOQklVUER0YzNLVlBfXy1LaTY1b0hULWhiaWRYallfVS1lWXZKQy1fWmVhMFRlZS1CV3hZWUMzNDgteklkZ0tvRGlVTVVwd1d1dWJwUnNTeDU4Mm1SOUJNMjlIUGRidUdSRldoRlpBUUlVX2JqNXkwa05wc25CZk1nU1JQTXUtZm83YXBmWTltdE5ISFlvZnhFS3hRa0duOVRROVdhN2E5ajYtMUh1Mm5FRW95Qm5iRmktR190VlU?oc=5"
+        },
+        "context": "\"That's actually what Steph Curry would do\" - Draymond Green on realizing the Warriors found their next face of the franchise",
+        "id": 1378029,
+        "published_at_epoch": 1792700580,
+        "source": "Basketball Network",
+        "title": "\"That's actually what Steph Curry would do\" - Draymond Green on realizing the Warriors found their next face of the franchise"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.181843813949568,
+            "emotion": 53.562222391641235,
+            "movement": 9.468211600992571,
+            "subject": 94.17931686336726
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxPZ2xSZWdtU3RuZ2Z4WGlYQ1MwN01aYUsybmtMRHlDcE1FYmdFdThMSXpwRHVsT19FdnBxSENIUmU2VVpLM1ktVW5FNnJ5SzJ2ejhMamNVZUhtQ081TnpmVm9QVVFDdV9oVm4tdTRocmtZc3c0ZEdLSE5OYmRwcUZMQldjRU5tNHZQUEVjVFMyOW0?oc=5"
+        },
+        "context": "Draymond Green Reacts to Yaxel Lendeborg's Exchange With Luka Doncic",
+        "id": 1388055,
+        "published_at_epoch": 1792700548,
+        "source": "Yahoo Sports",
+        "title": "Draymond Green Reacts to Yaxel Lendeborg's Exchange With Luka Doncic"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.668299129789329,
+            "clickbait": 38.423320193005154,
+            "emotion": 3.3236229472742655,
+            "movement": 85.8566253317768,
+            "subject": 94.80741216988152
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxNUXdmc3hSY1NwZkhDcTF1bDRMZ2gxSDVQVmUyS1dUeW9meFRYZjEwSnNneWdXNFl1c2R6SE53YnU1dDFtV2FtZXYxcUdLczQyM285TEZmNzNjMUlWQllva2RtZV9zMEZmUWl4eG13RTB6RXpzeWZqOEhBbDk3dXV5TnZ1NWljZWFUUDJtWA?oc=5"
+        },
+        "context": "Steve Kerr Hints at Potential Warriors Exit With Steph Curry and Draymond Green",
+        "id": 1337909,
+        "published_at_epoch": 1792688787,
+        "source": "Yahoo Sports",
+        "title": "Steve Kerr Hints at Potential Warriors Exit With Steph Curry and Draymond Green"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.850564082677567,
+            "clickbait": 20.243549323912436,
+            "emotion": 1.8562646099268796,
+            "movement": 80.14369960668411,
+            "subject": 94.63550114850445
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPMnpfVU9feFhYbUEwU2Q1U1FBWVNhRUN1N082TlFjTjhRNW1rNm1XcC1ZMmxqR1JBUF9HYTYtNDVldFI1LTNQNTBKcW5QRlhKTzhKZGdlR3g2aTJWc1QxakQtLXRLc3FMMDl4MmIycE0xdGFpNF94Sm43clZHVVB6V2FQR2dURFJoSmE0?oc=5"
+        },
+        "context": "Stephen Curry, Draymond Green Ready to Move Past Kristaps Porzingis Amid Reports on Warriors Looking to Trade Him",
+        "id": 1328024,
+        "published_at_epoch": 1792669500,
+        "source": "Yahoo Sports",
+        "title": "Stephen Curry, Draymond Green Ready to Move Past Kristaps Porzingis Amid Reports on Warriors Looking to Trade Him"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.6080807627701317,
+            "clickbait": 3.7779246576429824,
+            "emotion": 2.167992552709043,
+            "movement": 13.314971537989248,
+            "subject": 94.9828487601442
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxNRlB5Ynl4bXV4QUtsdlZXTkRMT3NLeHR0UFdXRmxQUXQ2ci14VXJKenNkQW5BSFZfclp2ckVFb2drOF9ld3Q4NDdZWnNyY1RjZVpfU01hSjM5d0N2TlpBMkg2bWlzcUFodGd6NHRvUkQ4YUJQY0FuSkl4Rmx1RFdBY2hsaEpVUG5RY1o0YWN2VzVUVFVoenk5SGowZVJKaWt5Z3B1bjJIMjlCMmk4aFV1OA?oc=5"
+        },
+        "context": "CNBC Sport: Draymond Green on his Warriors future and the business of the NBA",
+        "id": 1260238,
+        "published_at_epoch": 1792663214,
+        "source": "CNBC",
+        "title": "CNBC Sport: Draymond Green on his Warriors future and the business of the NBA"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9319502218223368,
+            "clickbait": 5.300029372448854,
+            "emotion": 1.703372066941639,
+            "movement": 1.634488061731615,
+            "subject": 93.12961104592806
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxNaDhSTzM5Z0FpdFZXeXJndTlXcGg4aVZ0RS1ZUzIxenNyX1k0Smh5ZlhWeGNoLVNjcGVGNzlpTDVVU0hxR2tXX184RUpuUEp0ckNieWEtUExZQmRfZjJIMXMzQk1tYTdUNEUwaTQtX1M0NFFieFU0V2FUMG9Zelk1bmxCV2I5M3RfS2ZYcTJxVXNob0tockQ3NURwYUNackRvWnVydHBxZ294aDB1cVM3RDF3?oc=5"
+        },
+        "context": "Draymond Green with 8 assists against Lakers",
+        "id": 1260274,
+        "published_at_epoch": 1792645997,
+        "source": "NBC Sports",
+        "title": "Draymond Green with 8 assists against Lakers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.294095926686844,
+            "clickbait": 17.959209214504725,
+            "emotion": 3.0860091007171695,
+            "movement": 2.697120741573292,
+            "subject": 90.25200311406324
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQSkk2OHZhM3J1VGtrenFEUVNlSW9JQXk2eGdmQXc0NHUzdll3UVFzUC1IN2Ywb1dCdllGWXY4SlJUVjlmX3pRWE9qYkg1aVZDZzJZNlpfRmJHMXNHRjd5NUptT3lDMlIwYnBaVEZOTFpqQXR5eXBxS2NNbkxkSUlQd3E0MTdNQQ?oc=5"
+        },
+        "context": "Draymond Green Makes Bold Luka Doncic Prediction Ahead of Lakers-Warriors Opener",
+        "id": 1251137,
+        "published_at_epoch": 1792620003,
+        "source": "Yahoo Sports",
+        "title": "Draymond Green Makes Bold Luka Doncic Prediction Ahead of Lakers-Warriors Opener"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 11.83359353313453,
+            "clickbait": 15.141558915679814,
+            "emotion": 7.541252016497184,
+            "movement": 9.826642809874524,
+            "subject": 93.22249397134848
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxOVnJOWTZoY281ZXh6Wko1d2ZQYXFtX3B1SU9HbS13MlVOdXdhQzZWUDhUekt1ZF9XMFgzNGFkRGRTamR6aXRuTnZaNHpOZ2ljd2NJcVNXZnJLcC1xZHBKN094cFREU2xNYlMtQWFlSUpsd3MwUEtyOTlQaF9TVlVqWHdkbUk?oc=5"
+        },
+        "context": "\"I don't have every luxury that Steph Curry has\" - Draymond Green is well aware this season could be his last in Golden State",
+        "id": 1231303,
+        "published_at_epoch": 1792618310,
+        "source": "Yahoo Sports",
+        "title": "\"I don't have every luxury that Steph Curry has\" - Draymond Green is well aware this season could be his last in Golden State"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.552750463047526,
+            "clickbait": 7.67568944023467,
+            "emotion": 9.321443288613576,
+            "movement": 3.8089004667779465,
+            "subject": 93.33629864856772
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxONWJHOEdac2dKVVVlVzNOQW5nY2RsSi05STFyQ0pNbV9Xcno3TVIxRFc2ODdBVFQ4eVJQdFBWM1Bmc2EyZzZ4TWt2Mmg0TkFWNGFoNnNCMF9YeHJuS2Y2SWsxZFRNVTZiRHNpT0dwZWhDb29DeHIxNFdJV3ZJWnlRM1Y2dERkOFU?oc=5"
+        },
+        "context": "\"There's a reason he's still here\" - Stephen Curry opens up about the career of Draymond Green",
+        "id": 1192642,
+        "published_at_epoch": 1792615227,
+        "source": "Yahoo Sports",
+        "title": "\"There's a reason he's still here\" - Stephen Curry opens up about the career of Draymond Green"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.949183025123028,
+            "clickbait": 7.726353146067087,
+            "emotion": 1.6383595243042288,
+            "movement": 2.9371497170486336,
+            "subject": 92.59983386464584
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxOUFU1d0EwcUJhdm1rbEJPQmxiS3lOcHVIdmVWYVNTS0xibE04dTNiR2JpVUdMRWx5TnNidkF0VzhhTnpiYWdNZHA2VVBVQWVCS3F5aElLQjc1bDRabVdVakZqN0FsY0ZWNy1tQi04YWY1NzFtT2tVM1hUNmZsbVlJcUJSUncxbjhnb2ZWR25IZUZzYm9ob0VRSUdUM0tlaVlmZnFYZ3dTYXh3MkQ2OUdQVHlrb1JEWXc?oc=5"
+        },
+        "context": "Year 15 for the NBA's Longest‑Tenured Active Duo: Stephen Curry and Draymond Green",
+        "id": 1192618,
+        "published_at_epoch": 1792614774,
+        "source": "NBA.com",
+        "title": "Year 15 for the NBA's Longest‑Tenured Active Duo: Stephen Curry and Draymond Green"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.059924054067075,
+            "clickbait": 11.885091583192166,
+            "emotion": 2.194870410506372,
+            "movement": 7.0808797368772725,
+            "subject": 92.48856343680592
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxPTXZLeXZLMzd3TnBjYUx4MFNJanliZkVrRVlpdTJ0T1JWajFwZGx4NFdaRmZMZkdCdXRWNWtxM2hWQXdnMGhKcGpxQkMwZWxhX0licFlqS1Nkd1htbDRLVkgxdDlJRDRuMTU2bjJuRUdQeXFTLTkwc0p1MVdra21oVU9tNFBHUHN6RXBuV2pn?oc=5"
+        },
+        "context": "Warriors’ Steve Kerr makes prediction on his retirement alongside Stephen Curry, Draymond Green",
+        "id": 1192661,
+        "published_at_epoch": 1792614719,
+        "source": "Yahoo Sports",
+        "title": "Warriors’ Steve Kerr makes prediction on his retirement alongside Stephen Curry, Draymond Green"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.209605508737401,
+            "clickbait": 20.677295379578293,
+            "emotion": 5.799952525108701,
+            "movement": 2.1487754010585887,
+            "subject": 91.81252266469464
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxObjFfdHN4V3FEbENHeEdPSkdxLXI3enNZVGRHRm5mVTBwM04yc0xLdUc4Qk9NM0IyTTlVdnVMeUhUeDJJNDhnQnI1WFJUUDVQblBPV3EzblZDdmpPQjdzZjNhOW9qS3FSdnRKQ1prZ0RMOXdOMWNoZFlIQk52ZGxUUnNxQ1Bldw?oc=5"
+        },
+        "context": "Draymond Green Makes Grim Luka Doncic MVP Prediction While Comparing Lakers Star to LeBron James",
+        "id": 1231721,
+        "published_at_epoch": 1792613647,
+        "source": "Yahoo Sports",
+        "title": "Draymond Green Makes Grim Luka Doncic MVP Prediction While Comparing Lakers Star to LeBron James"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.5622865513967925,
+            "clickbait": 34.56236073481294,
+            "emotion": 5.801557553608498,
+            "movement": 2.6478874567283333,
+            "subject": 91.88581789512722
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiugFBVV95cUxNUEd5N0NJTk53Ty13ZnVtYkN0WDgxeWY2YTExYTRuRm55Z0hybGRnTEF6LUpsdFRfS3NmZ3dHZVEtLXlHNG9XUDNrVGVhaGVwMXppdlhFQlNmSE0yLUF1ZVRXRWVBRklMQ3VZcnh0WmVuX0lMNXZudGo4RkpZWHh1M0Y3QU5wMlBSUldaWUNDb3M1YTZpNXYtaGJORUNnMy1uUUhVTnpkSDB4QjZLMGZsRDRZalByUm1LVHc?oc=5"
+        },
+        "context": "Draymond Green explains why Luka Doncic will never win the NBA MVP award: \"People get fatigued of it\"",
+        "id": 1182951,
+        "published_at_epoch": 1792603923,
+        "source": "Basketball Network",
+        "title": "Draymond Green explains why Luka Doncic will never win the NBA MVP award: \"People get fatigued of it\""
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.651528258118649,
+            "clickbait": 5.172118747945064,
+            "emotion": 2.505582307557434,
+            "movement": 76.89084526464501,
+            "subject": 94.68531407273764
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxPdXk1MF9aZjNyMFZwWE1aZ2U3R2g0dzlDV1liR1RGTnZ4Z3AyZF9Hak5zLTYtZHJZRl9tRDIzbFZ2Vmw0YVEzbF9QM0k1WWxBSDIwaUowLWRScEpZektEWnhCZE9fYjdXbkQ0MS1GNVJ1ZTlaelMyaWhyTi1pelpFMGhzc3YyVFZ6eDZTdXNHOURIWWlxbkkySWNRSkJ6U3o3QnFfY09pUF9ESkcyQUpmRTFibHU?oc=5"
+        },
+        "context": "Draymond Green cites Steph Curry when explaining why he could leave Warriors",
+        "id": 1182903,
+        "published_at_epoch": 1792597440,
+        "source": "New York Post",
+        "title": "Draymond Green cites Steph Curry when explaining why he could leave Warriors"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 41.03934733681752,
+            "clickbait": 6.690442895601291,
+            "emotion": 1.766851435601793,
+            "movement": 61.681366903664234,
+            "subject": 94.57042954154004
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxPMWZNR093X3lMRkZSd09TZUxqVGl6cFdhbzMyMVM1M3o5OXpXOGljbUpHUFlHN1NRc2FDRkt0NHZlUmJYdzUxQ2VaMDBkRFBBcVJkZ21RWUk0NnR5OXZQc1FVb1FKdWZmNTl5bUVPNVQ0TW82bmFBdmZBNGNiRWJSQ2VtNUJEYmR6SFp0cnVuNHlWcDE2SF94Qm9yTXQxbU4tNS14TlpHdlkxb3JoWjB1YQ?oc=5"
+        },
+        "context": "Draymond Green Plans To Play Next Season, Even If Not With Warriors",
+        "id": 1182985,
+        "published_at_epoch": 1792594200,
+        "source": "RealGM",
+        "title": "Draymond Green Plans To Play Next Season, Even If Not With Warriors"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.2843438158962854,
+            "clickbait": 8.475456321122762,
+            "emotion": 3.57040871994204,
+            "movement": 9.371557917199606,
+            "subject": 95.81950341444788
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxQYUhoMEw3VXJuZHNJNTFjQTNfQUdvanU5dDBFdF9hYzdsR2haZDJzZmhNZHUzemFZMHBsUFZqaThHNWJQamdEeDYwdnRPUFoyR1dqdWR0Z20yMlA5ck44U3A5cVM1WHpWLU5NQW5mblRESlNDRHFzOE9HeEZER1JTUy10WUktcXVNVXk3Q1BlTXZrY3BpWmd3?oc=5"
+        },
+        "context": "How ‘unc’ Draymond Green is guiding Yaxel Lendeborg into the Warriors’ future",
+        "id": 1176576,
+        "published_at_epoch": 1792584900,
+        "source": "The Mercury News",
+        "title": "How ‘unc’ Draymond Green is guiding Yaxel Lendeborg into the Warriors’ future"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.810280231456354,
+            "clickbait": 9.301069016075433,
+            "emotion": 1.6807097717803865,
+            "movement": 53.37325938907994,
+            "subject": 94.2688871308188
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPazd1TUZIaEpEZkdVS0ViZDdCTWNSZm1TLUIxbjM0QVZobEJwVmFpWnRxUXo4QW1JdzlPQmx4MlphcUhSZTFUcG44eTQ1Ri1DdndORVZEdHpRd3NkV2ZyY0VRV1lhTUFVdnJjSEdHZVUwT2hxM21OZENBZnFCVnl1V3N3ZkV3WjNyQUVhZQ?oc=5"
+        },
+        "context": "Warriors' Draymond Green names Yaxel Lendeborg Steph Curry's successor in Golden State",
+        "id": 1147224,
+        "published_at_epoch": 1792551180,
+        "source": "Yahoo Sports",
+        "title": "Warriors' Draymond Green names Yaxel Lendeborg Steph Curry's successor in Golden State"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.2571268140517327,
+            "clickbait": 32.09892270960512,
+            "emotion": 7.444819714711621,
+            "movement": 12.731359922287515,
+            "subject": 92.61692455129068
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPQXJLX19pR1NWX0FQOFdpc1Z0Y0Z3anBLeGRFME01M1RsRVpSZExiMzRJQWE1VW5aV1BoSFZ6SUdGY3N4clZMRG9nSkxRbzZWZVNqR0IwdTRvTU85UnhoNHFibkNhMVVMbWh0M0c2YXc4aGlEdFJtUmsxSnR1QTc5cTJyb0k3OGEzVnVr?oc=5"
+        },
+        "context": "“The next face of the franchise” - Draymond Green makes a stunning prediction about Yaxel Lendeborg",
+        "id": 1182984,
+        "published_at_epoch": 1792547100,
+        "source": "Yahoo Sports",
+        "title": "“The next face of the franchise” - Draymond Green makes a stunning prediction about Yaxel Lendeborg"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.3721165600571807,
+            "clickbait": 8.943875689104212,
+            "emotion": 5.8857012218819555,
+            "movement": 28.709628287523927,
+            "subject": 95.36177447097036
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNRF8yNU4ta05wd1QtWUpJM0lMWW5vOV83UmVBUWl3V0l0anM5N1djbnZIaTJkWHA2Sk82UUVqMDJLd1JYNXpaV1JzZGpRd0x6TktvOWFXem5SU0c5MWpqVks0VGFJLU52aVg1cF9SMWFOZDh3TzZHbm50Q2lPd2NfeVAxcC1iMVpNOHJ1NklkWQ?oc=5"
+        },
+        "context": "Warriors Draymond Green anoints Yaxel Lendeborg “the next face of the franchise”",
+        "id": 1156884,
+        "published_at_epoch": 1792546200,
+        "source": "Yahoo Sports",
+        "title": "Warriors Draymond Green anoints Yaxel Lendeborg “the next face of the franchise”"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.9524243233556806,
+            "clickbait": 20.284568655824355,
+            "emotion": 25.91043987115534,
+            "movement": 42.56723754504543,
+            "subject": 94.73476629748173
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxPd0JoaU5lVjJtLVhsNU9fQVdYUjh3RkphUWtTSVdYWmhtaXViRjJQVTE2SkI3a2RwelRna1YwTThlWXlHTVJUVC1obFRzU09TZEUxQTRUYlBuZ3psWktSTUh6eldWVUdKYXMwRUdfdWhoQ3E1N0dsMTVpeEFzSTUxQlZocw?oc=5"
+        },
+        "context": "“Passing of the Torch Right in Front of Our Eyes”: Dub Nation Celebrates Draymond Green Anointing Yaxel Lendeborg as Steph Curry’s Successor",
+        "id": 1128025,
+        "published_at_epoch": 1792543920,
+        "source": "Yahoo Sports",
+        "title": "“Passing of the Torch Right in Front of Our Eyes”: Dub Nation Celebrates Draymond Green Anointing Yaxel Lendeborg as Steph Curry’s Successor"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 39.98244561773864,
+            "clickbait": 14.299475804874486,
+            "emotion": 41.91119877192727,
+            "movement": 39.31665647123993,
+            "subject": 94.8785538499427
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxPeVFROU5GSTBKN1dEbm5yYzJoZEQxY1BqUUpROTB3eVB1MUdEN2lqSk5pM0RKd2xiTURhNExsei1nckl5MTYxX2NVeWw4RmpISUtMRU5PY3ExMjNmU1g2ZE8tQ2owdU9ldkxvaXA2bzJrUW1CQjl5d1NkeXVvNGRFOFBXY0l0dlpudXNGQjhIT0V0Vzl2dThKSlZvRWwzaUk?oc=5"
+        },
+        "context": "Draymond Green Gives Negative Update On Warriors Future",
+        "id": 1128095,
+        "published_at_epoch": 1792541700,
+        "source": "Heavy.com",
+        "title": "Draymond Green Gives Negative Update On Warriors Future"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.440824711607138,
+            "clickbait": 44.36893980684666,
+            "emotion": 92.53325489652208,
+            "movement": 6.719256308541276,
+            "subject": 93.41205643475362
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi8wFBVV95cUxOQlU3WVVCbTgyWHhVVjdsRU9FZ3RJSmlTTmt6TzhpNHJGQTFhS2pmek1xeVhwcEZYS3BESDlmcm81bUw2dkd3X3M0OXI0M1NWQXE0SzZZbWtlLTJLMTh4amRJZEc1M3d6NVIzX2kwTlg0eGhKNXg1bVNLYmJTMFRickhxaHJTbmxWRnlSZXJhR0NSQjdyZ2FxekJqT2VpVjAzUXlNd3ZVdEJRV3NtOUIwcktfdVc0RzFJRW5MTFV6MnRTR2MwWk1sM29HTHptTFhXLV84aXZ3YnRwREhmTlBFby04VGI2eDl6aWxOZTV0RjNLalk?oc=5"
+        },
+        "context": "\"Podz will be mad\", \"Punch Incoming\" - NBA Fans Lose It Over Draymond Green’s Bombshell On Warriors' Next Face After Steph Curry",
+        "id": 1118631,
+        "published_at_epoch": 1792539240,
+        "source": "Sportskeeda",
+        "title": "\"Podz will be mad\", \"Punch Incoming\" - NBA Fans Lose It Over Draymond Green’s Bombshell On Warriors' Next Face After Steph Curry"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.403568787067764,
+            "clickbait": 24.142965190657993,
+            "emotion": 3.7064659957513326,
+            "movement": 78.13231280666415,
+            "subject": 94.6095982171684
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxQZWdxQVRPYjN2RUFmdDVaMEVwN3VhWGJQZ1pxajRBT2Z2aC1CTWRCZnZ3elZxV2Y5Z21MYmJ6ZXVXSk9jUEFQRnB4ZkJua3Fnc1V3cnZLcnRGWTVYX0l4dkJ4d3ZjUUpsTWpsdG5JbGMxcVl6VHRkRXk3NTJ2bmV2MVhCanpNUkRpZDRjeTNmVjk1M1gzMjlyM2hwOUI2MXPSAaQBQVVfeXFMUDRNc01UOU1GTXNpc2F6SS12em9HNTFuQmE0UUZ2RVlKYkRDLWNuazE5c0l5Rkdxek1NU015cFhhcjJfMTJlZXhZNkdFRGFqQVc2dTMtOFBhUHl2ZVJ6Y2x1bkxzMHVVa1Z4ZnpaaThQQ3hIRDFqQVBXdk1pR3h0bTE1dlY5Z2ppdGVLRGdvY2pwNzlSeTdMUDZKRDFZVm1lcTBvNTM?oc=5"
+        },
+        "context": "Draymond Green hints 2026-27 NBA season could be his last with Warriors",
+        "id": 1099620,
+        "published_at_epoch": 1792530780,
+        "source": "Bolavip US",
+        "title": "Draymond Green hints 2026-27 NBA season could be his last with Warriors"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.241143878368321,
+            "clickbait": 16.80532833051947,
+            "emotion": 3.4558841885924223,
+            "movement": 57.74553417807877,
+            "subject": 93.53575837741012
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAJBVV95cUxNMXBvMkxLY3dFZmNTNWk1OGJBcHhlVV9tR29ZeUxESUJmNVozSHFncHNCQk1xWWJBUWw0MC1MM3NKeWxvTDhPUE9vdGxiT29xTjQyYlJNZkhvbUpjRXl4UWVpcFVYUDV5Qm04MTd3OUd5bUd2VTdNa0dXeGhJQU1YSW9vTVVyblN3LTUyR3BMOExqUjhpZHJEZU5BZndmMVVBQlA4WjRqU1BoUV8zZmZKWUJucXpXekVOSkFUaEU0alhSY2NRMmdFc0ZBYlNfSHZmeWZuekxBZ3UzRTEzWXpXWUdzZFNjd0VWTk1QVXBaaVFyS3prYUNnMXhYTVJ0ZllDWDdOMWZzeGFQR291?oc=5"
+        },
+        "context": "“Found the Next Face of the Franchise”: Draymond Green Reveals Who Will Take the Torch From Stephen Curry in Golden State",
+        "id": 1090196,
+        "published_at_epoch": 1792529700,
+        "source": "EssentiallySports",
+        "title": "“Found the Next Face of the Franchise”: Draymond Green Reveals Who Will Take the Torch From Stephen Curry in Golden State"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.448478049112089,
+            "clickbait": 6.43663008834243,
+            "emotion": 2.930409137207068,
+            "movement": 3.088006283561585,
+            "subject": 95.56403426389438
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxNYXNVVjRPNWhFbFlYTFR2Vzh1OWpJUVU2QjdmN21RY1lQLTVRU1FmWWl0SmVvOWludlVTX3phNG9FVEVlU2hQOGxrd0czNHVJcWtjQ0VONVhHd0VNdWgtQUxCM0pERTdYak1FRWlqbWNQQUlrQk9hTkJWd0plUjNrVGx5emFHN1UxdHdWb2pkZW8teGdUbm5yY2ZiQU5GOHNJdEZSWkplRkZETzVzVGFV?oc=5"
+        },
+        "context": "Season-defining questions for Steph Curry, Draymond Green and Warriors’ key figures",
+        "id": 1080657,
+        "published_at_epoch": 1792526136,
+        "source": "San Francisco Chronicle",
+        "title": "Season-defining questions for Steph Curry, Draymond Green and Warriors’ key figures"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.088862954319853,
+            "clickbait": 5.348283498448468,
+            "emotion": 1.764254601351688,
+            "movement": 7.319085247318445,
+            "subject": 93.12206519073962
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTFA2QnRIZkQ3dUhjbmpuWFA5bTFLZ0dYczQzOThycW0zaEFSLXVXdVQ3cjBYSjZpTUpGVmY4SGIyRFF2Q05oLXRFV1lXZHpUWXdWSU0wUk1xaTJkT2EySWVuNVBuOTJHZXlENnJUR1I1YzRKRGFReFdjNGxPdTVZTTA?oc=5"
+        },
+        "context": "NBA Notes: Warriors, Draymond Green, Kings, Ben Simmons, Magic",
+        "id": 1110587,
+        "published_at_epoch": 1792524762,
+        "source": "Hoops Wire",
+        "title": "NBA Notes: Warriors, Draymond Green, Kings, Ben Simmons, Magic"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.5357448898538277,
+            "clickbait": 16.824030127803464,
+            "emotion": 52.587674691831886,
+            "movement": 20.559697074869895,
+            "subject": 95.0992031034668
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxOT2lhTzl6aUVQR0RtS3hmcjFwME1rb1UxZlE2OTNGUU1KcWpnNnJIT3M2VUhJQkphMnlkSVB4cjdlTlctRTdXX3dCX0xpNnIxQTVTYWhONDl6NjZEMU1Ba0xmVGEyUTlZTTBDdjVaRzJ6WEZfTEs2OW1OXzBYVUlPcno2a01JRm1tcVVycW5UajNWczVfTmxYTlJsOGV5aXJxMnFEMklSNlUyZDUzbHBQcEp3a1pQLU9Qa2UtMXpiaU80bzFjc01OVjJ2eGtGZw?oc=5"
+        },
+        "context": "Warriors news: Draymond Green can’t stop gushing about ‘next face of franchise’ Yaxel Lendeborg",
+        "id": 1056904,
+        "published_at_epoch": 1792521600,
+        "source": "ClutchPoints",
+        "title": "Warriors news: Draymond Green can’t stop gushing about ‘next face of franchise’ Yaxel Lendeborg"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.208447295343765,
+            "clickbait": 38.69086704705827,
+            "emotion": 3.732894353512524,
+            "movement": 34.75669533574253,
+            "subject": 96.12623479417113
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPWTByb3lqZHJMNGJROTF4Y05raHpzTUpNRUVSQWY2akg1UmxacjREU0RnWkFGclNDOEtnQkNWTHZObUNqSXNJUzdsS3BRS3JxNUNNVVcwT09lODgtaTBzWVFsWXZTaFpvRVdKR2JCQnQyLURhaERjRGVHd3VNSGpBWnlTUS02LW8?oc=5"
+        },
+        "context": "Did Draymond Green just use Stephen Curry to hint this could be final season with Warriors?",
+        "id": 1099588,
+        "published_at_epoch": 1792520495,
+        "source": "Yahoo Sports",
+        "title": "Did Draymond Green just use Stephen Curry to hint this could be final season with Warriors?"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.00297825884444,
+            "clickbait": 21.83700439691342,
+            "emotion": 9.251148734585035,
+            "movement": 6.337811735004603,
+            "subject": 94.9301428633652
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQcld0cXdHVVkxUlVfWkp6bnlfSWpZVEVlWUdDQjNEcDdzN1ZGeHNxTWp4TDllRm8yNVItQ2RiTDhRNndUTkdUdUczVi1RYkFMMzJBX1BzeUdSTkhCVW1XaXgxMkEya3djZDMyM3N4eV9rNTlaM3RJZnJJRDg2VlNDeGJ4bzNyUVdneU9SYldxWlNNNWlKb2M4czl6ZS14TE0xNWhzV1h5MXdzQQ?oc=5"
+        },
+        "context": "Warriors’ Draymond Green Declares Team Has Found Its Next Franchise Star",
+        "id": 1066421,
+        "published_at_epoch": 1792518465,
+        "source": "Heavy.com",
+        "title": "Warriors’ Draymond Green Declares Team Has Found Its Next Franchise Star"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.293571513803053,
+            "clickbait": 6.39593820403392,
+            "emotion": 2.167058246382008,
+            "movement": 52.94083280564499,
+            "subject": 94.11438330035234
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxPZzhJUTVHaEFDVzZ3WnVIU09iSEFrYkJCOHdNeTJXVjEwSGQ4czM4Tnc5dnN0c1M1SFZubE5TZmJkZ2VxLUJacEhpNVpQQ05aZF91QzJQY3BLaVdZbG5BdWRpVzRHN18teUxlZENNYzJzOW5EY2R5M0ttd1EyVmI2TG5jMTBIYUY2dzE2MEpfVTFtbFloY3VN?oc=5"
+        },
+        "context": "Draymond Green names next face of Warriors franchise",
+        "id": 1118637,
+        "published_at_epoch": 1792516620,
+        "source": "BasketNews.com",
+        "title": "Draymond Green names next face of Warriors franchise"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.810395987636433,
+            "clickbait": 10.972868983513656,
+            "emotion": 4.235614549869967,
+            "movement": 59.83896623738172,
+            "subject": 95.01417758107516
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE84eVpNWUhOZEE1OHBwSzQ1NEZ1NlNieVlWSTR1dzdyLV84QkpCa3FENzY0YXpZVTRwNklSSDE1VjNXeGVHUFBxcnRjV2F3UDZoR1Y4?oc=5"
+        },
+        "context": "\"Not Going To Retire\": Draymond Green Open To Leaving Warriors To Continue NBA Career",
+        "id": 1046739,
+        "published_at_epoch": 1792513071,
+        "source": "شبكة تواصل الإخبارية",
+        "title": "\"Not Going To Retire\": Draymond Green Open To Leaving Warriors To Continue NBA Career"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.373150387748933,
+            "clickbait": 16.073710884797126,
+            "emotion": 3.1775481588867613,
+            "movement": 20.76223471606332,
+            "subject": 94.84136358886089
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxNNGVvRV82ZjJXRjZhWEszOUY1XzFsSnZMTlA4dExTeVF1bXp3ZjlIR3R5WURqQXRfbXFISEtORFM4N3p2ZTh1T3BGeENfdnVKZE9md000RDAzakt5SHVBcl9WQ0pRemZGMVF5SWYzN3p2UGY5bGN0NWR2MXdVWUlJWXFOaW5zbms1VFVZ?oc=5"
+        },
+        "context": "Draymond Green claims rookie Yaxel Lendeborg is next face of Warriors franchise",
+        "id": 1099622,
+        "published_at_epoch": 1792507173,
+        "source": "Yahoo Sports",
+        "title": "Draymond Green claims rookie Yaxel Lendeborg is next face of Warriors franchise"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.3958098780945467,
+            "clickbait": 8.289679735534834,
+            "emotion": 2.792259449247255,
+            "movement": 16.35156067393497,
+            "subject": 93.98791935374872
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxOQ2J1eURPeHkzb3I0cEVZNnh6VEptMDF4RThnQ2c4VU9taktjMGlhYkgzclo0Um96OUROMFZ1RVQ1ZjlzNjhGMVE4X2Z6LTJKLXdxWFE1WkFkdU9mem5SeGU5RHBySTNYUkZqYW84eWR2dlBRczcxZGJDN0J1QUxDLWtVdjZSVUJ2aDNvc285LXVsb05MdTlKSmVVenFqQUN3bG1WRTFiQmEwdzTSAasBQVVfeXFMTkNidXlET3h5M29yNHBFWTZ4elRKbTAxeEU4Z0NnOFVPbWpLYzBpYWJIM3JaNFJvejlETjBWdUVUNWY5czY4RjFROF9mei0ySi13cVhRNVpBZHVPZnpuUnhlOURwckkzWFJGamFvOHlkdnZQUXM3MWRiQzdCdUFMQy1rVXY2UlVCdmgzb3NvOS11bG9OTHU5SkplVXpxakFDd2xtVkUxYkJhMHc0?oc=5"
+        },
+        "context": "Draymond Green says he's 'not Steph Curry,' wants to play another year even if he leaves Golden State Warriors",
+        "id": 1008310,
+        "published_at_epoch": 1792497602,
+        "source": "CNBC",
+        "title": "Draymond Green says he's 'not Steph Curry,' wants to play another year even if he leaves Golden State Warriors"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 10.927915032583588,
+            "clickbait": 9.071943808122096,
+            "emotion": 8.607347969902337,
+            "movement": 1.9814736122267136,
+            "subject": 90.95239809928914
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxOWUNUWEhCRjdmMWxST1E1TVRrdnVSNm5vOHphQm5iYVVwdm9QaG5DNXhrRGk2TXdrZkVGLTBqdFdYZDNrSUxNQkk5alhhazVDc1FDSEtCeWRxQXI5bWR5azEtelI5UWlBZWlES1F1ZmtCcXRPTnBWT21mdnlLMVI1M2NCZVlOYmsyYXc?oc=5"
+        },
+        "context": "Warriors’ Draymond Green Gets Real On 76ers Before Opener vs Knicks",
+        "id": 989734,
+        "published_at_epoch": 1792466400,
+        "source": "Yahoo Sports",
+        "title": "Warriors’ Draymond Green Gets Real On 76ers Before Opener vs Knicks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 33.077427599855206,
+            "clickbait": 21.268775975076647,
+            "emotion": 77.56190818989653,
+            "movement": 8.225653647769517,
+            "subject": 93.86562921536732
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixAFBVV95cUxOU0tkMHFKdENHLW9hZXhNeWV1SE5IVWd1eHJ1aGRVV1gzUFNTeVhPcTRyajBjMzBpcG5meEdJUWZ1amxOVUZtWkdqeVBhR2FYNDBmMHVQd2Yxb3I2SDVLY2pnc0Mwdnhaajl1ajBHZ3d1ZmJjdlhTMzJhSC1tVDluNzNuYS1tcnlzQUlPMml1aXpvc1hkbXRQU0tYc3FCd2xPdDBZUHF1UHVvem9BQ1YxbHRheW5kNmZmZDV3cFJVTTVuakRX?oc=5"
+        },
+        "context": "“It's going to be painful” - Olden Polynice explains why Draymond Green can't be the Warriors' full-time center",
+        "id": 986489,
+        "published_at_epoch": 1792457700,
+        "source": "Basketball Network",
+        "title": "“It's going to be painful” - Olden Polynice explains why Draymond Green can't be the Warriors' full-time center"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.155378395925387,
+            "clickbait": 14.141220834024647,
+            "emotion": 4.101147789076835,
+            "movement": 52.1687719233533,
+            "subject": 91.7998678383993
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQcDV5dGdVRHJSdzJqOGFBS29fUTlZdFp6amRyRkxlZ1ZfUlpra19RV3FMY04xMXc3TGpWX3ZobEFrYkZhRVVrTU9DVFBHMFROZy1oeG9pRmtnNU41ZjgwQzBNdmV2SHMyd1VLV3NWbEttSnh6YkFoMXZIc2NuWnJ1cFNvajRUQQ?oc=5"
+        },
+        "context": "‘Who’s Your Number 1?’ – Draymond Green Raises Questions Over 76ers’ Title Chances After LeBron James, Jaylen Brown Moves",
+        "id": 990875,
+        "published_at_epoch": 1792440612,
+        "source": "Yahoo Sports",
+        "title": "‘Who’s Your Number 1?’ – Draymond Green Raises Questions Over 76ers’ Title Chances After LeBron James, Jaylen Brown Moves"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 12.223723429093424,
+            "clickbait": 5.407859469405161,
+            "emotion": 2.342753603295853,
+            "movement": 18.76502517442828,
+            "subject": 91.95569309199556
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxNU0M4aFYzWHBoRkthazk1MnRKbTJSSXc1ZzE4ejIwN0lGM0VnSjFSVGVJYkh5UmRwTC1YdUJnUHZPQzBHZkQyd3NZMmg1VUVabmpQR3Y3Zl84VUYzSzhsSFQ5MmQwdWpUSW9fc0JEMThiTklDZEl2YkYzWWcyQmtobnc0MHNvaDhzSjBDOHEyY3ZNUmFTS2w5TG01bFN3NWlBZTRMWmtfNzdqRGNuQVd3U2NvWmRZdWR6?oc=5"
+        },
+        "context": "Byron Scott and Olden Polynice disagree on Draymond Green playing at center for the Warriors",
+        "id": 986527,
+        "published_at_epoch": 1792433038,
+        "source": "NBA Analysis Network",
+        "title": "Byron Scott and Olden Polynice disagree on Draymond Green playing at center for the Warriors"
+      }
+    ],
+    "subject": {
+      "entity_id": 185,
+      "entity_type": "player",
+      "name": "Draymond Green",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/refined/narratives-person-86-FOOTBALL.json",
+  "generation_wall_ms": 17854,
+  "input_tokens": 4596,
+  "name": "narratives-person-86-FOOTBALL",
+  "output_limit": 2100,
+  "output_tokens": 150,
+  "parsed": true,
+  "prompt_version": "n124-context-guide",
+  "reading": "OneFootball reports that Martin Demichelis praised Yan Diomande ahead of the Champions League match between Real Madrid and RB Leipzig at the Bernabeu. Yardbarker and Yahoo both headline that the RB Leipzig boss raves about Diomande before the clash.\n\nGoal.com reports that Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite his loan spell at Fiorentina, noting that the player needs time.",
+  "request_bytes": 5930,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 17887
+}

@@ -1,0 +1,13 @@
+{
+  "arm": "instructions-ordered",
+  "checks": [],
+  "input_tokens": 2381,
+  "name": "person-8-NFL",
+  "output_tokens": 129,
+  "parser_detail": "Insider reading must begin with the full subject name",
+  "receipt": "05-person-8-NFL-instructions-ordered",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 10624
+}

@@ -1,0 +1,255 @@
+{
+  "name": "real-player:83946:NFL-narratives",
+  "task": "narratives",
+  "sport": "NFL",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Evan Neal\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Evan Neal — OT, on record at New York Giants. Record: stats; observed 2026-06-10.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1422285,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE82dEJoR0pUaDNIWG96WWkwV0JsVHhmV1FpOW0tLUxPTEFsTWZ3UnZIbHN6RkZMdXdvdURuUy1QMmlFc3gyOHR2aC00ZkItTzR6dzZqVHM5eVBkXzZyeG91ZGhuR240OTZlS3pNX25UVEhsT0Y2VjNGbUhCUDY5RDQ?oc=5\",\"headline\":\"Ex-Giants Draft Bust Evan Neal Signs With NFC East Rival\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T22:45:17Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1391857,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxQVXpqb1VubzhOY1d4eGpGQkNxZWQ2cXFKOW81cjMyaGtHVVNaaGx2eE5Va1Y3VXdPekx0RkxWc3Z2Rm9KaVFYa1hsR1Q2MzVfUzBmOVNjaTBVX3RwLXI0cHdwRXNub3RoX2xrSUpWTEVxTkRKLUFPR3RoX0tpZjlSak4zZ1RkaGFoaC02UjZJX3Vna2hKY05kMF8xblc4Z0xNTldBUXhQbnp2RHQ3R2xXbg?oc=5\",\"headline\":\"Eagles sign Giants bust Evan Neal to practice squad after Raiders release\",\"publisher\":\"New York Post\",\"published_at\":\"2026-10-22T21:37:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1381475,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxPSWJZQ1RYbk1yTWZaLWIyaTg5RjAzT0ZobmZTX3B3SVJmd2ctaDRkakRxZnFpWEhCY3R3WjdVbGlHUk9nOWlmSm1yNkZPSnVYVmI5eHM3X3Q1dnB0VWpjMEMwWmR4dzllUUd3YkNhSlg3b2RQY3hyRkpZN0NpRlFJeEVoa1lXQWpPcDR0V2h2SldVaklONm51WnF4T2xzSmZ2NjUzN3F0a1Z2Rm5FWnU2d0o0a1oxSmVqNF9yaFZleERvYktZdkctU1dwaWVnQQ?oc=5\",\"headline\":\"Eagles sign RB Jaydon Blue, G Evan Neal, and LB Anfernee Orji to the practice squad\",\"publisher\":\"Philadelphia Eagles\",\"published_at\":\"2026-10-22T20:38:36Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1381527,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxPNWx6dVowazl4U3FyWVgwSExPaXhHaThiNkVjeVdwN3owQVlOMWdwWThCR1R0T2R4MEo1ODViMmdjTW9KUlBDNS1xbDVvYlRnbTNMN3FmcXZJOU5vQnRBZXQwOGhUVm0tb3kyeFFoV3pfNUI1d2ptSm1VNElTRURUM0Jrd240bkJw?oc=5\",\"headline\":\"Eagles confirm Evan Neal signing, add Jaydon Blue and Anfernee Orji\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:06:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1422166,\"url\":\"https://news.google.com/rss/articles/CBMifkFVX3lxTE05dlhLZElYOHo1cUpNMjltRXY1WWlOa0VrYUlGd25rYnVyVzFmOVhiZUNvSm9lTUpNa1ZDZXJ1QTFTcVNFSF94Q1dfYUc5V01qQ1ZhdmlDa0tDUWZwaWMzQ2VOMGFVWXJnTWdMNFp1NWptNU1oNnNEdWVnd3lSQQ?oc=5\",\"headline\":\"Eagles sign OL Evan Neal\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:04:49Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1321945,\"url\":\"https://news.google.com/rss/articles/CBMiZ0FVX3lxTFA0dG9TQmYzSlJ0MGlUREJIUVdYT1dXMDFuNzVLTjZyWkQ5S0FPMFUwdVd2RVhxc2p0bExoUzV2OFdhZDhhZXExR09YNzdERXNIVjBhVU9Id09CNURZRkZKQ2VmV0ZReUE?oc=5\",\"headline\":\"Eagles Worked Out G Evan Neal\",\"publisher\":\"NFLTradeRumors.co\",\"published_at\":\"2026-10-22T14:26:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1093357,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxQdXdXU29RQ3FGWlVOTzMwU3RxZ2xndV9UUElJOUF1ajZKcHEyc2QtWDBBbHRRX2Fib2Qzd1daclBCVEJ4alllZDBCeFExYXQ5WjJZU1NmSXhqUURQUm1JRW8wOEZfdkhQaEJHcE1rMkRtTzZWR0trNnkyNG0zRkNtU0VNM0lXUXBxOHlwczQ0dkJyQQ?oc=5\",\"headline\":\"Former Giants bust Evan Neal cut from Raiders practice squad\",\"publisher\":\"New York Post\",\"published_at\":\"2026-10-20T20:54:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1011634,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxNV1Vqb0pvdG1RbGpmTFpnYkt5U0xTV0dMNUFBTFVJX21lb2l2dF9DcloyZm1sWVRqNW9OQUpXUVRPdVNMeXV1Uk5mZ3B3TkJMemRhajBWeWJUMkNKOFZXTEhIX1Y1TEN5TUZmTUZEelUyeENSTTQ0OTdiV2wzSEZjRjkwYTNQb0kwV1hwOUUtWnJGczQtU0l1SFNmcjZXSHhTS1BlT1l3dWRjU180Zi1v?oc=5\",\"headline\":\"Raiders cut OL Evan Neal from the practice squad\",\"publisher\":\"NBC Sports\",\"published_at\":\"2026-10-19T21:32:24Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Evan Neal — OT, on record at New York Giants. Record: stats; observed 2026-06-10.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 56.18332933653824,
+            "emotion": 1.8992672680852407,
+            "movement": 95.03222671556188,
+            "subject": 85.50097641108773
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE82dEJoR0pUaDNIWG96WWkwV0JsVHhmV1FpOW0tLUxPTEFsTWZ3UnZIbHN6RkZMdXdvdURuUy1QMmlFc3gyOHR2aC00ZkItTzR6dzZqVHM5eVBkXzZyeG91ZGhuR240OTZlS3pNX25UVEhsT0Y2VjNGbUhCUDY5RDQ?oc=5"
+        },
+        "context": "Ex-Giants Draft Bust Evan Neal Signs With NFC East Rival",
+        "id": 1422285,
+        "published_at_epoch": 1792709117,
+        "source": "Yahoo Sports",
+        "title": "Ex-Giants Draft Bust Evan Neal Signs With NFC East Rival"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 91.77918300389491,
+            "emotion": 2.2752029903449933,
+            "movement": 96.56566217014266,
+            "subject": 88.19622366727206
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxQVXpqb1VubzhOY1d4eGpGQkNxZWQ2cXFKOW81cjMyaGtHVVNaaGx2eE5Va1Y3VXdPekx0RkxWc3Z2Rm9KaVFYa1hsR1Q2MzVfUzBmOVNjaTBVX3RwLXI0cHdwRXNub3RoX2xrSUpWTEVxTkRKLUFPR3RoX0tpZjlSak4zZ1RkaGFoaC02UjZJX3Vna2hKY05kMF8xblc4Z0xNTldBUXhQbnp2RHQ3R2xXbg?oc=5"
+        },
+        "context": "Eagles sign Giants bust Evan Neal to practice squad after Raiders release",
+        "id": 1391857,
+        "published_at_epoch": 1792705020,
+        "source": "New York Post",
+        "title": "Eagles sign Giants bust Evan Neal to practice squad after Raiders release"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 54.85568290849287,
+            "emotion": 1.5585673689714843,
+            "movement": 93.68338441151025,
+            "subject": 67.03065448405776
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxPSWJZQ1RYbk1yTWZaLWIyaTg5RjAzT0ZobmZTX3B3SVJmd2ctaDRkakRxZnFpWEhCY3R3WjdVbGlHUk9nOWlmSm1yNkZPSnVYVmI5eHM3X3Q1dnB0VWpjMEMwWmR4dzllUUd3YkNhSlg3b2RQY3hyRkpZN0NpRlFJeEVoa1lXQWpPcDR0V2h2SldVaklONm51WnF4T2xzSmZ2NjUzN3F0a1Z2Rm5FWnU2d0o0a1oxSmVqNF9yaFZleERvYktZdkctU1dwaWVnQQ?oc=5"
+        },
+        "context": "Eagles sign RB Jaydon Blue, G Evan Neal, and LB Anfernee Orji to the practice squad",
+        "id": 1381475,
+        "published_at_epoch": 1792701516,
+        "source": "Philadelphia Eagles",
+        "title": "Eagles sign RB Jaydon Blue, G Evan Neal, and LB Anfernee Orji to the practice squad"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 46.89563978582051,
+            "emotion": 1.748847167062796,
+            "movement": 96.9320001129112,
+            "subject": 84.8309724479367
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxPNWx6dVowazl4U3FyWVgwSExPaXhHaThiNkVjeVdwN3owQVlOMWdwWThCR1R0T2R4MEo1ODViMmdjTW9KUlBDNS1xbDVvYlRnbTNMN3FmcXZJOU5vQnRBZXQwOGhUVm0tb3kyeFFoV3pfNUI1d2ptSm1VNElTRURUM0Jrd240bkJw?oc=5"
+        },
+        "context": "Eagles confirm Evan Neal signing, add Jaydon Blue and Anfernee Orji",
+        "id": 1381527,
+        "published_at_epoch": 1792699570,
+        "source": "Yahoo Sports",
+        "title": "Eagles confirm Evan Neal signing, add Jaydon Blue and Anfernee Orji"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 39.60946281682445,
+            "emotion": 1.6048050515288454,
+            "movement": 96.57257556246456,
+            "subject": 57.920749963573506
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE05dlhLZElYOHo1cUpNMjltRXY1WWlOa0VrYUlGd25rYnVyVzFmOVhiZUNvSm9lTUpNa1ZDZXJ1QTFTcVNFSF94Q1dfYUc5V01qQ1ZhdmlDa0tDUWZwaWMzQ2VOMGFVWXJnTWdMNFp1NWptNU1oNnNEdWVnd3lSQQ?oc=5"
+        },
+        "context": "Eagles sign OL Evan Neal",
+        "id": 1422166,
+        "published_at_epoch": 1792699489,
+        "source": "Yahoo Sports",
+        "title": "Eagles sign OL Evan Neal"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 70.58060188853136,
+            "clickbait": 10.601949230004712,
+            "emotion": 2.0418699090644195,
+            "movement": 58.10059544928083,
+            "subject": 76.39883141093621
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTFA0dG9TQmYzSlJ0MGlUREJIUVdYT1dXMDFuNzVLTjZyWkQ5S0FPMFUwdVd2RVhxc2p0bExoUzV2OFdhZDhhZXExR09YNzdERXNIVjBhVU9Id09CNURZRkZKQ2VmV0ZReUE?oc=5"
+        },
+        "context": "Eagles Worked Out G Evan Neal",
+        "id": 1321945,
+        "published_at_epoch": 1792679164,
+        "source": "NFLTradeRumors.co",
+        "title": "Eagles Worked Out G Evan Neal"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 25.0210787705828,
+            "clickbait": 10.57735255240426,
+            "emotion": 3.4706274817474068,
+            "movement": 90.31756792592432,
+            "subject": 91.78659129860334
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxQdXdXU29RQ3FGWlVOTzMwU3RxZ2xndV9UUElJOUF1ajZKcHEyc2QtWDBBbHRRX2Fib2Qzd1daclBCVEJ4alllZDBCeFExYXQ5WjJZU1NmSXhqUURQUm1JRW8wOEZfdkhQaEJHcE1rMkRtTzZWR0trNnkyNG0zRkNtU0VNM0lXUXBxOHlwczQ0dkJyQQ?oc=5"
+        },
+        "context": "Former Giants bust Evan Neal cut from Raiders practice squad",
+        "id": 1093357,
+        "published_at_epoch": 1792529640,
+        "source": "New York Post",
+        "title": "Former Giants bust Evan Neal cut from Raiders practice squad"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 26.15909506363849,
+            "clickbait": 8.06553831064053,
+            "emotion": 2.4133560937407044,
+            "movement": 93.64865601812942,
+            "subject": 57.509264396678915
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxNV1Vqb0pvdG1RbGpmTFpnYkt5U0xTV0dMNUFBTFVJX21lb2l2dF9DcloyZm1sWVRqNW9OQUpXUVRPdVNMeXV1Uk5mZ3B3TkJMemRhajBWeWJUMkNKOFZXTEhIX1Y1TEN5TUZmTUZEelUyeENSTTQ0OTdiV2wzSEZjRjkwYTNQb0kwV1hwOUUtWnJGczQtU0l1SFNmcjZXSHhTS1BlT1l3dWRjU180Zi1v?oc=5"
+        },
+        "context": "Raiders cut OL Evan Neal from the practice squad",
+        "id": 1011634,
+        "published_at_epoch": 1792445544,
+        "source": "NBC Sports",
+        "title": "Raiders cut OL Evan Neal from the practice squad"
+      }
+    ],
+    "subject": {
+      "entity_id": 83946,
+      "entity_type": "player",
+      "name": "Evan Neal",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

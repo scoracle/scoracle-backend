@@ -1,0 +1,41 @@
+{
+  "name": "real-player:322:NBA-momentum",
+  "task": "momentum",
+  "sport": "NBA",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Donovan Mitchell\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Donovan Mitchell — G, on record at Cleveland Cavaliers. Nationality: USA. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"scout\":{\"body\":\"In the 2025 season sample covering 77 games, Donovan Mitchell recorded 33.6 minutes per game. His scoring output averaged 27.5 points (96.8th percentile, elite band) and 5.4 assists (85.7th percentile, strong band), while his plus-minus was 4.8 (86.1th percentile, strong band). Mitchell shot 3.2 three-pointers per game (95.6th percentile, elite band) and drew 5.8 free throws (90.1th percentile, elite band). He averaged 4.5 rebounds (50.4th percentile, average band), 1.4 steals (89.7th percentile, strong band), and 2.8 turnovers (7.9th percentile, poor band). His discipline metrics showed 2.4 personal fouls (26.2th percentile, poor band) and 0.3 blocks (25.0th percentile, poor band). These measurements yield a composite score of 66.5. The sample size is 77 games. No availability headlines are provided.\",\"season\":2025,\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "Donovan Mitchell — G, on record at Cleveland Cavaliers. Nationality: USA. Record: roster; observed 2026-07-04.",
+    "influencer": null,
+    "scout": {
+      "body": "In the 2025 season sample covering 77 games, Donovan Mitchell recorded 33.6 minutes per game. His scoring output averaged 27.5 points (96.8th percentile, elite band) and 5.4 assists (85.7th percentile, strong band), while his plus-minus was 4.8 (86.1th percentile, strong band). Mitchell shot 3.2 three-pointers per game (95.6th percentile, elite band) and drew 5.8 free throws (90.1th percentile, elite band). He averaged 4.5 rebounds (50.4th percentile, average band), 1.4 steals (89.7th percentile, strong band), and 2.8 turnovers (7.9th percentile, poor band). His discipline metrics showed 2.4 personal fouls (26.2th percentile, poor band) and 0.3 blocks (25.0th percentile, poor band). These measurements yield a composite score of 66.5. The sample size is 77 games. No availability headlines are provided.",
+      "generated_at": "2026-10-23",
+      "headline": "Donovan Mitchell: measured profile",
+      "input_hash": "8702b00acb54d5269c46c4e0d7dacbe2",
+      "season": 2025
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 322,
+      "entity_type": "player",
+      "name": "Donovan Mitchell",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

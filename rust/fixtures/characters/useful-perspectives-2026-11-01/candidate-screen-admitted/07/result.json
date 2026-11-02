@@ -1,0 +1,38 @@
+{
+  "case": 7,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "No thin-sample limit was supplied. Do not invent a sample limitation.",
+      "name": "production_acceptance",
+      "pass": false
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-rating-football-player-total.json",
+  "generation_wall_ms": 3954,
+  "input_tokens": 706,
+  "name": "football-player-total",
+  "output_limit": 700,
+  "output_tokens": 64,
+  "parsed": false,
+  "prompt_version": "s79-measured-perspective",
+  "reading": "Cedar Striker's 2026 season data rests on a thin sample of 12 appearances. Within this cohort, goals rank at the 80th percentile, categorized as strong. No cross-season comparison is available for goals. Fixture measurements for other categories are unknown.",
+  "request_bytes": 345,
+  "review": [
+    "Football player positive control: four goals is a supplied total, not per-game scoring or four goals in each appearance. No ability, form or health inference."
+  ],
+  "status": "rejected",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 3963
+}

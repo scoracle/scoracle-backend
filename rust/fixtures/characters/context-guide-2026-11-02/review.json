@@ -1,0 +1,459 @@
+{
+  "method": "Manual comparison of each complete output against its captured input. Mechanical acceptance and source fidelity are separate. Development cases, not held-out accuracy.",
+  "refined_totals": {
+    "calls": 12,
+    "accepted": 10,
+    "input_tokens": 34685,
+    "output_tokens": 1152,
+    "wall_seconds": 124.193
+  },
+  "records": [
+    {
+      "case": "narratives-person-86-FOOTBALL",
+      "task": "narratives",
+      "synthetic": false,
+      "control": {
+        "status": "accepted",
+        "note": "Keeps two distinct discussions and the correct speakers and publishers. Some redundant attribution across duplicate headlines.",
+        "output": {
+          "narratives": [
+            {
+              "body": "OneFootball reports that Martin Demichelis praised Yan Diomande ahead of the Champions League match between Real Madrid and RB Leipzig at the Bernabeu. Yardbarker and Yahoo both headline that RB Leipzig boss Martin Demichelis raves about Yan Diomande before the clash with Real Madrid.",
+              "headline": "Demichelis praises Diomande ahead of Madrid clash",
+              "report_keys": [
+                "report_1",
+                "report_2",
+                "report_3"
+              ]
+            },
+            {
+              "body": "Goal.com reports that Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite his loan spell at Fiorentina, noting that the player needs time to develop.",
+              "headline": "Demichelis: Mastantuono built for Real Madrid",
+              "report_keys": [
+                "report_4"
+              ]
+            }
+          ]
+        },
+        "receipt": "trial/control/narratives-person-86-FOOTBALL/01/result.json"
+      },
+      "initial": {
+        "status": "accepted",
+        "note": "Preserves the same two stories and qualifications.",
+        "output": {
+          "narratives": [
+            {
+              "body": "OneFootball reports that Martin Demichelis praised Yan Diomande ahead of the Champions League match between Real Madrid and RB Leipzig at the Bernabeu. Yardbarker and Yahoo both headline that the RB Leipzig boss raves about Diomande before the clash.",
+              "headline": "Martin Demichelis praises Yan Diomande ahead of Real Madrid clash",
+              "report_keys": [
+                "report_1",
+                "report_2",
+                "report_3"
+              ]
+            },
+            {
+              "body": "Goal.com reports that Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite his loan spell at Fiorentina, noting that the player needs time.",
+              "headline": "Martin Demichelis says Franco Mastantuono is built for Real Madrid",
+              "report_keys": [
+                "report_4"
+              ]
+            }
+          ]
+        },
+        "receipt": "trial/candidate/narratives-person-86-FOOTBALL/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Preserves the same two stories; the Mastantuono headline stays a restrained topic label.",
+        "output": {
+          "narratives": [
+            {
+              "body": "OneFootball reports that Martin Demichelis praised Yan Diomande ahead of the Champions League match between Real Madrid and RB Leipzig at the Bernabeu. Yardbarker and Yahoo both headline that the RB Leipzig boss raves about Diomande before the clash.",
+              "headline": "Martin Demichelis praises Yan Diomande ahead of Real Madrid clash",
+              "report_keys": [
+                "report_1",
+                "report_2",
+                "report_3"
+              ]
+            },
+            {
+              "body": "Goal.com reports that Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite his loan spell at Fiorentina, noting that the player needs time.",
+              "headline": "Martin Demichelis on Franco Mastantuono",
+              "report_keys": [
+                "report_4"
+              ]
+            }
+          ]
+        },
+        "receipt": "refinement/narratives-person-86-FOOTBALL/01/result.json"
+      }
+    },
+    {
+      "case": "narratives-player-37-NBA",
+      "task": "narratives",
+      "synthetic": false,
+      "control": {
+        "status": "accepted",
+        "note": "Combines knee absence and jersey-number news in one entry, contrary to distinct-story selection.",
+        "output": {
+          "narratives": [
+            {
+              "body": "NBC Sports reports that Bradley Beal remains out for the game against the Lakers due to a knee injury. NBC Sports previously ruled him out for the game against Sacramento, citing the same knee issue. ABC30 Fresno reports that the Clippers have indicated the number three jersey, formerly worn by Chris Paul, will be assigned to Bradley Beal.",
+              "headline": "Bradley Beal: injury and jersey news",
+              "report_keys": [
+                "report_1",
+                "report_2",
+                "report_3"
+              ]
+            }
+          ]
+        },
+        "receipt": "trial/control/narratives-player-37-NBA/01/result.json"
+      },
+      "initial": {
+        "status": "rejected",
+        "note": "Still bundles unrelated stories. Native number/subject guard rejects the Chris Paul/No. 3 construction; source does contain the old number, so guard rejection is not by itself a semantic verdict.",
+        "output": {
+          "narratives": [
+            {
+              "body": "NBC Sports reports that Bradley Beal remains out against the Lakers due to a knee injury. NBC Sports previously ruled him out for the game against Sacramento, citing the same knee issue. ABC30 Fresno reports that the Clippers have indicated Beal will wear the No. 3 jersey, a number previously associated with Chris Paul.",
+              "headline": "Bradley Beal: injury and jersey number updates",
+              "report_keys": [
+                "report_1",
+                "report_2",
+                "report_3"
+              ]
+            }
+          ]
+        },
+        "receipt": "trial/candidate/narratives-player-37-NBA/01/result.json"
+      },
+      "refined": {
+        "status": "rejected",
+        "note": "Same story bundling and number/subject guard rejection remain.",
+        "output": {
+          "narratives": [
+            {
+              "body": "NBC Sports reports that Bradley Beal remains out against the Lakers due to a knee injury. NBC Sports previously ruled him out for the game against Sacramento, citing the same knee issue. ABC30 Fresno reports that the Clippers indicated Beal will wear the No. 3 jersey, a number previously worn by Chris Paul.",
+              "headline": "Bradley Beal: injury and jersey number",
+              "report_keys": [
+                "report_1",
+                "report_2",
+                "report_3"
+              ]
+            }
+          ]
+        },
+        "receipt": "refinement/narratives-player-37-NBA/01/result.json"
+      }
+    },
+    {
+      "case": "vibe-person-23-FOOTBALL",
+      "task": "vibe",
+      "synthetic": false,
+      "control": {
+        "status": "accepted",
+        "note": "Supported delight and happiness, preserving hope about attitude and mentality.",
+        "output": {
+          "score": 75,
+          "headline": "De Zerbi expresses delight and hope over Spurs' resilience",
+          "body": "The supplied coverage leans positive, reporting that Roberto De Zerbi is delighted and very happy following Tottenham's win, while also expressing hope that the team's attitude and mentality remain intact."
+        },
+        "receipt": "trial/control/vibe-person-23-FOOTBALL/01/result.json"
+      },
+      "initial": {
+        "status": "accepted",
+        "note": "Keeps positive tone but weakens the distinction between hope, praise and the report crediting a bonding trip for improvement.",
+        "output": {
+          "score": 75,
+          "headline": "De Zerbi expresses delight and praise for Tottenham's resilience",
+          "body": "The supplied coverage leans positive, reporting that Roberto De Zerbi is delighted with Tottenham's performance and praises the team's resilience, attitude, and bonding. Headlines describe him as 'very happy' and note his satisfaction with players' displays, while one report highlights his credit for the squad's improved talk and bonding."
+        },
+        "receipt": "trial/candidate/vibe-person-23-FOOTBALL/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Keeps the reported positive reactions but turns hope about attitude and mentality into praise of them.",
+        "output": {
+          "score": 75,
+          "headline": "De Zerbi expresses delight and hope over Spurs' resilience",
+          "body": "The supplied coverage reports that Roberto De Zerbi feels delighted and hopeful regarding Tottenham's performance. Headlines indicate he praised the team's resilience, attitude, and mentality, while noting his own happiness and satisfaction with the players' display and bonding."
+        },
+        "receipt": "refinement/vibe-person-23-FOOTBALL/01/result.json"
+      }
+    },
+    {
+      "case": "vibe-person-959-NFL",
+      "task": "vibe",
+      "synthetic": false,
+      "control": {
+        "status": "accepted",
+        "note": "Correctly keeps the ex-player criticism aimed at Jones, but leaks instruction language into the output.",
+        "output": {
+          "score": 25,
+          "headline": "Jerry Jones faces criticism and disappointment",
+          "body": "Yahoo Sports headlines frame Jerry Jones as a target of an ex-Cowboys star amid team struggles, while The New York Times reports him as 'disappointed' regarding roster improvements before the trade deadline. The coverage conveys a tone of concern and dissatisfaction without inventing broader consensus or fan reactions."
+        },
+        "receipt": "trial/control/vibe-person-959-NFL/01/result.json"
+      },
+      "initial": {
+        "status": "accepted",
+        "note": "Misassigns criticism to Jones himself and invents a conflict/division between two negative reports.",
+        "output": {
+          "score": 50,
+          "headline": "Mixed reactions to Jerry Jones amid Cowboys struggles",
+          "body": "Coverage presents conflicting views on Jerry Jones. One headline frames his criticism of the owner as a 'swipe' amidst team struggles, while another explicitly labels him 'disappointed' and notes his desire to improve the roster before the trade deadline. The tone reflects uncertainty and division regarding his current standing and future plans."
+        },
+        "receipt": "trial/candidate/vibe-person-959-NFL/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Corrects the criticism direction but pluralizes one former star and still calls two negative reports conflicting/mixed.",
+        "output": {
+          "score": 50,
+          "headline": "Mixed reactions to Jerry Jones amid Cowboys struggles",
+          "body": "Coverage presents conflicting views on Jerry Jones. Yahoo Sports headlines suggest he faces criticism from former players, while The New York Times headline frames him as 'disappointed' and focused on roster improvements. The supplied reports offer no consensus or unified emotional tone, only these distinct, unverified perspectives."
+        },
+        "receipt": "refinement/vibe-person-959-NFL/01/result.json"
+      }
+    },
+    {
+      "case": "rating-team-2-NBA",
+      "task": "rating",
+      "synthetic": false,
+      "control": {
+        "status": "accepted",
+        "note": "Correct main ranks and supplied directions, with the 89-game sample; restrained interpretation still preferable to dominant/stagnant language.",
+        "output": {
+          "body": "The Boston Celtics' 2025 season profile shows a dominant rebounding performance at the 93.1st percentile in the elite band, rising from the 72.4th percentile. This strength contrasts sharply with a 31.0th percentile scoring output in the poor band, which fell from the 69.0th percentile. Playmaking (10.3th percentile, poor band) and rim protection (58.6th percentile, average band) also declined from prior standings, while steals and foul drawing remained stagnant in the poor band. The composite score of 54.2 reflects this mixed profile. Readings are based on 89 games played."
+        },
+        "receipt": "trial/control/rating-team-2-NBA/01/result.json"
+      },
+      "initial": {
+        "status": "rejected",
+        "note": "Main ranks and directions survive, but phrasing 46.4 rebounds across 89 games can imply a total that the projection does not establish.",
+        "output": {
+          "body": "The Boston Celtics recorded 46.4 total rebounds across 89 games, placing the team at the 93.1st percentile in the elite band, a marked improvement from the 72.4th percentile last season. In contrast, rim protection (blocks) sits at the 58.6th percentile in the average band, having declined from the 79.3th percentile. Playmaking, scoring, and foul drawing all rank in the poor band, with playmaking and scoring showing declines from prior standings while steals and foul drawing remained held at poor levels. The composite score of 54.2 reflects this mixed profile. Readings are based on 89 games."
+        },
+        "receipt": "trial/candidate/rating-team-2-NBA/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Keeps target sample separate from peer count, retains per-measure values, bands and directions. Longer than necessary; no wrong measurement detected.",
+        "output": {
+          "body": "The Boston Celtics recorded 89 games played in the 2025 season. Their rebounding output of 46.4 total rebounds placed them at the 93.1st percentile in an elite band among 30 peers, a rise from the 72.4th percentile the prior season. Rim protection (5.0 blocks) sat at the 58.6th percentile in an average band, falling from the 79.3th percentile previously. Steals (7.0), foul drawing (18.8 free throws attempted), and playmaking (24.6 assists) all ranked in the poor band at the 3.4th, 0.0th, and 10.3th percentiles respectively, with assists and scoring declining from prior standings. Scoring (114.2 points) remained in the poor band at the 31.0th percentile, down from the 69.0th percentile. The team's composite score of 54.2 reflects this overall profile."
+        },
+        "receipt": "refinement/rating-team-2-NBA/01/result.json"
+      }
+    },
+    {
+      "case": "rating-player-744-NFL",
+      "task": "rating",
+      "synthetic": false,
+      "control": {
+        "status": "accepted",
+        "note": "Keeps 828 players, supplied ranks and five-appearance thin sample.",
+        "output": {
+          "body": "Sam LaPorta's 2026 season profile shows elite relative standing in air yards responsible (90.6th percentile) and strong relative standing in points responsible (89.4th percentile) within a cohort of 828 players. These measurements are based on only five recorded appearances, a thin sample that limits the reliability of the rankings. No prior season comparison is supplied."
+        },
+        "receipt": "trial/control/rating-player-744-NFL/01/result.json"
+      },
+      "initial": {
+        "status": "accepted",
+        "note": "Incorrectly changes the comparison group to 828 teams despite a player target.",
+        "output": {
+          "body": "Sam LaPorta's 2026 profile shows elite relative standing in air yards responsible (90.6th percentile) and strong relative standing in points responsible (89.4th percentile) within a cohort of 828 teams. These measurements are based on only five recorded appearances, which falls below the ten-appearance threshold for a robust reading."
+        },
+        "receipt": "trial/candidate/rating-player-744-NFL/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Uses 828 peers, preserves the player measurements and five-appearance limit. Threshold explanation concerns comparison, not a newly computed rank.",
+        "output": {
+          "body": "Sam LaPorta's 2026 profile shows elite relative standing in Air Yards Responsible (90.6th percentile) and strong Points Responsible For (89.4th percentile) within a cohort of 828 peers. These measurements are constrained by a thin sample of five appearances, with a minimum threshold of ten required for reliable comparison."
+        },
+        "receipt": "refinement/rating-player-744-NFL/01/result.json"
+      }
+    },
+    {
+      "case": "momentum-player-744-NFL",
+      "task": "momentum",
+      "synthetic": false,
+      "control": {
+        "status": "rejected",
+        "note": "Changes 91.7/90.8 percentiles to top 90th and strengthens preparedness to get paid elsewhere into desire to leave.",
+        "output": {
+          "blurb": "Sam LaPorta's 2026 performance metrics place him in the top 90th percentile among peers, yet his coverage reflects extreme frustration and a desire to leave the team. This creates a sharp tension between his elite statistical standing and his reported dissatisfaction with the organization."
+        },
+        "receipt": "trial/control/momentum-player-744-NFL/01/result.json"
+      },
+      "initial": {
+        "status": "accepted",
+        "note": "Avoids the invented percentile and desire to leave; describes current contrast and lack of an observed time comparison.",
+        "output": {
+          "blurb": "Sam LaPorta's 2026 performance metrics place him in the elite percentile band despite a thin sample, while coverage reflects his frustration with stalled extension talks and a lack of team support. With no dated comparisons provided, the relationship between his statistical distinctiveness and the tone of his coverage cannot be assessed over time."
+        },
+        "receipt": "trial/candidate/momentum-player-744-NFL/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Again strengthens conditional preparedness into desire to leave, despite accurate current performance/coverage contrast.",
+        "output": {
+          "blurb": "Sam LaPorta's 2026 performance metrics show elite-level distinctiveness despite a thin sample, while coverage reflects extreme frustration and a desire to leave the team. The strong performance profile and critical coverage tone differ; neither establishes that the other is wrong or explains a change over time."
+        },
+        "receipt": "refinement/momentum-player-744-NFL/01/result.json"
+      }
+    },
+    {
+      "case": "oracle-team-2-NBA",
+      "task": "oracle",
+      "synthetic": false,
+      "control": {
+        "status": "accepted",
+        "note": "Mislabels composite 54.2 as poor and invents strategic disjointedness.",
+        "output": {
+          "reading": "The Boston Celtics present a fractured profile where elite defensive metrics and offensive precision clash with a poor standardized composite score, suggesting a team that is technically proficient but strategically disjointed. This tension between specific strengths and a failing overall trajectory remains the only known reality, as the absence of fixture data prevents any conclusion about the causes of this decline or the stability of the roster."
+        },
+        "receipt": "trial/control/oracle-team-2-NBA/01/result.json"
+      },
+      "initial": {
+        "status": "accepted",
+        "note": "Reverses elite rebounding and turnovers into poor measures and adds a defensive causal story.",
+        "output": {
+          "reading": "The Boston Celtics present a fractured defensive profile where elite shot prevention clashes with poor rebounding and turnover management, creating a defensive inconsistency that undermines their offensive strength. This internal tension between high-level perimeter defense and fundamental breakdowns suggests a team capable of scoring but struggling to contain opponents across the full spectrum of play."
+        },
+        "receipt": "trial/candidate/oracle-team-2-NBA/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Rebounding is restored but elite turnovers still become poor. Adds unsupported structural/functional diagnoses.",
+        "output": {
+          "reading": "The Boston Celtics present a fractured profile where elite defensive metrics and rebounding are overshadowed by poor performance in scoring, turnovers, and free throws. This internal dissonance creates a tension between defensive solidity and offensive inefficiency, suggesting a team that is structurally sound but functionally unbalanced. The available data, limited to a single season's aggregate, leaves the trajectory of this specific imbalance and the team's immediate future uncertain."
+        },
+        "receipt": "refinement/oracle-team-2-NBA/01/result.json"
+      }
+    },
+    {
+      "case": "oracle-player-744-NFL",
+      "task": "oracle",
+      "synthetic": false,
+      "control": {
+        "status": "accepted",
+        "note": "Expands a supplied rising direction label into rising on-field metrics without dated underlying comparisons.",
+        "output": {
+          "reading": "Sam LaPorta presents a striking divergence in late 2026, where elite statistical performance coexists with palpable frustration over stalled contract talks. This tension between his rising on-field metrics and his expressed willingness to seek payment elsewhere suggests a disconnect between his contributions and his perceived standing with the Detroit Lions. However, the thin sample of five appearances limits the certainty of his trajectory, leaving the depth of his dissatisfaction and the ultimate resolution of his future uncertain."
+        },
+        "receipt": "trial/control/oracle-player-744-NFL/01/result.json"
+      },
+      "initial": {
+        "status": "accepted",
+        "note": "Keeps elite relative ranks, five appearances and contract frustration, but its disconnect framing is more emphatic than necessary.",
+        "output": {
+          "reading": "Sam LaPorta presents a sharp divergence in the 2026 season, where elite percentile rankings derived from a thin sample of five appearances contrast with public expressions of extreme frustration and a willingness to seek payment elsewhere. This tension between his measured on-field contributions and his off-field sentiment toward the Detroit Lions highlights a significant disconnect, though the limited sample size and stalled extension talks leave the trajectory of his future uncertain."
+        },
+        "receipt": "trial/candidate/oracle-player-744-NFL/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Keeps the core contrast and sample limit; complex disconnect and future stability are embellishments rather than useful evidence distinctions.",
+        "output": {
+          "reading": "Sam LaPorta presents a striking divergence in the 2026 season, where elite percentile rankings derived from a thin sample of five appearances contrast sharply with his expressed frustration and willingness to seek payment elsewhere. This tension between high statistical output and off-field dissatisfaction suggests a complex disconnect between his on-field contributions and his sentiment toward the Detroit Lions, leaving the stability of his future uncertain."
+        },
+        "receipt": "refinement/oracle-player-744-NFL/01/result.json"
+      }
+    },
+    {
+      "case": "transfer-team-37-FOOTBALL",
+      "task": "transfer",
+      "synthetic": false,
+      "control": {
+        "status": "accepted",
+        "note": "Turns reported injury absences of Pellegrini/Svilar into departures.",
+        "output": {
+          "body": "Roma are looking to make two signings in January, according to Yahoo Sports. The club has rejected three offers for Pisilli this summer, and reports indicate a crisis ahead involving the departure of Pellegrini and Svilar.",
+          "findings": []
+        },
+        "receipt": "trial/control/transfer-team-37-FOOTBALL/01/result.json"
+      },
+      "initial": {
+        "status": "accepted",
+        "note": "Correctly calls the Pellegrini absence an injury, though including it is outside the movement brief.",
+        "output": {
+          "body": "Roma are looking to make two signings in January, according to Yahoo Sports. The club has rejected three offers for Pisilli this summer, and reports indicate Pellegrini is out for at least six to eight weeks due to a serious injury.",
+          "findings": []
+        },
+        "receipt": "trial/candidate/transfer-team-37-FOOTBALL/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Departure error returns; also attaches the 50m package too loosely to Roma/El Aynaoui although the source describes Leipzig retaining two players.",
+        "output": {
+          "body": "Roma are looking to make two signings in January, according to Yahoo Sports. The club has rejected three offers for Pisilli this summer, and reports indicate a crisis ahead involving the departure of Pellegrini and Svilar. Additionally, Roma are reportedly linked to a €50m package for El Aynaoui, though the headline suggests Leipzig is likely to retain him.",
+          "findings": []
+        },
+        "receipt": "refinement/transfer-team-37-FOOTBALL/01/result.json"
+      }
+    },
+    {
+      "case": "transfer-player-83946-NFL",
+      "task": "transfer",
+      "synthetic": false,
+      "control": {
+        "status": "rejected",
+        "note": "Correct signing/practice-squad story but adopts publisher draft-bust characterization as its own.",
+        "output": {
+          "body": "Evan Neal, previously a draft bust for the New York Giants, has signed with the Philadelphia Eagles to join their practice squad. Multiple outlets confirm the Eagles have officially signed him, adding him alongside Jaydon Blue and Anfernee Orji.",
+          "findings": []
+        },
+        "receipt": "trial/control/transfer-player-83946-NFL/01/result.json"
+      },
+      "initial": {
+        "status": "rejected",
+        "note": "Preserves Raiders release before Eagles signing, but still adopts draft-bust characterization without attribution.",
+        "output": {
+          "body": "Evan Neal, previously a New York Giants draft bust, has signed with the Philadelphia Eagles to join their practice squad. Multiple outlets confirm the Eagles have signed him as an offensive lineman, following his release by the Las Vegas Raiders.",
+          "findings": []
+        },
+        "receipt": "trial/candidate/transfer-player-83946-NFL/01/result.json"
+      },
+      "refined": {
+        "status": "rejected",
+        "note": "Same issue; source/alias parser also rejects New York Giants. No findings qualify in any arm under the full-name quote contract.",
+        "output": {
+          "body": "Evan Neal, previously a draft bust for the New York Giants, has signed with the Philadelphia Eagles to join their practice squad. Multiple outlets confirm the Eagles have signed him as an offensive lineman, noting the move follows his release by the Las Vegas Raiders.",
+          "findings": []
+        },
+        "receipt": "refinement/transfer-player-83946-NFL/01/result.json"
+      }
+    },
+    {
+      "case": "momentum-synthetic-dated-divergence",
+      "task": "momentum",
+      "synthetic": true,
+      "control": {
+        "status": "accepted",
+        "note": "Calls different start dates the same window and prints internal measure names.",
+        "output": {
+          "blurb": "Harbor's measured rebounding profile is strong while the supplied coverage leans cautious, creating a tension between performance and mood. A rating_notability increase of 8 points and a coverage_tone decrease of 12 points over the same window indicate diverging trends in distinctiveness and tone, though neither proves a causal link between the two."
+        },
+        "receipt": "trial/control/momentum-synthetic-dated-divergence/01/result.json"
+      },
+      "initial": {
+        "status": "accepted",
+        "note": "Uses ordinary measure meanings, but last two days is loosely anchored and a similar window hides the exact separate date ranges.",
+        "output": {
+          "blurb": "Harbor's measured rebounding profile is strong while its coverage leans cautious, creating a tension between performance and mood. Statistical distinctiveness increased by eight points over the last two days, whereas coverage tone decreased by twelve points in a similar window; neither change proves a causal link between the two."
+        },
+        "receipt": "trial/candidate/momentum-synthetic-dated-divergence/01/result.json"
+      },
+      "refined": {
+        "status": "accepted",
+        "note": "Again claims a shared two-observation window and conflates statistical distinctiveness with performance. The windows have different start dates.",
+        "output": {
+          "blurb": "Harbor's measured rebounding profile is strong while its coverage leans cautious, creating a tension between performance and mood. Statistical distinctiveness increased by eight points and coverage tone decreased by twelve points over the same two-observation window, indicating a divergence in how the team is perceived versus how it is performing."
+        },
+        "receipt": "refinement/momentum-synthetic-dated-divergence/01/result.json"
+      }
+    }
+  ]
+}

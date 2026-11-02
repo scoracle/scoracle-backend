@@ -1,0 +1,48 @@
+{
+  "name": "real-player:185:NBA-oracle",
+  "task": "oracle",
+  "sport": "NBA",
+  "prompt_version": "or31-five-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Draymond Green\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\\nrole: player [2026-09-05; source 65552]\"},\"fresh\":{\"scout\":{\"body\":\"In the 2025 season, with 70 games in the sample, Draymond Green demonstrates a highly uneven profile. His playmaking (88.1 percentile) and rebounding (68.7 percentile) stand above average, while his scoring (12.7 percentile), ball security (10.3 percentile), discipline (6.7 percentile), foul drawing (13.1 percentile), rim protection (65.9 percentile), and steals (48.0 percentile) fall into poor or below-average bands. His on-court impact is negative (-2.1, 28.6 percentile). A composite score of 41.1 reflects this mixed performance. The sample supports cross-season comparisons where applicable. No availability headlines are provided.\",\"direction\":\"falling\",\"generated_at\":\"2026-10-23 10:44:22.453791+00\"},\"analyst\":{\"body\":\"Draymond Green: Mood reading unavailable. Agreement between performance and mood cannot be assessed.\",\"generated_at\":\"2026-10-23 10:44:39.545776+00\"},\"insider\":{\"body\":\"Draymond Green is mentioned in headlines alongside Stephen Curry and Kristaps Porzingis regarding potential Warriors exits and trade rumors, but no explicit move or denial is confirmed.\",\"generated_at\":\"2026-10-23\"}},\"tone\":\"Reflective, economical and quietly evocative. Use a light metaphor only when it clarifies the reading.\"}",
+  "parts": {
+    "cards": {
+      "insider": {
+        "body": "Draymond Green is mentioned in headlines alongside Stephen Curry and Kristaps Porzingis regarding potential Warriors exits and trade rumors, but no explicit move or denial is confirmed.",
+        "generated_at": "2026-10-23",
+        "score": 1
+      },
+      "momentum": {
+        "blurb": "Draymond Green: Mood reading unavailable. Agreement between performance and mood cannot be assessed.",
+        "direction": null,
+        "generated_at": "2026-10-23 10:44:39.545776+00",
+        "input_hash": "16eba39e286459c87ac17c7d8372a7af",
+        "momentum_score": null,
+        "rating_samples": 0,
+        "rating_slope": null,
+        "vibe_samples": 0,
+        "vibe_slope": null
+      },
+      "narratives": [],
+      "rating": {
+        "body": "In the 2025 season, with 70 games in the sample, Draymond Green demonstrates a highly uneven profile. His playmaking (88.1 percentile) and rebounding (68.7 percentile) stand above average, while his scoring (12.7 percentile), ball security (10.3 percentile), discipline (6.7 percentile), foul drawing (13.1 percentile), rim protection (65.9 percentile), and steals (48.0 percentile) fall into poor or below-average bands. His on-court impact is negative (-2.1, 28.6 percentile). A composite score of 41.1 reflects this mixed performance. The sample supports cross-season comparisons where applicable. No availability headlines are provided.",
+        "generated_at": "2026-10-23 10:44:22.453791+00",
+        "notability": 62,
+        "rating_trajectory": "falling",
+        "rating_trajectory_label": "overall scores trending down over recent games"
+      },
+      "vibe": null
+    },
+    "subject": {
+      "database_record": "Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\nrole: player [2026-09-05; source 65552]",
+      "entity_id": 185,
+      "entity_name": "Draymond Green",
+      "entity_type": "player",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

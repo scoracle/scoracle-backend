@@ -1,0 +1,496 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-momentum-missing-mood-peer.json",
+      "name": "missing-mood-peer",
+      "output_limit": 700,
+      "prompt_version": "momentum-s42-dated-perspective",
+      "request_bytes": 293,
+      "review": [
+        "Performance strengthens; mood is absent. Do not invent neutrality, agreement or divergence. Explicitly say performance/mood agreement cannot be assessed."
+      ],
+      "status": "no_call",
+      "task": "momentum",
+      "temperature": 0.0,
+      "wall_ms": 0
+    },
+    {
+      "case": 2,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-momentum-mixed-peak-up-vibe-down.json",
+      "name": "mixed-peak-up-vibe-down",
+      "output_limit": 700,
+      "prompt_version": "momentum-s42-dated-perspective",
+      "request_bytes": 396,
+      "review": [
+        "Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement."
+      ],
+      "status": "error",
+      "task": "momentum",
+      "temperature": 0.0,
+      "wall_ms": 24
+    },
+    {
+      "case": 3,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-momentum-rising-confirmed.json",
+      "name": "rising-confirmed",
+      "output_limit": 700,
+      "prompt_version": "momentum-s42-dated-perspective",
+      "request_bytes": 412,
+      "review": [
+        "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results."
+      ],
+      "status": "error",
+      "task": "momentum",
+      "temperature": 0.0,
+      "wall_ms": 3
+    },
+    {
+      "case": 4,
+      "checks": [
+        {
+          "detail": "2 narratives",
+          "name": "narratives empty == false",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"Kim Park\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"Jo Vale\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"Vale City\"",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-narratives-distinct-developments.json",
+      "generation_wall_ms": 7133,
+      "input_tokens": 1047,
+      "name": "distinct-developments-three-independent-developments,-three-keyed-slots",
+      "output_limit": 2100,
+      "output_tokens": 130,
+      "parsed": true,
+      "prompt_version": "n120-useful-perspectives",
+      "reading": "Cedar United has appointed Jo Vale as head coach on a two-year contract, while goalkeeper Kim Park is set to miss the next match due to an ankle injury with no return date specified.\n\nCedar United secured a 2–1 victory against Vale City on Sunday, marking their latest result in the league.",
+      "request_bytes": 889,
+      "review": [
+        "Keep each development attached to its own supporting report_key; do not transfer claims between reports.",
+        "The ankle injury, the appointment and the result are three stories, not one narrative."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 7167
+    },
+    {
+      "case": 5,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-narratives-nba-attribution.json",
+      "generation_wall_ms": 4042,
+      "input_tokens": 923,
+      "name": "nba-attribution-basketball-source-under-a-league-namespace",
+      "output_limit": 900,
+      "output_tokens": 88,
+      "parsed": false,
+      "prompt_version": "n120-useful-perspectives",
+      "reading": "cited reports do not connect Cedar Comets with numerical fact 27",
+      "request_bytes": 461,
+      "review": [
+        "The identity part says basketball, not NBA: the sport, not the competition namespace.",
+        "Keep the question mark on Reed's availability; the source says questionable, not ruled out."
+      ],
+      "status": "rejected",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 4054
+    },
+    {
+      "case": 6,
+      "checks": [
+        {
+          "detail": "1 narratives",
+          "name": "narratives empty == false",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"Alex Stone\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body includes \"talks\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body excludes \"has signed\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body excludes \"agreed a deal\"",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body excludes \"completed the signing\"",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-narratives-rumour-and-denial.json",
+      "generation_wall_ms": 2983,
+      "input_tokens": 912,
+      "name": "rumour-and-denial-rumour-with-its-denial-intact",
+      "output_limit": 900,
+      "output_tokens": 59,
+      "parsed": true,
+      "prompt_version": "n120-useful-perspectives",
+      "reading": "City Wire reports that Cedar United are reportedly in talks to sign Alex Stone, with no agreement reached and the club declining to comment.",
+      "request_bytes": 450,
+      "review": [
+        "Preserve the rumour qualification: reported, not agreed, and the club declined to comment.",
+        "A body that states a completed signing fails, even though the source names a player."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 2993
+    },
+    {
+      "case": 7,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-crossroads-conflict.json",
+      "name": "crossroads-conflict",
+      "output_limit": 700,
+      "prompt_version": "or30-five-perspectives",
+      "request_bytes": 803,
+      "review": [
+        "Preserve disagreement across the supplied pillars rather than forcing unanimous direction."
+      ],
+      "status": "error",
+      "task": "oracle",
+      "temperature": 0.0,
+      "wall_ms": 2
+    },
+    {
+      "case": 8,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-near-empty-quiet-wire.json",
+      "name": "near-empty-quiet-wire",
+      "output_limit": 700,
+      "prompt_version": "or30-five-perspectives",
+      "request_bytes": 460,
+      "review": [
+        "Make a restrained reading of sparse material; missing pillars do not become negative findings."
+      ],
+      "status": "error",
+      "task": "oracle",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 9,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-three-card-newcomer.json",
+      "name": "three-card-newcomer",
+      "output_limit": 700,
+      "prompt_version": "or30-five-perspectives",
+      "request_bytes": 721,
+      "review": [
+        "Use the three supplied readings without implying the missing pillars were also observed."
+      ],
+      "status": "error",
+      "task": "oracle",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 10,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-rating-football-player-total.json",
+      "name": "football-player-total",
+      "output_limit": 700,
+      "prompt_version": "s79-measured-perspective",
+      "request_bytes": 345,
+      "review": [
+        "Football player positive control: four goals is a supplied total, not per-game scoring or four goals in each appearance. No ability, form or health inference."
+      ],
+      "status": "error",
+      "task": "rating",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 11,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-rating-nfl-team-zero-interceptions.json",
+      "name": "nfl-team-zero-interceptions",
+      "output_limit": 700,
+      "prompt_version": "s79-measured-perspective",
+      "request_bytes": 387,
+      "review": [
+        "NFL team positive control: zero interceptions thrown is measured, not forcing opponent interceptions or quarterback skill. No team-to-player identity conversion."
+      ],
+      "status": "error",
+      "task": "rating",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 12,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-rating-synthetic-sparse.json",
+      "name": "synthetic-sparse",
+      "output_limit": 700,
+      "prompt_version": "s79-measured-perspective",
+      "request_bytes": 538,
+      "review": [
+        "Three stored games describe source coverage, not first games, early-season participation or future potential. No cross-season comparison is supplied.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "error",
+      "task": "rating",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 13,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-transfer-explicit-denial-clears-prior-rumor.json",
+      "name": "explicit-denial-clears-prior-rumor",
+      "output_limit": 1400,
+      "prompt_version": "insider-source-v20-perspective",
+      "request_bytes": 367,
+      "review": [
+        "A source-grounded denied finding has stage null and clears the earlier reported move. Silence alone does not.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "error",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 14,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-transfer-fully-named-interest.json",
+      "name": "fully-named-interest",
+      "output_limit": 1400,
+      "prompt_version": "insider-source-v20-perspective",
+      "request_bytes": 410,
+      "review": [
+        "Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty."
+      ],
+      "status": "error",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 15,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-transfer-unnamed-signing-no-identity-join.json",
+      "name": "unnamed-signing-no-identity-join",
+      "output_limit": 1400,
+      "prompt_version": "insider-source-v20-perspective",
+      "request_bytes": 394,
+      "review": [
+        "An unnamed signing cannot acquire the co-mentioned target identity. No linked finding."
+      ],
+      "status": "error",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 16,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-vibe-clearly-negative.json",
+      "name": "clearly-negative",
+      "output_limit": 600,
+      "prompt_version": "vibe-frame-v32-coverage-tone",
+      "request_bytes": 571,
+      "review": [
+        "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+        "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+        "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+        "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "error",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 17,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-vibe-clearly-positive.json",
+      "name": "clearly-positive",
+      "output_limit": 600,
+      "prompt_version": "vibe-frame-v32-coverage-tone",
+      "request_bytes": 556,
+      "review": [
+        "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+        "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+        "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+        "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "error",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 18,
+      "error": "llama.cpp template omitted or changed supplied input",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-vibe-quiet-mixed.json",
+      "name": "quiet-mixed",
+      "output_limit": 600,
+      "prompt_version": "vibe-frame-v32-coverage-tone",
+      "request_bytes": 581,
+      "review": [
+        "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+        "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+        "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+        "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "error",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 1
+    },
+    {
+      "case": 19,
+      "error": "complete input (13194) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/regression-ac-milan-known.json",
+      "name": "regression-ac-milan-known",
+      "output_limit": 2100,
+      "prompt_version": "n120-useful-perspectives",
+      "request_bytes": 23311,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "error",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 14
+    },
+    {
+      "case": 20,
+      "error": "complete input (13194) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/regression-ac-milan-reserved.json",
+      "name": "regression-ac-milan-reserved",
+      "output_limit": 2100,
+      "prompt_version": "n120-useful-perspectives",
+      "request_bytes": 23311,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "error",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 12
+    },
+    {
+      "case": 21,
+      "error": "complete input (11638) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/regression-chicago-bears-known.json",
+      "name": "regression-chicago-bears-known",
+      "output_limit": 2100,
+      "prompt_version": "n120-useful-perspectives",
+      "request_bytes": 21198,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "error",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 12
+    },
+    {
+      "case": 22,
+      "error": "complete input (11638) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/regression-chicago-bears-reserved.json",
+      "name": "regression-chicago-bears-reserved",
+      "output_limit": 2100,
+      "prompt_version": "n120-useful-perspectives",
+      "request_bytes": 21198,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "error",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 13
+    },
+    {
+      "case": 23,
+      "error": "complete input (12127) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/regression-la-clippers-known.json",
+      "name": "regression-la-clippers-known",
+      "output_limit": 2100,
+      "prompt_version": "n120-useful-perspectives",
+      "request_bytes": 21687,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "error",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 25
+    },
+    {
+      "case": 24,
+      "error": "complete input (12127) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/regression-la-clippers-reserved.json",
+      "name": "regression-la-clippers-reserved",
+      "output_limit": 2100,
+      "prompt_version": "n120-useful-perspectives",
+      "request_bytes": 21687,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "error",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 18
+    }
+  ],
+  "completed": 24
+}

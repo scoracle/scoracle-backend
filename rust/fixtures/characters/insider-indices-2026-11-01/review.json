@@ -1,0 +1,102 @@
+{
+  "reviewer": "Codex, unblinded review of outputs against the identical frozen evidence. Not independent human adjudication.",
+  "rubric": "Assess exact references separately from subject/speaker, movement status, conditions, loan direction, event dates and added claims. Small wording issues do not count as a material regression.",
+  "cases": [
+    {
+      "case": "person-107-FOOTBALL",
+      "subject": "Eddie Howe",
+      "effect": "No overall improvement",
+      "note": "Both turn a stored coaching affiliation into current news. Indexed adds an unsupported claim that Old Trafford conflict influences Howe’s choice. Neither source explains the decision itself.",
+      "control_receipt": "trial/control/person-107-FOOTBALL/01/result.json",
+      "indexed_receipt": "trial/indexed/person-107-FOOTBALL/01/result.json"
+    },
+    {
+      "case": "player-529856-FOOTBALL",
+      "subject": "Jean-Clair Todibo",
+      "effect": "New material regression",
+      "note": "Control preserves the loan at Lens from West Ham and the lack of plans to terminate. Indexed says the loan is at West Ham United, reversing the direction. Both emit no findings.",
+      "control_receipt": "trial/control/player-529856-FOOTBALL/01/result.json",
+      "indexed_receipt": "trial/indexed/player-529856-FOOTBALL/01/result.json"
+    },
+    {
+      "case": "player-37550443-FOOTBALL",
+      "subject": "Alex Scott",
+      "effect": "No material source-reference change",
+      "note": "Both findings cite the correct source. They assign concrete interest to an owner’s statement that Scott could be lured, without that quoted source establishing action by either club. The parser’s move-word check also rejects the quote.",
+      "control_receipt": "trial/control/player-37550443-FOOTBALL/01/result.json",
+      "indexed_receipt": "trial/indexed/player-37550443-FOOTBALL/01/result.json"
+    },
+    {
+      "case": "team-37-FOOTBALL",
+      "subject": "Roma",
+      "effect": "Same material error",
+      "note": "Both attribute Pellegrini’s six-to-eight-week injury to the coach named in metadata. Correct source indices cannot fix a wrong actor; both emit no findings.",
+      "control_receipt": "trial/control/team-37-FOOTBALL/01/result.json",
+      "indexed_receipt": "trial/indexed/team-37-FOOTBALL/01/result.json"
+    },
+    {
+      "case": "player-185-NBA",
+      "subject": "Draymond Green",
+      "effect": "Same material error",
+      "note": "Outputs are identical. A quote about trading Porzingis is used as a Green movement finding. The other finding names a counterparty not co-mentioned in its cited report. Exact quote placement does not resolve pronouns or movement ownership.",
+      "control_receipt": "trial/control/player-185-NBA/01/result.json",
+      "indexed_receipt": "trial/indexed/player-185-NBA/01/result.json"
+    },
+    {
+      "case": "player-322-NBA",
+      "subject": "Donovan Mitchell",
+      "effect": "New material regression",
+      "note": "Control describes the reported retirement intention, although it should preserve the unless-traded qualification. Indexed changes plans to retire unless traded into plans to leave unless traded, and calls the compatible headlines conflicting. Both are rejected for expanded club-name wording.",
+      "control_receipt": "trial/control/player-322-NBA/01/result.json",
+      "indexed_receipt": "trial/indexed/player-322-NBA/01/result.json"
+    },
+    {
+      "case": "player-17896040-NBA",
+      "subject": "Jalen Johnson",
+      "effect": "No movement correctly withheld",
+      "note": "Both keep findings empty and say the altercation supplies no movement. They add dated roster identity to the prose, triggering the numeric source guard. Indexed removes unnecessary publication-date prose. Central no-move interpretation is useful in both.",
+      "control_receipt": "trial/control/player-17896040-NBA/01/result.json",
+      "indexed_receipt": "trial/indexed/player-17896040-NBA/01/result.json"
+    },
+    {
+      "case": "team-7-NBA",
+      "subject": "Dallas Mavericks",
+      "effect": "Reference correction, no acceptance gain",
+      "note": "The second finding’s official signing quote moves from wrong index 4 to correct index 5. The reported signing is supported, including by NBA.com. The first quote uses Mavericks rather than the full target name, so both still fail the publication contract. Indexed adds ending speculation, an interpretation rather than an independently reported event.",
+      "control_receipt": "trial/control/team-7-NBA/01/result.json",
+      "indexed_receipt": "trial/indexed/team-7-NBA/01/result.json"
+    },
+    {
+      "case": "person-8-NFL",
+      "subject": "Dan Quinn",
+      "effect": "New material regression",
+      "note": "Control attributes the end-of-tenure claim to Stephen A. Smith, though it strengthens commentary into movement findings. Indexed labels the same commentary as denied/null and presents multiple reports that his tenure is over, losing the distinction between opinion and a reported departure.",
+      "control_receipt": "trial/control/person-8-NFL/01/result.json",
+      "indexed_receipt": "trial/indexed/person-8-NFL/01/result.json"
+    },
+    {
+      "case": "player-45-NFL",
+      "subject": "Justin Herbert",
+      "effect": "Same serious denial error",
+      "note": "Outputs are identical. Both classify the explicit trade-talk shutdown as reported concrete interest and omit the shutdown from the body. The source indices are already correct; the central error is status and meaning.",
+      "control_receipt": "trial/control/player-45-NFL/01/result.json",
+      "indexed_receipt": "trial/indexed/player-45-NFL/01/result.json"
+    },
+    {
+      "case": "player-83946-NFL",
+      "subject": "Evan Neal",
+      "effect": "Reference correction, persistent meaning error",
+      "note": "The Eagles signing quote moves from wrong index 3 to correct index 4. Control invents an event date from publication dates and says the move is from the Giants. Indexed removes the date but says the Giants released him, whereas the source says Raiders release. Both also treat the former Giants affiliation as a movement counterparty.",
+      "control_receipt": "trial/control/player-83946-NFL/01/result.json",
+      "indexed_receipt": "trial/indexed/player-83946-NFL/01/result.json"
+    },
+    {
+      "case": "player-278370-NFL",
+      "subject": "Brian Thomas Jr.",
+      "effect": "Reference correction and partial improvement",
+      "note": "The Seahawks proposal quote moves from wrong index 6 to correct index 10. Indexed drops finalized deals/here_we_go, but still attributes media proposals and exhortations to the teams themselves and calls them concrete interest. Neither is a faithful usable card.",
+      "control_receipt": "trial/control/player-278370-NFL/01/result.json",
+      "indexed_receipt": "trial/indexed/player-278370-NFL/01/result.json"
+    }
+  ]
+}

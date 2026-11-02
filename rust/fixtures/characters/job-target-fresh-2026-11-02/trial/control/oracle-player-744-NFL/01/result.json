@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/job-target-fresh-2026-11-02/cases/control/oracle-player-744-NFL.json",
+  "generation_wall_ms": 4317,
+  "input_tokens": 982,
+  "name": "oracle-player-744-NFL",
+  "output_limit": 700,
+  "output_tokens": 72,
+  "parsed": true,
+  "prompt_version": "or31-five-perspectives",
+  "reading": "Sam LaPorta's profile centers on elite statistical performance within a thin sample, yet this strength is overshadowed by a palpable tension between his on-field contributions and his expressed frustration over stalled contract negotiations. The divergence between his high percentile rankings and his willingness to seek payment elsewhere creates a meaningful uncertainty regarding his future commitment to the team.",
+  "request_bytes": 1895,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 4325
+}

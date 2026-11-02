@@ -1,0 +1,90 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — momentum / missing-mood-peer [no_call]
+No model call
+
+2 — momentum / mixed-peak-up-vibe-down [accepted]
+Rowe's measured profile shows improvement in creation efficiency, yet the coverage tone is cooling despite this stronger statistical work. The performance profile and coverage tone differ; neither establishes that the other is wrong or explains a change over time.
+
+3 — momentum / rising-confirmed [accepted]
+Carter's creation and finishing are strengthening together while coverage remains emphatically positive and warming; the lack of dated comparisons prevents assessing whether this alignment reflects a durable trend or a single snapshot.
+
+4 — momentum / synthetic-dated-divergence [accepted]
+Harbor shows strong relative rebounding while coverage leans cautious, creating a tension between measured performance and tone. Statistical distinctiveness increased by eight points, yet coverage tone decreased by twelve points over the same window, indicating divergent signals where neither proves the other.
+
+5 — momentum / synthetic-dated-missing-peer [accepted]
+Harbor's statistical distinctiveness increased by eight points while coverage tone decreased by twelve points over the same window, creating a divergence between measured performance and reported mood. This tension indicates that the team's profile became more notable relative to peers even as media coverage grew more detached and economical.
+
+6 — narratives / distinct-developments-three-independent-developments,-three-keyed-slots [accepted]
+City Wire reports that Cedar United goalkeeper Kim Park will miss the next match with an ankle injury, though no return date was provided.
+
+City Wire reports that Cedar United appointed Jo Vale as head coach on Monday, with a two-year contract.
+
+City Wire reports that Cedar United won 2–1 against Vale City on Sunday.
+
+7 — narratives / nba-attribution-basketball-source-under-a-league-namespace [rejected]
+cited reports do not connect Cedar Comets with numerical fact 27
+
+8 — narratives / rumour-and-denial-rumour-with-its-denial-intact [accepted]
+City Wire reports that Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources, though no agreement has been reached and the club declined to comment.
+
+9 — oracle / crossroads-conflict [accepted]
+Marcus Vale's profile centers on elite, stable production that remains unshaken by the surrounding tension. A reported trade demand has created a thinning atmosphere of patience, yet the available evidence shows no shift in his on-court performance.
+
+10 — oracle / near-empty-quiet-wire [accepted]
+Venezia's available picture centers on a quiet return to preseason testing with no further detail surfacing. This single report establishes a baseline of activity but leaves the team's trajectory, performance, and broader context entirely unknown.
+
+11 — oracle / three-card-newcomer [accepted]
+Ipswich Town is executing a focused defensive rebuild anchored by the confirmed arrival of Issa Diop, creating a clear structural shift for the upcoming season. However, the narrative remains cautious, balancing this concrete business move against a broader desire to see tangible results on the pitch.
+
+12 — rating / football-player-total [accepted]
+The recorded profile shows 4 goals across 12 appearances, placing the goals measure at the 80th percentile in the strong band. The reading rests on a sample of 12 appearances.
+
+13 — rating / nfl-team-zero-interceptions [accepted]
+The Briar Bears recorded 12 games played in the 2026 season, establishing a sample size of 12.0. Within this cohort, the team's interceptions thrown measure reached the 99th percentile in the elite band, indicating a relative standing at the top of the supplied distribution. The team's composite score is 64.0. Cross-season support is indicated for these measurements. No availability headlines are supplied.
+
+14 — rating / synthetic-sparse [accepted]
+The Cedar Comets' rebounding performance is the stronger relative measure, ranking at the 90th percentile in the elite band, while assists rank at the 75th percentile in the strong band. These readings rest on a thin sample of 3 games, with a minimum of 10 games required for reliable comparison.
+
+15 — transfer / explicit-denial-clears-prior-rumor [rejected]
+served reading adds unsupported chronology or causality
+
+16 — transfer / fully-named-interest [rejected]
+finding quote must name both the target and counterparty in full
+
+17 — transfer / unnamed-signing-no-identity-join [accepted]
+0 finding(s) | Aaron Gordon is the subject of a reported community event attendance by the Denver Nuggets, with no supported movement or affiliation change.
+
+18 — vibe / clearly-negative [accepted]
+Fans express fury over Cedar Comets performance
+
+Example Wire reports that Cedar Comets fans booed the team and stated they were furious with its performance.
+
+19 — vibe / clearly-positive [accepted]
+Supporters express delight over Cedar Comets victory
+
+Example Wire reports that Cedar Comets supporters cheered the win and said they were delighted.
+
+20 — vibe / quiet-mixed [accepted]
+empty reading
+
+21 — narratives / regression-ac-milan-known [error]
+complete input (5827) plus reserved output (2100) exceeds actual model context (7900); no source was clipped
+
+22 — narratives / regression-ac-milan-reserved [rejected]
+named claim is absent from cited reports: Chukwuezi Athekame
+
+23 — narratives / regression-chicago-bears-known [rejected]
+named claim is absent from cited reports: Thursday Night Football
+
+24 — narratives / regression-chicago-bears-reserved [accepted]
+Pats Pulpit reports that Christian Gonzalez is good to play despite a newly announced illness. Yahoo Sports notes that Patriots head coach Mike Vrabel is set to end a 27-year streak of playing in the Thanksgiving game against the Bears.
+
+Chicago Tribune reports on the Chicago Bears' possible move from Soldier Field.
+
+25 — narratives / regression-la-clippers-known [rejected]
+named claim is absent from cited reports: LA Clippers
+
+26 — narratives / regression-la-clippers-reserved [rejected]
+named claim is absent from cited reports: LA Clippers

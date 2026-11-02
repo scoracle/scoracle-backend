@@ -1,0 +1,41 @@
+{
+  "name": "real-player:237:NBA-momentum",
+  "task": "momentum",
+  "sport": "NBA",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"LeBron James\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"LeBron James — F, on record at Los Angeles Lakers. Nationality: USA. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"scout\":{\"body\":\"Based on the supplied measurements for LeBron James in the 2025 season (sample size: 66 games), his performance metrics establish the following relative standings within a cohort of 253 players: scoring (21.1 points, 88.9th percentile, strong band), playmaking (7.3 assists, 96.4th percentile, elite band), and discipline (1.4 personal fouls, 89.7th percentile, strong band) indicate superior execution in these areas. Conversely, ball security (3.1 turnovers, 4.8th percentile, poor band) and 3PT shooting (1.3 made field goals, 36.9th percentile, below average band) show weaker relative performance. Other measures place him in the above-average band for on-court impact (plus-minus, 67.5th percentile), rim protection (blocks, 65.9th percentile), and rebounding (6.2 total rebounds, 77.4th percentile), while steals (1.2, 76.6th percentile) and foul drawing (5.5 free throws attempted, 87.3th percentile) also register as strong relative to the cohort. A composite score of 64.7 reflects this overall profile. The data indicates a sample limit of 66 games. No availability headlines were supplied.\",\"season\":2025,\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "LeBron James — F, on record at Los Angeles Lakers. Nationality: USA. Record: roster; observed 2026-07-04.",
+    "influencer": null,
+    "scout": {
+      "body": "Based on the supplied measurements for LeBron James in the 2025 season (sample size: 66 games), his performance metrics establish the following relative standings within a cohort of 253 players: scoring (21.1 points, 88.9th percentile, strong band), playmaking (7.3 assists, 96.4th percentile, elite band), and discipline (1.4 personal fouls, 89.7th percentile, strong band) indicate superior execution in these areas. Conversely, ball security (3.1 turnovers, 4.8th percentile, poor band) and 3PT shooting (1.3 made field goals, 36.9th percentile, below average band) show weaker relative performance. Other measures place him in the above-average band for on-court impact (plus-minus, 67.5th percentile), rim protection (blocks, 65.9th percentile), and rebounding (6.2 total rebounds, 77.4th percentile), while steals (1.2, 76.6th percentile) and foul drawing (5.5 free throws attempted, 87.3th percentile) also register as strong relative to the cohort. A composite score of 64.7 reflects this overall profile. The data indicates a sample limit of 66 games. No availability headlines were supplied.",
+      "generated_at": "2026-10-23",
+      "headline": "LeBron James: measured profile",
+      "input_hash": "9132dbb5e98d7fb72df9b4c22e3d24d4",
+      "season": 2025
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 237,
+      "entity_type": "player",
+      "name": "LeBron James",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

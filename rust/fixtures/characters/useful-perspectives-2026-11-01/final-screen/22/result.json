@@ -1,0 +1,24 @@
+{
+  "case": 22,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/regression-ac-milan-reserved.json",
+  "generation_wall_ms": 18029,
+  "input_tokens": 4369,
+  "name": "regression-ac-milan-reserved",
+  "output_limit": 2100,
+  "output_tokens": 176,
+  "parsed": false,
+  "prompt_version": "n121-useful-perspectives",
+  "reading": "named claim is absent from cited reports: Chukwuezi Athekame",
+  "request_bytes": 2993,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 18040
+}

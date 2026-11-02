@@ -1,0 +1,88 @@
+{
+  "name": "player-322-NBA",
+  "task": "transfer",
+  "sport": "NBA",
+  "prompt_version": "insider-source-v22-quote-eligibility",
+  "user_prompt": "{\"meta\":{\"name\":\"Donovan Mitchell\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Donovan Mitchell — G, on record at Cleveland Cavaliers. Nationality: USA. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1317981,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxPY2lET0Q3TTZsRmlkRUN2dnVpN0dkSUtsLXJlRnZIa200T2pqMTNmNkdqVE9qOGVKbGg3TlJUQm1UNE1MYVhmWmZ3QThqMnhjNEI4a1RZck1ST2hmSXlTdHUwMktsQUJNcTdxUmFGQjJ3dkNUdVlaTzVHZlpVVGE2WnZraTZfWXhoSFBZNWxOOEFUUQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Cleveland Cavaliers\"}],\"headline\":\"Donovan Mitchell Plans to Retire With Cavaliers Unless They Trade Him\",\"published_at\":\"2026-10-22T14:46:56Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1298571,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiwgFBVV95cUxQVkR3S1VILXRubk5JUXdhaHl6NFhPNVJrNXhTODE4SEhoUFRaQXF5aUhtY3hHRlF2SnVidkZJMHp3eVUxYVpUVmRTRmVqRGpGVk5OMVJldVIzWk94VkdWVE9OTlItU3dFdFgzRmttNHo0RzkxVHlYMUVPYTNPeXZHcWdRMUdTYnJQOXV0WngtVWtRbExuUXhERmIyU3I3cXAtb3FIRklTSi1QaDN6QXc1anFsUzNjRktrbVJ4RVZRTVFOUQ?oc=5\"},\"co_mentions\":[],\"headline\":\"Donovan Mitchell Formally Commits to Cleveland: \\\"I Want To Retire Here\\\"\",\"published_at\":\"2026-10-22T13:00:04Z\",\"publisher\":\"Sports Illustrated\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "parts": {
+    "database_record": "Donovan Mitchell — G, on record at Cleveland Cavaliers. Nationality: USA. Record: roster; observed 2026-07-04.",
+    "reports": [
+      {
+        "classifier_world": {
+          "article_id": 1317981,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.014462964168237,
+            "clickbait": 14.62669785317557,
+            "emotion": 2.107850379005982,
+            "movement": 83.54730501714866,
+            "subject": 95.41915570405264
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxPY2lET0Q3TTZsRmlkRUN2dnVpN0dkSUtsLXJlRnZIa200T2pqMTNmNkdqVE9qOGVKbGg3TlJUQm1UNE1MYVhmWmZ3QThqMnhjNEI4a1RZck1ST2hmSXlTdHUwMktsQUJNcTdxUmFGQjJ3dkNUdVlaTzVHZlpVVGE2WnZraTZfWXhoSFBZNWxOOEFUUQ?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Cleveland Cavaliers"
+          }
+        ],
+        "headline": "Donovan Mitchell Plans to Retire With Cavaliers Unless They Trade Him",
+        "published_at": "2026-10-22T14:46:56Z",
+        "publisher": "Yahoo Sports",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1298571,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.7036256252029176,
+            "clickbait": 8.108779849995122,
+            "emotion": 4.7180555707392475,
+            "movement": 85.35023162501695,
+            "subject": 95.22770017506164
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxQVkR3S1VILXRubk5JUXdhaHl6NFhPNVJrNXhTODE4SEhoUFRaQXF5aUhtY3hHRlF2SnVidkZJMHp3eVUxYVpUVmRTRmVqRGpGVk5OMVJldVIzWk94VkdWVE9OTlItU3dFdFgzRmttNHo0RzkxVHlYMUVPYTNPeXZHcWdRMUdTYnJQOXV0WngtVWtRbExuUXhERmIyU3I3cXAtb3FIRklTSi1QaDN6QXc1anFsUzNjRktrbVJ4RVZRTVFOUQ?oc=5"
+        },
+        "co_mentions": [],
+        "headline": "Donovan Mitchell Formally Commits to Cleveland: \"I Want To Retire Here\"",
+        "published_at": "2026-10-22T13:00:04Z",
+        "publisher": "Sports Illustrated",
+        "publisher_excerpt": ""
+      }
+    ],
+    "subject": {
+      "entity_id": 322,
+      "entity_type": "player",
+      "name": "Donovan Mitchell",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

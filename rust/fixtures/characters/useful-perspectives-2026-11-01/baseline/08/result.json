@@ -1,0 +1,38 @@
+{
+  "case": 8,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    },
+    {
+      "detail": "sentences=3 ≤ 3",
+      "name": "reading_max_sentences",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/oracle-near-empty-quiet-wire.json",
+  "generation_wall_ms": 2873,
+  "input_tokens": 279,
+  "name": "near-empty-quiet-wire",
+  "output_limit": 700,
+  "output_tokens": 64,
+  "parsed": true,
+  "prompt_version": "or29-evidence-only",
+  "reading": "The entity known as Venezia, a team in the sport of FOOTBALL, has returned for preseason testing this week. This development is currently a developing story, with no further detail having surfaced regarding the squad's activities. All other aspects of the entity's state remain unknown.",
+  "request_bytes": 1324,
+  "review": [
+    "Make a restrained reading of sparse material; missing pillars do not become negative findings."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 2882
+}

@@ -1,0 +1,24 @@
+{
+  "case": 21,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/regression-la-clippers-reserved.json",
+  "generation_wall_ms": 10485,
+  "input_tokens": 2016,
+  "name": "regression-la-clippers-reserved",
+  "output_limit": 2100,
+  "output_tokens": 153,
+  "parsed": false,
+  "prompt_version": "n120-useful-perspectives",
+  "reading": "named claim is absent from cited reports: LA Clippers",
+  "request_bytes": 2380,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 10496
+}

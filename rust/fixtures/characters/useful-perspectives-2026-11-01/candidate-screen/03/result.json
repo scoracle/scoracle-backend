@@ -1,0 +1,16 @@
+{
+  "case": 3,
+  "error": "llama.cpp template omitted or changed supplied input",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-momentum-rising-confirmed.json",
+  "name": "rising-confirmed",
+  "output_limit": 700,
+  "prompt_version": "momentum-s42-dated-perspective",
+  "request_bytes": 412,
+  "review": [
+    "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results."
+  ],
+  "status": "error",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 3
+}

@@ -1,16 +1,13 @@
 //! Daily fresh source preparation, linked mentions and model requests.
 use crate::harness::route::RouteKey;
 pub const MODEL: RouteKey = RouteKey::new("transfer-logic", "TRANSFER_LOGIC");
-// Optional memory trimming only; the provider budgets complete fresh input in tokens.
-pub const CONTEXT_BUDGET_BYTES: usize = 24000;
 use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use anyhow::Result;
-use serde::Serialize;
 
-const SYSTEM: &str = "Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Do not name an unnamed signing from another report or a co-mention. An exact evidence_quote must support that specific counterparty and target in that same report. Generic or unrelated movement produces no finding. Write an attributed transfer or trade reading for the named entity from the supplied publisher reports. The source text establishes what was reported, not whether a move happened. A co-mentioned name is only a candidate subject; do not infer a move from its presence. Preserve denials, uncertainty, source disagreements and report dates. Routing does not verify facts or target relationships. For headline evidence, report only what the headline says and do not invent article details. memories are dated historical headlines, never evidence of a new move or a source for findings. Faithfully report your character’s point of view in voice. Return one JSON object with body and findings. Keep the body to two or three short sentences, at most 1200 characters, and return at most two of the most significant supported findings. Begin the body with the full exact target name from meta.name, even when no move is supported. If these reports do not support a move involving that target, explain that evidence limit and return findings as []; do not retell another subject's move. For each specific reported move or explicit denial involving this entity and a co-mentioned counterparty, give its zero-based report_index, exact counterparty name, status (reported or denied), and an exact continuous evidence_quote from that report's headline or publisher_excerpt naming both parties in full and stating the move or its explicit denial. For reported moves, set stage to speculation, concrete_interest, advanced_talks, or here_we_go; for denials, set stage to null. For example, a quote saying a club denied talks to sign the named player requires status denied and stage null. Never label an explicit denial as reported merely because a publisher reported it. A denial requires an explicit source statement about that move; absence, silence, and unrelated mentions produce no finding. Use [] when there are no supported findings. Do not report completed identity changes from transfer speculation.";
+pub const SYSTEM: &str = include_str!("instructions.txt");
 
-pub const PROMPT_VERSION: &str = "insider-source-v19-subject";
+pub const PROMPT_VERSION: &str = "insider-source-v25-context-guide";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v6-scoped-report-facts";
 pub const NUM_PREDICT: i32 = 1400;
 pub const BODY_MAX_CHARS: usize = 1200;
@@ -19,7 +16,7 @@ pub const EVIDENCE_QUOTE_MAX_CHARS: usize = 500;
 
 pub fn options(num_ctx: i32) -> GenerateOptions {
     let mut options = GenerateOptions {
-        system: None,
+        system: Some(SYSTEM.trim().to_owned()),
         temperature: Some(0.3),
         num_predict: NUM_PREDICT,
         num_ctx: if num_ctx > 0 {
@@ -68,18 +65,30 @@ pub fn options_for_reports(
     reports: &[Report],
 ) -> GenerateOptions {
     let mut options = options(num_ctx);
-    let names: std::collections::BTreeSet<_> = reports
+    // A co-mention is not enough: the quote contract requires both full names in one source span.
+    let eligible: Vec<_> = reports
         .iter()
-        .flat_map(|r| &r.co_mentions)
-        .filter(|m| {
-            if subject.entity_type == "team" {
-                matches!(m.entity_type.as_str(), "player" | "person")
-            } else {
-                m.entity_type == "team"
-            }
+        .enumerate()
+        .flat_map(|(index, report)| {
+            report.co_mentions.iter().filter_map(move |mention| {
+                let valid_type = if subject.entity_type == "team" {
+                    matches!(mention.entity_type.as_str(), "player" | "person")
+                } else {
+                    mention.entity_type == "team"
+                };
+                let names_in_one_text =
+                    [&report.headline, &report.publisher_excerpt]
+                        .iter()
+                        .any(|text| {
+                            crate::tools::fresh::names_entity(text, &subject.name)
+                                && crate::tools::fresh::names_entity(text, &mention.name)
+                        });
+                (valid_type && names_in_one_text).then_some((index, &mention.name))
+            })
         })
-        .map(|m| &m.name)
         .collect();
+    let names: std::collections::BTreeSet<_> = eligible.iter().map(|(_, name)| name).collect();
+    let indices: std::collections::BTreeSet<_> = eligible.iter().map(|(index, _)| index).collect();
     let findings = &mut options.format_schema.as_mut().unwrap()["properties"]["findings"];
     findings["maxItems"] = serde_json::json!(if names.is_empty() {
         0
@@ -91,6 +100,7 @@ pub fn options_for_reports(
             serde_json::json!(reports.len().saturating_sub(1));
         if !names.is_empty() {
             item["properties"]["counterparty"]["enum"] = serde_json::json!(names);
+            item["properties"]["report_index"]["enum"] = serde_json::json!(indices);
         }
     }
     options
@@ -99,6 +109,8 @@ pub fn options_for_reports(
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Parts {
     pub subject: EntityMeta,
+    #[serde(default)]
+    pub database_record: Option<crate::tools::meta::DatabaseRecord>,
     pub reports: Vec<Report>,
     #[serde(default)]
     pub memories: Vec<crate::plugins::classifier::memories::Headline>,
@@ -106,7 +118,7 @@ pub struct Parts {
 
 impl Parts {
     pub fn assemble(&self) -> String {
-        assemble_with_memories(&self.subject, &self.reports, &self.memories)
+        assemble_with_record(&self.subject, &self.reports, self.database_record.as_ref())
     }
     pub fn parse(&self, raw: &str) -> Result<Option<super::Reply>> {
         use crate::harness::Parser;
@@ -121,38 +133,46 @@ impl Parts {
 pub use super::fresh::{Mention, Report};
 
 pub fn assemble(subject: &EntityMeta, reports: &[Report]) -> String {
-    assemble_with_memories(subject, reports, &[])
+    assemble_with_record(subject, reports, None)
 }
 
-pub(super) fn assemble_with_memories(
+pub(super) fn assemble_with_record(
     subject: &EntityMeta,
     reports: &[Report],
-    memories: &[crate::plugins::classifier::memories::Headline],
+    database_record: Option<&crate::tools::meta::DatabaseRecord>,
 ) -> String {
+    #[derive(serde::Serialize)]
+    struct IndexedReport<'a> {
+        report_index: usize,
+        #[serde(flatten)]
+        report: &'a Report,
+    }
+    #[derive(serde::Serialize)]
+    struct Fresh<'a> {
+        reports: Vec<IndexedReport<'a>>,
+    }
     let mut reports = reports.to_vec();
     for report in &mut reports {
         report.classifier_world =
             crate::tools::fresh::evidence_world(report.classifier_world.as_ref());
     }
-    #[derive(Serialize)]
-    struct Input<'a> {
-        meta: crate::tools::meta::WritingIdentity<'a>,
-        task: &'static str,
-        fresh: serde_json::Value,
-        memories: Vec<serde_json::Value>,
-        voice: &'static str,
-    }
-    serde_json::to_string(&Input {
-        meta: subject.for_writing(),
-        task: SYSTEM,
-        fresh: serde_json::json!({ "reports": reports }),
-        memories: memories
-            .iter()
-            .map(crate::plugins::classifier::memories::Headline::for_writing)
-            .collect(),
-        voice: crate::plugins::insider::voice::VOICE,
-    })
-    .expect("insider world serializes")
+    crate::tools::context::assemble(
+        SYSTEM,
+        include_str!("context.txt"),
+        subject.for_writing(),
+        database_record,
+        Fresh {
+            reports: reports
+                .iter()
+                .enumerate()
+                .map(|(report_index, report)| IndexedReport {
+                    report_index,
+                    report,
+                })
+                .collect(),
+        },
+        super::voice::VOICE,
+    )
 }
 
 #[cfg(test)]
@@ -180,17 +200,19 @@ mod tests {
         };
         let world = assemble(&subject, &[report]);
         let fresh_at = world.find(r#""fresh":"#).unwrap();
-        let voice_at = world.find(r#""voice":"#).unwrap();
-        assert!(world.starts_with(r#"{"meta":"#) && fresh_at < voice_at);
+        let voice_at = world.find(r#""tone":"#).unwrap();
+        assert!(world.starts_with(r#"{"job":"#) && fresh_at < voice_at);
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
         assert_eq!(value["meta"]["sport"], "American football");
+        assert_eq!(value["fresh"]["reports"][0]["report_index"], 0);
         assert_eq!(
             value["fresh"]["reports"][0]["co_mentions"][0]["name"],
             "Cleveland Browns"
         );
         assert!(value["meta"].get("entity_id").is_none());
-        assert_eq!(value["memories"], serde_json::json!([]));
-        assert_eq!(value["task"], SYSTEM);
+        assert!(value.get("memories").is_none());
+        assert!(value.get("task").is_none());
+        assert_eq!(options(7900).system.as_deref(), Some(SYSTEM.trim()));
         assert!(value.get("form").is_none());
     }
 
@@ -206,7 +228,7 @@ mod tests {
             classifier_world: None,
             publisher: "Wire".into(),
             published_at: None,
-            headline: "Movement".into(),
+            headline: "Cedar express interest in signing Alex Reed".into(),
             publisher_excerpt: "Cedar reported talks.".into(),
             co_mentions: vec![
                 Mention {
@@ -244,5 +266,47 @@ mod tests {
                 .unwrap()["properties"]["findings"]["maxItems"],
             0
         );
+    }
+
+    #[test]
+    fn quote_eligibility_cannot_borrow_names_between_reports_or_source_fields() {
+        let subject = EntityMeta {
+            name: "Rowan Vale".into(),
+            entity_type: "player".into(),
+            entity_id: 1,
+            sport: "NFL".into(),
+        };
+        let mut report = Report {
+            classifier_world: None,
+            publisher: "Wire".into(),
+            published_at: None,
+            headline: "Rowan Vale considers a move".into(),
+            publisher_excerpt: "Harbor FC discuss signing a player".into(),
+            co_mentions: vec![Mention {
+                name: "Harbor FC".into(),
+                entity_type: "team".into(),
+            }],
+        };
+        let unsupported = report.clone();
+        assert_eq!(
+            options_for_reports(7900, &subject, &[unsupported.clone()])
+                .format_schema
+                .unwrap()["properties"]["findings"]["maxItems"],
+            0
+        );
+        report.publisher_excerpt = "Harbor FC deny talks to sign Rowan Vale".into();
+        let options = options_for_reports(7900, &subject, &[unsupported, report]);
+        let findings = &options.format_schema.unwrap()["properties"]["findings"];
+        assert_eq!(findings["maxItems"], 2);
+        for branch in findings["items"]["oneOf"].as_array().unwrap() {
+            assert_eq!(
+                branch["properties"]["report_index"]["enum"],
+                serde_json::json!([1])
+            );
+            assert_eq!(
+                branch["properties"]["counterparty"]["enum"],
+                serde_json::json!(["Harbor FC"])
+            );
+        }
     }
 }

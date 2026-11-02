@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-transfer-person-959-NFL.json",
+      "generation_wall_ms": 6287,
+      "input_tokens": 1343,
+      "name": "real-transfer-person-959-NFL",
+      "output_limit": 1400,
+      "output_tokens": 40,
+      "parsed": false,
+      "prompt_version": "insider-source-v21-perspective",
+      "reading": "named claim is absent from cited reports: Dallas Cowboys",
+      "request_bytes": 1422,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 6294
+    }
+  ],
+  "completed": 1
+}

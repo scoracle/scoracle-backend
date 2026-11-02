@@ -1,0 +1,64 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — momentum / missing-mood-peer [no_call]
+No model call
+
+2 — momentum / mixed-peak-up-vibe-down [accepted]
+Performance and mood readings diverge. Rowe's measured profile is improving due to more efficient creation, yet the mood around him is cooling despite this statistical work.
+
+3 — momentum / rising-confirmed [accepted]
+Carter's mood remains emphatically positive and warming, while his creation and finishing are strengthening together across the current sample. These readings reinforce each other, indicating a cohesive positive state in both performance and sentiment.
+
+4 — narratives / distinct-developments-three-independent-developments,-three-keyed-slots [accepted]
+City Wire reports that Cedar United announced goalkeeper Kim Park will miss the next match due to an ankle injury, with no return date provided.
+
+City Wire reports that Cedar United appointed Jo Vale as head coach on Monday, with a two-year contract.
+
+City Wire reports that Cedar United won 2–1 against Vale City on Sunday.
+
+5 — narratives / nba-attribution-basketball-source-under-a-league-namespace [rejected]
+cited reports do not connect Cedar Comets with numerical fact 27
+
+6 — narratives / rumour-and-denial-rumour-with-its-denial-intact [accepted]
+City Wire reports that Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources, though no agreement has been reached and the club declined to comment.
+
+7 — oracle / crossroads-conflict [rejected]
+Marcus Vale stands as an elite two-way production force, a reality confirmed by the scout who notes the numbers have not blinked through the noise. Yet, the arc of his current season feels dragged down by a feeling that is dragging, a sentiment echoed by the analyst who observes that while production holds its line, the emotional trajectory is faltering. This tension is compounded by a souring atmosphere in the room, where a standoff dominates every thread and patience is thinning. A trade-demand story broke this week and hangs over everything, though the front office has not responded publicly to this specific demand. The journalist reports four sources of this trade demand, with the trajectory heating up, yet the connection between this demand and the specific state of Vale's production remains unexplained by the available cards. The feeling drags the arc down while the production holds its line.
+
+8 — oracle / near-empty-quiet-wire [accepted]
+The entity known as Venezia, a team in the sport of FOOTBALL, has returned for preseason testing this week. This development is currently a developing story, with no further detail having surfaced regarding the squad's activities. All other aspects of the entity's state remain unknown.
+
+9 — oracle / three-card-newcomer [rejected]
+The room holds a cautious optimism regarding the rebuild, yet the grass remains a desired stage for the business. The spine of the team has been reshaped; two confirmed signings have arrived to fortify the defensive line before the opener, a move echoed by three sources within a day of the story's development. The transfer of Issa Diop from Fulham to Ipswich Town is confirmed, with paperwork filed. However, the path forward remains uncertain; the move for Issa Diop is done, but the trajectory of the broader project is still developing.
+
+10 — rating / football-player-total [rejected]
+In the 2026 season, Cedar Striker has made 12 appearances and scored 4 goals, which places him in the 80th percentile for goals (strong band).
+
+11 — rating / nfl-team-zero-interceptions [rejected]
+In the 2026 season, the Briar Bears recorded 12.0 games played. Their composite score of 64.0 places them above the peer mean of 50.0. Regarding specific skills, the team threw 0.0 interceptions, a measurement that establishes a 99.0th percentile relative standing within the elite band. This data supports cross-season comparisons. No availability headlines are provided.
+
+12 — rating / synthetic-sparse [accepted]
+Cedar Comets' 2026 season measurements are based on a thin sample of 3 games played. In this sample, the team averaged 48 rebounds per game (90th percentile, elite band) and 23 assists per game (75th percentile, strong band). These relative standings do not establish ability, cohesion, or consistency. Cross-season comparisons are unknown as no prior data supports a comparison. No availability headlines are provided.
+
+13 — transfer / explicit-denial-clears-prior-rumor [accepted]
+1 finding(s) | Lina Foss is the subject of reports regarding a potential transfer to Everton, which the club has explicitly denied.
+
+14 — transfer / fully-named-interest [rejected]
+1 finding(s) | Kai Sorensen is the subject of a report indicating Chelsea are monitoring him, though no bid or talks are mentioned.
+
+15 — transfer / unnamed-signing-no-identity-join [rejected]
+served reading adds unsupported chronology or causality
+
+16 — vibe / clearly-negative [accepted]
+Cedar Comets fans expressed fury and booed the team's performance.
+
+Fans criticized the team's performance and booed them, stating they were furious. These feelings were reported by fans on 2026-09-28.
+
+17 — vibe / clearly-positive [accepted]
+Cedar Comets supporters expressed delight after the win
+
+Supporters of Cedar Comets cheered the win and stated they were delighted. The report is dated 2026-09-28T00:00:00Z.
+
+18 — vibe / quiet-mixed [accepted]
+empty reading

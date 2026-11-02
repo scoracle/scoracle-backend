@@ -1,0 +1,13 @@
+{
+  "arm": "layout",
+  "checks": [],
+  "input_tokens": 4060,
+  "name": "team-37-FOOTBALL",
+  "output_tokens": 83,
+  "parser_detail": "named claim is absent from cited reports: Mirko Vučinić",
+  "receipt": "02-team-37-FOOTBALL-layout",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 13792
+}

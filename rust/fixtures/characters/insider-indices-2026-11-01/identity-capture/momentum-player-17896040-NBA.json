@@ -1,0 +1,41 @@
+{
+  "name": "real-player:17896040:NBA-momentum",
+  "task": "momentum",
+  "sport": "NBA",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Jalen Johnson\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Jalen Johnson — F, on record at Atlanta Hawks. Nationality: USA. Record: roster; observed 2026-07-04.\\ndate_of_birth: 2001-12-18 [2026-09-12; source 88859]\"},\"fresh\":{\"scout\":{\"body\":\"Jalen Johnson's 2025 season measurements show elite playmaking (97.6th percentile, 7.7 assists), scoring (90.1th percentile, 22.3 points), and rebounding (96.8th percentile, 10.1 rebounds), alongside strong steals (76.6th percentile, 1.2) and foul drawing (85.3th percentile, 5.3). His three-point shooting is average (54.8th percentile, 1.7 made), on-court impact is average (57.9th percentile, 1.2 plus-minus), and discipline is below average (41.7th percentile, 2.2 personal fouls). Rim protection is below average (40.5th percentile, 0.4 blocks) and ball security is poor (2.8th percentile, 3.3 turnovers). The data is based on a sample of 78 games.\",\"season\":2025,\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "Jalen Johnson — F, on record at Atlanta Hawks. Nationality: USA. Record: roster; observed 2026-07-04.\ndate_of_birth: 2001-12-18 [2026-09-12; source 88859]",
+    "influencer": null,
+    "scout": {
+      "body": "Jalen Johnson's 2025 season measurements show elite playmaking (97.6th percentile, 7.7 assists), scoring (90.1th percentile, 22.3 points), and rebounding (96.8th percentile, 10.1 rebounds), alongside strong steals (76.6th percentile, 1.2) and foul drawing (85.3th percentile, 5.3). His three-point shooting is average (54.8th percentile, 1.7 made), on-court impact is average (57.9th percentile, 1.2 plus-minus), and discipline is below average (41.7th percentile, 2.2 personal fouls). Rim protection is below average (40.5th percentile, 0.4 blocks) and ball security is poor (2.8th percentile, 3.3 turnovers). The data is based on a sample of 78 games.",
+      "generated_at": "2026-10-23",
+      "headline": "Jalen Johnson: measured profile",
+      "input_hash": "26def995b4aa202af3c07c80f3b77f1c",
+      "season": 2025
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 17896040,
+      "entity_type": "player",
+      "name": "Jalen Johnson",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

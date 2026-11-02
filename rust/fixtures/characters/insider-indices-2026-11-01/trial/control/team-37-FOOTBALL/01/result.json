@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/insider-indices-2026-11-01/cases/control/team-37-FOOTBALL.json",
+  "generation_wall_ms": 11791,
+  "input_tokens": 3485,
+  "name": "team-37-FOOTBALL",
+  "output_limit": 1400,
+  "output_tokens": 75,
+  "parsed": false,
+  "prompt_version": "insider-source-v21-perspective",
+  "reading": "named claim is absent from cited reports: Mirko Vučinić",
+  "request_bytes": 5671,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 11800
+}

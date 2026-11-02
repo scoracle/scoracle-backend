@@ -1,0 +1,19 @@
+{
+  "arm": "metadata-ablation",
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "input_tokens": 2691,
+  "name": "person-107-FOOTBALL",
+  "output_tokens": 59,
+  "parser_detail": "0 finding(s) | Eddie Howe is making a decision on his future at Manchester United, with reports indicating the choice is nearing completion amidst internal conflict at the club. He is being considered as a standout candidate to replace Michael Carrick, though no agreement has been reached yet.",
+  "receipt": "02-person-107-FOOTBALL-metadata-ablation",
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9053
+}

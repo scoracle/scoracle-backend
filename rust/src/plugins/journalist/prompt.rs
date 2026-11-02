@@ -11,7 +11,7 @@ pub fn instructions() -> String {
     include_str!("instructions.txt").trim().to_owned()
 }
 
-pub const NARRATIVES_PROMPT_VERSION: &str = "n119-detailed-summary";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n124-context-guide";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v16-visible-report-facts";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
@@ -23,7 +23,7 @@ pub struct Disposition {
 }
 #[derive(Clone, Debug)]
 pub struct Assignment {
-    pub database_record: Option<String>,
+    pub database_record: Option<crate::tools::meta::DatabaseRecord>,
     pub subject: EntityMeta,
     pub selected: Vec<CorpusItem>,
     pub dispositions: Vec<Disposition>,
@@ -36,7 +36,7 @@ pub struct Parts {
     pub subject: EntityMeta,
     pub reports: Vec<CorpusItem>,
     #[serde(default)]
-    pub database_record: Option<String>,
+    pub database_record: Option<crate::tools::meta::DatabaseRecord>,
 }
 
 impl Parts {
@@ -45,11 +45,7 @@ impl Parts {
     }
 
     pub fn assemble(&self) -> String {
-        assemble(
-            &self.subject,
-            &self.reports,
-            self.database_record.as_deref(),
-        )
+        assemble(&self.subject, &self.reports, self.database_record.as_ref())
     }
 }
 
@@ -57,36 +53,23 @@ impl Parts {
 pub fn assemble(
     subject: &EntityMeta,
     reports: &[CorpusItem],
-    database_record: Option<&str>,
+    database_record: Option<&crate::tools::meta::DatabaseRecord>,
 ) -> String {
-    #[derive(Serialize)]
-    struct Meta<'a> {
-        #[serde(flatten)]
-        identity: crate::tools::meta::WritingIdentity<'a>,
-        database_record: Option<&'a str>,
-    }
-    #[derive(Serialize)]
-    struct Input<'a> {
-        meta: Meta<'a>,
-        fresh: Vec<super::fresh::Report<'a>>,
-        tone: &'static str,
-    }
-    serde_json::to_string(&Input {
-        meta: Meta {
-            identity: subject.for_writing(),
-            database_record,
-        },
-        fresh: super::fresh::reports(reports),
-        tone: super::voice::VOICE,
-    })
-    .expect("journalist payload serializes")
+    crate::tools::context::assemble(
+        &instructions(),
+        include_str!("context.txt"),
+        subject.for_writing(),
+        database_record,
+        super::fresh::reports(reports),
+        super::voice::VOICE,
+    )
 }
 
 pub fn prompt(assignment: &Assignment) -> String {
     assemble(
         &assignment.subject,
         &assignment.selected,
-        assignment.database_record.as_deref(),
+        assignment.database_record.as_ref(),
     )
 }
 

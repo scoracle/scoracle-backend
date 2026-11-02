@@ -1,0 +1,19 @@
+{
+  "arm": "control-ordered",
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "input_tokens": 3485,
+  "name": "team-37-FOOTBALL",
+  "output_tokens": 68,
+  "parser_detail": "0 finding(s) | Roma are currently managing a serious injury to coach Pellegrini, with reports indicating a 6-8 week absence. The club has also rejected offers for Pisilli and is looking to make two signings in January. No specific movement involving Roma and a named counterparty was supported by the supplied evidence.",
+  "receipt": "01-team-37-FOOTBALL-control-ordered",
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 11635
+}

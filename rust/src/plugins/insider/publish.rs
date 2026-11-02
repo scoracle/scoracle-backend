@@ -537,7 +537,7 @@ mod tests {
     #[test]
     fn counterparties_require_one_matching_identity_in_the_delivered_report() {
         let mut material = Material {
-            memories: vec![],
+            database_record: None,
             held: vec![],
             subject: EntityMeta {
                 name: "Jordan Sample".into(),

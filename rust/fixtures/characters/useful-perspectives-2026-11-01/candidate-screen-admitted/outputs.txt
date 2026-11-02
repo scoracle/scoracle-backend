@@ -1,0 +1,71 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — momentum / missing-mood-peer [no_call]
+No model call
+
+2 — momentum / mixed-peak-up-vibe-down [accepted]
+Rowe's measured profile shows improvement in creation efficiency, yet coverage tone is cooling despite this stronger statistical work; the divergence between rising performance metrics and declining mood indicates a tension where the data contradicts the narrative, though no comparison evidence confirms a trend.
+
+3 — momentum / rising-confirmed [accepted]
+Carter's creation and finishing are strengthening together, while coverage remains emphatically positive and warming; the alignment between improving performance and upbeat tone suggests a consistent narrative, though the lack of dated comparisons prevents assessment of whether this balance is a new trend or a stable state.
+
+4 — oracle / crossroads-conflict [accepted]
+Marcus Vale's production remains a steady anchor, yet it is overshadowed by a rapidly heating trade narrative that has soured the room's patience. While the numbers have not blinked, the tension between this quiet stability and the mounting external pressure creates a fragile equilibrium where the arc feels dragged down by the standoff.
+
+5 — oracle / near-empty-quiet-wire [accepted]
+Venezia has returned to preseason testing, marking the first visible movement in a developing story where no further details have emerged. This tentative return offers a quiet signal of activity, yet the absence of additional information leaves the broader trajectory and specific outcomes in meaningful uncertainty.
+
+6 — oracle / three-card-newcomer [accepted]
+Ipswich Town has confirmed two defensive signings to rebuild its spine, with the move for Issa Diop being a settled fact. This structural reinforcement exists within a cautious atmosphere where business is approved but its on-field impact remains untested.
+
+7 — rating / football-player-total [rejected]
+Cedar Striker's 2026 season data rests on a thin sample of 12 appearances. Within this cohort, goals rank at the 80th percentile, categorized as strong. No cross-season comparison is available for goals. Fixture measurements for other categories are unknown.
+
+8 — rating / nfl-team-zero-interceptions [accepted]
+The Briar Bears' 2026 season data, based on 12 recorded games, shows an elite relative standing in interceptions thrown at the 99th percentile. The team's composite score is 64.0. No other season comparisons are available for this measure.
+
+9 — rating / synthetic-sparse [accepted]
+The Cedar Comets' 2026 season data rests on a thin sample of three games, limiting the reading to only three recorded appearances. Within this cohort, rebounding per game ranks at the 90th percentile (48.0) in an elite band, while assists per game rank at the 75th percentile (23.0) in a strong band. Rebounding is the stronger relative measure in this specific sample. No cross-season comparisons are supported. Fixture availability is unknown.
+
+10 — transfer / explicit-denial-clears-prior-rumor [rejected]
+finding status must match an explicit denial of that move
+
+11 — transfer / fully-named-interest [rejected]
+Insider reading must begin with the full subject name
+
+12 — transfer / unnamed-signing-no-identity-join [accepted]
+0 finding(s) | Aaron Gordon remains with the Denver Nuggets as the team signed an unnamed forward. Reports confirm Gordon's attendance at a community event but do not link him to the new signing.
+
+13 — vibe / clearly-negative [accepted]
+Fans express fury over Cedar Comets' performance
+
+Coverage indicates that Cedar Comets fans booed the team and voiced frustration with its recent play. The reported reactions convey a strong sense of anger and disappointment from the supporters.
+
+14 — vibe / clearly-positive [accepted]
+Cedar Comets fans celebrate a delighted victory
+
+Supporters of the Cedar Comets expressed pure delight after their win, cheering enthusiastically and sharing their joy with the community.
+
+15 — vibe / quiet-mixed [accepted]
+empty reading
+
+16 — narratives / regression-ac-milan-known [rejected]
+named claim is absent from cited reports: Gianluigi Donnarumma
+
+17 — narratives / regression-ac-milan-reserved [rejected]
+named claim is absent from cited reports: Chukwueze's January
+
+18 — narratives / regression-chicago-bears-known [accepted]
+Da Windy City reports that a potential trade for Donte Jackson could transform the Chicago Bears' defense into a Super Bowl threat, though the status of such a deal remains speculative. Separately, the team is preparing to honor former player Mike Ditka during their Thursday Night Football game against the Patriots, with Yahoo Sports and Establish The Run covering the specifics of the tribute.
+
+Multiple sources, including Yahoo Sports and Establish The Run, are discussing the Chicago Bears' plans to honor Mike Ditka during their Thursday Night Football matchup against the Patriots. While headlines confirm the tribute is happening, details regarding the specific nature of the honor remain the focus of ongoing reporting.
+
+19 — narratives / regression-chicago-bears-reserved [rejected]
+named claim is absent from cited reports: Chicago Bears
+
+20 — narratives / regression-la-clippers-known [rejected]
+cited reports do not connect Orlando Magic with numerical fact 2
+
+21 — narratives / regression-la-clippers-reserved [rejected]
+named claim is absent from cited reports: LA Clippers

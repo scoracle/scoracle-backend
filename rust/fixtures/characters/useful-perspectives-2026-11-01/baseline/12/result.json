@@ -1,0 +1,35 @@
+{
+  "case": 12,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/rating-synthetic-sparse.json",
+  "generation_wall_ms": 4819,
+  "input_tokens": 552,
+  "name": "synthetic-sparse",
+  "output_limit": 700,
+  "output_tokens": 99,
+  "parsed": true,
+  "prompt_version": "s78-availability-headlines",
+  "reading": "Cedar Comets' 2026 season measurements are based on a thin sample of 3 games played. In this sample, the team averaged 48 rebounds per game (90th percentile, elite band) and 23 assists per game (75th percentile, strong band). These relative standings do not establish ability, cohesion, or consistency. Cross-season comparisons are unknown as no prior data supports a comparison. No availability headlines are provided.",
+  "request_bytes": 2427,
+  "review": [
+    "Three stored games describe source coverage, not first games, early-season participation or future potential. No cross-season comparison is supplied.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+    "Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation."
+  ],
+  "status": "accepted",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 4828
+}

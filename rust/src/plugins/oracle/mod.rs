@@ -296,7 +296,7 @@ async fn articulate(
             &prompt,
             &options,
             &parser::RequestParser(&prompt),
-            crate::harness::session::structured_correction,
+            crate::harness::session::no_rewrite,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
@@ -304,14 +304,6 @@ async fn articulate(
     let reading = extracted
         .value
         .ok_or_else(|| anyhow!("crown: parser returned no value"))?;
-    crate::tools::form::validate_body(&reading)?;
-    if !crate::tools::guards::title_names_entity(&reading, &assignment.subject.entity_name) {
-        tracing::warn!(guard = "entity_identity", "crown reading rejected");
-        bail!(
-            "crown: reading does not name entity {:?}",
-            assignment.subject.entity_name
-        );
-    }
 
     Ok(Generation::called(
         SigilSynthesis {

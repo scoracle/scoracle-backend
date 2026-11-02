@@ -1,0 +1,27 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/control/momentum-player-744-NFL.json",
+      "generation_wall_ms": 4660,
+      "input_tokens": 983,
+      "name": "momentum-player-744-NFL",
+      "output_limit": 700,
+      "output_tokens": 63,
+      "parsed": false,
+      "prompt_version": "momentum-s44-job-target-fresh",
+      "reading": "cited reports do not connect Sam LaPorta's with numerical fact 90",
+      "request_bytes": 1481,
+      "review": [
+        "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+      ],
+      "status": "rejected",
+      "task": "momentum",
+      "temperature": 0.0,
+      "wall_ms": 4668
+    }
+  ],
+  "completed": 1
+}

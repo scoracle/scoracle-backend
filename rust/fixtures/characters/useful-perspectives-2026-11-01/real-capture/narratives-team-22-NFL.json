@@ -1,0 +1,1183 @@
+{
+  "name": "real-team:22:NFL-narratives",
+  "task": "narratives",
+  "sport": "NFL",
+  "prompt_version": "n120-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Green Bay Packers\",\"entity_type\":\"team\",\"sport\":\"American football\",\"database_record\":\"Green Bay Packers — NFC NORTH. Venue: Lambeau Field. City: Green Bay. Country: United States. Coach on record: Adam Stenavich.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1432737,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPOGwwVkxxRGJpNFpCTC1acjItbmJNdjdycGJPeTdtQWdERzVnVGxzbmhIUUs2Z0FwZE1Dc2NPelBzUEhPNWdJQzJfWWRHTE5kb2ktQkNsLUc3cHE3RWs4SlJVMnp1S0JoVi1aWk10MlQxZmJ3MUR3aUFNclJsTFlfemJuc2I3QWExSTk1Sw?oc=5\",\"headline\":\"Packers’ Matt LaFleur eases concerns about Christian Watson, Matthew Golden despite injuries\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-23T00:51:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1422503,\"url\":\"https://news.google.com/rss/articles/CBMiqwFBVV95cUxQS1pHcEgwZUdIeUl1QUk0bVJWcTY3R0pVNUdGUWhWb3BmSmtFVkZkWDQ1YTFXSThvSFBTTG1MMlBLYk1xSVc4ZE1RSkZueXc3SDU1WDRCTGc4VTN1djdyMlFRd2RhVXJfX0F2cThKazdZbFREZmlaZzBQSEJRdldXSFRuUUpJMGtaSDZBb0V6aTFXOGhhSjlOTGJ2Q2tYT2RnWG9pZjctbXBMYnc?oc=5\",\"headline\":\"Lions' 'historically good' run game is the clear path vs. Packers\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-23T00:25:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1422456,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxPNTQ1V2JMdTU0MGlRUHo3OEtMNm4ya0NZNklNd1VJV2Z6Ynp0WVlULTg3V3ByblNFXzhPTzN4c3ZTMFBMVXo5azFiOXhkUDV6elZ0ZDZ6YU00enV5bkpYSTAtckZobl9ONUFhR0o4YzQzYjNTY3JOR1pSTnVVbnNfVHFXa1pNUQ?oc=5\",\"headline\":\"Packers Work Out Former Notre Dame Star, 3-Time All-ACC Standout\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T23:55:58Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1422482,\"url\":\"https://news.google.com/rss/articles/CBMie0FVX3lxTE9OUlJqeERoUnBVM1pLRjNXSkc4Qzk1UE8yZjRMWVIzTTBvbUNwYkhKWGxxb0ZxTUd5ME9icUFtcVNlR002QWdIMFdKV0hRVmZXY3NlWTh5YlpkaU5adXNyaWpGT2dFbUk1eTMxdmlQQ29vNVlWa0RtMlBjNA?oc=5\",\"headline\":\"Packers vs. Lions: 3 key matchups to watch in Week 7\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T23:46:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1422760,\"url\":\"https://news.google.com/rss/articles/CBMi9wFBVV95cUxPVDRzdzltRkYzWHZPWWtUSnBxX3otMjlVUHhtWFVkMVFUWU9zSHpyb2R6QW1TVFJqWkNuZzJpeXMxZHlsYlZWRjBic3A3a3o0bWp4TFNSWUtIV2NTTC15eFVXNk9qd1J5OWRSeW5lNzdsYmVVTEVDWW4weVkzQ2tTZ3ZpZkhXbGptS3BUVGpVVnhtdGdudVhrTmw1c01HYlh2bGM4QUY4U2NpNEs5bVJ0QWllTUZnMXp3S1NTdUEzVVRUeWk2SmdwMkc3ZjJwM2pUZWVfTmNieGVLZVFDNG5ya1M3ZVFGUjRaT213SEJoX18yTzFlUkdr?oc=5\",\"headline\":\"Lions kick off quest to win NFC North with 1st division game of year against surging Packers at home\",\"publisher\":\"The Lethbridge Herald\",\"published_at\":\"2026-10-22T23:23:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1412338,\"url\":\"https://news.google.com/rss/articles/CBMi5gFBVV95cUxOekZZdnZyV0ZTRnFKNWpIN25yajdjdDlYMVByYVpZMXFuUGo2RnRCeTlZdEoycnk5dXFSSVUwUWVaR29ZekFuRlhsRTQ3X0xZdmVreDZjRWNXTEpWTWE2YXIybmI4dTNZR2dVeEU0eWhGVDZJa0tJdnhtZ3RWejl3LTFIMzMtZ0RVMklUcHFuTnpHX08yWndkUDlmUEZpTlpTX1UxWldqRGJMUzdUM2d1MXV4ZXZzUElrd2M1cko5WUVUTmpLUExJQ2VyRXJfWmIxV3dXdVoyQThxSHRnQkFxaGNiNGgtZw?oc=5\",\"headline\":\"Packers believing in their momentum, Bullard says | FOX 11 One on One\",\"publisher\":\"WLUK\",\"published_at\":\"2026-10-22T23:03:45Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1422824,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxQS3JETTR0S2JIVWhXVFZNSHM2RUdSbmlYTi1IM3lJdmlzWGJRRnVHeVJyLVh3QktQUGJqV3h5XzNQbk4xTFFKZTdGanhDNVF1cURhMjB4cjlpSm1xNERpSlM4bDlRWWEyVV9fSWEtREIyUk10Qi1fS0VmYXZPSTMyWDBsZ1I0aDh3X3lVLWxRemRfTUk?oc=5\",\"headline\":\"Packers vs Lions Prediction & Picks: NFL Week 7\",\"publisher\":\"Sports Gambling Podcast\",\"published_at\":\"2026-10-22T21:59:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1391085,\"url\":\"https://news.google.com/rss/articles/CBMilwFBVV95cUxNS2N1VkRQS3BvNXRoeTVkMm8xR2x3ZVRPS1dpcUhVVmM2YzBFMmFHUWxwRWdPVFFrU0ZvMGtPb3d1VUFWbUFDX2tmZjcxRzRVeGJoZjNVZDM0U1k1V21UcWZEb1ZMSmtOSzNWS1FFcmp5VXVFanFkQWpCQnVLVUxZR1g3d0dJYTNrejBFeDZjWkZLaThTQlhR?oc=5\",\"headline\":\"Packers Get Bad News on Potential Trades for 2 Colts Veterans\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T21:40:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1422523,\"url\":\"https://news.google.com/rss/articles/CBMifkFVX3lxTFAzSlZTNkZnSE9HZk9wOWZfdGl3ODNYNUdTNUd5cHgtUnFuVVBXaERoQzVqUUZxMEFrbWdjSjVlMlpCVXowUGVCMkJjVTdCWGJvU0pHRThzcGdtMmhxQlJaVXQ3ZmVhVTFKb0gtdHdtQkpBTXJzSm1YZlF1RjMtZw?oc=5\",\"headline\":\"Packers work out punters on Thursday\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T21:24:31Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1392057,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPRWlNaS1lRE1nNk5oZDlHNzZUV210NmsxaW4weExWRXRlRFgxMlV0WjFMUGx4X1BXMWVUVDhhVWxRZTVKNEw0T3V4WDNfLUwwbWtIZXJtbXJfUHhZMWZpZktUSHl4cFhQNUZZOWRWYWVIcFY4XzgwelJMZDZveWpzVTZRWkxXMVdPRHpqbQ?oc=5\",\"headline\":\"Packers Injury Report: Luke Musgrave’s 2026 return is uncertain\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T21:03:24Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1392056,\"url\":\"https://news.google.com/rss/articles/CBMi1wFBVV95cUxNZndKSWlVTjQ3OW1vQmtZNlIya00xREZZaTRMcnpHOHF1NElGYUNfaUdxTWVIR1NkUlZCVEZfUkRLUGJEbFNlb1U0XzBVeUhoamVPQl9XXzNTN2tyclhRcXoxUVBnNUtSTVhrTFlzcUJwTE02ZjRwWlViYW5pZnVEOE5McXlyanhMd0hGMEdvejVrdzhBSEpzeElVR21xZkM5Znh0SUhQQjVFeGFmYV9UN2NRYkdUa3ViY3NQUm4yOVdkbWV5MFVXdDNyaTNmbUV3VnNTS2VwZw?oc=5\",\"headline\":\"Packers host tryout for pair of rookie punters on Thursday\",\"publisher\":\"Packers Wire\",\"published_at\":\"2026-10-22T20:58:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1432752,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxQTDFTWno4X3JGMWRhZElLel84UHBjUzFPcW5ya3BnSWFMOWc2Q3UwTkM5bVlhNE1zVzMxZWF2QTRnTW5BUS0zNHJTdzU3cG94WDB2Y2QzZ1RLSzc2ZXpvNDNXVEJYT0htN2EySVJNZVlvSXF5VXBDTVg5TFg3Wm12Yzl3Rkw3Q0JrR1E?oc=5\",\"headline\":\"Packers injury report: Jordan Love upgraded, 2 defensive starters added\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:42:48Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1381939,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxNemlHYW9Ua01IQjU1R2dLZWZyMllMX0lkQVJjbHhEYTVKZTJHVVg3X0VOMnNXU3JiVzZqRVBQS3FJU3ZyZENVcmN5WUVXdmtHbzdBNTk1QUlDMUdEbzVUNXNjLVF1bFU4MmxvUTJQdWRLR2FzWnc0U3I5SnUtUUhGalRaWlhvdXM?oc=5\",\"headline\":\"Packers explore surprising trade scenario for a 3-time Pro Bowl defensive tackle as injuries and salary cap concerns pile up\",\"publisher\":\"A to Z Sports\",\"published_at\":\"2026-10-22T19:49:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1402539,\"url\":\"https://news.google.com/rss/articles/CBMi0AFBVV95cUxPd1lIdVJFYUwwZ2M1anBTb1p1NUxocGlrbDRIejNPdzVyamJfVXZFcmdrVVd1dTNkZVBiQ2dTSDhjTGVGVmpPYjl4ckxtdmxYaVhIQ0JJc204Q3EwUFlpdmFaWDJXMG1PcVptcVVsMDBUSW1JSXRDMkpjR0ZmaFppa1NhSk1FMzBUN1I1akxGc0hRY1FRT0JoUkQxVnFVTWdLR1lrUUlDdGNQTW1QMFExTFd1OUI5dWRNb0tMWmdwdHg3NE9CMG54TVRBd1VOblN3?oc=5\",\"headline\":\"Dan Miller returning to booth to call Lions vs. Packers\",\"publisher\":\"The Detroit News\",\"published_at\":\"2026-10-22T18:47:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1392029,\"url\":\"https://news.google.com/rss/articles/CBMiqwFBVV95cUxQcmZlazVral9HWDBkM0xteHhJRVFmUHJkNzVYZXFSWXp4d0tScVpVejNDX3BSVHlJeEhMUU51NE9TRTNJb0NvTUo0X1VySVg2LU9fb0J2MDBvbjQwbEhZMDkwTXRYUVZzeU5SZnRSTzctc2wwRjl0dUF4RWpfVkRSbHRoV0Ftd2NGTHozc0dXbURxZ01lcmZvM1QwZVFrMkN5LWJuc1c4bWxReW8?oc=5\",\"headline\":\"Packers Thursday Update From Practice: Latest on Josh Jacobs, Jordan Love\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T18:03:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1341855,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxQRWtIQlZsTUtLaEFlM1pDQXhnNXFtSWRaOUVRZEl2aUhydEM2aUxBMUlZMVVNOUZLaXdGQlFiTGVvSlZQbUR5Yl9Pa0x2MFN3S0tMV29nc19Ra01tVTZXM0Q0RW96eklvaWRNR3RKdnlBNEtFWWM4Z3dXNFJvYzBCc25QbGFaZTMwa240?oc=5\",\"headline\":\"Packers uncertain if TE Luke Musgrave (neck) will play during 2026 season\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T17:50:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1382228,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxNenV3MWV4RFZ0QzBpQ1pfZGs1ZjlYVDc5VThCTFR1bFdEWGxEYXl3VXc5cEFuZ2VWNlFnT0VuUmUzUERpUjlSM3dMa3hGbGZnQjVjNk94d0I4WmpXQnY5MXl6VlprTU5vTERINEJSYmVXaVVCZ0NYYnRnQTdRQzh0Nkl0S1ZEd2R4WlVVNzdRTkM5NHVmLTF5V3pYaThLcjJua2c?oc=5\",\"headline\":\"Lions expect Brian Branch to have big role in return vs Packers\",\"publisher\":\"Detroit Free Press\",\"published_at\":\"2026-10-22T17:49:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1381898,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxOYUd5WV9YaHpfdEJaYzVwS0dDNVQtRlF3Sm0tRC1pd0NGWkJJSHNHaHQ3dFNmaTFpTE5yOWhCZU0zNG5MZlN4bEpFYWhuaDdLdDk0VjdkR0tyLXFha2lyajFVOHFXVTZhYmdqMFcxM3Naak8xUTk3TkV3WHJPUVJSejhBcGdEVnk4?oc=5\",\"headline\":\"Packers running back Josh Jacobs participates in Oct. 22 practice\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T17:45:45Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1361795,\"url\":\"https://news.google.com/rss/articles/CBMi4gFBVV95cUxOTmRiMnMtU3dwWEp4Uk5CTXltVVd0ZGwxd0hFanZvOHdvWXhQM2s3clpNUGpob0l5bGRxWW11Y1RJSWs3U0FWM3JsdmNNazdhWXpjc2oybzdlMmE5c21hOFliSXIxTERpSlBLenRDX3Q1aWNhQXQ2WXlkV3Jrc3dteUFFbXNTNGFwVjV3b25scXlibmNJMzFxY3hyQ0VJck9Va2R6UVZBc015bXlSUWw5V0Y0TUJ4OUpEQ18yNXFxXzFoRnNIT1YzRjA0VUM5czByNnVNVmt6aWRiaHRMYWdNSEp3?oc=5\",\"headline\":\"Packers injury updates on Christian Watson, Matthew Golden, Jordan Love\",\"publisher\":\"Packers Wire\",\"published_at\":\"2026-10-22T17:35:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1341816,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxPWHpUVWtMdVhnc1lRZFlKcDNpWVR3OVBqQUM3U3l1cVI1Ykxuc21CTWhTXzh0RVZkV0ZyMnVWREtMVTFSUjhSeHRtWGpKOFhqWlVCY0FZbm1RVmd0QldXUDhjZ1RManhmazQxTGFoYTlOM3RvVHEyRGNDZnNWV1RHNERwNA?oc=5\",\"headline\":\"The Packers’ path is getting steeper\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T16:56:29Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1331967,\"url\":\"https://news.google.com/rss/articles/CBMixAFBVV95cUxPQVlkbFZYZm81V0ZEN2MxTkhBZm5ES1Z5OXExdC1nR0ZmclpTdjhZbnRjQUN1bzZjUXFyVWRtdFhfNmdtbmhUMTRpbHlJN3ZITFV0a2hCN09VZ2Y3NUczRWx5eXFaQUdzMnA1Mlk2el83MEFTVXViUVZFN281ZE8yMXFCVzRqa3NuNXZnX2xDd0FmY1Iwb2JXN1d3Yy1EMzVXaFRRQXBfcTNFcmdvTlZYdVhuaGxyMnhMdDctYkM4ZlpzbTk1?oc=5\",\"headline\":\"Green Bay Packers News: The Packers’ path is getting steeper\",\"publisher\":\"Acme Packing Company\",\"published_at\":\"2026-10-22T16:56:29Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1331978,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxQaTVVUG9zZ1FFbEtYRk9wNnFRSDl2cTc5RmpqQ3R0Q3B2TFRWeWNnekNEUktkVHd6N1N5LXF3OHJERWxWZzZpV254LVY5QnBoVG5WbGhVb2NFUDRZV3h6UnBHbGJSQnpqMk1VU0lkenUyWWFvX0dvS0I3dTVfVldkeXZ6UlFmd3BhRVZkc0pqdUI3U0VpTXAwYw?oc=5\",\"headline\":\"Jonathan Gannon has Packers' defense playing 'free' and better than ever\",\"publisher\":\"Lombardi Ave\",\"published_at\":\"2026-10-22T16:35:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1331939,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxOYjNJcFl1TmNTSXZKeE5tNzMyQlNkLUdqempvdTl1Z2E3WjdWRVRpZ2FjNDNvUWM0a1JkOGJ4N3lSTGdUUVZVY0FpcFZnVFVhWHQ2VmN0ZXdLVWFJa1cyRmdQS2VTMFBjMV9ycEdEUjVUZ1d2NVlIMXZndkdOUUYxSTFzU040bmRI?oc=5\",\"headline\":\"Before the Roar: Previewing Lions vs Packers\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T16:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1331995,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxOZ0cyUWJWRjM2bE9fZUUyM21jMWJlRFplWHBaR3NuYkRzbE84VmJmZ3lOOG1oS0hOZFZ1QmhfVVc3WTl3Q0trTkVucnBLbFZTTWVndFNvZGRwelBPdXlURzV5LWdkZ3VhQ2lFNTI3SVFGMmVyWmZkMlppTllwTG9ncGhjVGlPVWx3bG9KTnJqR3kxTDhUbU5qTGlvaXJ2UFg1RVQzSlF3dmJoQQ?oc=5\",\"headline\":\"Packers' Christian Watson: Coach confident he'll play Sunday\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T16:26:51Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1331963,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxQN3d6cWFtNUg4QjhfUURaVE84anRRQjdRR05NdlFkVXBETVUwV015WWw3Y2NMeUdoWV94aE9RcElLdmVVTTZVNms2WkwtQ25fUWVlYjYyUjF1RE5uaFdnMnZaX1U0WUxZNDdvNEJrNmttTXVsYkxEOG1lYkZwTWI4bGdHY2g5cjhY?oc=5\",\"headline\":\"NFL rumors: Cowboys, Packers being linked to Josh Sweat trade has serious Micah Parsons irony\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T15:29:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1312502,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxOam1nb1BVbGFSZlJkaTBrMGlPTVg5b0FMc01JTjFlYTJ4eFFmQWhwTW9pM045cDhwSFdwUjJPZ1lfamdleWxLeWVUejNIamFEeHZtOWhnTXFNdHVfVVNYaWpfejlEQmZibHplZFFHUlZzYkFMbV9NbmhuaUxDZlluczVlQzFzNG1ENWJ2anM2SFY4YW5sTHc?oc=5\",\"headline\":\"Packers winning with element of defensive surprise\",\"publisher\":\"Green Bay Packers – packers.com\",\"published_at\":\"2026-10-22T14:28:33Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1302830,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxQWXo1a3hwSnpPUTl0aVVocnVYS1JOMGZ4UE5BQ1FTZ2VaZmNPWlVzWHdCS0NEM19INVAxaWpOSVVuMXBDS2l6UWtDam5Rd2ZJMVdReTVueGJXZ1BRYjZBZzZ5QTg4WmJRU2R2Z3FqVjh3UDRCUzJNcTU5bjVHUWRUeU1KRDJVTjA?oc=5\",\"headline\":\"‘Awful Look,’ ‘Completely Tone-Deaf’ — Packers HC Matt LaFleur Faces Backlash for Defending Josh Jacobs Ahead of RB’s Return\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T13:08:52Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1302888,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxOV2FNVmNXV3lfQnRZSEx0Mk1fRjJmcUZ1Zjg4bDY0TkpBeG9SS010cGtjYS1vem05R3FTb1d2c2xpX21Kamh4aVFnRWhFZUs5RkQwQjlQdk9MRGZxVW5GRUQ4UzJTNGdmb3VIOWhWVW5qYnF2M0RyajZ0OEVaWW1LU1lTZmV2YkNfLUtYRlI4UFNSNlYwUzMyT05B?oc=5\",\"headline\":\"Packers’ Jordan Love Reveals Mindset With Return of Josh Jacobs\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T12:55:55Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1293163,\"url\":\"https://news.google.com/rss/articles/CBMizAFBVV95cUxPamxJdFJzTGt1V3lMa2xuR2NzREdKcGlScHBWaVFENEFNM1RwMU1pUUE5aXB5Vk1uNlJraHRaZFdYMXdrYVZTbG9VX01YY0tvc2V4b3RXNHQ1M1JGbEVJZDByLTUtQTJ6dEVmN1VTaFdpaG9CTmZEWUV1X09aUmdGVnpMbXQwZjdLWlZnMTF4T1ozRTk5SWVrZW0xckItWE9vZ3lubkt6ZGxfeUxORDgtRURUaGY4VlJxSjMtdWRfdmhnZlR5eWh4SVg0eEc?oc=5\",\"headline\":\"Packers' Josh Jacobs vows to 'learn from this mistake' amid NFL investigation\",\"publisher\":\"Yardbarker\",\"published_at\":\"2026-10-22T12:49:12Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1302807,\"url\":\"https://news.google.com/rss/articles/CBMi1gFBVV95cUxQcW1jWWRVOVBMZUJaRFlWVGJpa2xVY3I0U1Y0blZEdTVHQ2h4VmJ5bXVpZ1plN0p3U2duZkRWWEhydmZGNzd5azMzaVlQQUwwUGc4dlZUYWJuVDVmdWMtWkY0d0VZRF9YTWdyTlE3endxSGp2dDNRZmJrWFM5aDgtNlhucXVLd20tQl95cjVEVmZQcFJFdlYtODNwTGIxU0FZY3Q4ZVhFZkliMWstS0ZwUGRsQ1h4YTJVajAtbTYtNXdqeDMteXh5Nmd4eEVzSmFWUFVENW53?oc=5\",\"headline\":\"Lions vs Packers predictions, picks, odds, score projections Sunday\",\"publisher\":\"azcentral.com and The Arizona Republic\",\"published_at\":\"2026-10-22T12:15:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1293094,\"url\":\"https://news.google.com/rss/articles/CBMiyAFBVV95cUxQQndpbHFLdmVHNUJWVkNQR1AwLTNPYng3OFFiaWpQcEtKMWhKdlN2NzR6bkg2VlF3VjFuU1M3YzBOTFpUUjlqSndETFZkSlo4VnNfZWFiM2RGclVQaE1nRm0talRucVVydzA2QkhjSFhldGJWYVhiREVuRXEzdG95MHhjNmFFa0k2VEdPVGxGZlZkOUxuN05kLXUybXMtOEpxb2c2cWRHc256ZDdZNTZLM3c5VWxBUFh6Z0M1SEpmQjFDV0RGRWx6cQ?oc=5\",\"headline\":\"5 Players Who Could Help The Packers Reach Their First Super Bowl Since 2010\",\"publisher\":\"Forbes\",\"published_at\":\"2026-10-22T12:00:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1281832,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE5iWkVhaXlIQkhHU3FhZ0JSTDlLNmhLc2g2RzN5cjN4NmpUTTFVTGZTRi1HRi1icEc1SXA4WFpxMlc0eGdYSE4tSkY0YS00VnpaUlBMQ2tpTGZtNjBEd2pPN1VNNldnY3B6Z3dpT3Zibi11SkxYWmdhOVBCZ09ZcjQ?oc=5\",\"headline\":\"Packers Urged to Trade for $64M Veteran Before Deadline\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T11:16:21Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1273937,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxOb0pwa3pXRnZjR1U3SzdCdENJNDRPV25MSmc1b3ZKZzBzTW1GZzRENmhtYktkU19abEFDS1Y4ZHQ0ZmgwcENQSHA0Uk52U0VDaGMzMGRvVXFNY0ZnRWNXRzZwazZHc0NNaTREbTRwTGZxYUZPTEVnZ1JDbktqQWhhZjA5SkFjUHRfY1gtdkktS2hYOWFyYzdSckxGTTN4dWNnaVNxNHRtMmNUS0VY?oc=5\",\"headline\":\"Pack-A-Day: Packers Week 7 chat w/ Aaron Nagler\",\"publisher\":\"247Sports\",\"published_at\":\"2026-10-22T10:06:46Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1264229,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxQdVI0ZXFTcnlpWnRWNlNsQWlzeDFYeUlPaUhRMV9NNWZENWlJUXhMVWJxejJEZ1R0a05DTWNPZ2ZVS1JSeUJ3TXllNlNGWERkYjRFVXVLVDU1WWtleVc1OXQyV2ZCaTFZRnRNMmNRX0hNNGlSdGp6a0JkNm0wVTBWbmxSdm5JWXpGRjFqV1JqdFFEeGJQY2tQQXEtMFVSXzdFNHc?oc=5\",\"headline\":\"Packers RB Josh Jacobs: 'Sorry for putting team in this situation'\",\"publisher\":\"National Football Post\",\"published_at\":\"2026-10-22T02:40:54Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1293743,\"url\":\"https://news.google.com/rss/articles/CBMiywFBVV95cUxOSFdkU2pKQVI1Z0RpUnJkdjdHZHdjQ0hpQXpLQ2lFcG1pbnY3UUg4LW9zdUhvRzg2TzVEZ3Ytdk90cFJaWkJBSnF2N0ViN2htekEtUlYydlZmb25EbVkxcWY4T1QwbHNIZTdBR1FUeF84bzZjT3FGRHNfVEtDS09XWkJHTXJ1UkIxZU14Y3piSmNLZy1fWGZ0bHVJZGk1dFRFelQxcjR1R09lWXQyemg2emR2V0ZuWXlPcEJSNmRkMEt4d1BlQWZKM3cwWQ?oc=5\",\"headline\":\"Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Queen City News\",\"published_at\":\"2026-10-22T00:28:39Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":1264171,\"url\":\"https://news.google.com/rss/articles/CBMigAJBVV95cUxQalBsQ3ZVaTJjb0VHZGtvSEI3aFF5cER2T0xPcGxZWk5ydkV1OXJaR0FwRHhIdFpNbmpvcE8zYktsc2V3SXVSeW9Eby1vUUtWMUlLNG9UNE9KRHdobDBoLXRNS2VOeVNmNnpfSC1fTy15QkVtTlhkSnE4ajg5Z1huVkMwR2ZkamtaOUJGTDE4YnRXS2Z6aXE3V1cxT0p3ZzhWaE5ZYWRzcklVTVVKZDd4MU5HLThxU0pGaHlpQjZCSEd6Q1RYd2w0dDJLUGtmQzZXT2lMMkFhNUQ2OGxRTFdsQVM0Q1NVdWlob0tfRkE0d0tyQU12TTFMWFhuUlJMTHUt?oc=5\",\"headline\":\"Saying his arrest was ‘probably one of the best things to ever happen to me,’ Packers running back Josh Jacobs returns to football saying he is ‘remorseful,’ vows to ‘try to be better’\",\"publisher\":\"Channel 3000\",\"published_at\":\"2026-10-21T23:56:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":1303189,\"url\":\"https://news.google.com/rss/articles/CBMib0FVX3lxTFBmM0xjYlkxaHZZaUpTS0QzeWs3VmpWcG5tb0IwdW9xd0FHWnp3cURMbUp6VUFfMG9OZkxUWWJHcUpacE9PZkU3cEhVb21lbGFhVlRLZ1p5bVpUVVh1ajBCZEhhdDBNaER5aWFacTJoZw?oc=5\",\"headline\":\"Lions open NFC North play against streaking Packers\",\"publisher\":\"Fort Worth Star-Telegram\",\"published_at\":\"2026-10-21T23:22:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":1225531,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQM2dwU1FLam8tcGppRzgyNFJxdmZESk96WF9GeDhKR1RsdzN5dkxKdlhHVW1TTk15bjhmb2kyLW94dHR2MXVIbERrWVdsOF90WGRzUWJhNlNoUWxfNHZJeUFORmtRbGhoZk01eWlPa0dxaDg2NDlLTTNZXzJhVk96VmZKYk9KajRhbzE0bm9KNA?oc=5\",\"headline\":\"Packers injury report: Love, Golden, Watson added\",\"publisher\":\"WLUK\",\"published_at\":\"2026-10-21T23:11:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":1372559,\"url\":\"https://news.google.com/rss/articles/CBMisgFBVV95cUxOT1ZzVEQwMFBjZmxJSkl5bzIwZDN4NzFlVVBGQjl2RFNnZGtZNkNfaVVPWGFaM0F0ckEzUVBlXzdVZjhENWFhQXp4QXlTNkdvMHNRRnE4MlZzeHFudXZXUFVTMW1oY2lyMldJczJkYzZQNWlRZkhiREptOWNrZDZNVVR5VUlWcG1Hb2VqZGhQVENfVENOTVBZS3ZfeE80TFk2bFFIYktxV0NUWHRkdTlsM1FR?oc=5\",\"headline\":\"Week 7 Around the NFC: Packers Offense, NFC East Favorite, Panthers Rise and more\",\"publisher\":\"BVM Sports\",\"published_at\":\"2026-10-21T20:27:51Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":1293451,\"url\":\"https://news.google.com/rss/articles/CBMidEFVX3lxTE5nSlp4NThwVENOQnlzY1pFQUpXcDNGQnZzVklJQ3Z6a0Y1Nnkwd2NMMEViR3RqWEVOYXkyUzdGT1IxRGxXd2pIbnEzZXY1N0hSTHg5RFpxWWVnUHZHVl9ZNzhEcXdCaWNkODE2N2FCWjhpeXlM?oc=5\",\"headline\":\"Lions vs. Packers | Week 7 preview\",\"publisher\":\"Detroit Lions\",\"published_at\":\"2026-10-21T20:00:20Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Green Bay Packers — NFC NORTH. Venue: Lambeau Field. City: Green Bay. Country: United States. Coach on record: Adam Stenavich.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 92.65455463682692,
+            "emotion": 2.435660059456488,
+            "movement": 22.59979517047931,
+            "subject": 95.10472936830362
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPOGwwVkxxRGJpNFpCTC1acjItbmJNdjdycGJPeTdtQWdERzVnVGxzbmhIUUs2Z0FwZE1Dc2NPelBzUEhPNWdJQzJfWWRHTE5kb2ktQkNsLUc3cHE3RWs4SlJVMnp1S0JoVi1aWk10MlQxZmJ3MUR3aUFNclJsTFlfemJuc2I3QWExSTk1Sw?oc=5"
+        },
+        "context": "Packers’ Matt LaFleur eases concerns about Christian Watson, Matthew Golden despite injuries",
+        "id": 1432737,
+        "published_at_epoch": 1792716660,
+        "source": "Yahoo Sports",
+        "title": "Packers’ Matt LaFleur eases concerns about Christian Watson, Matthew Golden despite injuries"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.946675381848173,
+            "emotion": 3.902818640003229,
+            "movement": 5.380566360840482,
+            "subject": 95.47044480726288
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxQS1pHcEgwZUdIeUl1QUk0bVJWcTY3R0pVNUdGUWhWb3BmSmtFVkZkWDQ1YTFXSThvSFBTTG1MMlBLYk1xSVc4ZE1RSkZueXc3SDU1WDRCTGc4VTN1djdyMlFRd2RhVXJfX0F2cThKazdZbFREZmlaZzBQSEJRdldXSFRuUUpJMGtaSDZBb0V6aTFXOGhhSjlOTGJ2Q2tYT2RnWG9pZjctbXBMYnc?oc=5"
+        },
+        "context": "Lions' 'historically good' run game is the clear path vs. Packers",
+        "id": 1422503,
+        "published_at_epoch": 1792715100,
+        "source": "Yahoo Sports",
+        "title": "Lions' 'historically good' run game is the clear path vs. Packers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 88.29553893800653,
+            "emotion": 1.742556010823637,
+            "movement": 34.067280932140505,
+            "subject": 94.5023654411988
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPNTQ1V2JMdTU0MGlRUHo3OEtMNm4ya0NZNklNd1VJV2Z6Ynp0WVlULTg3V3ByblNFXzhPTzN4c3ZTMFBMVXo5azFiOXhkUDV6elZ0ZDZ6YU00enV5bkpYSTAtckZobl9ONUFhR0o4YzQzYjNTY3JOR1pSTnVVbnNfVHFXa1pNUQ?oc=5"
+        },
+        "context": "Packers Work Out Former Notre Dame Star, 3-Time All-ACC Standout",
+        "id": 1422456,
+        "published_at_epoch": 1792713358,
+        "source": "Yahoo Sports",
+        "title": "Packers Work Out Former Notre Dame Star, 3-Time All-ACC Standout"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.078734092678573,
+            "emotion": 1.86985106010007,
+            "movement": 3.3253393867452288,
+            "subject": 93.91864668410238
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTE9OUlJqeERoUnBVM1pLRjNXSkc4Qzk1UE8yZjRMWVIzTTBvbUNwYkhKWGxxb0ZxTUd5ME9icUFtcVNlR002QWdIMFdKV0hRVmZXY3NlWTh5YlpkaU5adXNyaWpGT2dFbUk1eTMxdmlQQ29vNVlWa0RtMlBjNA?oc=5"
+        },
+        "context": "Packers vs. Lions: 3 key matchups to watch in Week 7",
+        "id": 1422482,
+        "published_at_epoch": 1792712764,
+        "source": "Yahoo Sports",
+        "title": "Packers vs. Lions: 3 key matchups to watch in Week 7"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 12.2117155816294,
+            "emotion": 2.6387185129866375,
+            "movement": 3.625389474375013,
+            "subject": 95.16845436494104
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi9wFBVV95cUxPVDRzdzltRkYzWHZPWWtUSnBxX3otMjlVUHhtWFVkMVFUWU9zSHpyb2R6QW1TVFJqWkNuZzJpeXMxZHlsYlZWRjBic3A3a3o0bWp4TFNSWUtIV2NTTC15eFVXNk9qd1J5OWRSeW5lNzdsYmVVTEVDWW4weVkzQ2tTZ3ZpZkhXbGptS3BUVGpVVnhtdGdudVhrTmw1c01HYlh2bGM4QUY4U2NpNEs5bVJ0QWllTUZnMXp3S1NTdUEzVVRUeWk2SmdwMkc3ZjJwM2pUZWVfTmNieGVLZVFDNG5ya1M3ZVFGUjRaT213SEJoX18yTzFlUkdr?oc=5"
+        },
+        "context": "Lions kick off quest to win NFC North with 1st division game of year against surging Packers at home",
+        "id": 1422760,
+        "published_at_epoch": 1792711380,
+        "source": "The Lethbridge Herald",
+        "title": "Lions kick off quest to win NFC North with 1st division game of year against surging Packers at home"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 16.7182548872492,
+            "emotion": 10.570859640287594,
+            "movement": 4.920479914587532,
+            "subject": 96.37193723725753
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxOekZZdnZyV0ZTRnFKNWpIN25yajdjdDlYMVByYVpZMXFuUGo2RnRCeTlZdEoycnk5dXFSSVUwUWVaR29ZekFuRlhsRTQ3X0xZdmVreDZjRWNXTEpWTWE2YXIybmI4dTNZR2dVeEU0eWhGVDZJa0tJdnhtZ3RWejl3LTFIMzMtZ0RVMklUcHFuTnpHX08yWndkUDlmUEZpTlpTX1UxWldqRGJMUzdUM2d1MXV4ZXZzUElrd2M1cko5WUVUTmpLUExJQ2VyRXJfWmIxV3dXdVoyQThxSHRnQkFxaGNiNGgtZw?oc=5"
+        },
+        "context": "Packers believing in their momentum, Bullard says | FOX 11 One on One",
+        "id": 1412338,
+        "published_at_epoch": 1792710225,
+        "source": "WLUK",
+        "title": "Packers believing in their momentum, Bullard says | FOX 11 One on One"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.667605354811405,
+            "emotion": 1.8532890298687288,
+            "movement": 2.9910592222297345,
+            "subject": 93.8600256789772
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQS3JETTR0S2JIVWhXVFZNSHM2RUdSbmlYTi1IM3lJdmlzWGJRRnVHeVJyLVh3QktQUGJqV3h5XzNQbk4xTFFKZTdGanhDNVF1cURhMjB4cjlpSm1xNERpSlM4bDlRWWEyVV9fSWEtREIyUk10Qi1fS0VmYXZPSTMyWDBsZ1I0aDh3X3lVLWxRemRfTUk?oc=5"
+        },
+        "context": "Packers vs Lions Prediction & Picks: NFL Week 7",
+        "id": 1422824,
+        "published_at_epoch": 1792706383,
+        "source": "Sports Gambling Podcast",
+        "title": "Packers vs Lions Prediction & Picks: NFL Week 7"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 74.66855844531185,
+            "emotion": 54.0242697810823,
+            "movement": 92.92786219417268,
+            "subject": 94.56904845120022
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxNS2N1VkRQS3BvNXRoeTVkMm8xR2x3ZVRPS1dpcUhVVmM2YzBFMmFHUWxwRWdPVFFrU0ZvMGtPb3d1VUFWbUFDX2tmZjcxRzRVeGJoZjNVZDM0U1k1V21UcWZEb1ZMSmtOSzNWS1FFcmp5VXVFanFkQWpCQnVLVUxZR1g3d0dJYTNrejBFeDZjWkZLaThTQlhR?oc=5"
+        },
+        "context": "Packers Get Bad News on Potential Trades for 2 Colts Veterans",
+        "id": 1391085,
+        "published_at_epoch": 1792705200,
+        "source": "Heavy.com",
+        "title": "Packers Get Bad News on Potential Trades for 2 Colts Veterans"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 93.7575369663644,
+            "emotion": 1.594444368037074,
+            "movement": 2.235540497149445,
+            "subject": 95.97286763137248
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTFAzSlZTNkZnSE9HZk9wOWZfdGl3ODNYNUdTNUd5cHgtUnFuVVBXaERoQzVqUUZxMEFrbWdjSjVlMlpCVXowUGVCMkJjVTdCWGJvU0pHRThzcGdtMmhxQlJaVXQ3ZmVhVTFKb0gtdHdtQkpBTXJzSm1YZlF1RjMtZw?oc=5"
+        },
+        "context": "Packers work out punters on Thursday",
+        "id": 1422523,
+        "published_at_epoch": 1792704271,
+        "source": "Yahoo Sports",
+        "title": "Packers work out punters on Thursday"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 96.97307060617445,
+            "emotion": 2.432819797549531,
+            "movement": 9.03884757644729,
+            "subject": 95.34625218108268
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPRWlNaS1lRE1nNk5oZDlHNzZUV210NmsxaW4weExWRXRlRFgxMlV0WjFMUGx4X1BXMWVUVDhhVWxRZTVKNEw0T3V4WDNfLUwwbWtIZXJtbXJfUHhZMWZpZktUSHl4cFhQNUZZOWRWYWVIcFY4XzgwelJMZDZveWpzVTZRWkxXMVdPRHpqbQ?oc=5"
+        },
+        "context": "Packers Injury Report: Luke Musgrave’s 2026 return is uncertain",
+        "id": 1392057,
+        "published_at_epoch": 1792703004,
+        "source": "Yahoo Sports",
+        "title": "Packers Injury Report: Luke Musgrave’s 2026 return is uncertain"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 91.87404953988629,
+            "emotion": 1.6162234055204334,
+            "movement": 17.796595929511355,
+            "subject": 95.56096880849832
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxNZndKSWlVTjQ3OW1vQmtZNlIya00xREZZaTRMcnpHOHF1NElGYUNfaUdxTWVIR1NkUlZCVEZfUkRLUGJEbFNlb1U0XzBVeUhoamVPQl9XXzNTN2tyclhRcXoxUVBnNUtSTVhrTFlzcUJwTE02ZjRwWlViYW5pZnVEOE5McXlyanhMd0hGMEdvejVrdzhBSEpzeElVR21xZkM5Znh0SUhQQjVFeGFmYV9UN2NRYkdUa3ViY3NQUm4yOVdkbWV5MFVXdDNyaTNmbUV3VnNTS2VwZw?oc=5"
+        },
+        "context": "Packers host tryout for pair of rookie punters on Thursday",
+        "id": 1392056,
+        "published_at_epoch": 1792702680,
+        "source": "Packers Wire",
+        "title": "Packers host tryout for pair of rookie punters on Thursday"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 96.42776524100856,
+            "emotion": 1.4886631014742484,
+            "movement": 11.250769924333648,
+            "subject": 96.43198741257858
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxQTDFTWno4X3JGMWRhZElLel84UHBjUzFPcW5ya3BnSWFMOWc2Q3UwTkM5bVlhNE1zVzMxZWF2QTRnTW5BUS0zNHJTdzU3cG94WDB2Y2QzZ1RLSzc2ZXpvNDNXVEJYT0htN2EySVJNZVlvSXF5VXBDTVg5TFg3Wm12Yzl3Rkw3Q0JrR1E?oc=5"
+        },
+        "context": "Packers injury report: Jordan Love upgraded, 2 defensive starters added",
+        "id": 1432752,
+        "published_at_epoch": 1792701768,
+        "source": "Yahoo Sports",
+        "title": "Packers injury report: Jordan Love upgraded, 2 defensive starters added"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 84.25273777026734,
+            "emotion": 1.8015070399644328,
+            "movement": 96.1658410113892,
+            "subject": 96.20864289352212
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNemlHYW9Ua01IQjU1R2dLZWZyMllMX0lkQVJjbHhEYTVKZTJHVVg3X0VOMnNXU3JiVzZqRVBQS3FJU3ZyZENVcmN5WUVXdmtHbzdBNTk1QUlDMUdEbzVUNXNjLVF1bFU4MmxvUTJQdWRLR2FzWnc0U3I5SnUtUUhGalRaWlhvdXM?oc=5"
+        },
+        "context": "Packers explore surprising trade scenario for a 3-time Pro Bowl defensive tackle as injuries and salary cap concerns pile up",
+        "id": 1381939,
+        "published_at_epoch": 1792698582,
+        "source": "A to Z Sports",
+        "title": "Packers explore surprising trade scenario for a 3-time Pro Bowl defensive tackle as injuries and salary cap concerns pile up"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 71.1749150101464,
+            "emotion": 1.8532682138415983,
+            "movement": 16.951836157439633,
+            "subject": 94.27851446814616
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi0AFBVV95cUxPd1lIdVJFYUwwZ2M1anBTb1p1NUxocGlrbDRIejNPdzVyamJfVXZFcmdrVVd1dTNkZVBiQ2dTSDhjTGVGVmpPYjl4ckxtdmxYaVhIQ0JJc204Q3EwUFlpdmFaWDJXMG1PcVptcVVsMDBUSW1JSXRDMkpjR0ZmaFppa1NhSk1FMzBUN1I1akxGc0hRY1FRT0JoUkQxVnFVTWdLR1lrUUlDdGNQTW1QMFExTFd1OUI5dWRNb0tMWmdwdHg3NE9CMG54TVRBd1VOblN3?oc=5"
+        },
+        "context": "Dan Miller returning to booth to call Lions vs. Packers",
+        "id": 1402539,
+        "published_at_epoch": 1792694820,
+        "source": "The Detroit News",
+        "title": "Dan Miller returning to booth to call Lions vs. Packers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 86.62631587425469,
+            "emotion": 2.173383614883799,
+            "movement": 5.479311119935587,
+            "subject": 95.83078886159235
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxQcmZlazVral9HWDBkM0xteHhJRVFmUHJkNzVYZXFSWXp4d0tScVpVejNDX3BSVHlJeEhMUU51NE9TRTNJb0NvTUo0X1VySVg2LU9fb0J2MDBvbjQwbEhZMDkwTXRYUVZzeU5SZnRSTzctc2wwRjl0dUF4RWpfVkRSbHRoV0Ftd2NGTHozc0dXbURxZ01lcmZvM1QwZVFrMkN5LWJuc1c4bWxReW8?oc=5"
+        },
+        "context": "Packers Thursday Update From Practice: Latest on Josh Jacobs, Jordan Love",
+        "id": 1392029,
+        "published_at_epoch": 1792692222,
+        "source": "Sports Illustrated",
+        "title": "Packers Thursday Update From Practice: Latest on Josh Jacobs, Jordan Love"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 94.85797673694734,
+            "clickbait": 9.494484805147572,
+            "emotion": 2.010248975360115,
+            "movement": 5.427768682415725,
+            "subject": 94.91515898396834
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxQRWtIQlZsTUtLaEFlM1pDQXhnNXFtSWRaOUVRZEl2aUhydEM2aUxBMUlZMVVNOUZLaXdGQlFiTGVvSlZQbUR5Yl9Pa0x2MFN3S0tMV29nc19Ra01tVTZXM0Q0RW96eklvaWRNR3RKdnlBNEtFWWM4Z3dXNFJvYzBCc25QbGFaZTMwa240?oc=5"
+        },
+        "context": "Packers uncertain if TE Luke Musgrave (neck) will play during 2026 season",
+        "id": 1341855,
+        "published_at_epoch": 1792691405,
+        "source": "Yahoo Sports",
+        "title": "Packers uncertain if TE Luke Musgrave (neck) will play during 2026 season"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 92.66374003727232,
+            "emotion": 2.124757064135248,
+            "movement": 11.730979372470626,
+            "subject": 95.37958480468332
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxNenV3MWV4RFZ0QzBpQ1pfZGs1ZjlYVDc5VThCTFR1bFdEWGxEYXl3VXc5cEFuZ2VWNlFnT0VuUmUzUERpUjlSM3dMa3hGbGZnQjVjNk94d0I4WmpXQnY5MXl6VlprTU5vTERINEJSYmVXaVVCZ0NYYnRnQTdRQzh0Nkl0S1ZEd2R4WlVVNzdRTkM5NHVmLTF5V3pYaThLcjJua2c?oc=5"
+        },
+        "context": "Lions expect Brian Branch to have big role in return vs Packers",
+        "id": 1382228,
+        "published_at_epoch": 1792691340,
+        "source": "Detroit Free Press",
+        "title": "Lions expect Brian Branch to have big role in return vs Packers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 87.96278445550732,
+            "emotion": 1.6657289943674725,
+            "movement": 2.5082161467210047,
+            "subject": 95.64797211451254
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxOYUd5WV9YaHpfdEJaYzVwS0dDNVQtRlF3Sm0tRC1pd0NGWkJJSHNHaHQ3dFNmaTFpTE5yOWhCZU0zNG5MZlN4bEpFYWhuaDdLdDk0VjdkR0tyLXFha2lyajFVOHFXVTZhYmdqMFcxM3Naak8xUTk3TkV3WHJPUVJSejhBcGdEVnk4?oc=5"
+        },
+        "context": "Packers running back Josh Jacobs participates in Oct. 22 practice",
+        "id": 1381898,
+        "published_at_epoch": 1792691145,
+        "source": "Yahoo Sports",
+        "title": "Packers running back Josh Jacobs participates in Oct. 22 practice"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 97.34179744866424,
+            "emotion": 1.693325541147533,
+            "movement": 2.8582045042146333,
+            "subject": 96.00755550693545
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi4gFBVV95cUxOTmRiMnMtU3dwWEp4Uk5CTXltVVd0ZGwxd0hFanZvOHdvWXhQM2s3clpNUGpob0l5bGRxWW11Y1RJSWs3U0FWM3JsdmNNazdhWXpjc2oybzdlMmE5c21hOFliSXIxTERpSlBLenRDX3Q1aWNhQXQ2WXlkV3Jrc3dteUFFbXNTNGFwVjV3b25scXlibmNJMzFxY3hyQ0VJck9Va2R6UVZBc015bXlSUWw5V0Y0TUJ4OUpEQ18yNXFxXzFoRnNIT1YzRjA0VUM5czByNnVNVmt6aWRiaHRMYWdNSEp3?oc=5"
+        },
+        "context": "Packers injury updates on Christian Watson, Matthew Golden, Jordan Love",
+        "id": 1361795,
+        "published_at_epoch": 1792690500,
+        "source": "Packers Wire",
+        "title": "Packers injury updates on Christian Watson, Matthew Golden, Jordan Love"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.131975670324172,
+            "clickbait": 21.942341085561857,
+            "emotion": 3.776323324726296,
+            "movement": 16.541977560778896,
+            "subject": 95.73434343315688
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxPWHpUVWtMdVhnc1lRZFlKcDNpWVR3OVBqQUM3U3l1cVI1Ykxuc21CTWhTXzh0RVZkV0ZyMnVWREtMVTFSUjhSeHRtWGpKOFhqWlVCY0FZbm1RVmd0QldXUDhjZ1RManhmazQxTGFoYTlOM3RvVHEyRGNDZnNWV1RHNERwNA?oc=5"
+        },
+        "context": "The Packers’ path is getting steeper",
+        "id": 1341816,
+        "published_at_epoch": 1792688189,
+        "source": "Yahoo Sports",
+        "title": "The Packers’ path is getting steeper"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 26.086396381989267,
+            "emotion": 4.691409529338342,
+            "movement": 22.924828641180163,
+            "subject": 95.70420767886492
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixAFBVV95cUxPQVlkbFZYZm81V0ZEN2MxTkhBZm5ES1Z5OXExdC1nR0ZmclpTdjhZbnRjQUN1bzZjUXFyVWRtdFhfNmdtbmhUMTRpbHlJN3ZITFV0a2hCN09VZ2Y3NUczRWx5eXFaQUdzMnA1Mlk2el83MEFTVXViUVZFN281ZE8yMXFCVzRqa3NuNXZnX2xDd0FmY1Iwb2JXN1d3Yy1EMzVXaFRRQXBfcTNFcmdvTlZYdVhuaGxyMnhMdDctYkM4ZlpzbTk1?oc=5"
+        },
+        "context": "Green Bay Packers News: The Packers’ path is getting steeper",
+        "id": 1331967,
+        "published_at_epoch": 1792688189,
+        "source": "Acme Packing Company",
+        "title": "Green Bay Packers News: The Packers’ path is getting steeper"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.439313718888235,
+            "clickbait": 7.957892418323779,
+            "emotion": 3.329898231645471,
+            "movement": 7.348119939490361,
+            "subject": 94.22586849511688
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxQaTVVUG9zZ1FFbEtYRk9wNnFRSDl2cTc5RmpqQ3R0Q3B2TFRWeWNnekNEUktkVHd6N1N5LXF3OHJERWxWZzZpV254LVY5QnBoVG5WbGhVb2NFUDRZV3h6UnBHbGJSQnpqMk1VU0lkenUyWWFvX0dvS0I3dTVfVldkeXZ6UlFmd3BhRVZkc0pqdUI3U0VpTXAwYw?oc=5"
+        },
+        "context": "Jonathan Gannon has Packers' defense playing 'free' and better than ever",
+        "id": 1331978,
+        "published_at_epoch": 1792686900,
+        "source": "Lombardi Ave",
+        "title": "Jonathan Gannon has Packers' defense playing 'free' and better than ever"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.696795396637964,
+            "clickbait": 17.29346383445266,
+            "emotion": 3.998473081649169,
+            "movement": 8.393143935027874,
+            "subject": 94.90754993420528
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxOYjNJcFl1TmNTSXZKeE5tNzMyQlNkLUdqempvdTl1Z2E3WjdWRVRpZ2FjNDNvUWM0a1JkOGJ4N3lSTGdUUVZVY0FpcFZnVFVhWHQ2VmN0ZXdLVWFJa1cyRmdQS2VTMFBjMV9ycEdEUjVUZ1d2NVlIMXZndkdOUUYxSTFzU040bmRI?oc=5"
+        },
+        "context": "Before the Roar: Previewing Lions vs Packers",
+        "id": 1331939,
+        "published_at_epoch": 1792686600,
+        "source": "Yahoo Sports",
+        "title": "Before the Roar: Previewing Lions vs Packers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 90.48973638004556,
+            "clickbait": 7.614012400923044,
+            "emotion": 2.834653563065364,
+            "movement": 7.675662407321787,
+            "subject": 94.85973478018872
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxOZ0cyUWJWRjM2bE9fZUUyM21jMWJlRFplWHBaR3NuYkRzbE84VmJmZ3lOOG1oS0hOZFZ1QmhfVVc3WTl3Q0trTkVucnBLbFZTTWVndFNvZGRwelBPdXlURzV5LWdkZ3VhQ2lFNTI3SVFGMmVyWmZkMlppTllwTG9ncGhjVGlPVWx3bG9KTnJqR3kxTDhUbU5qTGlvaXJ2UFg1RVQzSlF3dmJoQQ?oc=5"
+        },
+        "context": "Packers' Christian Watson: Coach confident he'll play Sunday",
+        "id": 1331995,
+        "published_at_epoch": 1792686411,
+        "source": "CBS Sports",
+        "title": "Packers' Christian Watson: Coach confident he'll play Sunday"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.8918086258220725,
+            "clickbait": 27.465487263566533,
+            "emotion": 3.0223810032120895,
+            "movement": 90.91560322032517,
+            "subject": 94.62682818942528
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxQN3d6cWFtNUg4QjhfUURaVE84anRRQjdRR05NdlFkVXBETVUwV015WWw3Y2NMeUdoWV94aE9RcElLdmVVTTZVNms2WkwtQ25fUWVlYjYyUjF1RE5uaFdnMnZaX1U0WUxZNDdvNEJrNmttTXVsYkxEOG1lYkZwTWI4bGdHY2g5cjhY?oc=5"
+        },
+        "context": "NFL rumors: Cowboys, Packers being linked to Josh Sweat trade has serious Micah Parsons irony",
+        "id": 1331963,
+        "published_at_epoch": 1792682967,
+        "source": "Yahoo Sports",
+        "title": "NFL rumors: Cowboys, Packers being linked to Josh Sweat trade has serious Micah Parsons irony"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.6151743646794363,
+            "clickbait": 6.961249532924879,
+            "emotion": 3.661165009224146,
+            "movement": 2.4689489878676008,
+            "subject": 94.40581142546472
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxOam1nb1BVbGFSZlJkaTBrMGlPTVg5b0FMc01JTjFlYTJ4eFFmQWhwTW9pM045cDhwSFdwUjJPZ1lfamdleWxLeWVUejNIamFEeHZtOWhnTXFNdHVfVVNYaWpfejlEQmZibHplZFFHUlZzYkFMbV9NbmhuaUxDZlluczVlQzFzNG1ENWJ2anM2SFY4YW5sTHc?oc=5"
+        },
+        "context": "Packers winning with element of defensive surprise",
+        "id": 1312502,
+        "published_at_epoch": 1792679313,
+        "source": "Green Bay Packers – packers.com",
+        "title": "Packers winning with element of defensive surprise"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 81.18546783263363,
+            "clickbait": 56.12772750532141,
+            "emotion": 44.13141604464834,
+            "movement": 11.2355620950623,
+            "subject": 95.19888329856228
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQWXo1a3hwSnpPUTl0aVVocnVYS1JOMGZ4UE5BQ1FTZ2VaZmNPWlVzWHdCS0NEM19INVAxaWpOSVVuMXBDS2l6UWtDam5Rd2ZJMVdReTVueGJXZ1BRYjZBZzZ5QTg4WmJRU2R2Z3FqVjh3UDRCUzJNcTU5bjVHUWRUeU1KRDJVTjA?oc=5"
+        },
+        "context": "‘Awful Look,’ ‘Completely Tone-Deaf’ — Packers HC Matt LaFleur Faces Backlash for Defending Josh Jacobs Ahead of RB’s Return",
+        "id": 1302830,
+        "published_at_epoch": 1792674532,
+        "source": "Yahoo Sports",
+        "title": "‘Awful Look,’ ‘Completely Tone-Deaf’ — Packers HC Matt LaFleur Faces Backlash for Defending Josh Jacobs Ahead of RB’s Return"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 75.26526361765843,
+            "clickbait": 8.436389284007323,
+            "emotion": 3.156292512830898,
+            "movement": 26.0401582950779,
+            "subject": 96.50034802560825
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxOV2FNVmNXV3lfQnRZSEx0Mk1fRjJmcUZ1Zjg4bDY0TkpBeG9SS010cGtjYS1vem05R3FTb1d2c2xpX21Kamh4aVFnRWhFZUs5RkQwQjlQdk9MRGZxVW5GRUQ4UzJTNGdmb3VIOWhWVW5qYnF2M0RyajZ0OEVaWW1LU1lTZmV2YkNfLUtYRlI4UFNSNlYwUzMyT05B?oc=5"
+        },
+        "context": "Packers’ Jordan Love Reveals Mindset With Return of Josh Jacobs",
+        "id": 1302888,
+        "published_at_epoch": 1792673755,
+        "source": "Heavy.com",
+        "title": "Packers’ Jordan Love Reveals Mindset With Return of Josh Jacobs"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 19.579762968897903,
+            "clickbait": 9.561764668274211,
+            "emotion": 8.09772967284202,
+            "movement": 4.107851880372613,
+            "subject": 95.87750994141008
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizAFBVV95cUxPamxJdFJzTGt1V3lMa2xuR2NzREdKcGlScHBWaVFENEFNM1RwMU1pUUE5aXB5Vk1uNlJraHRaZFdYMXdrYVZTbG9VX01YY0tvc2V4b3RXNHQ1M1JGbEVJZDByLTUtQTJ6dEVmN1VTaFdpaG9CTmZEWUV1X09aUmdGVnpMbXQwZjdLWlZnMTF4T1ozRTk5SWVrZW0xckItWE9vZ3lubkt6ZGxfeUxORDgtRURUaGY4VlJxSjMtdWRfdmhnZlR5eWh4SVg0eEc?oc=5"
+        },
+        "context": "Packers' Josh Jacobs vows to 'learn from this mistake' amid NFL investigation",
+        "id": 1293163,
+        "published_at_epoch": 1792673352,
+        "source": "Yardbarker",
+        "title": "Packers' Josh Jacobs vows to 'learn from this mistake' amid NFL investigation"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.4215045313638637,
+            "clickbait": 5.461961093507689,
+            "emotion": 1.8191676759581137,
+            "movement": 3.2318851667449437,
+            "subject": 93.94670304362086
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi1gFBVV95cUxQcW1jWWRVOVBMZUJaRFlWVGJpa2xVY3I0U1Y0blZEdTVHQ2h4VmJ5bXVpZ1plN0p3U2duZkRWWEhydmZGNzd5azMzaVlQQUwwUGc4dlZUYWJuVDVmdWMtWkY0d0VZRF9YTWdyTlE3endxSGp2dDNRZmJrWFM5aDgtNlhucXVLd20tQl95cjVEVmZQcFJFdlYtODNwTGIxU0FZY3Q4ZVhFZkliMWstS0ZwUGRsQ1h4YTJVajAtbTYtNXdqeDMteXh5Nmd4eEVzSmFWUFVENW53?oc=5"
+        },
+        "context": "Lions vs Packers predictions, picks, odds, score projections Sunday",
+        "id": 1302807,
+        "published_at_epoch": 1792671300,
+        "source": "azcentral.com and The Arizona Republic",
+        "title": "Lions vs Packers predictions, picks, odds, score projections Sunday"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.253800260231519,
+            "clickbait": 9.1565660948477,
+            "emotion": 3.4669232169341964,
+            "movement": 12.101098405200844,
+            "subject": 95.72465115627672
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiyAFBVV95cUxQQndpbHFLdmVHNUJWVkNQR1AwLTNPYng3OFFiaWpQcEtKMWhKdlN2NzR6bkg2VlF3VjFuU1M3YzBOTFpUUjlqSndETFZkSlo4VnNfZWFiM2RGclVQaE1nRm0talRucVVydzA2QkhjSFhldGJWYVhiREVuRXEzdG95MHhjNmFFa0k2VEdPVGxGZlZkOUxuN05kLXUybXMtOEpxb2c2cWRHc256ZDdZNTZLM3c5VWxBUFh6Z0M1SEpmQjFDV0RGRWx6cQ?oc=5"
+        },
+        "context": "5 Players Who Could Help The Packers Reach Their First Super Bowl Since 2010",
+        "id": 1293094,
+        "published_at_epoch": 1792670410,
+        "source": "Forbes",
+        "title": "5 Players Who Could Help The Packers Reach Their First Super Bowl Since 2010"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.8885581396267663,
+            "clickbait": 14.36704245770497,
+            "emotion": 3.009315487081209,
+            "movement": 95.40670077063916,
+            "subject": 96.32013396848792
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE5iWkVhaXlIQkhHU3FhZ0JSTDlLNmhLc2g2RzN5cjN4NmpUTTFVTGZTRi1HRi1icEc1SXA4WFpxMlc0eGdYSE4tSkY0YS00VnpaUlBMQ2tpTGZtNjBEd2pPN1VNNldnY3B6Z3dpT3Zibi11SkxYWmdhOVBCZ09ZcjQ?oc=5"
+        },
+        "context": "Packers Urged to Trade for $64M Veteran Before Deadline",
+        "id": 1281832,
+        "published_at_epoch": 1792667781,
+        "source": "Heavy.com",
+        "title": "Packers Urged to Trade for $64M Veteran Before Deadline"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.27541129171096,
+            "clickbait": 4.682590568640277,
+            "emotion": 1.944704350297384,
+            "movement": 6.645774995447036,
+            "subject": 94.3494994948933
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxOb0pwa3pXRnZjR1U3SzdCdENJNDRPV25MSmc1b3ZKZzBzTW1GZzRENmhtYktkU19abEFDS1Y4ZHQ0ZmgwcENQSHA0Uk52U0VDaGMzMGRvVXFNY0ZnRWNXRzZwazZHc0NNaTREbTRwTGZxYUZPTEVnZ1JDbktqQWhhZjA5SkFjUHRfY1gtdkktS2hYOWFyYzdSckxGTTN4dWNnaVNxNHRtMmNUS0VY?oc=5"
+        },
+        "context": "Pack-A-Day: Packers Week 7 chat w/ Aaron Nagler",
+        "id": 1273937,
+        "published_at_epoch": 1792663606,
+        "source": "247Sports",
+        "title": "Pack-A-Day: Packers Week 7 chat w/ Aaron Nagler"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.558309330364216,
+            "clickbait": 5.331007296470001,
+            "emotion": 30.830127031510944,
+            "movement": 5.613277570122971,
+            "subject": 96.03602169818146
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxQdVI0ZXFTcnlpWnRWNlNsQWlzeDFYeUlPaUhRMV9NNWZENWlJUXhMVWJxejJEZ1R0a05DTWNPZ2ZVS1JSeUJ3TXllNlNGWERkYjRFVXVLVDU1WWtleVc1OXQyV2ZCaTFZRnRNMmNRX0hNNGlSdGp6a0JkNm0wVTBWbmxSdm5JWXpGRjFqV1JqdFFEeGJQY2tQQXEtMFVSXzdFNHc?oc=5"
+        },
+        "context": "Packers RB Josh Jacobs: 'Sorry for putting team in this situation'",
+        "id": 1264229,
+        "published_at_epoch": 1792636854,
+        "source": "National Football Post",
+        "title": "Packers RB Josh Jacobs: 'Sorry for putting team in this situation'"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 92.78465609797692,
+            "clickbait": 6.271326417792173,
+            "emotion": 19.15313841465623,
+            "movement": 3.4209025475966897,
+            "subject": 96.35356643815554
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiywFBVV95cUxOSFdkU2pKQVI1Z0RpUnJkdjdHZHdjQ0hpQXpLQ2lFcG1pbnY3UUg4LW9zdUhvRzg2TzVEZ3Ytdk90cFJaWkJBSnF2N0ViN2htekEtUlYydlZmb25EbVkxcWY4T1QwbHNIZTdBR1FUeF84bzZjT3FGRHNfVEtDS09XWkJHTXJ1UkIxZU14Y3piSmNLZy1fWGZ0bHVJZGk1dFRFelQxcjR1R09lWXQyemg2emR2V0ZuWXlPcEJSNmRkMEt4d1BlQWZKM3cwWQ?oc=5"
+        },
+        "context": "Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "id": 1293743,
+        "published_at_epoch": 1792628919,
+        "source": "Queen City News",
+        "title": "Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 90.99995267159773,
+            "clickbait": 13.153100082150262,
+            "emotion": 11.68169377037534,
+            "movement": 3.842149065967462,
+            "subject": 95.22627841474052
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigAJBVV95cUxQalBsQ3ZVaTJjb0VHZGtvSEI3aFF5cER2T0xPcGxZWk5ydkV1OXJaR0FwRHhIdFpNbmpvcE8zYktsc2V3SXVSeW9Eby1vUUtWMUlLNG9UNE9KRHdobDBoLXRNS2VOeVNmNnpfSC1fTy15QkVtTlhkSnE4ajg5Z1huVkMwR2ZkamtaOUJGTDE4YnRXS2Z6aXE3V1cxT0p3ZzhWaE5ZYWRzcklVTVVKZDd4MU5HLThxU0pGaHlpQjZCSEd6Q1RYd2w0dDJLUGtmQzZXT2lMMkFhNUQ2OGxRTFdsQVM0Q1NVdWlob0tfRkE0d0tyQU12TTFMWFhuUlJMTHUt?oc=5"
+        },
+        "context": "Saying his arrest was ‘probably one of the best things to ever happen to me,’ Packers running back Josh Jacobs returns to football saying he is ‘remorseful,’ vows to ‘try to be better’",
+        "id": 1264171,
+        "published_at_epoch": 1792626960,
+        "source": "Channel 3000",
+        "title": "Saying his arrest was ‘probably one of the best things to ever happen to me,’ Packers running back Josh Jacobs returns to football saying he is ‘remorseful,’ vows to ‘try to be better’"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.139080873309294,
+            "clickbait": 7.029425125712592,
+            "emotion": 1.9514334508656856,
+            "movement": 4.317235136330858,
+            "subject": 95.14318632771857
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMib0FVX3lxTFBmM0xjYlkxaHZZaUpTS0QzeWs3VmpWcG5tb0IwdW9xd0FHWnp3cURMbUp6VUFfMG9OZkxUWWJHcUpacE9PZkU3cEhVb21lbGFhVlRLZ1p5bVpUVVh1ajBCZEhhdDBNaER5aWFacTJoZw?oc=5"
+        },
+        "context": "Lions open NFC North play against streaking Packers",
+        "id": 1303189,
+        "published_at_epoch": 1792624920,
+        "source": "Fort Worth Star-Telegram",
+        "title": "Lions open NFC North play against streaking Packers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 95.60874161899646,
+            "clickbait": 4.269630743116092,
+            "emotion": 2.377502578959743,
+            "movement": 25.399759563904674,
+            "subject": 96.68735424135986
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQM2dwU1FLam8tcGppRzgyNFJxdmZESk96WF9GeDhKR1RsdzN5dkxKdlhHVW1TTk15bjhmb2kyLW94dHR2MXVIbERrWVdsOF90WGRzUWJhNlNoUWxfNHZJeUFORmtRbGhoZk01eWlPa0dxaDg2NDlLTTNZXzJhVk96VmZKYk9KajRhbzE0bm9KNA?oc=5"
+        },
+        "context": "Packers injury report: Love, Golden, Watson added",
+        "id": 1225531,
+        "published_at_epoch": 1792624278,
+        "source": "WLUK",
+        "title": "Packers injury report: Love, Golden, Watson added"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.209587117326027,
+            "emotion": 1.9703759359570867,
+            "movement": 5.041995950140123,
+            "subject": 94.38943008760066
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxOT1ZzVEQwMFBjZmxJSkl5bzIwZDN4NzFlVVBGQjl2RFNnZGtZNkNfaVVPWGFaM0F0ckEzUVBlXzdVZjhENWFhQXp4QXlTNkdvMHNRRnE4MlZzeHFudXZXUFVTMW1oY2lyMldJczJkYzZQNWlRZkhiREptOWNrZDZNVVR5VUlWcG1Hb2VqZGhQVENfVENOTVBZS3ZfeE80TFk2bFFIYktxV0NUWHRkdTlsM1FR?oc=5"
+        },
+        "context": "Week 7 Around the NFC: Packers Offense, NFC East Favorite, Panthers Rise and more",
+        "id": 1372559,
+        "published_at_epoch": 1792614471,
+        "source": "BVM Sports",
+        "title": "Week 7 Around the NFC: Packers Offense, NFC East Favorite, Panthers Rise and more"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.8250399210777237,
+            "clickbait": 3.8606754424474863,
+            "emotion": 1.7334874358284675,
+            "movement": 7.145351883416619,
+            "subject": 95.7463768250246
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMidEFVX3lxTE5nSlp4NThwVENOQnlzY1pFQUpXcDNGQnZzVklJQ3Z6a0Y1Nnkwd2NMMEViR3RqWEVOYXkyUzdGT1IxRGxXd2pIbnEzZXY1N0hSTHg5RFpxWWVnUHZHVl9ZNzhEcXdCaWNkODE2N2FCWjhpeXlM?oc=5"
+        },
+        "context": "Lions vs. Packers | Week 7 preview",
+        "id": 1293451,
+        "published_at_epoch": 1792612820,
+        "source": "Detroit Lions",
+        "title": "Lions vs. Packers | Week 7 preview"
+      }
+    ],
+    "subject": {
+      "entity_id": 22,
+      "entity_type": "team",
+      "name": "Green Bay Packers",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

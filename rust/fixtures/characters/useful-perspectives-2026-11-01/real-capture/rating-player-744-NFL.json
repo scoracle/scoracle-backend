@@ -1,0 +1,55 @@
+{
+  "name": "real-player:744:NFL-rating",
+  "task": "rating",
+  "sport": "NFL",
+  "prompt_version": "s79-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Sam LaPorta\",\"entity_type\":\"player\",\"sport\":\"NFL Football\",\"database_record\":\"Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Air Yards Responsible\",\"measure\":\"sum of passing, receiving, kick-return, punt-return, punt and interception yards\",\"value\":316.0,\"percentile\":90.6,\"cohort\":828.0,\"band\":\"elite\"},{\"label\":\"Points Responsible For\",\"measure\":\"6 x touchdowns (passing, rushing, receiving, kick return, punt return, interception, fumble) + 3 x field goals made + extra points made\",\"value\":18.0,\"percentile\":89.4,\"cohort\":828.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":5.0,\"minimum\":10.0},\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]",
+    "profile": {
+      "limit": {
+        "appearances": 5.0,
+        "kind": "thin_sample",
+        "minimum": 10.0
+      },
+      "season": 2026,
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 828.0,
+          "label": "Air Yards Responsible",
+          "measure": "sum of passing, receiving, kick-return, punt-return, punt and interception yards",
+          "percentile": 90.6,
+          "value": 316.0
+        },
+        {
+          "band": "strong",
+          "cohort": 828.0,
+          "label": "Points Responsible For",
+          "measure": "6 x touchdowns (passing, rushing, receiving, kick return, punt return, interception, fumble) + 3 x field goals made + extra points made",
+          "percentile": 89.4,
+          "value": 18.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "NFL Football",
+    "subject": {
+      "entity_id": 744,
+      "entity_type": "player",
+      "name": "Sam LaPorta",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

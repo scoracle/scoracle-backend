@@ -1,0 +1,13 @@
+{
+  "arm": "eligible-worked",
+  "checks": [],
+  "input_tokens": 3262,
+  "name": "player-83946-NFL",
+  "output_tokens": 55,
+  "parser_detail": "named claim is absent from cited reports: Las Vegas Raiders",
+  "receipt": "11-player-83946-NFL-eligible-worked",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 10815
+}

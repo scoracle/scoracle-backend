@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / real-player:237:NBA-rating [rejected]
+LeBron James recorded 66 games played with 33.7 minutes per game. Relative standing shows 3PT Shooting at the 36.9th percentile (below average) and Rebounding at the 77.4th percentile (strong), while Discipline, Foul Drawing, On-Court Impact, and Steals are all strong relative to the cohort. On-Court Impact rose from the 36.4th to the 67.5th percentile; Rebounding fell from the 86.8th to the 77.4th percentile; Steals rose from the 68.2nd to the 76.6th percentile; Discipline and Foul Drawing held steady near the 89th percentile. The 2025 season composite score is 64.7. The reading rests on 66 recorded appearances.

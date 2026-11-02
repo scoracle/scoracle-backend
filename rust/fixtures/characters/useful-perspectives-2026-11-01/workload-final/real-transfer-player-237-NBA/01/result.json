@@ -1,0 +1,24 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-transfer-player-237-NBA.json",
+  "generation_wall_ms": 28656,
+  "input_tokens": 1699,
+  "name": "real-transfer-player-237-NBA",
+  "output_limit": 1400,
+  "output_tokens": 77,
+  "parsed": false,
+  "prompt_version": "insider-source-v21-perspective",
+  "reading": "cited reports do not connect LeBron James with numerical fact 2026",
+  "request_bytes": 2037,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 28664
+}

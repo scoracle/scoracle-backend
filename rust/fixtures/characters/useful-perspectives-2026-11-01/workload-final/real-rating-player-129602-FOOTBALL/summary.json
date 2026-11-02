@@ -1,0 +1,43 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        },
+        {
+          "detail": "The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games.",
+          "name": "production_acceptance",
+          "pass": false
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-rating-player-129602-FOOTBALL.json",
+      "generation_wall_ms": 45435,
+      "input_tokens": 955,
+      "name": "real-player:129602:FOOTBALL-rating",
+      "output_limit": 700,
+      "output_tokens": 89,
+      "parsed": false,
+      "prompt_version": "s80-measured-perspective",
+      "reading": "The recorded profile shows 7 appearances with a thin-sample limit of 10, which restricts the reading. Across 7 appearances, chance creation (expected assists) ranks at the 97.6th percentile in the elite band, while shooting (expected goals) ranks at the 95.5th percentile in the elite band. No prior comparison is supplied, and cross-season supports are not provided.",
+      "request_bytes": 720,
+      "review": [
+        "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+      ],
+      "status": "rejected",
+      "task": "rating",
+      "temperature": 0.6,
+      "wall_ms": 45442
+    }
+  ],
+  "completed": 1
+}

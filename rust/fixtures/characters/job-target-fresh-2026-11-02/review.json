@@ -1,0 +1,78 @@
+{
+  "reviewer": "Codex, unblinded source review of development cases",
+  "rubric": "Usable central reading; minor edit for limited wording, attribution or role correction; material error for misleading actor, measurement, temporal scope or event. Mechanical status is separate.",
+  "records": [
+    {
+      "case": "narratives-person-86-FOOTBALL",
+      "control": "usable",
+      "candidate": "usable",
+      "note": "Both retain the two discussions and their subjects. Candidate repeats the praise across publishers but introduces no material event."
+    },
+    {
+      "case": "narratives-player-37-NBA",
+      "control": "minor_edit",
+      "candidate": "minor_edit",
+      "note": "Both combine absence reporting with the separate jersey story. Candidate avoids the unsupported full Sacramento Kings expansion, but previously adds chronology from the report sequence."
+    },
+    {
+      "case": "vibe-person-23-FOOTBALL",
+      "control": "minor_edit",
+      "candidate": "usable",
+      "note": "Control adds visible delight and an overall view of leadership/momentum. Candidate confines the reading to reported delight and hope about attitude and mentality."
+    },
+    {
+      "case": "vibe-person-959-NFL",
+      "control": "usable",
+      "candidate": "minor_edit",
+      "note": "Both preserve criticism and expressed disappointment. Candidate leaks instruction wording about not inventing consensus into the body."
+    },
+    {
+      "case": "rating-team-2-NBA",
+      "control": "material_error",
+      "candidate": "usable",
+      "note": "Control assigns 89 games and the composite to the team cohort. Candidate correctly describes the Boston profile and supplied per-measure standings and changes."
+    },
+    {
+      "case": "rating-player-744-NFL",
+      "control": "usable",
+      "candidate": "usable",
+      "note": "Both keep the correct measurements or standings and the five-appearance sample limit. Candidate adds the supplied cohort size; no new measured quantity is invented."
+    },
+    {
+      "case": "momentum-player-744-NFL",
+      "control": "material_error",
+      "candidate": "material_error",
+      "note": "Control incorrectly treats missing dated comparisons as preventing a current-balance reading. Candidate gives that contrast but changes conditional willingness to get paid elsewhere into desire to leave and introduces an unsupported 90th-percentile literal."
+    },
+    {
+      "case": "oracle-team-2-NBA",
+      "control": "material_error",
+      "candidate": "material_error",
+      "note": "Control reverses the strong rebounding and turnover profile. Candidate instead calls the 54.2 composite poor and invents strategic disjointedness. Neither synthesis is faithful."
+    },
+    {
+      "case": "oracle-player-744-NFL",
+      "control": "minor_edit",
+      "candidate": "minor_edit",
+      "note": "Both use the supplied performance/contract tension. Candidate has a supplied rising direction tag, but strengthens it into rising on-field metrics without a dated raw-measure comparison. Neither is independently verified against original reporting in this peer-card trial."
+    },
+    {
+      "case": "transfer-team-37-FOOTBALL",
+      "control": "minor_edit",
+      "candidate": "material_error",
+      "note": "Control appends unrelated coach metadata. Candidate removes that name but converts injury-related absences into departures. Its parser acceptance is not a quality improvement."
+    },
+    {
+      "case": "transfer-player-83946-NFL",
+      "control": "usable",
+      "candidate": "minor_edit",
+      "note": "Both preserve the Eagles signing. Candidate repeats the publisher's draft-bust characterization as its own description; it does not invent a Giants-to-Eagles move."
+    },
+    {
+      "case": "momentum-synthetic-dated-divergence",
+      "control": "material_error",
+      "candidate": "material_error",
+      "note": "Both incorrectly call the two comparison windows the same. Candidate also exposes internal measure names in prose. This case is synthetic, not a real current snapshot."
+    }
+  ]
+}

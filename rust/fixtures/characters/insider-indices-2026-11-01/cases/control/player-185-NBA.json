@@ -1,0 +1,102 @@
+{
+  "name": "player-185-NBA",
+  "task": "transfer",
+  "sport": "NBA",
+  "parts": {
+    "subject": {
+      "entity_id": 185,
+      "entity_type": "player",
+      "name": "Draymond Green",
+      "sport": "NBA"
+    },
+    "database_record": "Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\nrole: player [2026-09-05; source 65552]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxNUXdmc3hSY1NwZkhDcTF1bDRMZ2gxSDVQVmUyS1dUeW9meFRYZjEwSnNneWdXNFl1c2R6SE53YnU1dDFtV2FtZXYxcUdLczQyM285TEZmNzNjMUlWQllva2RtZV9zMEZmUWl4eG13RTB6RXpzeWZqOEhBbDk3dXV5TnZ1NWljZWFUUDJtWA?oc=5",
+          "spectrum": {
+            "emotion": 3.3236229472742655,
+            "subject": 94.80741216988152,
+            "movement": 85.8566253317768,
+            "clickbait": 38.423320193005154,
+            "availability": 2.668299129789329
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1337909
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Steve Kerr Hints at Potential Warriors Exit With Steph Curry and Draymond Green",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T17:06:27Z",
+        "co_mentions": [
+          {
+            "name": "Stephen Curry",
+            "entity_type": "player"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPMnpfVU9feFhYbUEwU2Q1U1FBWVNhRUN1N082TlFjTjhRNW1rNm1XcC1ZMmxqR1JBUF9HYTYtNDVldFI1LTNQNTBKcW5QRlhKTzhKZGdlR3g2aTJWc1QxakQtLXRLc3FMMDl4MmIycE0xdGFpNF94Sm43clZHVVB6V2FQR2dURFJoSmE0?oc=5",
+          "spectrum": {
+            "emotion": 1.8562646099268796,
+            "subject": 94.63550114850445,
+            "movement": 80.14369960668411,
+            "clickbait": 20.243549323912436,
+            "availability": 1.850564082677567
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1328024
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Stephen Curry, Draymond Green Ready to Move Past Kristaps Porzingis Amid Reports on Warriors Looking to Trade Him",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T11:45:00Z",
+        "co_mentions": [
+          {
+            "name": "Stephen Curry",
+            "entity_type": "player"
+          },
+          {
+            "name": "Kristaps Porzingis",
+            "entity_type": "player"
+          },
+          {
+            "name": "Golden State Warriors",
+            "entity_type": "team"
+          }
+        ]
+      }
+    ]
+  },
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Draymond Green\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\\nrole: player [2026-09-05; source 65552]\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1337909,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxNUXdmc3hSY1NwZkhDcTF1bDRMZ2gxSDVQVmUyS1dUeW9meFRYZjEwSnNneWdXNFl1c2R6SE53YnU1dDFtV2FtZXYxcUdLczQyM285TEZmNzNjMUlWQllva2RtZV9zMEZmUWl4eG13RTB6RXpzeWZqOEhBbDk3dXV5TnZ1NWljZWFUUDJtWA?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Stephen Curry\"}],\"headline\":\"Steve Kerr Hints at Potential Warriors Exit With Steph Curry and Draymond Green\",\"published_at\":\"2026-10-22T17:06:27Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1328024,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxPMnpfVU9feFhYbUEwU2Q1U1FBWVNhRUN1N082TlFjTjhRNW1rNm1XcC1ZMmxqR1JBUF9HYTYtNDVldFI1LTNQNTBKcW5QRlhKTzhKZGdlR3g2aTJWc1QxakQtLXRLc3FMMDl4MmIycE0xdGFpNF94Sm43clZHVVB6V2FQR2dURFJoSmE0?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Stephen Curry\"},{\"entity_type\":\"player\",\"name\":\"Kristaps Porzingis\"},{\"entity_type\":\"team\",\"name\":\"Golden State Warriors\"}],\"headline\":\"Stephen Curry, Draymond Green Ready to Move Past Kristaps Porzingis Amid Reports on Warriors Looking to Trade Him\",\"published_at\":\"2026-10-22T11:45:00Z\",\"publisher\":\"Yahoo Sports\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "prompt_version": "insider-source-v21-perspective",
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

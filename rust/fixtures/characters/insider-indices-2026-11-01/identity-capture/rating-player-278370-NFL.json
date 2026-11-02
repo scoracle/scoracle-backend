@@ -1,0 +1,55 @@
+{
+  "name": "real-player:278370:NFL-rating",
+  "task": "rating",
+  "sport": "NFL",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Brian Thomas Jr.\",\"entity_type\":\"player\",\"sport\":\"NFL Football\",\"database_record\":\"Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Air Yards Responsible\",\"measure\":\"sum of passing, receiving, kick-return, punt-return, punt and interception yards\",\"value\":105.0,\"percentile\":75.8,\"cohort\":828.0,\"band\":\"strong\"},{\"label\":\"Points Responsible For\",\"measure\":\"6 x touchdowns (passing, rushing, receiving, kick return, punt return, interception, fumble) + 3 x field goals made + extra points made\",\"value\":6.0,\"percentile\":74.2,\"cohort\":828.0,\"band\":\"above average\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":5.0,\"minimum\":10.0},\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.",
+    "profile": {
+      "limit": {
+        "appearances": 5.0,
+        "kind": "thin_sample",
+        "minimum": 10.0
+      },
+      "season": 2026,
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "strong",
+          "cohort": 828.0,
+          "label": "Air Yards Responsible",
+          "measure": "sum of passing, receiving, kick-return, punt-return, punt and interception yards",
+          "percentile": 75.8,
+          "value": 105.0
+        },
+        {
+          "band": "above average",
+          "cohort": 828.0,
+          "label": "Points Responsible For",
+          "measure": "6 x touchdowns (passing, rushing, receiving, kick return, punt return, interception, fumble) + 3 x field goals made + extra points made",
+          "percentile": 74.2,
+          "value": 6.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "NFL Football",
+    "subject": {
+      "entity_id": 278370,
+      "entity_type": "player",
+      "name": "Brian Thomas Jr.",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

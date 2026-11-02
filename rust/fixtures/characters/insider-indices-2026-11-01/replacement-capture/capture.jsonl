@@ -1,0 +1,6 @@
+{"capture_ms":42,"database_read_only":true,"entity":"player:529856:FOOTBALL","model_calls":0,"status":"no_material","task":"narratives"}
+{"capture_ms":5,"database_read_only":true,"entity":"player:529856:FOOTBALL","model_calls":0,"status":"no_material","task":"vibe"}
+{"capture_ms":20,"database_read_only":true,"entity":"player:529856:FOOTBALL","model_calls":0,"status":"no_material","task":"transfer"}
+{"capture_ms":136,"database_read_only":true,"entity":"player:529856:FOOTBALL","fixture":"rating-player-529856-FOOTBALL.json","model_calls":0,"should_call":true,"task":"rating"}
+{"capture_ms":19,"database_read_only":true,"entity":"player:529856:FOOTBALL","model_calls":0,"status":"no_material","task":"momentum"}
+{"capture_ms":141,"database_read_only":true,"entity":"player:529856:FOOTBALL","fixture":"oracle-player-529856-FOOTBALL.json","model_calls":0,"should_call":true,"task":"oracle"}

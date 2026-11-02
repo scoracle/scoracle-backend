@@ -1,0 +1,38 @@
+{
+  "case": 9,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    },
+    {
+      "detail": "sentences=4 ≤ 3",
+      "name": "reading_max_sentences",
+      "pass": false
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/oracle-three-card-newcomer.json",
+  "generation_wall_ms": 4945,
+  "input_tokens": 340,
+  "name": "three-card-newcomer",
+  "output_limit": 700,
+  "output_tokens": 121,
+  "parsed": true,
+  "prompt_version": "or29-evidence-only",
+  "reading": "The room holds a cautious optimism regarding the rebuild, yet the grass remains a desired stage for the business. The spine of the team has been reshaped; two confirmed signings have arrived to fortify the defensive line before the opener, a move echoed by three sources within a day of the story's development. The transfer of Issa Diop from Fulham to Ipswich Town is confirmed, with paperwork filed. However, the path forward remains uncertain; the move for Issa Diop is done, but the trajectory of the broader project is still developing.",
+  "request_bytes": 1585,
+  "review": [
+    "Use the three supplied readings without implying the missing pillars were also observed."
+  ],
+  "status": "rejected",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 4951
+}

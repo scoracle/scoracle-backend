@@ -1,0 +1,13 @@
+{
+  "arm": "layout",
+  "checks": [],
+  "input_tokens": 2490,
+  "name": "player-45-NFL",
+  "output_tokens": 153,
+  "parser_detail": "finding quote must name both the target and counterparty in full",
+  "receipt": "15-player-45-NFL-layout",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 11924
+}

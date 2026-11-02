@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — oracle / real-player:237:NBA-oracle [accepted]
+LeBron James presents a profile of elite execution in scoring, playmaking, and discipline, anchored by a strong composite score derived from a limited sample of 66 games. This measured strength contrasts with reported falling direction and specific weaknesses in ball security and three-point shooting, creating a picture where high-level capability exists alongside significant uncertainty regarding trajectory and broader context.

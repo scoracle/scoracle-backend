@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — oracle / real-player:129602:FOOTBALL-oracle [accepted]
+Bruno Fernandes presents a profile of elite relative standing in a narrow, seven-game sample, where his chance creation and shooting metrics place him at the top tier of his peers. However, the absence of sufficient data to establish a trend and the lack of mood context create a significant gap between his measured potential and his current operational reality.

@@ -9,13 +9,13 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s41-missing-peer";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s46-context-guide";
 
-pub const MOMENTUM_SYSTEM_PROMPT: &str = "Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names, identities, affiliations, causes, motives, emotions or outcomes. Missing information is unknown. Omit unsupported claims; use the specified empty or null response when evidence is insufficient. Never merge facts from unrelated reports or subjects. Voice controls tone only; do not discuss the instructions. Preserve the entity type and evidence limits of each reading. Do not strengthen a claim or turn relative statistics into skill, cohesion or causation. If either reading is missing, explicitly say that agreement between performance and mood cannot be assessed. Synthesize the supplied finished performance and mood readings for this entity. Explain whether they reinforce each other, diverge, or leave the current picture unresolved. Scout notability measures distinctiveness, not skill; do not merge different windows or infer a cause. A missing daily reading is unknown, not a neutral signal. Do not forecast. Return only a JSON object with one key, blurb, containing concise prose.";
+pub const MOMENTUM_SYSTEM_PROMPT: &str = include_str!("instructions.txt");
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Form {
     pub body: String,
     pub headline: Option<String>,
@@ -25,7 +25,7 @@ pub struct Form {
 }
 
 /// The Influencer card supplied to the Analyst.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Mood {
     pub body: String,
     pub headline: Option<String>,
@@ -37,6 +37,7 @@ pub struct Mood {
 /// One explicitly dated trajectory study. It is supporting evidence for the two finished
 /// readings, not a second set of overlapping labels or a pre-written Analyst verdict.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct Snapshot {
     pub vibe_slope: Option<f64>,
     pub vibe_samples: i32,
@@ -57,7 +58,7 @@ impl Snapshot {
 }
 
 /// Complete materials for one creation. The application owns the durable subject key.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Assignment {
     pub entity_id: i32,
     pub entity_type: String,
@@ -74,9 +75,10 @@ pub const MOMENTUM_TEMPERATURE: f64 = 0.3;
 // sentences on a card. Nothing here scales with story count.
 pub const MOMENTUM_NUM_PREDICT: i32 = 700;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct MomentumContext {
     pub season: i32,
+    pub database_record: Option<crate::tools::meta::DatabaseRecord>,
     pub rating: Option<Form>,
     pub vibe: Option<Mood>,
     pub snapshot: Snapshot,
@@ -99,6 +101,16 @@ pub fn build_momentum_input_components(
     mom: &Snapshot,
 ) -> String {
     let mut components = serde_json::Map::new();
+    components.insert(
+        "fresh".into(),
+        serde_json::to_value(super::fresh::readings(rating, vibe, mom))
+            .expect("Analyst evidence serializes"),
+    );
+    components.insert(
+        "instructions".into(),
+        serde_json::json!(MOMENTUM_SYSTEM_PROMPT),
+    );
+    components.insert("tone".into(), serde_json::json!(super::voice::VOICE));
     components.insert(
         "prompt_version".into(),
         serde_json::json!(MOMENTUM_PROMPT_VERSION),
@@ -186,6 +198,7 @@ impl MomentumContext {
         let input_hash = hash_components(&input_components_json);
         Self {
             season,
+            database_record: None,
             rating,
             vibe,
             snapshot,
@@ -277,22 +290,26 @@ pub async fn load_momentum_context(
     sport: &str,
 ) -> Result<MomentumContext> {
     let season = oracle::resolve_season(pool, sport, None).await?;
-    let (rating, vibe) = tokio::try_join!(
+    let (rating, vibe, snapshot, database_record) = tokio::try_join!(
         load_scout_reading(pool, entity_type, entity_id, sport, season),
         load_influencer_reading(pool, entity_type, entity_id, sport),
+        load_snapshot(pool, entity_type, entity_id, sport, season),
+        crate::tools::meta::load_character_identity(pool, entity_type, entity_id, sport),
     )?;
-    Ok(MomentumContext::new(
-        season,
-        rating,
-        vibe,
-        Snapshot::default(),
-    ))
+    let mut context = MomentumContext::new(season, rating, vibe, snapshot);
+    context.database_record = database_record;
+    context.input_hash = hash_components(&serde_json::to_string(&(
+        &context.input_components_json,
+        &context.database_record,
+        MOMENTUM_SYSTEM_PROMPT,
+    ))?);
+    Ok(context)
 }
 
 /// Preserve the current voice-window reservation; all adapters use these same options.
 pub fn generation_options(voice_num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: None,
+        system: Some(MOMENTUM_SYSTEM_PROMPT.trim().to_owned()),
         temperature: Some(MOMENTUM_TEMPERATURE),
         num_predict: MOMENTUM_NUM_PREDICT,
         num_ctx: voice_num_ctx,
@@ -302,26 +319,78 @@ pub fn generation_options(voice_num_ctx: i32) -> GenerateOptions {
     }
 }
 
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
+pub struct Parts {
+    pub subject: EntityMeta,
+    #[serde(default)]
+    pub database_record: Option<crate::tools::meta::DatabaseRecord>,
+    pub scout: Option<Form>,
+    pub influencer: Option<Mood>,
+    #[serde(default)]
+    pub snapshot: Snapshot,
+}
+impl Parts {
+    pub fn assemble(&self) -> String {
+        crate::tools::context::assemble(
+            MOMENTUM_SYSTEM_PROMPT,
+            include_str!("context.txt"),
+            self.subject.for_writing(),
+            self.database_record.as_ref(),
+            super::fresh::readings(
+                self.scout.as_ref(),
+                self.influencer.as_ref(),
+                &self.snapshot,
+            ),
+            super::voice::VOICE,
+        )
+    }
+    pub fn should_call(&self) -> bool {
+        (self.scout.is_some() && self.influencer.is_some())
+            || super::fresh::has_comparison(&self.snapshot)
+    }
+}
+
 pub fn assemble(
     subject: &EntityMeta,
     scout: Option<&Form>,
     influencer: Option<&Mood>,
-    _snapshot: &Snapshot,
+    snapshot: &Snapshot,
 ) -> String {
-    #[derive(Serialize)]
-    struct Input<'a> {
-        meta: crate::tools::meta::WritingIdentity<'a>,
-        task: &'static str,
-        fresh: super::fresh::Fresh<'a>,
-        voice: &'static str,
+    Parts {
+        subject: subject.clone(),
+        database_record: None,
+        scout: scout.cloned(),
+        influencer: influencer.cloned(),
+        snapshot: snapshot.clone(),
     }
-    serde_json::to_string(&Input {
-        meta: subject.for_writing(),
-        task: MOMENTUM_SYSTEM_PROMPT,
-        fresh: super::fresh::readings(scout, influencer),
-        voice: crate::plugins::analyst::voice::VOICE,
-    })
-    .expect("analyst world serializes")
+    .assemble()
+}
+
+async fn load_snapshot(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    season: i32,
+) -> Result<Snapshot> {
+    let value: Option<serde_json::Value> = sqlx::query_scalar(
+        "SELECT jsonb_build_object(
+            'vibe_slope', vibe_slope, 'vibe_samples', vibe_samples,
+            'vibe_window_start', vibe_window_start, 'vibe_window_end', vibe_window_end,
+            'rating_slope', rating_slope, 'rating_samples', rating_samples,
+            'rating_window_start', rating_window_start, 'rating_window_end', rating_window_end,
+            'momentum_score', momentum_score, 'generated_at', generated_at)
+         FROM public.momentum_scores
+         WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 AND season=$4
+           AND reporting_date=public.character_reporting_date()
+           AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
+         ORDER BY generated_at DESC, id DESC LIMIT 1")
+        .bind(entity_type).bind(entity_id).bind(sport).bind(season).fetch_optional(pool).await?;
+    value
+        .map(serde_json::from_value)
+        .transpose()
+        .map(|s| s.unwrap_or_default())
+        .map_err(Into::into)
 }
 
 pub fn prose() -> crate::tools::form::Prose {
@@ -357,7 +426,7 @@ mod tests {
         };
         let world = assemble(&subject, Some(&scout), None, &snapshot);
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
-        assert!(world.starts_with(r#"{"meta":"#));
+        assert!(world.starts_with(r#"{"job":"#));
         assert_eq!(value["fresh"]["scout"]["body"], scout.body);
         assert!(value["fresh"].get("trajectory").is_none());
         assert!(value["fresh"].get("influencer").is_none());

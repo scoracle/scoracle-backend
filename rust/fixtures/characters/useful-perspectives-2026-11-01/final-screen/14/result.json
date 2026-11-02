@@ -1,0 +1,35 @@
+{
+  "case": 14,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-rating-synthetic-sparse.json",
+  "generation_wall_ms": 3927,
+  "input_tokens": 911,
+  "name": "synthetic-sparse",
+  "output_limit": 700,
+  "output_tokens": 72,
+  "parsed": true,
+  "prompt_version": "s80-measured-perspective",
+  "reading": "The Cedar Comets' rebounding performance is the stronger relative measure, ranking at the 90th percentile in the elite band, while assists rank at the 75th percentile in the strong band. These readings rest on a thin sample of 3 games, with a minimum of 10 games required for reliable comparison.",
+  "request_bytes": 538,
+  "review": [
+    "Three stored games describe source coverage, not first games, early-season participation or future potential. No cross-season comparison is supplied.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+    "Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation."
+  ],
+  "status": "accepted",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 3936
+}

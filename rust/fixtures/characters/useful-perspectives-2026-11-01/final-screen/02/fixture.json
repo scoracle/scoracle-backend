@@ -1,0 +1,29 @@
+{
+  "name": "mixed-peak-up-vibe-down",
+  "task": "momentum",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Jalen Rowe\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"scout\":{\"body\":\"Rowe's measured profile is improving, led by more efficient creation.\",\"season\":2026,\"generated_at\":\"2026-09-20\"},\"influencer\":{\"body\":\"The mood around Rowe is cooling despite the stronger statistical work.\",\"generated_at\":\"2026-09-20\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement."
+  ],
+  "parts": {
+    "subject": {
+      "entity_type": "player",
+      "name": "Jalen Rowe",
+      "sport": "basketball",
+      "entity_id": 0
+    },
+    "scout": {
+      "body": "Rowe's measured profile is improving, led by more efficient creation.",
+      "generated_at": "2026-09-20",
+      "season": 2026
+    },
+    "influencer": {
+      "body": "The mood around Rowe is cooling despite the stronger statistical work.",
+      "generated_at": "2026-09-20"
+    },
+    "snapshot": {}
+  }
+}

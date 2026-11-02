@@ -466,7 +466,7 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
             &assignment.built_prompt,
             &assignment.opts,
             &RatingRequestParser::new(&assignment.built_prompt, &directions, &bands),
-            crate::plugins::scout::prompt::correction,
+            crate::harness::session::no_rewrite,
         )
         .await?;
     let call = GenerationCall::from(&extracted);

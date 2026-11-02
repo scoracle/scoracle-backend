@@ -1,0 +1,13 @@
+{
+  "arm": "eligible-worked",
+  "checks": [],
+  "input_tokens": 3380,
+  "name": "team-7-NBA",
+  "output_tokens": 142,
+  "parser_detail": "finding quote is not an exact publisher span",
+  "receipt": "10-team-7-NBA-eligible-worked",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 14098
+}

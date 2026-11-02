@@ -4,6 +4,8 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 struct Narrative<'a> {
+    generated_at: Option<&'a str>,
+    source_article_ids: &'a [i64],
     title: &'a str,
     body: &'a str,
     trajectory: &'a str,
@@ -42,6 +44,8 @@ pub(super) fn readings(cards: &Cards) -> Fresh<'_> {
         .into_iter()
         .take(3)
         .map(|n| Narrative {
+            generated_at: n.generated_at.as_deref(),
+            source_article_ids: &n.source_article_ids,
             title: &n.title,
             body: &n.body,
             trajectory: &n.trajectory,
@@ -54,17 +58,17 @@ pub(super) fn readings(cards: &Cards) -> Fresh<'_> {
         scout: cards.rating.as_ref().map(|r| Reading {
             body: &r.body,
             direction: Some(&r.rating_trajectory),
-            generated_at: None,
+            generated_at: r.generated_at.as_deref(),
         }),
         influencer: cards.vibe.as_ref().map(|r| Reading {
             body: &r.prompt,
             direction: None,
-            generated_at: None,
+            generated_at: r.generated_at.as_deref(),
         }),
         analyst: cards.momentum.blurb.as_deref().map(|body| Reading {
             body,
             direction: cards.momentum.direction.as_deref(),
-            generated_at: None,
+            generated_at: cards.momentum.generated_at.as_deref(),
         }),
         insider: cards.insider.as_ref().map(|r| Reading {
             body: &r.body,

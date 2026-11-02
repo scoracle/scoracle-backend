@@ -1,0 +1,33 @@
+{
+  "case": 2,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/momentum-mixed-peak-up-vibe-down.json",
+  "generation_wall_ms": 3945,
+  "input_tokens": 319,
+  "name": "mixed-peak-up-vibe-down",
+  "output_limit": 700,
+  "output_tokens": 37,
+  "parsed": true,
+  "prompt_version": "momentum-s41-missing-peer",
+  "reading": "Performance and mood readings diverge. Rowe's measured profile is improving due to more efficient creation, yet the mood around him is cooling despite this statistical work.",
+  "request_bytes": 1461,
+  "review": [
+    "Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 3975
+}

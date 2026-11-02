@@ -1,0 +1,44 @@
+{
+  "name": "real-player:37550443:FOOTBALL-oracle",
+  "task": "oracle",
+  "sport": "FOOTBALL",
+  "prompt_version": "or31-five-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Alex Scott\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\",\"database_record\":\"Alex Scott — Midfielder, on record at AFC Bournemouth (Premier League). Nationality: England. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"scout\":{\"body\":\"In the 2026 season, Alex Scott has recorded 446 minutes played. His defensive contributions are strong at the 86.3rd percentile, while his assists are also strong at the 85.9th percentile. These measurements are based on a thin sample of 10 appearances.\",\"direction\":\"falling\",\"generated_at\":\"2026-10-23 08:23:44.44507+00\"},\"analyst\":{\"body\":\"Alex Scott: Mood reading unavailable. Agreement between performance and mood cannot be assessed.\",\"generated_at\":\"2026-10-23 08:24:17.680785+00\"}},\"tone\":\"Reflective, economical and quietly evocative. Use a light metaphor only when it clarifies the reading.\"}",
+  "parts": {
+    "cards": {
+      "insider": null,
+      "momentum": {
+        "blurb": "Alex Scott: Mood reading unavailable. Agreement between performance and mood cannot be assessed.",
+        "direction": null,
+        "generated_at": "2026-10-23 08:24:17.680785+00",
+        "input_hash": "abf215eaa3fef0195eda6ef056096719",
+        "momentum_score": null,
+        "rating_samples": 0,
+        "rating_slope": null,
+        "vibe_samples": 0,
+        "vibe_slope": null
+      },
+      "narratives": [],
+      "rating": {
+        "body": "In the 2026 season, Alex Scott has recorded 446 minutes played. His defensive contributions are strong at the 86.3rd percentile, while his assists are also strong at the 85.9th percentile. These measurements are based on a thin sample of 10 appearances.",
+        "generated_at": "2026-10-23 08:23:44.44507+00",
+        "notability": 83,
+        "rating_trajectory": "falling",
+        "rating_trajectory_label": "overall scores trending down over recent games"
+      },
+      "vibe": null
+    },
+    "subject": {
+      "database_record": "Alex Scott — Midfielder, on record at AFC Bournemouth (Premier League). Nationality: England. Record: roster; observed 2026-07-04.",
+      "entity_id": 37550443,
+      "entity_name": "Alex Scott",
+      "entity_type": "player",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

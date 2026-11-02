@@ -1,0 +1,54 @@
+{
+  "case": 6,
+  "checks": [
+    {
+      "detail": "1 narratives",
+      "name": "narratives empty == false",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body includes \"Alex Stone\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body includes \"talks\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body excludes \"has signed\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body excludes \"agreed a deal\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body excludes \"completed the signing\"",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-narratives-rumour-and-denial.json",
+  "generation_wall_ms": 2983,
+  "input_tokens": 912,
+  "name": "rumour-and-denial-rumour-with-its-denial-intact",
+  "output_limit": 900,
+  "output_tokens": 59,
+  "parsed": true,
+  "prompt_version": "n120-useful-perspectives",
+  "reading": "City Wire reports that Cedar United are reportedly in talks to sign Alex Stone, with no agreement reached and the club declining to comment.",
+  "request_bytes": 450,
+  "review": [
+    "Preserve the rumour qualification: reported, not agreed, and the club declined to comment.",
+    "A body that states a completed signing fails, even though the source names a player."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 2993
+}

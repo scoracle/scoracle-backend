@@ -141,9 +141,16 @@ async fn complete_assignment_creates_validated_product_with_actual_provenance() 
     assert!(calls[0]
         .0
         .contains("Kerr's measured form is gaining ground."));
-    assert_eq!(calls[0].1.system, None);
+    assert_eq!(
+        calls[0].1.system.as_deref(),
+        Some(MOMENTUM_SYSTEM_PROMPT.trim())
+    );
     let package: serde_json::Value = serde_json::from_str(&calls[0].0).unwrap();
-    assert_eq!(package["task"], MOMENTUM_SYSTEM_PROMPT);
+    assert!(package.get("task").is_none());
+    assert_eq!(
+        package["fresh"]["comparisons"][0]["measure"],
+        "rating_notability"
+    );
     assert_eq!(out.direction, "rising");
     assert_eq!(out.score, 2);
     assert_eq!(out.headline.as_deref(), Some("Vale Kerr: current momentum"));

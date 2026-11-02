@@ -1,0 +1,9 @@
+{
+  "name": "03-person-8-NFL-worked",
+  "arm": "sampled",
+  "wall_ms": 11812,
+  "input_tokens": 2744,
+  "output_tokens": 129,
+  "status": "rejected",
+  "parser_detail": "finding quote must name both the target and counterparty in full"
+}

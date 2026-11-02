@@ -1,0 +1,41 @@
+{
+  "name": "real-player:278370:NFL-momentum",
+  "task": "momentum",
+  "sport": "NFL",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Brian Thomas Jr.\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.\"},\"fresh\":{\"scout\":{\"body\":\"Brian Thomas Jr. recorded or stored appearances for the 2026 season in two categories: sum of passing, receiving, kick-return, punt-return, punt, and interception yards (105.0 yards, 78th percentile) and points responsible for (6.0 points, 76.5th percentile). Both categories are based on thin samples with a minimum of 10 appearances each. The data does not establish cross-season comparisons or confirm complete participation.\",\"season\":2026,\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.",
+    "influencer": null,
+    "scout": {
+      "body": "Brian Thomas Jr. recorded or stored appearances for the 2026 season in two categories: sum of passing, receiving, kick-return, punt-return, punt, and interception yards (105.0 yards, 78th percentile) and points responsible for (6.0 points, 76.5th percentile). Both categories are based on thin samples with a minimum of 10 appearances each. The data does not establish cross-season comparisons or confirm complete participation.",
+      "generated_at": "2026-10-23",
+      "headline": "Brian Thomas Jr.: measured profile",
+      "input_hash": "c20c8a421d8fee071c74ecf32c29aef8",
+      "season": 2026
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 278370,
+      "entity_type": "player",
+      "name": "Brian Thomas Jr.",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "case": 15,
+  "error": "llama.cpp template omitted or changed supplied input",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-transfer-unnamed-signing-no-identity-join.json",
+  "name": "unnamed-signing-no-identity-join",
+  "output_limit": 1400,
+  "prompt_version": "insider-source-v20-perspective",
+  "request_bytes": 394,
+  "review": [
+    "An unnamed signing cannot acquire the co-mentioned target identity. No linked finding."
+  ],
+  "status": "error",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 1
+}

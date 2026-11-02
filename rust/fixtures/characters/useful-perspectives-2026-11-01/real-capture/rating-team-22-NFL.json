@@ -1,0 +1,55 @@
+{
+  "name": "real-team:22:NFL-rating",
+  "task": "rating",
+  "sport": "NFL",
+  "prompt_version": "s79-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Green Bay Packers\",\"entity_type\":\"team\",\"sport\":\"NFL Football\",\"database_record\":\"Green Bay Packers — NFC NORTH. Venue: Lambeau Field. City: Green Bay. Country: United States. Coach on record: Adam Stenavich.\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Interceptions\",\"measure\":\"defensive interceptions\",\"value\":9.0,\"percentile\":100.0,\"cohort\":32.0,\"band\":\"elite\"},{\"label\":\"Tackling\",\"measure\":\"total tackles\",\"value\":423.0,\"percentile\":83.9,\"cohort\":32.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":6.0,\"minimum\":10.0},\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Green Bay Packers — NFC NORTH. Venue: Lambeau Field. City: Green Bay. Country: United States. Coach on record: Adam Stenavich.",
+    "profile": {
+      "limit": {
+        "appearances": 6.0,
+        "kind": "thin_sample",
+        "minimum": 10.0
+      },
+      "season": 2026,
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 32.0,
+          "label": "Interceptions",
+          "measure": "defensive interceptions",
+          "percentile": 100.0,
+          "value": 9.0
+        },
+        {
+          "band": "strong",
+          "cohort": 32.0,
+          "label": "Tackling",
+          "measure": "total tackles",
+          "percentile": 83.9,
+          "value": 423.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "NFL Football",
+    "subject": {
+      "entity_id": 22,
+      "entity_type": "team",
+      "name": "Green Bay Packers",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

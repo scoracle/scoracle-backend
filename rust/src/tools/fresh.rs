@@ -12,11 +12,14 @@ pub fn evidence_key(publisher: &str, text: &str) -> (String, String) {
 
 #[derive(Serialize)]
 pub struct Report<'a> {
-    headline: String,
     publisher: &'a str,
     published_at: Option<String>,
+    evidence_scope: &'static str,
+    headline: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     publisher_text: Option<String>,
+    article_id: i64,
+    url: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     classifier_world: Option<serde_json::Value>,
 }
@@ -25,6 +28,17 @@ pub fn reports(sources: &[SourceContext]) -> Vec<Report<'_>> {
     sources
         .iter()
         .map(|s| Report {
+            article_id: s.article_id,
+            url: s.classifier_world.as_ref().and_then(|w| w["url"].as_str()),
+            evidence_scope: if s
+                .classifier_world
+                .as_ref()
+                .is_some_and(|w| w["evidence_scope"] == "headline")
+            {
+                "headline"
+            } else {
+                "publisher_excerpt"
+            },
             headline: super::fetch::decode_entities(&s.headline),
             publisher: &s.source,
             published_at: s.published_at_epoch.map(crate::util::utc_timestamp),
@@ -33,7 +47,13 @@ pub fn reports(sources: &[SourceContext]) -> Vec<Report<'_>> {
                 .as_ref()
                 .is_none_or(|w| w["evidence_scope"] != "headline"))
             .then(|| super::fetch::decode_entities(&s.context)),
-            classifier_world: evidence_world(s.classifier_world.as_ref()),
+            classifier_world: evidence_world(s.classifier_world.as_ref()).map(|mut world| {
+                // The link already has its own field in this report projection.
+                if let Some(fields) = world.as_object_mut() {
+                    fields.remove("url");
+                }
+                world
+            }),
         })
         .collect()
 }
@@ -42,7 +62,7 @@ pub fn reports(sources: &[SourceContext]) -> Vec<Report<'_>> {
 pub fn evidence_world(world: Option<&serde_json::Value>) -> Option<serde_json::Value> {
     world.cloned().map(|mut world| {
         if let Some(fields) = world.as_object_mut() {
-            for key in ["url", "gate", "spectrum"] {
+            for key in ["gate", "spectrum"] {
                 fields.remove(key);
             }
         }
@@ -62,7 +82,7 @@ mod tests {
         let result = evidence_world(Some(&world)).unwrap();
         assert_eq!(
             result,
-            json!({"evidence_scope":"headline", "target_identity_resolved":false,
+            json!({"url":"https://example.invalid", "evidence_scope":"headline", "target_identity_resolved":false,
             "qualified_claims":[{"negation":"not confirmed"}]})
         );
         assert!(world.get("url").is_some());

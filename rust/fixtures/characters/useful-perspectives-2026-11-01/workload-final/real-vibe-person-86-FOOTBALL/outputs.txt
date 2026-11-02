@@ -1,0 +1,7 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / real-vibe-person-86-FOOTBALL [accepted]
+Demichelis praises Diomande ahead of Real Madrid clash
+
+Reports highlight Martin Demichelis's enthusiastic praise for Yan Diomande, describing his reaction as a 'rave' regarding the player's potential before the upcoming match against Real Madrid.

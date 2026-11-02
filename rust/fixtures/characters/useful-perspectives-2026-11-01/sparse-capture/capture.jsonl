@@ -1,0 +1,15 @@
+{"capture_ms":142,"database_read_only":true,"entity":"person:86:FOOTBALL","fixture":"narratives-person-86-FOOTBALL.json","model_calls":0,"should_call":true,"task":"narratives"}
+{"capture_ms":9,"database_read_only":true,"entity":"person:86:FOOTBALL","model_calls":0,"status":"no_material","task":"vibe"}
+{"capture_ms":11,"database_read_only":true,"entity":"person:86:FOOTBALL","model_calls":0,"status":"no_material","task":"transfer"}
+{"capture_ms":71,"database_read_only":true,"entity":"player:37:NBA","fixture":"narratives-player-37-NBA.json","model_calls":0,"should_call":true,"task":"narratives"}
+{"capture_ms":6,"database_read_only":true,"entity":"player:37:NBA","model_calls":0,"status":"no_material","task":"vibe"}
+{"capture_ms":11,"database_read_only":true,"entity":"player:37:NBA","model_calls":0,"status":"no_material","task":"transfer"}
+{"capture_ms":25,"database_read_only":true,"entity":"player:37:NBA","model_calls":0,"status":"no_material","task":"rating"}
+{"capture_ms":22,"database_read_only":true,"entity":"player:37:NBA","model_calls":0,"status":"no_material","task":"momentum"}
+{"capture_ms":13,"database_read_only":true,"entity":"player:37:NBA","model_calls":0,"status":"no_material","task":"oracle"}
+{"capture_ms":147,"database_read_only":true,"entity":"player:60:NFL","fixture":"narratives-player-60-NFL.json","model_calls":0,"should_call":true,"task":"narratives"}
+{"capture_ms":8,"database_read_only":true,"entity":"player:60:NFL","model_calls":0,"status":"no_material","task":"vibe"}
+{"capture_ms":15,"database_read_only":true,"entity":"player:60:NFL","model_calls":0,"status":"no_material","task":"transfer"}
+{"capture_ms":23,"database_read_only":true,"entity":"player:60:NFL","model_calls":0,"status":"no_material","task":"rating"}
+{"capture_ms":10,"database_read_only":true,"entity":"player:60:NFL","model_calls":0,"status":"no_material","task":"momentum"}
+{"capture_ms":13,"database_read_only":true,"entity":"player:60:NFL","model_calls":0,"status":"no_material","task":"oracle"}

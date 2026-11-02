@@ -1,0 +1,11 @@
+{
+  "cases": "fixtures/characters/context-review-2026-11-02/eligible-cases.jsonl",
+  "changes": "system/user messages and optional schema property order; production schema semantics, preparation and parser",
+  "concurrency": 1,
+  "database_access": false,
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "publishes": false,
+  "retries": 0,
+  "thinking": false,
+  "url": "http://127.0.0.1:8081"
+}

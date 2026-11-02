@@ -1,0 +1,171 @@
+{
+  "name": "regression-ac-milan-reserved",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n121-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"AC Milan\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"AC Milan — Serie A (Italy). Home: Giuseppe Meazza Stadium, Milano. Coach on record: Filippo Galli.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1325124,\"url\":\"https://news.google.com/rss/articles/CBMiqAFBVV95cUxOSlJtaTF1a0RvZVo5S3IxOEstS3dhNzV2VFdRMzdUMzhUUVEyWjFWVWFiMlV3b1hJTmZYOG5MSFpPOWJjZ0VTU0ZuWVlPUWtUdGRZV3FmU3REZm54Q1gtNThSbDBhUXNEeDlLUzBvR2RZdFBRVlNBdXozUWhtcGxLTUlkUkNnV3RuTUQyRXhjWklVTUQzNjh6VjBEM1VWaEh1Qm5vTnFJNVk?oc=5\",\"headline\":\"AC Milan back fan boycott over 'excessive' away ticket prices\",\"publisher\":\"ESPN\",\"published_at\":\"2026-10-21T19:58:12Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1189629,\"url\":\"https://news.google.com/rss/articles/CBMi5wFBVV95cUxNdFB0VUoxRE54b29ycXh5RVpuNXFoTjdfVjZJNzI1NE1BbTF5b1VaNXlMOVFaMk9RemQ5MU5mb21xWDdZS3RPNlZ2UTViVDhudDYwUEo1UjZ2d25ZQTJZNjJYNEVScXJ5czk4Yzdta0ZEclBmN1h3UFZRNjZhY1VfSXo3RFJub1F1VEpBaVlVMTFqZVkxTlpCS1l6NnBBZWVjNS04U3oydHl6Q2FqaC1oS3kzQVcxdWNSN3RpaHFsMlExLWl6WUZvMEhuTDZNN0N0UjdxU1pWMGxvR1BRemFHbzhuT0NHWDA?oc=5\",\"headline\":\"Milan fear a lengthy lay-off for Chukwueze: could Athekame return in January? Two factors are needed\",\"publisher\":\"LiveScore\",\"published_at\":\"2026-10-21T14:27:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1208973,\"url\":\"https://news.google.com/rss/articles/CBMiwAFBVV95cUxNRENiRGJkSU5lYllRYlF5QXdkeE01WFZyck1iSnF2dWFpUW4xYzUtS1o2dXkxTEFMN1ZaRUNZMnRzbHRYakxNMkMzOTNIOFJFVjVNRmd1bk00X2VWVnVGOUtYMkYtV0daSExfdHlzTjVqbXhLaHdpUkVGbmxVTS1GWjFLQl81UkwzODRvV0tEbEJwd0FtVFRWdGpqaDVVdVFXbFM3MTctRUpHbVp6dnZuQjlONU5XTDQzVXRzT2xNZVY?oc=5\",\"headline\":\"AC Milan backs fan boycott over 'excessive' away ticket prices, warns of retaliation\",\"publisher\":\"FOX Sports\",\"published_at\":\"2026-10-21T12:19:13Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1189646,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxOV3ZvQXNxejQwaUtYZHMySGszUUY2V3lkTHFyZmxWeW5OVE80VjFYRE1DdjlJcXBCTzhDYUVQUVF2Z1ZQVW1xZngxWU9MZVBBWGUtTEhPVENyQmJnWEh5cXEtUFhOdUVldDUtWnl3VmoyQnJ2RHl1TUY4YkdBTndFejltSjRtWVVDTUxBTy1KMXR5QUMxYW1sWDc5VUJCTnpkZmYyZWdxWDRlcUNHR3c?oc=5\",\"headline\":\"AC Milan ‘to recall’ Athekame in January? Early OL exit deemed unlikely\",\"publisher\":\"OneFootball\",\"published_at\":\"2026-10-21T11:55:55Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1115631,\"url\":\"https://news.google.com/rss/articles/CBMi5gFBVV95cUxNbUFpYmVZOUVVeHlrWkdUR3lRNDNfTnlxTEFmUDg3YXZZYTRCVmZZTy0zSHZTb092R21NT1h0bmZfM2d2TkZWanU1cUhyRFlYUk1zTmhORjR0bXpIVW5xeVRDeXQwck0wak1yU0pZbHJtZ25DWDFzeENCeWVBY1YtR2JwNkNyV2tEQng5LTdpTG9ZVFc0SEduN3o0SFBnWEU1NUdScVUzd2h4TnM5Y09ILWRiZWp4R0t5T1hRdFU2cmpSNUhiTW5kNmxXN0QyVk5KYXJyZFYwOUl6WnE3QnNiSTRicUVkQQ?oc=5\",\"headline\":\"AC Milan eager to secure Rabiot's future with fresh contract\",\"publisher\":\"TribalFootball\",\"published_at\":\"2026-10-21T10:04:26Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "AC Milan — Serie A (Italy). Home: Giuseppe Meazza Stadium, Milano. Coach on record: Filippo Galli.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9051256033695985,
+            "clickbait": 15.387743348033483,
+            "emotion": 13.013118601576046,
+            "movement": 2.633568450481347,
+            "subject": 94.98934365466016
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxOSlJtaTF1a0RvZVo5S3IxOEstS3dhNzV2VFdRMzdUMzhUUVEyWjFWVWFiMlV3b1hJTmZYOG5MSFpPOWJjZ0VTU0ZuWVlPUWtUdGRZV3FmU3REZm54Q1gtNThSbDBhUXNEeDlLUzBvR2RZdFBRVlNBdXozUWhtcGxLTUlkUkNnV3RuTUQyRXhjWklVTUQzNjh6VjBEM1VWaEh1Qm5vTnFJNVk?oc=5"
+        },
+        "context": "AC Milan back fan boycott over 'excessive' away ticket prices",
+        "id": 1325124,
+        "published_at_epoch": 1792612692,
+        "source": "ESPN",
+        "title": "AC Milan back fan boycott over 'excessive' away ticket prices"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 90.57253386715271,
+            "clickbait": 10.247123740433004,
+            "emotion": 73.74208354484708,
+            "movement": 82.7486983384647,
+            "subject": 95.20855074165864
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi5wFBVV95cUxNdFB0VUoxRE54b29ycXh5RVpuNXFoTjdfVjZJNzI1NE1BbTF5b1VaNXlMOVFaMk9RemQ5MU5mb21xWDdZS3RPNlZ2UTViVDhudDYwUEo1UjZ2d25ZQTJZNjJYNEVScXJ5czk4Yzdta0ZEclBmN1h3UFZRNjZhY1VfSXo3RFJub1F1VEpBaVlVMTFqZVkxTlpCS1l6NnBBZWVjNS04U3oydHl6Q2FqaC1oS3kzQVcxdWNSN3RpaHFsMlExLWl6WUZvMEhuTDZNN0N0UjdxU1pWMGxvR1BRemFHbzhuT0NHWDA?oc=5"
+        },
+        "context": "Milan fear a lengthy lay-off for Chukwueze: could Athekame return in January? Two factors are needed",
+        "id": 1189629,
+        "published_at_epoch": 1792592824,
+        "source": "LiveScore",
+        "title": "Milan fear a lengthy lay-off for Chukwueze: could Athekame return in January? Two factors are needed"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.6144380109360226,
+            "clickbait": 17.457127692365116,
+            "emotion": 10.476623706286349,
+            "movement": 2.557372051661568,
+            "subject": 96.36559643778357
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwAFBVV95cUxNRENiRGJkSU5lYllRYlF5QXdkeE01WFZyck1iSnF2dWFpUW4xYzUtS1o2dXkxTEFMN1ZaRUNZMnRzbHRYakxNMkMzOTNIOFJFVjVNRmd1bk00X2VWVnVGOUtYMkYtV0daSExfdHlzTjVqbXhLaHdpUkVGbmxVTS1GWjFLQl81UkwzODRvV0tEbEJwd0FtVFRWdGpqaDVVdVFXbFM3MTctRUpHbVp6dnZuQjlONU5XTDQzVXRzT2xNZVY?oc=5"
+        },
+        "context": "AC Milan backs fan boycott over 'excessive' away ticket prices, warns of retaliation",
+        "id": 1208973,
+        "published_at_epoch": 1792585153,
+        "source": "FOX Sports",
+        "title": "AC Milan backs fan boycott over 'excessive' away ticket prices, warns of retaliation"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 90.73313074137444,
+            "clickbait": 30.245586601465615,
+            "emotion": 2.239449842089947,
+            "movement": 93.6945830970656,
+            "subject": 95.13700417991916
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOV3ZvQXNxejQwaUtYZHMySGszUUY2V3lkTHFyZmxWeW5OVE80VjFYRE1DdjlJcXBCTzhDYUVQUVF2Z1ZQVW1xZngxWU9MZVBBWGUtTEhPVENyQmJnWEh5cXEtUFhOdUVldDUtWnl3VmoyQnJ2RHl1TUY4YkdBTndFejltSjRtWVVDTUxBTy1KMXR5QUMxYW1sWDc5VUJCTnpkZmYyZWdxWDRlcUNHR3c?oc=5"
+        },
+        "context": "AC Milan ‘to recall’ Athekame in January? Early OL exit deemed unlikely",
+        "id": 1189646,
+        "published_at_epoch": 1792583755,
+        "source": "OneFootball",
+        "title": "AC Milan ‘to recall’ Athekame in January? Early OL exit deemed unlikely"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.8839372206803366,
+            "clickbait": 4.733969386174368,
+            "emotion": 1.880706641886636,
+            "movement": 95.33114742495329,
+            "subject": 96.84602123060714
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxNbUFpYmVZOUVVeHlrWkdUR3lRNDNfTnlxTEFmUDg3YXZZYTRCVmZZTy0zSHZTb092R21NT1h0bmZfM2d2TkZWanU1cUhyRFlYUk1zTmhORjR0bXpIVW5xeVRDeXQwck0wak1yU0pZbHJtZ25DWDFzeENCeWVBY1YtR2JwNkNyV2tEQng5LTdpTG9ZVFc0SEduN3o0SFBnWEU1NUdScVUzd2h4TnM5Y09ILWRiZWp4R0t5T1hRdFU2cmpSNUhiTW5kNmxXN0QyVk5KYXJyZFYwOUl6WnE3QnNiSTRicUVkQQ?oc=5"
+        },
+        "context": "AC Milan eager to secure Rabiot's future with fresh contract",
+        "id": 1115631,
+        "published_at_epoch": 1792577066,
+        "source": "TribalFootball",
+        "title": "AC Milan eager to secure Rabiot's future with fresh contract"
+      }
+    ],
+    "subject": {
+      "entity_id": 113,
+      "entity_type": "team",
+      "name": "AC Milan",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "case": 10,
+  "error": "llama.cpp template omitted or changed supplied input",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-rating-football-player-total.json",
+  "name": "football-player-total",
+  "output_limit": 700,
+  "prompt_version": "s79-measured-perspective",
+  "request_bytes": 345,
+  "review": [
+    "Football player positive control: four goals is a supplied total, not per-game scoring or four goals in each appearance. No ability, form or health inference."
+  ],
+  "status": "error",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 1
+}

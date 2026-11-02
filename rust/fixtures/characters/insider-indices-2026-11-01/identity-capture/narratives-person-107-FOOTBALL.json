@@ -1,0 +1,284 @@
+{
+  "name": "real-person:107:FOOTBALL-narratives",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Eddie Howe\",\"entity_type\":\"person\",\"sport\":\"FOOTBALL\",\"database_record\":\"Eddie Howe — coach; club: AFC Bournemouth; checked: 2026-09-30.\\ndate_of_birth: 1977-11-29 [2026-09-07; source 71604]\\nrole: coach [2026-08-07; source 1742]\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1434511,\"url\":\"https://news.google.com/rss/articles/CBMipgFBVV95cUxNRFJiSDFBUUNidDBBQ2ZkZ2FaTy1rQm0tcGZIaGViZnc2ZUNCQzh1SEZTOXlFWXQzRXVHYVBSVnllMlhqdTVKTlhuQXlPRTdLUmFNZHJYbDFDbmtGMFlyRE9yZ2dzbjZyYjJtNWNZSVVYRUhhTlVYNmNSaGlIcVRubC1lbGhKVFczSE1hcFE1dWFFczVFR3V4MUFLRE1WQ0hJMXJybW1n0gGrAUFVX3lxTE9UTE1SSm94ckZwM2s3RjlvZnJfVHc2dVNneVJIaU52SllybVl2R0RjNnh5c2MtR2JGcnRMZUZ6aGFFV3l2U0puVV9DWHdtVVV0REtBOEFJSFBSOVVZMmstNm95ZElKdTBNSmk5dUhPNWN0Zl8xUlltbExEN3dneWpJdm1qTVlzVml4dzFVd0QzTUxOeTEzSW15ZHpEVFpLV3diSERwLTh0QzlJWQ?oc=5\",\"headline\":\"Eddie Howe decides Man United job stance after being named 'standout' candidate\",\"publisher\":\"Manchester Evening News\",\"published_at\":\"2026-10-22T21:49:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1403992,\"url\":\"https://news.google.com/rss/articles/CBMinwFBVV95cUxNT0FpcGtPN3cycW1RVl9YazlKb1lpRFUydVlzOVI0VkJVS1JrUmt5c09OOE5QYzJ3cnFENEw3bmNaVndpRzZoUGx6UEFCODQzcURRTnpEX0NRYVRZellOWHZKS2pPMzhVbm5JQkZWRm8zRHNDMlZxQklJWHF3a2hhek5QWTU2MWJsa0dUUlJTc09nb0xvcnBpdWFRR1pWS0HSAaQBQVVfeXFMUFdQLU9zTk5Kd1l2QjdOQURucWdKRVdja3p2bGoxOTZNRWZCQllsR1VQRnByaERnQlhDUEdzcTNma0ZZVDFkQlM1cGtIMUxlbXRKQU16RDcxRXNIQVlGcDhlZjd4c0hKYXNGTjRkYVV2M0k5Q1hmRlJYV3VfOXcxZHlzUmFfZXpYUzdaczVMZFJkSWhXOS1zcmZ4bnROajBnZDluSlQ?oc=5\",\"headline\":\"Eddie Howe makes decision on Man Utd job as ex-Newcastle boss 'standout' candidate\",\"publisher\":\"Chronicle Live\",\"published_at\":\"2026-10-22T21:13:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1393813,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxNTDZnWWlzTm9QM0g4bS0tRFl0NDFpVjNOZ1NZTHZFa0szYnpKT1p4cTFwRDlQS1NFZmpmV0VGblN1SFlNNFgtblFaSVQ3RW5BQkVEVHI5U1BpVmMwdVRCWXFsTXZsQTl3Mk53MU1WNHk2djlLa25OYkdnV2E2bnJtTjNBdlY0bC1zZDkxbkZfd0NzYzZIVk1SdkROZ0pna0xuZE8zRTJCSzY4SDFKNjM00gG0AUFVX3lxTE53el9sUlhueHI2cFhvLXd1ZWNBSldDTS1yTlI3THpyY2xXZ2N6bXQ2bHQ5clUwNWVDNmNYZUJPcjFYYWdwQnhFbFV3bi1sQ1k2LUhwd3h4R3picEY1M2J4NkVrbDh4UEZwVUxVRlNNVmFTWjJQZEdPdWU4YjNpdDBlQy1YYVNFaDk3MWZLMkN4NHJaRnFGWEZJS3lGcm1jTXdYSkVidGlVNkVXQXpNSFVqYjNETQ?oc=5\",\"headline\":\"Eddie Howe makes decision over replacing Michael Carrick at Manchester United\",\"publisher\":\"Metro.co.uk\",\"published_at\":\"2026-10-22T18:39:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1333760,\"url\":\"https://news.google.com/rss/articles/CBMitAFBVV95cUxNbUpLcmszLWpwTF9mMmJHN0lyX3NrLUdUdk9EZDIzaDRZR1ctdC1KVWxpeUNScXotNF9QTm9aZEJXM2JfbWJVMFNmQjgtTXFrbzZqTnlVb3FIbUtReS03SzAyMW5TdllxVjExUGVTdnhzbVk3cHRRSTdRWlhuaF9NRmk5djdBV0tUdFFRZlJPajlZVTVGclJuaEd6dFU2NDZSRGpDRXJsU19xNWg5WWFQSFVUTGw?oc=5\",\"headline\":\"Michael Carrick facing Man United sack as Eddie Howe now favourite after Newcastle United exit\",\"publisher\":\"NewcastleWorld\",\"published_at\":\"2026-10-22T16:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1275611,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxNRWZZN0tyNGN6VEtKSE1vRVlXQjJUTnZnVUNnXzZLeXBwYzRmcGhWd0E1YWJ5M0Zpalhzcm5IbEdrcm11bTE5UlpyeXRqbVBTT1IzWlJQNm1xckRhN25FYjNOZ1djNlpXUDVibnJUMGxNck01bEp3V3VvZDV3NFBJcjdfekJtODY5T3h1WDZRS3ZlVVdBZTg4TzhKakUzb0dlckHSAacBQVVfeXFMTUNBMDZHTThBMzFyVXFOUlBYUTh5R2lBb0gtWjhGWG14RGZqN0lIVEVwWWVHUW9xeGNvdTNDUUtxUjU2cGh1VG41WDZGbmlXazR0M1ozNURkMExJY3ZRc3dBZDZEaE9HYWdXTDBBMENiNXNGX3BzajB5TmhGZjZEVHFzdnB6NjNjbF9zZGZ3UUFKM3g5R2VlczNLdS10ZUtoUVR5bXpCbXM?oc=5\",\"headline\":\"Eddie Howe Man United decision nears as civil war breaks out at Old Trafford\",\"publisher\":\"Chronicle Live\",\"published_at\":\"2026-10-22T10:45:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1062149,\"url\":\"https://news.google.com/rss/articles/CBMipAFBVV95cUxQQThuakQ1ckR0Q21LdUtNM2FJMnRoZDlGYVpTaUJrdXN1VU5pZzYxN2p3TlBEODBzSWY1elptRjV3OHI1SDhSV1ljUmR5dFM5SXNsUEZQREg3LThzb0lLYzZ2U0dQdk1BRzRMNTgya2JZbkJ2QmwzNm5iTU1TOW5SSlRvU3RqcGxiand1Q2RoWk4ycnJ6ZUowWElnS3ZESG85SzUxRtIBqgFBVV95cUxPY2pFMWcyVnhZTVpMN24zVUhzTWdxYVUxbGlFMmdBN1lram9tN0dxQXVOU0tHRVFyOEx1dWpyMWpLTG1FT0JvRnBtNVhmQkxSNExRZU16cDh1ZjYwYmUwbS1mVm5DV2dSOFlLTEd0SldXU091blR2djZTOFpNWnluc3BVdUtMaTRyVC1KcFE2Vmo2SzZQdFhjNVRWNnRFYVhhWlZxeXk3M2lNUQ?oc=5\",\"headline\":\"Eddie Howe tipped to turn down offers from Everton and two other Premier League clubs\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-20T16:33:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1086280,\"url\":\"https://news.google.com/rss/articles/CBMixgFBVV95cUxPNjBoUldiNnBlQmpRY2pOcTNQd19xM0hiakZEalhLZDQzbnpfR2JZdEY5MUMzczYtU3NGMGFTRkpKLUkybE96cXFUZXBnTzQ1ejBKdm85NExPa0xKR0ctNGxuaDhVaVUtVkppUVZPbW1tVl9vd2dtTXd2b0FxOEJTcTIyT2g2MGk2aVZJWFh1bnd1a1FHbVB6Nzc2VHFSQ1h3aDR4NFRhb2ZSZkVmbFBxU0JlbjRleV84ckdKdnJOZkE2U3dNMkE?oc=5\",\"headline\":\"Former Newcastle United defender makes divisive Eddie Howe claim after £374m blow\",\"publisher\":\"NewcastleWorld\",\"published_at\":\"2026-10-20T16:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1105177,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxOWW5XN2h5cG83V2ctVWZielBJa2hHZ1A2MmZPbmgyemdVc29SU3VWLTdSclZVZmdFdWpQYlBub3QyRHV3ZXJrLTF0aTF5TnV0VHpXYllsVTJhemtzMXNqUDR6RExoempsUnU1emt1WmZTNEpkU3RYWDdyMzJBRVk0ajloZ3NpTTdsVDFsM3NjNWVYVUg0cEdvQVd3?oc=5\",\"headline\":\"Eddie Howe reaches decision on replacing Michael Carrick at Man Utd\",\"publisher\":\"Football365\",\"published_at\":\"2026-10-20T15:06:22Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1013907,\"url\":\"https://news.google.com/rss/articles/CBMiaEFVX3lxTE5qU29sc3ExeUtNcTZPWVpGVG42TVppdmsxUndyMFIwZ0xBdm1jelBMaFlaU2QyZlhpRnVYczlnTHYxcGlrMlhKNHdiNTdHbVJweUxPZEF5bWFXUS0teC00X3BfS19tZ3Nm?oc=5\",\"headline\":\"Eddie Howe urges Newcastle to be ruthless in transfer market\",\"publisher\":\"weekendargus.co.za\",\"published_at\":\"2026-10-19T21:42:43Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Eddie Howe — coach; club: AFC Bournemouth; checked: 2026-09-30.\ndate_of_birth: 1977-11-29 [2026-09-07; source 71604]\nrole: coach [2026-08-07; source 1742]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.758204132742852,
+            "emotion": 1.935509324379569,
+            "movement": 69.0996652131991,
+            "subject": 87.5009316456876
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxNRFJiSDFBUUNidDBBQ2ZkZ2FaTy1rQm0tcGZIaGViZnc2ZUNCQzh1SEZTOXlFWXQzRXVHYVBSVnllMlhqdTVKTlhuQXlPRTdLUmFNZHJYbDFDbmtGMFlyRE9yZ2dzbjZyYjJtNWNZSVVYRUhhTlVYNmNSaGlIcVRubC1lbGhKVFczSE1hcFE1dWFFczVFR3V4MUFLRE1WQ0hJMXJybW1n0gGrAUFVX3lxTE9UTE1SSm94ckZwM2s3RjlvZnJfVHc2dVNneVJIaU52SllybVl2R0RjNnh5c2MtR2JGcnRMZUZ6aGFFV3l2U0puVV9DWHdtVVV0REtBOEFJSFBSOVVZMmstNm95ZElKdTBNSmk5dUhPNWN0Zl8xUlltbExEN3dneWpJdm1qTVlzVml4dzFVd0QzTUxOeTEzSW15ZHpEVFpLV3diSERwLTh0QzlJWQ?oc=5"
+        },
+        "context": "Eddie Howe decides Man United job stance after being named 'standout' candidate",
+        "id": 1434511,
+        "published_at_epoch": 1792705740,
+        "source": "Manchester Evening News",
+        "title": "Eddie Howe decides Man United job stance after being named 'standout' candidate"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 37.76581132932419,
+            "emotion": 2.358264310161564,
+            "movement": 92.05059755925092,
+            "subject": 91.43261375136466
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxNT0FpcGtPN3cycW1RVl9YazlKb1lpRFUydVlzOVI0VkJVS1JrUmt5c09OOE5QYzJ3cnFENEw3bmNaVndpRzZoUGx6UEFCODQzcURRTnpEX0NRYVRZellOWHZKS2pPMzhVbm5JQkZWRm8zRHNDMlZxQklJWHF3a2hhek5QWTU2MWJsa0dUUlJTc09nb0xvcnBpdWFRR1pWS0HSAaQBQVVfeXFMUFdQLU9zTk5Kd1l2QjdOQURucWdKRVdja3p2bGoxOTZNRWZCQllsR1VQRnByaERnQlhDUEdzcTNma0ZZVDFkQlM1cGtIMUxlbXRKQU16RDcxRXNIQVlGcDhlZjd4c0hKYXNGTjRkYVV2M0k5Q1hmRlJYV3VfOXcxZHlzUmFfZXpYUzdaczVMZFJkSWhXOS1zcmZ4bnROajBnZDluSlQ?oc=5"
+        },
+        "context": "Eddie Howe makes decision on Man Utd job as ex-Newcastle boss 'standout' candidate",
+        "id": 1403992,
+        "published_at_epoch": 1792703580,
+        "source": "Chronicle Live",
+        "title": "Eddie Howe makes decision on Man Utd job as ex-Newcastle boss 'standout' candidate"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 39.435947688219706,
+            "emotion": 1.5520520121934018,
+            "movement": 82.01953537255307,
+            "subject": 85.72887682236923
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxNTDZnWWlzTm9QM0g4bS0tRFl0NDFpVjNOZ1NZTHZFa0szYnpKT1p4cTFwRDlQS1NFZmpmV0VGblN1SFlNNFgtblFaSVQ3RW5BQkVEVHI5U1BpVmMwdVRCWXFsTXZsQTl3Mk53MU1WNHk2djlLa25OYkdnV2E2bnJtTjNBdlY0bC1zZDkxbkZfd0NzYzZIVk1SdkROZ0pna0xuZE8zRTJCSzY4SDFKNjM00gG0AUFVX3lxTE53el9sUlhueHI2cFhvLXd1ZWNBSldDTS1yTlI3THpyY2xXZ2N6bXQ2bHQ5clUwNWVDNmNYZUJPcjFYYWdwQnhFbFV3bi1sQ1k2LUhwd3h4R3picEY1M2J4NkVrbDh4UEZwVUxVRlNNVmFTWjJQZEdPdWU4YjNpdDBlQy1YYVNFaDk3MWZLMkN4NHJaRnFGWEZJS3lGcm1jTXdYSkVidGlVNkVXQXpNSFVqYjNETQ?oc=5"
+        },
+        "context": "Eddie Howe makes decision over replacing Michael Carrick at Manchester United",
+        "id": 1393813,
+        "published_at_epoch": 1792694340,
+        "source": "Metro.co.uk",
+        "title": "Eddie Howe makes decision over replacing Michael Carrick at Manchester United"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.201640611963231,
+            "clickbait": 23.263073152456784,
+            "emotion": 3.254527478361903,
+            "movement": 63.07595533302638,
+            "subject": 76.7391739914693
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxNbUpLcmszLWpwTF9mMmJHN0lyX3NrLUdUdk9EZDIzaDRZR1ctdC1KVWxpeUNScXotNF9QTm9aZEJXM2JfbWJVMFNmQjgtTXFrbzZqTnlVb3FIbUtReS03SzAyMW5TdllxVjExUGVTdnhzbVk3cHRRSTdRWlhuaF9NRmk5djdBV0tUdFFRZlJPajlZVTVGclJuaEd6dFU2NDZSRGpDRXJsU19xNWg5WWFQSFVUTGw?oc=5"
+        },
+        "context": "Michael Carrick facing Man United sack as Eddie Howe now favourite after Newcastle United exit",
+        "id": 1333760,
+        "published_at_epoch": 1792686600,
+        "source": "NewcastleWorld",
+        "title": "Michael Carrick facing Man United sack as Eddie Howe now favourite after Newcastle United exit"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.753568519921919,
+            "clickbait": 46.060021462666946,
+            "emotion": 5.798274986314899,
+            "movement": 80.33254190404935,
+            "subject": 82.03761496780022
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxNRWZZN0tyNGN6VEtKSE1vRVlXQjJUTnZnVUNnXzZLeXBwYzRmcGhWd0E1YWJ5M0Zpalhzcm5IbEdrcm11bTE5UlpyeXRqbVBTT1IzWlJQNm1xckRhN25FYjNOZ1djNlpXUDVibnJUMGxNck01bEp3V3VvZDV3NFBJcjdfekJtODY5T3h1WDZRS3ZlVVdBZTg4TzhKakUzb0dlckHSAacBQVVfeXFMTUNBMDZHTThBMzFyVXFOUlBYUTh5R2lBb0gtWjhGWG14RGZqN0lIVEVwWWVHUW9xeGNvdTNDUUtxUjU2cGh1VG41WDZGbmlXazR0M1ozNURkMExJY3ZRc3dBZDZEaE9HYWdXTDBBMENiNXNGX3BzajB5TmhGZjZEVHFzdnB6NjNjbF9zZGZ3UUFKM3g5R2VlczNLdS10ZUtoUVR5bXpCbXM?oc=5"
+        },
+        "context": "Eddie Howe Man United decision nears as civil war breaks out at Old Trafford",
+        "id": 1275611,
+        "published_at_epoch": 1792665900,
+        "source": "Chronicle Live",
+        "title": "Eddie Howe Man United decision nears as civil war breaks out at Old Trafford"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.899192640507636,
+            "clickbait": 10.521269144544938,
+            "emotion": 2.2781225372473024,
+            "movement": 83.69630719876261,
+            "subject": 92.86730527165868
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxQQThuakQ1ckR0Q21LdUtNM2FJMnRoZDlGYVpTaUJrdXN1VU5pZzYxN2p3TlBEODBzSWY1elptRjV3OHI1SDhSV1ljUmR5dFM5SXNsUEZQREg3LThzb0lLYzZ2U0dQdk1BRzRMNTgya2JZbkJ2QmwzNm5iTU1TOW5SSlRvU3RqcGxiand1Q2RoWk4ycnJ6ZUowWElnS3ZESG85SzUxRtIBqgFBVV95cUxPY2pFMWcyVnhZTVpMN24zVUhzTWdxYVUxbGlFMmdBN1lram9tN0dxQXVOU0tHRVFyOEx1dWpyMWpLTG1FT0JvRnBtNVhmQkxSNExRZU16cDh1ZjYwYmUwbS1mVm5DV2dSOFlLTEd0SldXU091blR2djZTOFpNWnluc3BVdUtMaTRyVC1KcFE2Vmo2SzZQdFhjNVRWNnRFYVhhWlZxeXk3M2lNUQ?oc=5"
+        },
+        "context": "Eddie Howe tipped to turn down offers from Everton and two other Premier League clubs",
+        "id": 1062149,
+        "published_at_epoch": 1792513980,
+        "source": "Liverpool Echo",
+        "title": "Eddie Howe tipped to turn down offers from Everton and two other Premier League clubs"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.26955676416858,
+            "clickbait": 15.63211087936114,
+            "emotion": 6.629380876543708,
+            "movement": 32.029288540748816,
+            "subject": 66.34411360004967
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxPNjBoUldiNnBlQmpRY2pOcTNQd19xM0hiakZEalhLZDQzbnpfR2JZdEY5MUMzczYtU3NGMGFTRkpKLUkybE96cXFUZXBnTzQ1ejBKdm85NExPa0xKR0ctNGxuaDhVaVUtVkppUVZPbW1tVl9vd2dtTXd2b0FxOEJTcTIyT2g2MGk2aVZJWFh1bnd1a1FHbVB6Nzc2VHFSQ1h3aDR4NFRhb2ZSZkVmbFBxU0JlbjRleV84ckdKdnJOZkE2U3dNMkE?oc=5"
+        },
+        "context": "Former Newcastle United defender makes divisive Eddie Howe claim after £374m blow",
+        "id": 1086280,
+        "published_at_epoch": 1792513800,
+        "source": "NewcastleWorld",
+        "title": "Former Newcastle United defender makes divisive Eddie Howe claim after £374m blow"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.56927005966879,
+            "clickbait": 7.085737887143563,
+            "emotion": 1.4521474539628532,
+            "movement": 81.95909223871739,
+            "subject": 85.54287233217958
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxOWW5XN2h5cG83V2ctVWZielBJa2hHZ1A2MmZPbmgyemdVc29SU3VWLTdSclZVZmdFdWpQYlBub3QyRHV3ZXJrLTF0aTF5TnV0VHpXYllsVTJhemtzMXNqUDR6RExoempsUnU1emt1WmZTNEpkU3RYWDdyMzJBRVk0ajloZ3NpTTdsVDFsM3NjNWVYVUg0cEdvQVd3?oc=5"
+        },
+        "context": "Eddie Howe reaches decision on replacing Michael Carrick at Man Utd",
+        "id": 1105177,
+        "published_at_epoch": 1792508782,
+        "source": "Football365",
+        "title": "Eddie Howe reaches decision on replacing Michael Carrick at Man Utd"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.489270200667584,
+            "clickbait": 7.43075610037032,
+            "emotion": 4.246172100133904,
+            "movement": 51.160127285513454,
+            "subject": 78.7830784746807
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE5qU29sc3ExeUtNcTZPWVpGVG42TVppdmsxUndyMFIwZ0xBdm1jelBMaFlaU2QyZlhpRnVYczlnTHYxcGlrMlhKNHdiNTdHbVJweUxPZEF5bWFXUS0teC00X3BfS19tZ3Nm?oc=5"
+        },
+        "context": "Eddie Howe urges Newcastle to be ruthless in transfer market",
+        "id": 1013907,
+        "published_at_epoch": 1792446163,
+        "source": "weekendargus.co.za",
+        "title": "Eddie Howe urges Newcastle to be ruthless in transfer market"
+      }
+    ],
+    "subject": {
+      "entity_id": 107,
+      "entity_type": "person",
+      "name": "Eddie Howe",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

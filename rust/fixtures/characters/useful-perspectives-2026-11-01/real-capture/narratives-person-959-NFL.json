@@ -1,0 +1,603 @@
+{
+  "name": "real-person:959:NFL-narratives",
+  "task": "narratives",
+  "sport": "NFL",
+  "prompt_version": "n120-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Jerry Jones\",\"entity_type\":\"person\",\"sport\":\"American football\",\"database_record\":\"Jerry Jones — owner; club: Dallas Cowboys; checked: 2026-09-30.\\ndate_of_birth: 1942-10-13 [2026-09-09; source 78136]\\nrole: owner [2026-08-09; source 29402]\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1391700,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxPSWhnSlJXaUlqWldReFlzWG1aU2FqQkNKNEJ0MDZNUDhZeGVtOFRyVHFadmlWQWJZc3kzYnkzY1JpN2VUTzlCZ3JGZXFpSzAtNmNOcl9hVXJoVW9fWVlNVW5iVUJrZXZXR2NacjhXaUZMUDdRVVVYYzNmelMxQXM1d0JyNFJ0TDIyOEg1aFk3aWRSdEJmMjdQYQ?oc=5\",\"headline\":\"Cowboys’ Brian Schottenheimer grabs attention with Jerry Jones truth bomb\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:51:29Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1361458,\"url\":\"https://news.google.com/rss/articles/CBMiggFBVV95cUxPQXZCMjZ0anhNS0VzY0NTanNUN1l3R3BsUUZmbU9uTFpHWXR4d29KdFZuRE1nT1RSTFBsU094MWZ4ZTBPSDJtX2I0N3dHS2ZTa0FCS2hDZTJ6SXBZSUlQN2E4SVZhb1RNcnJtUUVpekxGMkh1OHBYVlkzTlpzbmppQVF3?oc=5\",\"headline\":\"Ex-Cowboys Star Takes Swipe at Jerry Jones Amid Struggles\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T17:17:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1263923,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxNWjZwOG9rMXlmcnJlUm1iZ25uSGl3djA4ZnpaVC0xMVUzNG93eDFseThqT2p6UHVNUUFwTnhFbWU5c0xxTDhzaTFfUGNJQmVaUzhIOXVpeTJLcXczSWI0d21heDRyTWFnamplLWgybzdWT3FENjV4UjFSRExGbmhTRmJKdHZvbnh1cTBTdFZwZy1RS0U?oc=5\",\"headline\":\"Jerry Jones puts his own team on notice as Dallas Cowboys owner reveals trade deadline plans amid struggles\",\"publisher\":\"The Sun\",\"published_at\":\"2026-10-22T14:51:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1302572,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxPSV8zMTVKVGN3eXhVajBzd1hTSHo1SXh3Y0M0aHlZT3pUS1c4dlN3S1hzaFAyT3FVUWpMSWY2U01PNVhpSHp1cHVNQ01rQzZ2WGpSOVlncmFuQ1dPcEFYOVdXUmg2MG45QkdodU5iblRGbnREelBWVnd2TE9DRFVyWndQeE8?oc=5\",\"headline\":\"Jerry Jones Hints at Cowboys Trade Blockbuster: 'Buyer' Or 'Seller'?\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T13:16:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1381633,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxOYVBCdVlDN0xMeDlFV0dEZzNrdlhIMV9HQkFvdmRvVUgtU21mNFd5dEtkb3RwSzgxeHNPVkxTZ0RxQy1sWmYxZGhtUV81eFQ4YTV1QnI3U3Nzbmo2QUJrX2htTkFlMkViaVU5d2gwNVpkY2JGb19WSGRlQzNRWllyOS1TUHVNOHFyWDNTQzkzQVJtaXFU?oc=5\",\"headline\":\"Jerry Jones opens Cowboys door for Troy Aikman as NFL responds to explosive new details on Joe Buck row\",\"publisher\":\"talkSPORT\",\"published_at\":\"2026-10-22T08:18:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1361455,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxNSklyaFNiaHpicGpJLW9qMVAzbzkyV1VhRGxPV2lDME1BUWlLUjlzYmdXMlpIQTBkVi1DbENzSURtSEJGTDJyQi02M25qR0hHWlcxbWhwY3FnTVp0bHlyQVRCR1lEUUlrblhZM212V0xtSnJYR3VERGpicE5lWmY5RHVURUY4WllaZUE?oc=5\",\"headline\":\"Jerry Jones Weighs in on Cowboys Legend Troy Aikman's NFL Front Office Future\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T01:07:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1371009,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxOZlVHSTcxX0I0VmdZYmFHeURrX2dka29NZ2VDY3ZCTzQwM0RPb21lTVd3emdobmtLRkRlLUJYYWRmcEFTeUJLc2hUR19odDkyMVgtYTB3TEQ3VUtYMGlRRzRuRUpaN1hHRlkzUy0zRGxSVnpNMjVrVjNLNUZ5WjBRVU5uMXdpSUowRlE?oc=5\",\"headline\":\"Jerry Jones Opens Unexpected Door for Troy Aikman Amid ESPN Exit Rumors\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T00:25:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1361476,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxOWGhoTkNnZW5OQkZnd1otb1F0UWJ0LWxHd0pPZnNzcGt3ZEhoNVZPcXVfakxrVVR0WmIzRUo0X0pzOERBQjJPSHNPbUlzbXllZk9WQTRSZjhaX0J6d1lKQ2NiRUVmbFp3Tmg5aXVuUTZvMkpVNXZpTzNuVjhld3FMbENIQVMxdw?oc=5\",\"headline\":\"Cowboys’ Jerry Jones Makes ‘Real Clear’ Statement on Trade Rumors\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T20:08:49Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1196362,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxQdU9xUGJpVEJMQTVqTGFJam9GWW9Wd0NYY0c4UVNCSjEzX19SVHJxQTlrMGVKV2xoNjN0VENJTmNuaEprRVR6WWNuSmVOMXItWTBCVm9ncFdJR1o3WXkyVWhJS2FXMEFnZDFMT1M2T2NObDRDbHpoNFFQVDZIM0NVSG5TcnVRZms?oc=5\",\"headline\":\"Jerry Jones stands firm on Cowboys' willingness to keep adding at trade deadline\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T19:06:44Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1196388,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxOVUtUY0ZDcF9iNUtUTEdZMzBlZFBJel9PcEUxbVJTSV9JMzhCWlJFTUctWnFUaWllMU5qdHgzaFBjdW1hUlpsUVBCQXdSak50SFB6QjRsY3ZxQmNHNmJQTlJHbDZiRkg3dlJDLWFyRTZ3bnpXaDlkdUZfU002eTNwWEh5N1NvTnNtNWNuQjRWOWV3T0xJenJXYWljVnFBSHZrNnc?oc=5\",\"headline\":\"A ‘disappointed’ Jerry Jones would like to improve Cowboys’ roster before trade deadline - The Athletic\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-21T18:47:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1186639,\"url\":\"https://news.google.com/rss/articles/CBMiiwJBVV95cUxPWllUaUtzTzdRMGxWVnpOVS10c0tTXy1IdlRnSjVGUXhGOHJKQll1SkJrTDI3Sm9LRDdpUUdCMTRTU2locXhCWldNYzFXQXE4T0VvMUhoX183OVNxS0toa0VHZ3c1SjRXQm5WODRNbWdwR2FKSnh4MmRHNkpkWjFDdnIxTU5LcHdYVy1ISlRjVFRFRERnQmtBWk54UHM5bVRCTFhCeS1lako3Y0psU0lyZFVHZzA4ZnkwbVJqcUZHT1U3Sm1tSDFSU0x3WVh2aUs2X0M4aHpjVDlIdVJvN2FGV1ludHpVekZkdzFfaXo2TWNoRWJVSWpyODZfRjBSLUNrUjNaZUVoeUVpaTQ?oc=5\",\"headline\":\"Jerry Jones doesn't see the Cowboys making any more coaching changes this season\",\"publisher\":\"Bozeman Daily Chronicle\",\"published_at\":\"2026-10-21T18:40:23Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1186670,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPWW1FV2JmV1BKOHFxZXJfNE1obV85bWl5TURPNktPWHdMSjlSaExIMFU1R1NvRDlabjliSFpLSTVsYnc1dDdRVGdjTjhCVnVDdER1S3NrajByTFN2aVpRQ2NQUkIydjFFY2hzaGdpaW13OUswMDBUTnBrX25veVNGRmpiU3pTN0E?oc=5\",\"headline\":\"Cowboys’ Jerry Jones Gets Honest About Upcoming NFL Trade Deadline\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T17:35:22Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1187304,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxQVkt2RHItUmZONUYzaXVBeDc3X05oVnlpb002ZE5GeXFMcnZOS2xqT2ozYm1aVHZhVTdrNkdsWnpFSnJkaWgzZ0tWbTg5QjZRcVJueEM3MUFaUGJwdTcxY0x5azZwMFBJRkUxUExSNXRhc2ZQejFvRVhlX1R0TUllb0ZhaGxTN1pnSlRLQzdjLWJ3Y3lVTklPZHNvS1ctbUF6b2hFdmRxSWdXQQ?oc=5\",\"headline\":\"NFL exec, Jerry Jones weigh in on Joe Buck, Troy Aikman ESPN future\",\"publisher\":\"USA Today\",\"published_at\":\"2026-10-21T17:16:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1186693,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxQM0ZDT0dvNnQtS3Jrd21ZeUVFbDlXQVpPbWkxdGx1QzVhUzJnZEtTcEZuSFMwdFFSZUtSQko5VFF6RHJ6b0wydWF3YWhicW83cEJEcWdqWWFVdjU5VFpVVVdrWEFTdlhqMXhIWEx5bzlFbEhWZnYtM0gxbXNKYVZNUUZrbw?oc=5\",\"headline\":\"Jerry Jones says Cowboys could be buyers at NFL trade deadline\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T16:51:28Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1160548,\"url\":\"https://news.google.com/rss/articles/CBMiekFVX3lxTFBQcXpIT0E1YUJ5TEdpOGJQdlYzbXo2aHlIX09MaHVFaDhyX3ZpWG56MTdvTTJhWUxZWUp4VFN0aXE1S29oSWkyWnV4R3BJVVZKQnRsc1RtQ2YtWTdKLWxCVktrakN5QnpwajZIS3dvSjdzZVJBbmhkbUJn?oc=5\",\"headline\":\"‘I Don’t Think It’s His Fault’ — NFL Legend Refuses to Blame Dak Prescott for Cowboys’ Struggles, Questions Jerry Jones’ ‘$200M Investments’\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T05:40:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1170513,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPcXItVFJkUllvUFBYLWpKdGpkMlZxeGYzYnlJWXpBMkducWZDdWx4enFrVmpNSUZjcVJYTjctX3EwV3JjZEl1aHM3bkloSXdHMkFvMkNVRjEzZTBVeVpTcTh6MWxtWEstU0N3aTBRbEdzN3FwbWdsdmNwc05FN3hpNVlMSjhfekk?oc=5\",\"headline\":\"Jerry Jones Gets Bill Belichick Advice as Brian Schottenheimer’s Cowboys Hit New Low at 2-4\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T12:56:58Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1141208,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxPdElra19hZmxCZVJ3SnNxcVZjSi1WdUl3eHJsZllzbWhidXJnYllXQlVOalJNWlR6Sy11TTMxQnZ2WnFzRnhkbTdUa0VxYURSY3JsM0VVVlVPckx0eGZjbi0ybFR6U1dqQ09VbkdObXJkQkxTQk56VENtYlFQN1cyNA?oc=5\",\"headline\":\"Cowboys have issues only a GM can fix, pressure is Jerry Jones' alone\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T12:49:54Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1011628,\"url\":\"https://news.google.com/rss/articles/CBMi6gFBVV95cUxQbWFkYm5sVENlYXdZU2VaRTdqdW1hdW5QdFFLaVFXMEpYeFA5bWRycUdGRXdzbHpLOHZkbzkwOXhKR0JCeTVFanI2VUZRS0NiRXA3Q2llS01rRlZRRmJoVkFMZzhETVhJRHN6Unc3aVoyYS1id1ZuMkVEV0xiTk9EcmVHR29HV1RHZnVOa2pDMVA2QU5INGh5SnVZQTV6emxmUFNpLXNEM3FyUkFNV29xY1BvZS1FaFpOX0hROEJRRTZjRlJIMGZnSWdZR2V3Q2NJa0VoaGFIdGJRbmx2V0s2bkluZzFnd2Z4Rnc?oc=5\",\"headline\":\"Las Vegas Raiders’ Maxx Crosby Could Be Jerry Jones’ Next Big Bet as Dallas Cowboys Trade Prediction Sparks Intrigue\",\"publisher\":\"NDTV Sports\",\"published_at\":\"2026-10-20T04:14:36Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1011601,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxPdVh6X2VBZ1RrU2ljLWFvX2tnQTZjcjl2eFFkZTJELU9oRHlkaFNzdTVyY3NUZGJxLWRxQzJ3X0xMVTI0RlVWVjd4M005cnNfV0Q0X1pYUUxfbnk0OUJuaXpTMFRVT1hxZjBCQWpTVzVEQVM3cXNQNFo3Y3Y3S2JkVnUzTG52UngwWTZqTzBvaFhsNDBDTGVpaGFHb0t4TURhNzZqN0FnOA?oc=5\",\"headline\":\"Raiders Maxx Crosby Faces Trade Prediction as Jerry Jones Aims to Boost Cowboys\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-20T03:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":992765,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxObG9Ba0xJZFVXWkxickQtWmNvMExtQzBINXJxdVdKSFhRVWhPMXY5THk0SzZKdDFtb3pkOFlOMHdnRlRUYXEyNlR3c3p0d1B6M1otMl9XOXdqMk1Ta1pSNVp6M2VMQ2RRN3R6bmRyT18yM2VXd3hnMjNublRIemF4Uk83cFk1MEJ6a3FLbTk5aVdqY1J5?oc=5\",\"headline\":\"‘Longer (Brian Schottenheimer) Coaches, the Worse It Gets’ — NFL Analyst Blames Jerry Jones’ Frugal Mindset for Cowboys’ Struggles\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-19T20:56:24Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Jerry Jones — owner; club: Dallas Cowboys; checked: 2026-09-30.\ndate_of_birth: 1942-10-13 [2026-09-09; source 78136]\nrole: owner [2026-08-09; source 29402]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.41496687064956,
+            "emotion": 4.692970465881629,
+            "movement": 17.32925779029588,
+            "subject": 88.69390072865643
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxPSWhnSlJXaUlqWldReFlzWG1aU2FqQkNKNEJ0MDZNUDhZeGVtOFRyVHFadmlWQWJZc3kzYnkzY1JpN2VUTzlCZ3JGZXFpSzAtNmNOcl9hVXJoVW9fWVlNVW5iVUJrZXZXR2NacjhXaUZMUDdRVVVYYzNmelMxQXM1d0JyNFJ0TDIyOEg1aFk3aWRSdEJmMjdQYQ?oc=5"
+        },
+        "context": "Cowboys’ Brian Schottenheimer grabs attention with Jerry Jones truth bomb",
+        "id": 1391700,
+        "published_at_epoch": 1792702289,
+        "source": "Yahoo Sports",
+        "title": "Cowboys’ Brian Schottenheimer grabs attention with Jerry Jones truth bomb"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.955875048135857,
+            "emotion": 42.41720456978087,
+            "movement": 10.48512406003854,
+            "subject": 89.1132324640798
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxPQXZCMjZ0anhNS0VzY0NTanNUN1l3R3BsUUZmbU9uTFpHWXR4d29KdFZuRE1nT1RSTFBsU094MWZ4ZTBPSDJtX2I0N3dHS2ZTa0FCS2hDZTJ6SXBZSUlQN2E4SVZhb1RNcnJtUUVpekxGMkh1OHBYVlkzTlpzbmppQVF3?oc=5"
+        },
+        "context": "Ex-Cowboys Star Takes Swipe at Jerry Jones Amid Struggles",
+        "id": 1361458,
+        "published_at_epoch": 1792689425,
+        "source": "Yahoo Sports",
+        "title": "Ex-Cowboys Star Takes Swipe at Jerry Jones Amid Struggles"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.0153274244477113,
+            "clickbait": 17.759403314765574,
+            "emotion": 2.062029995501219,
+            "movement": 70.1010356206997,
+            "subject": 93.7505339189602
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxNWjZwOG9rMXlmcnJlUm1iZ25uSGl3djA4ZnpaVC0xMVUzNG93eDFseThqT2p6UHVNUUFwTnhFbWU5c0xxTDhzaTFfUGNJQmVaUzhIOXVpeTJLcXczSWI0d21heDRyTWFnamplLWgybzdWT3FENjV4UjFSRExGbmhTRmJKdHZvbnh1cTBTdFZwZy1RS0U?oc=5"
+        },
+        "context": "Jerry Jones puts his own team on notice as Dallas Cowboys owner reveals trade deadline plans amid struggles",
+        "id": 1263923,
+        "published_at_epoch": 1792680697,
+        "source": "The Sun",
+        "title": "Jerry Jones puts his own team on notice as Dallas Cowboys owner reveals trade deadline plans amid struggles"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.4932938369086062,
+            "clickbait": 15.409410646375326,
+            "emotion": 1.6539419513222198,
+            "movement": 85.00567708950683,
+            "subject": 92.8140719330885
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxPSV8zMTVKVGN3eXhVajBzd1hTSHo1SXh3Y0M0aHlZT3pUS1c4dlN3S1hzaFAyT3FVUWpMSWY2U01PNVhpSHp1cHVNQ01rQzZ2WGpSOVlncmFuQ1dPcEFYOVdXUmg2MG45QkdodU5iblRGbnREelBWVnd2TE9DRFVyWndQeE8?oc=5"
+        },
+        "context": "Jerry Jones Hints at Cowboys Trade Blockbuster: 'Buyer' Or 'Seller'?",
+        "id": 1302572,
+        "published_at_epoch": 1792674970,
+        "source": "Yahoo Sports",
+        "title": "Jerry Jones Hints at Cowboys Trade Blockbuster: 'Buyer' Or 'Seller'?"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 85.83551252958077,
+            "emotion": 1.607511891789594,
+            "movement": 60.18769588863627,
+            "subject": 92.6533992259782
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxOYVBCdVlDN0xMeDlFV0dEZzNrdlhIMV9HQkFvdmRvVUgtU21mNFd5dEtkb3RwSzgxeHNPVkxTZ0RxQy1sWmYxZGhtUV81eFQ4YTV1QnI3U3Nzbmo2QUJrX2htTkFlMkViaVU5d2gwNVpkY2JGb19WSGRlQzNRWllyOS1TUHVNOHFyWDNTQzkzQVJtaXFU?oc=5"
+        },
+        "context": "Jerry Jones opens Cowboys door for Troy Aikman as NFL responds to explosive new details on Joe Buck row",
+        "id": 1381633,
+        "published_at_epoch": 1792657107,
+        "source": "talkSPORT",
+        "title": "Jerry Jones opens Cowboys door for Troy Aikman as NFL responds to explosive new details on Joe Buck row"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 49.601801708047574,
+            "emotion": 1.9335842967727777,
+            "movement": 14.220932457332522,
+            "subject": 93.34451503115709
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNSklyaFNiaHpicGpJLW9qMVAzbzkyV1VhRGxPV2lDME1BUWlLUjlzYmdXMlpIQTBkVi1DbENzSURtSEJGTDJyQi02M25qR0hHWlcxbWhwY3FnTVp0bHlyQVRCR1lEUUlrblhZM212V0xtSnJYR3VERGpicE5lWmY5RHVURUY4WllaZUE?oc=5"
+        },
+        "context": "Jerry Jones Weighs in on Cowboys Legend Troy Aikman's NFL Front Office Future",
+        "id": 1361455,
+        "published_at_epoch": 1792631220,
+        "source": "Yahoo Sports",
+        "title": "Jerry Jones Weighs in on Cowboys Legend Troy Aikman's NFL Front Office Future"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 16.959060574011474,
+            "emotion": 1.6220659921321774,
+            "movement": 73.74965395290408,
+            "subject": 93.84264634373386
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxOZlVHSTcxX0I0VmdZYmFHeURrX2dka29NZ2VDY3ZCTzQwM0RPb21lTVd3emdobmtLRkRlLUJYYWRmcEFTeUJLc2hUR19odDkyMVgtYTB3TEQ3VUtYMGlRRzRuRUpaN1hHRlkzUy0zRGxSVnpNMjVrVjNLNUZ5WjBRVU5uMXdpSUowRlE?oc=5"
+        },
+        "context": "Jerry Jones Opens Unexpected Door for Troy Aikman Amid ESPN Exit Rumors",
+        "id": 1371009,
+        "published_at_epoch": 1792628700,
+        "source": "Yahoo Sports",
+        "title": "Jerry Jones Opens Unexpected Door for Troy Aikman Amid ESPN Exit Rumors"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 20.744605354641877,
+            "emotion": 2.3530040874867217,
+            "movement": 94.62195779213084,
+            "subject": 92.58332236715373
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOWGhoTkNnZW5OQkZnd1otb1F0UWJ0LWxHd0pPZnNzcGt3ZEhoNVZPcXVfakxrVVR0WmIzRUo0X0pzOERBQjJPSHNPbUlzbXllZk9WQTRSZjhaX0J6d1lKQ2NiRUVmbFp3Tmg5aXVuUTZvMkpVNXZpTzNuVjhld3FMbENIQVMxdw?oc=5"
+        },
+        "context": "Cowboys’ Jerry Jones Makes ‘Real Clear’ Statement on Trade Rumors",
+        "id": 1361476,
+        "published_at_epoch": 1792613329,
+        "source": "Yahoo Sports",
+        "title": "Cowboys’ Jerry Jones Makes ‘Real Clear’ Statement on Trade Rumors"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.5187023256131549,
+            "clickbait": 3.6006469926684805,
+            "emotion": 1.5557897284507372,
+            "movement": 42.42545068218924,
+            "subject": 94.54164246297476
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQdU9xUGJpVEJMQTVqTGFJam9GWW9Wd0NYY0c4UVNCSjEzX19SVHJxQTlrMGVKV2xoNjN0VENJTmNuaEprRVR6WWNuSmVOMXItWTBCVm9ncFdJR1o3WXkyVWhJS2FXMEFnZDFMT1M2T2NObDRDbHpoNFFQVDZIM0NVSG5TcnVRZms?oc=5"
+        },
+        "context": "Jerry Jones stands firm on Cowboys' willingness to keep adding at trade deadline",
+        "id": 1196362,
+        "published_at_epoch": 1792609604,
+        "source": "Yahoo Sports",
+        "title": "Jerry Jones stands firm on Cowboys' willingness to keep adding at trade deadline"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.393251077408312,
+            "clickbait": 15.067109535678853,
+            "emotion": 97.27315306719268,
+            "movement": 43.689699614286894,
+            "subject": 92.49693363550084
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxOVUtUY0ZDcF9iNUtUTEdZMzBlZFBJel9PcEUxbVJTSV9JMzhCWlJFTUctWnFUaWllMU5qdHgzaFBjdW1hUlpsUVBCQXdSak50SFB6QjRsY3ZxQmNHNmJQTlJHbDZiRkg3dlJDLWFyRTZ3bnpXaDlkdUZfU002eTNwWEh5N1NvTnNtNWNuQjRWOWV3T0xJenJXYWljVnFBSHZrNnc?oc=5"
+        },
+        "context": "A ‘disappointed’ Jerry Jones would like to improve Cowboys’ roster before trade deadline - The Athletic",
+        "id": 1196388,
+        "published_at_epoch": 1792608438,
+        "source": "The New York Times",
+        "title": "A ‘disappointed’ Jerry Jones would like to improve Cowboys’ roster before trade deadline - The Athletic"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8266159451627664,
+            "clickbait": 5.70772481320111,
+            "emotion": 1.6211501045362822,
+            "movement": 84.81633853474119,
+            "subject": 92.157321984591
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwJBVV95cUxPWllUaUtzTzdRMGxWVnpOVS10c0tTXy1IdlRnSjVGUXhGOHJKQll1SkJrTDI3Sm9LRDdpUUdCMTRTU2locXhCWldNYzFXQXE4T0VvMUhoX183OVNxS0toa0VHZ3c1SjRXQm5WODRNbWdwR2FKSnh4MmRHNkpkWjFDdnIxTU5LcHdYVy1ISlRjVFRFRERnQmtBWk54UHM5bVRCTFhCeS1lako3Y0psU0lyZFVHZzA4ZnkwbVJqcUZHT1U3Sm1tSDFSU0x3WVh2aUs2X0M4aHpjVDlIdVJvN2FGV1ludHpVekZkdzFfaXo2TWNoRWJVSWpyODZfRjBSLUNrUjNaZUVoeUVpaTQ?oc=5"
+        },
+        "context": "Jerry Jones doesn't see the Cowboys making any more coaching changes this season",
+        "id": 1186639,
+        "published_at_epoch": 1792608023,
+        "source": "Bozeman Daily Chronicle",
+        "title": "Jerry Jones doesn't see the Cowboys making any more coaching changes this season"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8402512907071904,
+            "clickbait": 5.8288859449924715,
+            "emotion": 3.178041117167197,
+            "movement": 35.21434711443107,
+            "subject": 91.66804027247215
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPWW1FV2JmV1BKOHFxZXJfNE1obV85bWl5TURPNktPWHdMSjlSaExIMFU1R1NvRDlabjliSFpLSTVsYnc1dDdRVGdjTjhCVnVDdER1S3NrajByTFN2aVpRQ2NQUkIydjFFY2hzaGdpaW13OUswMDBUTnBrX25veVNGRmpiU3pTN0E?oc=5"
+        },
+        "context": "Cowboys’ Jerry Jones Gets Honest About Upcoming NFL Trade Deadline",
+        "id": 1186670,
+        "published_at_epoch": 1792604122,
+        "source": "Yahoo Sports",
+        "title": "Cowboys’ Jerry Jones Gets Honest About Upcoming NFL Trade Deadline"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.0048270427356183,
+            "clickbait": 5.115915920557384,
+            "emotion": 1.7962239132601148,
+            "movement": 6.155447284038727,
+            "subject": 92.0852949865716
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQVkt2RHItUmZONUYzaXVBeDc3X05oVnlpb002ZE5GeXFMcnZOS2xqT2ozYm1aVHZhVTdrNkdsWnpFSnJkaWgzZ0tWbTg5QjZRcVJueEM3MUFaUGJwdTcxY0x5azZwMFBJRkUxUExSNXRhc2ZQejFvRVhlX1R0TUllb0ZhaGxTN1pnSlRLQzdjLWJ3Y3lVTklPZHNvS1ctbUF6b2hFdmRxSWdXQQ?oc=5"
+        },
+        "context": "NFL exec, Jerry Jones weigh in on Joe Buck, Troy Aikman ESPN future",
+        "id": 1187304,
+        "published_at_epoch": 1792602960,
+        "source": "USA Today",
+        "title": "NFL exec, Jerry Jones weigh in on Joe Buck, Troy Aikman ESPN future"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.5656651129364978,
+            "clickbait": 10.383219058886407,
+            "emotion": 1.481132469537485,
+            "movement": 62.01787166976227,
+            "subject": 90.32630453817036
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxQM0ZDT0dvNnQtS3Jrd21ZeUVFbDlXQVpPbWkxdGx1QzVhUzJnZEtTcEZuSFMwdFFSZUtSQko5VFF6RHJ6b0wydWF3YWhicW83cEJEcWdqWWFVdjU5VFpVVVdrWEFTdlhqMXhIWEx5bzlFbEhWZnYtM0gxbXNKYVZNUUZrbw?oc=5"
+        },
+        "context": "Jerry Jones says Cowboys could be buyers at NFL trade deadline",
+        "id": 1186693,
+        "published_at_epoch": 1792601488,
+        "source": "Yahoo Sports",
+        "title": "Jerry Jones says Cowboys could be buyers at NFL trade deadline"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.0205087470854637,
+            "clickbait": 15.442257233381063,
+            "emotion": 7.335119013832377,
+            "movement": 13.817762582970865,
+            "subject": 91.33090544870784
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiekFVX3lxTFBQcXpIT0E1YUJ5TEdpOGJQdlYzbXo2aHlIX09MaHVFaDhyX3ZpWG56MTdvTTJhWUxZWUp4VFN0aXE1S29oSWkyWnV4R3BJVVZKQnRsc1RtQ2YtWTdKLWxCVktrakN5QnpwajZIS3dvSjdzZVJBbmhkbUJn?oc=5"
+        },
+        "context": "‘I Don’t Think It’s His Fault’ — NFL Legend Refuses to Blame Dak Prescott for Cowboys’ Struggles, Questions Jerry Jones’ ‘$200M Investments’",
+        "id": 1160548,
+        "published_at_epoch": 1792561200,
+        "source": "Yahoo Sports",
+        "title": "‘I Don’t Think It’s His Fault’ — NFL Legend Refuses to Blame Dak Prescott for Cowboys’ Struggles, Questions Jerry Jones’ ‘$200M Investments’"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.0995660401249783,
+            "clickbait": 12.96326092009259,
+            "emotion": 2.46178963913219,
+            "movement": 25.20940838635716,
+            "subject": 89.93968057567305
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPcXItVFJkUllvUFBYLWpKdGpkMlZxeGYzYnlJWXpBMkducWZDdWx4enFrVmpNSUZjcVJYTjctX3EwV3JjZEl1aHM3bkloSXdHMkFvMkNVRjEzZTBVeVpTcTh6MWxtWEstU0N3aTBRbEdzN3FwbWdsdmNwc05FN3hpNVlMSjhfekk?oc=5"
+        },
+        "context": "Jerry Jones Gets Bill Belichick Advice as Brian Schottenheimer’s Cowboys Hit New Low at 2-4",
+        "id": 1170513,
+        "published_at_epoch": 1792501018,
+        "source": "Yahoo Sports",
+        "title": "Jerry Jones Gets Bill Belichick Advice as Brian Schottenheimer’s Cowboys Hit New Low at 2-4"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.715370856555804,
+            "clickbait": 11.230712313349292,
+            "emotion": 3.3110516631704243,
+            "movement": 5.836334347013136,
+            "subject": 92.71753604108162
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxPdElra19hZmxCZVJ3SnNxcVZjSi1WdUl3eHJsZllzbWhidXJnYllXQlVOalJNWlR6Sy11TTMxQnZ2WnFzRnhkbTdUa0VxYURSY3JsM0VVVlVPckx0eGZjbi0ybFR6U1dqQ09VbkdObXJkQkxTQk56VENtYlFQN1cyNA?oc=5"
+        },
+        "context": "Cowboys have issues only a GM can fix, pressure is Jerry Jones' alone",
+        "id": 1141208,
+        "published_at_epoch": 1792500594,
+        "source": "Yahoo Sports",
+        "title": "Cowboys have issues only a GM can fix, pressure is Jerry Jones' alone"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.180612741082677,
+            "clickbait": 30.47540866525227,
+            "emotion": 2.1542523978943704,
+            "movement": 59.444550917513695,
+            "subject": 89.81969307962532
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi6gFBVV95cUxQbWFkYm5sVENlYXdZU2VaRTdqdW1hdW5QdFFLaVFXMEpYeFA5bWRycUdGRXdzbHpLOHZkbzkwOXhKR0JCeTVFanI2VUZRS0NiRXA3Q2llS01rRlZRRmJoVkFMZzhETVhJRHN6Unc3aVoyYS1id1ZuMkVEV0xiTk9EcmVHR29HV1RHZnVOa2pDMVA2QU5INGh5SnVZQTV6emxmUFNpLXNEM3FyUkFNV29xY1BvZS1FaFpOX0hROEJRRTZjRlJIMGZnSWdZR2V3Q2NJa0VoaGFIdGJRbmx2V0s2bkluZzFnd2Z4Rnc?oc=5"
+        },
+        "context": "Las Vegas Raiders’ Maxx Crosby Could Be Jerry Jones’ Next Big Bet as Dallas Cowboys Trade Prediction Sparks Intrigue",
+        "id": 1011628,
+        "published_at_epoch": 1792469676,
+        "source": "NDTV Sports",
+        "title": "Las Vegas Raiders’ Maxx Crosby Could Be Jerry Jones’ Next Big Bet as Dallas Cowboys Trade Prediction Sparks Intrigue"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.5829159005799274,
+            "clickbait": 12.949085687838474,
+            "emotion": 1.637834000171111,
+            "movement": 52.89226586536364,
+            "subject": 88.74972523152567
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxPdVh6X2VBZ1RrU2ljLWFvX2tnQTZjcjl2eFFkZTJELU9oRHlkaFNzdTVyY3NUZGJxLWRxQzJ3X0xMVTI0RlVWVjd4M005cnNfV0Q0X1pYUUxfbnk0OUJuaXpTMFRVT1hxZjBCQWpTVzVEQVM3cXNQNFo3Y3Y3S2JkVnUzTG52UngwWTZqTzBvaFhsNDBDTGVpaGFHb0t4TURhNzZqN0FnOA?oc=5"
+        },
+        "context": "Raiders Maxx Crosby Faces Trade Prediction as Jerry Jones Aims to Boost Cowboys",
+        "id": 1011601,
+        "published_at_epoch": 1792465200,
+        "source": "Heavy.com",
+        "title": "Raiders Maxx Crosby Faces Trade Prediction as Jerry Jones Aims to Boost Cowboys"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.6179894889863389,
+            "clickbait": 28.174746148131625,
+            "emotion": 11.90270063853439,
+            "movement": 11.802584999347822,
+            "subject": 89.740274206288
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxObG9Ba0xJZFVXWkxickQtWmNvMExtQzBINXJxdVdKSFhRVWhPMXY5THk0SzZKdDFtb3pkOFlOMHdnRlRUYXEyNlR3c3p0d1B6M1otMl9XOXdqMk1Ta1pSNVp6M2VMQ2RRN3R6bmRyT18yM2VXd3hnMjNublRIemF4Uk83cFk1MEJ6a3FLbTk5aVdqY1J5?oc=5"
+        },
+        "context": "‘Longer (Brian Schottenheimer) Coaches, the Worse It Gets’ — NFL Analyst Blames Jerry Jones’ Frugal Mindset for Cowboys’ Struggles",
+        "id": 992765,
+        "published_at_epoch": 1792443384,
+        "source": "Yahoo Sports",
+        "title": "‘Longer (Brian Schottenheimer) Coaches, the Worse It Gets’ — NFL Analyst Blames Jerry Jones’ Frugal Mindset for Cowboys’ Struggles"
+      }
+    ],
+    "subject": {
+      "entity_id": 959,
+      "entity_type": "person",
+      "name": "Jerry Jones",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

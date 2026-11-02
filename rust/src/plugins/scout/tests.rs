@@ -73,7 +73,7 @@ fn unranked_one_appearance_is_not_an_elite_or_declining_profile() {
         .unwrap()
         .iter()
         .all(|v| v.get("band").is_none_or(|b| b.is_null())));
-    assert!(!prompt.contains("prior_percentile"));
+    assert!(!fresh(&prompt).to_string().contains("prior_percentile"));
     assert!(!prompt.contains("Prior reading"));
 }
 
@@ -442,6 +442,7 @@ fn world(
     let supports_cross_season = supports_cross_season_comparison(profile);
     let selected = model_prompt_profile(profile, supports_cross_season, comparisons);
     crate::plugins::scout::prompt::Parts {
+        database_record: None,
         availability: Default::default(),
         subject: crate::tools::meta::EntityMeta {
             name: subject.entity_name.clone(),
@@ -510,17 +511,20 @@ fn serialized_request_is_one_self_contained_json_document() {
     )
     .unwrap();
     let options = scout_parts().generation_options(32768, 0.0);
-    assert!(options.system.is_none());
+    assert_eq!(
+        options.system.as_deref(),
+        Some(crate::plugins::scout::prompt::TASK.trim())
+    );
     let request = client.request_body(&prompt, &options);
-    assert_eq!(request["messages"].as_array().unwrap().len(), 1);
+    assert_eq!(request["messages"].as_array().unwrap().len(), 2);
     assert!(request.get("tools").is_none());
-    let evidence = request["messages"][0]["content"].as_str().unwrap();
+    let evidence = request["messages"][1]["content"].as_str().unwrap();
     let package: serde_json::Value = serde_json::from_str(evidence).unwrap();
     assert_eq!(package.as_object().unwrap().len(), 5);
-    for part in ["meta", "task", "fresh", "voice"] {
+    for part in ["meta", "fresh", "tone"] {
         assert!(package.get(part).is_some(), "package is missing {part}");
     }
-    assert_eq!(package["task"], crate::plugins::scout::prompt::TASK);
+    assert!(package.get("task").is_none());
     let values = fresh(evidence);
     assert_eq!(
         measure_with(&values, "value")["label"],
@@ -770,19 +774,20 @@ fn a_players_world_is_byte_stable() {
         &RatingExclusions::default(),
     );
     let expected = serde_json::json!({
+        "job": crate::plugins::scout::prompt::TASK.trim().split("\n\n").next().unwrap(),
         "meta": {"name":"Test Player", "entity_type":"player", "sport":"basketball"},
-        "task":crate::plugins::scout::prompt::TASK,
-        "fresh": {"season":2025, "values":[
+        "fresh": {"availability": [], "season":2025, "values":[
             {"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite"},
             {"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average"}],
             "supports_cross_season":false, "limit":{"kind":"unknown_sample","minimum":10.0}},
-        "availability": [],
-        "voice":crate::plugins::scout::voice::VOICE
+        "tone":crate::plugins::scout::voice::VOICE
     });
-    assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&world).unwrap(),
-        expected
-    );
+    let mut actual: serde_json::Value = serde_json::from_str(&world).unwrap();
+    assert!(actual["context_guide"]["fresh"]
+        .as_str()
+        .is_some_and(|s| !s.is_empty()));
+    actual.as_object_mut().unwrap().remove("context_guide");
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -813,7 +818,11 @@ fn a_teams_world_omits_a_composite_it_does_not_have() {
     assert_eq!(fresh["values"][0]["band"], serde_json::json!("strong"));
     assert_eq!(fresh["values"][0]["percentile"], serde_json::json!(78.0));
     // Position is a player concept; a team's world does not invent one.
-    assert!(!world.contains("position"));
+    assert!(
+        serde_json::from_str::<serde_json::Value>(&world).unwrap()["meta"]
+            .get("position")
+            .is_none()
+    );
     assert!(!world.contains("Guard"));
 }
 
@@ -1686,6 +1695,7 @@ fn assignment() -> Assignment {
 /// A small world with an elite, source-selected measurement.
 fn scout_parts() -> crate::plugins::scout::prompt::Parts {
     crate::plugins::scout::prompt::Parts {
+        database_record: None,
         availability: Default::default(),
         subject: crate::tools::meta::EntityMeta {
             name: "Vale Kerr".into(),
@@ -1973,8 +1983,8 @@ fn explicit_denials_of_stability_are_limits_not_positive_stability_claims() {
 
 #[test]
 fn availability_is_attributed_without_changing_measurements() {
-    let prompt = serde_json::json!({"fresh":{"values":[{"value":4}]},
-        "availability":[{"publisher":"Wire","headline":"Kai Rowan denies injury and may return after 2 weeks"}]}).to_string();
+    let prompt = serde_json::json!({"fresh":{"values":[{"value":4}],
+        "availability":[{"publisher":"Wire","headline":"Kai Rowan denies injury and may return after 2 weeks"}]}}).to_string();
     let directions = Default::default();
     let bands = Default::default();
     let parser = super::parser::RatingRequestParser::new(&prompt, &directions, &bands);

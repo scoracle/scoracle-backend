@@ -63,7 +63,11 @@ impl<'a> RatingRequestParser<'a> {
         let evidence = serde_json::from_str::<serde_json::Value>(prompt)
             .ok()
             .map(|p| {
-                serde_json::json!({"fresh":p["fresh"],"availability":p["availability"]}).to_string()
+                let mut fresh = p["fresh"].clone();
+                let availability = fresh
+                    .as_object_mut()
+                    .and_then(|fields| fields.remove("availability"));
+                serde_json::json!({"fresh":fresh,"availability":availability}).to_string()
             });
         Self {
             prompt: evidence.unwrap_or_else(|| prompt.to_string()),

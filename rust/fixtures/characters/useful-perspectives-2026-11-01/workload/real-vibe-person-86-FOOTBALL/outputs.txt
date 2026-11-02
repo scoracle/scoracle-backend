@@ -1,0 +1,7 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / real-vibe-person-86-FOOTBALL [accepted]
+Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash
+
+Coach Martín Demichelis expresses strong optimism and enthusiasm for his new signing, Yan Diomande, describing him as a key asset before the upcoming match against Real Madrid. The coverage highlights Demichelis's positive outlook and confidence in the team's preparation, framing the challenge against the Spanish giants as a manageable opportunity to showcase the new talent.

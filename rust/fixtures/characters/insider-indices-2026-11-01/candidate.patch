@@ -1,0 +1,70 @@
+--- a/src/plugins/insider/prompt.rs
++++ b/src/plugins/insider/prompt.rs
+@@ -7,7 +7,7 @@
+ 
+ pub const SYSTEM: &str = include_str!("instructions.txt");
+ 
+-pub const PROMPT_VERSION: &str = "insider-source-v21-perspective";
++pub const PROMPT_VERSION: &str = "insider-source-v22-report-indices";
+ pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v6-scoped-report-facts";
+ pub const NUM_PREDICT: i32 = 1400;
+ pub const BODY_MAX_CHARS: usize = 1200;
+@@ -132,11 +132,18 @@
+     reports: &[Report],
+     database_record: Option<&str>,
+ ) -> String {
+-    let mut reports = reports.to_vec();
+-    for report in &mut reports {
+-        report.classifier_world =
+-            crate::tools::fresh::evidence_world(report.classifier_world.as_ref());
+-    }
++    let reports: Vec<_> = reports
++        .iter()
++        .enumerate()
++        .map(|(index, report)| {
++            let mut report = report.clone();
++            report.classifier_world =
++                crate::tools::fresh::evidence_world(report.classifier_world.as_ref());
++            let mut report = serde_json::json!(report);
++            report["report_index"] = serde_json::json!(index);
++            report
++        })
++        .collect();
+     crate::tools::context::assemble(
+         subject.for_writing(),
+         database_record,
+@@ -236,4 +243,33 @@
+             0
+         );
+     }
+-}
++
++    #[test]
++    fn report_indices_follow_served_order_without_changing_source_fields() {
++        let mut parts: Parts = serde_json::from_value(
++            serde_json::from_str::<serde_json::Value>(include_str!(
++                "../../../fixtures/quality/transfer/fully-named-interest.json"
++            ))
++            .unwrap()["parts"]
++                .clone(),
++        )
++        .unwrap();
++        let mut other = parts.reports[0].clone();
++        other.headline = "A separate report".into();
++        parts.reports.insert(0, other);
++        let world: serde_json::Value = serde_json::from_str(&parts.assemble()).unwrap();
++        for (index, source) in parts.reports.iter().enumerate() {
++            let mut served = world["fresh"]["reports"][index].clone();
++            assert_eq!(
++                served.as_object_mut().unwrap().remove("report_index"),
++                Some(serde_json::json!(index))
++            );
++            let mut expected = source.clone();
++            expected.classifier_world =
++                crate::tools::fresh::evidence_world(expected.classifier_world.as_ref());
++            assert_eq!(served, serde_json::json!(expected));
++        }
++        assert_eq!(parts.reports[0].headline, "A separate report");
++        assert_eq!(world["fresh"]["reports"][1]["report_index"], 1);
++    }
++}

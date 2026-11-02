@@ -1,0 +1,13 @@
+{
+  "arm": "instructions-ordered",
+  "checks": [],
+  "input_tokens": 2336,
+  "name": "player-45-NFL",
+  "output_tokens": 59,
+  "parser_detail": "named claim is absent from cited reports: Cleveland Browns",
+  "receipt": "08-player-45-NFL-instructions-ordered",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 8126
+}

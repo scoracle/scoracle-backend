@@ -1,5 +1,5 @@
-//! Load, bound and present the daily emotional headline package and dated memories.
-use super::prompt::{Assignment, Day, Parts, SOURCE_BUDGET_BYTES, VIBE_PROMPT_VERSION};
+//! Load and present the daily emotional headline package.
+use super::prompt::{Assignment, Day, Parts, VIBE_PROMPT_VERSION};
 use crate::tools::{meta::EntityMeta, source::SourceContext};
 use anyhow::Result;
 use serde_json::{json, Value};
@@ -18,19 +18,22 @@ pub async fn load(
         &subject.sport,
     )
     .await?;
-    let memories =
-        crate::plugins::classifier::memories::load_on(tx, &subject, &sources, "influencer").await?;
+    let database_record = crate::tools::meta::load_character_identity_on(
+        tx,
+        &subject.entity_type,
+        subject.entity_id,
+        &subject.sport,
+    )
+    .await?;
     let mut parts = pack(subject, day, sources)?;
-    parts.memories = memories;
-    while !parts.memories.is_empty() && parts.assemble().len() > SOURCE_BUDGET_BYTES {
-        parts.memories.pop();
-    }
+    parts.database_record = database_record;
     Ok(parts)
 }
 
 fn pack(subject: EntityMeta, day: Day, sources: Vec<SourceContext>) -> Result<Parts> {
     let mut parts = Parts {
         subject,
+        database_record: None,
         day,
         sources: vec![],
         memories: vec![],
@@ -160,7 +163,7 @@ mod tests {
         assert_eq!(parts.sources.len(), 2);
         assert!(parts.excluded.is_empty());
         assert_eq!(parts.hold_reason(), None);
-        assert!(parts.assemble().len() > SOURCE_BUDGET_BYTES);
+        assert!(parts.assemble().len() > super::super::prompt::SOURCE_BUDGET_BYTES);
         assert!(parts
             .assemble()
             .contains(&"The club denied that report. ".repeat(600)));

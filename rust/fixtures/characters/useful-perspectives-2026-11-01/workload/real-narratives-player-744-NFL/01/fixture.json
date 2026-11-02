@@ -1,0 +1,1853 @@
+{
+  "name": "real-narratives-player-744-NFL",
+  "task": "narratives",
+  "sport": "NFL",
+  "prompt_version": "n120-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Sam LaPorta\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1422842,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxQRXlEOXU5c1ZUcHA3am5DQ3J5RDRxTnA5UjFvUERZSkE3UG9CRDdzSEc5M3haQ0J6QUlxV2kxVWgtSUJPN1ZnV3hpVjBqN1Yxd0xVbW9SYzdYZ2tQaWswSEtCQ1JuejU3bjVtaldOY2lKSUc4N2o5dm1jR0haX3lnb1p2MDZmNlVBQ3p5ZQ?oc=5\",\"headline\":\"Adam Schefter Reveals New Twist In Sam LaPorta’s Standoff With Lions\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-23T00:25:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1422758,\"url\":\"https://news.google.com/rss/articles/CBMi3AFBVV95cUxQd1hCNzBYUUVMOEpiTUdCcVA5TjlWa2lJZWM3bUZjZEQya3lkcE0xc0x4cm5VUVRTYnV3MS1NMVptd3JfWVQzdTVnMVVhUUZTUGMwR0VVakp2S3EwbkU5dkVHa0g0M1ZwbHh4LWp3dGFXODdScExtRlN6VmEyZFFDckVJM01WMnBuOFNFSFZ5SXEtR2NqVEJFakxnUFN2b0Zwd3hMYVFQZ3lBU0g5bzVvbGUwN050Sm55MGotMm9xT0xHcVNoY1d3RVVuOEt6WnZmUEg2NVViUVFidlFS?oc=5\",\"headline\":\"Former Iowa football TE Sam LaPorta gets candid on Lions contract\",\"publisher\":\"Hawkeyes Wire\",\"published_at\":\"2026-10-22T23:55:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1422820,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxNb0lKRzU3WGxxR3dGWGhKMWkzZnhmMEs1M3l5ZmNvYjJDX3B0cWhTZlROQzhMLXZ6NkxsZkpHTEhDcC1sUmhGMkJUMTk4RlpjczdiSVFCYl8tWFFaQmNMcXplRWhZTUpnd3ltVlF6VDZ5dFY1d0tKaTV4SzkzaDVVcXY4TkU?oc=5\",\"headline\":\"Adam Schefter Drops Major Sam LaPorta Contract Update\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T23:05:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1391343,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxQb1k3WEZJMWZVd19fbll3YUpvWE9MQnVCdzdtWUl6OTQwYVI3MlI3ZlVUcE5qNDFIb29FTlJYV3ZWWFpBRlFWbDlJLVJZVEpCSFlfbXo3TmpzUENpMlM2UE1ZaVJOWUEyTVRmTHlQQjdYYl9VeUlXN1FERUkwZGl5azhBZmJsa0s3cmllbHd5TllYYkpnZGt5dGtR?oc=5\",\"headline\":\"Broncos, Panthers Among Potential Sam LaPorta Suitors\",\"publisher\":\"ProFootballRumors.com\",\"published_at\":\"2026-10-22T21:22:22Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1402565,\"url\":\"https://news.google.com/rss/articles/CBMifkFVX3lxTE55UHVTeU9iTzRGQ2VCeXZOYUYzRkZxenJnZ1FuWEVJZnlBem9PVE0xYXZGRWtmYkxaNUs5eElRUVVlWDF3QkFrSlJUOWwzZzZ5bGt1MXk1TzZCRk9MNUJDMGZqak5OWk1XZGZxNFFZc1c0R1l1MkJYQWRSd3FqQQ?oc=5\",\"headline\":\"‘That’s Where He's Bitter’ — Ex-NFL QB Points Out Packers’ $75M Move That May Have Led to Sam LaPorta’s Complaint With Lions\",\"publisher\":\"Pro Football Network\",\"published_at\":\"2026-10-22T20:27:16Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1391983,\"url\":\"https://news.google.com/rss/articles/CBMie0FVX3lxTE45aVpOWlZLT3NvM0V1Nm04M1N3VXpTMGwzQzNrUFQyRU9Zdm1KSkQwdEtPQ3hfNkVtVnhHcUUxTkNGbzFobmczLXBpeXFJcnBwcTZTTGhiNFRzSC1zWW9DejJEOGhvM2J3WUp4M0RlVHlCU1dzX1RFSnVWQQ?oc=5\",\"headline\":\"‘That’s Where He’s Bitter’ — Ex-NFL QB Points Out Packers’ $75M Move That May Have Led to Sam LaPorta’s Complaint With Lions\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:27:16Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1342148,\"url\":\"https://news.google.com/rss/articles/CBMisgFBVV95cUxPcGtMbTBBT0p4cjgzeVZhdFFEWFhyM1J3ZF9SNi1LNk1DY1BfVnN0Y05vX0JIUkZGMGNray1kN3NxckxpMWQwTzluYVVnMEczaW9ZN3huMXpleDd6LUNYbEhMdm1OdjZQbzY0LXF5ODhGSE9FSi1obC1XbS1PaDd1aFQ4X2k0eGxTaVBQMnRxc1l1QlFsWXZIdXdIMjRjeHk3MXFVdlRkSnZ0V01MQTU3Nm1R?oc=5\",\"headline\":\"Drew Petzing praises Sam LaPorta in midst of Lions contract kerfuffle\",\"publisher\":\"Detroit Free Press\",\"published_at\":\"2026-10-22T19:55:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1402560,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxPM0tmMjNZWkwwM1EtNlZzVnUxMVhCZXpEakRhOXJldkl4bjJxMHFpQkhnZjJjU0Etd19iVld1SHU0TFg0QnBvbzRpTFJwX1JYdmVkMUwzYVE2Ql9HOElMWWVpaktlYWgzVFJfM0VvU0ctTWhab2hnYlR4eXFpS185a3pVVExkZktjZlE?oc=5\",\"headline\":\"Drew Petzing Responds to Sam LaPorta’s Fiery Contract Comments\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T19:17:24Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1352093,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPZ3gwLWdENEFzMjBxNmd6UHpLUmRQVDRTNEJuRTlXSDl5dndsU1pCSDFsZV9KZnREbmUxbHoxeWR2Y2MyR3dPcmVld2cyYWY1NDBkb3dZc3d0bnNSOVhtUm1OU3pYdU5STUZ1WHkzRU5PUkYwdmgxQUVkMXptTGREb1BTME1JbVU?oc=5\",\"headline\":\"Sam LaPorta Trade Pitch Targets the Lions’ Biggest Hole\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T18:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1352153,\"url\":\"https://news.google.com/rss/articles/CBMi1gFBVV95cUxQUDR2ZDIwS0o1SjcyZEVMd2pCajQ3WTJ3WndLSW5mNGFPS2JYVE43SVFpT1JrQlZoNlN3eEl5LVAyZ0xOaFgzcUtmVjAzcDk2UlNHbzYzUlp5b01ncHlEeTctSkpBV2t2NDBQc3B6VVdKWFV6WC03RV9RelZsUkpJWFBCRWEwNC1KRy1ET3gxSzhIWlAyd2tfMmd2VDdkX04tNGwzdmZZaVUyalcwUUliM211dFNTdDZDWU5JLW1saHlreWZidXdEOGRHS05rbXNFclY2UzVB?oc=5\",\"headline\":\"Lions OC Drew Petzing: I 'don't even notice' Sam LaPorta's discontent\",\"publisher\":\"The Detroit News\",\"published_at\":\"2026-10-22T17:56:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1342156,\"url\":\"https://news.google.com/rss/articles/CBMi8gFBVV95cUxPbzFBTlBEbGNDTFNmSXJqYlFuUFAwZnNWdjYtdTdPWUw0b3ZxSFIxOXlDd2h1ZGwtNlF4RWdaZlV2clJ4dnJwUUl3Rl9YTjY1TU5rZi1JcTlKdk9iUW53VzhXUnR5VmZHT2JmYzhGMS05d1I1emg4NEpfbzR4OG4wa0V2bEpvd3lZUlg5MUZlVHpVVmg5RS1Wd3BVSzkxbTBMa1dibWFwa0lNUzFraHU5aHRQTXBxbFI4Wkgtclg1WmFyLVo5S0k4YkhHQm9GMUo4Q2pHaFRUbF85aXQ0Z1dqUEp6WTdZa3ljRmFfdkQ1RUdGQQ?oc=5\",\"headline\":\"Sam LaPorta disappointed Lions 'not showing the love' in contract talks\",\"publisher\":\"Grand Haven Tribune\",\"published_at\":\"2026-10-22T16:57:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1392353,\"url\":\"https://news.google.com/rss/articles/CBMixgFBVV95cUxPZnFrQ1UtbkdPX1FNMFdXWFd5N0Q4YkpMdDBnVm82V1VEVVZMYTUxWXE1S18xbmpVdkJSeGtTM2NMN2pfa3l3XzhfX3ZWS0dGNC1pQXVuaDVNQXFhQ0kxeVN0bElZU3Z1X2RsbDdYa1IwcTRjWC1KcjRjb01OdG5QMWdYZnljX1diU2RoMWt4T2xtendiQ0U1Yjh2amdxdXZPYVh2Wl9qX3pNZzFrSjJoT1dJczlENUxlZ29jdWVKQ042dUNZMGc?oc=5\",\"headline\":\"Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?\",\"publisher\":\"Last Word On Sports\",\"published_at\":\"2026-10-22T14:47:55Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1352087,\"url\":\"https://news.google.com/rss/articles/CBMidkFVX3lxTFAzTXNqdEdHZjM1YjhidnlvZE5ucjdjbHVrNGN6Q2N4WmFNR1RqOUdhZ2pvN3l2WUR1RWNCLVFLZmF1TWoxUWVQVkZJelRDdjJyZjhWM3pGbGVrSUtZbU1LcFA3WUxhWVRzcWVUU1d1RzBaZGYzYlE?oc=5\",\"headline\":\"Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T14:47:55Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1312856,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxOZzFjUEM0M3RoeTh6X19oemd5WjNJNHg3N3lJcXhaMHJPQjRVSUluenoxLTRUSzAyYkRtbUJiNFJTcVl6Si03NWRtZ2J6Sko1dld4ZGE3Sm0zaUktUE9tTndWZTk0b1pBVUZoUlN4S2RxcU9pRHU0NXJiQm1pZnlqSnRacnVKX3daeHVMaUxhSEZrcWhlMmhkVFFSLWhmRzltdkhvdHY1WEEtcDNDTGc?oc=5\",\"headline\":\"Detroit Lions Star Tight End Sam Laporta Goes Scorched Earth On Team Over Lack Of Contract Extension\",\"publisher\":\"BroBible\",\"published_at\":\"2026-10-22T14:36:23Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1303097,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxPdGF5bDA1VjUzNFE2OEZoUHotMXlfT2JFVVNiOWVZVXZ3ZUtpOFUwZlBNY2cyVFpvQi15R1JvcVo0MlZ2V2JpdkFNam13MmRxbDdiM3BvNmhmUWRvS1NlQTFnTmd3WXpkcklvUkE5SzFLbEk5R3JpTXh6RG13TkhSeDhrcHBhbi1nVWlId2YxY3hWSTVLUWxrTmNEdVNLbUlzbUlkWGoxQQ?oc=5\",\"headline\":\"Lions TE Sam LaPorta is biggest loser in tone-deaf interview\",\"publisher\":\"The Oakland Press\",\"published_at\":\"2026-10-22T12:50:15Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1293370,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxQcHd4bU5ucWZfc2dTSmFZUUVnOUw2SEZ3NVBVWDJkWWlxekJmYVpQRFJiSUtGQ2g1SkMtUW1VUTdLS0IxcXpiY2p3LTZxUUhtaV9Ib00zaHFZV1FvVFFyM2Q4NGFwN2gyMnhTcTN0OU1FYUpmTXFfLUp3UkpFTzZhalp4V1ZPSTluaUVPQW5weDJLQlhZOVptZTAzUDE3ZWEyR3c?oc=5\",\"headline\":\"Lions TE Sam LaPorta is biggest loser in tone-deaf interview\",\"publisher\":\"Macomb Daily\",\"published_at\":\"2026-10-22T12:50:15Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1422818,\"url\":\"https://news.google.com/rss/articles/CBMipAFBVV95cUxOYktxRGdGUEZ3UTJKaFpfZXFQc1VtMFR4ZWNQbjRGN2tERUhCVW1tVVhIMTJNRjRsWE9wdHFrMVpWRS1vSWxSUjRnOE9yUENGTjV0ZEdQV0dlTHU3aW0yRm5QU29fNjU5WlYzVmYyYkhRWW40SjZEc3g3dXNtT3NOeXhHbTdXdE12akM0UDVQeHZfRFZzUTlTSXVYYjI0Q3czWGFjQg?oc=5\",\"headline\":\"Lions TE Sam LaPorta is biggest loser in tone-deaf interview\",\"publisher\":\"The Morning Sun\",\"published_at\":\"2026-10-22T12:50:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1293415,\"url\":\"https://news.google.com/rss/articles/CBMi3wFBVV95cUxNYk9mOTdyVTQtOWJSRHFYX0ViRU1LTDI5VjJDaXByODRjWk9ndVRtWDFUb2dSX3dJdThsMF9fMXRxN2plYVdIdEJLb3o1QXBRSWVsR3lkZlZkNmdzU09YU0M2NnE4Vnd3VXNiM3BnRVE1ZmdiR3pSWEc2aVAtUWpXRTFCd2pkbWN0UEtMNUcxSnJGX1VlbmVINGxXTkhVMG1BQUt3cm1DcXBtZm1BQk04elZ6RXY1TEZNU2lac2ZxMHRWRjlFeU9kNzBBOUdraExONGZfN3luU1EyUjF0YmZr?oc=5\",\"headline\":\"Sam LaPorta sounds ready for free agency and he could be in line for a huge payday. See link below ⬇️ 📸 Junfu Han, Detroit Free Press\",\"publisher\":\"Facebook\",\"published_at\":\"2026-10-22T12:00:21Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1283780,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxNeVozR3g2emZ4TS1HeHNpQllJdlUyanJyaE83TFFiZDBGRVBweURpT19CbWdHR3pwLXI2ZjZJYlBHWXA4ajc5VHdfR2JsMktJSVlRYnEtMUw1NWcxdm9HNVRpcGV4WHhRb0ZsQ0FBMnJwalJZd1pHczZ4anJya0dhdkcyTFliWmdfampQYTNENmJIN0ozQVZQYXhwa3E?oc=5\",\"headline\":\"Detroit Lions TE Sam LaPorta Is Biggest Loser In Tone-Deaf Interview\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T11:27:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1322565,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxQcnB3ZFF0M3hWZFhwaTBmVnZRQTdjdjQ1b2ZEV2d4ZnRKcWludEExTl85UkFVRUd6d05XLVRGSDREWWpudG9HUmdQSTlhQVZZQzVmVUl5TGs1c0JuVWMtYnNRQzJfdjhxZk5BUENtd3VYUFRoX0dGU1NKbl9hNDhuR3hfOThmZDNlWDZZbDJRbmQ?oc=5\",\"headline\":\"POLL: Is Sam LaPorta right to take his contract frustrations public?\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T10:48:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1283784,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxOYnJEUE5vYTlBdUY1Ml9uTmt6eUVlTGZfd1lnVF9reVFIbmEtamFTemJNeVpnemFXVmdrdm5jc1NOdHdMVF9pYWs0S3h5Rms0WEh3RjRWZ28xLUZxdkJmMHYyRWJOUlpUbmsxVTlXX0VwQTNLY2NWaDJ1Wms3NEFmbUtXVUtocVRaQ3dNNHFnOElMeGdFQWFUanlyaTM0UTV4Yk0xdF9teDhqWlV2MkE?oc=5\",\"headline\":\"POLL: Is Sam LaPorta right to take his contract frustrations public?\",\"publisher\":\"Pride Of Detroit\",\"published_at\":\"2026-10-22T10:48:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1264515,\"url\":\"https://news.google.com/rss/articles/CBMidkFVX3lxTE1IcGtVM18wTHpKaHhWa3c1UGZ5eWNJbkVraGhPdHVQaGlXdUJyLW8xeVRmRDFOXzBSaVo2QWZDWWRwTkNQVHBoMGtERGxjeVZsRXJUbnFLZjVRejRDMVBuRnVLLWYzWmJoMmtZMGFVQkFkcjVkOWc?oc=5\",\"headline\":\"Sam LaPorta Fantasy Football News, Rankings, Projections | Detroit Lions\",\"publisher\":\"FantasyPros\",\"published_at\":\"2026-10-22T04:39:31Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1264460,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxNWFZyZUVxdUQtNVBzRXEzczNqUEtUZTIzQkN1Z2NMd19GNTdZSDhyc0V0OEIwdXZlQW84bDhaYXdjSmZVRl9oam5aRGFQSlN3TUF0NXd3VGdoRnNJRUZmSG9oNVE0blA5LWtzcVNCQlFhVGVDWUY2Z2pNSHZNM2xBNlVhbzk5Y2pRaElfQXNBdGF4XzZqNUtZYm15YVY?oc=5\",\"headline\":\"Lions TE Sam LaPorta Frustrated With Lack Of Extension\",\"publisher\":\"ProFootballRumors.com\",\"published_at\":\"2026-10-22T04:21:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1264449,\"url\":\"https://news.google.com/rss/articles/CBMiugFBVV95cUxOVmtmSTl0TmNzamp6el8yOGpHb0JhOUVtMXVyYXJwUi1oQ1NhQ1FJd0tsVlhiZlVpVVlDQTJrbWxoTkhDcHN2eURkaFMycGNEVE5ZcG9BcjRVTU44RkYxendQQUh0VEw1SVU1Rng3cEpOcUtHeURXQVNQeGx6djlzdHBISzFiaGg4TUdIN0hwXzV4Slpybm9WQWNCdWVCcV9VTTQ0d1VHcE9BT29aVllELS1FRUs0SUQ0ekE?oc=5\",\"headline\":\"Sam LaPorta reveals extreme frustrations: I break my (expletive) back for Lions\",\"publisher\":\"The Morning Sun\",\"published_at\":\"2026-10-22T03:13:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1264447,\"url\":\"https://news.google.com/rss/articles/CBMitwFBVV95cUxPQ1RMNHExZHlFWS01aVVZbjYtVjEtU29YMC1hcFZ2ZW9Wb3B6Qk9hMjBlTmdremtyaGFJSFVSdFpZWE9CRHNwX2ZuS1ZQaXkxUGE3cDBMY2NObXlYV25tQ21DZnAtZFVFdVNHODZza1JDdEh5RFlxZV9FM0pydHpsSk5uOFIwVC1hOTZWTW1YSjJNLXJlOVpKaEx5bG5QWUN0U2cwUGsxRzQxUDNWM3FQaFV0eFU4anc?oc=5\",\"headline\":\"Sam LaPorta reveals extreme frustrations: I break my (expletive) back for Lions\",\"publisher\":\"Macomb Daily\",\"published_at\":\"2026-10-22T03:12:21Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1312845,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxQajdMLTk1Ujkxd1BiYnlEZ2hjdmx1QkM3QS1QTU5rQUhpWG5QdDlfMHpiMHMyRFh4b282WmFBZFFVWi04STg2ZWpKc3BpQS0wNV9ySWVNUmUyS2pCY0M2ZlZDcGJQeEQ1WDZocUo4YnI0WUtGQ1dxQzIxUW9xYjBId2Y4SXd5cTkx?oc=5\",\"headline\":\"Lions Predicted to Flip Unhappy Sam LaPorta for Chiefs DB, First-Round Pick\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T02:15:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1245283,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxOSC1MNzhOTEdkR2dvN290QS01c0hlcXFKTmY4bk1SbHBLdHU1bjRjcURVRE44RWlvSFVpa0RXMEVXZ0VSbWRWdjVqZVNYNXF2RERIQTJIRVljSVNRd2hUMHBCY3JjQnNYNXlGdFZBX3Eta21jakhIT2FXU1RPbzFQR3ZwY2c0RzlGZ3NZeXNPS0RETnVfaG5BUThrUGdHbGVDLVZ0TzV4NVJ2ODVMc1Vv?oc=5\",\"headline\":\"Lions' Sam LaPorta Is Open To 'Get Paid Somewhere Else’ If Contract Negotiations Loom\",\"publisher\":\"FOX Sports\",\"published_at\":\"2026-10-22T01:32:54Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1312854,\"url\":\"https://news.google.com/rss/articles/CBMiekFVX3lxTE5QaUFkMUI1M0hYeW1uWnFBNWl3RGNpX3VBZ1c4bk9tUHNxLU1RNVZvakxDNkEwa3RxWDdKNEhlRHh2cnl5blFhYTRxSXZXZEl1dmp4MHZYa1p6T2pKcFgwOG1hQzRZcFdmQy04OEtFVTV5LXRzYWYyQ2x3?oc=5\",\"headline\":\"Lions Fans Don’t Hold Back On After Sam LaPorta’s Comments\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T00:14:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1235592,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxNekNlVmpYUHQ2d3dDN0RGdGNhWjZJYVRfNHJscVJHTFo1Q3F3dWp1WVlUeGd1UktPQTBVbzRlcWxjc3VQeEtKLVZ5MXhtNjZ1S08yS1ZBcWUzRVVsSXNkNk1uZjV3UXBmS1Ryc3dzTGxzTnhHRmQyS1pkcHItS082X2VzaFJtMEE?oc=5\",\"headline\":\"Sam LaPorta Sends a Clear Message to the Lions After Revealing Contract Frustration\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T23:41:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1225891,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxPeWE4LWZjcGhTck1OQm9BclJwTFI3aUtHWjlaSTVHWnJUYm5fYkRuQTVnVW5ZVl9ZMEpDTUdZcVN5dGwySU1ybkppQmVqZWstQzVYRWZyd0hSbml0R2dIU0l3SEhSd2J1LVNfMGdudFlRd1luNk15emo5S1N6bEhLUW9Ccw?oc=5\",\"headline\":\"Lions’ Sam Laporta drops NSFW ‘disappointing’ admission about not getting contract extension\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T23:08:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1225892,\"url\":\"https://news.google.com/rss/articles/CBMivwFBVV95cUxOYzQtR0VKOHJCc0hvVUE4U19GUnVVWVNmYldmdHNQUmtDWDJqUUwzYkpWbWNfNW9hTTVGOGNGcmZGX3I0SUxhT3JROVJic0lKQ1FGNEViOFkxNzRiWF9sb1ZsTzdrNGxQUDZSNmNmWUNaejZob0p0Q2w4S1dLT3pSX0NXdUVJQTlwMS1Nd0hQeGM2YU85c0twUHFhb1lxQWs2Qmc0SzFGMldiY0lZT1dVUjlCU2lKWlVTSGxYcFBkOA?oc=5\",\"headline\":\"Sam LaPorta shares disappointment in Lions for lack of extension: 'Break my f---ing back for the team'\",\"publisher\":\"Fox News\",\"published_at\":\"2026-10-21T22:33:56Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1235594,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPTWNnelFsNTlObG5jSkZrNUNtSFB2cFYtWWlSd2RQR0t4SGhrRUpCUWNiWXBpXy03UF9xWlg5U005dmpOSXNqNE5WSkx6QnFidFJEOWhVR1hXSW1ZM2tFcTRTbGFtaEdUT3ljQTljcFowTERadlZib1FUbk9lZGxjVGFIbjAtSlFRWWJZdg?oc=5\",\"headline\":\"Sam LaPorta Admits Frustration Over Future With Detroit Lions\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T21:44:26Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1235598,\"url\":\"https://news.google.com/rss/articles/CBMiggFBVV95cUxNMFVhN0R1R0prSzBfWTdDdko1X2EyUHNYQ1lrbDRBaE5sM1ZOaHpUUm52Q2FveFQza0Vxc0FjdGtsOXZlNXk0c0x2SFY3ekFPV3l3d2tCNGNrT3RhQ0tzdlVfMnZ0VTcxM19DbzQyVTR1cGZJVXhQd25kQlNtaDI0cmNn?oc=5\",\"headline\":\"Lions Tight End Sam LaPorta Sends Clear Message to Front Office After Not Receiving an Extension\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T20:56:26Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1206646,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxQdThXM0k3Ykt0WFpEcmxUWmhFc0kwanc1c0VTUWJGaUM0UkkxU0N3OGVkd2RkbkhrRkRkTEhkMFZDbFQ5VElUUDhwdHUyMXcwTFczTXRCd1dlVlBFRExyd0FLa2dEN1I1ZFVfbENGX1ZsM2Z5LURVXzFIZzdpWEpxVDRUUjJ0U1c1ZmJDTElRT3RfMWc?oc=5\",\"headline\":\"Sam LaPorta sounds off about contract situation with Lions: 'I break my f-----g back for the team'\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-21T20:21:30Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1196920,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxObU13MkJsZ3hDeURmUXlhM0lsb1h1VWpqYlVpekh0dlhDMVFXa3ZyTU5ydTBSWXFZbGdwVzBFYURIOVBNOWpER0pnQWxBekhGQkhnZ1BwUnpOZ2hRZ2xhTGFoTnNsSEhPdG9QVFJuemNleGcyZ29MSm5kVlhTNkhqTVhIQQ?oc=5\",\"headline\":\"Sam LaPorta talks Lions contract extension on 'Pardon My Take'\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T20:17:53Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":1235583,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxONTVTZVZ4QW53cXgxT09GN09Vd0Viam5XakF2QWJaaFMxNDJ1dEdsYmI3WWFMallNMlk3OFJNb1VDTlBTNUVrQUpjdVdWYWo0NDJnUGJEeHlrUDhVNkpmdWdWeU5hVHJtYnFIOEM4bVFhU0JzbWNHR3JtOU1iT0NzYU92aw?oc=5\",\"headline\":\"Sam LaPorta fumes over Lions contract talks: ‘Break my f–king back for the team’\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T20:17:33Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":1194843,\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxOQ3doVDUyVmVDWnNycXdBWjFlM1pLSjN2SDd1T1I4SE02WktOdXF5Y2RJNGE3MjFtVUdhV3lTZXlxQnFsdDhZRGU5OUhRQWlRZGNCSTZwZVJJWkZvYS1ieGk1ODNYSXJFRExFM2pyVmZrRWhkTTAta0FYMHNicjZLcTZ3dURVTVhzcU10eE1Ib2hYMGVXS251WE9fR0F2SXpaYmV1SDFseGdhOWFMTS1ZTFA0cVRQQQ?oc=5\",\"headline\":\"Sam LaPorta fumes over Lions contract talks: ‘Break my f–king back for the team’\",\"publisher\":\"New York Post\",\"published_at\":\"2026-10-21T20:17:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":844474,\"url\":\"https://news.google.com/rss/articles/CBMiZEFVX3lxTE5VZTZ6cVVtWFlHOGxMZ2dBQzVpU1NQYnVYYlR4WGV2RGItRXRxSlBjRTZ5WENDTU9DY2hubE41WDlvazdjOGljWDVMeHlrS00wdDJrWEFVeDV5TGpxWk9ueG12NG0?oc=5\",\"headline\":\"Sam LaPorta Fantasy Outlook & Stats\",\"publisher\":\"FantasySP\",\"published_at\":\"2026-10-21T20:12:26Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":1342155,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxQZEVMa083U3RrQTZjbGR3Z0RhdXFJXzNQVlZWOGFoa29mVElWdDJNWWZQMjR3eFh0SE1aV2poOE9rUHRESWNVQ25yUER2aU9od3VDSmphSnl6T1pneEE1Nm5qN3BsQVNVMFBRZjJxaE0yV1R2dUtxbkdva3poMktfZzhpczZhejg?oc=5\",\"headline\":\"Sam LaPorta says he is prepared to leave Detroit if the Lions won't give him a new contract\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T20:10:55Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":1197553,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE5BS0Z5cmR3Zk5iRVZ3TTNEZ3A2S3JhSzFjOFZQVTFTS0NLLXN1QUFNSnY2REhraWMycXJVQ3hVOVBYYjJVTGlpYjlDaThjRkh2QUtzWUVCY3I1VHlzQ2R1VXp0bGlJeDlTQkFaN2Q3VHI1TVQ2dVZZQklaTGVBXzQ?oc=5\",\"headline\":\"Seattle Seahawks Need to Trade for Sam LaPorta\",\"publisher\":\"TWSN\",\"published_at\":\"2026-10-21T20:07:26Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_41\",\"article_id\":1187213,\"url\":\"https://news.google.com/rss/articles/CBMi7gFBVV95cUxPcFMwT1BOelBHdWhkMS1KZkZNbkJ6X2t3QnBoYXhWb0g5X1lHSGNXc1FTM0doSnhHdU5ZaTIwQXl2NEY2N2VyTzB6SlprNkVRWmRiUndjclFib2RhUjhiSGx5V0c1QUhkWnZVbHpjemw1OEpBTUlRTTdyM3FoTnZKWkdZaEU3czVld0hsMTA1YlEwR0dzaGhYaHg5MEtvS0RQUHBBb2tRTG9EUFA1WE1OalQtRXFsZFV2Q1liNnhCQmEwQi0zaUNTTUp2bXZGaUZjQ2NyeUpab0RteXZFQzdSdUNvWHpFUkl3VEg1anRB?oc=5\",\"headline\":\"Sam LaPorta expresses disappointment Lions haven't extended him yet; TE prepared to 'get paid somewhere else'\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T19:33:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_42\",\"article_id\":1187201,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxPTlRwdjJ0WkV3czVoRGdWZElwXzJiQzJyaV84WFREYzMyU2hiN1RZT1dzRWVJRm5YZlFRek51UEk0aURxQUlyTXRkWlZhZk9CM2Q1R1ZSX1J1MjFiZHhEYkRwbWdVTWdiSkhyc3VoVW4ycHY1VzJJV3M1VXFVZHItdGh2QVhocnAydnpfbFhOTWNiSksxd19uWXRLR25idw?oc=5\",\"headline\":\"Sam LaPorta on lack of contract extension with Lions: ‘They’re just not showing the love’ - The Athletic\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-21T19:31:45Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_43\",\"article_id\":1235666,\"url\":\"https://news.google.com/rss/articles/CBMidkFVX3lxTE1ZaFJDUGo3al9mMnQtMGJobUxLNUEyTzkxckNrUmZRaWdmdEVYS1pTU0I4RTMxS29TZnlRYVZ6VG80T21nR2tRMFVNZFBPLVhNRjdCMXM3SkRRS212TE52bXRIa0tNeXRfZUdTSzdRazdMd2lsemc?oc=5\",\"headline\":\"‘You Will Be Getting Traded,’ ‘Not the Kind of Comments You Want To Hear’ — Lions Fans Fire Back at Sam LaPorta’s Complaint Over Contract\",\"publisher\":\"Pro Football Network\",\"published_at\":\"2026-10-21T19:18:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_44\",\"article_id\":1187250,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxOSS1JZW5jNFZoa2R4aEJ0NXRrY19RX1RjVndaVWIyellPMW1PZFAxTm81OFp5Q1hyUWgwZW9jdi0xcldjRnFabTBJcld1N3Joc3JHaGdsWTdXaXJsdjdUX2N0S0FwWjlQSEdCVVVyenZHZmNDTUItLTI4S2lUbmRWTjUtOHZsMzc2OF9acTVhd0lSaC1tZF8wcG51SDRaZGN3Y3c?oc=5\",\"headline\":\"TE Sam LaPorta: Lions 'not showing the love' in contract talks\",\"publisher\":\"Reuters\",\"published_at\":\"2026-10-21T18:59:45Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_45\",\"article_id\":1245329,\"url\":\"https://news.google.com/rss/articles/CBMi1wFBVV95cUxPVHVxSTVlczZ6eERQc3BOYkJ3clYwYmJMSGdZSU1ORDRPbUEyZzJPMk1LTXd1NFktQ0tEdnVobENzdUFSWkhoSzJLR1Y1VEJTTE9IUGFpS1l3NWQ5RlRyNE9URnMxekdVMUdmNXFMQWpfclhBN1NoaU02SnZRdkdRRmtnLXl3dVZzdWJqZ2kxOXlsOXlocVRGcDlVMkRCSXhpM0xRNzZvcVQxSDlqdm5nbW54RVFGVzAtbFF4dW12VDJYQVBzMzNEaExXSlhNbkVHdkw0YVA3Yw?oc=5\",\"headline\":\"Sam LaPorta: If I don’t get a deal from the Lions I’ll go get paid somewhere else\",\"publisher\":\"NBC Sports\",\"published_at\":\"2026-10-21T18:58:55Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_46\",\"article_id\":1196933,\"url\":\"https://news.google.com/rss/articles/CBMiggFBVV95cUxNOThsRzJRbFJ3aGJBc3VlREczRFNJdE40VS1nZGNNNFE1Vi1aa09uRkRtNGIzRF9sb28zdEZTVUwxZXExa3RFVDRFVHZFaTZnLXpOcmV6RTd1VGZVRlcwQW9xbWdsWjFmNVZtemhpaHlEOEJHR2hIRTZDdEdBQzBuY01R?oc=5\",\"headline\":\"'I'll go get paid somewhere else': Sam LaPorta sends frustrated message to Lions over contract\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T18:57:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_47\",\"article_id\":1187227,\"url\":\"https://news.google.com/rss/articles/CBMiggFBVV95cUxNc0V2dGRLYXk5ZWRwLTNYbHZhOUlTcF96QTZnSDNSV3djVEN1WUJpV05OT2FGeVZ4MFBhQmVUeXhuNUw1Zk9RVlZidk9Za1BzRnVMbFVMOXJhdGx6Z2drTG9JZy1nUjFRZk9wSGRjX1gtM3Awb2YtSEU4Zm4zTlhXSnB3?oc=5\",\"headline\":\"Sam LaPorta: If I don't get a deal from the Lions I'll go get paid somewhere else\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T18:56:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_48\",\"article_id\":1196946,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxOV1FXbFhibS1ib2hwUmduNlNGd18zRjV2ME1iUEd0bUx3aG5JOWpkOWYtRmdSZmp3UEU0WFcyTVhraGlaaUlEa01Jd2loeVBHU05IcFF2cG51VWV0THhNVHVpN1BWMkIxVXBTdUVJNk81VVpuUExGRHZHVVJHQUZJdDBQWW1tVjQwLXJMTzF0NzlHSndnMnlNajRYTmM?oc=5\",\"headline\":\"TE Sam LaPorta: Lions 'not showing the love' in contract talks\",\"publisher\":\"National Football Post\",\"published_at\":\"2026-10-21T18:38:49Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_49\",\"article_id\":1216252,\"url\":\"https://news.google.com/rss/articles/CBMibEFVX3lxTE9tS3dlQXhnMmd1M2RNNjFoRVM0Z1Jxdkx5am00RW9IOGNqQVNNWVYzRWdDSVFUNGxxdm9wc1U4N2t5QzhqdnlQdm5SZS0wTzZCY3J4SHV4Q2ZYZlFYLWNvQ2I1RWQ4RVIyajFxeg?oc=5\",\"headline\":\"TE Sam LaPorta: Lions 'not showing the love' in contract talks\",\"publisher\":\"Centre Daily Times\",\"published_at\":\"2026-10-21T18:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_50\",\"article_id\":1187289,\"url\":\"https://news.google.com/rss/articles/CBMieEFVX3lxTE14Rm5nVGdjRF8wbkhxSHFndlJyZ0NDTjRMYUtDSFFuWU9TRnVtcFR0SXo0Xy1iekk5b1hHX1BjRzRmdm1BektBcjdzNDdZNTZpWWNqUEJhZzItdjZIYlQ5bl9vQjRTWXY3WUY1ekFLYWRHc0p0ZjZuYQ?oc=5\",\"headline\":\"Sam LaPorta Isn’t Hiding His Frustration Over Stalled Lions Extension Talks\",\"publisher\":\"Bleacher Nation\",\"published_at\":\"2026-10-21T18:29:58Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_51\",\"article_id\":1187255,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxOaEpMdjEtTktGcUd0QXM3Q0tmTEt2eGpMN3o4bm4wN2Z0Vjl2dWp5RDRvbEVTTVVzR3REVzFWTUh6eFIwRmNJQy1XWGRzakRodkdmR0Z3TUdtUXVNWEdobC1jRHJhUXhfVk9JTEphWTBmbTNGR01KYV81X0tmUENseDhPY2JFS3JOWElScXRwU1p6ODg?oc=5\",\"headline\":\"Sam LaPorta not feeling contract 'love' from Lions ahead of 2027 free agency\",\"publisher\":\"ESPN\",\"published_at\":\"2026-10-21T18:29:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_52\",\"article_id\":1187294,\"url\":\"https://news.google.com/rss/articles/CBMi4gFBVV95cUxPRHBuel9CZzRqQk9FVGs4dnJZaGR4NjFxZUhaaE9adkxWNnM3RGF0Si10RlhncTE4Nk1aQU9uTGoyWjRYNGlsZERGRjNiWmhWanBsREhiOHFKLWVZaHdYTG1CbHIwWUlkeEQyYWZxOWxja2FUek56aG9HMW40QnE2Ujdta3RBbTF0SUdLYi0yV1NWeUI4TnYxc1d4OHJYTTJIRnFaT1dVR1c1VFdfYWw0T05pTDhzeE9jUDBvaG93UXphVHUwMm1wY3RNXzh5OG9fZVVtcTR4eXpOMVpVRDhMWkt3?oc=5\",\"headline\":\"3 Sam LaPorta trades the Lions would have to consider, including one that solves their biggest problem\",\"publisher\":\"A to Z Sports\",\"published_at\":\"2026-10-21T18:27:13Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_53\",\"article_id\":1187261,\"url\":\"https://news.google.com/rss/articles/CBMiuAFBVV95cUxQTWxMZW8zSDVicGt3aXpzU041V0ZTZ1Iyd2xZYW44cDMyX2dmWVFoZ0NLX2g5ZU12WnAya2ZJbERRNHI5UGdGcEpqVGF1ZnB3eUQ4ZHNPbEs3QVc2ajVid295Y0p6NlFhMVhNbTJpU1VraDF5Q0JpQWxJLTJuM0xQZWFqTURHWXRhU25Vc2dnTmc0SnlMUGpHN3hXM1ZLS2V0SmxPWTJiSG5xN3NKc3JxcUlKWDNab3hG?oc=5\",\"headline\":\"Sam LaPorta Says He Broke His 'F--king Back' for Lions, Sounds Off on Lack of New Contract\",\"publisher\":\"Bleacher Report\",\"published_at\":\"2026-10-21T18:05:40Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_54\",\"article_id\":1187277,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxPdldZVVBNdXhIcFZsMTFFWmNVNmxTdk5mTEZLWkg5cVJQV3ZUWW8wNDRONWt3aFVQNmVfNmlKNHR3X0VmYWxDZHFrTmRWTU44MUpvRFNBOS1BSXhDdUdZdm44ZVotMThPNDAtQllCZUZzTWh4SVdHRVZla1FMLTlzOVV5ODR0RTdDX1gzRExwYW0yZFpmSjZLTlNhS0wxaHI0WlJWUXlsZHNNNHNwWTJ5Mg?oc=5\",\"headline\":\"TE Sam LaPorta says Detroit Lions 'not showing the love' amid contract talks\",\"publisher\":\"Detroit Free Press\",\"published_at\":\"2026-10-21T17:50:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_55\",\"article_id\":1196956,\"url\":\"https://news.google.com/rss/articles/CBMiggFBVV95cUxPRG5wTUtyQ0p1R0lHdFdjOVd0XzR0c0NabERZalFzazhMNWtKNzFqUGllQ09BSTJKRWNoNmtoUDYxQmRYeTg0TklHRE5xUEhKVnViTVpaUkpldWhKck80aXJIR0t2dUhaVnc0TG1wWVBqc29nSW00X05CRlVRZ241d1l3?oc=5\",\"headline\":\"TE Sam LaPorta says Detroit Lions 'not showing the love' amid contract talks\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T17:39:20Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_56\",\"article_id\":1187258,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxNTFprQ2lWWGlyNWZlME0zRl9tbUplMXM4bFN6ZVdLcVlqX1M5eUp6emY2VlNEY3hMSjlnVGdJRXRDTElBN1pDamVHX2M1SnBqMUlqRFVoTkJ2aTYzLXlPLUVVVUlFX3NzLWRtdzZCWjV4QnFSOTRwVWxyY2xWSzl0aHA2bjhsUWJyQi10MQ?oc=5\",\"headline\":\"Sam LaPorta Unleashes on Detroit Lions Over Contract Extension\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T17:06:17Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_57\",\"article_id\":1187264,\"url\":\"https://news.google.com/rss/articles/CBMijwJBVV95cUxQUUVXMTB3akVIem9nSk1vMUE3ZjhqWVBiQkhUTUtfQVdTZ1ppVGt0TUkzRGZlb3N0MHJpeUVSUEdLeHFoQlpxWEFIQmgxRWU5TDVvbUhCZlJQWFljczBLN0VFVjZ1NVBtWXRSNEl3WkU5cW9Cc1N5eGxSR3RwcTlsN2lrUGs4NnZzZXlQT3Q3Vnpfa2lxb0kyMGZ1aUFUazZuY21yVzFpREhJYkVhaFBRYm41dzRIREt6dldvU3Q1UDJVejN6SEFVTXdQT25DQXozdjZBcVBfT1VIZ1BxQlFubGxiVHJCaFo5VjRGWXhYa0UwTlkxT0xVUVZab180Z1F2SzZHYnNyOHVZb2NSbFRz?oc=5\",\"headline\":\"Sam LaPorta just said what he’s been feeling about the Lions, and Detroit should probably take it seriously, because it is not good at all\",\"publisher\":\"A to Z Sports\",\"published_at\":\"2026-10-21T16:47:59Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_58\",\"article_id\":1187262,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxQRXRTYjAzX1RPYkwtV0phbTRUQlFJQjdadkx4UlU1eW1PSkVFREFXNlA1WGtLekJmQTA2SkUwTU1qa1l6S3RnR0tFNFFwOG1aU0EwNm5LUnhDaUJndzQtZ1pTaWdjWktmTFlNREF5aDBFbXVHdmROVnZUaDl0azQtc1Y0amNlQ2o0S1p5WkpJQWo?oc=5\",\"headline\":\"Sam LaPorta expresses frustration over contract stalemate with Lions\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T16:45:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_59\",\"article_id\":1196962,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxNSkRKbkJJVUktWGJrUEZONWhpNW05SEhPdkNFTkZXV2lZRG9tMUxvdDl6UWFodFhobWdpY3dmdG5qbnhSMlc5RnBHcXNXNTIxZF9fNm1hTjVWX0lIaG1lZnBGb3IyQUFmS3cyTS1LaGZ5MTRpQ2NkdWF1V1lMd2MzRUlUNzNXakRuMy1wdXdDeGVIeTg?oc=5\",\"headline\":\"Sam LaPorta Reveals Extreme Frustrations: I Break My F'''ing Back For Lions\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T16:42:59Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_60\",\"article_id\":1187293,\"url\":\"https://news.google.com/rss/articles/CBMinwFBVV95cUxOemxEakg5TUQ3aVF4bUprWnVoVmtObWZTNXNBbEZOM2c3cE5FckIzbkVadTlDRW5WQkswOVdmajE0QTYwVHNicFltSTdJZi1SRkZKWnZYNUw3LVdISmMtWF9DVkJxVkFLODA3bzM4eXA3eGZJM21HaENUcVZLTnRpODl3R012SDNaTmFqRm1MNnFRTEswalVKRW4tU2FYNVE?oc=5\",\"headline\":\"Sam LaPorta Reveals Extreme Frustrations: I Break My F'''ing Back For Lions\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-21T16:42:58Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_61\",\"article_id\":1187257,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxNVGdvY1JLbV9VcVhkTFd5V2ZYWk1kbG1kcnhBcFRhb0liTnpTRlZrcy1nVjZjTHcyMHRTU3JiN0J6Z29MbVFhOE5SX2VLWkdpMDFhbDd5dmh6bmVOalRKYzRsNk9fNW9vVk5pOVVwUWJQMW5ad2htbWNXc0xWSTNIUV93MVd6WHZBVFhV?oc=5\",\"headline\":\"Sam LaPorta disappointed Lions 'not showing the love' in contract talks\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T16:25:31Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_62\",\"article_id\":1187259,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxNZU9TaW9LVkNSVThNcjNQWkFkVjhERllnX3B2VnVFQlkwSEgtX1Z1bm1HTDZ4RWk5OVZ0aGg4NWJ3MmNMOWtmUXlpOXI1OFRLeU9TVkM4LTBOZHFWWnlRUU5FSjBfM1BRRFQ0M015cm5JT3A4RDlQVllkZTBsUDZnRmM4bw?oc=5\",\"headline\":\"Detroit Lions TE Sam LaPorta vents frustrations about contract situation\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T15:45:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_63\",\"article_id\":993393,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxPeXN2Z3Z1V1V2bXlEd0tRM1V2Y2F5bDlJUWQtOVgtdnIxVnJ3d2RrZzI5SGtSaHUxak41cU4yNG45RTFKWUNEWEJEcDhHUUZTdzJxQnV2RkotNk52SURsN2JhUUtSNHNmUWs3c1U1TDhtZUdQZHdmWmR5cEF5Ym9MV2dabDZnQV9xRzg4?oc=5\",\"headline\":\"Lions Insider Predicts Sam LaPorta Contract Outcome\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-19T14:31:45Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 744,
+      "entity_type": "player",
+      "name": "Sam LaPorta",
+      "sport": "NFL"
+    },
+    "database_record": "Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]",
+    "reports": [
+      {
+        "id": 1422842,
+        "title": "Adam Schefter Reveals New Twist In Sam LaPorta’s Standoff With Lions",
+        "context": "Adam Schefter Reveals New Twist In Sam LaPorta’s Standoff With Lions",
+        "source": "Heavy.com",
+        "published_at_epoch": 1792715100,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxQRXlEOXU5c1ZUcHA3am5DQ3J5RDRxTnA5UjFvUERZSkE3UG9CRDdzSEc5M3haQ0J6QUlxV2kxVWgtSUJPN1ZnV3hpVjBqN1Yxd0xVbW9SYzdYZ2tQaWswSEtCQ1JuejU3bjVtaldOY2lKSUc4N2o5dm1jR0haX3lnb1p2MDZmNlVBQ3p5ZQ?oc=5",
+          "spectrum": {
+            "emotion": 2.170935559877494,
+            "subject": 91.11273642537245,
+            "movement": 69.53534005286896,
+            "availability": 49.99699592590693
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1422758,
+        "title": "Former Iowa football TE Sam LaPorta gets candid on Lions contract",
+        "context": "Former Iowa football TE Sam LaPorta gets candid on Lions contract",
+        "source": "Hawkeyes Wire",
+        "published_at_epoch": 1792713300,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi3AFBVV95cUxQd1hCNzBYUUVMOEpiTUdCcVA5TjlWa2lJZWM3bUZjZEQya3lkcE0xc0x4cm5VUVRTYnV3MS1NMVptd3JfWVQzdTVnMVVhUUZTUGMwR0VVakp2S3EwbkU5dkVHa0g0M1ZwbHh4LWp3dGFXODdScExtRlN6VmEyZFFDckVJM01WMnBuOFNFSFZ5SXEtR2NqVEJFakxnUFN2b0Zwd3hMYVFQZ3lBU0g5bzVvbGUwN050Sm55MGotMm9xT0xHcVNoY1d3RVVuOEt6WnZmUEg2NVViUVFidlFS?oc=5",
+          "spectrum": {
+            "emotion": 2.5720571185092496,
+            "subject": 93.9702843964694,
+            "movement": 89.28575572545789,
+            "availability": 16.952238941456564
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1422820,
+        "title": "Adam Schefter Drops Major Sam LaPorta Contract Update",
+        "context": "Adam Schefter Drops Major Sam LaPorta Contract Update",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792710318,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxNb0lKRzU3WGxxR3dGWGhKMWkzZnhmMEs1M3l5ZmNvYjJDX3B0cWhTZlROQzhMLXZ6NkxsZkpHTEhDcC1sUmhGMkJUMTk4RlpjczdiSVFCYl8tWFFaQmNMcXplRWhZTUpnd3ltVlF6VDZ5dFY1d0tKaTV4SzkzaDVVcXY4TkU?oc=5",
+          "spectrum": {
+            "emotion": 2.192590933370019,
+            "subject": 91.42123681302871,
+            "movement": 87.71735894477678,
+            "availability": 48.925279234414916
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1391343,
+        "title": "Broncos, Panthers Among Potential Sam LaPorta Suitors",
+        "context": "Broncos, Panthers Among Potential Sam LaPorta Suitors",
+        "source": "ProFootballRumors.com",
+        "published_at_epoch": 1792704142,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxQb1k3WEZJMWZVd19fbll3YUpvWE9MQnVCdzdtWUl6OTQwYVI3MlI3ZlVUcE5qNDFIb29FTlJYV3ZWWFpBRlFWbDlJLVJZVEpCSFlfbXo3TmpzUENpMlM2UE1ZaVJOWUEyTVRmTHlQQjdYYl9VeUlXN1FERUkwZGl5azhBZmJsa0s3cmllbHd5TllYYkpnZGt5dGtR?oc=5",
+          "spectrum": {
+            "emotion": 1.8723305086954327,
+            "subject": 77.85809264740615,
+            "movement": 91.66962802958587,
+            "availability": 24.064561239447812
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1402565,
+        "title": "‘That’s Where He's Bitter’ — Ex-NFL QB Points Out Packers’ $75M Move That May Have Led to Sam LaPorta’s Complaint With Lions",
+        "context": "‘That’s Where He's Bitter’ — Ex-NFL QB Points Out Packers’ $75M Move That May Have Led to Sam LaPorta’s Complaint With Lions",
+        "source": "Pro Football Network",
+        "published_at_epoch": 1792700836,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE55UHVTeU9iTzRGQ2VCeXZOYUYzRkZxenJnZ1FuWEVJZnlBem9PVE0xYXZGRWtmYkxaNUs5eElRUVVlWDF3QkFrSlJUOWwzZzZ5bGt1MXk1TzZCRk9MNUJDMGZqak5OWk1XZGZxNFFZc1c0R1l1MkJYQWRSd3FqQQ?oc=5",
+          "spectrum": {
+            "emotion": 18.47821634493714,
+            "subject": 83.44490488245783,
+            "movement": 39.576252992159965,
+            "availability": 30.096222331456158
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1391983,
+        "title": "‘That’s Where He’s Bitter’ — Ex-NFL QB Points Out Packers’ $75M Move That May Have Led to Sam LaPorta’s Complaint With Lions",
+        "context": "‘That’s Where He’s Bitter’ — Ex-NFL QB Points Out Packers’ $75M Move That May Have Led to Sam LaPorta’s Complaint With Lions",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792700836,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTE45aVpOWlZLT3NvM0V1Nm04M1N3VXpTMGwzQzNrUFQyRU9Zdm1KSkQwdEtPQ3hfNkVtVnhHcUUxTkNGbzFobmczLXBpeXFJcnBwcTZTTGhiNFRzSC1zWW9DejJEOGhvM2J3WUp4M0RlVHlCU1dzX1RFSnVWQQ?oc=5",
+          "spectrum": {
+            "emotion": 14.720046712338547,
+            "subject": 84.35122926139884,
+            "movement": 40.01929585867493,
+            "availability": 31.859321329759744
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1342148,
+        "title": "Drew Petzing praises Sam LaPorta in midst of Lions contract kerfuffle",
+        "context": "Drew Petzing praises Sam LaPorta in midst of Lions contract kerfuffle",
+        "source": "Detroit Free Press",
+        "published_at_epoch": 1792698900,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxPcGtMbTBBT0p4cjgzeVZhdFFEWFhyM1J3ZF9SNi1LNk1DY1BfVnN0Y05vX0JIUkZGMGNray1kN3NxckxpMWQwTzluYVVnMEczaW9ZN3huMXpleDd6LUNYbEhMdm1OdjZQbzY0LXF5ODhGSE9FSi1obC1XbS1PaDd1aFQ4X2k0eGxTaVBQMnRxc1l1QlFsWXZIdXdIMjRjeHk3MXFVdlRkSnZ0V01MQTU3Nm1R?oc=5",
+          "spectrum": {
+            "emotion": 32.68389603783526,
+            "subject": 90.89442469135773,
+            "movement": 94.34056492427672,
+            "availability": 83.02978914531113
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1402560,
+        "title": "Drew Petzing Responds to Sam LaPorta’s Fiery Contract Comments",
+        "context": "Drew Petzing Responds to Sam LaPorta’s Fiery Contract Comments",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792696644,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPM0tmMjNZWkwwM1EtNlZzVnUxMVhCZXpEakRhOXJldkl4bjJxMHFpQkhnZjJjU0Etd19iVld1SHU0TFg0QnBvbzRpTFJwX1JYdmVkMUwzYVE2Ql9HOElMWWVpaktlYWgzVFJfM0VvU0ctTWhab2hnYlR4eXFpS185a3pVVExkZktjZlE?oc=5",
+          "spectrum": {
+            "emotion": 11.383235660030904,
+            "subject": 77.1256509646211,
+            "movement": 73.21705179974593,
+            "availability": 8.943642691660859
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1352093,
+        "title": "Sam LaPorta Trade Pitch Targets the Lions’ Biggest Hole",
+        "context": "Sam LaPorta Trade Pitch Targets the Lions’ Biggest Hole",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792692000,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPZ3gwLWdENEFzMjBxNmd6UHpLUmRQVDRTNEJuRTlXSDl5dndsU1pCSDFsZV9KZnREbmUxbHoxeWR2Y2MyR3dPcmVld2cyYWY1NDBkb3dZc3d0bnNSOVhtUm1OU3pYdU5STUZ1WHkzRU5PUkYwdmgxQUVkMXptTGREb1BTME1JbVU?oc=5",
+          "spectrum": {
+            "emotion": 2.140133993925582,
+            "subject": 84.16022766384877,
+            "movement": 92.68359252939857,
+            "availability": 25.298265287786354
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1352153,
+        "title": "Lions OC Drew Petzing: I 'don't even notice' Sam LaPorta's discontent",
+        "context": "Lions OC Drew Petzing: I 'don't even notice' Sam LaPorta's discontent",
+        "source": "The Detroit News",
+        "published_at_epoch": 1792691760,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi1gFBVV95cUxQUDR2ZDIwS0o1SjcyZEVMd2pCajQ3WTJ3WndLSW5mNGFPS2JYVE43SVFpT1JrQlZoNlN3eEl5LVAyZ0xOaFgzcUtmVjAzcDk2UlNHbzYzUlp5b01ncHlEeTctSkpBV2t2NDBQc3B6VVdKWFV6WC03RV9RelZsUkpJWFBCRWEwNC1KRy1ET3gxSzhIWlAyd2tfMmd2VDdkX04tNGwzdmZZaVUyalcwUUliM211dFNTdDZDWU5JLW1saHlreWZidXdEOGRHS05rbXNFclY2UzVB?oc=5",
+          "spectrum": {
+            "emotion": 7.945690678412226,
+            "subject": 86.95110717412776,
+            "movement": 8.940924792572085,
+            "availability": 20.89556392643708
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1342156,
+        "title": "Sam LaPorta disappointed Lions 'not showing the love' in contract talks",
+        "context": "Sam LaPorta disappointed Lions 'not showing the love' in contract talks",
+        "source": "Grand Haven Tribune",
+        "published_at_epoch": 1792688220,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi8gFBVV95cUxPbzFBTlBEbGNDTFNmSXJqYlFuUFAwZnNWdjYtdTdPWUw0b3ZxSFIxOXlDd2h1ZGwtNlF4RWdaZlV2clJ4dnJwUUl3Rl9YTjY1TU5rZi1JcTlKdk9iUW53VzhXUnR5VmZHT2JmYzhGMS05d1I1emg4NEpfbzR4OG4wa0V2bEpvd3lZUlg5MUZlVHpVVmg5RS1Wd3BVSzkxbTBMa1dibWFwa0lNUzFraHU5aHRQTXBxbFI4Wkgtclg1WmFyLVo5S0k4YkhHQm9GMUo4Q2pHaFRUbF85aXQ0Z1dqUEp6WTdZa3ljRmFfdkQ1RUdGQQ?oc=5",
+          "spectrum": {
+            "emotion": 96.5316466224405,
+            "subject": 95.42241437747364,
+            "movement": 97.81570118080471,
+            "clickbait": 10.069608092740532,
+            "availability": 1.702596199935414
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1392353,
+        "title": "Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?",
+        "context": "Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?",
+        "source": "Last Word On Sports",
+        "published_at_epoch": 1792680475,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxPZnFrQ1UtbkdPX1FNMFdXWFd5N0Q4YkpMdDBnVm82V1VEVVZMYTUxWXE1S18xbmpVdkJSeGtTM2NMN2pfa3l3XzhfX3ZWS0dGNC1pQXVuaDVNQXFhQ0kxeVN0bElZU3Z1X2RsbDdYa1IwcTRjWC1KcjRjb01OdG5QMWdYZnljX1diU2RoMWt4T2xtendiQ0U1Yjh2amdxdXZPYVh2Wl9qX3pNZzFrSjJoT1dJczlENUxlZ29jdWVKQ042dUNZMGc?oc=5",
+          "spectrum": {
+            "emotion": 3.211362830347196,
+            "subject": 92.69584444482308,
+            "movement": 97.09286844735901,
+            "availability": 13.601870602368896
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1352087,
+        "title": "Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?",
+        "context": "Did Lions TE# 1 Sam LaPorta Undermine Contract Negotiations With Podcast Admissions?",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792680475,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTFAzTXNqdEdHZjM1YjhidnlvZE5ucjdjbHVrNGN6Q2N4WmFNR1RqOUdhZ2pvN3l2WUR1RWNCLVFLZmF1TWoxUWVQVkZJelRDdjJyZjhWM3pGbGVrSUtZbU1LcFA3WUxhWVRzcWVUU1d1RzBaZGYzYlE?oc=5",
+          "spectrum": {
+            "emotion": 2.977127592378358,
+            "subject": 92.48668161090292,
+            "movement": 96.99745782482321,
+            "availability": 13.630092937958175
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1312856,
+        "title": "Detroit Lions Star Tight End Sam Laporta Goes Scorched Earth On Team Over Lack Of Contract Extension",
+        "context": "Detroit Lions Star Tight End Sam Laporta Goes Scorched Earth On Team Over Lack Of Contract Extension",
+        "source": "BroBible",
+        "published_at_epoch": 1792679783,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOZzFjUEM0M3RoeTh6X19oemd5WjNJNHg3N3lJcXhaMHJPQjRVSUluenoxLTRUSzAyYkRtbUJiNFJTcVl6Si03NWRtZ2J6Sko1dld4ZGE3Sm0zaUktUE9tTndWZTk0b1pBVUZoUlN4S2RxcU9pRHU0NXJiQm1pZnlqSnRacnVKX3daeHVMaUxhSEZrcWhlMmhkVFFSLWhmRzltdkhvdHY1WEEtcDNDTGc?oc=5",
+          "spectrum": {
+            "emotion": 37.35508303780927,
+            "subject": 95.17475622962584,
+            "movement": 86.67280551159226,
+            "clickbait": 56.857349240416525,
+            "availability": 3.4319096607469817
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1303097,
+        "title": "Lions TE Sam LaPorta is biggest loser in tone-deaf interview",
+        "context": "Lions TE Sam LaPorta is biggest loser in tone-deaf interview",
+        "source": "The Oakland Press",
+        "published_at_epoch": 1792673415,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxPdGF5bDA1VjUzNFE2OEZoUHotMXlfT2JFVVNiOWVZVXZ3ZUtpOFUwZlBNY2cyVFpvQi15R1JvcVo0MlZ2V2JpdkFNam13MmRxbDdiM3BvNmhmUWRvS1NlQTFnTmd3WXpkcklvUkE5SzFLbEk5R3JpTXh6RG13TkhSeDhrcHBhbi1nVWlId2YxY3hWSTVLUWxrTmNEdVNLbUlzbUlkWGoxQQ?oc=5",
+          "spectrum": {
+            "emotion": 75.39014746832784,
+            "subject": 92.43151963057424,
+            "movement": 2.3549989025488505,
+            "clickbait": 79.07380668821536,
+            "availability": 1.73352642485284
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1293370,
+        "title": "Lions TE Sam LaPorta is biggest loser in tone-deaf interview",
+        "context": "Lions TE Sam LaPorta is biggest loser in tone-deaf interview",
+        "source": "Macomb Daily",
+        "published_at_epoch": 1792673415,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxQcHd4bU5ucWZfc2dTSmFZUUVnOUw2SEZ3NVBVWDJkWWlxekJmYVpQRFJiSUtGQ2g1SkMtUW1VUTdLS0IxcXpiY2p3LTZxUUhtaV9Ib00zaHFZV1FvVFFyM2Q4NGFwN2gyMnhTcTN0OU1FYUpmTXFfLUp3UkpFTzZhalp4V1ZPSTluaUVPQW5weDJLQlhZOVptZTAzUDE3ZWEyR3c?oc=5",
+          "spectrum": {
+            "emotion": 74.40062563580102,
+            "subject": 93.23670024780239,
+            "movement": 2.2228738706424322,
+            "clickbait": 77.86026273656206,
+            "availability": 1.7590260269890456
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1422818,
+        "title": "Lions TE Sam LaPorta is biggest loser in tone-deaf interview",
+        "context": "Lions TE Sam LaPorta is biggest loser in tone-deaf interview",
+        "source": "The Morning Sun",
+        "published_at_epoch": 1792673410,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOYktxRGdGUEZ3UTJKaFpfZXFQc1VtMFR4ZWNQbjRGN2tERUhCVW1tVVhIMTJNRjRsWE9wdHFrMVpWRS1vSWxSUjRnOE9yUENGTjV0ZEdQV0dlTHU3aW0yRm5QU29fNjU5WlYzVmYyYkhRWW40SjZEc3g3dXNtT3NOeXhHbTdXdE12akM0UDVQeHZfRFZzUTlTSXVYYjI0Q3czWGFjQg?oc=5",
+          "spectrum": {
+            "emotion": 74.68100291349097,
+            "subject": 93.09501797901154,
+            "movement": 2.410325835841205,
+            "availability": 6.920630943165136
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1293415,
+        "title": "Sam LaPorta sounds ready for free agency and he could be in line for a huge payday. See link below ⬇️ 📸 Junfu Han, Detroit Free Press",
+        "context": "Sam LaPorta sounds ready for free agency and he could be in line for a huge payday. See link below ⬇️ 📸 Junfu Han, Detroit Free Press",
+        "source": "Facebook",
+        "published_at_epoch": 1792670421,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi3wFBVV95cUxNYk9mOTdyVTQtOWJSRHFYX0ViRU1LTDI5VjJDaXByODRjWk9ndVRtWDFUb2dSX3dJdThsMF9fMXRxN2plYVdIdEJLb3o1QXBRSWVsR3lkZlZkNmdzU09YU0M2NnE4Vnd3VXNiM3BnRVE1ZmdiR3pSWEc2aVAtUWpXRTFCd2pkbWN0UEtMNUcxSnJGX1VlbmVINGxXTkhVMG1BQUt3cm1DcXBtZm1BQk04elZ6RXY1TEZNU2lac2ZxMHRWRjlFeU9kNzBBOUdraExONGZfN3luU1EyUjF0YmZr?oc=5",
+          "spectrum": {
+            "emotion": 2.466515930704106,
+            "subject": 93.19832814596576,
+            "movement": 82.86475961981904,
+            "clickbait": 31.48358691102468,
+            "availability": 11.843487338948904
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1283780,
+        "title": "Detroit Lions TE Sam LaPorta Is Biggest Loser In Tone-Deaf Interview",
+        "context": "Detroit Lions TE Sam LaPorta Is Biggest Loser In Tone-Deaf Interview",
+        "source": "Sports Illustrated",
+        "published_at_epoch": 1792668461,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxNeVozR3g2emZ4TS1HeHNpQllJdlUyanJyaE83TFFiZDBGRVBweURpT19CbWdHR3pwLXI2ZjZJYlBHWXA4ajc5VHdfR2JsMktJSVlRYnEtMUw1NWcxdm9HNVRpcGV4WHhRb0ZsQ0FBMnJwalJZd1pHczZ4anJya0dhdkcyTFliWmdfampQYTNENmJIN0ozQVZQYXhwa3E?oc=5",
+          "spectrum": {
+            "emotion": 41.083568413485985,
+            "subject": 92.99443293957408,
+            "movement": 3.7366385239198943,
+            "clickbait": 69.64932274250563,
+            "availability": 2.518726988600521
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1322565,
+        "title": "POLL: Is Sam LaPorta right to take his contract frustrations public?",
+        "context": "POLL: Is Sam LaPorta right to take his contract frustrations public?",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792666080,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQcnB3ZFF0M3hWZFhwaTBmVnZRQTdjdjQ1b2ZEV2d4ZnRKcWludEExTl85UkFVRUd6d05XLVRGSDREWWpudG9HUmdQSTlhQVZZQzVmVUl5TGs1c0JuVWMtYnNRQzJfdjhxZk5BUENtd3VYUFRoX0dGU1NKbl9hNDhuR3hfOThmZDNlWDZZbDJRbmQ?oc=5",
+          "spectrum": {
+            "emotion": 39.9643222026046,
+            "subject": 95.72753842375056,
+            "movement": 58.46825194124804,
+            "clickbait": 8.356524827697665,
+            "availability": 1.7853219443390564
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1283784,
+        "title": "POLL: Is Sam LaPorta right to take his contract frustrations public?",
+        "context": "POLL: Is Sam LaPorta right to take his contract frustrations public?",
+        "source": "Pride Of Detroit",
+        "published_at_epoch": 1792666080,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOYnJEUE5vYTlBdUY1Ml9uTmt6eUVlTGZfd1lnVF9reVFIbmEtamFTemJNeVpnemFXVmdrdm5jc1NOdHdMVF9pYWs0S3h5Rms0WEh3RjRWZ28xLUZxdkJmMHYyRWJOUlpUbmsxVTlXX0VwQTNLY2NWaDJ1Wms3NEFmbUtXVUtocVRaQ3dNNHFnOElMeGdFQWFUanlyaTM0UTV4Yk0xdF9teDhqWlV2MkE?oc=5",
+          "spectrum": {
+            "emotion": 36.94883588066358,
+            "subject": 95.61516744362548,
+            "movement": 57.7896473717599,
+            "clickbait": 8.359680454246721,
+            "availability": 1.7002260524085864
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1264515,
+        "title": "Sam LaPorta Fantasy Football News, Rankings, Projections | Detroit Lions",
+        "context": "Sam LaPorta Fantasy Football News, Rankings, Projections | Detroit Lions",
+        "source": "FantasyPros",
+        "published_at_epoch": 1792643971,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTE1IcGtVM18wTHpKaHhWa3c1UGZ5eWNJbkVraGhPdHVQaGlXdUJyLW8xeVRmRDFOXzBSaVo2QWZDWWRwTkNQVHBoMGtERGxjeVZsRXJUbnFLZjVRejRDMVBuRnVLLWYzWmJoMmtZMGFVQkFkcjVkOWc?oc=5",
+          "spectrum": {
+            "emotion": 1.5866314399518597,
+            "subject": 85.14565371817348,
+            "movement": 3.923307631076229,
+            "clickbait": 5.841032157714139,
+            "availability": 3.5225264491425614
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1264460,
+        "title": "Lions TE Sam LaPorta Frustrated With Lack Of Extension",
+        "context": "Lions TE Sam LaPorta Frustrated With Lack Of Extension",
+        "source": "ProFootballRumors.com",
+        "published_at_epoch": 1792642868,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxNWFZyZUVxdUQtNVBzRXEzczNqUEtUZTIzQkN1Z2NMd19GNTdZSDhyc0V0OEIwdXZlQW84bDhaYXdjSmZVRl9oam5aRGFQSlN3TUF0NXd3VGdoRnNJRUZmSG9oNVE0blA5LWtzcVNCQlFhVGVDWUY2Z2pNSHZNM2xBNlVhbzk5Y2pRaElfQXNBdGF4XzZqNUtZYm15YVY?oc=5",
+          "spectrum": {
+            "emotion": 96.81601997242623,
+            "subject": 93.9629745143034,
+            "movement": 22.33962537798489,
+            "clickbait": 9.743802591007903,
+            "availability": 4.8379255607470135
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1264449,
+        "title": "Sam LaPorta reveals extreme frustrations: I break my (expletive) back for Lions",
+        "context": "Sam LaPorta reveals extreme frustrations: I break my (expletive) back for Lions",
+        "source": "The Morning Sun",
+        "published_at_epoch": 1792638821,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiugFBVV95cUxOVmtmSTl0TmNzamp6el8yOGpHb0JhOUVtMXVyYXJwUi1oQ1NhQ1FJd0tsVlhiZlVpVVlDQTJrbWxoTkhDcHN2eURkaFMycGNEVE5ZcG9BcjRVTU44RkYxendQQUh0VEw1SVU1Rng3cEpOcUtHeURXQVNQeGx6djlzdHBISzFiaGg4TUdIN0hwXzV4Slpybm9WQWNCdWVCcV9VTTQ0d1VHcE9BT29aVllELS1FRUs0SUQ0ekE?oc=5",
+          "spectrum": {
+            "emotion": 96.40545204520484,
+            "subject": 93.32295219118973,
+            "movement": 4.06029557774175,
+            "clickbait": 53.020561710621465,
+            "availability": 63.47043066875165
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1264447,
+        "title": "Sam LaPorta reveals extreme frustrations: I break my (expletive) back for Lions",
+        "context": "Sam LaPorta reveals extreme frustrations: I break my (expletive) back for Lions",
+        "source": "Macomb Daily",
+        "published_at_epoch": 1792638741,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxPQ1RMNHExZHlFWS01aVVZbjYtVjEtU29YMC1hcFZ2ZW9Wb3B6Qk9hMjBlTmdremtyaGFJSFVSdFpZWE9CRHNwX2ZuS1ZQaXkxUGE3cDBMY2NObXlYV25tQ21DZnAtZFVFdVNHODZza1JDdEh5RFlxZV9FM0pydHpsSk5uOFIwVC1hOTZWTW1YSjJNLXJlOVpKaEx5bG5QWUN0U2cwUGsxRzQxUDNWM3FQaFV0eFU4anc?oc=5",
+          "spectrum": {
+            "emotion": 96.42248569513147,
+            "subject": 93.51672670699223,
+            "movement": 3.599508455831423,
+            "clickbait": 50.06084439135358,
+            "availability": 59.0481288736655
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1312845,
+        "title": "Lions Predicted to Flip Unhappy Sam LaPorta for Chiefs DB, First-Round Pick",
+        "context": "Lions Predicted to Flip Unhappy Sam LaPorta for Chiefs DB, First-Round Pick",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792635300,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxQajdMLTk1Ujkxd1BiYnlEZ2hjdmx1QkM3QS1QTU5rQUhpWG5QdDlfMHpiMHMyRFh4b282WmFBZFFVWi04STg2ZWpKc3BpQS0wNV9ySWVNUmUyS2pCY0M2ZlZDcGJQeEQ1WDZocUo4YnI0WUtGQ1dxQzIxUW9xYjBId2Y4SXd5cTkx?oc=5",
+          "spectrum": {
+            "emotion": 32.85428976291353,
+            "subject": 89.24379018600148,
+            "movement": 88.8796125479955,
+            "clickbait": 24.05194635356175,
+            "availability": 8.548564417507027
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1245283,
+        "title": "Lions' Sam LaPorta Is Open To 'Get Paid Somewhere Else’ If Contract Negotiations Loom",
+        "context": "Lions' Sam LaPorta Is Open To 'Get Paid Somewhere Else’ If Contract Negotiations Loom",
+        "source": "FOX Sports",
+        "published_at_epoch": 1792632774,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxOSC1MNzhOTEdkR2dvN290QS01c0hlcXFKTmY4bk1SbHBLdHU1bjRjcURVRE44RWlvSFVpa0RXMEVXZ0VSbWRWdjVqZVNYNXF2RERIQTJIRVljSVNRd2hUMHBCY3JjQnNYNXlGdFZBX3Eta21jakhIT2FXU1RPbzFQR3ZwY2c0RzlGZ3NZeXNPS0RETnVfaG5BUThrUGdHbGVDLVZ0TzV4NVJ2ODVMc1Vv?oc=5",
+          "spectrum": {
+            "emotion": 1.9997184445816985,
+            "subject": 94.49248730172827,
+            "movement": 89.31364051136615,
+            "clickbait": 10.338066254401793,
+            "availability": 2.0548968080981833
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1312854,
+        "title": "Lions Fans Don’t Hold Back On After Sam LaPorta’s Comments",
+        "context": "Lions Fans Don’t Hold Back On After Sam LaPorta’s Comments",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792628040,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiekFVX3lxTE5QaUFkMUI1M0hYeW1uWnFBNWl3RGNpX3VBZ1c4bk9tUHNxLU1RNVZvakxDNkEwa3RxWDdKNEhlRHh2cnl5blFhYTRxSXZXZEl1dmp4MHZYa1p6T2pKcFgwOG1hQzRZcFdmQy04OEtFVTV5LXRzYWYyQ2x3?oc=5",
+          "spectrum": {
+            "emotion": 14.903021470979086,
+            "subject": 82.9737885678054,
+            "movement": 8.206236366141338,
+            "clickbait": 13.036065030024005,
+            "availability": 2.895128436325949
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1235592,
+        "title": "Sam LaPorta Sends a Clear Message to the Lions After Revealing Contract Frustration",
+        "context": "Sam LaPorta Sends a Clear Message to the Lions After Revealing Contract Frustration",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792626067,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNekNlVmpYUHQ2d3dDN0RGdGNhWjZJYVRfNHJscVJHTFo1Q3F3dWp1WVlUeGd1UktPQTBVbzRlcWxjc3VQeEtKLVZ5MXhtNjZ1S08yS1ZBcWUzRVVsSXNkNk1uZjV3UXBmS1Ryc3dzTGxzTnhHRmQyS1pkcHItS082X2VzaFJtMEE?oc=5",
+          "spectrum": {
+            "emotion": 88.0677671716412,
+            "subject": 92.71229269242812,
+            "movement": 90.97965568487099,
+            "clickbait": 9.881623224016463,
+            "availability": 2.312939476371376
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1225891,
+        "title": "Lions’ Sam Laporta drops NSFW ‘disappointing’ admission about not getting contract extension",
+        "context": "Lions’ Sam Laporta drops NSFW ‘disappointing’ admission about not getting contract extension",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792624122,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxPeWE4LWZjcGhTck1OQm9BclJwTFI3aUtHWjlaSTVHWnJUYm5fYkRuQTVnVW5ZVl9ZMEpDTUdZcVN5dGwySU1ybkppQmVqZWstQzVYRWZyd0hSbml0R2dIU0l3SEhSd2J1LVNfMGdudFlRd1luNk15emo5S1N6bEhLUW9Ccw?oc=5",
+          "spectrum": {
+            "emotion": 83.43900189772391,
+            "subject": 95.42139784163595,
+            "movement": 80.08094678986687,
+            "clickbait": 30.839116825443146,
+            "availability": 2.257391930460606
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1225892,
+        "title": "Sam LaPorta shares disappointment in Lions for lack of extension: 'Break my f---ing back for the team'",
+        "context": "Sam LaPorta shares disappointment in Lions for lack of extension: 'Break my f---ing back for the team'",
+        "source": "Fox News",
+        "published_at_epoch": 1792622036,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMivwFBVV95cUxOYzQtR0VKOHJCc0hvVUE4U19GUnVVWVNmYldmdHNQUmtDWDJqUUwzYkpWbWNfNW9hTTVGOGNGcmZGX3I0SUxhT3JROVJic0lKQ1FGNEViOFkxNzRiWF9sb1ZsTzdrNGxQUDZSNmNmWUNaejZob0p0Q2w4S1dLT3pSX0NXdUVJQTlwMS1Nd0hQeGM2YU85c0twUHFhb1lxQWs2Qmc0SzFGMldiY0lZT1dVUjlCU2lKWlVTSGxYcFBkOA?oc=5",
+          "spectrum": {
+            "emotion": 96.92339504504733,
+            "subject": 94.34587842101392,
+            "movement": 76.39931288764089,
+            "clickbait": 55.17539384814106,
+            "availability": 14.435604912268522
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1235594,
+        "title": "Sam LaPorta Admits Frustration Over Future With Detroit Lions",
+        "context": "Sam LaPorta Admits Frustration Over Future With Detroit Lions",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792619066,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPTWNnelFsNTlObG5jSkZrNUNtSFB2cFYtWWlSd2RQR0t4SGhrRUpCUWNiWXBpXy03UF9xWlg5U005dmpOSXNqNE5WSkx6QnFidFJEOWhVR1hXSW1ZM2tFcTRTbGFtaEdUT3ljQTljcFowTERadlZib1FUbk9lZGxjVGFIbjAtSlFRWWJZdg?oc=5",
+          "spectrum": {
+            "emotion": 95.70762531499079,
+            "subject": 95.3288207885665,
+            "movement": 49.70088361901912,
+            "clickbait": 9.383714739333831,
+            "availability": 2.42677858794088
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1235598,
+        "title": "Lions Tight End Sam LaPorta Sends Clear Message to Front Office After Not Receiving an Extension",
+        "context": "Lions Tight End Sam LaPorta Sends Clear Message to Front Office After Not Receiving an Extension",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792616186,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNMFVhN0R1R0prSzBfWTdDdko1X2EyUHNYQ1lrbDRBaE5sM1ZOaHpUUm52Q2FveFQza0Vxc0FjdGtsOXZlNXk0c0x2SFY3ekFPV3l3d2tCNGNrT3RhQ0tzdlVfMnZ0VTcxM19DbzQyVTR1cGZJVXhQd25kQlNtaDI0cmNn?oc=5",
+          "spectrum": {
+            "emotion": 9.343053031986331,
+            "subject": 95.40647508308068,
+            "movement": 51.26039500930094,
+            "clickbait": 11.74819278246125,
+            "availability": 3.8084183111002723
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1206646,
+        "title": "Sam LaPorta sounds off about contract situation with Lions: 'I break my f-----g back for the team'",
+        "context": "Sam LaPorta sounds off about contract situation with Lions: 'I break my f-----g back for the team'",
+        "source": "CBS Sports",
+        "published_at_epoch": 1792614090,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQdThXM0k3Ykt0WFpEcmxUWmhFc0kwanc1c0VTUWJGaUM0UkkxU0N3OGVkd2RkbkhrRkRkTEhkMFZDbFQ5VElUUDhwdHUyMXcwTFczTXRCd1dlVlBFRExyd0FLa2dEN1I1ZFVfbENGX1ZsM2Z5LURVXzFIZzdpWEpxVDRUUjJ0U1c1ZmJDTElRT3RfMWc?oc=5",
+          "spectrum": {
+            "emotion": 28.08305051258428,
+            "subject": 95.2027873405996,
+            "movement": 94.67241853023963,
+            "clickbait": 54.99380460586099,
+            "availability": 44.95332802733047
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1196920,
+        "title": "Sam LaPorta talks Lions contract extension on 'Pardon My Take'",
+        "context": "Sam LaPorta talks Lions contract extension on 'Pardon My Take'",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792613873,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxObU13MkJsZ3hDeURmUXlhM0lsb1h1VWpqYlVpekh0dlhDMVFXa3ZyTU5ydTBSWXFZbGdwVzBFYURIOVBNOWpER0pnQWxBekhGQkhnZ1BwUnpOZ2hRZ2xhTGFoTnNsSEhPdG9QVFJuemNleGcyZ29MSm5kVlhTNkhqTVhIQQ?oc=5",
+          "spectrum": {
+            "emotion": 2.1949973435134296,
+            "subject": 94.6808203176347,
+            "movement": 91.41261652112685,
+            "availability": 30.220442189086643
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1235583,
+        "title": "Sam LaPorta fumes over Lions contract talks: ‘Break my f–king back for the team’",
+        "context": "Sam LaPorta fumes over Lions contract talks: ‘Break my f–king back for the team’",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792613853,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxONTVTZVZ4QW53cXgxT09GN09Vd0Viam5XakF2QWJaaFMxNDJ1dEdsYmI3WWFMallNMlk3OFJNb1VDTlBTNUVrQUpjdVdWYWo0NDJnUGJEeHlrUDhVNkpmdWdWeU5hVHJtYnFIOEM4bVFhU0JzbWNHR3JtOU1iT0NzYU92aw?oc=5",
+          "spectrum": {
+            "emotion": 85.99293127972761,
+            "subject": 95.392805524534,
+            "movement": 97.4176802549175,
+            "clickbait": 66.26962818233699,
+            "availability": 12.006955148316637
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1194843,
+        "title": "Sam LaPorta fumes over Lions contract talks: ‘Break my f–king back for the team’",
+        "context": "Sam LaPorta fumes over Lions contract talks: ‘Break my f–king back for the team’",
+        "source": "New York Post",
+        "published_at_epoch": 1792613820,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxOQ3doVDUyVmVDWnNycXdBWjFlM1pLSjN2SDd1T1I4SE02WktOdXF5Y2RJNGE3MjFtVUdhV3lTZXlxQnFsdDhZRGU5OUhRQWlRZGNCSTZwZVJJWkZvYS1ieGk1ODNYSXJFRExFM2pyVmZrRWhkTTAta0FYMHNicjZLcTZ3dURVTVhzcU10eE1Ib2hYMGVXS251WE9fR0F2SXpaYmV1SDFseGdhOWFMTS1ZTFA0cVRQQQ?oc=5",
+          "spectrum": {
+            "emotion": 86.69532800731476,
+            "subject": 95.57237113264866,
+            "movement": 97.4012533675301,
+            "clickbait": 67.11102979655537,
+            "availability": 11.318728944337172
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 844474,
+        "title": "Sam LaPorta Fantasy Outlook & Stats",
+        "context": "Sam LaPorta Fantasy Outlook & Stats",
+        "source": "FantasySP",
+        "published_at_epoch": 1792613546,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE5VZTZ6cVVtWFlHOGxMZ2dBQzVpU1NQYnVYYlR4WGV2RGItRXRxSlBjRTZ5WENDTU9DY2hubE41WDlvazdjOGljWDVMeHlrS00wdDJrWEFVeDV5TGpxWk9ueG12NG0?oc=5",
+          "spectrum": {
+            "emotion": 2.3100710575589676,
+            "subject": 91.51108484912795,
+            "movement": 6.280694504633949,
+            "clickbait": 6.797272134284365,
+            "availability": 4.672563828376053
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1342155,
+        "title": "Sam LaPorta says he is prepared to leave Detroit if the Lions won't give him a new contract",
+        "context": "Sam LaPorta says he is prepared to leave Detroit if the Lions won't give him a new contract",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792613455,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQZEVMa083U3RrQTZjbGR3Z0RhdXFJXzNQVlZWOGFoa29mVElWdDJNWWZQMjR3eFh0SE1aV2poOE9rUHRESWNVQ25yUER2aU9od3VDSmphSnl6T1pneEE1Nm5qN3BsQVNVMFBRZjJxaE0yV1R2dUtxbkdva3poMktfZzhpczZhejg?oc=5",
+          "spectrum": {
+            "emotion": 3.1169912214927535,
+            "subject": 95.05214289491708,
+            "movement": 96.1773158957553,
+            "clickbait": 9.644186549433384,
+            "availability": 2.317278847629461
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1197553,
+        "title": "Seattle Seahawks Need to Trade for Sam LaPorta",
+        "context": "Seattle Seahawks Need to Trade for Sam LaPorta",
+        "source": "TWSN",
+        "published_at_epoch": 1792613246,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE5BS0Z5cmR3Zk5iRVZ3TTNEZ3A2S3JhSzFjOFZQVTFTS0NLLXN1QUFNSnY2REhraWMycXJVQ3hVOVBYYjJVTGlpYjlDaThjRkh2QUtzWUVCY3I1VHlzQ2R1VXp0bGlJeDlTQkFaN2Q3VHI1TVQ2dVZZQklaTGVBXzQ?oc=5",
+          "spectrum": {
+            "emotion": 6.295294288589523,
+            "subject": 74.64914422551819,
+            "movement": 83.12195920751385,
+            "clickbait": 16.187971211215444,
+            "availability": 4.616306617056954
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187213,
+        "title": "Sam LaPorta expresses disappointment Lions haven't extended him yet; TE prepared to 'get paid somewhere else'",
+        "context": "Sam LaPorta expresses disappointment Lions haven't extended him yet; TE prepared to 'get paid somewhere else'",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792611223,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi7gFBVV95cUxPcFMwT1BOelBHdWhkMS1KZkZNbkJ6X2t3QnBoYXhWb0g5X1lHSGNXc1FTM0doSnhHdU5ZaTIwQXl2NEY2N2VyTzB6SlprNkVRWmRiUndjclFib2RhUjhiSGx5V0c1QUhkWnZVbHpjemw1OEpBTUlRTTdyM3FoTnZKWkdZaEU3czVld0hsMTA1YlEwR0dzaGhYaHg5MEtvS0RQUHBBb2tRTG9EUFA1WE1OalQtRXFsZFV2Q1liNnhCQmEwQi0zaUNTTUp2bXZGaUZjQ2NyeUpab0RteXZFQzdSdUNvWHpFUkl3VEg1anRB?oc=5",
+          "spectrum": {
+            "emotion": 96.88828625767792,
+            "subject": 94.49462104464513,
+            "movement": 93.83383460943976,
+            "clickbait": 10.22365876633533,
+            "availability": 3.7010034527466624
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187201,
+        "title": "Sam LaPorta on lack of contract extension with Lions: ‘They’re just not showing the love’ - The Athletic",
+        "context": "Sam LaPorta on lack of contract extension with Lions: ‘They’re just not showing the love’ - The Athletic",
+        "source": "The New York Times",
+        "published_at_epoch": 1792611105,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxPTlRwdjJ0WkV3czVoRGdWZElwXzJiQzJyaV84WFREYzMyU2hiN1RZT1dzRWVJRm5YZlFRek51UEk0aURxQUlyTXRkWlZhZk9CM2Q1R1ZSX1J1MjFiZHhEYkRwbWdVTWdiSkhyc3VoVW4ycHY1VzJJV3M1VXFVZHItdGh2QVhocnAydnpfbFhOTWNiSksxd19uWXRLR25idw?oc=5",
+          "spectrum": {
+            "emotion": 58.40927966391585,
+            "subject": 93.31932632032895,
+            "movement": 94.11774213772289,
+            "clickbait": 9.689706837518,
+            "availability": 3.0701390335239886
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1235666,
+        "title": "‘You Will Be Getting Traded,’ ‘Not the Kind of Comments You Want To Hear’ — Lions Fans Fire Back at Sam LaPorta’s Complaint Over Contract",
+        "context": "‘You Will Be Getting Traded,’ ‘Not the Kind of Comments You Want To Hear’ — Lions Fans Fire Back at Sam LaPorta’s Complaint Over Contract",
+        "source": "Pro Football Network",
+        "published_at_epoch": 1792610323,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTE1ZaFJDUGo3al9mMnQtMGJobUxLNUEyTzkxckNrUmZRaWdmdEVYS1pTU0I4RTMxS29TZnlRYVZ6VG80T21nR2tRMFVNZFBPLVhNRjdCMXM3SkRRS212TE52bXRIa0tNeXRfZUdTSzdRazdMd2lsemc?oc=5",
+          "spectrum": {
+            "emotion": 33.46548406617818,
+            "subject": 91.00997648635868,
+            "movement": 78.9715231691412,
+            "clickbait": 9.071817940039697,
+            "availability": 3.233299196171184
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187250,
+        "title": "TE Sam LaPorta: Lions 'not showing the love' in contract talks",
+        "context": "TE Sam LaPorta: Lions 'not showing the love' in contract talks",
+        "source": "Reuters",
+        "published_at_epoch": 1792609185,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxOSS1JZW5jNFZoa2R4aEJ0NXRrY19RX1RjVndaVWIyellPMW1PZFAxTm81OFp5Q1hyUWgwZW9jdi0xcldjRnFabTBJcld1N3Joc3JHaGdsWTdXaXJsdjdUX2N0S0FwWjlQSEdCVVVyenZHZmNDTUItLTI4S2lUbmRWTjUtOHZsMzc2OF9acTVhd0lSaC1tZF8wcG51SDRaZGN3Y3c?oc=5",
+          "spectrum": {
+            "emotion": 32.25072290894246,
+            "subject": 94.2438054986912,
+            "movement": 97.2913826670349,
+            "clickbait": 10.683228726387192,
+            "availability": 1.7038224206529413
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1245329,
+        "title": "Sam LaPorta: If I don’t get a deal from the Lions I’ll go get paid somewhere else",
+        "context": "Sam LaPorta: If I don’t get a deal from the Lions I’ll go get paid somewhere else",
+        "source": "NBC Sports",
+        "published_at_epoch": 1792609135,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxPVHVxSTVlczZ6eERQc3BOYkJ3clYwYmJMSGdZSU1ORDRPbUEyZzJPMk1LTXd1NFktQ0tEdnVobENzdUFSWkhoSzJLR1Y1VEJTTE9IUGFpS1l3NWQ5RlRyNE9URnMxekdVMUdmNXFMQWpfclhBN1NoaU02SnZRdkdRRmtnLXl3dVZzdWJqZ2kxOXlsOXlocVRGcDlVMkRCSXhpM0xRNzZvcVQxSDlqdm5nbW54RVFGVzAtbFF4dW12VDJYQVBzMzNEaExXSlhNbkVHdkw0YVA3Yw?oc=5",
+          "spectrum": {
+            "emotion": 3.8498374017618886,
+            "subject": 93.89180341634584,
+            "movement": 89.72197860715542,
+            "clickbait": 8.77271871161125,
+            "availability": 3.3302236556448017
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1196933,
+        "title": "'I'll go get paid somewhere else': Sam LaPorta sends frustrated message to Lions over contract",
+        "context": "'I'll go get paid somewhere else': Sam LaPorta sends frustrated message to Lions over contract",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792609024,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNOThsRzJRbFJ3aGJBc3VlREczRFNJdE40VS1nZGNNNFE1Vi1aa09uRkRtNGIzRF9sb28zdEZTVUwxZXExa3RFVDRFVHZFaTZnLXpOcmV6RTd1VGZVRlcwQW9xbWdsWjFmNVZtemhpaHlEOEJHR2hIRTZDdEdBQzBuY01R?oc=5",
+          "spectrum": {
+            "emotion": 91.88086768874808,
+            "subject": 94.67419798489249,
+            "movement": 88.94523514980824,
+            "clickbait": 18.289708583929905,
+            "availability": 3.5568336492121024
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187227,
+        "title": "Sam LaPorta: If I don't get a deal from the Lions I'll go get paid somewhere else",
+        "context": "Sam LaPorta: If I don't get a deal from the Lions I'll go get paid somewhere else",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792608997,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNc0V2dGRLYXk5ZWRwLTNYbHZhOUlTcF96QTZnSDNSV3djVEN1WUJpV05OT2FGeVZ4MFBhQmVUeXhuNUw1Zk9RVlZidk9Za1BzRnVMbFVMOXJhdGx6Z2drTG9JZy1nUjFRZk9wSGRjX1gtM3Awb2YtSEU4Zm4zTlhXSnB3?oc=5",
+          "spectrum": {
+            "emotion": 3.630611150829212,
+            "subject": 94.15881048816725,
+            "movement": 89.1235165542648,
+            "clickbait": 9.32857163916912,
+            "availability": 3.3985645550658035
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1196946,
+        "title": "TE Sam LaPorta: Lions 'not showing the love' in contract talks",
+        "context": "TE Sam LaPorta: Lions 'not showing the love' in contract talks",
+        "source": "National Football Post",
+        "published_at_epoch": 1792607929,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxOV1FXbFhibS1ib2hwUmduNlNGd18zRjV2ME1iUEd0bUx3aG5JOWpkOWYtRmdSZmp3UEU0WFcyTVhraGlaaUlEa01Jd2loeVBHU05IcFF2cG51VWV0THhNVHVpN1BWMkIxVXBTdUVJNk81VVpuUExGRHZHVVJHQUZJdDBQWW1tVjQwLXJMTzF0NzlHSndnMnlNajRYTmM?oc=5",
+          "spectrum": {
+            "emotion": 34.034471693752025,
+            "subject": 94.46718047227375,
+            "movement": 97.18434895672716,
+            "clickbait": 10.919878721083789,
+            "availability": 1.7578332508908299
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1216252,
+        "title": "TE Sam LaPorta: Lions 'not showing the love' in contract talks",
+        "context": "TE Sam LaPorta: Lions 'not showing the love' in contract talks",
+        "source": "Centre Daily Times",
+        "published_at_epoch": 1792607400,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE9tS3dlQXhnMmd1M2RNNjFoRVM0Z1Jxdkx5am00RW9IOGNqQVNNWVYzRWdDSVFUNGxxdm9wc1U4N2t5QzhqdnlQdm5SZS0wTzZCY3J4SHV4Q2ZYZlFYLWNvQ2I1RWQ4RVIyajFxeg?oc=5",
+          "spectrum": {
+            "emotion": 34.91707216708181,
+            "subject": 94.0509165554822,
+            "movement": 97.20262102135068,
+            "clickbait": 11.28983279750652,
+            "availability": 1.825074004464242
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187289,
+        "title": "Sam LaPorta Isn’t Hiding His Frustration Over Stalled Lions Extension Talks",
+        "context": "Sam LaPorta Isn’t Hiding His Frustration Over Stalled Lions Extension Talks",
+        "source": "Bleacher Nation",
+        "published_at_epoch": 1792607398,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMieEFVX3lxTE14Rm5nVGdjRF8wbkhxSHFndlJyZ0NDTjRMYUtDSFFuWU9TRnVtcFR0SXo0Xy1iekk5b1hHX1BjRzRmdm1BektBcjdzNDdZNTZpWWNqUEJhZzItdjZIYlQ5bl9vQjRTWXY3WUY1ekFLYWRHc0p0ZjZuYQ?oc=5",
+          "spectrum": {
+            "emotion": 95.37311662701859,
+            "subject": 94.19293632669132,
+            "movement": 92.60277411886139,
+            "clickbait": 8.861766688175388,
+            "availability": 1.8663335406357549
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187255,
+        "title": "Sam LaPorta not feeling contract 'love' from Lions ahead of 2027 free agency",
+        "context": "Sam LaPorta not feeling contract 'love' from Lions ahead of 2027 free agency",
+        "source": "ESPN",
+        "published_at_epoch": 1792607340,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxOaEpMdjEtTktGcUd0QXM3Q0tmTEt2eGpMN3o4bm4wN2Z0Vjl2dWp5RDRvbEVTTVVzR3REVzFWTUh6eFIwRmNJQy1XWGRzakRodkdmR0Z3TUdtUXVNWEdobC1jRHJhUXhfVk9JTEphWTBmbTNGR01KYV81X0tmUENseDhPY2JFS3JOWElScXRwU1p6ODg?oc=5",
+          "spectrum": {
+            "emotion": 56.86474140495669,
+            "subject": 95.11090609113012,
+            "movement": 66.86111118280556,
+            "clickbait": 9.80169134354736,
+            "availability": 4.762116540353088
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187294,
+        "title": "3 Sam LaPorta trades the Lions would have to consider, including one that solves their biggest problem",
+        "context": "3 Sam LaPorta trades the Lions would have to consider, including one that solves their biggest problem",
+        "source": "A to Z Sports",
+        "published_at_epoch": 1792607233,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi4gFBVV95cUxPRHBuel9CZzRqQk9FVGs4dnJZaGR4NjFxZUhaaE9adkxWNnM3RGF0Si10RlhncTE4Nk1aQU9uTGoyWjRYNGlsZERGRjNiWmhWanBsREhiOHFKLWVZaHdYTG1CbHIwWUlkeEQyYWZxOWxja2FUek56aG9HMW40QnE2Ujdta3RBbTF0SUdLYi0yV1NWeUI4TnYxc1d4OHJYTTJIRnFaT1dVR1c1VFdfYWw0T05pTDhzeE9jUDBvaG93UXphVHUwMm1wY3RNXzh5OG9fZVVtcTR4eXpOMVpVRDhMWkt3?oc=5",
+          "spectrum": {
+            "emotion": 1.777739238443728,
+            "subject": 92.94441562919602,
+            "movement": 96.528356372573,
+            "clickbait": 8.385345436198238,
+            "availability": 5.95789389628176
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187261,
+        "title": "Sam LaPorta Says He Broke His 'F--king Back' for Lions, Sounds Off on Lack of New Contract",
+        "context": "Sam LaPorta Says He Broke His 'F--king Back' for Lions, Sounds Off on Lack of New Contract",
+        "source": "Bleacher Report",
+        "published_at_epoch": 1792605940,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxQTWxMZW8zSDVicGt3aXpzU041V0ZTZ1Iyd2xZYW44cDMyX2dmWVFoZ0NLX2g5ZU12WnAya2ZJbERRNHI5UGdGcEpqVGF1ZnB3eUQ4ZHNPbEs3QVc2ajVid295Y0p6NlFhMVhNbTJpU1VraDF5Q0JpQWxJLTJuM0xQZWFqTURHWXRhU25Vc2dnTmc0SnlMUGpHN3hXM1ZLS2V0SmxPWTJiSG5xN3NKc3JxcUlKWDNab3hG?oc=5",
+          "spectrum": {
+            "emotion": 13.357583701175788,
+            "subject": 95.59804672339163,
+            "movement": 91.2585996518998,
+            "clickbait": 74.83232017360437,
+            "availability": 85.77962594034813
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187277,
+        "title": "TE Sam LaPorta says Detroit Lions 'not showing the love' amid contract talks",
+        "context": "TE Sam LaPorta says Detroit Lions 'not showing the love' amid contract talks",
+        "source": "Detroit Free Press",
+        "published_at_epoch": 1792605000,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxPdldZVVBNdXhIcFZsMTFFWmNVNmxTdk5mTEZLWkg5cVJQV3ZUWW8wNDRONWt3aFVQNmVfNmlKNHR3X0VmYWxDZHFrTmRWTU44MUpvRFNBOS1BSXhDdUdZdm44ZVotMThPNDAtQllCZUZzTWh4SVdHRVZla1FMLTlzOVV5ODR0RTdDX1gzRExwYW0yZFpmSjZLTlNhS0wxaHI0WlJWUXlsZHNNNHNwWTJ5Mg?oc=5",
+          "spectrum": {
+            "emotion": 36.03263659846664,
+            "subject": 91.80453296915552,
+            "movement": 96.79031450766405,
+            "clickbait": 10.582206495819808,
+            "availability": 2.249237773407018
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1196956,
+        "title": "TE Sam LaPorta says Detroit Lions 'not showing the love' amid contract talks",
+        "context": "TE Sam LaPorta says Detroit Lions 'not showing the love' amid contract talks",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792604360,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxPRG5wTUtyQ0p1R0lHdFdjOVd0XzR0c0NabERZalFzazhMNWtKNzFqUGllQ09BSTJKRWNoNmtoUDYxQmRYeTg0TklHRE5xUEhKVnViTVpaUkpldWhKck80aXJIR0t2dUhaVnc0TG1wWVBqc29nSW00X05CRlVRZ241d1l3?oc=5",
+          "spectrum": {
+            "emotion": 34.92058316137127,
+            "subject": 92.49656298542452,
+            "movement": 96.79996493127871,
+            "clickbait": 12.484119193308803,
+            "availability": 2.285198901949045
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187258,
+        "title": "Sam LaPorta Unleashes on Detroit Lions Over Contract Extension",
+        "context": "Sam LaPorta Unleashes on Detroit Lions Over Contract Extension",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792602377,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxNTFprQ2lWWGlyNWZlME0zRl9tbUplMXM4bFN6ZVdLcVlqX1M5eUp6emY2VlNEY3hMSjlnVGdJRXRDTElBN1pDamVHX2M1SnBqMUlqRFVoTkJ2aTYzLXlPLUVVVUlFX3NzLWRtdzZCWjV4QnFSOTRwVWxyY2xWSzl0aHA2bjhsUWJyQi10MQ?oc=5",
+          "spectrum": {
+            "emotion": 4.465230259636073,
+            "subject": 90.45754857609516,
+            "movement": 87.61982722126767,
+            "clickbait": 19.697761285577265,
+            "availability": 3.4144114993747685
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187264,
+        "title": "Sam LaPorta just said what he’s been feeling about the Lions, and Detroit should probably take it seriously, because it is not good at all",
+        "context": "Sam LaPorta just said what he’s been feeling about the Lions, and Detroit should probably take it seriously, because it is not good at all",
+        "source": "A to Z Sports",
+        "published_at_epoch": 1792601279,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijwJBVV95cUxQUUVXMTB3akVIem9nSk1vMUE3ZjhqWVBiQkhUTUtfQVdTZ1ppVGt0TUkzRGZlb3N0MHJpeUVSUEdLeHFoQlpxWEFIQmgxRWU5TDVvbUhCZlJQWFljczBLN0VFVjZ1NVBtWXRSNEl3WkU5cW9Cc1N5eGxSR3RwcTlsN2lrUGs4NnZzZXlQT3Q3Vnpfa2lxb0kyMGZ1aUFUazZuY21yVzFpREhJYkVhaFBRYm41dzRIREt6dldvU3Q1UDJVejN6SEFVTXdQT25DQXozdjZBcVBfT1VIZ1BxQlFubGxiVHJCaFo5VjRGWXhYa0UwTlkxT0xVUVZab180Z1F2SzZHYnNyOHVZb2NSbFRz?oc=5",
+          "spectrum": {
+            "emotion": 25.148035494737304,
+            "subject": 90.07838961926787,
+            "movement": 3.2995546427846585,
+            "clickbait": 7.78913746003817,
+            "availability": 1.9805440029885761
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187262,
+        "title": "Sam LaPorta expresses frustration over contract stalemate with Lions",
+        "context": "Sam LaPorta expresses frustration over contract stalemate with Lions",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792601107,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQRXRTYjAzX1RPYkwtV0phbTRUQlFJQjdadkx4UlU1eW1PSkVFREFXNlA1WGtLekJmQTA2SkUwTU1qa1l6S3RnR0tFNFFwOG1aU0EwNm5LUnhDaUJndzQtZ1pTaWdjWktmTFlNREF5aDBFbXVHdmROVnZUaDl0azQtc1Y0amNlQ2o0S1p5WkpJQWo?oc=5",
+          "spectrum": {
+            "emotion": 96.89165999386657,
+            "subject": 92.1940779420057,
+            "movement": 96.61796563652828,
+            "clickbait": 7.434194239798362,
+            "availability": 2.152247134563782
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1196962,
+        "title": "Sam LaPorta Reveals Extreme Frustrations: I Break My F'''ing Back For Lions",
+        "context": "Sam LaPorta Reveals Extreme Frustrations: I Break My F'''ing Back For Lions",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792600979,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxNSkRKbkJJVUktWGJrUEZONWhpNW05SEhPdkNFTkZXV2lZRG9tMUxvdDl6UWFodFhobWdpY3dmdG5qbnhSMlc5RnBHcXNXNTIxZF9fNm1hTjVWX0lIaG1lZnBGb3IyQUFmS3cyTS1LaGZ5MTRpQ2NkdWF1V1lMd2MzRUlUNzNXakRuMy1wdXdDeGVIeTg?oc=5",
+          "spectrum": {
+            "emotion": 96.69051117437645,
+            "subject": 91.55554792763836,
+            "movement": 6.22524910703782,
+            "clickbait": 78.35116441099811,
+            "availability": 46.92319067328121
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187293,
+        "title": "Sam LaPorta Reveals Extreme Frustrations: I Break My F'''ing Back For Lions",
+        "context": "Sam LaPorta Reveals Extreme Frustrations: I Break My F'''ing Back For Lions",
+        "source": "Sports Illustrated",
+        "published_at_epoch": 1792600978,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxOemxEakg5TUQ3aVF4bUprWnVoVmtObWZTNXNBbEZOM2c3cE5FckIzbkVadTlDRW5WQkswOVdmajE0QTYwVHNicFltSTdJZi1SRkZKWnZYNUw3LVdISmMtWF9DVkJxVkFLODA3bzM4eXA3eGZJM21HaENUcVZLTnRpODl3R012SDNaTmFqRm1MNnFRTEswalVKRW4tU2FYNVE?oc=5",
+          "spectrum": {
+            "emotion": 96.7130924112656,
+            "subject": 90.90346608206454,
+            "movement": 6.604901312627956,
+            "clickbait": 77.90520849028509,
+            "availability": 49.210566324233646
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187257,
+        "title": "Sam LaPorta disappointed Lions 'not showing the love' in contract talks",
+        "context": "Sam LaPorta disappointed Lions 'not showing the love' in contract talks",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792599931,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxNVGdvY1JLbV9VcVhkTFd5V2ZYWk1kbG1kcnhBcFRhb0liTnpTRlZrcy1nVjZjTHcyMHRTU3JiN0J6Z29MbVFhOE5SX2VLWkdpMDFhbDd5dmh6bmVOalRKYzRsNk9fNW9vVk5pOVVwUWJQMW5ad2htbWNXc0xWSTNIUV93MVd6WHZBVFhV?oc=5",
+          "spectrum": {
+            "emotion": 96.30747769867872,
+            "subject": 95.35399836814886,
+            "movement": 97.65766091840744,
+            "clickbait": 11.477640726886436,
+            "availability": 1.7024972459976146
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1187259,
+        "title": "Detroit Lions TE Sam LaPorta vents frustrations about contract situation",
+        "context": "Detroit Lions TE Sam LaPorta vents frustrations about contract situation",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792597500,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxNZU9TaW9LVkNSVThNcjNQWkFkVjhERllnX3B2VnVFQlkwSEgtX1Z1bm1HTDZ4RWk5OVZ0aGg4NWJ3MmNMOWtmUXlpOXI1OFRLeU9TVkM4LTBOZHFWWnlRUU5FSjBfM1BRRFQ0M015cm5JT3A4RDlQVllkZTBsUDZnRmM4bw?oc=5",
+          "spectrum": {
+            "emotion": 96.67793336846529,
+            "subject": 95.61155952406341,
+            "movement": 90.48646943535984,
+            "clickbait": 7.844194560794961,
+            "availability": 1.577833967801126
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 993393,
+        "title": "Lions Insider Predicts Sam LaPorta Contract Outcome",
+        "context": "Lions Insider Predicts Sam LaPorta Contract Outcome",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792420305,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPeXN2Z3Z1V1V2bXlEd0tRM1V2Y2F5bDlJUWQtOVgtdnIxVnJ3d2RrZzI5SGtSaHUxak41cU4yNG45RTFKWUNEWEJEcDhHUUZTdzJxQnV2RkotNk52SURsN2JhUUtSNHNmUWs3c1U1TDhtZUdQZHdmWmR5cEF5Ym9MV2dabDZnQV9xRzg4?oc=5",
+          "spectrum": {
+            "emotion": 2.780572666178339,
+            "subject": 91.90596012608452,
+            "movement": 92.4236968265156,
+            "clickbait": 9.33765849758335,
+            "availability": 3.5582406238587745
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

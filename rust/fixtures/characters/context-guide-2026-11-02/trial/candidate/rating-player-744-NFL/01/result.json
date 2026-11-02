@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/candidate/rating-player-744-NFL.json",
+  "generation_wall_ms": 3701,
+  "input_tokens": 1885,
+  "name": "rating-player-744-NFL",
+  "output_limit": 700,
+  "output_tokens": 80,
+  "parsed": true,
+  "prompt_version": "s82-context-guide",
+  "reading": "Sam LaPorta's 2026 profile shows elite relative standing in air yards responsible (90.6th percentile) and strong relative standing in points responsible (89.4th percentile) within a cohort of 828 teams. These measurements are based on only five recorded appearances, which falls below the ten-appearance threshold for a robust reading.",
+  "request_bytes": 5027,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 3710
+}

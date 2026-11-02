@@ -1,0 +1,8 @@
+indexed: cargo test --lib --examples --bin eval: 415 passed, 74 ignored, 0 failed.
+restored: cargo test --lib --examples --bin eval: 414 passed, 74 ignored, 0 failed.
+Restored release character_package and character_outputs build successfully.
+All twelve restored runtime prompts equal their frozen control prompts byte-for-byte.
+cargo fmt --check: passed.
+git diff --check: passed.
+git apply --check candidate.patch: passed.
+No deployment, publication or database writes. No independent human review or production capacity test.

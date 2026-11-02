@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-rating-team-22-NFL.json",
+      "generation_wall_ms": 8670,
+      "input_tokens": 801,
+      "name": "real-team:22:NFL-rating",
+      "output_limit": 700,
+      "output_tokens": 89,
+      "parsed": true,
+      "prompt_version": "s79-measured-perspective",
+      "reading": "The Packers' 2026 season measurements indicate elite interception production at the 100th percentile and strong total tackling at the 83.9th percentile, both derived from a thin sample of 6 appearances. The interceptions and tackles figures are relative standing within a 32-person cohort and do not support a comparison to prior seasons or inference of cause or tactical role.",
+      "request_bytes": 674,
+      "review": [
+        "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+      ],
+      "status": "accepted",
+      "task": "rating",
+      "temperature": 0.6,
+      "wall_ms": 8676
+    }
+  ],
+  "completed": 1
+}

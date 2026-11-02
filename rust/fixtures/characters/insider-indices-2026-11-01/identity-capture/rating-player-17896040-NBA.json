@@ -1,0 +1,79 @@
+{
+  "name": "real-player:17896040:NBA-rating",
+  "task": "rating",
+  "sport": "NBA",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Jalen Johnson\",\"entity_type\":\"player\",\"sport\":\"NBA Basketball\",\"database_record\":\"Jalen Johnson — F, on record at Atlanta Hawks. Nationality: USA. Record: roster; observed 2026-07-04.\\ndate_of_birth: 2001-12-18 [2026-09-12; source 88859]\"},\"fresh\":{\"season\":2025,\"sample\":{\"Games Played\":78.0,\"Minutes Per Game\":35.3},\"values\":[{\"label\":\"3PT Shooting\",\"measure\":\"three-point field goals made\",\"value\":1.7,\"percentile\":54.8,\"cohort\":253.0,\"band\":\"average\",\"prior_percentile\":27.1,\"standing_change\":\"rose\"},{\"label\":\"Discipline\",\"measure\":\"personal fouls\",\"value\":2.2,\"percentile\":41.7,\"cohort\":253.0,\"band\":\"below average\",\"prior_percentile\":57.4,\"standing_change\":\"fell\"},{\"label\":\"Rim Protection\",\"measure\":\"blocks\",\"value\":0.4,\"percentile\":40.5,\"cohort\":253.0,\"band\":\"below average\",\"prior_percentile\":85.3,\"standing_change\":\"fell\"},{\"label\":\"Steals\",\"measure\":\"steals\",\"value\":1.2,\"percentile\":76.6,\"cohort\":253.0,\"band\":\"strong\",\"prior_percentile\":94.6,\"standing_change\":\"fell\"}],\"composite\":65.4,\"supports_cross_season\":true,\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Jalen Johnson — F, on record at Atlanta Hawks. Nationality: USA. Record: roster; observed 2026-07-04.\ndate_of_birth: 2001-12-18 [2026-09-12; source 88859]",
+    "profile": {
+      "composite": 65.4,
+      "sample": {
+        "Games Played": 78.0,
+        "Minutes Per Game": 35.3
+      },
+      "season": 2025,
+      "supports_cross_season": true,
+      "values": [
+        {
+          "band": "average",
+          "cohort": 253.0,
+          "label": "3PT Shooting",
+          "measure": "three-point field goals made",
+          "percentile": 54.8,
+          "prior_percentile": 27.1,
+          "standing_change": "rose",
+          "value": 1.7
+        },
+        {
+          "band": "below average",
+          "cohort": 253.0,
+          "label": "Discipline",
+          "measure": "personal fouls",
+          "percentile": 41.7,
+          "prior_percentile": 57.4,
+          "standing_change": "fell",
+          "value": 2.2
+        },
+        {
+          "band": "below average",
+          "cohort": 253.0,
+          "label": "Rim Protection",
+          "measure": "blocks",
+          "percentile": 40.5,
+          "prior_percentile": 85.3,
+          "standing_change": "fell",
+          "value": 0.4
+        },
+        {
+          "band": "strong",
+          "cohort": 253.0,
+          "label": "Steals",
+          "measure": "steals",
+          "percentile": 76.6,
+          "prior_percentile": 94.6,
+          "standing_change": "fell",
+          "value": 1.2
+        }
+      ]
+    },
+    "season": 2025,
+    "sport_name": "NBA Basketball",
+    "subject": {
+      "entity_id": 17896040,
+      "entity_type": "player",
+      "name": "Jalen Johnson",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

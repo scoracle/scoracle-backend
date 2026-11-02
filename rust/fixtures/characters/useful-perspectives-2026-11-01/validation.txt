@@ -1,0 +1,7 @@
+cargo test --lib --examples --bin eval
+391 library + 14 eval binary + 9 examples = 414 passed; 74 ignored; 0 failed.
+cargo fmt --check: passed
+git diff --check: passed
+cargo build --release --example character_outputs --example character_package --example character_capture: passed
+
+Full disposable-PostgreSQL publication/recovery suite, production queue drain and end-to-end regenerated edition not run. No deployment or production data writes.

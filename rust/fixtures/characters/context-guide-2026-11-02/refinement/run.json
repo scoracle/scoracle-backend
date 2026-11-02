@@ -1,0 +1,10 @@
+{
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "temperature": 0,
+  "concurrency": 1,
+  "retries": 0,
+  "database_access": false,
+  "publishes": false,
+  "binary_sha256": "2811c0272ea6c67adac3f19f9cb75a26d0f0e7aceb7a0dfc6324948c6b8d255e",
+  "design": "Refined path-to-meaning guides on the same 12 development inputs; earlier paired control retained, no new holdout claim."
+}

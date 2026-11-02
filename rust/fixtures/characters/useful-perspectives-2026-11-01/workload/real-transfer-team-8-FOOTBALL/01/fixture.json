@@ -1,0 +1,324 @@
+{
+  "name": "real-transfer-team-8-FOOTBALL",
+  "task": "transfer",
+  "sport": "FOOTBALL",
+  "prompt_version": "insider-source-v20-perspective",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Liverpool\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1383263,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxQRTlzeUsyS09PSWlvcm1SUXZFME5ZOHk1dTFKdnkwNlltOEk5aW00UmVseGtKTDZfcTQ5SnpoNC1qMWFRMzNGd2ZxR0dHZVZnTm5FdGRRSkJFRDNBV0Z3VzFGYUVqY3lnSDJuRVZBZ2RIQU91eGctTnlFLTBxMTVDdW5NWl9rV2lCWUhrdFdHZG9GRmxHY3lpM2tKekgxa2ZGUG9TLWNteWZvaWt00gGyAUFVX3lxTFBndWN5V1dqSHI4Nl8yU2t6Zm5WNTNsSk1kbEJwTEY2NnJTMXFab3ZscmgxVWdwVUYxMEpMMXZ3YTZqOGdhSDEtRVVnc3NIb2FjQi1rcTFaOEExcGsybmx0MU9FcXJMbFk0MkNKVHR4RVR2S21SZjN1aURtR2Vxc0pkS0FXbTBWaTRIVnFlc2pPWU1BWUt0Mmt0MTY4aThIWTRRMkJHcmgzWVg5bm82dVBnUEE?oc=5\"},\"co_mentions\":[],\"headline\":\"Liverpool 'schedule imminent meeting with agents' to discuss cancelling transfer\",\"published_at\":\"2026-10-22T19:55:45Z\",\"publisher\":\"Liverpool Echo\"},{\"classifier_world\":{\"article_id\":1265494,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi2AFBVV95cUxNcDhKNGJPYjNjdDhXTnc2ZXBJUW1fSHRhYWJOWjFBMXd5QnpMcG9QQ290T1Y3Y2t2VnVKVXNabmMweXhZTkNrOUluaWw0TlpmWGUxUnliQmIxd3VFMklqdllNSWo3NEtqcm5rSnNZOERiaE9fYjY4MnkxQ1FaNm1OMTBsdVpwaTFFZTIydEtkZUw4bF9BWF9QNEJwN3RfN0hqMm5sZ3pzR0REX1pYTGZrMHlsVnhLUGVqRkdqSjc5d0JzQ1Z6TWVmdEdQaHJPaWhIRXZQcVFnN20?oc=5\"},\"co_mentions\":[],\"headline\":\"Transfer news LIVE: Galatasaray consider Ayari move, Liverpool join the race to sign Mexico star\",\"published_at\":\"2026-10-22T19:52:14Z\",\"publisher\":\"Transfermarkt\"},{\"classifier_world\":{\"article_id\":1383399,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMisgFBVV95cUxQZ3VjeVdXakhyODZfMlNremZuVjUzbEpNZGxCcExGNjZyUzFxWm92bHJoMVVncFVGMTBKTDF2d2E2ajhnYUgxLUVVZ3NzSG9hY0Ita3ExWjhBMXBrMm5sdDFPRXFyTGxZNDJDSlR0eEVUdkttUmYzdWlEbUdlcXNKZEtBV20wVmk0SFZxZXNqT1lNQVlLdDJrdDE2OGk4SFk0UTJCR3JoM1lYOW5vNnVQZ1BB0gGyAUFVX3lxTFBndWN5V1dqSHI4Nl8yU2t6Zm5WNTNsSk1kbEJwTEY2NnJTMXFab3ZscmgxVWdwVUYxMEpMMXZ3YTZqOGdhSDEtRVVnc3NIb2FjQi1rcTFaOEExcGsybmx0MU9FcXJMbFk0MkNKVHR4RVR2S21SZjN1aURtR2Vxc0pkS0FXbTBWaTRIVnFlc2pPWU1BWUt0Mmt0MTY4aThIWTRRMkJHcmgzWVg5bm82dVBnUEE?oc=5\"},\"co_mentions\":[],\"headline\":\"Liverpool schedule 'imminent meeting with agents' to discuss cancelling transfer\",\"published_at\":\"2026-10-22T19:49:00Z\",\"publisher\":\"Liverpool Echo\"},{\"classifier_world\":{\"article_id\":1425725,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxNcnRZcHVpVk5RRklYOGFTOG5XNVZyLTJhYUk1X1FtZXNLUFgzMTVDOWpZQk9OZnYyZWZGNl9YWHQ0U2tZemdvS253NWctbVpWTnRVRjZ2MHlWdUFRd1l4Q0dfSEE0YUFpemJFWEY4ek1BVVlVbE9NN1pwMkR0Yk5Id1VOdzdnMVpheE5ndk1qSTBReHFhSHc?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Newcastle United\"}],\"headline\":\"Bayern's dreams of signing Liverpool star Ngumoha dashed as new contract looms\",\"published_at\":\"2026-10-22T15:32:00Z\",\"publisher\":\"Bulinews\"},{\"classifier_world\":{\"article_id\":1334011,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMitwFBVV95cUxPVFM1Y29NaDIxNVBRcWdHQm43WWVmb2RuVER0cjRKZVhhYTA4RHZBR0oyTGpEQzhlYVBMWFhFWGpONU9QNFB1b1hSeGVUX1p4cGFYSWdiamx2XzJ2RGhzeDV0WWhob1EzdUFpZFBYU3NPQlVMeEFyd2thdVFkNDdZeVQzTTgyOERDVndLWjlHb1BIclFxMlU4bkt3MkJhdk93YUlvaFNHY1FnMzU5X2VzSEd1cXVVckHSAbwBQVVfeXFMTkZtSUY1RE9TYzl0MHdkTjNwTlRDVmxjcVRUVkxNZ0NabnZUMERvN0FOc1hkUTBqc1JfU0tLOVBQWnoxTDMwcVBHcE1Eemd0S3pJdUZ6ZG93c25XZzhhMTBERVMyTGJiWFRwLVd0THphelRpSExoRHMyR08wOXptZDFzMnMyc0wxTjJfN1V0QlcydFVRdG14em0tdHQwM3M0ZDg2MGl2TGcweUhBa0MweTJXZlB3bnZFaFJBYXc?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Manu Koné\"},{\"entity_type\":\"team\",\"name\":\"Chelsea\"}],\"headline\":\"Chelsea, Liverpool could offer over €60 million to sign Manu Kone\",\"published_at\":\"2026-10-22T07:57:46Z\",\"publisher\":\"TheHardTackle.com\"},{\"classifier_world\":{\"article_id\":1295104,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiywFBVV95cUxPajlJbHh1WFBjcEV3Y1VTZ3hzaXJUN0NxbTlxTXRMVlA3dlZOWjNVbDdiTXY1VDlDbkYzWkdUTlRFc2lxN3VFNFhXaUFuMGxBRTZFT0NxN3U1S1B2Tk9MN2MyZzFqa3RnOWNrbk9rMFRyZGZ0eGNkV2FPRkxyOHAzeDJaQXAxZzBQcGpWMUVMU1VwMUw2NlpTN3JUWVAyREt4d291dHBkVjVVeXNoWERuVTA3WDlHZ3ltMmV3TGdybGRrZ1AxRk5xU3ViZw?oc=5\"},\"co_mentions\":[],\"headline\":\"€60m+ bid incoming, Liverpool refuse to give up on France star\",\"published_at\":\"2026-10-22T05:39:52Z\",\"publisher\":\"LiveScore\"},{\"classifier_world\":{\"article_id\":1265488,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxNV1VQT1VRM3pZT0hzbGRWM1ZSYlNGcnZRSlkxaU1HaHo3cWRkeUVsR1R0ejVzVTFBa2lUdHZDSkdILU1yNGd6RkVORUVMckRRSVRlanU0TVdVeEY2WnQ5OTB3SUlLN1FuaVBvaEhncmVXU1B6RkhMZ0VEVU1kY2xVMzBjSEI4dEV6Z1ExNktEY2NsNzU2NFHSAZYBQVVfeXFMTVdVUE9VUTN6WU9Ic2xkVjNWUmJTRnJ2UUpZMWlNR2h6N3FkZHlFbEdUdHo1c1UxQWtpVHR2Q0pHSC1NcjRnekZFTkVFTHJEUUlUZWp1NE1XVXhGNlp0OTkwd0lJSzdRbmlQb2hIZ3JlV1NQekZITGdFRFVNZGNsVTMwY0hCOHRFemdRMTZLRGNjbDc1NjRR?oc=5\"},\"co_mentions\":[{\"entity_type\":\"person\",\"name\":\"Andoni Iraola\"},{\"entity_type\":\"person\",\"name\":\"Arne Slot\"}],\"headline\":\"Liverpool news: Andoni Iraola offers £38m transfer hope as damning Arne Slot comments made\",\"published_at\":\"2026-10-22T04:00:00Z\",\"publisher\":\"Daily Mirror\"},{\"classifier_world\":{\"article_id\":1266255,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi8AFBVV95cUxQWHJfMVlheEpCSkZoWTB6eG5wSk11Z3hxX1RVb3hQOTBEV1k1V1Naemp5eWlYR2NVN1NhYWx4UDFPMHRlazdFRFNpd25td2dqTVlxanNfbGxaT0wtYWxWcXZXSV9tYUVnVHBsczRQeWVoOEtTdE1GX3VGbklFTE1TbUlTMmpfUzk0dHF6NzA2SXdpckk1d01sLWxLQXpxN3BkWWN2aVliTXZZWXZqMHlKMFFScE1hck81dEFZUnZBY0s0T3VhTThxWVhxNnllZWwzSkNnZ1RQdEh0M2FneFRoMElrLUZHX0wwN3FqR2FfZ3E?oc=5\"},\"co_mentions\":[],\"headline\":\"Liverpool target poised for 'imminent move' after Iraola update\",\"published_at\":\"2026-10-21T15:07:00Z\",\"publisher\":\"TribalFootball\"},{\"classifier_world\":{\"article_id\":284594,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxPc3ozMEk2cHB5cWFiVDZFSVRQR2Y1NjlTN09LWmdMYjhMNHk1LURZRndZVEd0bDhRSkdXQzM1SU4xakdHdFNRQ0Q3dnhSd3Z6a3l5Vk54VVNpdkRSbWJRMkZOQ0hWS1p1c1kycnhvM3hyN1V3WENtby1pXzNMN2d5b3RLYUExbEhuMFhYVG9TdlVGNTg?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Tottenham Hotspur\"}],\"headline\":\"Premier League transfer net spend table for 26/27 season: £200m Liverpool above Spurs\",\"published_at\":\"2026-10-21T10:14:55Z\",\"publisher\":\"Football365\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 8,
+      "entity_type": "team",
+      "name": "Liverpool",
+      "sport": "FOOTBALL"
+    },
+    "database_record": "Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxQRTlzeUsyS09PSWlvcm1SUXZFME5ZOHk1dTFKdnkwNlltOEk5aW00UmVseGtKTDZfcTQ5SnpoNC1qMWFRMzNGd2ZxR0dHZVZnTm5FdGRRSkJFRDNBV0Z3VzFGYUVqY3lnSDJuRVZBZ2RIQU91eGctTnlFLTBxMTVDdW5NWl9rV2lCWUhrdFdHZG9GRmxHY3lpM2tKekgxa2ZGUG9TLWNteWZvaWt00gGyAUFVX3lxTFBndWN5V1dqSHI4Nl8yU2t6Zm5WNTNsSk1kbEJwTEY2NnJTMXFab3ZscmgxVWdwVUYxMEpMMXZ3YTZqOGdhSDEtRVVnc3NIb2FjQi1rcTFaOEExcGsybmx0MU9FcXJMbFk0MkNKVHR4RVR2S21SZjN1aURtR2Vxc0pkS0FXbTBWaTRIVnFlc2pPWU1BWUt0Mmt0MTY4aThIWTRRMkJHcmgzWVg5bm82dVBnUEE?oc=5",
+          "spectrum": {
+            "emotion": 1.6848373271491837,
+            "subject": 95.73347876639866,
+            "movement": 87.38061701015629,
+            "availability": 76.77946069042709
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1383263
+        },
+        "publisher": "Liverpool Echo",
+        "published_at": "2026-10-22T19:55:45Z",
+        "headline": "Liverpool 'schedule imminent meeting with agents' to discuss cancelling transfer",
+        "publisher_excerpt": "",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi2AFBVV95cUxNcDhKNGJPYjNjdDhXTnc2ZXBJUW1fSHRhYWJOWjFBMXd5QnpMcG9QQ290T1Y3Y2t2VnVKVXNabmMweXhZTkNrOUluaWw0TlpmWGUxUnliQmIxd3VFMklqdllNSWo3NEtqcm5rSnNZOERiaE9fYjY4MnkxQ1FaNm1OMTBsdVpwaTFFZTIydEtkZUw4bF9BWF9QNEJwN3RfN0hqMm5sZ3pzR0REX1pYTGZrMHlsVnhLUGVqRkdqSjc5d0JzQ1Z6TWVmdEdQaHJPaWhIRXZQcVFnN20?oc=5",
+          "spectrum": {
+            "emotion": 1.9139821511826294,
+            "subject": 90.30897450670324,
+            "movement": 96.25091676603782,
+            "availability": 88.07331804356588
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1265494
+        },
+        "publisher": "Transfermarkt",
+        "published_at": "2026-10-22T19:52:14Z",
+        "headline": "Transfer news LIVE: Galatasaray consider Ayari move, Liverpool join the race to sign Mexico star",
+        "publisher_excerpt": "",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxQZ3VjeVdXakhyODZfMlNremZuVjUzbEpNZGxCcExGNjZyUzFxWm92bHJoMVVncFVGMTBKTDF2d2E2ajhnYUgxLUVVZ3NzSG9hY0Ita3ExWjhBMXBrMm5sdDFPRXFyTGxZNDJDSlR0eEVUdkttUmYzdWlEbUdlcXNKZEtBV20wVmk0SFZxZXNqT1lNQVlLdDJrdDE2OGk4SFk0UTJCR3JoM1lYOW5vNnVQZ1BB0gGyAUFVX3lxTFBndWN5V1dqSHI4Nl8yU2t6Zm5WNTNsSk1kbEJwTEY2NnJTMXFab3ZscmgxVWdwVUYxMEpMMXZ3YTZqOGdhSDEtRVVnc3NIb2FjQi1rcTFaOEExcGsybmx0MU9FcXJMbFk0MkNKVHR4RVR2S21SZjN1aURtR2Vxc0pkS0FXbTBWaTRIVnFlc2pPWU1BWUt0Mmt0MTY4aThIWTRRMkJHcmgzWVg5bm82dVBnUEE?oc=5",
+          "spectrum": {
+            "emotion": 1.7848571270114761,
+            "subject": 95.52357689633362,
+            "movement": 86.65479517207609,
+            "availability": 67.76677804501769
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1383399
+        },
+        "publisher": "Liverpool Echo",
+        "published_at": "2026-10-22T19:49:00Z",
+        "headline": "Liverpool schedule 'imminent meeting with agents' to discuss cancelling transfer",
+        "publisher_excerpt": "",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxNcnRZcHVpVk5RRklYOGFTOG5XNVZyLTJhYUk1X1FtZXNLUFgzMTVDOWpZQk9OZnYyZWZGNl9YWHQ0U2tZemdvS253NWctbVpWTnRVRjZ2MHlWdUFRd1l4Q0dfSEE0YUFpemJFWEY4ek1BVVlVbE9NN1pwMkR0Yk5Id1VOdzdnMVpheE5ndk1qSTBReHFhSHc?oc=5",
+          "spectrum": {
+            "emotion": 11.513404973154012,
+            "subject": 80.61501550116003,
+            "movement": 85.91235134788442,
+            "availability": 71.06867397233
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1425725
+        },
+        "publisher": "Bulinews",
+        "published_at": "2026-10-22T15:32:00Z",
+        "headline": "Bayern's dreams of signing Liverpool star Ngumoha dashed as new contract looms",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Newcastle United",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxPVFM1Y29NaDIxNVBRcWdHQm43WWVmb2RuVER0cjRKZVhhYTA4RHZBR0oyTGpEQzhlYVBMWFhFWGpONU9QNFB1b1hSeGVUX1p4cGFYSWdiamx2XzJ2RGhzeDV0WWhob1EzdUFpZFBYU3NPQlVMeEFyd2thdVFkNDdZeVQzTTgyOERDVndLWjlHb1BIclFxMlU4bkt3MkJhdk93YUlvaFNHY1FnMzU5X2VzSEd1cXVVckHSAbwBQVVfeXFMTkZtSUY1RE9TYzl0MHdkTjNwTlRDVmxjcVRUVkxNZ0NabnZUMERvN0FOc1hkUTBqc1JfU0tLOVBQWnoxTDMwcVBHcE1Eemd0S3pJdUZ6ZG93c25XZzhhMTBERVMyTGJiWFRwLVd0THphelRpSExoRHMyR08wOXptZDFzMnMyc0wxTjJfN1V0QlcydFVRdG14em0tdHQwM3M0ZDg2MGl2TGcweUhBa0MweTJXZlB3bnZFaFJBYXc?oc=5",
+          "spectrum": {
+            "emotion": 1.584205997144561,
+            "subject": 94.8949705159842,
+            "movement": 95.173004060788,
+            "clickbait": 16.704795074599684,
+            "availability": 2.152693037211226
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1334011
+        },
+        "publisher": "TheHardTackle.com",
+        "published_at": "2026-10-22T07:57:46Z",
+        "headline": "Chelsea, Liverpool could offer over €60 million to sign Manu Kone",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Manu Koné",
+            "entity_type": "player"
+          },
+          {
+            "name": "Chelsea",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiywFBVV95cUxPajlJbHh1WFBjcEV3Y1VTZ3hzaXJUN0NxbTlxTXRMVlA3dlZOWjNVbDdiTXY1VDlDbkYzWkdUTlRFc2lxN3VFNFhXaUFuMGxBRTZFT0NxN3U1S1B2Tk9MN2MyZzFqa3RnOWNrbk9rMFRyZGZ0eGNkV2FPRkxyOHAzeDJaQXAxZzBQcGpWMUVMU1VwMUw2NlpTN3JUWVAyREt4d291dHBkVjVVeXNoWERuVTA3WDlHZ3ltMmV3TGdybGRrZ1AxRk5xU3ViZw?oc=5",
+          "spectrum": {
+            "emotion": 3.330745626174709,
+            "subject": 94.67584227924748,
+            "movement": 94.42579315085233,
+            "clickbait": 10.567380165311764,
+            "availability": 2.487068086901639
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1295104
+        },
+        "publisher": "LiveScore",
+        "published_at": "2026-10-22T05:39:52Z",
+        "headline": "€60m+ bid incoming, Liverpool refuse to give up on France star",
+        "publisher_excerpt": "",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxNV1VQT1VRM3pZT0hzbGRWM1ZSYlNGcnZRSlkxaU1HaHo3cWRkeUVsR1R0ejVzVTFBa2lUdHZDSkdILU1yNGd6RkVORUVMckRRSVRlanU0TVdVeEY2WnQ5OTB3SUlLN1FuaVBvaEhncmVXU1B6RkhMZ0VEVU1kY2xVMzBjSEI4dEV6Z1ExNktEY2NsNzU2NFHSAZYBQVVfeXFMTVdVUE9VUTN6WU9Ic2xkVjNWUmJTRnJ2UUpZMWlNR2h6N3FkZHlFbEdUdHo1c1UxQWtpVHR2Q0pHSC1NcjRnekZFTkVFTHJEUUlUZWp1NE1XVXhGNlp0OTkwd0lJSzdRbmlQb2hIZ3JlV1NQekZITGdFRFVNZGNsVTMwY0hCOHRFemdRMTZLRGNjbDc1NjRR?oc=5",
+          "spectrum": {
+            "emotion": 23.89828393703339,
+            "subject": 96.0882368094336,
+            "movement": 90.0267391143024,
+            "clickbait": 22.421863933864298,
+            "availability": 2.206907626125515
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1265488
+        },
+        "publisher": "Daily Mirror",
+        "published_at": "2026-10-22T04:00:00Z",
+        "headline": "Liverpool news: Andoni Iraola offers £38m transfer hope as damning Arne Slot comments made",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Andoni Iraola",
+            "entity_type": "person"
+          },
+          {
+            "name": "Arne Slot",
+            "entity_type": "person"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi8AFBVV95cUxQWHJfMVlheEpCSkZoWTB6eG5wSk11Z3hxX1RVb3hQOTBEV1k1V1Naemp5eWlYR2NVN1NhYWx4UDFPMHRlazdFRFNpd25td2dqTVlxanNfbGxaT0wtYWxWcXZXSV9tYUVnVHBsczRQeWVoOEtTdE1GX3VGbklFTE1TbUlTMmpfUzk0dHF6NzA2SXdpckk1d01sLWxLQXpxN3BkWWN2aVliTXZZWXZqMHlKMFFScE1hck81dEFZUnZBY0s0T3VhTThxWVhxNnllZWwzSkNnZ1RQdEh0M2FneFRoMElrLUZHX0wwN3FqR2FfZ3E?oc=5",
+          "spectrum": {
+            "emotion": 2.550749900966977,
+            "subject": 95.21992760198424,
+            "movement": 87.955956698202,
+            "clickbait": 31.63742167325753,
+            "availability": 16.919289564440437
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1266255
+        },
+        "publisher": "TribalFootball",
+        "published_at": "2026-10-21T15:07:00Z",
+        "headline": "Liverpool target poised for 'imminent move' after Iraola update",
+        "publisher_excerpt": "",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxPc3ozMEk2cHB5cWFiVDZFSVRQR2Y1NjlTN09LWmdMYjhMNHk1LURZRndZVEd0bDhRSkdXQzM1SU4xakdHdFNRQ0Q3dnhSd3Z6a3l5Vk54VVNpdkRSbWJRMkZOQ0hWS1p1c1kycnhvM3hyN1V3WENtby1pXzNMN2d5b3RLYUExbEhuMFhYVG9TdlVGNTg?oc=5",
+          "spectrum": {
+            "emotion": 1.5750935050006747,
+            "subject": 87.55176277862084,
+            "movement": 91.18541171469928,
+            "clickbait": 8.173036459701311,
+            "availability": 1.7440262050035171
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 284594
+        },
+        "publisher": "Football365",
+        "published_at": "2026-10-21T10:14:55Z",
+        "headline": "Premier League transfer net spend table for 26/27 season: £200m Liverpool above Spurs",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Tottenham Hotspur",
+            "entity_type": "team"
+          }
+        ]
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

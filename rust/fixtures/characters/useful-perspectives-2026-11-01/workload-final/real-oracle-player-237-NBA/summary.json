@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "reading_plain_text",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-oracle-player-237-NBA.json",
+      "generation_wall_ms": 15477,
+      "input_tokens": 888,
+      "name": "real-player:237:NBA-oracle",
+      "output_limit": 700,
+      "output_tokens": 76,
+      "parsed": true,
+      "prompt_version": "or31-five-perspectives",
+      "reading": "LeBron James presents a profile of elite execution in scoring, playmaking, and discipline, anchored by a strong composite score derived from a limited sample of 66 games. This measured strength contrasts with reported falling direction and specific weaknesses in ball security and three-point shooting, creating a picture where high-level capability exists alongside significant uncertainty regarding trajectory and broader context.",
+      "request_bytes": 1516,
+      "review": [
+        "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+      ],
+      "status": "accepted",
+      "task": "oracle",
+      "temperature": 0.0,
+      "wall_ms": 15486
+    }
+  ],
+  "completed": 1
+}

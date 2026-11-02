@@ -1,0 +1,27 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/insider-indices-2026-11-01/cases/control/player-45-NFL.json",
+      "generation_wall_ms": 9434,
+      "input_tokens": 2096,
+      "name": "player-45-NFL",
+      "output_limit": 1400,
+      "output_tokens": 111,
+      "parsed": false,
+      "prompt_version": "insider-source-v21-perspective",
+      "reading": "finding quote must name both the target and counterparty in full",
+      "request_bytes": 3275,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 9443
+    }
+  ],
+  "completed": 1
+}

@@ -1,0 +1,516 @@
+{
+  "name": "real-player:322:NBA-narratives",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Donovan Mitchell\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Donovan Mitchell — G, on record at Cleveland Cavaliers. Nationality: USA. Record: roster; observed 2026-07-04.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1418220,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxPd1BBXzRyY1phTWctclpNU1A2LXBZYjV6SU10V0dxaVNsbFVJUWNCV194QVcxVUpybmlRWEJkUkxPOURUWDhLVFhMWWoyUFgyZ2FlRXNkUDVydmNjOEpZWUJ5akQzQ2ptNTYweTYzVTNhSW40VkxlZE9ZdHRyRkdfZzdSbXRlNTVwODBDU3o0VQ?oc=5\",\"headline\":\"Donovan Mitchell and James Harden have a real shot at the NBA's best backcourt\",\"publisher\":\"King James Gospel\",\"published_at\":\"2026-10-23T00:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1387666,\"url\":\"https://news.google.com/rss/articles/CBMi3gFBVV95cUxQcnVOMDJHOW9CejV1TjZrdXEzbjMxN0lMM3VSOV8yaERDdXlxVW9wQU9rS0pOTWFuQm5nS1J0b2JMbXg3S290SUhSTTRqcFYxVDVTSUIyV1BCdHp1SG5vQlAzWEJHdm5YNnhIRTY1aTBaUnY1elhKV3N2dF81SnFuMVAzWUViYmtjYlRZS2IyR2tNZ0FYT0F3Q1hrTFpManB4OThXVGJDVFdNLUU4a1dKNkd6M1ZoSUMyR1V0UGZKY3pXSDBOa2pjMHI5bVpSR0Rsdk1NOWUtMnFZVVpwYVE?oc=5\",\"headline\":\"There is little room for error this season for Donovan Mitchell, James Harden\",\"publisher\":\"DAZN\",\"published_at\":\"2026-10-22T21:29:25Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1357541,\"url\":\"https://news.google.com/rss/articles/CBMi1AFBVV95cUxPUWFIamJoNGlxTWFaOXp0cGYzYmdDTi1mRHRVaHZtOGtCd2V5RXZRRHBCUG9CbURxWFJyaDNCM2Z1UEd0clNvRjIyQlZZR2o3eGNRZGg5b2VkZmtrSWRQa2I3ejgtTXdEM3lWa2NUNFVndl9LbW1ZekxpVHJyeGRibWhocHFoS0V1OGNnZ3NRWENDQXRwOGNSbTZKM3d1cGE1SWhXaGNoUTJ0a09jaGVLcHppSTQzR3l3Rm5mbUZvZmNaczRZR2NiLWFFZW1yeDY1eUxSYg?oc=5\",\"headline\":\"'I dream of being here forever': Donovan Mitchell wants to retire a Cavs player\",\"publisher\":\"Record-Courier\",\"published_at\":\"2026-10-22T18:35:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1337527,\"url\":\"https://news.google.com/rss/articles/CBMiugFBVV95cUxPbmhGa2lHclY4bHFEV1RJdmowbFhhYjFseVN2MldEbkZYd0xLM09EUWNSMlY4R2pFTkR2R3hUMkR5eURxTkZDbVpmYlI2ek5Jc0tnSDFjNXcwNmZITjlISUluSTlOT0RxdjNRY2d6NFVMZFpiZmptUmQtUUVZWGhqY2hlYjdrRVJ4SXhxMF96cFpGOWhfYXhKOG4xbno3cldDemk5QVZibXJIc3JmdUQzTXpINjhVTUE1OFE?oc=5\",\"headline\":\"Cavs Shootaround | Donovan Mitchell and Jarrett Allen Media Availability | 10.22.2026\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T17:22:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1347534,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxPSi1qU09FZWI0RWxGMDBPMjJ6d3dDMDZFSlh6Z3NnZE9TX2F0SGM4bWEySDRMQ3M2R0FVWlNrS2s4Uzh1b3U4dlEzdWRYQnRKVWI1OS1zVENCOG0ydkdrZU1KWlRObXktUzg3SXlOUmxlQkpzbU5zRmVJNnVFdFlOZVljR3dKc0pUOUhGdEh4U2dFclk?oc=5\",\"headline\":\"Donovan Mitchell wants to be in Cleveland ‘forever’\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T16:26:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1327669,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxNdWpmZG9jU2xEM1RaMVJXeGxZZ2gzeHltVUJGYk13ZVhLSk1lYzNaakN3YnpRQzhrZER4a21wMEM3T1FEWFRNMzNTSkFvdWpDcUdHdUM0TjFKNHJKSGM4QTZJaTdJOVhJTkFtYXpwNzlCMHZKeXI5SHkxX0NDNEZWZkNSdTVINmpDU0xMclVKTVFET0hy?oc=5\",\"headline\":\"Critical Year for Donovan Mitchell & Cavaliers? Stream of National Basketball Association\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T16:11:38Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1317981,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxPY2lET0Q3TTZsRmlkRUN2dnVpN0dkSUtsLXJlRnZIa200T2pqMTNmNkdqVE9qOGVKbGg3TlJUQm1UNE1MYVhmWmZ3QThqMnhjNEI4a1RZck1ST2hmSXlTdHUwMktsQUJNcTdxUmFGQjJ3dkNUdVlaTzVHZlpVVGE2WnZraTZfWXhoSFBZNWxOOEFUUQ?oc=5\",\"headline\":\"Donovan Mitchell Plans to Retire With Cavaliers Unless They Trade Him\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T14:46:56Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1298571,\"url\":\"https://news.google.com/rss/articles/CBMiwgFBVV95cUxQVkR3S1VILXRubk5JUXdhaHl6NFhPNVJrNXhTODE4SEhoUFRaQXF5aUhtY3hHRlF2SnVidkZJMHp3eVUxYVpUVmRTRmVqRGpGVk5OMVJldVIzWk94VkdWVE9OTlItU3dFdFgzRmttNHo0RzkxVHlYMUVPYTNPeXZHcWdRMUdTYnJQOXV0WngtVWtRbExuUXhERmIyU3I3cXAtb3FIRklTSi1QaDN6QXc1anFsUzNjRktrbVJ4RVZRTVFOUQ?oc=5\",\"headline\":\"Donovan Mitchell Formally Commits to Cleveland: \\\"I Want To Retire Here\\\"\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T13:00:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1221295,\"url\":\"https://news.google.com/rss/articles/CBMilwFBVV95cUxOUkdKbTdxMG9ENUc2UHVhaUNnWlg2cHFDUzdCYS1SVDNJMmRveHM5MGt4Y1oxc0g1N2RBZHUxUm41WlNvTm1TMGh3bjEtdm5jOWE1MnR1eW12ajk2Ty1RUVZQOWoyNHpYTEZkTkctVTBaeF91elp0aHQ2cEc1MTBic3R6Q19QU25fRGlBeVBUT19NV3pHU1FN?oc=5\",\"headline\":\"Donovan Mitchell wants to stay with Cavs ‘forever,’ see No. 45 in rafters\",\"publisher\":\"Hoops Wire\",\"published_at\":\"2026-10-21T23:26:45Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1192268,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxPVV9MamVPQzRNdHVySFpTUUk2Vkc5TTlmN0R5cG5lay10ajc3MXVWT3dNV1F5MFZTVlJCZ0haUDRJMExWUnFYRjhwRngzRV9NS1N1ZGlqUDh1Y1R2MHNPUGQ1dHppbGgwZ01hRHZPWlB4SHU5ZWdqTEdVd2FSWHZadDVYUm1hb0xLZG5DM3kyODkwTzc3b0k1WW9XUFFEZEh1a0phR0hZdFVtMmNnbVZXMDAxYVlPTVg5a3FBREE1RWNmc1hXY0dJZTBZbzFmZw?oc=5\",\"headline\":\"Cavs' Donovan Mitchell Doesn't 'Ever Want to Wear Another Uniform,' Says He 'Can't Ever Picture It'\",\"publisher\":\"Bleacher Report\",\"published_at\":\"2026-10-21T20:15:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1182576,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxPcUY5MHZ2Zi1KRktqdFduQWpiY040VmtXX2hmQ0VIN1RPSVYycEFYcDd5eHF2N1phZFBreUd5ZzJlakI2OE1rWlVtZjhzR1NXVnd6WUdCMVE5U2JqbDZxSi1sbXIxdkRWbC1kaWZjWEZNRkoxd0c3UGQtVVZqOGNrZFdRZXJ2SHl2SmYyQ2NnVQ?oc=5\",\"headline\":\"Donovan Mitchell on future in Cleveland: 'I don’t ever want to wear another uniform'\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T18:29:57Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1182585,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxOUGJoYVl2Q0ZqNFBWME9pMEJadllXUG1sVUxFMTkwM1BQbFRfbnhqYnNRbDlpdmJ2dDl3Y2ktTUV0ekU1Z0lMMWdRLU15Yno0SS1GOXhJMTJWM1U5TmZCV3dxWjBzSGQ3OGp5TGY2YTVrRDFfZ05aZjFzdndTdDNITXIwOVhOQW54V1dYaFNMYmJrU1dZTTE4V01jMFhXUEF3VWNOVW9HTkJjczd2T2xEZ0hJRnJpUlg3VDBLa1NiMjBudV9kcDlDaE1kdUpvZw?oc=5\",\"headline\":\"‘Team first’ Donovan Mitchell says it’s time to deliver Cavaliers’ next championship to Cleveland\",\"publisher\":\"News-Herald\",\"published_at\":\"2026-10-21T16:01:35Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1182597,\"url\":\"https://news.google.com/rss/articles/CBMihAJBVV95cUxNbVQ4MzZJTlJjUEZsV2NQLTR2Y085UF90TDNtMzZpMkNIMWxFT1c1TzJRd2U4YkRwTlJHdnJINW4zb3dZRGU1SU5WR1k2QXRuOWhwS0E2aTl6LVNEb1FqWVZHTGxaMEtvLUwwdDBnSVhLRGFwNWNGRUdicFFqU2Z5Xy1FSjhWSEZWV1pOWE93Q1QyVm91SE56ODRqTjAwdkp0MWFjclAwVnpOWXp2VHRTR245U0QwbkFnZFRndGlQcmZOaUxibGFqU1lsemowalZLaFl1SjJleV95NU0tVTVtd0p4c3pQMzBQZU1sRGk4Q29tejNCLS1yeXNldFdCbGtwUU9rOA?oc=5\",\"headline\":\"‘I don’t ever want to wear another uniform’: Donovan Mitchell’s journey — from Knicks rumors to playoff breakthroughs to finding his home\",\"publisher\":\"Cleveland.com\",\"published_at\":\"2026-10-21T15:05:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1182603,\"url\":\"https://news.google.com/rss/articles/CBMi2wFBVV95cUxOdGpWUWFyeFZ1YkJFMXBFRTFyUDFOTk9Ja2tZbENPdlEyaWlmT0tKeXRKeHdUMHI5ZUNOZW55dUpJbU04ZTd4Ylhvc0kyQlJiVERGRXRtcS1qMHNfOUpFX21FcS03NFk1b2dwSzBoMDJ6WGY1OXZDZUI5dmtDWEdXRlhXZ2VCQ0pyTDJVdjRCV2lOalNfSFVZMDZpOE80X1pXYnZrY3MxV0UzdWtMaTFUZ28xWTV2clJZVTVxakVpZ1plVXRzTWRPOF9BYUd6MzJOVHI2S1A2a3BBWEU?oc=5\",\"headline\":\"Cavaliers’ top priority should be making Donovan Mitchell-James Harden tandem work smoothly | Jeff Schudel\",\"publisher\":\"News-Herald\",\"published_at\":\"2026-10-21T14:02:25Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":989395,\"url\":\"https://news.google.com/rss/articles/CBMixgFBVV95cUxPNW81aXZrcXJkZ3VkMDJfMlJIbF93NWFvT3dNZC1hZWxCb0VCTklCTmdYR1V1SjFGV0x3c3NFcUNzUnRMX0dtRXJsQ2t4djJOeXdEd0otSVBvODJ1ck51SXc1ZWxsRTJ5VlN6WkNTcUxnS29vckJ2UkltcU5WS2NDTEcxbW5CMlM0Zi10R2Z0UmhkNXlVNEdmMGpFUW56QmlLRVhOUjE3QTE5NW5PVER0SjJOcWI1MGxQcWpCUkxSVkpBMkRLWnc?oc=5\",\"headline\":\"How Donovan Mitchell and James Harden Can Become Elite Duo To Lead Cavaliers\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-19T21:00:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":989436,\"url\":\"https://news.google.com/rss/articles/CBMisAJBVV95cUxPQjBLVzd6MUpramFSTjdKeXdveUxhUUJDYldQczFtWDRTOXV5WEdCY2xjc1g4VFJxOXZQTWUwWVFZa2Y3OXEyTklrSE13dVJaUEgtc0JpQTdWRFpUaWItZ2JXUGJ1UFk1RnFxUDhIbkJ6ZmI0Y251SlhhaDVHV01xYkFpSm8yS0pXWGdOMGJoU3FsSlQ1YWEtUFh2ZGt6XzhydzR5bmlYQTkyNzRTZVVWRmNRVThKTVZ0dmFvMlB6VjdrN3dvSGVYbzlueUVjYW9fdS1oVnRwRWs2d2kyelVNUG1KY2M5M19lelFQUzBmR1lxOGFaWU9VMzNJeU1wcEZzbWhLVm1QN1dZR01WSXNzR183b3dfZElCS3lNaTJiNnJqWTg1STBsQkh1aWpyX1Mt?oc=5\",\"headline\":\"REACTION: NBA GMs Say Cleveland Cavaliers Will Finish THIRD in East! | Donovan Mitchell UNDERRATED?\",\"publisher\":\"WBIR\",\"published_at\":\"2026-10-19T15:25:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":986125,\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxORDFtTnhjNjl0dVRabTZWRzYyU2hXakVQVWl3N2ZPdHRORW8teTdCeUZzakZoQTQtNjgtc212YzVweVFNRjFnMTlGNkpVOXZYbjkwZXNVaExOWmJvWXdFQnY1WWxhZ1gwRGdKT1pabGVLUnBXQXAwWlJxTl81bXhQX2tGdld1UFBBTU9BRU1oRy1qdFV6RmZWNTJ3LXh3TnVzXzUxZklzdFhwcW5OU1VybEtPREd4UQ?oc=5\",\"headline\":\"“Who would have thought I’d end up making half a billion dollars?” – Donovan Mitchell reflects on the fortune basketball has brought him\",\"publisher\":\"Basketball Network\",\"published_at\":\"2026-10-19T13:10:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Donovan Mitchell — G, on record at Cleveland Cavaliers. Nationality: USA. Record: roster; observed 2026-07-04.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 10.38785222207362,
+            "emotion": 14.852151147961848,
+            "movement": 7.4726247503698895,
+            "subject": 95.17310920794856
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxPd1BBXzRyY1phTWctclpNU1A2LXBZYjV6SU10V0dxaVNsbFVJUWNCV194QVcxVUpybmlRWEJkUkxPOURUWDhLVFhMWWoyUFgyZ2FlRXNkUDVydmNjOEpZWUJ5akQzQ2ptNTYweTYzVTNhSW40VkxlZE9ZdHRyRkdfZzdSbXRlNTVwODBDU3o0VQ?oc=5"
+        },
+        "context": "Donovan Mitchell and James Harden have a real shot at the NBA's best backcourt",
+        "id": 1418220,
+        "published_at_epoch": 1792713600,
+        "source": "King James Gospel",
+        "title": "Donovan Mitchell and James Harden have a real shot at the NBA's best backcourt"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 21.609294446214527,
+            "emotion": 2.544589024740623,
+            "movement": 2.499922863774474,
+            "subject": 93.22771016351952
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxQcnVOMDJHOW9CejV1TjZrdXEzbjMxN0lMM3VSOV8yaERDdXlxVW9wQU9rS0pOTWFuQm5nS1J0b2JMbXg3S290SUhSTTRqcFYxVDVTSUIyV1BCdHp1SG5vQlAzWEJHdm5YNnhIRTY1aTBaUnY1elhKV3N2dF81SnFuMVAzWUViYmtjYlRZS2IyR2tNZ0FYT0F3Q1hrTFpManB4OThXVGJDVFdNLUU4a1dKNkd6M1ZoSUMyR1V0UGZKY3pXSDBOa2pjMHI5bVpSR0Rsdk1NOWUtMnFZVVpwYVE?oc=5"
+        },
+        "context": "There is little room for error this season for Donovan Mitchell, James Harden",
+        "id": 1387666,
+        "published_at_epoch": 1792704565,
+        "source": "DAZN",
+        "title": "There is little room for error this season for Donovan Mitchell, James Harden"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 60.45348171430878,
+            "emotion": 61.07777206301046,
+            "movement": 25.69248362221194,
+            "subject": 93.62615623010564
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi1AFBVV95cUxPUWFIamJoNGlxTWFaOXp0cGYzYmdDTi1mRHRVaHZtOGtCd2V5RXZRRHBCUG9CbURxWFJyaDNCM2Z1UEd0clNvRjIyQlZZR2o3eGNRZGg5b2VkZmtrSWRQa2I3ejgtTXdEM3lWa2NUNFVndl9LbW1ZekxpVHJyeGRibWhocHFoS0V1OGNnZ3NRWENDQXRwOGNSbTZKM3d1cGE1SWhXaGNoUTJ0a09jaGVLcHppSTQzR3l3Rm5mbUZvZmNaczRZR2NiLWFFZW1yeDY1eUxSYg?oc=5"
+        },
+        "context": "'I dream of being here forever': Donovan Mitchell wants to retire a Cavs player",
+        "id": 1357541,
+        "published_at_epoch": 1792694100,
+        "source": "Record-Courier",
+        "title": "'I dream of being here forever': Donovan Mitchell wants to retire a Cavs player"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.362854425717987,
+            "clickbait": 11.1218014134637,
+            "emotion": 2.136753164037578,
+            "movement": 5.897736109666293,
+            "subject": 95.26103041132583
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiugFBVV95cUxPbmhGa2lHclY4bHFEV1RJdmowbFhhYjFseVN2MldEbkZYd0xLM09EUWNSMlY4R2pFTkR2R3hUMkR5eURxTkZDbVpmYlI2ek5Jc0tnSDFjNXcwNmZITjlISUluSTlOT0RxdjNRY2d6NFVMZFpiZmptUmQtUUVZWGhqY2hlYjdrRVJ4SXhxMF96cFpGOWhfYXhKOG4xbno3cldDemk5QVZibXJIc3JmdUQzTXpINjhVTUE1OFE?oc=5"
+        },
+        "context": "Cavs Shootaround | Donovan Mitchell and Jarrett Allen Media Availability | 10.22.2026",
+        "id": 1337527,
+        "published_at_epoch": 1792689728,
+        "source": "NBA.com",
+        "title": "Cavs Shootaround | Donovan Mitchell and Jarrett Allen Media Availability | 10.22.2026"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 23.508026412711708,
+            "emotion": 15.127937885420767,
+            "movement": 31.189086906805976,
+            "subject": 94.8458130149558
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxPSi1qU09FZWI0RWxGMDBPMjJ6d3dDMDZFSlh6Z3NnZE9TX2F0SGM4bWEySDRMQ3M2R0FVWlNrS2s4Uzh1b3U4dlEzdWRYQnRKVWI1OS1zVENCOG0ydkdrZU1KWlRObXktUzg3SXlOUmxlQkpzbU5zRmVJNnVFdFlOZVljR3dKc0pUOUhGdEh4U2dFclk?oc=5"
+        },
+        "context": "Donovan Mitchell wants to be in Cleveland ‘forever’",
+        "id": 1347534,
+        "published_at_epoch": 1792686397,
+        "source": "Yahoo Sports",
+        "title": "Donovan Mitchell wants to be in Cleveland ‘forever’"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.387921893094623,
+            "clickbait": 26.243552341485405,
+            "emotion": 4.681798912587351,
+            "movement": 6.241837918548936,
+            "subject": 95.08228556504412
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNdWpmZG9jU2xEM1RaMVJXeGxZZ2gzeHltVUJGYk13ZVhLSk1lYzNaakN3YnpRQzhrZER4a21wMEM3T1FEWFRNMzNTSkFvdWpDcUdHdUM0TjFKNHJKSGM4QTZJaTdJOVhJTkFtYXpwNzlCMHZKeXI5SHkxX0NDNEZWZkNSdTVINmpDU0xMclVKTVFET0hy?oc=5"
+        },
+        "context": "Critical Year for Donovan Mitchell & Cavaliers? Stream of National Basketball Association",
+        "id": 1327669,
+        "published_at_epoch": 1792685498,
+        "source": "CBS Sports",
+        "title": "Critical Year for Donovan Mitchell & Cavaliers? Stream of National Basketball Association"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.014462964168237,
+            "clickbait": 14.62669785317557,
+            "emotion": 2.107850379005982,
+            "movement": 83.54730501714866,
+            "subject": 95.41915570405264
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxPY2lET0Q3TTZsRmlkRUN2dnVpN0dkSUtsLXJlRnZIa200T2pqMTNmNkdqVE9qOGVKbGg3TlJUQm1UNE1MYVhmWmZ3QThqMnhjNEI4a1RZck1ST2hmSXlTdHUwMktsQUJNcTdxUmFGQjJ3dkNUdVlaTzVHZlpVVGE2WnZraTZfWXhoSFBZNWxOOEFUUQ?oc=5"
+        },
+        "context": "Donovan Mitchell Plans to Retire With Cavaliers Unless They Trade Him",
+        "id": 1317981,
+        "published_at_epoch": 1792680416,
+        "source": "Yahoo Sports",
+        "title": "Donovan Mitchell Plans to Retire With Cavaliers Unless They Trade Him"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.7036256252029176,
+            "clickbait": 8.108779849995122,
+            "emotion": 4.7180555707392475,
+            "movement": 85.35023162501695,
+            "subject": 95.22770017506164
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxQVkR3S1VILXRubk5JUXdhaHl6NFhPNVJrNXhTODE4SEhoUFRaQXF5aUhtY3hHRlF2SnVidkZJMHp3eVUxYVpUVmRTRmVqRGpGVk5OMVJldVIzWk94VkdWVE9OTlItU3dFdFgzRmttNHo0RzkxVHlYMUVPYTNPeXZHcWdRMUdTYnJQOXV0WngtVWtRbExuUXhERmIyU3I3cXAtb3FIRklTSi1QaDN6QXc1anFsUzNjRktrbVJ4RVZRTVFOUQ?oc=5"
+        },
+        "context": "Donovan Mitchell Formally Commits to Cleveland: \"I Want To Retire Here\"",
+        "id": 1298571,
+        "published_at_epoch": 1792674004,
+        "source": "Sports Illustrated",
+        "title": "Donovan Mitchell Formally Commits to Cleveland: \"I Want To Retire Here\""
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.9696824583472763,
+            "clickbait": 10.931554421912434,
+            "emotion": 5.686144635714349,
+            "movement": 44.4872337374003,
+            "subject": 95.92102909330596
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxOUkdKbTdxMG9ENUc2UHVhaUNnWlg2cHFDUzdCYS1SVDNJMmRveHM5MGt4Y1oxc0g1N2RBZHUxUm41WlNvTm1TMGh3bjEtdm5jOWE1MnR1eW12ajk2Ty1RUVZQOWoyNHpYTEZkTkctVTBaeF91elp0aHQ2cEc1MTBic3R6Q19QU25fRGlBeVBUT19NV3pHU1FN?oc=5"
+        },
+        "context": "Donovan Mitchell wants to stay with Cavs ‘forever,’ see No. 45 in rafters",
+        "id": 1221295,
+        "published_at_epoch": 1792625205,
+        "source": "Hoops Wire",
+        "title": "Donovan Mitchell wants to stay with Cavs ‘forever,’ see No. 45 in rafters"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.162114202783758,
+            "clickbait": 14.969251123811954,
+            "emotion": 4.850850261328975,
+            "movement": 2.6836584189368597,
+            "subject": 95.33737466378103
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxPVV9MamVPQzRNdHVySFpTUUk2Vkc5TTlmN0R5cG5lay10ajc3MXVWT3dNV1F5MFZTVlJCZ0haUDRJMExWUnFYRjhwRngzRV9NS1N1ZGlqUDh1Y1R2MHNPUGQ1dHppbGgwZ01hRHZPWlB4SHU5ZWdqTEdVd2FSWHZadDVYUm1hb0xLZG5DM3kyODkwTzc3b0k1WW9XUFFEZEh1a0phR0hZdFVtMmNnbVZXMDAxYVlPTVg5a3FBREE1RWNmc1hXY0dJZTBZbzFmZw?oc=5"
+        },
+        "context": "Cavs' Donovan Mitchell Doesn't 'Ever Want to Wear Another Uniform,' Says He 'Can't Ever Picture It'",
+        "id": 1192268,
+        "published_at_epoch": 1792613700,
+        "source": "Bleacher Report",
+        "title": "Cavs' Donovan Mitchell Doesn't 'Ever Want to Wear Another Uniform,' Says He 'Can't Ever Picture It'"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.060185738353121,
+            "clickbait": 11.120575971111853,
+            "emotion": 16.274693605383565,
+            "movement": 12.87909215742286,
+            "subject": 95.18749383261962
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxPcUY5MHZ2Zi1KRktqdFduQWpiY040VmtXX2hmQ0VIN1RPSVYycEFYcDd5eHF2N1phZFBreUd5ZzJlakI2OE1rWlVtZjhzR1NXVnd6WUdCMVE5U2JqbDZxSi1sbXIxdkRWbC1kaWZjWEZNRkoxd0c3UGQtVVZqOGNrZFdRZXJ2SHl2SmYyQ2NnVQ?oc=5"
+        },
+        "context": "Donovan Mitchell on future in Cleveland: 'I don’t ever want to wear another uniform'",
+        "id": 1182576,
+        "published_at_epoch": 1792607397,
+        "source": "Yahoo Sports",
+        "title": "Donovan Mitchell on future in Cleveland: 'I don’t ever want to wear another uniform'"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.7974691967050438,
+            "clickbait": 5.075459700464037,
+            "emotion": 5.922735893746462,
+            "movement": 4.12585370861878,
+            "subject": 94.5838021085634
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxOUGJoYVl2Q0ZqNFBWME9pMEJadllXUG1sVUxFMTkwM1BQbFRfbnhqYnNRbDlpdmJ2dDl3Y2ktTUV0ekU1Z0lMMWdRLU15Yno0SS1GOXhJMTJWM1U5TmZCV3dxWjBzSGQ3OGp5TGY2YTVrRDFfZ05aZjFzdndTdDNITXIwOVhOQW54V1dYaFNMYmJrU1dZTTE4V01jMFhXUEF3VWNOVW9HTkJjczd2T2xEZ0hJRnJpUlg3VDBLa1NiMjBudV9kcDlDaE1kdUpvZw?oc=5"
+        },
+        "context": "‘Team first’ Donovan Mitchell says it’s time to deliver Cavaliers’ next championship to Cleveland",
+        "id": 1182585,
+        "published_at_epoch": 1792598495,
+        "source": "News-Herald",
+        "title": "‘Team first’ Donovan Mitchell says it’s time to deliver Cavaliers’ next championship to Cleveland"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.415223016640357,
+            "clickbait": 11.040051259011936,
+            "emotion": 33.979081982863505,
+            "movement": 53.80162405363848,
+            "subject": 95.86488648687204
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAJBVV95cUxNbVQ4MzZJTlJjUEZsV2NQLTR2Y085UF90TDNtMzZpMkNIMWxFT1c1TzJRd2U4YkRwTlJHdnJINW4zb3dZRGU1SU5WR1k2QXRuOWhwS0E2aTl6LVNEb1FqWVZHTGxaMEtvLUwwdDBnSVhLRGFwNWNGRUdicFFqU2Z5Xy1FSjhWSEZWV1pOWE93Q1QyVm91SE56ODRqTjAwdkp0MWFjclAwVnpOWXp2VHRTR245U0QwbkFnZFRndGlQcmZOaUxibGFqU1lsemowalZLaFl1SjJleV95NU0tVTVtd0p4c3pQMzBQZU1sRGk4Q29tejNCLS1yeXNldFdCbGtwUU9rOA?oc=5"
+        },
+        "context": "‘I don’t ever want to wear another uniform’: Donovan Mitchell’s journey — from Knicks rumors to playoff breakthroughs to finding his home",
+        "id": 1182597,
+        "published_at_epoch": 1792595100,
+        "source": "Cleveland.com",
+        "title": "‘I don’t ever want to wear another uniform’: Donovan Mitchell’s journey — from Knicks rumors to playoff breakthroughs to finding his home"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.9693113007249625,
+            "clickbait": 3.705288479277685,
+            "emotion": 2.829960787891491,
+            "movement": 6.073481817260067,
+            "subject": 92.33963771304576
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi2wFBVV95cUxOdGpWUWFyeFZ1YkJFMXBFRTFyUDFOTk9Ja2tZbENPdlEyaWlmT0tKeXRKeHdUMHI5ZUNOZW55dUpJbU04ZTd4Ylhvc0kyQlJiVERGRXRtcS1qMHNfOUpFX21FcS03NFk1b2dwSzBoMDJ6WGY1OXZDZUI5dmtDWEdXRlhXZ2VCQ0pyTDJVdjRCV2lOalNfSFVZMDZpOE80X1pXYnZrY3MxV0UzdWtMaTFUZ28xWTV2clJZVTVxakVpZ1plVXRzTWRPOF9BYUd6MzJOVHI2S1A2a3BBWEU?oc=5"
+        },
+        "context": "Cavaliers’ top priority should be making Donovan Mitchell-James Harden tandem work smoothly | Jeff Schudel",
+        "id": 1182603,
+        "published_at_epoch": 1792591345,
+        "source": "News-Herald",
+        "title": "Cavaliers’ top priority should be making Donovan Mitchell-James Harden tandem work smoothly | Jeff Schudel"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.3017439613842496,
+            "clickbait": 10.894838008723644,
+            "emotion": 3.2897888342438972,
+            "movement": 15.426747514053304,
+            "subject": 95.44428434271236
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxPNW81aXZrcXJkZ3VkMDJfMlJIbF93NWFvT3dNZC1hZWxCb0VCTklCTmdYR1V1SjFGV0x3c3NFcUNzUnRMX0dtRXJsQ2t4djJOeXdEd0otSVBvODJ1ck51SXc1ZWxsRTJ5VlN6WkNTcUxnS29vckJ2UkltcU5WS2NDTEcxbW5CMlM0Zi10R2Z0UmhkNXlVNEdmMGpFUW56QmlLRVhOUjE3QTE5NW5PVER0SjJOcWI1MGxQcWpCUkxSVkpBMkRLWnc?oc=5"
+        },
+        "context": "How Donovan Mitchell and James Harden Can Become Elite Duo To Lead Cavaliers",
+        "id": 989395,
+        "published_at_epoch": 1792443602,
+        "source": "Sports Illustrated",
+        "title": "How Donovan Mitchell and James Harden Can Become Elite Duo To Lead Cavaliers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.874661920837223,
+            "clickbait": 14.835997417136316,
+            "emotion": 31.928013373539976,
+            "movement": 4.9838620666397455,
+            "subject": 89.5174356342545
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisAJBVV95cUxPQjBLVzd6MUpramFSTjdKeXdveUxhUUJDYldQczFtWDRTOXV5WEdCY2xjc1g4VFJxOXZQTWUwWVFZa2Y3OXEyTklrSE13dVJaUEgtc0JpQTdWRFpUaWItZ2JXUGJ1UFk1RnFxUDhIbkJ6ZmI0Y251SlhhaDVHV01xYkFpSm8yS0pXWGdOMGJoU3FsSlQ1YWEtUFh2ZGt6XzhydzR5bmlYQTkyNzRTZVVWRmNRVThKTVZ0dmFvMlB6VjdrN3dvSGVYbzlueUVjYW9fdS1oVnRwRWs2d2kyelVNUG1KY2M5M19lelFQUzBmR1lxOGFaWU9VMzNJeU1wcEZzbWhLVm1QN1dZR01WSXNzR183b3dfZElCS3lNaTJiNnJqWTg1STBsQkh1aWpyX1Mt?oc=5"
+        },
+        "context": "REACTION: NBA GMs Say Cleveland Cavaliers Will Finish THIRD in East! | Donovan Mitchell UNDERRATED?",
+        "id": 989436,
+        "published_at_epoch": 1792423500,
+        "source": "WBIR",
+        "title": "REACTION: NBA GMs Say Cleveland Cavaliers Will Finish THIRD in East! | Donovan Mitchell UNDERRATED?"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.677504226492196,
+            "clickbait": 13.864892449992348,
+            "emotion": 26.31727276773833,
+            "movement": 2.754887727752702,
+            "subject": 96.58345551075304
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxORDFtTnhjNjl0dVRabTZWRzYyU2hXakVQVWl3N2ZPdHRORW8teTdCeUZzakZoQTQtNjgtc212YzVweVFNRjFnMTlGNkpVOXZYbjkwZXNVaExOWmJvWXdFQnY1WWxhZ1gwRGdKT1pabGVLUnBXQXAwWlJxTl81bXhQX2tGdld1UFBBTU9BRU1oRy1qdFV6RmZWNTJ3LXh3TnVzXzUxZklzdFhwcW5OU1VybEtPREd4UQ?oc=5"
+        },
+        "context": "“Who would have thought I’d end up making half a billion dollars?” – Donovan Mitchell reflects on the fortune basketball has brought him",
+        "id": 986125,
+        "published_at_epoch": 1792415400,
+        "source": "Basketball Network",
+        "title": "“Who would have thought I’d end up making half a billion dollars?” – Donovan Mitchell reflects on the fortune basketball has brought him"
+      }
+    ],
+    "subject": {
+      "entity_id": 322,
+      "entity_type": "player",
+      "name": "Donovan Mitchell",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

@@ -32,6 +32,29 @@ impl Parser<String> for RequestParser<'_> {
             return Ok(None);
         };
         crate::tools::fresh::validate_peer_reading(&reply, self.0)?;
+        let package: serde_json::Value = serde_json::from_str(self.0)?;
+        let name = package["meta"]["name"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("missing Oracle subject"))?;
+        anyhow::ensure!(
+            crate::tools::guards::title_names_entity(&reply, name),
+            "crown: reading does not name entity {name:?}"
+        );
         Ok(Some(reply))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn replay_enforces_the_same_subject_guard_as_publication() {
+        let prompt = r#"{"meta":{"name":"Harbor"},"fresh":{"scout":{"body":"Harbor has a strong recorded profile."}}}"#;
+        assert!(RequestParser(prompt)
+            .parse(r#"{"reading":"The recorded profile is strong."}"#)
+            .is_err());
+        assert!(RequestParser(prompt)
+            .parse(r#"{"reading":"Harbor has a strong recorded profile."}"#)
+            .is_ok());
     }
 }

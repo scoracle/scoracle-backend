@@ -1,0 +1,33 @@
+{
+  "case": 12,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-rating-football-player-total.json",
+  "generation_wall_ms": 3782,
+  "input_tokens": 842,
+  "name": "football-player-total",
+  "output_limit": 700,
+  "output_tokens": 46,
+  "parsed": true,
+  "prompt_version": "s80-measured-perspective",
+  "reading": "The recorded profile shows 4 goals across 12 appearances, placing the goals measure at the 80th percentile in the strong band. The reading rests on a sample of 12 appearances.",
+  "request_bytes": 345,
+  "review": [
+    "Football player positive control: four goals is a supplied total, not per-game scoring or four goals in each appearance. No ability, form or health inference."
+  ],
+  "status": "accepted",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 3790
+}

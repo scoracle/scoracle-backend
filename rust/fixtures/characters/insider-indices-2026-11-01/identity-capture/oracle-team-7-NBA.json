@@ -1,0 +1,44 @@
+{
+  "name": "real-team:7:NBA-oracle",
+  "task": "oracle",
+  "sport": "NBA",
+  "prompt_version": "or31-five-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Dallas Mavericks\",\"entity_type\":\"team\",\"sport\":\"basketball\",\"database_record\":\"Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.\"},\"fresh\":{\"scout\":{\"body\":\"In the 2025 season, the Dallas Mavericks recorded 82 games played. The team allowed 119.6 points (24.1 percentile, poor band), scored 114.1 points (24.1 percentile, poor band), and averaged 44.7 total rebounds (69.0 percentile, above average band). Rim protection was 5.1 blocks (69.0 percentile, above average band), steals were 7.5 (17.2 percentile, poor band), and 3-point field goals made were 11.0 (6.9 percentile, poor band). Turnovers totaled 14.0 (41.4 percentile, below average band), free throws attempted were 25.8 (86.2 percentile, strong band), and assists were 25.3 (31.0 percentile, poor band). The team's composite score was 43.2. The sample is based on 82 games. Supports cross-season comparisons are available.\",\"direction\":\"rising\",\"generated_at\":\"2026-10-23 04:01:57.526097+00\"}},\"tone\":\"Reflective, economical and quietly evocative. Use a light metaphor only when it clarifies the reading.\"}",
+  "parts": {
+    "cards": {
+      "insider": null,
+      "momentum": {
+        "blurb": null,
+        "direction": null,
+        "generated_at": null,
+        "input_hash": null,
+        "momentum_score": null,
+        "rating_samples": 0,
+        "rating_slope": null,
+        "vibe_samples": 0,
+        "vibe_slope": null
+      },
+      "narratives": [],
+      "rating": {
+        "body": "In the 2025 season, the Dallas Mavericks recorded 82 games played. The team allowed 119.6 points (24.1 percentile, poor band), scored 114.1 points (24.1 percentile, poor band), and averaged 44.7 total rebounds (69.0 percentile, above average band). Rim protection was 5.1 blocks (69.0 percentile, above average band), steals were 7.5 (17.2 percentile, poor band), and 3-point field goals made were 11.0 (6.9 percentile, poor band). Turnovers totaled 14.0 (41.4 percentile, below average band), free throws attempted were 25.8 (86.2 percentile, strong band), and assists were 25.3 (31.0 percentile, poor band). The team's composite score was 43.2. The sample is based on 82 games. Supports cross-season comparisons are available.",
+        "generated_at": "2026-10-23 04:01:57.526097+00",
+        "notability": 59,
+        "rating_trajectory": "rising",
+        "rating_trajectory_label": "overall scores trending up over recent games"
+      },
+      "vibe": null
+    },
+    "subject": {
+      "database_record": "Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.",
+      "entity_id": 7,
+      "entity_name": "Dallas Mavericks",
+      "entity_type": "team",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

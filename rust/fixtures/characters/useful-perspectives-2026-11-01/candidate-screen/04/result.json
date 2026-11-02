@@ -1,0 +1,44 @@
+{
+  "case": 4,
+  "checks": [
+    {
+      "detail": "2 narratives",
+      "name": "narratives empty == false",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body includes \"Kim Park\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body includes \"Jo Vale\"",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body includes \"Vale City\"",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-narratives-distinct-developments.json",
+  "generation_wall_ms": 7133,
+  "input_tokens": 1047,
+  "name": "distinct-developments-three-independent-developments,-three-keyed-slots",
+  "output_limit": 2100,
+  "output_tokens": 130,
+  "parsed": true,
+  "prompt_version": "n120-useful-perspectives",
+  "reading": "Cedar United has appointed Jo Vale as head coach on a two-year contract, while goalkeeper Kim Park is set to miss the next match due to an ankle injury with no return date specified.\n\nCedar United secured a 2–1 victory against Vale City on Sunday, marking their latest result in the league.",
+  "request_bytes": 889,
+  "review": [
+    "Keep each development attached to its own supporting report_key; do not transfer claims between reports.",
+    "The ankle injury, the appointment and the result are three stories, not one narrative."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 7167
+}

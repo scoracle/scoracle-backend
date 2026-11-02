@@ -1,0 +1,42 @@
+{
+  "name": "football-player-total",
+  "task": "rating",
+  "prompt_version": "s79-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar Striker\",\"entity_type\":\"player\",\"sport\":\"Football (Soccer)\"},\"fresh\":{\"season\":2026,\"sample\":{\"Appearances\":12.0},\"values\":[{\"label\":\"Goals\",\"measure\":\"goals\",\"value\":4.0,\"percentile\":80.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "profile": {
+      "composite": null,
+      "limit": null,
+      "observed_at": "2026-09-30",
+      "sample": {
+        "Appearances": 12
+      },
+      "season": 2026,
+      "sport_name": "Football (Soccer)",
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "strong",
+          "label": "Goals",
+          "measure": "goals",
+          "percentile": 80,
+          "quality_z": 1,
+          "value": 4
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "Football (Soccer)",
+    "subject": {
+      "entity_id": 17,
+      "entity_type": "player",
+      "name": "Cedar Striker",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Football player positive control: four goals is a supplied total, not per-game scoring or four goals in each appearance. No ability, form or health inference."
+  ]
+}

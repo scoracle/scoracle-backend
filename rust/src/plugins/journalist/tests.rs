@@ -65,7 +65,7 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
         },
     ]);
     let rendered = prompt(&a);
-    assert!(rendered.starts_with(r#"{"meta":"#));
+    assert!(rendered.starts_with(r#"{"job":"#));
     let fresh_at = rendered.find(r#""fresh":"#).unwrap();
     let tone_at = rendered.find(r#""tone":"#).unwrap();
     assert!(fresh_at < tone_at);
@@ -351,7 +351,7 @@ fn fresh_frame_separates_reported_evidence_from_headlines_and_identity() {
     assert_eq!(fresh, frame["fresh"]);
     assert_eq!(fresh.as_array().unwrap().len(), 1);
     // Instructions and the three active context parts reach the model.
-    assert_eq!(frame.as_object().unwrap().len(), 3);
+    assert_eq!(frame.as_object().unwrap().len(), 5);
     assert_eq!(frame["tone"], voice::VOICE);
     assert!(frame.get("task").is_none());
     assert!(frame.get("form").is_none());
@@ -436,7 +436,7 @@ fn stored_history_is_ignored_and_replay_matches_production() {
 }
 
 #[test]
-fn chelsea_full_headline_packet_fits_without_routing_metadata() {
+fn chelsea_full_headline_packet_preserves_sources_without_routing_metadata() {
     let captured: serde_json::Value = serde_json::from_str(include_str!(
         "../../../fixtures/character-runs/chelsea-2026-10-20/journalist-baseline.json"
     ))
@@ -467,8 +467,10 @@ fn chelsea_full_headline_packet_fits_without_routing_metadata() {
     assert_eq!(a.dispositions.len(), 1);
     assert_eq!(a.dispositions[0].reason, "already_reported_exact_text");
     let packet = prompt(&a);
-    assert!(packet.len() < SOURCE_BUDGET_BYTES);
-    assert!(!packet.contains("news.google.com"));
+    // Source preservation is independent of instruction size; admission uses native tokens.
+    let envelope: serde_json::Value = serde_json::from_str(&packet).unwrap();
+    assert!(envelope["fresh"].to_string().len() < SOURCE_BUDGET_BYTES);
+    assert!(packet.contains("news.google.com"));
     for source in &a.selected {
         assert!(packet.contains(&crate::tools::fetch::decode_entities(&source.title)));
         assert!(source
@@ -579,8 +581,7 @@ fn livestream_spam_is_dispositioned_before_articulation() {
 #[test]
 fn database_context_is_preserved_in_production_and_replay_without_becoming_reporting() {
     let mut a = prepared(vec![item(1, "Cedar won.")]);
-    let record = "Cedar United — League One. Home: Pine Ground, Cedar City. Coach on record: Alex Stone.\nteam_affiliation: Cedar [2025-01-01; source 27]";
-    a.database_record = Some(record.into());
+    a.database_record = Some(serde_json::from_value(json!({"league":{"name":"League One"},"location":{"venue":"Pine Ground","city":"Cedar City"},"coach_on_record":{"name":"Alex Stone"},"affiliation_on_record":{"team":"Cedar","observed_at":"2025-01-01","source_document_id":27}})).unwrap());
     let parts = Parts {
         subject: a.subject.clone(),
         reports: a.selected.clone(),
@@ -588,7 +589,14 @@ fn database_context_is_preserved_in_production_and_replay_without_becoming_repor
     };
     assert_eq!(parts.assemble(), prompt(&a));
     let frame: serde_json::Value = serde_json::from_str(&prompt(&a)).unwrap();
-    assert_eq!(frame["meta"]["database_record"], record);
+    assert_eq!(
+        frame["meta"]["attributes"]["location"]["venue"],
+        "Pine Ground"
+    );
+    assert_eq!(
+        frame["meta"]["attributes"]["location"]["city"],
+        "Cedar City"
+    );
     assert!(!frame["fresh"].to_string().contains("Pine Ground"));
     assert_eq!(frame["fresh"][0]["publisher_excerpt"], "Cedar won.");
     a.database_record = None;

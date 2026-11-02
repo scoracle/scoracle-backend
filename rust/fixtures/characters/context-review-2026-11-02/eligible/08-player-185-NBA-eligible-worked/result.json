@@ -1,0 +1,13 @@
+{
+  "arm": "eligible-worked",
+  "checks": [],
+  "input_tokens": 2007,
+  "name": "player-185-NBA",
+  "output_tokens": 73,
+  "parser_detail": "named claim is absent from cited reports: Golden State Warriors",
+  "receipt": "08-player-185-NBA-eligible-worked",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 7699
+}

@@ -1,0 +1,1183 @@
+{
+  "name": "real-team:7:NBA-narratives",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Dallas Mavericks\",\"entity_type\":\"team\",\"sport\":\"basketball\",\"database_record\":\"Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1418321,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxQVERMRklBOEM4OVRheEMtVlgzbnNRRUZYajBYNjRhVVFrZVlXeW9rQ3hZa0dBc1lBaktnbFVGS2NOMFhUNmJ5YUhPY0t3dUwtYk0tcl9VQWZjY3JMT014b05QQThHSW11OTYya1dvVWJmVEZrUjRkLUtoTjRlcEtmVWtaSWZrVnBvZVdEbmM0OG5UWEFCcVp4Qw?oc=5\",\"headline\":\"Tyrese Haliburton set for Pacers home return vs. Mavericks\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T23:51:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1418363,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxNYW1QRjl1VG5vRTlWbUl0d0J1b2pJWFEwcjc4SnYwMWJFTHV5Z1FaTjRjN1FSNkRFdlk1YjFWNXpxRlp6UTJNRjF1aHpnOExqc1IwU3diVUxJblpxeld5cHNCXzJabVZ2T3NmY0V3TDVScVBXREVWdDZuakd1RkI1OWV3N05DSEk?oc=5\",\"headline\":\"Dallas Mavericks Get Great News on Kyrie Irving Before Pacers Game\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T23:26:46Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1408139,\"url\":\"https://news.google.com/rss/articles/CBMi7wFBVV95cUxNNEt3cE1vc3dGUHkxSjhtN21nRnlXSzdha19OM3U3ci1uQWVzV19lZ0U2dnZkOGRhcFY3ZUphdkx1RXVuMkJqa0hHY2FGZVlkQloxcmxHQXVmT2dxdm1WSlhhdHhHYWhJaHVsQ2x5X0ZhQ1Zpd1JmTFBGVmpFaWs5VTUtMnN2YUZaMHR2MjlGaDQzc1FsRkw4RFNQc1ZtOUgwMGhnT3paTjlOWGw2V3dQRVNvbHlNRzg3VzNnSkVZS0hfaURZZE16VE9HUG9hWUE5djl6akJ5Q0dETF9OVExsbjlwUW9rV2YtbmpxLUpIbw?oc=5\",\"headline\":\"How To Watch And Live Stream Indiana Pacers vs Dallas Mavericks NBA Game Tonight TV Channels Team News Start Time\",\"publisher\":\"RealGM\",\"published_at\":\"2026-10-22T23:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1418819,\"url\":\"https://news.google.com/rss/articles/CBMiugFBVV95cUxOd0Ryb3NqLXh1R3B2ZW12QTRzX2t5UDAwN3hMYV8yOUpLc3lhRzdEUkRrb2VhSEZGQWwyRUVpNUhYaDdmLTdJa2Q2Nm1kWTZUU2lydmZmQjNSRUZNQnpGMnB3Q0ZTRTdOVU5yNTFvazNzS2pQUmhkTFdXTDBMOHRZSDEzZktKVnp3TDFDSDhyT3NOcGRENk0zdWhOMEoxa3ZlbUhxcm1IZE9sVTJPYTRibFl5ZmdEZXdINVE?oc=5\",\"headline\":\"Another Pacer added to the injury report; Mavericks without key players\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T22:22:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1397985,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxOd1d6VjA4ekx0X2JZcW1saW1ITFpvUHFrSWNfYUtpdTlVdWJ5bXNFYTVwSFJBcElsam01VGFIemtYclpfb21sbDlWME1ON1R1TlRmM21mX1J2YWZkbWkyaUhaNUg0S2hQV0hVNHY5VXpUcWQzOVBBZDVlbHVLRDYtSjktR1g4M05QdzlV?oc=5\",\"headline\":\"Former Florida star Walter Clayton Jr. lands with Mavericks\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T22:00:33Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1408666,\"url\":\"https://news.google.com/rss/articles/CBMiwgFBVV95cUxNb0I5NnlNa0dBenpXLUw3NDA5T05pQ2JxVjZfaFgycU1KYkNIa2VYaEFONnZaTzZuYUF4a3AtN0FOeURNVEJoWjc3NDNpNG84c25PRlY0LUpHR2lTSzZnQVQ2ck0xYzA0MWZkLThhY2FEOFNPYzBlUkZCWXlCbmJWOVllWTBJT2FhejNBMENjTEN0aEFjTk9DTXdGUnZORHFhUjVQNk83YjFmTUNUZXYzRUZIUlE1NV9IRE9WRlRIMklvUQ?oc=5\",\"headline\":\"Dallas Mavericks vs Indiana Pacers Prediction, 10/23/2026 Preview and Pick\",\"publisher\":\"Doc's Sports\",\"published_at\":\"2026-10-22T20:49:55Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":377077,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxPa2NVUFRxanZfa1hNbjdPcTVYSW13V0dlRVhweFVaaVo4bU5TTk5rVTdqY1gtNWVRaGFZNWp5RWtkWU1MQkRlVlJqOHdrUHIzQUt1ZTVWaVBpNFIyVTFYbXdYRHBpckRRWGprdXM0UGdtOEFwQllVZ1VUSGlXWm9jaA?oc=5\",\"headline\":\"San Antonio Spurs @ Dallas Mavericks: Live game updates, stats, play-by-play\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:16:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1377785,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxONlRwLXoxd2kzUjRQcnM2cXhtbXVQTUhXbFNtamlackFwa1B0LUNQQW83WnRpZm52S3N3cXBha0hhRnFBWERJWHRocThhei1CSlkzWTh5NEdnV0RNTm4ySlNSM1BtMHNtM3NWdHBYc2lsdmRwWURaNkttYUNuaFprb2dBMlQzbWJ6dnBUaG5aMGNIcHpBR05MaUJB?oc=5\",\"headline\":\"Mavericks' Santi Aldama: Ruled out for Friday\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T20:13:22Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1387803,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxNMXRQUEdZUkxOTHAtNFo4UEtucUdIVThoMzVScTMwaWtjTDBoWWlGa3NRajRNZW9CUTRBWjRiQnpVcEtlOTE5U1h2cjh2cDRkWmFpeExfbDV2bHo3LW9LVUVnODR5MVBNU0RsbkRtMTBtRGlUQS0xZkpVZW5CNVQ3VzlpOA?oc=5\",\"headline\":\"One Winner and One Loser From the Rockets 128-110 Win Over Mavericks in Season Opener\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:00:44Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1407633,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQaU5LTnlaNmM4ZmRKVjRkWVQ0Mm1YV3p6eWhDbGQxTi1QWEMyLXB1X1hUcUI4bkd6T190N3d3V2pnd1VDM0JiTFQtcWhjVWFzVS1KQ2l5aGtxMW55dS0ybndQakdDMmlURWJZclo4X0NrOXZQQm9BXzczYXJsU3g5WEpTTktWUnF6TzhaSkdWdw?oc=5\",\"headline\":\"NBA Notes: Mavericks, Kyrie Irving, Hawks, Nickeil Alexander-Walker, Magic\",\"publisher\":\"Hoops Wire\",\"published_at\":\"2026-10-22T19:38:30Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1418317,\"url\":\"https://news.google.com/rss/articles/CBMiugRBVV95cUxQMGJtbU1SVGs4OVQ1NVFoYTNMam5wU2ZPcFN0T2ZwZF9nVlhDS01BdXJseUZtUkNGZE0zalRPdUFBTUltanExRTFPQ2EwWjRMaS1qM2ZESVQ3Z1AyTDBsWWdIN2xMaTVkWFpPeHoxNkljSGl0X0p4OGFnRGo3eUFCaTg2RjY0M3lnbC0tUktCZUVVVG1WMGtpczU1VWtxbWpSMkk3N0MxUnpoSHB6N3NtcDM1WGkzUFM3S1NrRVdlaGUwZFRZRERUS19PZmhESGNxVFg1Smx3QTVEQXp4aDlKZFdITV96R2pPSWhrOXpHLVd0eEE4QXdHdkR4TzdCbEwwLWlneUJBaVlBdmNWWHNmRUhSbnEzZGN4TGhZR01XR21tOWJndnpqMzZhdzIxalp6NHkzS21NQlJpM0lpbUxLT1BrdXU1XzZZdU1TTjBmcFAtMWhNNHBIalpfa0FZOVNYWmZoQ2ZVY2ctelpCdzB1RDlQaUVRNU1wZmc4bkg0Q2hQSU12NTFMRVlYS01KZG81M0Vlb3liVmNfTjBmMTVaNXJVZGZpeUlkRk9fTURRS0dXT0ppUFlERzRFMHpSNGpfTWh1b1BHbjQ0TmxTcE1xMi1nLWtFNTdrMkhKNEYzeDkycnVyVTdIM1BTVHF0amZGbExrbFUwYWhhVU9LaVdGN0pjTEpfdHYyZjJaQ2dvZFVucGxpV2RUMnB3a3g3SHdZQXNxVWVjTTBRV252SzhRWThlWW8wbDdsV0E?oc=5\",\"headline\":\"Dallas Mavericks vs Miami Heat Oct 26, 2026 Game Summary\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T18:26:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1408191,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxNdHFsSzcyQmdYZ0tfNDNZQ2xFRE9OMzdZUkVuNUxjbnJjWG9BcE9pbFBWRnd0UXVkbkFueHBhcHNJU25CNjlhaGZGVjg4WmU0Q2hvLUVmSEdBanc4QmNUTmlxc2lQX0VMWmQ4N2t0dHoyaFhSUnA4dkM0SHNhTl90aVA1dWdERjh4LWNR?oc=5\",\"headline\":\"Top Takeaways From the Rockets Dominant Win Over the Mavericks on Opening Night\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T16:59:59Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1338431,\"url\":\"https://news.google.com/rss/articles/CBMijAJBVV95cUxNdU1la0hmTS1MV1B5ZmJ3aVpSeDlpX1h5dVZNNklZb1EzdzBuYTU0QmZNVlR4SmZoRHBXV3Q1TGdKekNSSXI5b1hzT1YtcWhzSXlfbmY2dWxScVFVX1pTQlYtaWVlU1hHNENfakFKNHJ1OGZLZVNPNEFjaERaSDdsRWZueTQzWWcya29WOUtTY1BGLUZ5QXVIOHhuVzhlLURYY3lucW11NF8zUHA5VUx5a194R3BjNlBka3hyRnN0cUJlc1JZTjhTS2doVG8yOEFQOERYdy1EZ1h0eFdVQldoSkd6bWx3RGJoeGg2ck43NVZJa2tKbmYxdEU5OXplN2tZOVQ2V1ZJWGM3RzA4?oc=5\",\"headline\":\"Mavericks sign former first-rounder, ex-Grizzlies and Jazz combo-guard after waiving Dwight Powell\",\"publisher\":\"Sporting News\",\"published_at\":\"2026-10-22T15:17:44Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1318052,\"url\":\"https://news.google.com/rss/articles/CBMiZkFVX3lxTE5ZdHBvTkFVM09NNm5pMDFRRHQzUzlEbDE2TFhFRThwLW4zM2NZTEF2VGpNRkxoeDVMQzRTNy1sUTk2bDJjRFFKWE16LUFqYXdjY09kcjV4YnBZQVRRQ3JVaS1FV2JDdw?oc=5\",\"headline\":\"Pacers vs Mavericks Home Opener | Friday, October 23\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T14:43:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1418282,\"url\":\"https://news.google.com/rss/articles/CBMiTkFVX3lxTFA1d2xpNU9MV1RmT1RBdXRXQVRnbjJfVmtuV1FGWUpQeVduZnhFTnp0d2dEcE1NTWhOM2c0RXpWWHdjTTJFWl9LU3FLQ2lOZw?oc=5\",\"headline\":\"Kyrie Irving Dallas Mavericks NBA Sticker Basketball Phone Decal Mavs Sticker\",\"publisher\":\"khorasantimes.com\",\"published_at\":\"2026-10-22T14:40:24Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1329546,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxNTzNyd29peXR4a2w5dFE1MDlZTExrWU9RWElsUk5IVkhjOS1zRE04NGM1ckRyTlRTVHYxN05XMVg1a0JIdHBXRmhOdVI3S2t5V0E5YW5RaFRlby1wblM3VlBSU0pjOVdhbC1RWlVUTTJ5ak1mRmc2QjB5cGFHRHdEa1ZWNl9TVFdpZkdXRkNlMW1PTXhk?oc=5\",\"headline\":\"Dallas Mavericks vs San Antonio Spurs: previous stats | NBA 2026/2027\",\"publisher\":\"Diario AS\",\"published_at\":\"2026-10-22T13:22:03Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1298695,\"url\":\"https://news.google.com/rss/articles/CBMiugRBVV95cUxQcXpLY1pLRWVWRU92bU1aYzEtMUM3c1BaODBPcWphYklsaGhDYlVqcHVqd1dTQzFEcTdvRGdUMDNMY01KYzJ1Q1hnMzdheGVWSUVHbkJTaWJkTlg3b29nTE43eHJzQTZ5aEJxTkJwTVFTRzEzU2tLQUtFRGtHdkw4UWNUN2g3NGVKNEZpSTdRX05scnU5eWsyTkpTZXhWS2w3N3hPMWVJaFRlTmdBcGtaMjd5bGZXd25ZNEt1RHZWSnZZc2hibjcxeG5yWVQzd2JCVXJPQ0NXR2pCajJfMWdDV0lsdDB4S2ZZcVNVSVF2Rlg1ejJVSUtnY1pnRG9FNWtyc2Q3Y1A0dGZHeHd3LXhLbDlUaTI0MlZRdl9oanN0QktwOHJUb01vd3dlN3V5TDJuTFlZV0hFcDJvR21mM1NrWjRuYzM5NWVqd0tfZzdrZzdzTE5xT2k0alljdnhrQ2FoZEhiLWJmWlF1cmdDVzFVd1JjVzVUX3c3SV9tdnQzV09YOE4wM2xQZFlnaTlDbjhiNDN0YmJnUjhWQncwOTZwNjZTR05iSVVyTS0ycUY0QlhSVUh2di1FSnBiTDZpekxXS2dDVzJlNnNEYXpFcFNZSlpGQlJWRXNkc3hGbzQxMVdxWVVmYTdQbXlQcDJUdUlJQWtJQ0doOHBqNW5PSC1mUkhSUXpyRGNtZGVWdVJNaUM2RExDanNDNTZzMjI4ZzRlSnhhRjFLMGVwTVNmN1FGR3Fickc4SlRaMnc?oc=5\",\"headline\":\"Utah Jazz vs Dallas Mavericks Nov 6, 2026 Game Summary\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T13:10:03Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1279328,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxQYURra1BLWlV0ZHJvZkxHWGZCT2p3cUJTSkNSa3k0NURMNE55MjlMdmREcVRsTzhYNTdCNUZlck0yaHhISkZkMWdHaEcyc2lDd1ZmdS1PYzNvV0VtUTlYUWRDY3JtMlFyUndFMF9QNHROcnEta1c0VkY2SjRlSjBXVXcyRXZuWUZoSW9Bc1dGd2NLUQ?oc=5\",\"headline\":\"Mavericks’ Kyrie Irving says Cooper Flagg hype is real: ‘No gas, all facts’\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-22T13:04:31Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":377079,\"url\":\"https://news.google.com/rss/articles/CBMifkFVX3lxTE1keXdGdXl6d2owV3lHOXJGMjJyYXBqRjRtRTByMDNNTXdzMUh3amhMN1hIUzBLMmhlVWp5UTBzQTZfWDI5SVkxMzAxXzdYMGNZRDYzcnFaLUg4MUlJdEJ1aUJoZEpYOTJVZ0VxYUw0RFlBejJKNldJV3VJN1hqZw?oc=5\",\"headline\":\"Dallas Mavericks 110 - Houston Rockets 128: Final score, results, recap, box score, stats\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T10:02:19Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1260330,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxObTMxdm9aTFpsU2RRS25sMnY1dUlLb0lOSENjb3plNXZrdmhyUUpTemlGYi1TdGVrdjJBQ3VjSlRjSnNNNTNGTDdYMmVtZ1J5cWRLQmlnQjJLM0IxWlNhb3h1WElnaEJJWjlZcm9mZHdLcVVEX0ozMU92T3Vub3p0eVBTbjVWUllHUjdrdzJSQktSbjE1ZElhb2IySXh4TkQ4MktlM0JLdl81T0VYRndBZGpoSXNEbzBRdG45YnBveVhSa0pndWFwRjJkblM1UQ?oc=5\",\"headline\":\"Rockets start season with 128-110 victory over Mavericks\",\"publisher\":\"The Dream Shake\",\"published_at\":\"2026-10-22T09:35:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1357960,\"url\":\"https://news.google.com/rss/articles/CBMioAFBVV95cUxQZVczdzZQUjZzeTd4ZHpvOTFoZEVvanZtZkNoQ0Myb3lQTWhIenhXdXNCNkZUcmo4T09RNkR4eXlJbnhJWVJlN1cybk80TzhidlRneHB0YkFOOVl0Mlh5cHJ3dUVZUHk5aWthbXlXSmlPc3RZSW1VNVZ1dnNuQ0U3b0pLMHh0QlRCUUNkUHlGZjV4NTJzdzZWUS1FSkxUaUFR?oc=5\",\"headline\":\"Houston Rockets vs Dallas Mavericks: Points, rebounds and assists per player | NBA 2026/2027\",\"publisher\":\"Diario AS\",\"published_at\":\"2026-10-22T08:48:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1288909,\"url\":\"https://news.google.com/rss/articles/CBMipgFBVV95cUxPN3diMjRTbFRJYlVKalhLdDlUNVBRcDBvdjJlUGltSC1FZTNpUEdoa3lCcE4xOTNaRDlaVnR1YnJIOGhVR2kxOFJIY2ZfajFIdW9ldEhCZUpyVFAzbHFWQnVIcnFfYnNnNE5Wb1hLQ21USDUyQTMyYlRGN1RkajhXS3ZiQlRmMV9vOXpZQlB6RnNyVDRQbGlsWEpuVThmcGVMZTZrT1dn?oc=5\",\"headline\":\"Houston Rockets vs Dallas Mavericks: live info and stats | NBA 2026/2027\",\"publisher\":\"Diario AS\",\"published_at\":\"2026-10-22T08:47:13Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1279650,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxOTTl2NFluUWdZTFpJd2VSeUlzSHFobGtINjBVcFdadnR2TTZrU2wyTC1GS2tFaVgtYVRvaC1QdTFwQWlOTTg0bW9XRGY3eGp6RjZDTTR1dDVhbm4xbndLVWVjcUlGQW5yOGNsYXpENTdhZk5STWVtYUxPdkJkOC0ySUdkSTNNUXZuNzdwcTN4OHphdTZfTmR6T002bzB2Zw?oc=5\",\"headline\":\"Houston Rockets vs Dallas Mavericks: previous stats | NBA 2026/2027\",\"publisher\":\"Diario AS\",\"published_at\":\"2026-10-22T08:07:48Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1260052,\"url\":\"https://news.google.com/rss/articles/CBMixwFBVV95cUxQZXlVR3oySndOby1Rc1o5aDYzUkF3cWNiYlRKbHVyMDI3OGZhYUVRWUhUdm5rOG1DVEJXd0NZSUoxbFNSVTc2Zi1qcmZlVmJ5N0Rpc0lxUFlQU3BCZV9USUpYU3hDZ3VVeUZyaS1BYjZFRHVRb2UxR09xRGZUUUE0eHI3akRqNmRBOXd1MXFUcnROWVRMeW9NOHlrb28xVzVVMjYyaXlFTXNGNTFRemNUYkJScTJwdm9PTjZiMmJVUWlUY1I0WVkw?oc=5\",\"headline\":\"Alperen Sengun opens NBA season with double-double as Rockets beat Mavericks 128-110\",\"publisher\":\"Türkiye Today\",\"published_at\":\"2026-10-22T08:04:32Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1260318,\"url\":\"https://news.google.com/rss/articles/CBMipAFBVV95cUxPZ3FlbXhXeTdjOVBtYlpjVll0LXl0Sl9SVTVQR2JiYm1kVG42VGwyWjJfZ0lGWmhGZGw1UXZVZmhNbE53UG9QWDVCVnBtY3VEZ0RuZVdVTE4wbE1ZMkdDT0h4NU1JYkxTUGJXRU9Ma0RHWEJIVW9oQWg4dktWSDh5a1liRXFPNmJYb1daTkkwMGdTVnp2bldhbFZ6a0gxOU5rV0c4T9IBpAFBVV95cUxPZ3FlbXhXeTdjOVBtYlpjVll0LXl0Sl9SVTVQR2JiYm1kVG42VGwyWjJfZ0lGWmhGZGw1UXZVZmhNbE53UG9QWDVCVnBtY3VEZ0RuZVdVTE4wbE1ZMkdDT0h4NU1JYkxTUGJXRU9Ma0RHWEJIVW9oQWg4dktWSDh5a1liRXFPNmJYb1daTkkwMGdTVnp2bldhbFZ6a0gxOU5rV0c4Tw?oc=5\",\"headline\":\"NBA: Rockets blast Mavericks as Kevin Durant, Jabari Smith hit 30\",\"publisher\":\"Inquirer.net\",\"published_at\":\"2026-10-22T07:01:17Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1279305,\"url\":\"https://news.google.com/rss/articles/CBMiY0FVX3lxTFBLcy04UDh5Y3hKalg5eEFBT0JVRzJxWGhOQW93dE10c0pEZnNoTmdlZW9lUVRJUnNfcDctMkdpSzJRaG9sTHM3RVRxZHlHcXJHcHRBek4tTk1Wb2ZfYkwzZ2trRQ?oc=5\",\"headline\":\"Dallas Mavericks News, Rumors, Updates - National Basketball Association\",\"publisher\":\"FOX Sports\",\"published_at\":\"2026-10-22T06:16:59Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1260092,\"url\":\"https://news.google.com/rss/articles/CBMid0FVX3lxTE5jd1RqTW14dkliY0ViMjlJWkZyUS14YVRlQmctejBCZ2hSTVF4MmJkbHktYjBrZ0VGRzVXSDhtMnh4c19vaE9UbkFkTWdGb05JaEJWQ3pYYzQtWDF2bzNQZlA4WGxob2FLZEhDYUZmMXB3NjlDX29r?oc=5\",\"headline\":\"Game Recap: Rockets 128, Mavericks 110\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T05:48:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1260006,\"url\":\"https://news.google.com/rss/articles/CBMid0FVX3lxTFBtQmxRWE1iZmlqb0N6UFYwbGhhZGVHdDdiUFE5MktJSkx3bkpxa3J6N2h1VmlSSFZMZ2JoTTdkOE1WYzJ2bXlNRkYyYUxVLW1qM0YyZldDWFZfc1RoTkZsR3c4X1JCV0dPQzJrSFpnZW93RUZIYU1N?oc=5\",\"headline\":\"Mavericks vs. Pacers (24 Oct, 2026) Live Score\",\"publisher\":\"ESPN Singapore\",\"published_at\":\"2026-10-22T05:38:15Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1259532,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxPMllkR3pXNUlsR3kzOE5zV1lhWTY4MHp4d0tHRDU5SHVaR1pYZDVRYUVpWjBDN1JBTGcwdGlvT0dVQ2RSZUF6a2RPYjF3X2FkY2luMEdNMkRiZUZ3OTA0TFY2cWxaakFndFN6TXBRN0Y3MDJYUHBMQk1QWW9TdFU5b294X2RRc3ZH?oc=5\",\"headline\":\"DAL Mavericks vs. MIA Heat 27 October 2026 | H2H, Betting Tips & Odds\",\"publisher\":\"online-bookmakers.com\",\"published_at\":\"2026-10-22T05:14:44Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1260794,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxNTnhMYWpUQ09BOTktNWhYYmxxZ1d1TGZSdGxUazdRTmg4TjFpRE5zZFVQaFpjVzZDM1JVWHFNUlBlRmFCTXo0QnZVel9GbVBzOV9UZGVWWkQ1WE5IWFV2dHFWT0FQU3VWd0VOOUFlS0JfbTVva0dXT21iVkJRd0FCV3NXSDBSRDFC?oc=5\",\"headline\":\"NBA Notes: Grizzlies, Ty Jerome, Mavericks, Cooper Flagg, Bucks\",\"publisher\":\"Hoops Wire\",\"published_at\":\"2026-10-22T05:02:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1408167,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxNYUM4TU1BZHhMVVNDVkR3ODdkWHRVM29OYjdQZWhmNmZYSUtTQlI0cXhISEhLZ3VEZEZ3NmZXWE9ZcVdoZ3RkZ0hBLTlkMUF6ZFAtUks4SlUzRFFNdi15cWpuTE8xWWZWYUtZS0Y3VXV5NGpNMy1VbWJJMjlIdTlKYUpaLVlKU2lHTi0zOEV4RFVtN2JEZnktWTZXaw?oc=5\",\"headline\":\"Physical, aggressive rookie Johnson set to 'make some things happen' | Dallas Mavericks\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T04:54:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1260017,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxQWk5MRGlMOUg1ci00cDlFdmNsTElRZ2VxN3NOTHpTNUxMQ3ZoT3FZeWZLU2pqLWNDRlpBaXVETm9XUFA1U1BhWmo3d01KMDZJdDBycVd5cHduUjczVnN1alA3alQxcEw2bEdIN3NkLXcwSEhrTHZNQnVJa1lmLW0xV3pSckEwbzE5MGJDTE1MeVo?oc=5\",\"headline\":\"Rockets predicted to trade for Mavericks' $118M veteran NBA champion to reunite with Kevin Durant\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T04:27:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1260385,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxPb2NIUFprVDY4dVNaOVQ4Z0tKcG55T01xTWUtY1VLSEUyRmROSFU3eUhxeXlxUnBHTlltOHpKcWQ5czFWRVRpZ3hYTEtkNGwtLWR0M2dfczlwV3M3cVBrZzNGUU0zekQ1ZjZsaUYzdlc3cWkwOWdmX3d6TGVLb1JLemhRb1NrSEpOeDB5WTZOeHkwaGxTbzBnUW1PdVhvUy1nMGo3dUR0UmZHWDhZTlE?oc=5\",\"headline\":\"The Houston Rockets Defeat the Dallas Mavericks in Opening Game\",\"publisher\":\"roundtable.io\",\"published_at\":\"2026-10-22T04:22:06Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1270081,\"url\":\"https://news.google.com/rss/articles/CBMioAFBVV95cUxOcmNDMy00UDlicUZYdE1ReWRVVFl5bmRYWHp1bGtpZkRYZkZ2MEJEV1BiMUw4NmhTNm9uVldiTE9DcEtURjZ5a0tvVlRaaE04Zk9lYVAwTUhITFR0N2dJMm8wNkNlQld1djZrZjA2RGlORnVQQ0EzVTZOaEFvek9GVXdVaFBHU2JKRlYzTXcwNXhIdGViM1p1Um9oSVFuY21w?oc=5\",\"headline\":\"Rockets 128 - Mavericks 110 (10/21/2026): Durant and Smith Jr. Dominate with 30 Each\",\"publisher\":\"knup.com\",\"published_at\":\"2026-10-22T04:04:14Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1260094,\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxQYkJjbzdkMXdSZGRvblU1TmRhemVFczBUQ1ZZRk1oSHVqcXl0YllwWlNwakJzRlJyd2hIZFJJOTRtR1FuMThOeUdFWDV5QVRZZ2tJQ0IwdUFtOGxYZkhFbVJlS1hSTTY0WVgxendIaWZrRXVUZFFqRDNoMlBNVGxpVEhaQ0tMNm5ObVg1bUN1MGlhTjdVblNmOVBqbzFkak1LbHdMc1p2czNUWlRJZnprM2FjeWRnZw?oc=5\",\"headline\":\"Kevin Durant drops 30 in season debut dub against Mavericks\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T03:41:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":964177,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxQdjRhMW9OcHljaEExWFJnWGhwdDZtV2dnTHZMaWt0Y1Y5OUhjYVp4TXNuRWdSb1RUQ3NhY3p1cEJnTGFLdFZLZkZTZE9QNHp0cWMzMmhHQWl3c1ZSYkswWlFqaHFrNjVWd3BoRXNsQmg3RU9lV0QzYnlGdzUzN2xWb1Rkb2dCSmpDa3FyMG5n?oc=5\",\"headline\":\"Dallas Mavericks vs Houston Rockets Prediction | NBA Picks\",\"publisher\":\"ATS.io\",\"published_at\":\"2026-10-22T00:40:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":1260020,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxNVU5QZWF2SkpISUs2OUNRektrWG84MVlMVGtRZTgwMHF6R3VyX1pkb1dfZzN5N0pMTm9mR3NRRmVISjVWMUpvT3RkNmpJdXF1RVRhcVU3ZWpLNVUzNDNHell6QjlmNUdJSExsa3lucDZhMmkyTVRWOHhQOVdmNHYyd0xSVjlUYXJHNHc?oc=5\",\"headline\":\"Mavericks Sign Walter Clayton Jr. to Two-Way Contract | Dallas Mavericks\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-21T21:51:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":678054,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxNTFJkRVJHWkRkYXBXZ2hReVYyVmVSRnBNX0toaW5FanB4LW9UOUR0S1hqOWlkUU1qblRhMkNQZkZjdXlIbEVKR3RtU1laS0FzTDZKdklJaUFTX29WZEZkRWNubldzNDh0MGYxS3dPN25Jd1d3eElwYVNjbFB3UHJ4dHUyc3ZYeWx1d0p5NlNHWXFPVDd0TlQ0UFNzZzUyOHZNT2xTX0s0VGEtQQ?oc=5\",\"headline\":\"Mavericks vs. Knicks Dallas tickets on sale at American Airlines Center\",\"publisher\":\"TicketNews\",\"published_at\":\"2026-10-21T21:09:30Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":1118367,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxNOXREWWU4V1ZNR3V4OXdSNElwOThtNjlzQV9PaTQ2SGF6bXJzS3lYdlE0WDNMeGE1MHRlVDJrdHBwQWpTdjJnUWxEWTZ0TnhuLXlzd0liaHFBaDBMZTdHZVp0alV0empoWFRLbnlIMms3RlNhTk1XR1cycW5xa2hqRE91TXQ?oc=5\",\"headline\":\"Houston Rockets vs Dallas Mavericks Prediction & Picks - NBA\",\"publisher\":\"SportyTrader\",\"published_at\":\"2026-10-21T20:35:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":1182659,\"url\":\"https://news.google.com/rss/articles/CBMickFVX3lxTE1NZ2JMQXV1X3MxY2RDb0NiNDlIYW1OV3ZReWthaDJWTmg0cGoxb2RWVktzVGhONE9IS2RRR3k4MjJkZGJNOUdLR0NBRHg4MjRHTDR6bVNRTGlEVllnYVA0ZDdYUnRSck5rRkNZU1VZR3NzUQ?oc=5\",\"headline\":\"Mavericks vs Pacers Prediction, Picks, Prop Bets For October 23, 2026 - NBA\",\"publisher\":\"Covers.com\",\"published_at\":\"2026-10-21T16:00:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 82.55974115023217,
+            "emotion": 1.6779038041130856,
+            "movement": 3.016332361238066,
+            "subject": 94.04429650793544
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxQVERMRklBOEM4OVRheEMtVlgzbnNRRUZYajBYNjRhVVFrZVlXeW9rQ3hZa0dBc1lBaktnbFVGS2NOMFhUNmJ5YUhPY0t3dUwtYk0tcl9VQWZjY3JMT014b05QQThHSW11OTYya1dvVWJmVEZrUjRkLUtoTjRlcEtmVWtaSWZrVnBvZVdEbmM0OG5UWEFCcVp4Qw?oc=5"
+        },
+        "context": "Tyrese Haliburton set for Pacers home return vs. Mavericks",
+        "id": 1418321,
+        "published_at_epoch": 1792713060,
+        "source": "CBS Sports",
+        "title": "Tyrese Haliburton set for Pacers home return vs. Mavericks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 84.19132483807736,
+            "emotion": 44.03545634967957,
+            "movement": 29.66793273550393,
+            "subject": 92.2905732329788
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNYW1QRjl1VG5vRTlWbUl0d0J1b2pJWFEwcjc4SnYwMWJFTHV5Z1FaTjRjN1FSNkRFdlk1YjFWNXpxRlp6UTJNRjF1aHpnOExqc1IwU3diVUxJblpxeld5cHNCXzJabVZ2T3NmY0V3TDVScVBXREVWdDZuakd1RkI1OWV3N05DSEk?oc=5"
+        },
+        "context": "Dallas Mavericks Get Great News on Kyrie Irving Before Pacers Game",
+        "id": 1418363,
+        "published_at_epoch": 1792711606,
+        "source": "Heavy.com",
+        "title": "Dallas Mavericks Get Great News on Kyrie Irving Before Pacers Game"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.941248066286809,
+            "emotion": 1.5372528426117429,
+            "movement": 2.902021384924167,
+            "subject": 93.76545820795694
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi7wFBVV95cUxNNEt3cE1vc3dGUHkxSjhtN21nRnlXSzdha19OM3U3ci1uQWVzV19lZ0U2dnZkOGRhcFY3ZUphdkx1RXVuMkJqa0hHY2FGZVlkQloxcmxHQXVmT2dxdm1WSlhhdHhHYWhJaHVsQ2x5X0ZhQ1Zpd1JmTFBGVmpFaWs5VTUtMnN2YUZaMHR2MjlGaDQzc1FsRkw4RFNQc1ZtOUgwMGhnT3paTjlOWGw2V3dQRVNvbHlNRzg3VzNnSkVZS0hfaURZZE16VE9HUG9hWUE5djl6akJ5Q0dETF9OVExsbjlwUW9rV2YtbmpxLUpIbw?oc=5"
+        },
+        "context": "How To Watch And Live Stream Indiana Pacers vs Dallas Mavericks NBA Game Tonight TV Channels Team News Start Time",
+        "id": 1408139,
+        "published_at_epoch": 1792710000,
+        "source": "RealGM",
+        "title": "How To Watch And Live Stream Indiana Pacers vs Dallas Mavericks NBA Game Tonight TV Channels Team News Start Time"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 96.5791982772886,
+            "emotion": 1.6611831386811264,
+            "movement": 8.399862956994426,
+            "subject": 94.86882287765644
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiugFBVV95cUxOd0Ryb3NqLXh1R3B2ZW12QTRzX2t5UDAwN3hMYV8yOUpLc3lhRzdEUkRrb2VhSEZGQWwyRUVpNUhYaDdmLTdJa2Q2Nm1kWTZUU2lydmZmQjNSRUZNQnpGMnB3Q0ZTRTdOVU5yNTFvazNzS2pQUmhkTFdXTDBMOHRZSDEzZktKVnp3TDFDSDhyT3NOcGRENk0zdWhOMEoxa3ZlbUhxcm1IZE9sVTJPYTRibFl5ZmdEZXdINVE?oc=5"
+        },
+        "context": "Another Pacer added to the injury report; Mavericks without key players",
+        "id": 1418819,
+        "published_at_epoch": 1792707757,
+        "source": "Sports Illustrated",
+        "title": "Another Pacer added to the injury report; Mavericks without key players"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 81.09249984117274,
+            "emotion": 1.762632245176656,
+            "movement": 96.42815942624247,
+            "subject": 92.64066565479416
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxOd1d6VjA4ekx0X2JZcW1saW1ITFpvUHFrSWNfYUtpdTlVdWJ5bXNFYTVwSFJBcElsam01VGFIemtYclpfb21sbDlWME1ON1R1TlRmM21mX1J2YWZkbWkyaUhaNUg0S2hQV0hVNHY5VXpUcWQzOVBBZDVlbHVLRDYtSjktR1g4M05QdzlV?oc=5"
+        },
+        "context": "Former Florida star Walter Clayton Jr. lands with Mavericks",
+        "id": 1397985,
+        "published_at_epoch": 1792706433,
+        "source": "Yahoo Sports",
+        "title": "Former Florida star Walter Clayton Jr. lands with Mavericks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.960162525645513,
+            "emotion": 1.6638055774571174,
+            "movement": 4.065916345145823,
+            "subject": 92.44758247270268
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxNb0I5NnlNa0dBenpXLUw3NDA5T05pQ2JxVjZfaFgycU1KYkNIa2VYaEFONnZaTzZuYUF4a3AtN0FOeURNVEJoWjc3NDNpNG84c25PRlY0LUpHR2lTSzZnQVQ2ck0xYzA0MWZkLThhY2FEOFNPYzBlUkZCWXlCbmJWOVllWTBJT2FhejNBMENjTEN0aEFjTk9DTXdGUnZORHFhUjVQNk83YjFmTUNUZXYzRUZIUlE1NV9IRE9WRlRIMklvUQ?oc=5"
+        },
+        "context": "Dallas Mavericks vs Indiana Pacers Prediction, 10/23/2026 Preview and Pick",
+        "id": 1408666,
+        "published_at_epoch": 1792702195,
+        "source": "Doc's Sports",
+        "title": "Dallas Mavericks vs Indiana Pacers Prediction, 10/23/2026 Preview and Pick"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.548569768325475,
+            "emotion": 1.5981595324546505,
+            "movement": 4.104577352761433,
+            "subject": 94.66280941226428
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxPa2NVUFRxanZfa1hNbjdPcTVYSW13V0dlRVhweFVaaVo4bU5TTk5rVTdqY1gtNWVRaGFZNWp5RWtkWU1MQkRlVlJqOHdrUHIzQUt1ZTVWaVBpNFIyVTFYbXdYRHBpckRRWGprdXM0UGdtOEFwQllVZ1VUSGlXWm9jaA?oc=5"
+        },
+        "context": "San Antonio Spurs @ Dallas Mavericks: Live game updates, stats, play-by-play",
+        "id": 377077,
+        "published_at_epoch": 1792700187,
+        "source": "Yahoo Sports",
+        "title": "San Antonio Spurs @ Dallas Mavericks: Live game updates, stats, play-by-play"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 95.00880771759024,
+            "emotion": 1.7624968397766414,
+            "movement": 25.15198509077879,
+            "subject": 92.54560673531476
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxONlRwLXoxd2kzUjRQcnM2cXhtbXVQTUhXbFNtamlackFwa1B0LUNQQW83WnRpZm52S3N3cXBha0hhRnFBWERJWHRocThhei1CSlkzWTh5NEdnV0RNTm4ySlNSM1BtMHNtM3NWdHBYc2lsdmRwWURaNkttYUNuaFprb2dBMlQzbWJ6dnBUaG5aMGNIcHpBR05MaUJB?oc=5"
+        },
+        "context": "Mavericks' Santi Aldama: Ruled out for Friday",
+        "id": 1377785,
+        "published_at_epoch": 1792700002,
+        "source": "CBS Sports",
+        "title": "Mavericks' Santi Aldama: Ruled out for Friday"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.5013851386233252,
+            "emotion": 2.286800859137827,
+            "movement": 2.633573341331298,
+            "subject": 94.71879823322952
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxNMXRQUEdZUkxOTHAtNFo4UEtucUdIVThoMzVScTMwaWtjTDBoWWlGa3NRajRNZW9CUTRBWjRiQnpVcEtlOTE5U1h2cjh2cDRkWmFpeExfbDV2bHo3LW9LVUVnODR5MVBNU0RsbkRtMTBtRGlUQS0xZkpVZW5CNVQ3VzlpOA?oc=5"
+        },
+        "context": "One Winner and One Loser From the Rockets 128-110 Win Over Mavericks in Season Opener",
+        "id": 1387803,
+        "published_at_epoch": 1792699244,
+        "source": "Yahoo Sports",
+        "title": "One Winner and One Loser From the Rockets 128-110 Win Over Mavericks in Season Opener"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 34.92959979729867,
+            "emotion": 1.763682809625779,
+            "movement": 24.769195695739583,
+            "subject": 92.21660065240684
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQaU5LTnlaNmM4ZmRKVjRkWVQ0Mm1YV3p6eWhDbGQxTi1QWEMyLXB1X1hUcUI4bkd6T190N3d3V2pnd1VDM0JiTFQtcWhjVWFzVS1KQ2l5aGtxMW55dS0ybndQakdDMmlURWJZclo4X0NrOXZQQm9BXzczYXJsU3g5WEpTTktWUnF6TzhaSkdWdw?oc=5"
+        },
+        "context": "NBA Notes: Mavericks, Kyrie Irving, Hawks, Nickeil Alexander-Walker, Magic",
+        "id": 1407633,
+        "published_at_epoch": 1792697910,
+        "source": "Hoops Wire",
+        "title": "NBA Notes: Mavericks, Kyrie Irving, Hawks, Nickeil Alexander-Walker, Magic"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.842037820379158,
+            "emotion": 1.9469824790444228,
+            "movement": 3.600004868229256,
+            "subject": 93.23775859159817
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiugRBVV95cUxQMGJtbU1SVGs4OVQ1NVFoYTNMam5wU2ZPcFN0T2ZwZF9nVlhDS01BdXJseUZtUkNGZE0zalRPdUFBTUltanExRTFPQ2EwWjRMaS1qM2ZESVQ3Z1AyTDBsWWdIN2xMaTVkWFpPeHoxNkljSGl0X0p4OGFnRGo3eUFCaTg2RjY0M3lnbC0tUktCZUVVVG1WMGtpczU1VWtxbWpSMkk3N0MxUnpoSHB6N3NtcDM1WGkzUFM3S1NrRVdlaGUwZFRZRERUS19PZmhESGNxVFg1Smx3QTVEQXp4aDlKZFdITV96R2pPSWhrOXpHLVd0eEE4QXdHdkR4TzdCbEwwLWlneUJBaVlBdmNWWHNmRUhSbnEzZGN4TGhZR01XR21tOWJndnpqMzZhdzIxalp6NHkzS21NQlJpM0lpbUxLT1BrdXU1XzZZdU1TTjBmcFAtMWhNNHBIalpfa0FZOVNYWmZoQ2ZVY2ctelpCdzB1RDlQaUVRNU1wZmc4bkg0Q2hQSU12NTFMRVlYS01KZG81M0Vlb3liVmNfTjBmMTVaNXJVZGZpeUlkRk9fTURRS0dXT0ppUFlERzRFMHpSNGpfTWh1b1BHbjQ0TmxTcE1xMi1nLWtFNTdrMkhKNEYzeDkycnVyVTdIM1BTVHF0amZGbExrbFUwYWhhVU9LaVdGN0pjTEpfdHYyZjJaQ2dvZFVucGxpV2RUMnB3a3g3SHdZQXNxVWVjTTBRV252SzhRWThlWW8wbDdsV0E?oc=5"
+        },
+        "context": "Dallas Mavericks vs Miami Heat Oct 26, 2026 Game Summary",
+        "id": 1418317,
+        "published_at_epoch": 1792693562,
+        "source": "NBA.com",
+        "title": "Dallas Mavericks vs Miami Heat Oct 26, 2026 Game Summary"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.39754884855488,
+            "emotion": 2.5947569403055386,
+            "movement": 3.251082088917972,
+            "subject": 93.46469131889135
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxNdHFsSzcyQmdYZ0tfNDNZQ2xFRE9OMzdZUkVuNUxjbnJjWG9BcE9pbFBWRnd0UXVkbkFueHBhcHNJU25CNjlhaGZGVjg4WmU0Q2hvLUVmSEdBanc4QmNUTmlxc2lQX0VMWmQ4N2t0dHoyaFhSUnA4dkM0SHNhTl90aVA1dWdERjh4LWNR?oc=5"
+        },
+        "context": "Top Takeaways From the Rockets Dominant Win Over the Mavericks on Opening Night",
+        "id": 1408191,
+        "published_at_epoch": 1792688399,
+        "source": "Yahoo Sports",
+        "title": "Top Takeaways From the Rockets Dominant Win Over the Mavericks on Opening Night"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.00785378406726,
+            "clickbait": 5.622338963284583,
+            "emotion": 1.4592668313020472,
+            "movement": 97.95729824722612,
+            "subject": 95.13391472145584
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAJBVV95cUxNdU1la0hmTS1MV1B5ZmJ3aVpSeDlpX1h5dVZNNklZb1EzdzBuYTU0QmZNVlR4SmZoRHBXV3Q1TGdKekNSSXI5b1hzT1YtcWhzSXlfbmY2dWxScVFVX1pTQlYtaWVlU1hHNENfakFKNHJ1OGZLZVNPNEFjaERaSDdsRWZueTQzWWcya29WOUtTY1BGLUZ5QXVIOHhuVzhlLURYY3lucW11NF8zUHA5VUx5a194R3BjNlBka3hyRnN0cUJlc1JZTjhTS2doVG8yOEFQOERYdy1EZ1h0eFdVQldoSkd6bWx3RGJoeGg2ck43NVZJa2tKbmYxdEU5OXplN2tZOVQ2V1ZJWGM3RzA4?oc=5"
+        },
+        "context": "Mavericks sign former first-rounder, ex-Grizzlies and Jazz combo-guard after waiving Dwight Powell",
+        "id": 1338431,
+        "published_at_epoch": 1792682264,
+        "source": "Sporting News",
+        "title": "Mavericks sign former first-rounder, ex-Grizzlies and Jazz combo-guard after waiving Dwight Powell"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.509501405053822,
+            "clickbait": 4.2348641625223005,
+            "emotion": 1.521946402332496,
+            "movement": 3.6703186096809346,
+            "subject": 92.66805663095148
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE5ZdHBvTkFVM09NNm5pMDFRRHQzUzlEbDE2TFhFRThwLW4zM2NZTEF2VGpNRkxoeDVMQzRTNy1sUTk2bDJjRFFKWE16LUFqYXdjY09kcjV4YnBZQVRRQ3JVaS1FV2JDdw?oc=5"
+        },
+        "context": "Pacers vs Mavericks Home Opener | Friday, October 23",
+        "id": 1318052,
+        "published_at_epoch": 1792680180,
+        "source": "NBA.com",
+        "title": "Pacers vs Mavericks Home Opener | Friday, October 23"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.05937522245436,
+            "emotion": 1.769319418461375,
+            "movement": 5.948432489840891,
+            "subject": 92.1853846898934
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiTkFVX3lxTFA1d2xpNU9MV1RmT1RBdXRXQVRnbjJfVmtuV1FGWUpQeVduZnhFTnp0d2dEcE1NTWhOM2c0RXpWWHdjTTJFWl9LU3FLQ2lOZw?oc=5"
+        },
+        "context": "Kyrie Irving Dallas Mavericks NBA Sticker Basketball Phone Decal Mavs Sticker",
+        "id": 1418282,
+        "published_at_epoch": 1792680024,
+        "source": "khorasantimes.com",
+        "title": "Kyrie Irving Dallas Mavericks NBA Sticker Basketball Phone Decal Mavs Sticker"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 10.021623979014842,
+            "emotion": 1.5262576081175423,
+            "movement": 4.387760274558632,
+            "subject": 92.91244108287988
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNTzNyd29peXR4a2w5dFE1MDlZTExrWU9RWElsUk5IVkhjOS1zRE04NGM1ckRyTlRTVHYxN05XMVg1a0JIdHBXRmhOdVI3S2t5V0E5YW5RaFRlby1wblM3VlBSU0pjOVdhbC1RWlVUTTJ5ak1mRmc2QjB5cGFHRHdEa1ZWNl9TVFdpZkdXRkNlMW1PTXhk?oc=5"
+        },
+        "context": "Dallas Mavericks vs San Antonio Spurs: previous stats | NBA 2026/2027",
+        "id": 1329546,
+        "published_at_epoch": 1792675323,
+        "source": "Diario AS",
+        "title": "Dallas Mavericks vs San Antonio Spurs: previous stats | NBA 2026/2027"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.740015483402222,
+            "clickbait": 6.00130120436407,
+            "emotion": 1.98791853069607,
+            "movement": 3.707092336021694,
+            "subject": 95.57249219782813
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiugRBVV95cUxQcXpLY1pLRWVWRU92bU1aYzEtMUM3c1BaODBPcWphYklsaGhDYlVqcHVqd1dTQzFEcTdvRGdUMDNMY01KYzJ1Q1hnMzdheGVWSUVHbkJTaWJkTlg3b29nTE43eHJzQTZ5aEJxTkJwTVFTRzEzU2tLQUtFRGtHdkw4UWNUN2g3NGVKNEZpSTdRX05scnU5eWsyTkpTZXhWS2w3N3hPMWVJaFRlTmdBcGtaMjd5bGZXd25ZNEt1RHZWSnZZc2hibjcxeG5yWVQzd2JCVXJPQ0NXR2pCajJfMWdDV0lsdDB4S2ZZcVNVSVF2Rlg1ejJVSUtnY1pnRG9FNWtyc2Q3Y1A0dGZHeHd3LXhLbDlUaTI0MlZRdl9oanN0QktwOHJUb01vd3dlN3V5TDJuTFlZV0hFcDJvR21mM1NrWjRuYzM5NWVqd0tfZzdrZzdzTE5xT2k0alljdnhrQ2FoZEhiLWJmWlF1cmdDVzFVd1JjVzVUX3c3SV9tdnQzV09YOE4wM2xQZFlnaTlDbjhiNDN0YmJnUjhWQncwOTZwNjZTR05iSVVyTS0ycUY0QlhSVUh2di1FSnBiTDZpekxXS2dDVzJlNnNEYXpFcFNZSlpGQlJWRXNkc3hGbzQxMVdxWVVmYTdQbXlQcDJUdUlJQWtJQ0doOHBqNW5PSC1mUkhSUXpyRGNtZGVWdVJNaUM2RExDanNDNTZzMjI4ZzRlSnhhRjFLMGVwTVNmN1FGR3Fickc4SlRaMnc?oc=5"
+        },
+        "context": "Utah Jazz vs Dallas Mavericks Nov 6, 2026 Game Summary",
+        "id": 1298695,
+        "published_at_epoch": 1792674603,
+        "source": "NBA.com",
+        "title": "Utah Jazz vs Dallas Mavericks Nov 6, 2026 Game Summary"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.3853578890926648,
+            "clickbait": 7.216276108277094,
+            "emotion": 2.3450194651460374,
+            "movement": 4.674688232403295,
+            "subject": 91.59153309143984
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxQYURra1BLWlV0ZHJvZkxHWGZCT2p3cUJTSkNSa3k0NURMNE55MjlMdmREcVRsTzhYNTdCNUZlck0yaHhISkZkMWdHaEcyc2lDd1ZmdS1PYzNvV0VtUTlYUWRDY3JtMlFyUndFMF9QNHROcnEta1c0VkY2SjRlSjBXVXcyRXZuWUZoSW9Bc1dGd2NLUQ?oc=5"
+        },
+        "context": "Mavericks’ Kyrie Irving says Cooper Flagg hype is real: ‘No gas, all facts’",
+        "id": 1279328,
+        "published_at_epoch": 1792674271,
+        "source": "The New York Times",
+        "title": "Mavericks’ Kyrie Irving says Cooper Flagg hype is real: ‘No gas, all facts’"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.1956484998018713,
+            "clickbait": 6.126928778129779,
+            "emotion": 1.821066160371735,
+            "movement": 2.524526463421486,
+            "subject": 91.78996976246528
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE1keXdGdXl6d2owV3lHOXJGMjJyYXBqRjRtRTByMDNNTXdzMUh3amhMN1hIUzBLMmhlVWp5UTBzQTZfWDI5SVkxMzAxXzdYMGNZRDYzcnFaLUg4MUlJdEJ1aUJoZEpYOTJVZ0VxYUw0RFlBejJKNldJV3VJN1hqZw?oc=5"
+        },
+        "context": "Dallas Mavericks 110 - Houston Rockets 128: Final score, results, recap, box score, stats",
+        "id": 377079,
+        "published_at_epoch": 1792663339,
+        "source": "Yahoo Sports",
+        "title": "Dallas Mavericks 110 - Houston Rockets 128: Final score, results, recap, box score, stats"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.4162056751054006,
+            "clickbait": 5.233888352929186,
+            "emotion": 2.5033002750795856,
+            "movement": 2.4798436951982463,
+            "subject": 92.9352292673771
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxObTMxdm9aTFpsU2RRS25sMnY1dUlLb0lOSENjb3plNXZrdmhyUUpTemlGYi1TdGVrdjJBQ3VjSlRjSnNNNTNGTDdYMmVtZ1J5cWRLQmlnQjJLM0IxWlNhb3h1WElnaEJJWjlZcm9mZHdLcVVEX0ozMU92T3Vub3p0eVBTbjVWUllHUjdrdzJSQktSbjE1ZElhb2IySXh4TkQ4MktlM0JLdl81T0VYRndBZGpoSXNEbzBRdG45YnBveVhSa0pndWFwRjJkblM1UQ?oc=5"
+        },
+        "context": "Rockets start season with 128-110 victory over Mavericks",
+        "id": 1260330,
+        "published_at_epoch": 1792661727,
+        "source": "The Dream Shake",
+        "title": "Rockets start season with 128-110 victory over Mavericks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.540640281681515,
+            "emotion": 1.5636909851805547,
+            "movement": 3.5330814170207523,
+            "subject": 94.95907238236516
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxQZVczdzZQUjZzeTd4ZHpvOTFoZEVvanZtZkNoQ0Myb3lQTWhIenhXdXNCNkZUcmo4T09RNkR4eXlJbnhJWVJlN1cybk80TzhidlRneHB0YkFOOVl0Mlh5cHJ3dUVZUHk5aWthbXlXSmlPc3RZSW1VNVZ1dnNuQ0U3b0pLMHh0QlRCUUNkUHlGZjV4NTJzdzZWUS1FSkxUaUFR?oc=5"
+        },
+        "context": "Houston Rockets vs Dallas Mavericks: Points, rebounds and assists per player | NBA 2026/2027",
+        "id": 1357960,
+        "published_at_epoch": 1792658882,
+        "source": "Diario AS",
+        "title": "Houston Rockets vs Dallas Mavericks: Points, rebounds and assists per player | NBA 2026/2027"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.1290865797304246,
+            "clickbait": 4.946789743185233,
+            "emotion": 1.5574060144899555,
+            "movement": 3.7982577863243585,
+            "subject": 95.15482481051689
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPN3diMjRTbFRJYlVKalhLdDlUNVBRcDBvdjJlUGltSC1FZTNpUEdoa3lCcE4xOTNaRDlaVnR1YnJIOGhVR2kxOFJIY2ZfajFIdW9ldEhCZUpyVFAzbHFWQnVIcnFfYnNnNE5Wb1hLQ21USDUyQTMyYlRGN1RkajhXS3ZiQlRmMV9vOXpZQlB6RnNyVDRQbGlsWEpuVThmcGVMZTZrT1dn?oc=5"
+        },
+        "context": "Houston Rockets vs Dallas Mavericks: live info and stats | NBA 2026/2027",
+        "id": 1288909,
+        "published_at_epoch": 1792658833,
+        "source": "Diario AS",
+        "title": "Houston Rockets vs Dallas Mavericks: live info and stats | NBA 2026/2027"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.926684101530356,
+            "clickbait": 4.744164434690854,
+            "emotion": 1.5786309424069118,
+            "movement": 4.128019598520808,
+            "subject": 94.75083105548624
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxOTTl2NFluUWdZTFpJd2VSeUlzSHFobGtINjBVcFdadnR2TTZrU2wyTC1GS2tFaVgtYVRvaC1QdTFwQWlOTTg0bW9XRGY3eGp6RjZDTTR1dDVhbm4xbndLVWVjcUlGQW5yOGNsYXpENTdhZk5STWVtYUxPdkJkOC0ySUdkSTNNUXZuNzdwcTN4OHphdTZfTmR6T002bzB2Zw?oc=5"
+        },
+        "context": "Houston Rockets vs Dallas Mavericks: previous stats | NBA 2026/2027",
+        "id": 1279650,
+        "published_at_epoch": 1792656468,
+        "source": "Diario AS",
+        "title": "Houston Rockets vs Dallas Mavericks: previous stats | NBA 2026/2027"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.111655584607021,
+            "clickbait": 4.08524416767651,
+            "emotion": 1.7887565763181912,
+            "movement": 2.0932319988373886,
+            "subject": 91.68812185668492
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixwFBVV95cUxQZXlVR3oySndOby1Rc1o5aDYzUkF3cWNiYlRKbHVyMDI3OGZhYUVRWUhUdm5rOG1DVEJXd0NZSUoxbFNSVTc2Zi1qcmZlVmJ5N0Rpc0lxUFlQU3BCZV9USUpYU3hDZ3VVeUZyaS1BYjZFRHVRb2UxR09xRGZUUUE0eHI3akRqNmRBOXd1MXFUcnROWVRMeW9NOHlrb28xVzVVMjYyaXlFTXNGNTFRemNUYkJScTJwdm9PTjZiMmJVUWlUY1I0WVkw?oc=5"
+        },
+        "context": "Alperen Sengun opens NBA season with double-double as Rockets beat Mavericks 128-110",
+        "id": 1260052,
+        "published_at_epoch": 1792656272,
+        "source": "Türkiye Today",
+        "title": "Alperen Sengun opens NBA season with double-double as Rockets beat Mavericks 128-110"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.3708889085450453,
+            "clickbait": 6.673625712934853,
+            "emotion": 2.401838486792275,
+            "movement": 2.474204093153174,
+            "subject": 91.56290347509376
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxPZ3FlbXhXeTdjOVBtYlpjVll0LXl0Sl9SVTVQR2JiYm1kVG42VGwyWjJfZ0lGWmhGZGw1UXZVZmhNbE53UG9QWDVCVnBtY3VEZ0RuZVdVTE4wbE1ZMkdDT0h4NU1JYkxTUGJXRU9Ma0RHWEJIVW9oQWg4dktWSDh5a1liRXFPNmJYb1daTkkwMGdTVnp2bldhbFZ6a0gxOU5rV0c4T9IBpAFBVV95cUxPZ3FlbXhXeTdjOVBtYlpjVll0LXl0Sl9SVTVQR2JiYm1kVG42VGwyWjJfZ0lGWmhGZGw1UXZVZmhNbE53UG9QWDVCVnBtY3VEZ0RuZVdVTE4wbE1ZMkdDT0h4NU1JYkxTUGJXRU9Ma0RHWEJIVW9oQWg4dktWSDh5a1liRXFPNmJYb1daTkkwMGdTVnp2bldhbFZ6a0gxOU5rV0c4Tw?oc=5"
+        },
+        "context": "NBA: Rockets blast Mavericks as Kevin Durant, Jabari Smith hit 30",
+        "id": 1260318,
+        "published_at_epoch": 1792652477,
+        "source": "Inquirer.net",
+        "title": "NBA: Rockets blast Mavericks as Kevin Durant, Jabari Smith hit 30"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.7410451553009985,
+            "clickbait": 6.019057617853196,
+            "emotion": 1.865753739220291,
+            "movement": 75.39304915351137,
+            "subject": 95.7872575171292
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTFBLcy04UDh5Y3hKalg5eEFBT0JVRzJxWGhOQW93dE10c0pEZnNoTmdlZW9lUVRJUnNfcDctMkdpSzJRaG9sTHM3RVRxZHlHcXJHcHRBek4tTk1Wb2ZfYkwzZ2trRQ?oc=5"
+        },
+        "context": "Dallas Mavericks News, Rumors, Updates - National Basketball Association",
+        "id": 1279305,
+        "published_at_epoch": 1792649819,
+        "source": "FOX Sports",
+        "title": "Dallas Mavericks News, Rumors, Updates - National Basketball Association"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.698467574884873,
+            "clickbait": 4.352051704289097,
+            "emotion": 2.191977466224294,
+            "movement": 3.3702124975896286,
+            "subject": 94.75003413666204
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMid0FVX3lxTE5jd1RqTW14dkliY0ViMjlJWkZyUS14YVRlQmctejBCZ2hSTVF4MmJkbHktYjBrZ0VGRzVXSDhtMnh4c19vaE9UbkFkTWdGb05JaEJWQ3pYYzQtWDF2bzNQZlA4WGxob2FLZEhDYUZmMXB3NjlDX29r?oc=5"
+        },
+        "context": "Game Recap: Rockets 128, Mavericks 110",
+        "id": 1260092,
+        "published_at_epoch": 1792648087,
+        "source": "NBA.com",
+        "title": "Game Recap: Rockets 128, Mavericks 110"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.3488298391441176,
+            "clickbait": 5.294355320155655,
+            "emotion": 1.6404417363657635,
+            "movement": 2.8705270006126966,
+            "subject": 90.9817529667185
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMid0FVX3lxTFBtQmxRWE1iZmlqb0N6UFYwbGhhZGVHdDdiUFE5MktJSkx3bkpxa3J6N2h1VmlSSFZMZ2JoTTdkOE1WYzJ2bXlNRkYyYUxVLW1qM0YyZldDWFZfc1RoTkZsR3c4X1JCV0dPQzJrSFpnZW93RUZIYU1N?oc=5"
+        },
+        "context": "Mavericks vs. Pacers (24 Oct, 2026) Live Score",
+        "id": 1260006,
+        "published_at_epoch": 1792647495,
+        "source": "ESPN Singapore",
+        "title": "Mavericks vs. Pacers (24 Oct, 2026) Live Score"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.461111905182468,
+            "clickbait": 6.200742574075624,
+            "emotion": 1.5726854180804466,
+            "movement": 3.384565693718293,
+            "subject": 91.40376358563788
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxPMllkR3pXNUlsR3kzOE5zV1lhWTY4MHp4d0tHRDU5SHVaR1pYZDVRYUVpWjBDN1JBTGcwdGlvT0dVQ2RSZUF6a2RPYjF3X2FkY2luMEdNMkRiZUZ3OTA0TFY2cWxaakFndFN6TXBRN0Y3MDJYUHBMQk1QWW9TdFU5b294X2RRc3ZH?oc=5"
+        },
+        "context": "DAL Mavericks vs. MIA Heat 27 October 2026 | H2H, Betting Tips & Odds",
+        "id": 1259532,
+        "published_at_epoch": 1792646084,
+        "source": "online-bookmakers.com",
+        "title": "DAL Mavericks vs. MIA Heat 27 October 2026 | H2H, Betting Tips & Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 27.582942958492623,
+            "clickbait": 4.753378537688317,
+            "emotion": 1.8625540430141116,
+            "movement": 34.91139423868434,
+            "subject": 93.2601162036253
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNTnhMYWpUQ09BOTktNWhYYmxxZ1d1TGZSdGxUazdRTmg4TjFpRE5zZFVQaFpjVzZDM1JVWHFNUlBlRmFCTXo0QnZVel9GbVBzOV9UZGVWWkQ1WE5IWFV2dHFWT0FQU3VWd0VOOUFlS0JfbTVva0dXT21iVkJRd0FCV3NXSDBSRDFC?oc=5"
+        },
+        "context": "NBA Notes: Grizzlies, Ty Jerome, Mavericks, Cooper Flagg, Bucks",
+        "id": 1260794,
+        "published_at_epoch": 1792645320,
+        "source": "Hoops Wire",
+        "title": "NBA Notes: Grizzlies, Ty Jerome, Mavericks, Cooper Flagg, Bucks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 61.47915804018144,
+            "emotion": 4.56690002232655,
+            "movement": 31.400781438422303,
+            "subject": 94.38243616246528
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxNYUM4TU1BZHhMVVNDVkR3ODdkWHRVM29OYjdQZWhmNmZYSUtTQlI0cXhISEhLZ3VEZEZ3NmZXWE9ZcVdoZ3RkZ0hBLTlkMUF6ZFAtUks4SlUzRFFNdi15cWpuTE8xWWZWYUtZS0Y3VXV5NGpNMy1VbWJJMjlIdTlKYUpaLVlKU2lHTi0zOEV4RFVtN2JEZnktWTZXaw?oc=5"
+        },
+        "context": "Physical, aggressive rookie Johnson set to 'make some things happen' | Dallas Mavericks",
+        "id": 1408167,
+        "published_at_epoch": 1792644840,
+        "source": "NBA.com",
+        "title": "Physical, aggressive rookie Johnson set to 'make some things happen' | Dallas Mavericks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.4521947071822403,
+            "clickbait": 10.970465613374463,
+            "emotion": 1.517020148994637,
+            "movement": 91.85573289307654,
+            "subject": 92.87649747119292
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQWk5MRGlMOUg1ci00cDlFdmNsTElRZ2VxN3NOTHpTNUxMQ3ZoT3FZeWZLU2pqLWNDRlpBaXVETm9XUFA1U1BhWmo3d01KMDZJdDBycVd5cHduUjczVnN1alA3alQxcEw2bEdIN3NkLXcwSEhrTHZNQnVJa1lmLW0xV3pSckEwbzE5MGJDTE1MeVo?oc=5"
+        },
+        "context": "Rockets predicted to trade for Mavericks' $118M veteran NBA champion to reunite with Kevin Durant",
+        "id": 1260017,
+        "published_at_epoch": 1792643220,
+        "source": "Yahoo Sports",
+        "title": "Rockets predicted to trade for Mavericks' $118M veteran NBA champion to reunite with Kevin Durant"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.34121368907661,
+            "clickbait": 5.769629378917321,
+            "emotion": 3.166148639831433,
+            "movement": 2.736511478638744,
+            "subject": 93.7839972880389
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxPb2NIUFprVDY4dVNaOVQ4Z0tKcG55T01xTWUtY1VLSEUyRmROSFU3eUhxeXlxUnBHTlltOHpKcWQ5czFWRVRpZ3hYTEtkNGwtLWR0M2dfczlwV3M3cVBrZzNGUU0zekQ1ZjZsaUYzdlc3cWkwOWdmX3d6TGVLb1JLemhRb1NrSEpOeDB5WTZOeHkwaGxTbzBnUW1PdVhvUy1nMGo3dUR0UmZHWDhZTlE?oc=5"
+        },
+        "context": "The Houston Rockets Defeat the Dallas Mavericks in Opening Game",
+        "id": 1260385,
+        "published_at_epoch": 1792642926,
+        "source": "roundtable.io",
+        "title": "The Houston Rockets Defeat the Dallas Mavericks in Opening Game"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.38988946655904,
+            "clickbait": 5.470348521649729,
+            "emotion": 1.701479306302257,
+            "movement": 2.377352068564024,
+            "subject": 91.49055584054447
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxOcmNDMy00UDlicUZYdE1ReWRVVFl5bmRYWHp1bGtpZkRYZkZ2MEJEV1BiMUw4NmhTNm9uVldiTE9DcEtURjZ5a0tvVlRaaE04Zk9lYVAwTUhITFR0N2dJMm8wNkNlQld1djZrZjA2RGlORnVQQ0EzVTZOaEFvek9GVXdVaFBHU2JKRlYzTXcwNXhIdGViM1p1Um9oSVFuY21w?oc=5"
+        },
+        "context": "Rockets 128 - Mavericks 110 (10/21/2026): Durant and Smith Jr. Dominate with 30 Each",
+        "id": 1270081,
+        "published_at_epoch": 1792641854,
+        "source": "knup.com",
+        "title": "Rockets 128 - Mavericks 110 (10/21/2026): Durant and Smith Jr. Dominate with 30 Each"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9636746189124856,
+            "clickbait": 12.499965374497108,
+            "emotion": 1.841281750675567,
+            "movement": 2.1076260579860104,
+            "subject": 92.8859686210404
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxQYkJjbzdkMXdSZGRvblU1TmRhemVFczBUQ1ZZRk1oSHVqcXl0YllwWlNwakJzRlJyd2hIZFJJOTRtR1FuMThOeUdFWDV5QVRZZ2tJQ0IwdUFtOGxYZkhFbVJlS1hSTTY0WVgxendIaWZrRXVUZFFqRDNoMlBNVGxpVEhaQ0tMNm5ObVg1bUN1MGlhTjdVblNmOVBqbzFkak1LbHdMc1p2czNUWlRJZnprM2FjeWRnZw?oc=5"
+        },
+        "context": "Kevin Durant drops 30 in season debut dub against Mavericks",
+        "id": 1260094,
+        "published_at_epoch": 1792640501,
+        "source": "NBA.com",
+        "title": "Kevin Durant drops 30 in season debut dub against Mavericks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.991365078969795,
+            "emotion": 1.7483490832457422,
+            "movement": 3.573831637611194,
+            "subject": 93.08639364907732
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQdjRhMW9OcHljaEExWFJnWGhwdDZtV2dnTHZMaWt0Y1Y5OUhjYVp4TXNuRWdSb1RUQ3NhY3p1cEJnTGFLdFZLZkZTZE9QNHp0cWMzMmhHQWl3c1ZSYkswWlFqaHFrNjVWd3BoRXNsQmg3RU9lV0QzYnlGdzUzN2xWb1Rkb2dCSmpDa3FyMG5n?oc=5"
+        },
+        "context": "Dallas Mavericks vs Houston Rockets Prediction | NBA Picks",
+        "id": 964177,
+        "published_at_epoch": 1792629600,
+        "source": "ATS.io",
+        "title": "Dallas Mavericks vs Houston Rockets Prediction | NBA Picks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.971667564140434,
+            "clickbait": 4.070747523891933,
+            "emotion": 1.4056435274186112,
+            "movement": 98.01781129790722,
+            "subject": 95.89187012033206
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNVU5QZWF2SkpISUs2OUNRektrWG84MVlMVGtRZTgwMHF6R3VyX1pkb1dfZzN5N0pMTm9mR3NRRmVISjVWMUpvT3RkNmpJdXF1RVRhcVU3ZWpLNVUzNDNHell6QjlmNUdJSExsa3lucDZhMmkyTVRWOHhQOVdmNHYyd0xSVjlUYXJHNHc?oc=5"
+        },
+        "context": "Mavericks Sign Walter Clayton Jr. to Two-Way Contract | Dallas Mavericks",
+        "id": 1260020,
+        "published_at_epoch": 1792619460,
+        "source": "NBA.com",
+        "title": "Mavericks Sign Walter Clayton Jr. to Two-Way Contract | Dallas Mavericks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 16.295938271884456,
+            "emotion": 1.4940515650349382,
+            "movement": 3.1996864994010896,
+            "subject": 91.11440430309634
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxNTFJkRVJHWkRkYXBXZ2hReVYyVmVSRnBNX0toaW5FanB4LW9UOUR0S1hqOWlkUU1qblRhMkNQZkZjdXlIbEVKR3RtU1laS0FzTDZKdklJaUFTX29WZEZkRWNubldzNDh0MGYxS3dPN25Jd1d3eElwYVNjbFB3UHJ4dHUyc3ZYeWx1d0p5NlNHWXFPVDd0TlQ0UFNzZzUyOHZNT2xTX0s0VGEtQQ?oc=5"
+        },
+        "context": "Mavericks vs. Knicks Dallas tickets on sale at American Airlines Center",
+        "id": 678054,
+        "published_at_epoch": 1792616970,
+        "source": "TicketNews",
+        "title": "Mavericks vs. Knicks Dallas tickets on sale at American Airlines Center"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.8050441689263086,
+            "clickbait": 6.1933361717861715,
+            "emotion": 1.6779761785690972,
+            "movement": 5.078934393459874,
+            "subject": 94.36272430091132
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxNOXREWWU4V1ZNR3V4OXdSNElwOThtNjlzQV9PaTQ2SGF6bXJzS3lYdlE0WDNMeGE1MHRlVDJrdHBwQWpTdjJnUWxEWTZ0TnhuLXlzd0liaHFBaDBMZTdHZVp0alV0empoWFRLbnlIMms3RlNhTk1XR1cycW5xa2hqRE91TXQ?oc=5"
+        },
+        "context": "Houston Rockets vs Dallas Mavericks Prediction & Picks - NBA",
+        "id": 1118367,
+        "published_at_epoch": 1792614900,
+        "source": "SportyTrader",
+        "title": "Houston Rockets vs Dallas Mavericks Prediction & Picks - NBA"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.684435611858607,
+            "clickbait": 6.79790050410191,
+            "emotion": 1.7056569834672062,
+            "movement": 3.1726753761764126,
+            "subject": 91.12243087162616
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMickFVX3lxTE1NZ2JMQXV1X3MxY2RDb0NiNDlIYW1OV3ZReWthaDJWTmg0cGoxb2RWVktzVGhONE9IS2RRR3k4MjJkZGJNOUdLR0NBRHg4MjRHTDR6bVNRTGlEVllnYVA0ZDdYUnRSck5rRkNZU1VZR3NzUQ?oc=5"
+        },
+        "context": "Mavericks vs Pacers Prediction, Picks, Prop Bets For October 23, 2026 - NBA",
+        "id": 1182659,
+        "published_at_epoch": 1792598400,
+        "source": "Covers.com",
+        "title": "Mavericks vs Pacers Prediction, Picks, Prop Bets For October 23, 2026 - NBA"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Dallas Mavericks",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

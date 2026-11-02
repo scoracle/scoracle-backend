@@ -1,0 +1,19 @@
+{
+  "arm": "instructions",
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "input_tokens": 3725,
+  "name": "team-37-FOOTBALL",
+  "output_tokens": 79,
+  "parser_detail": "0 finding(s) | Roma are likely to retain Brighton's Gruda and Roma's El Aynaoui for a €50m package, according to Bulinews. Additionally, Roma have rejected three offers for Pisilli this summer, reported by Yahoo Sports, and are looking to make two signings in January, per Yahoo Sports.",
+  "receipt": "03-team-37-FOOTBALL-instructions",
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 12775
+}

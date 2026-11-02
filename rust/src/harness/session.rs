@@ -7,6 +7,11 @@ use anyhow::Result;
 #[cfg(test)]
 use std::time::Duration;
 
+/// Daily characters make one generation attempt; rejection remains a visible failed product.
+pub fn no_rewrite(_: &anyhow::Error) -> Option<String> {
+    None
+}
+
 pub fn publishing_correction(error: &anyhow::Error) -> Option<String> {
     if let Some(detail) = error.downcast_ref::<SurfaceError>() {
         return Some(format!("{detail} Return the complete requested JSON with nonblank prose in concise paragraphs, preserving the supplied evidence and schema."));

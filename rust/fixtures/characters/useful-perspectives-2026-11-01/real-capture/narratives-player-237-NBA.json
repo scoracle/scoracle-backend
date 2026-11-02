@@ -1,0 +1,1183 @@
+{
+  "name": "real-player:237:NBA-narratives",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n120-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"LeBron James\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"LeBron James — F, on record at Los Angeles Lakers. Nationality: USA. Record: roster; observed 2026-07-04.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1430054,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxOSmZ3UDdHQWw3dGVXazRHbHdwcXB2N09mMktVQ0NibVlVY051TEVLZEF1Z3lncFJTY1hZZWE4SGI1QldOMzlXSERrMmpqTERsTldrRl9MVXMzQllqQVBtVzhqejUwRUwxeVFWVHVQbXkwNlNlWlhjVndOZktNQXBMSg?oc=5\",\"headline\":\"“I Can’t Wait Until He Retires, He’s Been Toxic for the Entire NBA”: Clay Travis Rips Into LeBron James After Golf Antics During National Anthem\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-23T01:11:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1388804,\"url\":\"https://news.google.com/rss/articles/CBMiqAFBVV95cUxPSm1pVHpUbWVHRGZfUnUyb2YxMjlYczJ3TFpMNlNLN2l6ZXFLYXNJWDR3UDl2Rm5BSG1tc3FYSTRzbTFuOEl1RXpCUXJoZWdDX1RfZnpIYTctOGcxaC1KNWg0NHJkZ3QyYkk1NVJtMV80VHo0S05UNkN2cjVqMkFLOG83RWtUNkJUMlNYVHNYMXFuX3BJNEp3TVJpYTQ4Z2o2ZVY4VmRWM0U?oc=5\",\"headline\":\"Trump calls LeBron James a 'TOTAL DISGRACE' for national anthem actions\",\"publisher\":\"1News\",\"published_at\":\"2026-10-23T00:48:36Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1418210,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxPWjlteXNORFJvMW5fcko2RkpNNW1oc0VrM1ZRTjNZbmNVQ2ZPU2NrV3k0MjEyUHhaRThjZjlUNlhfbVpONmoyTGFOSGgtRFdIUGtYaUtGby1yNkZmcERZalNqN2ZPbFN4OTRlMFZVVFU2M1k3Sk1xaHhHa2VRTnEtbTNFQmVFcHpWMEdsQ0NGTlE4MzZFSHpWSjhn?oc=5\",\"headline\":\"Fans share mixed feelings about LeBron James ahead of his Sixers home debut: ‘He’s a special basketball player’\",\"publisher\":\"Inquirer.com\",\"published_at\":\"2026-10-23T00:22:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1408809,\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxNRWVMRGZZLV82Y1loRmhmOW1zYUlxcTNKRTRLZEUxRTF0WFJMQm5PNEdvUnNnaS10NFVHTWp0VERwTEJidkZZNVBNSERrd2pld0lnY1VvM2VkZUw1SVBueEQtQlg4d1BPRnhwNkFza2RxQ2FlRkY1MVNidFR3R0hhMGN3RkhPUE12ZGp0NG43dEtIVG10SlR6VlA2akxvR1BxZXVHaFR4ZVNJbi1DRDNtRENUdnlKQQ?oc=5\",\"headline\":\"Los Angeles Lakers May Have Already Proven the Unthinkable About Life After LeBron James\",\"publisher\":\"Sportsnaut\",\"published_at\":\"2026-10-22T23:19:22Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1419485,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxNdzhkeVJxQWJueVdqVXFneVNpZjAwRk5VV05IQklSbUQ4THFTOU9lWGotYUNOYkNXNExyV2RlanJvS3I3dXFXVFZjRzdoblNUZFA5RDRlM05ubUJ2aE5IQmRUWmVtUm5memc4QlY5aDdqUFVSTVlVRWVUUjdKSUNsRTZJS05CYUdCdTFlVFAya2Q?oc=5\",\"headline\":\"Trump Accuses LeBron James of Disrespecting the National Anthem: ‘A Total Disgrace’\",\"publisher\":\"People.com\",\"published_at\":\"2026-10-22T21:09:47Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1389266,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxNbkFUcjlSZG9iSWtYcjVFeGxrMklWWTBXSEkzdzMzWnZyeDFoSkJENi05bzBEWlNmS0tfcllwZFFFUVZiYUtZcXlXT3ZhSkNZakljVVFoSlJwRUNCTzlNWFZCNmU4bVJhclZ0M01XdWZKblpLelYwdUxlT0FxaFNGWUYzRTE5dw?oc=5\",\"headline\":\"LeBron James, Jaylen Brown talk Sixers building championship habits\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:22:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1409382,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxQenVhVjM0ZFRVTWx4TzRBQnE5bmhNNUpoUk13eUQ5T3JvbXpBM0g0U2dSNHZ6Q0Q1UjRJX0JOcW5Oa3ZRcHpkeEU5MzJjYi1uZ3NkN3ZMUkNzemNaNWxLRTE4and2eDRWNFVkOFU5VnZLd1NPa2JIRE1YeHpjUmppWEFxYnVhWGREaXNHQ21WU2F2eHPSAZMBQVVfeXFMUHp1YVYzNGRUVU1seE80QUJxOW5oTTVKaFJNd3lEOU9yb216QTNINFNnUjR2ekNENVI0SV9CTnFuTmt2UXB6ZHhFOTMyY2ItbmdzZDd2TFJDc3pjWjVsS0UxOGp3dng0VjRVZDhVOVZ2S3dTT2tiSERNWHh6Y1JqaVhBcWJ1YVhkRGlzR0NtVlNhdnhz?oc=5\",\"headline\":\"LeBron James Has Confrontation With Knicks Fans In Season Opener\",\"publisher\":\"uSports.org\",\"published_at\":\"2026-10-22T20:08:39Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1378969,\"url\":\"https://news.google.com/rss/articles/CBMiggFBVV95cUxPMWRHQkZkejlGRGp1N2hJN01YR1pOVEZVa1ZINlhPakJyNnNCVjVEajNlSERkZTdfbEQ3QU1tSzNDNG9nX3NrX1NmajdMYnBqRzk4YVNFZmM2cWlVdlpxQ3drOUI2S3dHOWQ0QzgwTkxUV2tva1p3Uk5QQVpKR2tyTWhR?oc=5\",\"headline\":\"Trump calls NBA icon LeBron James 'a TOTAL DISGRACE'\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T19:33:30Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1378935,\"url\":\"https://news.google.com/rss/articles/CBMiwAJBVV95cUxNYUVfZ28yZWZrV1RmcmUydDQ3c1VDQnlLeUNmdy11WkJGS3R5OXpMck9NOWxRZEVnSmRLRUdHeGN3Y3puYXJ0LUg2RGwxekdERnlJNGNvVkJsNWlRU01SRVZEZktaSHdadm9ldnRoYW81NmtvOUtrbC00bzdhUDJMbTJjcldLNDNIa2FEWVFHZXZ2UHZnREJWQmM2NVAxTTFTTEVFV1NpYmhYT3hmVkczcE1MME1qSFZMUTFKclkwZEpkQk5RbnRDMTRFQkp6Z19iSGx3cFl5dGtXVi1xcTEzejFOMWJoQTAwdDU3aFdRS090aHFYQzNZMmhMZ3hkaWdCc25FWWEzUndZelVUc3pVUVRBYk1nbDBUQXFRLW96b0J3NnNmWGItZXVsOUdpRGdyQ0xVMEhlNU5pMkZSVnlnMQ?oc=5\",\"headline\":\"Trump slams LeBron James as a 'total disgrace' for moving during national anthem\",\"publisher\":\"KRCR\",\"published_at\":\"2026-10-22T19:12:45Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1369164,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxQUXd3T2Rzc1VLZklaWExyNkREX1JxN2RqYXU3WXpWaHBvQkV5U0RlbVc2R21CanVzZEs0MFF5d3dsQV9ENjFzdVdXbnJLUEZWNTBTanR2NGlhaGZaOHl4V0JmblpfWGk5bWZfbjMtLUdpZ1FQQWR1TTBZREJ0ZzM0RWZGMjNzVnhPb2Vjbzh6SHZMTGs?oc=5\",\"headline\":\"Trump accuses LeBron James of disrespecting US during national anthem\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T19:11:46Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1358787,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxQaXJLcFpDREZoZ0luR21yYjQ1eVloelB6UmZHQ1BId0FoZG5BamtaX0NRQ0Rfb1pldzBXUmFWY1pGUkVqdnFTamRGV0VsYVFUczlMRFg3S3prQmExaWxWRHFNR19iMERiZEFFYXhWeE85b2dIWnpONUYzeXpLRnpiNmE0UVBWd3VfdTFabFdoTkhEMDN6WFpibTlQbw?oc=5\",\"headline\":\"NBA Players Who Were Accused Of US Flag Disrespect Before LeBron James\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T18:34:06Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1359086,\"url\":\"https://news.google.com/rss/articles/CBMi8wFBVV95cUxOdkVnTzcxak5aU3JtSFNDbkN4VmZKUkFBRVJJT3JVZ1JfdTBvRmItd1dIbGktUGtDZ0tCMURTejVpVFp2ekN6NzdtalJDUXB5ZmhJT3FlTWZRcVBqVkF0RVRoNU1UcXE3Nm51TlA4TWpkcHRoaGhFTEJubFZ0S1NNRnFNcVgzd3pZYVdzR1lnV3ZQQnQ3QzJyRXBqc05XRkpZR1Y1TjhhVXQwMzgxZm9EYWg0N0Ffb1h1aU1jWHpCT1A1bmthcEtVTkl2cGRYbWh0S2lLc2RnQWYyZ3N5d2pxVU9YSU5FV0JCXy1FdUh2YWw2RTjSAfMBQVVfeXFMUDl5cC1uZEwzRjIzdTJkOFRxb0RaTWpCZUNTbHZLdDJiZ3hINEtTbVhqMkY0NEFHc1cxLTRDYVhyVlp4MkpkLUM1NV8tZHI3Nl83VW5MRWVvLTFGYjRmVlVkZlBzYzBWY3A4RmJiLWRPcHR2ZHFFYkxrSkxCRzFFWDUwN1U4NkpIOGkwSVN6VGtqUG9VVjVKeUc4ekZ0czBDTDBMemFYcmtjMjE0TnRpZUt1NnV3dzFfYUZlQVZPcld6M2UzZWh1N2htUFVuTlFucWlaME5qcVo0WUtWS3NzcTBfcy1aYjhMM0h3aDRzak0weFpJ?oc=5\",\"headline\":\"LeBron James lands in hot water with Trump after national anthem video sparks backlash\",\"publisher\":\"MARCA\",\"published_at\":\"2026-10-22T18:13:50Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1348559,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxONl9PdDlVUk9kNG84cFRMMklQYTJDdEtCOUtmY3dDSXRXNTY2Zk5sQndLeTl0ZlNaR2pfN0g2WUlLYVFFeVVfUmxtLUo4MXdJNWpJbWtDNVlVQXVaVWxoU2RLYVo0UkxaNlA3MUM2WnJwRDBMbWdSSFBEVkJLSElaU01OVElDVGV3VlprZGFsWktGa2JDRkJmRnVEQldsOVlzSGtkMU9RbDdldjU10gGyAUFVX3lxTE1TZXdZRHhidzBsWHpFQ2dtRWhHejMyaTM1UkF0bGVhVGk5NXQtX0duSkJHSmh3OWx3TXdWRUEtZ050Ukh1bUJqdHBMNkhzR0Q2STdldUxPS0VZYjhTeWV6WlBrYWU5VXFlR3hNVlA3NTBGY3E3RHFqVkhBMnYtSU8yUXI4Z3A1NFVWcXJZdHV3RUk5dUJ0Wjl1cGlkMHNNT2Z0M01aTXljZUFuUTVGRkNPZVE?oc=5\",\"headline\":\"Trump slams NBA star LeBron James for disrespecting US national anthem\",\"publisher\":\"Al Jazeera\",\"published_at\":\"2026-10-22T18:08:16Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1337183,\"url\":\"https://news.google.com/rss/articles/CBMiqAFBVV95cUxONUV5LXBkNzVYX1RiRXhLcVRpZ0JZRUVSdk00N2oyQVg2NUZ5Z1lzMnRXU2JxTUVxaUE5d1IxUzlKRXVrSTAtWHVnQXJIYTdSSFZaWEg3MERLTTJhY1lUTFdNT21ORUwxLVAxc3J4VmJnX0w0cU0xZjRHZzV2QlpFbzRUNERZaHJpWWxnVFN0elhCR05yVnBkMTJWdWhKMzF4UWQxSERNMXc?oc=5\",\"headline\":\"Trump says LeBron James showed disrespect during US national anthem\",\"publisher\":\"Reuters\",\"published_at\":\"2026-10-22T18:01:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1359089,\"url\":\"https://news.google.com/rss/articles/CBMi7wFBVV95cUxNeXpBLTRPODJTcVBCQ2VnRWg4MTFxc2x3S2tnZTU2ZjBOZWhHWTY0NEVoR2laNUFVV3BtSXR3V1J5S19IQ2ZBWGh3VmFRYkpycFVyVk42bUtWT055eklwRUJHZ0p3Skk5ajhZZEs2UmVOOTNxbWVYdWtMWWU2YmstYXQ0dUdoY1I0aWtua0ZqcVcxR21LWFZOVnl1MjdSVVFoV1RBZVZIazBWNW14bVJ3ODVFS3c4b243UTRaZHkxbktzZ1NjaHRNYXFwLWJzcDF6TGIyWi1EQW1EU2xPRlFwRElPRlBNR2pOV1hGay1wTQ?oc=5\",\"headline\":\"LeBron James lands on Trump’s list of people accused of disrespecting America\",\"publisher\":\"MARCA\",\"published_at\":\"2026-10-22T18:00:09Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1348798,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE95Zm5fWjBWaUo3aGk3SnZ3VnpJeE12UHZISXlnYVNtUHlORVExMjhDYTJsV1hMczA5SnhpMG9SYmpIWnpEMnVTQXJWMk9RNDJHbEpjRERBZGxFM3pnVkw3UzI5Nk1mTkotVURxeTdTYzllMmdnb1FmRzBrTVd6VjA?oc=5\",\"headline\":\"‘I’ve never seen that’: Jeff Teague says LeBron James is now clearly the GOAT after what he did\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T17:52:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1339143,\"url\":\"https://news.google.com/rss/articles/CBMiqAFBVV95cUxOUVk4SDRmUWVWNU0zckxHeThVZzhxX2ZxSDk2aFhVTHpPN21GNmh0N09DOFZTNG50eGtDdFFtU2cxSUUwRnVDd1hpTWZySGNYbjYyTnhWRlJhWndFbThURzZKT1lrcU1pR2pyR0JxNWdmVmpuNzFSbUFONUFzZktDTklSbXZZSVNpRWQ5Ql95aXN1UGtGMzFITDVVWGhfbGxZaGY2Q3N5TWs?oc=5\",\"headline\":\"Trump says LeBron James showed disrespect during U.S. national anthem\",\"publisher\":\"CTV News\",\"published_at\":\"2026-10-22T17:50:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1338839,\"url\":\"https://news.google.com/rss/articles/CBMiowFBVV95cUxOQ0Jlbmx0ZmVaWkRTVnZhY01uZng5R0ZoNDVVUFZHT1htZS1wa0U3V1VVakxPZ2k0RE1OUXUxUURPNU15SzFISzBmRlktVXNaQWEyaGFKVWZfMy1LNl9MMzN6RnhrLUJGeE1SX042V1pUbXo3dEgyX2xIbHo1aUJCclVHMnA1Rkt4dFF1MS1zVDBOOWF5eUZ4VlRnbTd6M24tdkxF?oc=5\",\"headline\":\"Trump says LeBron James disrespected US during national anthem\",\"publisher\":\"Arab News\",\"published_at\":\"2026-10-22T17:02:46Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1338315,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPcnBzWEVmUjNXR0hMMEhiU2FFbm1NQjJWTURBN05mVFRKQXNqM0luTkR4UF9iTzJuQVNCckd0TWRITm1raUFCOWV4b3ZpREZteG1uaUJCR09MZVp4eFlRWWtmeEdrU0xKbnpXdDRfQzBNN3d2VnIxSE0wQVE2Wk9ZVW1QTEJhZkE?oc=5\",\"headline\":\"LeBron James gets unique jersey patch for record-breaking 24th NBA season\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T17:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1358160,\"url\":\"https://news.google.com/rss/articles/CBMi8wFBVV95cUxQbGl2djRORG9DUTJSUnhyei1HeFIyR3h3b3JucElJNDdlZFF6RDJJTWl3dU1YTGVfOVNGREZwYkYtMy1WNmM1TXk2d0dBN29qUGZ3RUhwMG9CVTI3YzdYbnRsdmhlRkdmeWRTZUc0SHZ3RFlEbElnbFYta3VZQzgtNHBtcU43Ym5YQnBaQTRqY1ZQMUJiWkstYXZ1LWFZQVlmdWJIN3ktX0k1NjVFVXBTZk10UDU4eXFRRktKZE9ZY1hLR3BvblJmLU15c2ZkY01EejF4TEFaOGg0OFV5c05POWZscHZjOXhUMENhZjZYRTgxekU?oc=5\",\"headline\":\"Fans Accuse LeBron James of Disrespecting National Anthem as Cameras Catch Unusual Behaviour\",\"publisher\":\"NewsBreak: Local News & Alerts\",\"published_at\":\"2026-10-22T16:11:52Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1147574,\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxOdGlxWS1sYXNYVk9VZlF2ajFhbFpKd3poOUs4eENZOU9mQ2tLT2tJMk9qMmRIWU1tVndvekpTVnB3TjFFazAyUkNiSlphR3F0TU1KSllIUDIwZzY2R0s4TV95SWh6YkdRaHp0cjJFQTA2cURfUUx3MFBaRzdDQ1V5WGV1dE8xOHBESVhybThLRXVWdS1jWEdobGxYaXJtRFQ5eUNPVV9ZWGdBTEc2eHhPaGMwUlBEdw?oc=5\",\"headline\":\"LeBron James tallies 14/9/7 line in 76ers debut\",\"publisher\":\"NBC Sports\",\"published_at\":\"2026-10-22T15:17:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1319216,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxOQlMzMFMwdUY2ZDVUbmVySW9BQXJLYlpXQVdOWThTUWNjX1JYRDlNTXBTT1JHNWxjU29lQjdMTVE0bmt3T0UzX3dheG56aHZVZ3drQlVvNEFTblczenVlTjJrWGxfZUhWcmxNeHlDc0RNSnFnSEV3V1dGYi12RWJ0d2pGcmNYamRreUE?oc=5\",\"headline\":\"Spike Lee intervenes in LeBron James’ heated interaction with Knicks fan\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T15:06:26Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1280627,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxPMkZybDhzbnBBV2hlSnlxOHAwSmdaSmg4U0N4UVYyLW1NcTNYNzNQT0tjYW9ieUFqTnJONDFlSGhkQnFleUVjcWNXYy11UkVJQ0xWUTZTS3RVY2Vrb2ZfcTFMNDZUTUFzbWk4RHlSZTd3T2hvYXctXzdRUURBTG15ZlpFeUhTc0VYZkoyYjBkc2hxb05PMTFOYTEzc3lZeTdPaTN4Z1RqZERocmlINlZBYU0wY2hpQ2ZjbGhFX1pZUDF4cVJralR2Z1lXVlV2QQ?oc=5\",\"headline\":\"Best NBA Prop Bets Today (Predictions for Shai Gilgeous-Alexander, LeBron James and Nikola Jokic on Thursday)\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T11:20:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1270828,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxQbFhReDJiSF9KQ3hKQUwxa2ZFQm1yNG5CRS1meDFZcjFlZTNabnBXNWhRdTBjMWs2VFRUdTdCX3MzZ2xfdVF2b1U3eVFySEpINHdOOTh0OFBKaTlLckdMRGs4Z05MN3pQNEFQb0swQTJQLUNKaXR5OXdQdDVMVlJ4M3lTS1ZjZ0I3MjdJSGhhZXpZYUtrcEU3dTVoWQ?oc=5\",\"headline\":\"‘Insufferable’ – LeBron James called out for disrespecting the U.S. national anthem by fans\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T10:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1300129,\"url\":\"https://news.google.com/rss/articles/CBMipgFBVV95cUxPV3NZc2VwbzBSOFFmQkRQa2xtMFdGUW0xUE5RU0pobEwyTFRDRWtUemM0REhlUlFZWWE2NUF1aUFCWVBnNDN1TzhaYjhqaEFvWGltdGJiQk5JRF9CT2VmT0hsOTlyeGVNUTJSWHBfMklkMzlkLXBidmJoTjRfSVhHeGVMa0pKcy1OSU1tN0xvS3VNdkg3QU5ibFozbUF5eHpLN2sxMnZB?oc=5\",\"headline\":\"\\\"Why is he permitted to behave like this?\\\" – Fans blast LeBron James for disrespecting national anthem\",\"publisher\":\"Basketball Network\",\"published_at\":\"2026-10-22T08:28:21Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":953700,\"url\":\"https://news.google.com/rss/articles/CBMimgJBVV95cUxPSkpEMW1vdUhkbFRxQW1IR0tnV25jNDRCZC1Hd1ptQ0FHMDV1dFZUR1ZTRGpMc3ljaVUwQlJJVlpWNG9QcV81c0ZWR2JWUGMxQnZkaklCUWlWNkY4RHNRUkw0QUFITVRsVFBuYTRjOFQ4S1ZtZ3ZDZjVzTWdLcmZjQ0FXNzhaQzNTYjEwTVhWNEVzNXFjLW9BREt3b1FjUmY0UkpOOW5qMVNzdjhZcmJuaDhFM1BRWFJxX2lOeFpaMlh6UVVTbEZXclh2SVlyMzVYcV9CX21tbERnTkh5a0g1NDBZM0pZMGxzdXpNVFBiYnVrZjRCZmhlZHg5QnRSTGtVdDdyQ1NKYjB3X3JwT0VVVmc3Q3pfR1ZlOFE?oc=5\",\"headline\":\"LeBron James calls helicopter rides 'transportation' after he soars on big dunk in 76ers home debut\",\"publisher\":\"Oskaloosa Herald\",\"published_at\":\"2026-10-22T08:27:44Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1261430,\"url\":\"https://news.google.com/rss/articles/CBMivwFBVV95cUxOYVktOFphWU5ZdjN4bEpWQXJBbU1MeG1Ed1ZlUDdVbzlpR1FjX29wQTN1N3ZVVk1mekZ6VEVpNUtON1RfTnZiLUI1bGwtcE12cW5rSE83NVVwY1g2aUs4ZktWSFp1bkQzLUVRMFJ4eFdGQ3dGd05leG5Za3NxQ19mU0V2eXVLMFA5Z3pwV3dSbC1lUEpibE1rRVE4SWRLdFZlOC1NOTI5NHYwTjUyUFpDR2pzT09UWWpWanJFVUZLMA?oc=5\",\"headline\":\"Jeff Teague explains how LeBron James' 76ers debut solidified him as the GOAT: \\\"He went from one to five\\\"\",\"publisher\":\"Basketball Network\",\"published_at\":\"2026-10-22T07:47:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1261422,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxNSWNyeTA0dHB0b3FlQU5IU2lHN3hVSlZ0dk1iLUYyWFRvMy1QTkZiTFE3TkExcy13SWMyeWJFV3pwRnRLRzM2aEJGNGZWX3M5UlBNbEVGSVhJd3c4WTFNZ2ZNekYxdjUxdFVKbWt2OVR6YXlhMkZKUzhIaXU4eGlvZHpOYjZQd01T?oc=5\",\"headline\":\"Stephen A. Smith says he already knows when LeBron James is going to retire\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T07:32:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1260693,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxNVVlITjBGU0pkV1NhTXk1TC1VdGU3aHdLZjFPYmlQOVk2N0M4TndkREw3ZjBrTkxSaTZwRzVEWUNsb29kc1NpbmZwMTFxTm16cVFEdXg0QnN5N0gtSHhQS242d080eS1JR19jNUNPWV9qMlZqamtKUEdzZkNJMzRiOA?oc=5\",\"headline\":\"LeBron James Shows Love To Ex-Lakers Teammate After 76ers Debut\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T07:19:09Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1290094,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxQYjV4eEQwblBvY2lJVW1DR0VMcEZTVkJ4QU9RWjhlTFRJU3RqUXZHdlR0VHVSdWc3V2NzdktVbzktM0pvZHFBbDZKZXctUmZWbXg3LXRkdW5LNU5LbnZ4VmJKbHpDemRfSVAxWWpYV3dVMzR1Y3FQUTEwcy02Y19YME0zdVdlWF9GTnlvag?oc=5\",\"headline\":\"‘That’s just disrespect’: LeBron James sparks outrage with his behavior during national anthem\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T03:09:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1300105,\"url\":\"https://news.google.com/rss/articles/CBMiwgFBVV95cUxPVWRSTENINlNIbThvVmI3cXBBeHZWSEZZQWg0TXVjX2VwWjcwcV9rak11WE9fbHJHUzg2OU9HNmF3XzVsc1RoSGRrbTlBYnJMbTdDdUFOSWlaUURBOFFnS3VoeHNVd2lqOFNkS1hndzVmWlNQN2dfVkRaWGRYa2lsNDd3X3JBWVpyd0FISWJtZnRSQlEzeFhtQnlRck9lVzR1UWxEc19HbENZZ2xCdVJXRk9HTGNQdVBqUHk4MWF2bWhEUQ?oc=5\",\"headline\":\"LeBron James Shares Opinion On Wife Savannah James Staying In Los Angeles Amid Season In Philly\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T01:13:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1367230,\"url\":\"https://news.google.com/rss/articles/CBMiywFBVV95cUxOZ29MZWFJamZGUmk3MW5STWhvMVE3RUJnYTZHMkxSMV9sOXFST3R0TmdTMUdoWDBtSzRsOXRHNXhQZF9uRThZOFdKMnF5aVVLbXhqQTg3MXNudnVWdjlPRVlacnoxMEd6YjU0ZXNibHltc0lxZGdzQno1YXM0bFVXMDNfZzJmYlQxVlZlSXRiS1Vkcy1Ld056RE1uWTY5Wl93dUVOaGdLbDRmNXB1ZVp1VjdDb0hkajlKR0pzcXB2OFlseWZDTHhORUhTVQ?oc=5\",\"headline\":\"LeBron James still looking for improvements after starting Sixers era with win\",\"publisher\":\"Flashscore.com\",\"published_at\":\"2026-10-21T23:49:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1232605,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxPZ2JYVmZ0TmRNUGlTWEdzREI4cUt6UEM2UURxR3Zlakc3TEhKbnl4M2RpdDR6emUtOVVzcDVDSkpEaWVzNDVqV0pBMnFpQ1ExTFk3ZTFneXFWWVlZR21yR3ZYOWVNbldRbnVDWUJSeS1UZ3U0dGVJbWdxMkwwTGhnLTVvTE1UZw?oc=5\",\"headline\":\"LeBron James Says Tyrese Maxey is NBA’s “Fastest” Player, Lauds His Stamina\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T23:38:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1261158,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxQTmR3dkluSmZJUktpOGFRYXA0c1ZLc3lWRzY1cGdFMzY5NURId09hbmVsS2RNREJsTjJGNzhqVVMyeDJXRGRYbVVlTkZxRGZ5aTVjc0JncUxLTGVLdkczb09ub3lzYUNucEJNN0FpeDdGOEJJTmZ6bktXZnZOdC0zNTZzSzFOdw?oc=5\",\"headline\":\"LeBron James fires back at at Knicks fan over Ohio roots\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T21:19:17Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1290411,\"url\":\"https://news.google.com/rss/articles/CBMiggJBVV95cUxNUjBuZVdOaGlJY21FbUFrNXZncU5ydzBDY3d3a1VOaEoxV2xRSmdNTXlVYUdRZ1BxTHFzUTBVVVdaQWhwblJKM0M5dVlQVVRFX3Z6TzJQbllWZUlESjd3QXVHZGRwQ0FGYlZTUEJnTEFkSUl4a2NFOVBNTEZHeGJqY2VlcWFWaXl0QXFjZ1VaNzJCZ0ZtRHdLam8waE9GcmVFeEVabFF4S09UMlRUUmN5R3cyOWZOX2pIdldfQlVOamtNNmIzQUtOTXNUN1daV2F2MXBVc1BJbnE2YVBSenJZSkhUaVBOMUJhc1h6RTZzdHJXcHd1TE9nWGkyNGFPU3lSVEE?oc=5\",\"headline\":\"\\\"I'm from Ohio, and I'm not a tough guy\\\" - Dan Patrick doesn't understand what LeBron James was trying to prove vs. heckling Knicks fan\",\"publisher\":\"Basketball Network\",\"published_at\":\"2026-10-21T19:16:47Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":1261199,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPb2l5MHJuYUtGMEhiRVhEOW5iaTFiRVVCVDdlWS1raFJRXzF6N0djZkVqS2JFRU5hV1IwTXY0YjJ2SXZXSUk0S3RYeFIyNVNxeE9VVXoxQXVQandqVEY3WEtrS1pvbURtWThEYzRyQndKQ0IzWlFaVzYxbmhGRmRnSHFhQmpmaGs?oc=5\",\"headline\":\"Knicks Fan Gets Into Heated Exchange With LeBron James as Spike Lee Steps In\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T17:24:13Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":1261507,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxPVGFwSUxBNmF1c0VTZEI4WmNxN1ZyZzBOdkF2bXotQ2F4eGQ0eFlkTFRrR1JIbWhZbXJhNzdUSm9uTGd2dk9kT19HbVJXYm9MeUZWd19tX1ZKNEpMWGMtZms0d0hmZ1dLbmtENWFyWC1fdUVTSEhxdTBPVURZOXhlVEl1N3o2LXFfU3c?oc=5\",\"headline\":\"LeBron James gets brutally honest about wife Savannah staying in Los Angeles after Lakers exit\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T16:54:15Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":1290083,\"url\":\"https://news.google.com/rss/articles/CBMiwAFBVV95cUxONDNuRTc1NHdtOTI4UW9KT2M0QmE3alJ0N0JiclUwMV9NNk5LdW9aSWx1VEVXdEhKSHN2WUgzVmFHVDgtMVV4N3lhWU9pYXlnanNnRE9RWmw2X0xKempZX2t6RV9JMWo5RXhiZTFBSFFQcWY3NlhqSmRHc1NhX3NWemtHXy1yejJxWWNaMXR1cERpaEVxaU54d1NxZVVScllpUjNUSEt6bGtQeDRWRGEwODU1TnpMQ25SLVU3d2Y5YVg?oc=5\",\"headline\":\"LeBron James Talks Smack With Knicks Fans, Drops 14 Points in Victorious 76ers Debut\",\"publisher\":\"EDGE Media Network\",\"published_at\":\"2026-10-21T13:39:25Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":1261143,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxNUmNDdlFxNUFmSktJYnlxR01ZNXJyS25zbFFwUzRXdUNLRUVYeThhS0puOXJRMUNlbG5Ib2FhRlJ3NXlVU0cxTXRMMzhrWHU1Y2JCUDJiLUhqWVQtM01DY2pKTEp3Tmc2bmlaRVFwbUVVR3VIV0swUnY1RGVJcVh6WjJZdjlOZ2dtTHhhVTBvTmthaXd4M2dQNk5aUlFxcmFzVHBHS2NVcw?oc=5\",\"headline\":\"LeBron James talks smack with Knicks fans in victorious 76ers debut\",\"publisher\":\"WTJX Newsfeed\",\"published_at\":\"2026-10-21T12:11:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":1271171,\"url\":\"https://news.google.com/rss/articles/CBMiuwFBVV95cUxPeEZhQm1Rem91SUlXeGVPM1dhcnFOR0I2bWl0dGxFeFFsT0VWMmVFVkh4bDBkZGJwR0ZXMUFkZTBqZE5IQUdreUo1NlRuSVBfUUgxaS0zaEI5SHNmZ0JyZEFHaXdTT1J0OWdCUG5EajlDWFFPZ2ZWSWVhbzdBMmk4enRBdTBPekRFbXZHaVhma1o3UnVGcVhrOEhoR21rQ00zYjdBUXBUUzJ6OE9XeWRFeUVxb3RiNElzYkNV?oc=5\",\"headline\":\"\\\"I'm there before everybody gets to the gym\\\" - LeBron James reveals how he is setting the tone in the Sixers locker room\",\"publisher\":\"Basketball Network\",\"published_at\":\"2026-10-21T11:59:21Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "LeBron James — F, on record at Los Angeles Lakers. Nationality: USA. Record: roster; observed 2026-07-04.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 19.7809816034508,
+            "emotion": 78.16136778448151,
+            "movement": 6.104981359845401,
+            "subject": 94.6228798001734
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxOSmZ3UDdHQWw3dGVXazRHbHdwcXB2N09mMktVQ0NibVlVY051TEVLZEF1Z3lncFJTY1hZZWE4SGI1QldOMzlXSERrMmpqTERsTldrRl9MVXMzQllqQVBtVzhqejUwRUwxeVFWVHVQbXkwNlNlWlhjVndOZktNQXBMSg?oc=5"
+        },
+        "context": "“I Can’t Wait Until He Retires, He’s Been Toxic for the Entire NBA”: Clay Travis Rips Into LeBron James After Golf Antics During National Anthem",
+        "id": 1430054,
+        "published_at_epoch": 1792717860,
+        "source": "Yahoo Sports",
+        "title": "“I Can’t Wait Until He Retires, He’s Been Toxic for the Entire NBA”: Clay Travis Rips Into LeBron James After Golf Antics During National Anthem"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 15.095689409366605,
+            "emotion": 78.80408110379796,
+            "movement": 2.724859362502732,
+            "subject": 95.66793601483414
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxPSm1pVHpUbWVHRGZfUnUyb2YxMjlYczJ3TFpMNlNLN2l6ZXFLYXNJWDR3UDl2Rm5BSG1tc3FYSTRzbTFuOEl1RXpCUXJoZWdDX1RfZnpIYTctOGcxaC1KNWg0NHJkZ3QyYkk1NVJtMV80VHo0S05UNkN2cjVqMkFLOG83RWtUNkJUMlNYVHNYMXFuX3BJNEp3TVJpYTQ4Z2o2ZVY4VmRWM0U?oc=5"
+        },
+        "context": "Trump calls LeBron James a 'TOTAL DISGRACE' for national anthem actions",
+        "id": 1388804,
+        "published_at_epoch": 1792716516,
+        "source": "1News",
+        "title": "Trump calls LeBron James a 'TOTAL DISGRACE' for national anthem actions"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 79.8937558981733,
+            "emotion": 94.60446970040655,
+            "movement": 2.813026965881867,
+            "subject": 94.21545119196732
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxPWjlteXNORFJvMW5fcko2RkpNNW1oc0VrM1ZRTjNZbmNVQ2ZPU2NrV3k0MjEyUHhaRThjZjlUNlhfbVpONmoyTGFOSGgtRFdIUGtYaUtGby1yNkZmcERZalNqN2ZPbFN4OTRlMFZVVFU2M1k3Sk1xaHhHa2VRTnEtbTNFQmVFcHpWMEdsQ0NGTlE4MzZFSHpWSjhn?oc=5"
+        },
+        "context": "Fans share mixed feelings about LeBron James ahead of his Sixers home debut: ‘He’s a special basketball player’",
+        "id": 1418210,
+        "published_at_epoch": 1792714927,
+        "source": "Inquirer.com",
+        "title": "Fans share mixed feelings about LeBron James ahead of his Sixers home debut: ‘He’s a special basketball player’"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 60.80646221192628,
+            "emotion": 5.019833274641469,
+            "movement": 39.27425221113865,
+            "subject": 93.68587837107124
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxNRWVMRGZZLV82Y1loRmhmOW1zYUlxcTNKRTRLZEUxRTF0WFJMQm5PNEdvUnNnaS10NFVHTWp0VERwTEJidkZZNVBNSERrd2pld0lnY1VvM2VkZUw1SVBueEQtQlg4d1BPRnhwNkFza2RxQ2FlRkY1MVNidFR3R0hhMGN3RkhPUE12ZGp0NG43dEtIVG10SlR6VlA2akxvR1BxZXVHaFR4ZVNJbi1DRDNtRENUdnlKQQ?oc=5"
+        },
+        "context": "Los Angeles Lakers May Have Already Proven the Unthinkable About Life After LeBron James",
+        "id": 1408809,
+        "published_at_epoch": 1792711162,
+        "source": "Sportsnaut",
+        "title": "Los Angeles Lakers May Have Already Proven the Unthinkable About Life After LeBron James"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 19.86540778387818,
+            "emotion": 71.06439910979549,
+            "movement": 4.261312399478446,
+            "subject": 93.91230336049249
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxNdzhkeVJxQWJueVdqVXFneVNpZjAwRk5VV05IQklSbUQ4THFTOU9lWGotYUNOYkNXNExyV2RlanJvS3I3dXFXVFZjRzdoblNUZFA5RDRlM05ubUJ2aE5IQmRUWmVtUm5memc4QlY5aDdqUFVSTVlVRWVUUjdKSUNsRTZJS05CYUdCdTFlVFAya2Q?oc=5"
+        },
+        "context": "Trump Accuses LeBron James of Disrespecting the National Anthem: ‘A Total Disgrace’",
+        "id": 1419485,
+        "published_at_epoch": 1792703387,
+        "source": "People.com",
+        "title": "Trump Accuses LeBron James of Disrespecting the National Anthem: ‘A Total Disgrace’"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.356664834734774,
+            "emotion": 1.780232159247919,
+            "movement": 5.573755097486526,
+            "subject": 94.95673455566828
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxNbkFUcjlSZG9iSWtYcjVFeGxrMklWWTBXSEkzdzMzWnZyeDFoSkJENi05bzBEWlNmS0tfcllwZFFFUVZiYUtZcXlXT3ZhSkNZakljVVFoSlJwRUNCTzlNWFZCNmU4bVJhclZ0M01XdWZKblpLelYwdUxlT0FxaFNGWUYzRTE5dw?oc=5"
+        },
+        "context": "LeBron James, Jaylen Brown talk Sixers building championship habits",
+        "id": 1389266,
+        "published_at_epoch": 1792700547,
+        "source": "Yahoo Sports",
+        "title": "LeBron James, Jaylen Brown talk Sixers building championship habits"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 28.318243876069783,
+            "emotion": 6.746120687045866,
+            "movement": 3.473465738462938,
+            "subject": 94.22082302985196
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQenVhVjM0ZFRVTWx4TzRBQnE5bmhNNUpoUk13eUQ5T3JvbXpBM0g0U2dSNHZ6Q0Q1UjRJX0JOcW5Oa3ZRcHpkeEU5MzJjYi1uZ3NkN3ZMUkNzemNaNWxLRTE4and2eDRWNFVkOFU5VnZLd1NPa2JIRE1YeHpjUmppWEFxYnVhWGREaXNHQ21WU2F2eHPSAZMBQVVfeXFMUHp1YVYzNGRUVU1seE80QUJxOW5oTTVKaFJNd3lEOU9yb216QTNINFNnUjR2ekNENVI0SV9CTnFuTmt2UXB6ZHhFOTMyY2ItbmdzZDd2TFJDc3pjWjVsS0UxOGp3dng0VjRVZDhVOVZ2S3dTT2tiSERNWHh6Y1JqaVhBcWJ1YVhkRGlzR0NtVlNhdnhz?oc=5"
+        },
+        "context": "LeBron James Has Confrontation With Knicks Fans In Season Opener",
+        "id": 1409382,
+        "published_at_epoch": 1792699719,
+        "source": "uSports.org",
+        "title": "LeBron James Has Confrontation With Knicks Fans In Season Opener"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 15.922123815542683,
+            "emotion": 85.41414965271387,
+            "movement": 7.510853550097589,
+            "subject": 94.08500691442912
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxPMWRHQkZkejlGRGp1N2hJN01YR1pOVEZVa1ZINlhPakJyNnNCVjVEajNlSERkZTdfbEQ3QU1tSzNDNG9nX3NrX1NmajdMYnBqRzk4YVNFZmM2cWlVdlpxQ3drOUI2S3dHOWQ0QzgwTkxUV2tva1p3Uk5QQVpKR2tyTWhR?oc=5"
+        },
+        "context": "Trump calls NBA icon LeBron James 'a TOTAL DISGRACE'",
+        "id": 1378969,
+        "published_at_epoch": 1792697610,
+        "source": "Yahoo Sports",
+        "title": "Trump calls NBA icon LeBron James 'a TOTAL DISGRACE'"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 49.97234344764476,
+            "emotion": 88.7665682303725,
+            "movement": 20.306691138915095,
+            "subject": 94.03385058910584
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwAJBVV95cUxNYUVfZ28yZWZrV1RmcmUydDQ3c1VDQnlLeUNmdy11WkJGS3R5OXpMck9NOWxRZEVnSmRLRUdHeGN3Y3puYXJ0LUg2RGwxekdERnlJNGNvVkJsNWlRU01SRVZEZktaSHdadm9ldnRoYW81NmtvOUtrbC00bzdhUDJMbTJjcldLNDNIa2FEWVFHZXZ2UHZnREJWQmM2NVAxTTFTTEVFV1NpYmhYT3hmVkczcE1MME1qSFZMUTFKclkwZEpkQk5RbnRDMTRFQkp6Z19iSGx3cFl5dGtXVi1xcTEzejFOMWJoQTAwdDU3aFdRS090aHFYQzNZMmhMZ3hkaWdCc25FWWEzUndZelVUc3pVUVRBYk1nbDBUQXFRLW96b0J3NnNmWGItZXVsOUdpRGdyQ0xVMEhlNU5pMkZSVnlnMQ?oc=5"
+        },
+        "context": "Trump slams LeBron James as a 'total disgrace' for moving during national anthem",
+        "id": 1378935,
+        "published_at_epoch": 1792696365,
+        "source": "KRCR",
+        "title": "Trump slams LeBron James as a 'total disgrace' for moving during national anthem"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 19.11630611770862,
+            "emotion": 24.96219062340208,
+            "movement": 3.268302142583367,
+            "subject": 93.62391355630832
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQUXd3T2Rzc1VLZklaWExyNkREX1JxN2RqYXU3WXpWaHBvQkV5U0RlbVc2R21CanVzZEs0MFF5d3dsQV9ENjFzdVdXbnJLUEZWNTBTanR2NGlhaGZaOHl4V0JmblpfWGk5bWZfbjMtLUdpZ1FQQWR1TTBZREJ0ZzM0RWZGMjNzVnhPb2Vjbzh6SHZMTGs?oc=5"
+        },
+        "context": "Trump accuses LeBron James of disrespecting US during national anthem",
+        "id": 1369164,
+        "published_at_epoch": 1792696306,
+        "source": "Yahoo Sports",
+        "title": "Trump accuses LeBron James of disrespecting US during national anthem"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 22.9536225104964,
+            "emotion": 3.114492404387259,
+            "movement": 5.726323041762715,
+            "subject": 93.82888870863157
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQaXJLcFpDREZoZ0luR21yYjQ1eVloelB6UmZHQ1BId0FoZG5BamtaX0NRQ0Rfb1pldzBXUmFWY1pGUkVqdnFTamRGV0VsYVFUczlMRFg3S3prQmExaWxWRHFNR19iMERiZEFFYXhWeE85b2dIWnpONUYzeXpLRnpiNmE0UVBWd3VfdTFabFdoTkhEMDN6WFpibTlQbw?oc=5"
+        },
+        "context": "NBA Players Who Were Accused Of US Flag Disrespect Before LeBron James",
+        "id": 1358787,
+        "published_at_epoch": 1792694046,
+        "source": "Heavy.com",
+        "title": "NBA Players Who Were Accused Of US Flag Disrespect Before LeBron James"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 56.84233004149901,
+            "emotion": 18.766478976304303,
+            "movement": 9.693696679332504,
+            "subject": 96.62307260545025
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi8wFBVV95cUxOdkVnTzcxak5aU3JtSFNDbkN4VmZKUkFBRVJJT3JVZ1JfdTBvRmItd1dIbGktUGtDZ0tCMURTejVpVFp2ekN6NzdtalJDUXB5ZmhJT3FlTWZRcVBqVkF0RVRoNU1UcXE3Nm51TlA4TWpkcHRoaGhFTEJubFZ0S1NNRnFNcVgzd3pZYVdzR1lnV3ZQQnQ3QzJyRXBqc05XRkpZR1Y1TjhhVXQwMzgxZm9EYWg0N0Ffb1h1aU1jWHpCT1A1bmthcEtVTkl2cGRYbWh0S2lLc2RnQWYyZ3N5d2pxVU9YSU5FV0JCXy1FdUh2YWw2RTjSAfMBQVVfeXFMUDl5cC1uZEwzRjIzdTJkOFRxb0RaTWpCZUNTbHZLdDJiZ3hINEtTbVhqMkY0NEFHc1cxLTRDYVhyVlp4MkpkLUM1NV8tZHI3Nl83VW5MRWVvLTFGYjRmVlVkZlBzYzBWY3A4RmJiLWRPcHR2ZHFFYkxrSkxCRzFFWDUwN1U4NkpIOGkwSVN6VGtqUG9VVjVKeUc4ekZ0czBDTDBMemFYcmtjMjE0TnRpZUt1NnV3dzFfYUZlQVZPcld6M2UzZWh1N2htUFVuTlFucWlaME5qcVo0WUtWS3NzcTBfcy1aYjhMM0h3aDRzak0weFpJ?oc=5"
+        },
+        "context": "LeBron James lands in hot water with Trump after national anthem video sparks backlash",
+        "id": 1359086,
+        "published_at_epoch": 1792692830,
+        "source": "MARCA",
+        "title": "LeBron James lands in hot water with Trump after national anthem video sparks backlash"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 12.391246145275918,
+            "emotion": 59.13259794369441,
+            "movement": 2.7963004259423356,
+            "subject": 94.42607424482392
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxONl9PdDlVUk9kNG84cFRMMklQYTJDdEtCOUtmY3dDSXRXNTY2Zk5sQndLeTl0ZlNaR2pfN0g2WUlLYVFFeVVfUmxtLUo4MXdJNWpJbWtDNVlVQXVaVWxoU2RLYVo0UkxaNlA3MUM2WnJwRDBMbWdSSFBEVkJLSElaU01OVElDVGV3VlprZGFsWktGa2JDRkJmRnVEQldsOVlzSGtkMU9RbDdldjU10gGyAUFVX3lxTE1TZXdZRHhidzBsWHpFQ2dtRWhHejMyaTM1UkF0bGVhVGk5NXQtX0duSkJHSmh3OWx3TXdWRUEtZ050Ukh1bUJqdHBMNkhzR0Q2STdldUxPS0VZYjhTeWV6WlBrYWU5VXFlR3hNVlA3NTBGY3E3RHFqVkhBMnYtSU8yUXI4Z3A1NFVWcXJZdHV3RUk5dUJ0Wjl1cGlkMHNNT2Z0M01aTXljZUFuUTVGRkNPZVE?oc=5"
+        },
+        "context": "Trump slams NBA star LeBron James for disrespecting US national anthem",
+        "id": 1348559,
+        "published_at_epoch": 1792692496,
+        "source": "Al Jazeera",
+        "title": "Trump slams NBA star LeBron James for disrespecting US national anthem"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 17.113260511066873,
+            "emotion": 29.961365841851467,
+            "movement": 3.271578046309345,
+            "subject": 95.0245762623346
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxONUV5LXBkNzVYX1RiRXhLcVRpZ0JZRUVSdk00N2oyQVg2NUZ5Z1lzMnRXU2JxTUVxaUE5d1IxUzlKRXVrSTAtWHVnQXJIYTdSSFZaWEg3MERLTTJhY1lUTFdNT21ORUwxLVAxc3J4VmJnX0w0cU0xZjRHZzV2QlpFbzRUNERZaHJpWWxnVFN0elhCR05yVnBkMTJWdWhKMzF4UWQxSERNMXc?oc=5"
+        },
+        "context": "Trump says LeBron James showed disrespect during US national anthem",
+        "id": 1337183,
+        "published_at_epoch": 1792692097,
+        "source": "Reuters",
+        "title": "Trump says LeBron James showed disrespect during US national anthem"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.306719350450617,
+            "emotion": 4.563941555928944,
+            "movement": 2.4427362308360805,
+            "subject": 95.99933720368912
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi7wFBVV95cUxNeXpBLTRPODJTcVBCQ2VnRWg4MTFxc2x3S2tnZTU2ZjBOZWhHWTY0NEVoR2laNUFVV3BtSXR3V1J5S19IQ2ZBWGh3VmFRYkpycFVyVk42bUtWT055eklwRUJHZ0p3Skk5ajhZZEs2UmVOOTNxbWVYdWtMWWU2YmstYXQ0dUdoY1I0aWtua0ZqcVcxR21LWFZOVnl1MjdSVVFoV1RBZVZIazBWNW14bVJ3ODVFS3c4b243UTRaZHkxbktzZ1NjaHRNYXFwLWJzcDF6TGIyWi1EQW1EU2xPRlFwRElPRlBNR2pOV1hGay1wTQ?oc=5"
+        },
+        "context": "LeBron James lands on Trump’s list of people accused of disrespecting America",
+        "id": 1359089,
+        "published_at_epoch": 1792692009,
+        "source": "MARCA",
+        "title": "LeBron James lands on Trump’s list of people accused of disrespecting America"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.701332931869604,
+            "emotion": 14.66814144477349,
+            "movement": 3.7149779382868817,
+            "subject": 94.9578305397323
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE95Zm5fWjBWaUo3aGk3SnZ3VnpJeE12UHZISXlnYVNtUHlORVExMjhDYTJsV1hMczA5SnhpMG9SYmpIWnpEMnVTQXJWMk9RNDJHbEpjRERBZGxFM3pnVkw3UzI5Nk1mTkotVURxeTdTYzllMmdnb1FmRzBrTVd6VjA?oc=5"
+        },
+        "context": "‘I’ve never seen that’: Jeff Teague says LeBron James is now clearly the GOAT after what he did",
+        "id": 1348798,
+        "published_at_epoch": 1792691547,
+        "source": "Yahoo Sports",
+        "title": "‘I’ve never seen that’: Jeff Teague says LeBron James is now clearly the GOAT after what he did"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.8587553162990327,
+            "clickbait": 14.577962974928331,
+            "emotion": 33.912065126815676,
+            "movement": 3.1886752916712937,
+            "subject": 95.17261850259652
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxOUVk4SDRmUWVWNU0zckxHeThVZzhxX2ZxSDk2aFhVTHpPN21GNmh0N09DOFZTNG50eGtDdFFtU2cxSUUwRnVDd1hpTWZySGNYbjYyTnhWRlJhWndFbThURzZKT1lrcU1pR2pyR0JxNWdmVmpuNzFSbUFONUFzZktDTklSbXZZSVNpRWQ5Ql95aXN1UGtGMzFITDVVWGhfbGxZaGY2Q3N5TWs?oc=5"
+        },
+        "context": "Trump says LeBron James showed disrespect during U.S. national anthem",
+        "id": 1339143,
+        "published_at_epoch": 1792691402,
+        "source": "CTV News",
+        "title": "Trump says LeBron James showed disrespect during U.S. national anthem"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.2035634346708823,
+            "clickbait": 15.088185935346008,
+            "emotion": 28.326259042696428,
+            "movement": 3.338110747792139,
+            "subject": 94.7904562542743
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxOQ0Jlbmx0ZmVaWkRTVnZhY01uZng5R0ZoNDVVUFZHT1htZS1wa0U3V1VVakxPZ2k0RE1OUXUxUURPNU15SzFISzBmRlktVXNaQWEyaGFKVWZfMy1LNl9MMzN6RnhrLUJGeE1SX042V1pUbXo3dEgyX2xIbHo1aUJCclVHMnA1Rkt4dFF1MS1zVDBOOWF5eUZ4VlRnbTd6M24tdkxF?oc=5"
+        },
+        "context": "Trump says LeBron James disrespected US during national anthem",
+        "id": 1338839,
+        "published_at_epoch": 1792688566,
+        "source": "Arab News",
+        "title": "Trump says LeBron James disrespected US during national anthem"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.6366759739935948,
+            "clickbait": 9.19821887245434,
+            "emotion": 1.8037657688705744,
+            "movement": 2.530296608437012,
+            "subject": 95.98437400061395
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPcnBzWEVmUjNXR0hMMEhiU2FFbm1NQjJWTURBN05mVFRKQXNqM0luTkR4UF9iTzJuQVNCckd0TWRITm1raUFCOWV4b3ZpREZteG1uaUJCR09MZVp4eFlRWWtmeEdrU0xKbnpXdDRfQzBNN3d2VnIxSE0wQVE2Wk9ZVW1QTEJhZkE?oc=5"
+        },
+        "context": "LeBron James gets unique jersey patch for record-breaking 24th NBA season",
+        "id": 1338315,
+        "published_at_epoch": 1792688400,
+        "source": "Yahoo Sports",
+        "title": "LeBron James gets unique jersey patch for record-breaking 24th NBA season"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 49.97329712167934,
+            "emotion": 43.97008255335591,
+            "movement": 3.716028749797336,
+            "subject": 96.53247669561992
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi8wFBVV95cUxQbGl2djRORG9DUTJSUnhyei1HeFIyR3h3b3JucElJNDdlZFF6RDJJTWl3dU1YTGVfOVNGREZwYkYtMy1WNmM1TXk2d0dBN29qUGZ3RUhwMG9CVTI3YzdYbnRsdmhlRkdmeWRTZUc0SHZ3RFlEbElnbFYta3VZQzgtNHBtcU43Ym5YQnBaQTRqY1ZQMUJiWkstYXZ1LWFZQVlmdWJIN3ktX0k1NjVFVXBTZk10UDU4eXFRRktKZE9ZY1hLR3BvblJmLU15c2ZkY01EejF4TEFaOGg0OFV5c05POWZscHZjOXhUMENhZjZYRTgxekU?oc=5"
+        },
+        "context": "Fans Accuse LeBron James of Disrespecting National Anthem as Cameras Catch Unusual Behaviour",
+        "id": 1358160,
+        "published_at_epoch": 1792685512,
+        "source": "NewsBreak: Local News & Alerts",
+        "title": "Fans Accuse LeBron James of Disrespecting National Anthem as Cameras Catch Unusual Behaviour"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.4547738389516547,
+            "clickbait": 6.110625454705642,
+            "emotion": 1.599656988418623,
+            "movement": 2.5797347784011726,
+            "subject": 92.96536268141116
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxOdGlxWS1sYXNYVk9VZlF2ajFhbFpKd3poOUs4eENZOU9mQ2tLT2tJMk9qMmRIWU1tVndvekpTVnB3TjFFazAyUkNiSlphR3F0TU1KSllIUDIwZzY2R0s4TV95SWh6YkdRaHp0cjJFQTA2cURfUUx3MFBaRzdDQ1V5WGV1dE8xOHBESVhybThLRXVWdS1jWEdobGxYaXJtRFQ5eUNPVV9ZWGdBTEc2eHhPaGMwUlBEdw?oc=5"
+        },
+        "context": "LeBron James tallies 14/9/7 line in 76ers debut",
+        "id": 1147574,
+        "published_at_epoch": 1792682257,
+        "source": "NBC Sports",
+        "title": "LeBron James tallies 14/9/7 line in 76ers debut"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.2262508527467086,
+            "clickbait": 12.550893716017978,
+            "emotion": 5.772377980961052,
+            "movement": 7.79982970434556,
+            "subject": 92.93193500780748
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxOQlMzMFMwdUY2ZDVUbmVySW9BQXJLYlpXQVdOWThTUWNjX1JYRDlNTXBTT1JHNWxjU29lQjdMTVE0bmt3T0UzX3dheG56aHZVZ3drQlVvNEFTblczenVlTjJrWGxfZUhWcmxNeHlDc0RNSnFnSEV3V1dGYi12RWJ0d2pGcmNYamRreUE?oc=5"
+        },
+        "context": "Spike Lee intervenes in LeBron James’ heated interaction with Knicks fan",
+        "id": 1319216,
+        "published_at_epoch": 1792681586,
+        "source": "Yahoo Sports",
+        "title": "Spike Lee intervenes in LeBron James’ heated interaction with Knicks fan"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.914194285876673,
+            "clickbait": 18.323596280466376,
+            "emotion": 2.9402344198129127,
+            "movement": 3.228820506826904,
+            "subject": 96.4751392793348
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxPMkZybDhzbnBBV2hlSnlxOHAwSmdaSmg4U0N4UVYyLW1NcTNYNzNQT0tjYW9ieUFqTnJONDFlSGhkQnFleUVjcWNXYy11UkVJQ0xWUTZTS3RVY2Vrb2ZfcTFMNDZUTUFzbWk4RHlSZTd3T2hvYXctXzdRUURBTG15ZlpFeUhTc0VYZkoyYjBkc2hxb05PMTFOYTEzc3lZeTdPaTN4Z1RqZERocmlINlZBYU0wY2hpQ2ZjbGhFX1pZUDF4cVJralR2Z1lXVlV2QQ?oc=5"
+        },
+        "context": "Best NBA Prop Bets Today (Predictions for Shai Gilgeous-Alexander, LeBron James and Nikola Jokic on Thursday)",
+        "id": 1280627,
+        "published_at_epoch": 1792668000,
+        "source": "Sports Illustrated",
+        "title": "Best NBA Prop Bets Today (Predictions for Shai Gilgeous-Alexander, LeBron James and Nikola Jokic on Thursday)"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.1526970547628124,
+            "clickbait": 32.83548428161461,
+            "emotion": 75.01840474737756,
+            "movement": 2.364870040522881,
+            "subject": 95.19947607052276
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQbFhReDJiSF9KQ3hKQUwxa2ZFQm1yNG5CRS1meDFZcjFlZTNabnBXNWhRdTBjMWs2VFRUdTdCX3MzZ2xfdVF2b1U3eVFySEpINHdOOTh0OFBKaTlLckdMRGs4Z05MN3pQNEFQb0swQTJQLUNKaXR5OXdQdDVMVlJ4M3lTS1ZjZ0I3MjdJSGhhZXpZYUtrcEU3dTVoWQ?oc=5"
+        },
+        "context": "‘Insufferable’ – LeBron James called out for disrespecting the U.S. national anthem by fans",
+        "id": 1270828,
+        "published_at_epoch": 1792663200,
+        "source": "Yahoo Sports",
+        "title": "‘Insufferable’ – LeBron James called out for disrespecting the U.S. national anthem by fans"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.153524372904757,
+            "clickbait": 21.28884048983797,
+            "emotion": 80.79888091896117,
+            "movement": 2.076815195874698,
+            "subject": 96.28086491019008
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxPV3NZc2VwbzBSOFFmQkRQa2xtMFdGUW0xUE5RU0pobEwyTFRDRWtUemM0REhlUlFZWWE2NUF1aUFCWVBnNDN1TzhaYjhqaEFvWGltdGJiQk5JRF9CT2VmT0hsOTlyeGVNUTJSWHBfMklkMzlkLXBidmJoTjRfSVhHeGVMa0pKcy1OSU1tN0xvS3VNdkg3QU5ibFozbUF5eHpLN2sxMnZB?oc=5"
+        },
+        "context": "\"Why is he permitted to behave like this?\" – Fans blast LeBron James for disrespecting national anthem",
+        "id": 1300129,
+        "published_at_epoch": 1792657701,
+        "source": "Basketball Network",
+        "title": "\"Why is he permitted to behave like this?\" – Fans blast LeBron James for disrespecting national anthem"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.5508080718774833,
+            "clickbait": 14.493042420488427,
+            "emotion": 2.5517504580078407,
+            "movement": 2.08091143013544,
+            "subject": 94.47670324276848
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimgJBVV95cUxPSkpEMW1vdUhkbFRxQW1IR0tnV25jNDRCZC1Hd1ptQ0FHMDV1dFZUR1ZTRGpMc3ljaVUwQlJJVlpWNG9QcV81c0ZWR2JWUGMxQnZkaklCUWlWNkY4RHNRUkw0QUFITVRsVFBuYTRjOFQ4S1ZtZ3ZDZjVzTWdLcmZjQ0FXNzhaQzNTYjEwTVhWNEVzNXFjLW9BREt3b1FjUmY0UkpOOW5qMVNzdjhZcmJuaDhFM1BRWFJxX2lOeFpaMlh6UVVTbEZXclh2SVlyMzVYcV9CX21tbERnTkh5a0g1NDBZM0pZMGxzdXpNVFBiYnVrZjRCZmhlZHg5QnRSTGtVdDdyQ1NKYjB3X3JwT0VVVmc3Q3pfR1ZlOFE?oc=5"
+        },
+        "context": "LeBron James calls helicopter rides 'transportation' after he soars on big dunk in 76ers home debut",
+        "id": 953700,
+        "published_at_epoch": 1792657664,
+        "source": "Oskaloosa Herald",
+        "title": "LeBron James calls helicopter rides 'transportation' after he soars on big dunk in 76ers home debut"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.4335171064021868,
+            "clickbait": 16.83340060188851,
+            "emotion": 5.8781304342281775,
+            "movement": 9.299701427741912,
+            "subject": 94.40746319494455
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMivwFBVV95cUxOYVktOFphWU5ZdjN4bEpWQXJBbU1MeG1Ed1ZlUDdVbzlpR1FjX29wQTN1N3ZVVk1mekZ6VEVpNUtON1RfTnZiLUI1bGwtcE12cW5rSE83NVVwY1g2aUs4ZktWSFp1bkQzLUVRMFJ4eFdGQ3dGd05leG5Za3NxQ19mU0V2eXVLMFA5Z3pwV3dSbC1lUEpibE1rRVE4SWRLdFZlOC1NOTI5NHYwTjUyUFpDR2pzT09UWWpWanJFVUZLMA?oc=5"
+        },
+        "context": "Jeff Teague explains how LeBron James' 76ers debut solidified him as the GOAT: \"He went from one to five\"",
+        "id": 1261430,
+        "published_at_epoch": 1792655220,
+        "source": "Basketball Network",
+        "title": "Jeff Teague explains how LeBron James' 76ers debut solidified him as the GOAT: \"He went from one to five\""
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 67.19584595556995,
+            "emotion": 2.3462952253622533,
+            "movement": 18.85917711949817,
+            "subject": 94.68586114420984
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNSWNyeTA0dHB0b3FlQU5IU2lHN3hVSlZ0dk1iLUYyWFRvMy1QTkZiTFE3TkExcy13SWMyeWJFV3pwRnRLRzM2aEJGNGZWX3M5UlBNbEVGSVhJd3c4WTFNZ2ZNekYxdjUxdFVKbWt2OVR6YXlhMkZKUzhIaXU4eGlvZHpOYjZQd01T?oc=5"
+        },
+        "context": "Stephen A. Smith says he already knows when LeBron James is going to retire",
+        "id": 1261422,
+        "published_at_epoch": 1792654320,
+        "source": "Yahoo Sports",
+        "title": "Stephen A. Smith says he already knows when LeBron James is going to retire"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.0507051199889332,
+            "clickbait": 7.399185931157688,
+            "emotion": 39.486023846654774,
+            "movement": 9.129408757634632,
+            "subject": 94.958917167876
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxNVVlITjBGU0pkV1NhTXk1TC1VdGU3aHdLZjFPYmlQOVk2N0M4TndkREw3ZjBrTkxSaTZwRzVEWUNsb29kc1NpbmZwMTFxTm16cVFEdXg0QnN5N0gtSHhQS242d080eS1JR19jNUNPWV9qMlZqamtKUEdzZkNJMzRiOA?oc=5"
+        },
+        "context": "LeBron James Shows Love To Ex-Lakers Teammate After 76ers Debut",
+        "id": 1260693,
+        "published_at_epoch": 1792653549,
+        "source": "Yahoo Sports",
+        "title": "LeBron James Shows Love To Ex-Lakers Teammate After 76ers Debut"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 22.531306017790623,
+            "emotion": 73.90341528384194,
+            "movement": 2.3671611825497956,
+            "subject": 96.34482443466992
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxQYjV4eEQwblBvY2lJVW1DR0VMcEZTVkJ4QU9RWjhlTFRJU3RqUXZHdlR0VHVSdWc3V2NzdktVbzktM0pvZHFBbDZKZXctUmZWbXg3LXRkdW5LNU5LbnZ4VmJKbHpDemRfSVAxWWpYV3dVMzR1Y3FQUTEwcy02Y19YME0zdVdlWF9GTnlvag?oc=5"
+        },
+        "context": "‘That’s just disrespect’: LeBron James sparks outrage with his behavior during national anthem",
+        "id": 1290094,
+        "published_at_epoch": 1792638540,
+        "source": "Yahoo Sports",
+        "title": "‘That’s just disrespect’: LeBron James sparks outrage with his behavior during national anthem"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9128724315019916,
+            "clickbait": 7.1857881353893625,
+            "emotion": 2.239420611988019,
+            "movement": 5.231656158145865,
+            "subject": 94.83407997126412
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxPVWRSTENINlNIbThvVmI3cXBBeHZWSEZZQWg0TXVjX2VwWjcwcV9rak11WE9fbHJHUzg2OU9HNmF3XzVsc1RoSGRrbTlBYnJMbTdDdUFOSWlaUURBOFFnS3VoeHNVd2lqOFNkS1hndzVmWlNQN2dfVkRaWGRYa2lsNDd3X3JBWVpyd0FISWJtZnRSQlEzeFhtQnlRck9lVzR1UWxEc19HbENZZ2xCdVJXRk9HTGNQdVBqUHk4MWF2bWhEUQ?oc=5"
+        },
+        "context": "LeBron James Shares Opinion On Wife Savannah James Staying In Los Angeles Amid Season In Philly",
+        "id": 1300105,
+        "published_at_epoch": 1792631580,
+        "source": "Sports Illustrated",
+        "title": "LeBron James Shares Opinion On Wife Savannah James Staying In Los Angeles Amid Season In Philly"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 68.04080485679756,
+            "emotion": 5.446352032800833,
+            "movement": 3.9275948359767554,
+            "subject": 93.95615458564616
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiywFBVV95cUxOZ29MZWFJamZGUmk3MW5STWhvMVE3RUJnYTZHMkxSMV9sOXFST3R0TmdTMUdoWDBtSzRsOXRHNXhQZF9uRThZOFdKMnF5aVVLbXhqQTg3MXNudnVWdjlPRVlacnoxMEd6YjU0ZXNibHltc0lxZGdzQno1YXM0bFVXMDNfZzJmYlQxVlZlSXRiS1Vkcy1Ld056RE1uWTY5Wl93dUVOaGdLbDRmNXB1ZVp1VjdDb0hkajlKR0pzcXB2OFlseWZDTHhORUhTVQ?oc=5"
+        },
+        "context": "LeBron James still looking for improvements after starting Sixers era with win",
+        "id": 1367230,
+        "published_at_epoch": 1792626544,
+        "source": "Flashscore.com",
+        "title": "LeBron James still looking for improvements after starting Sixers era with win"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 28.724035499985323,
+            "clickbait": 7.051932920851643,
+            "emotion": 4.238245777078304,
+            "movement": 3.1276935366975116,
+            "subject": 94.51049541513603
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPZ2JYVmZ0TmRNUGlTWEdzREI4cUt6UEM2UURxR3Zlakc3TEhKbnl4M2RpdDR6emUtOVVzcDVDSkpEaWVzNDVqV0pBMnFpQ1ExTFk3ZTFneXFWWVlZR21yR3ZYOWVNbldRbnVDWUJSeS1UZ3U0dGVJbWdxMkwwTGhnLTVvTE1UZw?oc=5"
+        },
+        "context": "LeBron James Says Tyrese Maxey is NBA’s “Fastest” Player, Lauds His Stamina",
+        "id": 1232605,
+        "published_at_epoch": 1792625917,
+        "source": "Yahoo Sports",
+        "title": "LeBron James Says Tyrese Maxey is NBA’s “Fastest” Player, Lauds His Stamina"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.7043591650685883,
+            "clickbait": 8.10683299933977,
+            "emotion": 19.551367073602524,
+            "movement": 4.241436298840564,
+            "subject": 95.05303985233223
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQTmR3dkluSmZJUktpOGFRYXA0c1ZLc3lWRzY1cGdFMzY5NURId09hbmVsS2RNREJsTjJGNzhqVVMyeDJXRGRYbVVlTkZxRGZ5aTVjc0JncUxLTGVLdkczb09ub3lzYUNucEJNN0FpeDdGOEJJTmZ6bktXZnZOdC0zNTZzSzFOdw?oc=5"
+        },
+        "context": "LeBron James fires back at at Knicks fan over Ohio roots",
+        "id": 1261158,
+        "published_at_epoch": 1792617557,
+        "source": "Yahoo Sports",
+        "title": "LeBron James fires back at at Knicks fan over Ohio roots"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.7129215381878216,
+            "clickbait": 21.358726482055275,
+            "emotion": 7.762752325442183,
+            "movement": 4.132876047678598,
+            "subject": 92.91810369565748
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiggJBVV95cUxNUjBuZVdOaGlJY21FbUFrNXZncU5ydzBDY3d3a1VOaEoxV2xRSmdNTXlVYUdRZ1BxTHFzUTBVVVdaQWhwblJKM0M5dVlQVVRFX3Z6TzJQbllWZUlESjd3QXVHZGRwQ0FGYlZTUEJnTEFkSUl4a2NFOVBNTEZHeGJqY2VlcWFWaXl0QXFjZ1VaNzJCZ0ZtRHdLam8waE9GcmVFeEVabFF4S09UMlRUUmN5R3cyOWZOX2pIdldfQlVOamtNNmIzQUtOTXNUN1daV2F2MXBVc1BJbnE2YVBSenJZSkhUaVBOMUJhc1h6RTZzdHJXcHd1TE9nWGkyNGFPU3lSVEE?oc=5"
+        },
+        "context": "\"I'm from Ohio, and I'm not a tough guy\" - Dan Patrick doesn't understand what LeBron James was trying to prove vs. heckling Knicks fan",
+        "id": 1290411,
+        "published_at_epoch": 1792610207,
+        "source": "Basketball Network",
+        "title": "\"I'm from Ohio, and I'm not a tough guy\" - Dan Patrick doesn't understand what LeBron James was trying to prove vs. heckling Knicks fan"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.001853894637868,
+            "clickbait": 34.139849511119955,
+            "emotion": 56.236803271927,
+            "movement": 5.61018609023618,
+            "subject": 93.4008733351564
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPb2l5MHJuYUtGMEhiRVhEOW5iaTFiRVVCVDdlWS1raFJRXzF6N0djZkVqS2JFRU5hV1IwTXY0YjJ2SXZXSUk0S3RYeFIyNVNxeE9VVXoxQXVQandqVEY3WEtrS1pvbURtWThEYzRyQndKQ0IzWlFaVzYxbmhGRmRnSHFhQmpmaGs?oc=5"
+        },
+        "context": "Knicks Fan Gets Into Heated Exchange With LeBron James as Spike Lee Steps In",
+        "id": 1261199,
+        "published_at_epoch": 1792603453,
+        "source": "Yahoo Sports",
+        "title": "Knicks Fan Gets Into Heated Exchange With LeBron James as Spike Lee Steps In"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.1599442203965675,
+            "clickbait": 26.69439734663555,
+            "emotion": 14.83963676715095,
+            "movement": 30.86918826515167,
+            "subject": 96.3093425337491
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPVGFwSUxBNmF1c0VTZEI4WmNxN1ZyZzBOdkF2bXotQ2F4eGQ0eFlkTFRrR1JIbWhZbXJhNzdUSm9uTGd2dk9kT19HbVJXYm9MeUZWd19tX1ZKNEpMWGMtZms0d0hmZ1dLbmtENWFyWC1fdUVTSEhxdTBPVURZOXhlVEl1N3o2LXFfU3c?oc=5"
+        },
+        "context": "LeBron James gets brutally honest about wife Savannah staying in Los Angeles after Lakers exit",
+        "id": 1261507,
+        "published_at_epoch": 1792601655,
+        "source": "Yahoo Sports",
+        "title": "LeBron James gets brutally honest about wife Savannah staying in Los Angeles after Lakers exit"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.5636381404583934,
+            "clickbait": 29.09903104734382,
+            "emotion": 14.065963004547353,
+            "movement": 2.393812536898704,
+            "subject": 93.31561534139702
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwAFBVV95cUxONDNuRTc1NHdtOTI4UW9KT2M0QmE3alJ0N0JiclUwMV9NNk5LdW9aSWx1VEVXdEhKSHN2WUgzVmFHVDgtMVV4N3lhWU9pYXlnanNnRE9RWmw2X0xKempZX2t6RV9JMWo5RXhiZTFBSFFQcWY3NlhqSmRHc1NhX3NWemtHXy1yejJxWWNaMXR1cERpaEVxaU54d1NxZVVScllpUjNUSEt6bGtQeDRWRGEwODU1TnpMQ25SLVU3d2Y5YVg?oc=5"
+        },
+        "context": "LeBron James Talks Smack With Knicks Fans, Drops 14 Points in Victorious 76ers Debut",
+        "id": 1290083,
+        "published_at_epoch": 1792589965,
+        "source": "EDGE Media Network",
+        "title": "LeBron James Talks Smack With Knicks Fans, Drops 14 Points in Victorious 76ers Debut"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9599914562739185,
+            "clickbait": 32.6316716354508,
+            "emotion": 16.964137930516017,
+            "movement": 3.3331538537896535,
+            "subject": 93.62448283248048
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNUmNDdlFxNUFmSktJYnlxR01ZNXJyS25zbFFwUzRXdUNLRUVYeThhS0puOXJRMUNlbG5Ib2FhRlJ3NXlVU0cxTXRMMzhrWHU1Y2JCUDJiLUhqWVQtM01DY2pKTEp3Tmc2bmlaRVFwbUVVR3VIV0swUnY1RGVJcVh6WjJZdjlOZ2dtTHhhVTBvTmthaXd4M2dQNk5aUlFxcmFzVHBHS2NVcw?oc=5"
+        },
+        "context": "LeBron James talks smack with Knicks fans in victorious 76ers debut",
+        "id": 1261143,
+        "published_at_epoch": 1792584662,
+        "source": "WTJX Newsfeed",
+        "title": "LeBron James talks smack with Knicks fans in victorious 76ers debut"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 18.40652326936923,
+            "clickbait": 13.264067872929589,
+            "emotion": 3.882275740960332,
+            "movement": 4.445589465558563,
+            "subject": 94.08061092870253
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxPeEZhQm1Rem91SUlXeGVPM1dhcnFOR0I2bWl0dGxFeFFsT0VWMmVFVkh4bDBkZGJwR0ZXMUFkZTBqZE5IQUdreUo1NlRuSVBfUUgxaS0zaEI5SHNmZ0JyZEFHaXdTT1J0OWdCUG5EajlDWFFPZ2ZWSWVhbzdBMmk4enRBdTBPekRFbXZHaVhma1o3UnVGcVhrOEhoR21rQ00zYjdBUXBUUzJ6OE9XeWRFeUVxb3RiNElzYkNV?oc=5"
+        },
+        "context": "\"I'm there before everybody gets to the gym\" - LeBron James reveals how he is setting the tone in the Sixers locker room",
+        "id": 1271171,
+        "published_at_epoch": 1792583961,
+        "source": "Basketball Network",
+        "title": "\"I'm there before everybody gets to the gym\" - LeBron James reveals how he is setting the tone in the Sixers locker room"
+      }
+    ],
+    "subject": {
+      "entity_id": 237,
+      "entity_type": "player",
+      "name": "LeBron James",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "name": "real-player:45:NFL-rating",
+  "task": "rating",
+  "sport": "NFL",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Justin Herbert\",\"entity_type\":\"player\",\"sport\":\"NFL Football\",\"database_record\":\"Justin Herbert — QB, on record at Los Angeles Chargers. Record: roster; observed 2026-10-23.\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Air Yards Responsible\",\"measure\":\"sum of passing, receiving, kick-return, punt-return, punt and interception yards\",\"value\":1141.0,\"percentile\":97.7,\"cohort\":828.0,\"band\":\"elite\"},{\"label\":\"Ground Yards Responsible\",\"measure\":\"rushing yards\",\"value\":168.0,\"percentile\":94.9,\"cohort\":828.0,\"band\":\"elite\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":6.0,\"minimum\":10.0},\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Justin Herbert — QB, on record at Los Angeles Chargers. Record: roster; observed 2026-10-23.",
+    "profile": {
+      "limit": {
+        "appearances": 6.0,
+        "kind": "thin_sample",
+        "minimum": 10.0
+      },
+      "season": 2026,
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 828.0,
+          "label": "Air Yards Responsible",
+          "measure": "sum of passing, receiving, kick-return, punt-return, punt and interception yards",
+          "percentile": 97.7,
+          "value": 1141.0
+        },
+        {
+          "band": "elite",
+          "cohort": 828.0,
+          "label": "Ground Yards Responsible",
+          "measure": "rushing yards",
+          "percentile": 94.9,
+          "value": 168.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "NFL Football",
+    "subject": {
+      "entity_id": 45,
+      "entity_type": "player",
+      "name": "Justin Herbert",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

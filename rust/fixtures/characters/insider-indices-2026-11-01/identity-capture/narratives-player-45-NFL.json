@@ -1,0 +1,1154 @@
+{
+  "name": "real-player:45:NFL-narratives",
+  "task": "narratives",
+  "sport": "NFL",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Justin Herbert\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Justin Herbert — QB, on record at Los Angeles Chargers. Record: roster; observed 2026-10-23.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1422082,\"url\":\"https://news.google.com/rss/articles/CBMi4wFBVV95cUxPeVc4NURoVXh4MHYzWDh1amg1M1pvUGEtYW5sS3lQcWV4VWlPdmhZbmtMamRZOTM4cG96Q2NBWjhjSGhYUWJSTk9EU3haQnc4X2d1U2ZiMWptUTFPbkJxNmZ5aEJFeGlKaU5qbml3LWFWWk9DWVM4enZnZ19DZ1dMczZSRmtWWFRSQUQ4UER6Y0p4alFPS0ZSMWxIOURncU9JRUZQc2hLTFpHRGpxV3dUSXBabkY4YmNRdWJ1UzRIdldzRUhEcGhKVVBfSVRIS2FqNHYzd01LV1JFTE9GZGVlTWN5bw?oc=5\",\"headline\":\"“The Chargers Are Paying Justin Herbert $55M Per Year”: NFL Insider Claims LA QB Deserves the Blame for 0-6 Start\",\"publisher\":\"College Sports Network\",\"published_at\":\"2026-10-22T23:41:39Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1401786,\"url\":\"https://news.google.com/rss/articles/CBMiygFBVV95cUxQS0xNWFI1VWNaZURkVmxQX096ZGtwaDNPZHI2QnZsdjRDYS0xcnEwTWJVWHI2Q3B4ZlV2QnRHUkR4T2ZidnpxV2dDT1dtYmpMQzhicFU0c25Lc3pUcXd6TXp5SmhKdFc2OHlLdk52cWRDTVlQV21FMWxtWXN4c0t5VXJkTHBQWC0zU1Bod2Q0cWxLQkZJWkxrZmsyTmNjREt5TkZsdUhkU042YnpSVjI1VnFFVmVyNE11T0t0MEhNSkVYQ0xpWlh6MzNB?oc=5\",\"headline\":\"‘Drinking the Pain Away,’ ‘Dude Is Cooked’ – NFL Fans React to Justin Herbert Buying Beer Crates and Flowers\",\"publisher\":\"Gridiron Heroics\",\"published_at\":\"2026-10-22T22:29:47Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1401740,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxNVm8yQXh5bTE2V2FCOGFja0ZtNE0tVHZnZ1NnaHNZTnFDeFM0TmZ5VmEyaVVCVmZkMUw0MUN6WEhMMWFDWk16ZHYxdDdNdVh0bWhsdWVZU2VEcG1MTHhhSXZfdGk4S01vM1dlWlFLTUpkcXRjWmozb3BXZXZDMjA4NjFnRzJZOVN3N1FaWDdoTkVGajVWdDAzMGNiQWg?oc=5\",\"headline\":\"Chargers' Justin Herbert Getting Some Tua Tagovailoa-Level Heat for Struggles\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T22:00:03Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1411910,\"url\":\"https://news.google.com/rss/articles/CBMi-AFBVV95cUxPb3VkR3BzTDJ1d0hGa1lzanpVNXhITjQ3S09rSnZvZjN4VFpxUHEwM0d4eGF3aFVKR0thNzdYRmktZDQ0N0pybmlVZDFFMElIV3NuMVd2bDd3QlM3MUxhNGdHRHFoU3pObHMtU3lELWZBdEJmTS1qSTBUTzBYa0ItM0ZfUzRHZjZTaWxGY2lGUXFfWjBKM3dwQXpHbU82SUpWdE1uNWpSbkV0bUtGSUlwdDQtbGZwTVAxUUEtX20teWZqSkZ2ZG5wR2kxQnlXTXZDNmJVel8tTURVT1Z3azlfOUgyUHp4SVZwQ2Y0MEZlZkFaT1hxYW9PMg?oc=5\",\"headline\":\"“Don’t Argue With the Refs”: Chris Jones Sends Clear Message to Ashton Gillotte Over Roughing Up Justin Herbert\",\"publisher\":\"EssentiallySports\",\"published_at\":\"2026-10-22T21:52:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1401706,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPV2xDZ2hzQU53VUhpc0RPMjE0b0xlMjcwV0JUOHlEYTBaVDBFcC03bzRYbkozWlJSSVZfNnE2SVlBX2lzanY0ZlRGREtCTkw3ZTlhcDNJMy1aTUFmU2FIY2NvdzVFWFJPRFdmN0NtUE52d3JKVmVkYTlmQ1JKOXBSb1ZyWllWM3M?oc=5\",\"headline\":\"NFL Trade Deadline: Best Landing Spots for Justin Herbert, Jonathan Taylor and Others\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T21:03:53Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1391535,\"url\":\"https://news.google.com/rss/articles/CBMiswFBVV95cUxQeDZoMWtjMVAtc1ZNeGJhS0h4S05aU2NjTE9vbHhpZVNaR0c1Y2FVR3p3OHJ5Q3VXUXhKcENYNTYzM2l1eGpzckVUMWlHel9nMmc1aWF1Skh4bko4c2NGNnJKVGlMbG9oTl9IbTB4RDNqVjAxMTBpVEVNYVJub1lPOGJvUTJkdzVDNGxMbGVSbG5HM3RPSjhWNC1aZl9UTk5XUzlycFh0WHplTndpVVJHdjh0SQ?oc=5\",\"headline\":\"Watch Nick Wright: Justin Herbert is to blame for Chargers' 0-6 start - First Things First\",\"publisher\":\"FOX One\",\"published_at\":\"2026-10-22T20:42:35Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1381466,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxOR2tNd21GbDg5S1hnQ0pRLVlTUE5IWnNUdDlWY1BQTVVCY3lzcUVISGZ6ckxpNGREUHViYzlmNm5kS1R2NlRmVTZuVjlfUkhDZE9xdlNxTWh6alJubE15Z3pxMmFRa1hYdWpqSjdKY2RYUFJjOWFMNkR2dGxOU2s4Y08wblYxb2hkcS12aWZUM0dxazA?oc=5\",\"headline\":\"Steelers' Mike McCarthy Has Intriguing Opportunity To Revive Justin Herbert's Career\",\"publisher\":\"Steeler Nation\",\"published_at\":\"2026-10-22T18:34:22Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1341364,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxQUGhKYzRQZzUzOEs2RmdqN0Myd0ttNmpFcDVUdGg1anYtV0hBa3FwZlo5UkRMTXNZVndvTUJPT192TzZ5SVMwSk1YWmhIM3FsUmtlNXJFdW1GZXkxaHlEeHQtcXlKTXJHWUxGWTRxcWx1UThMV0lEQnc4OTVHVjRyVklvci1VbmNfbEE?oc=5\",\"headline\":\"Justin Herbert takes break from losing to go on tragic beer run: ‘Drinking the pain away’\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T16:48:56Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1351333,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxQbWNBVWg4UjA0N2Mwbjgwcnk4OGM4S25nVTRSMTRZWTk1eEowNVRUNmhlSEZpXzduNDJLaTBqckNmSWZLeEQ5Q25XbGtwNll4eUxYcWl4MXlWRXVWWG1nNTk3T1A5OXNZVFg1NkVVTXhTbnhOLWhTQl9laEc0Y2RlclMxS2tZQlJOXzZ6QlFFMVBKQQ?oc=5\",\"headline\":\"Should Vikings trade for Justin Herbert? Making the case for and against potential blockbuster deal\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T16:24:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1321781,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxOelZaVzZDaGNvMmt6THVuRTlTSDEtR0ZvOXdiSWtCTHZPc3NuZzZTRGg5aTZpX000MmVTanhBUXRtNGlCRjFHNnVpN1MwWkQySEJ2NkN6UDROS3dTdFdIZVpfc2h0RkM3clpZU3dSekhPSG14QUF6ejdyaTFTQ0Z2SHNuYXlzQzItWWZDRUhvSmVmWlFPN0hKeA?oc=5\",\"headline\":\"Which Teams Would Give Up Most Capital in a Justin Herbert Trade?\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T15:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1331520,\"url\":\"https://news.google.com/rss/articles/CBMi6AFBVV95cUxOQVlDSFZXNU41V0FQOXBOQVlzQ2dKemU4TGduOGNyODZjanZkMjdFZVRTRDZIY1JfSjA1aUpLU1pPVXZSTm1qbmlOLVlnYWZfRUpockpvS0RsX2tGMkZHQ2luV3FmUTNvOUdMazhsb1BNSUVPMldyYVdTbWJOSDlxaHI2aVNvT1R6eWJpVnFWVHgtRTZfM3h6TF8xYWZtTlRqNDQtb2t4d1lmd1NrTGlfTXdYbjBPbGtvNk43VzZ0bmFENmw4ajFrTjZNeDFhWkJfVEFfRFBXUHhYYmhVdVVZY21xbGhfbFct?oc=5\",\"headline\":\"\\\"Drinking the pain away\\\" \\\"Miller Lite is for losers so this fits\\\": NFL fans mock Justin Herbert as Chargers QB gets spotted buying crates of beers\",\"publisher\":\"Sportskeeda\",\"published_at\":\"2026-10-22T15:16:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":249356,\"url\":\"https://news.google.com/rss/articles/CBMiaEFVX3lxTFB0X3RSOXU4LUNuaWxlMjRBNDZZV2VDN1F1X2l6SXlhWmRyZjNQRkRaOEpXMXBSUjdOQWZwc2tyNDhBTnJWTGRMdDFzQ2RuM3hXZ290MjZhV1BLbDQzM0pGYWhGc0doNzRC?oc=5\",\"headline\":\"Justin Herbert Fantasy Outlook & Stats\",\"publisher\":\"FantasySP\",\"published_at\":\"2026-10-22T15:10:12Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1311740,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxOcHJ5cXVPYmFHUEx0Zk1XcDB4bWFQNkRIT3gwVi1sN21pb0I1NWFKd0ZvZzhIMWdKTDVCeC1lMmdiZGZicVA5VDZNTkhybjhjMk0zd1RuZlBpX1EzQ29xeHFYdHotdmJrai0xWWt1dHc0Vjk3bFFPNnkyZ2xkcFRQN2FBcjk0S0oxWlZ1RGhzMA?oc=5\",\"headline\":\"Chiefs’ Ashton Gillotte faces possible NFL fine after disputed hit on Justin Herbert\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T14:45:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1302385,\"url\":\"https://news.google.com/rss/articles/CBMixwFBVV95cUxObWhOZ0xBOGR5QmR5VEtad3E3MTAtVlRTZWpoX2dmTVBncmZuZENzVHE3Y2xIY0o3ZFFTcjhqV0pUXzlJUzlZT3JWeTBodlJSck5fc0hKcXhENkM0X29LLVZpT1RTT0xiYmFnU3ZiYVVrUE5tTVNUdzRxT2g1bTdyamMteXhNRzJTNUpjV1FaVDhtUXV3M1EwdnoxT1ZVOS0xSzM3RDl4VmlPUEpSQks3WFR6VkZZTHl5ZzRZenZYOGZXVXFLWEZr?oc=5\",\"headline\":\"Justin Herbert's Rough Week 6 Performance Demonstrated in Latest QB Report Card\",\"publisher\":\"roundtable.io\",\"published_at\":\"2026-10-22T12:25:32Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1331521,\"url\":\"https://news.google.com/rss/articles/CBMilwFBVV95cUxOODZVY2lkLTY4TGxlUkxldHVxSm9KTTVMeU9TUVVhaHYyNVFjZFFhTWlySGxZSjFnSXptYnBrTHZLUGVPQ0lPbFhsZURpdHNFM3c3em5BcU5lYkxDMFY4VGlsNEV5a3VpemRydG9CdnNCTmxSbnNYbE4xRVhMNjMyWUlCSFoyRmgzRWFwRlJxOGp2LThaNEZn?oc=5\",\"headline\":\"Browns Linked To Blockbuster Justin Herbert Trade With Chargers\",\"publisher\":\"Gridiron Heroics\",\"published_at\":\"2026-10-22T11:59:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1273425,\"url\":\"https://news.google.com/rss/articles/CBMiuwFBVV95cUxNZjJ4X25ka0Z3NDlTZUlqQkFJRnNiR0s4S292eVVPMFdQSDNURXVSd1kzRm9QN0ZzNTJEUDVFWDB3Rl9GUndyOVgwNVZCUExZNXo3QXR2YXI5SjVaRFlkMnFreGo2OGxjVFBOXzZObUNGcjJzc3A0eng4bGpRQTNzek9VWFVha1VoRlhrdHNXNmE1N2VPWm9laUNNbEs3Si14MFVsT0tNS1BfOV9QbjhyczZMTVdFQUZaYWNv?oc=5\",\"headline\":\"Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings\",\"publisher\":\"NDTV Sports\",\"published_at\":\"2026-10-22T10:38:20Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1263686,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxPTXhoMzVVU0RtSWljN0NQN3NVVVk1eU03SlgwZjZyeE9jQTJ1UE9qSWFlSEdScEYzb1E4Y1FIREI2TTh5UzhlRy1EMUFsMFQ5OWZSTlplSW4wdVRLQTd4Q3FybWlQbVA0SnpKbXcwZ2cyZlR1OEg1ME5fQmVwU3l4S3RHZU5JTmxrQ2JMTmlaMktOQlhLUmxfYXVnaw?oc=5\",\"headline\":\"Could Philip Rivers Help Unlock Justin Herbert for the Chargers?\",\"publisher\":\"Athlon Sports\",\"published_at\":\"2026-10-22T07:45:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1254112,\"url\":\"https://news.google.com/rss/articles/CBMivgFBVV95cUxQUHYzQU5lREZIRTdUNmNBTnRlYW53M0l6aWxZaGs5QWo4dkNJdnBObnluaFpPMkJjMlpweUJsLTR1NWVMWWFsNk83U0NuWDlrUnBhNWtGYnZBZHdjaWpzTkFyajRMQ1NxeVBrR2QxZWlHMm5CUnpQRktBeWY0RmRRWDFIb2V3ZzRXa1RGdU1KYUc1bUNxUDA4dGdNZVZmU2hRdndXZHM3ZE1HY2VNUGlNZklpT1RhNzYtSGM0Wkxn?oc=5\",\"headline\":\"Los Angeles Chargers' Problems on Offense Have Nothing to do With Justin Herbert's Intelligence\",\"publisher\":\"Athlon Sports\",\"published_at\":\"2026-10-22T02:01:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1331522,\"url\":\"https://news.google.com/rss/articles/CBMivAFBVV95cUxQdzhIQURhTU5UNXFxS2ctd0dvR29HV3V2V0NsR0RNdVJmV2o0d1lyZjUwaUVwcGpIUml5ZExjVE44ekxVa0FIa2ZucHdNc1UwNHdkVlgwZ0ZfWkJBN3hraFRMZkp0S3BiYWhFOWpiX3Vuemc0TEQyTnhSR1R1SEF3U2N6eGF0dGc3aHl6UTYtbmUxalJaVTFkcWp6bXJ0cmstTVZQb1N5Z0VJUTF1WDJyNWY1cUJXMUFMNDFieg?oc=5\",\"headline\":\"Does Field Yates replace Justin Herbert with Chargers’ No. 1 pick in ESPN mini-mock?\",\"publisher\":\"ClutchPoints\",\"published_at\":\"2026-10-22T01:32:46Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1215401,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxNVkV4ZWZwVV9JRFNwNlMwcUJidDRBUV9yVmJhSmRFcGVwNHVHdmV6QWJnTFdtM1pKYTJPTmFGRjFXenpWMVprdkY4RkNMQ19sLXZrbHJPVkttQV9aMlBkTFdUaHRKaGtMSG9CWDZRYzFuMHdaWFViOGx0eFJVTU5ONEFmZ05Lcl9F?oc=5\",\"headline\":\"Chargers' Justin Herbert linked to 3 NFL teams in stunning trade projection\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T22:02:51Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1196220,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxPRU9ncWd4QVBMVmQyQUVZd2dacER6cDJGXzBpT25VOElwZHhDa19uSW1MdU1xTUo0R0dyMnNQT19jTWRsT2ptWjhqUWdOWDhvVzRwZHZUUjJwNDlrVEtOVWZ0TzlrVWo1NW5DY2tKRF9EUTB2TVJTWENKTXFIU1FRb2Yza0FEYXE0TDdpelRCWHlsX3p3MzNXOQ?oc=5\",\"headline\":\"Could the 5-0 Vikings Really Land Justin Herbert? NFL Analyst Floats a Dream Blockbuster\",\"publisher\":\"Athlon Sports\",\"published_at\":\"2026-10-21T20:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1216996,\"url\":\"https://news.google.com/rss/articles/CBMingJBVV95cUxObzI5U3J0N1pQeE93MnlWaWdpc2t1M2RqQmJJVC03U1pmbHhXWWFERURPOVg0dWJ5ZmRJeXFpNFZ5ZTlqMV9RaTlONGFHcFZfdFRUWU5BQm9OX001TElrZF94aVFIZTJ0b09yT2daY1dxaUs3ZVEzdEc2Q1pmWFZCSk50WUlOYjJWNGtwVDMtSnZwMHFXdHZrTF9jLVdaS09FVnhvQ29mTVpFb3QyZFFEZFNOU0FFamtta283UDYya2stNjhxQTdWWlF2NnRXU1dPb3BNQmVfZnh3cXVPQzBYWW10blltVThlbXZWV1Q4b3NNdTRoczhwbV94M0NuMmZ1OGZPSkRfUlVNNl9VWHVVaU9NR1JxWjhSaGhYLXJn?oc=5\",\"headline\":\"Who Should I Drop for Fantasy Football Week 7? MarShawn Lloyd, Emanuel Wilson, Tyler Allgeier, Romeo Doubs, Keaton Mitchell, Jake Ferguson, Justin Herbert, Courtland Sutton, Josh Downs\",\"publisher\":\"RotoBaller\",\"published_at\":\"2026-10-21T17:54:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1292679,\"url\":\"https://news.google.com/rss/articles/CBMiogJBVV95cUxOOVRkdUE3Z3RDNUxxeFIyU0ZLUVU0ZzhneDNZT2JZdkF1NDBZV3NyV0puRkF4c1J0WERlNUttc1lTMWlGVUhuTHVVcWs4LWpVWU5qMUVsZFowY1RSRHZBamhTekdFYXFIWWZEX3o3YVg3ZEJfNzQ1dGhXbko1OVJpWTVDU3duT0RuQmdjTy1EY3VHNGNuM0xJSy1pM0hOWGl2aHFaTXBOclBrbEd5ZVNaZVBEQnBFVkNKdkhEWDZYb2l6WHBQNVJpbVptWVFBVlAyVGRKMzg0Ymc1WG1VMWQ3UVo1VTRvT1lUQUV3cEpfcUY3Z2RmWFJYeURoM3UwSEVLY1NiSUJFX0ZqVjFMZDBqTEQ0eExSUEhYV3FIR1RQZVN6Zw?oc=5\",\"headline\":\"'Watching Them Right Now Is Really Tough': Ex-Chargers Player Questions Justin Herbert’s Commitment & Calls Jim Harbaugh Uninspiring in 0–6 Start\",\"publisher\":\"Yardbarker\",\"published_at\":\"2026-10-21T15:11:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1180127,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE5OYXNwUW1HZGxGcVE4bVFkdFFLMWNqQkxEcmhFVDJHcUZpUFdmaFFGazlOMlNLSlkxOXBlWTBsN21pbDNwbXNpU3JsWjI0MVhTYlpidXozQ0VUTlgzaFF4STQwang5TGJ2NXlSNFBYQm9xRU1Vc0l4NHVKd3p3MXM?oc=5\",\"headline\":\"“Watching Them Right Now Is Really Tough”: Ex-Chargers Player Questions Justin Herbert’s Commitment & Calls Jim Harbaugh Uninspiring in 0–6 Start\",\"publisher\":\"AOL.com\",\"published_at\":\"2026-10-21T13:01:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1160423,\"url\":\"https://news.google.com/rss/articles/CBMirAJBVV95cUxOYjQ1QklHSGxBT05ESFlIUDJUS1JJc29pN1BIWW9lNWtNNzRsRUluUzFMZzZWSjc5bXF2bzJvdzA1ZGV3VXRCc1d4SnZ6ZndXOWllU2FCMndNcE1hMWwwQkRXRTFwdm9rU3Z5M3pjTFRuLXBoRDBSdGoxNXpvOTVtRFlvOUk3R0ozZGRYMkxnd1N1OHZ1MFVDdS14VUtDdHhvX3hFcWw1RUM0dVpBYkVtODlfZkZKMEx3SlpRNXBaOG9hQlNxYl9QMF9MOXlXR2FHZ29WbVpLeE85RDN2RHJUUXEzZER4VDNmR0s0MWRfOThmdWtwZFhSRFhCTG5WUkR5dDZsd3d3Wm12UjduZlBHY2VocldoTDV3WVI3MFpubU12VTFtY1VDZV9xaUs?oc=5\",\"headline\":\"DISRESPECT: Chargers' Justin Herbert SHREDDED by Anonymous NFL coaches as Intelligence is Questioned\",\"publisher\":\"9News\",\"published_at\":\"2026-10-21T09:31:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1159515,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPTXJyMjFWR1RLcloyRTRqSEFkbXlxWTE4VEtaeG5zVkRoUzVXZ3U3ejZLMy1xd2lWU05WaHdEOU5EU1hIdVpxUXZXdEduaFptSGMxNXJaSDhrV0NVaXpGR2RvdUsyM3B1cWt1cXotMUx5aXdiQ2RKMmVGYmlxV3ZVTHlHSWgxU0YtTllBRQ?oc=5\",\"headline\":\"Browns’ perfect Justin Herbert trade offer if Chargers decide to jump ship on franchise QB\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T05:57:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1160072,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxObk56aEY2eFY5ZXdYSzc0U2RHU2FQSlg3Wm52bVdKemJVS3dvMEE2S081NVA3QnMtdWVFWTJIWUJMLWJORjZNWjlXQ1RJMVlqZjE5Y0FzN2tYUjBnSW9hX2M5R3JTdG1FNWYzZGpHMnNMQVY3NGx1QWlPdzRHazdhdXdvYUxiaFUxWFpnRVZpcXhnX21xWFdUbzMwb2s3MTVBb0FEbnlqZw?oc=5\",\"headline\":\"Jack Cochrane picks Justin Herbert's pass and ends up in Chargers territory\",\"publisher\":\"Chiefs.com\",\"published_at\":\"2026-10-21T03:37:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1140970,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxPMS1qdE1HWkxSZkc3Mzg5dDh5bFRJWjBnR3lZdmtmdEt5a1RwZkdwOWt0QTB6ZUZpS08yNWFCX2dFVlpOTVRFd3FqVzlLeVdhd0lmZWlSTzlHTlZxYURLQU5DOWNQcFpzZHNnZmlEcnpwcEVZbGMySjYzY2Y1U1BkdDdxVkw?oc=5\",\"headline\":\"Why Chargers’ only way out of current Justin Herbert mess is tanking for Jeremiah Smith\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T01:05:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1160420,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPc2pDRTBrUFhrVXhoUjNYb3loVjF5ZnBjLW16VnRkX0JLRjlvN0RGZDRtN3cxaktpVVFQWTFwR3RCbmFXQ2NoUUpzOG1HVjBkT1ZmWU9sWWRDWTJqeVJwRDcweWw4Y2tjemFPb2dWanUtbXNURGhzbW1VTVZmQi1nLUQ3S2c4SjdyVkVPRw?oc=5\",\"headline\":\"Jim Harbaugh Ruining Justin Herbert Rumblings Keep Increasing\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T00:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1005983,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxQY2Q2ZDRDVDhtZ3VrZUpPYUhwZ3VtQTBCR2pheWhFaDZFT3NtVGluWWp5R2MzcFlDZWxVMEExNjh6cHlOcnVVQnVxSWFfSFY4NkdzWlZkRENYTUs2Q1pkTEFvX0xhaGxHV24zcmkyanc0NGU3aDdwZUVJekQxX2FiRjdsdnVPSVBmYWcyN0FFQnY?oc=5\",\"headline\":\"What’s wrong with Sam Darnold, Justin Herbert and the Cowboys vs. the blitz? - The Athletic\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-20T20:12:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1093455,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxQTTk0NV91TENXb085eU8yOTMzd2tVMmRmU1l2RkgtbmJEM3BzbzQ0djJpOURUdkI4MWgyMHNjd0NUc0lyMEN1eV9BRmtUQmo3RFBfOVNyZGxlaC1kMHBsbVhydmk0U3BmdzZuaWR3UXJMV3ZqYTF0NGhlNm94OGc2NUNnZi12d0c2Wk4xeFZGM0tTSXVXLUtQR202cHdYdw?oc=5\",\"headline\":\"Insider Drops Truth Bomb on Chargers’ Justin Herbert Trade Rumors\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-20T19:33:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1160778,\"url\":\"https://news.google.com/rss/articles/CBMinwFBVV95cUxNVmowS0hUWUg0TGtlVzJVZTVnUnJSVHFKdVl5YUFJYWNGR0k4UzRWQWZRY1pRUnpjLW5nUE5kcE40b1M1bkxvNFc1RWRERGJqMUotcDNmZTZvRG83UkNhWld2c25LWE9pYTluZXRMdWJGOGJSeTl6NVRSN3FsT0ZQb2pnMFVRc1BoaTJTcjhLX2FzOTFWeTltMHYxZ3FDZEE?oc=5\",\"headline\":\"‘Jayden Daniels Is Just a Melanted Justin Herbert’ -- Ex-NFL LB Rips ‘Unimpressive’ Commanders QB for ‘Costly Mistakes’ on MNF\",\"publisher\":\"Pro Football Network\",\"published_at\":\"2026-10-20T16:56:20Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1040597,\"url\":\"https://news.google.com/rss/articles/CBMi3AFBVV95cUxNTUw0Y1laMkY1UW9yUEM4NldQOVpFVllhTFBQQ09RZ1kyWU9sWVhVa242VmZRYlJfRWVoRndEYXUydnlHbmdZSVk1S1hSNXl2a3RkakJUbC1nQlpLNF9JNDgxX3dUOTFsN3dUSHNwdU9teDhUSWpVcnBzYUNyNUd3M1NkU2c3Z3ZxaGpydXpvcWs0R0lLZ3VNVWFRSnV2cE1oWmFBdUxSNGNpTVROZjFDaG45WnNWRU9CaEFuMk1GR19aaFlsRFdFX3d5WVdTTXo4Wm5IQ05qX3Zncldz?oc=5\",\"headline\":\"'Not a total shock': Justin Herbert trade chatter emerges amid disastrous start to season\",\"publisher\":\"Yardbarker\",\"published_at\":\"2026-10-20T14:44:49Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1049799,\"url\":\"https://news.google.com/rss/articles/CBMi4wFBVV95cUxOZHVzZWRtWXFQMUw0WmdtRHg1NVM4TGtzbHhtWWx1WDNiUDhUQ2N2eER0NThkZDBnVmtLSF9GNk1LZU8yakRSbXBZd1dibWtkQ280SGxWZ2FOYlhFcFhOOWdSSld2SzdMcE1fanRDd3VtSVBtcGtNY0RWRzRpZncxZDJ1UlNySGJGNEIzejV6aU9NUGg4UU9iNEVIb2hDRHE0YXRVTVgyb1hHWVYxLWttN3ZRT2lmLU5hdktMZUdiQXhhWHpDWFg2eDM4dHJBOXBVelc0RHFreUNQdF8yMGQwMnJxRQ?oc=5\",\"headline\":\"Chris Jones Faces NFL Discipline After Controversial Hit on Justin Herbert Against Chargers\",\"publisher\":\"Yardbarker\",\"published_at\":\"2026-10-20T14:14:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1001962,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxOLU43YnYwVlNaRHR2RGpTNC0wczRZMmlJUHdkbXVHamhkU1ZadEp2MnJPcDFLUjEtbWw5S2tTU2xDSUVDODJpamxPZWpvVm5jaElkS1BsZXB4NjRLUGNKYlp2RWhJREhiOUp0LTRBbU5UUEVlQ0VrcnhLR2JjZG9SMGNOTjJIcDVy?oc=5\",\"headline\":\"‘Very Weird,’ ‘People Will Write Anything’ — NFL Fans Defend Madison Beer After Columnist Blames Her for Justin Herbert’s Struggles\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T04:22:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":1001805,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxPbHAweG5UN0RYNjdiOWxyYzBNZFFsRDN2N0ZERVN1NnJielhuWGpsQ0hPRnFlTjhLTzVXRWR2SmVVN0kzTl9vdmYtc2ZPNUlSXzBzbEFFZFN6N3JZWmVZVjZCVkMzRGszWFNydHJNM1l5NnV6NjYtaG5ZWFQxUU91b1ZpVjdLU2JUV29NdVI3WC15UnB5UjRfbWJLU3plZw?oc=5\",\"headline\":\"AFC Notes: Justin Herbert, Bo Nix, Kenneth Walker, Broncos, Chargers, Chiefs\",\"publisher\":\"NFLTradeRumors.co\",\"published_at\":\"2026-10-20T00:30:48Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":1001948,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxNSUtGYmE5Z2JSVXE4ZjRkdVo4bjRDQ3ROT01ueFJuZzdCdlJkVHFYeFpuUWduTjdyRHowMXNRX2lQbmxCWjhVVm83cndTcEVfUkdEVnEzYWRqWlZ6d3hJUjRuWXd5aUFUZk9aTGlWQXFEUWYzXzVYb0wtYjVwdnRLdktPZEw4SUdkaVVzRGNQc2drdw?oc=5\",\"headline\":\"Examining Chargers’ chances of landing Ohio State’s Jeremiah Smith in 2027 NFL Draft to save Justin Herbert\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-19T20:15:44Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":1001989,\"url\":\"https://news.google.com/rss/articles/CBMiywFBVV95cUxNNmE5RDFhRHpGajQyTC13dGZ3U05uNG94RGxkd0l4SFlpVDhwOEdKQUtnNjJfc05FMlM1QmMzd0Z3TzFBQVBnbGhzQllHdlZOcjljVHNLenpvNFFVWjZTMWRqam9fLVZ6ODVqUWt0M2xMdXlVSExFemh3ZkFFZmhiU2s1V09ZQ09DN29sWlZkZlRDNFREOVFDSzJCV0N3ZVEwYzlia1pIZ2VwcXhMdkp2ZWpyekNQWEFTdzJ2d2s4VTJrNmZtMUNNaUNSSQ?oc=5\",\"headline\":\"'Self-Inflicted… S--t,' Justin Herbert, Jim Harbaugh, McDaniel's Chargers Called Out by NFL Coach\",\"publisher\":\"Bleacher Report\",\"published_at\":\"2026-10-19T16:58:34Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":993464,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE1jRE9SV0lpMUY3UzFwaEI2d1JnY2hoWS0zMVJESWhVakQtdXBaMEI2UXZLbHhEOWlJYTlraG56OUNWX2FCMDN5M3l2OU1SSTlfaWJGSTRoSmtRTHpDeXplWG5TQUlUTldvRXpwcmxNZFdIWmlyOXp3T3FBczRPbm8?oc=5\",\"headline\":\"‘He’s God-Awful, He’s Been Terrible’ — NFL Legend Shannon Sharpe Shows Justin Herbert Absolutely No Mercy as Chargers Drop to 0-6\",\"publisher\":\"Pro Football Network\",\"published_at\":\"2026-10-19T16:57:20Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Justin Herbert — QB, on record at Los Angeles Chargers. Record: roster; observed 2026-10-23.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 26.525474905003257,
+            "emotion": 11.665390376605004,
+            "movement": 15.675325488097602,
+            "subject": 95.42310583231688
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi4wFBVV95cUxPeVc4NURoVXh4MHYzWDh1amg1M1pvUGEtYW5sS3lQcWV4VWlPdmhZbmtMamRZOTM4cG96Q2NBWjhjSGhYUWJSTk9EU3haQnc4X2d1U2ZiMWptUTFPbkJxNmZ5aEJFeGlKaU5qbml3LWFWWk9DWVM4enZnZ19DZ1dMczZSRmtWWFRSQUQ4UER6Y0p4alFPS0ZSMWxIOURncU9JRUZQc2hLTFpHRGpxV3dUSXBabkY4YmNRdWJ1UzRIdldzRUhEcGhKVVBfSVRIS2FqNHYzd01LV1JFTE9GZGVlTWN5bw?oc=5"
+        },
+        "context": "“The Chargers Are Paying Justin Herbert $55M Per Year”: NFL Insider Claims LA QB Deserves the Blame for 0-6 Start",
+        "id": 1422082,
+        "published_at_epoch": 1792712499,
+        "source": "College Sports Network",
+        "title": "“The Chargers Are Paying Justin Herbert $55M Per Year”: NFL Insider Claims LA QB Deserves the Blame for 0-6 Start"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 27.94008803334476,
+            "emotion": 65.16666628065948,
+            "movement": 6.795918905257399,
+            "subject": 95.00845495916188
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiygFBVV95cUxQS0xNWFI1VWNaZURkVmxQX096ZGtwaDNPZHI2QnZsdjRDYS0xcnEwTWJVWHI2Q3B4ZlV2QnRHUkR4T2ZidnpxV2dDT1dtYmpMQzhicFU0c25Lc3pUcXd6TXp5SmhKdFc2OHlLdk52cWRDTVlQV21FMWxtWXN4c0t5VXJkTHBQWC0zU1Bod2Q0cWxLQkZJWkxrZmsyTmNjREt5TkZsdUhkU042YnpSVjI1VnFFVmVyNE11T0t0MEhNSkVYQ0xpWlh6MzNB?oc=5"
+        },
+        "context": "‘Drinking the Pain Away,’ ‘Dude Is Cooked’ – NFL Fans React to Justin Herbert Buying Beer Crates and Flowers",
+        "id": 1401786,
+        "published_at_epoch": 1792708187,
+        "source": "Gridiron Heroics",
+        "title": "‘Drinking the Pain Away,’ ‘Dude Is Cooked’ – NFL Fans React to Justin Herbert Buying Beer Crates and Flowers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 53.081464608806925,
+            "emotion": 27.257257127593267,
+            "movement": 2.4435999940787183,
+            "subject": 94.18755060872336
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxNVm8yQXh5bTE2V2FCOGFja0ZtNE0tVHZnZ1NnaHNZTnFDeFM0TmZ5VmEyaVVCVmZkMUw0MUN6WEhMMWFDWk16ZHYxdDdNdVh0bWhsdWVZU2VEcG1MTHhhSXZfdGk4S01vM1dlWlFLTUpkcXRjWmozb3BXZXZDMjA4NjFnRzJZOVN3N1FaWDdoTkVGajVWdDAzMGNiQWg?oc=5"
+        },
+        "context": "Chargers' Justin Herbert Getting Some Tua Tagovailoa-Level Heat for Struggles",
+        "id": 1401740,
+        "published_at_epoch": 1792706403,
+        "source": "Sports Illustrated",
+        "title": "Chargers' Justin Herbert Getting Some Tua Tagovailoa-Level Heat for Struggles"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 32.43127176924999,
+            "emotion": 7.867458832807089,
+            "movement": 3.259942776624098,
+            "subject": 92.72722771606868
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi-AFBVV95cUxPb3VkR3BzTDJ1d0hGa1lzanpVNXhITjQ3S09rSnZvZjN4VFpxUHEwM0d4eGF3aFVKR0thNzdYRmktZDQ0N0pybmlVZDFFMElIV3NuMVd2bDd3QlM3MUxhNGdHRHFoU3pObHMtU3lELWZBdEJmTS1qSTBUTzBYa0ItM0ZfUzRHZjZTaWxGY2lGUXFfWjBKM3dwQXpHbU82SUpWdE1uNWpSbkV0bUtGSUlwdDQtbGZwTVAxUUEtX20teWZqSkZ2ZG5wR2kxQnlXTXZDNmJVel8tTURVT1Z3azlfOUgyUHp4SVZwQ2Y0MEZlZkFaT1hxYW9PMg?oc=5"
+        },
+        "context": "“Don’t Argue With the Refs”: Chris Jones Sends Clear Message to Ashton Gillotte Over Roughing Up Justin Herbert",
+        "id": 1411910,
+        "published_at_epoch": 1792705920,
+        "source": "EssentiallySports",
+        "title": "“Don’t Argue With the Refs”: Chris Jones Sends Clear Message to Ashton Gillotte Over Roughing Up Justin Herbert"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 25.42257127295975,
+            "emotion": 1.9890894962340704,
+            "movement": 80.27655145740422,
+            "subject": 95.50806328271072
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPV2xDZ2hzQU53VUhpc0RPMjE0b0xlMjcwV0JUOHlEYTBaVDBFcC03bzRYbkozWlJSSVZfNnE2SVlBX2lzanY0ZlRGREtCTkw3ZTlhcDNJMy1aTUFmU2FIY2NvdzVFWFJPRFdmN0NtUE52d3JKVmVkYTlmQ1JKOXBSb1ZyWllWM3M?oc=5"
+        },
+        "context": "NFL Trade Deadline: Best Landing Spots for Justin Herbert, Jonathan Taylor and Others",
+        "id": 1401706,
+        "published_at_epoch": 1792703033,
+        "source": "Yahoo Sports",
+        "title": "NFL Trade Deadline: Best Landing Spots for Justin Herbert, Jonathan Taylor and Others"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 18.171626561637936,
+            "emotion": 11.859747024593922,
+            "movement": 4.338653470412286,
+            "subject": 92.91133569528073
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxQeDZoMWtjMVAtc1ZNeGJhS0h4S05aU2NjTE9vbHhpZVNaR0c1Y2FVR3p3OHJ5Q3VXUXhKcENYNTYzM2l1eGpzckVUMWlHel9nMmc1aWF1Skh4bko4c2NGNnJKVGlMbG9oTl9IbTB4RDNqVjAxMTBpVEVNYVJub1lPOGJvUTJkdzVDNGxMbGVSbG5HM3RPSjhWNC1aZl9UTk5XUzlycFh0WHplTndpVVJHdjh0SQ?oc=5"
+        },
+        "context": "Watch Nick Wright: Justin Herbert is to blame for Chargers' 0-6 start - First Things First",
+        "id": 1391535,
+        "published_at_epoch": 1792701755,
+        "source": "FOX One",
+        "title": "Watch Nick Wright: Justin Herbert is to blame for Chargers' 0-6 start - First Things First"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 60.61000808062927,
+            "emotion": 13.385046001749828,
+            "movement": 69.99034198993373,
+            "subject": 90.30890773506128
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxOR2tNd21GbDg5S1hnQ0pRLVlTUE5IWnNUdDlWY1BQTVVCY3lzcUVISGZ6ckxpNGREUHViYzlmNm5kS1R2NlRmVTZuVjlfUkhDZE9xdlNxTWh6alJubE15Z3pxMmFRa1hYdWpqSjdKY2RYUFJjOWFMNkR2dGxOU2s4Y08wblYxb2hkcS12aWZUM0dxazA?oc=5"
+        },
+        "context": "Steelers' Mike McCarthy Has Intriguing Opportunity To Revive Justin Herbert's Career",
+        "id": 1381466,
+        "published_at_epoch": 1792694062,
+        "source": "Steeler Nation",
+        "title": "Steelers' Mike McCarthy Has Intriguing Opportunity To Revive Justin Herbert's Career"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 71.68222072919554,
+            "emotion": 41.69134833403324,
+            "movement": 3.408547689046499,
+            "subject": 95.8843422752244
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxQUGhKYzRQZzUzOEs2RmdqN0Myd0ttNmpFcDVUdGg1anYtV0hBa3FwZlo5UkRMTXNZVndvTUJPT192TzZ5SVMwSk1YWmhIM3FsUmtlNXJFdW1GZXkxaHlEeHQtcXlKTXJHWUxGWTRxcWx1UThMV0lEQnc4OTVHVjRyVklvci1VbmNfbEE?oc=5"
+        },
+        "context": "Justin Herbert takes break from losing to go on tragic beer run: ‘Drinking the pain away’",
+        "id": 1341364,
+        "published_at_epoch": 1792687736,
+        "source": "Yahoo Sports",
+        "title": "Justin Herbert takes break from losing to go on tragic beer run: ‘Drinking the pain away’"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 22.75725874824605,
+            "emotion": 2.88593581444043,
+            "movement": 86.51003699667662,
+            "subject": 91.277903974936
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxQbWNBVWg4UjA0N2Mwbjgwcnk4OGM4S25nVTRSMTRZWTk1eEowNVRUNmhlSEZpXzduNDJLaTBqckNmSWZLeEQ5Q25XbGtwNll4eUxYcWl4MXlWRXVWWG1nNTk3T1A5OXNZVFg1NkVVTXhTbnhOLWhTQl9laEc0Y2RlclMxS2tZQlJOXzZ6QlFFMVBKQQ?oc=5"
+        },
+        "context": "Should Vikings trade for Justin Herbert? Making the case for and against potential blockbuster deal",
+        "id": 1351333,
+        "published_at_epoch": 1792686281,
+        "source": "CBS Sports",
+        "title": "Should Vikings trade for Justin Herbert? Making the case for and against potential blockbuster deal"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.7734413555454114,
+            "clickbait": 12.2825383066424,
+            "emotion": 1.9114057066285008,
+            "movement": 83.74320529575702,
+            "subject": 93.68233464260936
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxOelZaVzZDaGNvMmt6THVuRTlTSDEtR0ZvOXdiSWtCTHZPc3NuZzZTRGg5aTZpX000MmVTanhBUXRtNGlCRjFHNnVpN1MwWkQySEJ2NkN6UDROS3dTdFdIZVpfc2h0RkM3clpZU3dSekhPSG14QUF6ejdyaTFTQ0Z2SHNuYXlzQzItWWZDRUhvSmVmWlFPN0hKeA?oc=5"
+        },
+        "context": "Which Teams Would Give Up Most Capital in a Justin Herbert Trade?",
+        "id": 1321781,
+        "published_at_epoch": 1792683000,
+        "source": "Sports Illustrated",
+        "title": "Which Teams Would Give Up Most Capital in a Justin Herbert Trade?"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.325609190757074,
+            "clickbait": 78.82099325478293,
+            "emotion": 59.51612533923198,
+            "movement": 2.254742134752586,
+            "subject": 93.8195277361676
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi6AFBVV95cUxOQVlDSFZXNU41V0FQOXBOQVlzQ2dKemU4TGduOGNyODZjanZkMjdFZVRTRDZIY1JfSjA1aUpLU1pPVXZSTm1qbmlOLVlnYWZfRUpockpvS0RsX2tGMkZHQ2luV3FmUTNvOUdMazhsb1BNSUVPMldyYVdTbWJOSDlxaHI2aVNvT1R6eWJpVnFWVHgtRTZfM3h6TF8xYWZtTlRqNDQtb2t4d1lmd1NrTGlfTXdYbjBPbGtvNk43VzZ0bmFENmw4ajFrTjZNeDFhWkJfVEFfRFBXUHhYYmhVdVVZY21xbGhfbFct?oc=5"
+        },
+        "context": "\"Drinking the pain away\" \"Miller Lite is for losers so this fits\": NFL fans mock Justin Herbert as Chargers QB gets spotted buying crates of beers",
+        "id": 1331520,
+        "published_at_epoch": 1792682160,
+        "source": "Sportskeeda",
+        "title": "\"Drinking the pain away\" \"Miller Lite is for losers so this fits\": NFL fans mock Justin Herbert as Chargers QB gets spotted buying crates of beers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.4939642465921965,
+            "emotion": 1.9736390475439176,
+            "movement": 2.12166932378663,
+            "subject": 95.7934566664678
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFB0X3RSOXU4LUNuaWxlMjRBNDZZV2VDN1F1X2l6SXlhWmRyZjNQRkRaOEpXMXBSUjdOQWZwc2tyNDhBTnJWTGRMdDFzQ2RuM3hXZ290MjZhV1BLbDQzM0pGYWhGc0doNzRC?oc=5"
+        },
+        "context": "Justin Herbert Fantasy Outlook & Stats",
+        "id": 249356,
+        "published_at_epoch": 1792681812,
+        "source": "FantasySP",
+        "title": "Justin Herbert Fantasy Outlook & Stats"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.22257587058247,
+            "clickbait": 17.57949385904625,
+            "emotion": 2.786420439392381,
+            "movement": 3.052806543256651,
+            "subject": 85.76146865109656
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxOcHJ5cXVPYmFHUEx0Zk1XcDB4bWFQNkRIT3gwVi1sN21pb0I1NWFKd0ZvZzhIMWdKTDVCeC1lMmdiZGZicVA5VDZNTkhybjhjMk0zd1RuZlBpX1EzQ29xeHFYdHotdmJrai0xWWt1dHc0Vjk3bFFPNnkyZ2xkcFRQN2FBcjk0S0oxWlZ1RGhzMA?oc=5"
+        },
+        "context": "Chiefs’ Ashton Gillotte faces possible NFL fine after disputed hit on Justin Herbert",
+        "id": 1311740,
+        "published_at_epoch": 1792680300,
+        "source": "Yahoo Sports",
+        "title": "Chiefs’ Ashton Gillotte faces possible NFL fine after disputed hit on Justin Herbert"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.3381468562766585,
+            "clickbait": 12.356522912913594,
+            "emotion": 4.4256357293637025,
+            "movement": 1.71698197349892,
+            "subject": 95.61468761759173
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixwFBVV95cUxObWhOZ0xBOGR5QmR5VEtad3E3MTAtVlRTZWpoX2dmTVBncmZuZENzVHE3Y2xIY0o3ZFFTcjhqV0pUXzlJUzlZT3JWeTBodlJSck5fc0hKcXhENkM0X29LLVZpT1RTT0xiYmFnU3ZiYVVrUE5tTVNUdzRxT2g1bTdyamMteXhNRzJTNUpjV1FaVDhtUXV3M1EwdnoxT1ZVOS0xSzM3RDl4VmlPUEpSQks3WFR6VkZZTHl5ZzRZenZYOGZXVXFLWEZr?oc=5"
+        },
+        "context": "Justin Herbert's Rough Week 6 Performance Demonstrated in Latest QB Report Card",
+        "id": 1302385,
+        "published_at_epoch": 1792671932,
+        "source": "roundtable.io",
+        "title": "Justin Herbert's Rough Week 6 Performance Demonstrated in Latest QB Report Card"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.5808375171425224,
+            "clickbait": 25.16376451282858,
+            "emotion": 2.12658244075619,
+            "movement": 95.46258611763898,
+            "subject": 87.92243615238915
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxOODZVY2lkLTY4TGxlUkxldHVxSm9KTTVMeU9TUVVhaHYyNVFjZFFhTWlySGxZSjFnSXptYnBrTHZLUGVPQ0lPbFhsZURpdHNFM3c3em5BcU5lYkxDMFY4VGlsNEV5a3VpemRydG9CdnNCTmxSbnNYbE4xRVhMNjMyWUlCSFoyRmgzRWFwRlJxOGp2LThaNEZn?oc=5"
+        },
+        "context": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+        "id": 1331521,
+        "published_at_epoch": 1792670382,
+        "source": "Gridiron Heroics",
+        "title": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.6353590919673464,
+            "clickbait": 11.364355353201764,
+            "emotion": 2.2990733184986745,
+            "movement": 88.67993082323915,
+            "subject": 88.74357252177984
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxNZjJ4X25ka0Z3NDlTZUlqQkFJRnNiR0s4S292eVVPMFdQSDNURXVSd1kzRm9QN0ZzNTJEUDVFWDB3Rl9GUndyOVgwNVZCUExZNXo3QXR2YXI5SjVaRFlkMnFreGo2OGxjVFBOXzZObUNGcjJzc3A0eng4bGpRQTNzek9VWFVha1VoRlhrdHNXNmE1N2VPWm9laUNNbEs3Si14MFVsT0tNS1BfOV9QbjhyczZMTVdFQUZaYWNv?oc=5"
+        },
+        "context": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+        "id": 1273425,
+        "published_at_epoch": 1792665500,
+        "source": "NDTV Sports",
+        "title": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 16.230585513751137,
+            "clickbait": 15.136192595278066,
+            "emotion": 10.642874335256902,
+            "movement": 48.304016591227835,
+            "subject": 91.2523288523602
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxPTXhoMzVVU0RtSWljN0NQN3NVVVk1eU03SlgwZjZyeE9jQTJ1UE9qSWFlSEdScEYzb1E4Y1FIREI2TTh5UzhlRy1EMUFsMFQ5OWZSTlplSW4wdVRLQTd4Q3FybWlQbVA0SnpKbXcwZ2cyZlR1OEg1ME5fQmVwU3l4S3RHZU5JTmxrQ2JMTmlaMktOQlhLUmxfYXVnaw?oc=5"
+        },
+        "context": "Could Philip Rivers Help Unlock Justin Herbert for the Chargers?",
+        "id": 1263686,
+        "published_at_epoch": 1792655110,
+        "source": "Athlon Sports",
+        "title": "Could Philip Rivers Help Unlock Justin Herbert for the Chargers?"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8154887263187336,
+            "clickbait": 11.072199678748069,
+            "emotion": 3.115183127564805,
+            "movement": 2.1824535085257266,
+            "subject": 87.09417556114903
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMivgFBVV95cUxQUHYzQU5lREZIRTdUNmNBTnRlYW53M0l6aWxZaGs5QWo4dkNJdnBObnluaFpPMkJjMlpweUJsLTR1NWVMWWFsNk83U0NuWDlrUnBhNWtGYnZBZHdjaWpzTkFyajRMQ1NxeVBrR2QxZWlHMm5CUnpQRktBeWY0RmRRWDFIb2V3ZzRXa1RGdU1KYUc1bUNxUDA4dGdNZVZmU2hRdndXZHM3ZE1HY2VNUGlNZklpT1RhNzYtSGM0Wkxn?oc=5"
+        },
+        "context": "Los Angeles Chargers' Problems on Offense Have Nothing to do With Justin Herbert's Intelligence",
+        "id": 1254112,
+        "published_at_epoch": 1792634460,
+        "source": "Athlon Sports",
+        "title": "Los Angeles Chargers' Problems on Offense Have Nothing to do With Justin Herbert's Intelligence"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.669001456506898,
+            "clickbait": 15.293340726954138,
+            "emotion": 2.064928624567669,
+            "movement": 79.1479731993872,
+            "subject": 91.35476632842526
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxQdzhIQURhTU5UNXFxS2ctd0dvR29HV3V2V0NsR0RNdVJmV2o0d1lyZjUwaUVwcGpIUml5ZExjVE44ekxVa0FIa2ZucHdNc1UwNHdkVlgwZ0ZfWkJBN3hraFRMZkp0S3BiYWhFOWpiX3Vuemc0TEQyTnhSR1R1SEF3U2N6eGF0dGc3aHl6UTYtbmUxalJaVTFkcWp6bXJ0cmstTVZQb1N5Z0VJUTF1WDJyNWY1cUJXMUFMNDFieg?oc=5"
+        },
+        "context": "Does Field Yates replace Justin Herbert with Chargers’ No. 1 pick in ESPN mini-mock?",
+        "id": 1331522,
+        "published_at_epoch": 1792632766,
+        "source": "ClutchPoints",
+        "title": "Does Field Yates replace Justin Herbert with Chargers’ No. 1 pick in ESPN mini-mock?"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.1064930036432714,
+            "clickbait": 66.3608914526195,
+            "emotion": 3.3107036259534093,
+            "movement": 88.80358324159013,
+            "subject": 95.3020278024346
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNVkV4ZWZwVV9JRFNwNlMwcUJidDRBUV9yVmJhSmRFcGVwNHVHdmV6QWJnTFdtM1pKYTJPTmFGRjFXenpWMVprdkY4RkNMQ19sLXZrbHJPVkttQV9aMlBkTFdUaHRKaGtMSG9CWDZRYzFuMHdaWFViOGx0eFJVTU5ONEFmZ05Lcl9F?oc=5"
+        },
+        "context": "Chargers' Justin Herbert linked to 3 NFL teams in stunning trade projection",
+        "id": 1215401,
+        "published_at_epoch": 1792620171,
+        "source": "Yahoo Sports",
+        "title": "Chargers' Justin Herbert linked to 3 NFL teams in stunning trade projection"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.938014422741597,
+            "clickbait": 53.2110781357894,
+            "emotion": 20.103057840024327,
+            "movement": 84.14163206693537,
+            "subject": 90.02605408044688
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxPRU9ncWd4QVBMVmQyQUVZd2dacER6cDJGXzBpT25VOElwZHhDa19uSW1MdU1xTUo0R0dyMnNQT19jTWRsT2ptWjhqUWdOWDhvVzRwZHZUUjJwNDlrVEtOVWZ0TzlrVWo1NW5DY2tKRF9EUTB2TVJTWENKTXFIU1FRb2Yza0FEYXE0TDdpelRCWHlsX3p3MzNXOQ?oc=5"
+        },
+        "context": "Could the 5-0 Vikings Really Land Justin Herbert? NFL Analyst Floats a Dream Blockbuster",
+        "id": 1196220,
+        "published_at_epoch": 1792612800,
+        "source": "Athlon Sports",
+        "title": "Could the 5-0 Vikings Really Land Justin Herbert? NFL Analyst Floats a Dream Blockbuster"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 11.480199028478063,
+            "clickbait": 11.732006424604364,
+            "emotion": 4.472151357038599,
+            "movement": 26.14111988409771,
+            "subject": 86.06425143594223
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMingJBVV95cUxObzI5U3J0N1pQeE93MnlWaWdpc2t1M2RqQmJJVC03U1pmbHhXWWFERURPOVg0dWJ5ZmRJeXFpNFZ5ZTlqMV9RaTlONGFHcFZfdFRUWU5BQm9OX001TElrZF94aVFIZTJ0b09yT2daY1dxaUs3ZVEzdEc2Q1pmWFZCSk50WUlOYjJWNGtwVDMtSnZwMHFXdHZrTF9jLVdaS09FVnhvQ29mTVpFb3QyZFFEZFNOU0FFamtta283UDYya2stNjhxQTdWWlF2NnRXU1dPb3BNQmVfZnh3cXVPQzBYWW10blltVThlbXZWV1Q4b3NNdTRoczhwbV94M0NuMmZ1OGZPSkRfUlVNNl9VWHVVaU9NR1JxWjhSaGhYLXJn?oc=5"
+        },
+        "context": "Who Should I Drop for Fantasy Football Week 7? MarShawn Lloyd, Emanuel Wilson, Tyler Allgeier, Romeo Doubs, Keaton Mitchell, Jake Ferguson, Justin Herbert, Courtland Sutton, Josh Downs",
+        "id": 1216996,
+        "published_at_epoch": 1792605247,
+        "source": "RotoBaller",
+        "title": "Who Should I Drop for Fantasy Football Week 7? MarShawn Lloyd, Emanuel Wilson, Tyler Allgeier, Romeo Doubs, Keaton Mitchell, Jake Ferguson, Justin Herbert, Courtland Sutton, Josh Downs"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.127430851807277,
+            "clickbait": 17.2368212660322,
+            "emotion": 52.1281728157889,
+            "movement": 18.93330734110975,
+            "subject": 88.33926691402606
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogJBVV95cUxOOVRkdUE3Z3RDNUxxeFIyU0ZLUVU0ZzhneDNZT2JZdkF1NDBZV3NyV0puRkF4c1J0WERlNUttc1lTMWlGVUhuTHVVcWs4LWpVWU5qMUVsZFowY1RSRHZBamhTekdFYXFIWWZEX3o3YVg3ZEJfNzQ1dGhXbko1OVJpWTVDU3duT0RuQmdjTy1EY3VHNGNuM0xJSy1pM0hOWGl2aHFaTXBOclBrbEd5ZVNaZVBEQnBFVkNKdkhEWDZYb2l6WHBQNVJpbVptWVFBVlAyVGRKMzg0Ymc1WG1VMWQ3UVo1VTRvT1lUQUV3cEpfcUY3Z2RmWFJYeURoM3UwSEVLY1NiSUJFX0ZqVjFMZDBqTEQ0eExSUEhYV3FIR1RQZVN6Zw?oc=5"
+        },
+        "context": "'Watching Them Right Now Is Really Tough': Ex-Chargers Player Questions Justin Herbert’s Commitment & Calls Jim Harbaugh Uninspiring in 0–6 Start",
+        "id": 1292679,
+        "published_at_epoch": 1792595470,
+        "source": "Yardbarker",
+        "title": "'Watching Them Right Now Is Really Tough': Ex-Chargers Player Questions Justin Herbert’s Commitment & Calls Jim Harbaugh Uninspiring in 0–6 Start"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.736662503668916,
+            "clickbait": 16.119615105499697,
+            "emotion": 55.24859482499092,
+            "movement": 23.103088741942653,
+            "subject": 89.58114208489582
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE5OYXNwUW1HZGxGcVE4bVFkdFFLMWNqQkxEcmhFVDJHcUZpUFdmaFFGazlOMlNLSlkxOXBlWTBsN21pbDNwbXNpU3JsWjI0MVhTYlpidXozQ0VUTlgzaFF4STQwang5TGJ2NXlSNFBYQm9xRU1Vc0l4NHVKd3p3MXM?oc=5"
+        },
+        "context": "“Watching Them Right Now Is Really Tough”: Ex-Chargers Player Questions Justin Herbert’s Commitment & Calls Jim Harbaugh Uninspiring in 0–6 Start",
+        "id": 1180127,
+        "published_at_epoch": 1792587660,
+        "source": "AOL.com",
+        "title": "“Watching Them Right Now Is Really Tough”: Ex-Chargers Player Questions Justin Herbert’s Commitment & Calls Jim Harbaugh Uninspiring in 0–6 Start"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.89770709554449,
+            "clickbait": 83.72405885514382,
+            "emotion": 66.47928334311914,
+            "movement": 39.37510244672773,
+            "subject": 93.33999896425392
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirAJBVV95cUxOYjQ1QklHSGxBT05ESFlIUDJUS1JJc29pN1BIWW9lNWtNNzRsRUluUzFMZzZWSjc5bXF2bzJvdzA1ZGV3VXRCc1d4SnZ6ZndXOWllU2FCMndNcE1hMWwwQkRXRTFwdm9rU3Z5M3pjTFRuLXBoRDBSdGoxNXpvOTVtRFlvOUk3R0ozZGRYMkxnd1N1OHZ1MFVDdS14VUtDdHhvX3hFcWw1RUM0dVpBYkVtODlfZkZKMEx3SlpRNXBaOG9hQlNxYl9QMF9MOXlXR2FHZ29WbVpLeE85RDN2RHJUUXEzZER4VDNmR0s0MWRfOThmdWtwZFhSRFhCTG5WUkR5dDZsd3d3Wm12UjduZlBHY2VocldoTDV3WVI3MFpubU12VTFtY1VDZV9xaUs?oc=5"
+        },
+        "context": "DISRESPECT: Chargers' Justin Herbert SHREDDED by Anonymous NFL coaches as Intelligence is Questioned",
+        "id": 1160423,
+        "published_at_epoch": 1792575060,
+        "source": "9News",
+        "title": "DISRESPECT: Chargers' Justin Herbert SHREDDED by Anonymous NFL coaches as Intelligence is Questioned"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.6499877036429775,
+            "clickbait": 36.31637186461616,
+            "emotion": 2.0353373761653217,
+            "movement": 93.82264584835224,
+            "subject": 84.19442167387405
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPTXJyMjFWR1RLcloyRTRqSEFkbXlxWTE4VEtaeG5zVkRoUzVXZ3U3ejZLMy1xd2lWU05WaHdEOU5EU1hIdVpxUXZXdEduaFptSGMxNXJaSDhrV0NVaXpGR2RvdUsyM3B1cWt1cXotMUx5aXdiQ2RKMmVGYmlxV3ZVTHlHSWgxU0YtTllBRQ?oc=5"
+        },
+        "context": "Browns’ perfect Justin Herbert trade offer if Chargers decide to jump ship on franchise QB",
+        "id": 1159515,
+        "published_at_epoch": 1792562220,
+        "source": "Yahoo Sports",
+        "title": "Browns’ perfect Justin Herbert trade offer if Chargers decide to jump ship on franchise QB"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9471208521893193,
+            "clickbait": 10.106405747032628,
+            "emotion": 1.8037623905204476,
+            "movement": 17.144911027758702,
+            "subject": 89.71356807226245
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxObk56aEY2eFY5ZXdYSzc0U2RHU2FQSlg3Wm52bVdKemJVS3dvMEE2S081NVA3QnMtdWVFWTJIWUJMLWJORjZNWjlXQ1RJMVlqZjE5Y0FzN2tYUjBnSW9hX2M5R3JTdG1FNWYzZGpHMnNMQVY3NGx1QWlPdzRHazdhdXdvYUxiaFUxWFpnRVZpcXhnX21xWFdUbzMwb2s3MTVBb0FEbnlqZw?oc=5"
+        },
+        "context": "Jack Cochrane picks Justin Herbert's pass and ends up in Chargers territory",
+        "id": 1160072,
+        "published_at_epoch": 1792553825,
+        "source": "Chiefs.com",
+        "title": "Jack Cochrane picks Justin Herbert's pass and ends up in Chargers territory"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.929128097794528,
+            "clickbait": 49.070131714646664,
+            "emotion": 10.431361486158035,
+            "movement": 7.092132235218126,
+            "subject": 93.27606784512828
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxPMS1qdE1HWkxSZkc3Mzg5dDh5bFRJWjBnR3lZdmtmdEt5a1RwZkdwOWt0QTB6ZUZpS08yNWFCX2dFVlpOTVRFd3FqVzlLeVdhd0lmZWlSTzlHTlZxYURLQU5DOWNQcFpzZHNnZmlEcnpwcEVZbGMySjYzY2Y1U1BkdDdxVkw?oc=5"
+        },
+        "context": "Why Chargers’ only way out of current Justin Herbert mess is tanking for Jeremiah Smith",
+        "id": 1140970,
+        "published_at_epoch": 1792544700,
+        "source": "Yahoo Sports",
+        "title": "Why Chargers’ only way out of current Justin Herbert mess is tanking for Jeremiah Smith"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.0231902969752875,
+            "clickbait": 50.64216897206955,
+            "emotion": 51.64435193936207,
+            "movement": 51.62148816804539,
+            "subject": 91.05126118196864
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPc2pDRTBrUFhrVXhoUjNYb3loVjF5ZnBjLW16VnRkX0JLRjlvN0RGZDRtN3cxaktpVVFQWTFwR3RCbmFXQ2NoUUpzOG1HVjBkT1ZmWU9sWWRDWTJqeVJwRDcweWw4Y2tjemFPb2dWanUtbXNURGhzbW1VTVZmQi1nLUQ3S2c4SjdyVkVPRw?oc=5"
+        },
+        "context": "Jim Harbaugh Ruining Justin Herbert Rumblings Keep Increasing",
+        "id": 1160420,
+        "published_at_epoch": 1792540800,
+        "source": "Yahoo Sports",
+        "title": "Jim Harbaugh Ruining Justin Herbert Rumblings Keep Increasing"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 24.68640559542521,
+            "clickbait": 11.991849598642608,
+            "emotion": 24.980201214664095,
+            "movement": 5.082457344310296,
+            "subject": 81.19391526810362
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQY2Q2ZDRDVDhtZ3VrZUpPYUhwZ3VtQTBCR2pheWhFaDZFT3NtVGluWWp5R2MzcFlDZWxVMEExNjh6cHlOcnVVQnVxSWFfSFY4NkdzWlZkRENYTUs2Q1pkTEFvX0xhaGxHV24zcmkyanc0NGU3aDdwZUVJekQxX2FiRjdsdnVPSVBmYWcyN0FFQnY?oc=5"
+        },
+        "context": "What’s wrong with Sam Darnold, Justin Herbert and the Cowboys vs. the blitz? - The Athletic",
+        "id": 1005983,
+        "published_at_epoch": 1792527127,
+        "source": "The New York Times",
+        "title": "What’s wrong with Sam Darnold, Justin Herbert and the Cowboys vs. the blitz? - The Athletic"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.371714634638728,
+            "clickbait": 35.12189200432061,
+            "emotion": 3.689240797367857,
+            "movement": 94.1559669388548,
+            "subject": 94.61990943034068
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxQTTk0NV91TENXb085eU8yOTMzd2tVMmRmU1l2RkgtbmJEM3BzbzQ0djJpOURUdkI4MWgyMHNjd0NUc0lyMEN1eV9BRmtUQmo3RFBfOVNyZGxlaC1kMHBsbVhydmk0U3BmdzZuaWR3UXJMV3ZqYTF0NGhlNm94OGc2NUNnZi12d0c2Wk4xeFZGM0tTSXVXLUtQR202cHdYdw?oc=5"
+        },
+        "context": "Insider Drops Truth Bomb on Chargers’ Justin Herbert Trade Rumors",
+        "id": 1093455,
+        "published_at_epoch": 1792524807,
+        "source": "Heavy.com",
+        "title": "Insider Drops Truth Bomb on Chargers’ Justin Herbert Trade Rumors"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.863893281950436,
+            "clickbait": 43.4788437524546,
+            "emotion": 35.91011588948202,
+            "movement": 4.548331874014914,
+            "subject": 87.78820262754941
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxNVmowS0hUWUg0TGtlVzJVZTVnUnJSVHFKdVl5YUFJYWNGR0k4UzRWQWZRY1pRUnpjLW5nUE5kcE40b1M1bkxvNFc1RWRERGJqMUotcDNmZTZvRG83UkNhWld2c25LWE9pYTluZXRMdWJGOGJSeTl6NVRSN3FsT0ZQb2pnMFVRc1BoaTJTcjhLX2FzOTFWeTltMHYxZ3FDZEE?oc=5"
+        },
+        "context": "‘Jayden Daniels Is Just a Melanted Justin Herbert’ -- Ex-NFL LB Rips ‘Unimpressive’ Commanders QB for ‘Costly Mistakes’ on MNF",
+        "id": 1160778,
+        "published_at_epoch": 1792515380,
+        "source": "Pro Football Network",
+        "title": "‘Jayden Daniels Is Just a Melanted Justin Herbert’ -- Ex-NFL LB Rips ‘Unimpressive’ Commanders QB for ‘Costly Mistakes’ on MNF"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.476376633719056,
+            "clickbait": 19.322854060439557,
+            "emotion": 9.23545216467131,
+            "movement": 93.27010804763144,
+            "subject": 95.00268989337488
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3AFBVV95cUxNTUw0Y1laMkY1UW9yUEM4NldQOVpFVllhTFBQQ09RZ1kyWU9sWVhVa242VmZRYlJfRWVoRndEYXUydnlHbmdZSVk1S1hSNXl2a3RkakJUbC1nQlpLNF9JNDgxX3dUOTFsN3dUSHNwdU9teDhUSWpVcnBzYUNyNUd3M1NkU2c3Z3ZxaGpydXpvcWs0R0lLZ3VNVWFRSnV2cE1oWmFBdUxSNGNpTVROZjFDaG45WnNWRU9CaEFuMk1GR19aaFlsRFdFX3d5WVdTTXo4Wm5IQ05qX3Zncldz?oc=5"
+        },
+        "context": "'Not a total shock': Justin Herbert trade chatter emerges amid disastrous start to season",
+        "id": 1040597,
+        "published_at_epoch": 1792507489,
+        "source": "Yardbarker",
+        "title": "'Not a total shock': Justin Herbert trade chatter emerges amid disastrous start to season"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 65.19372156357072,
+            "clickbait": 21.078502619853285,
+            "emotion": 6.404073366109042,
+            "movement": 2.232745053877657,
+            "subject": 90.27920378839492
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi4wFBVV95cUxOZHVzZWRtWXFQMUw0WmdtRHg1NVM4TGtzbHhtWWx1WDNiUDhUQ2N2eER0NThkZDBnVmtLSF9GNk1LZU8yakRSbXBZd1dibWtkQ280SGxWZ2FOYlhFcFhOOWdSSld2SzdMcE1fanRDd3VtSVBtcGtNY0RWRzRpZncxZDJ1UlNySGJGNEIzejV6aU9NUGg4UU9iNEVIb2hDRHE0YXRVTVgyb1hHWVYxLWttN3ZRT2lmLU5hdktMZUdiQXhhWHpDWFg2eDM4dHJBOXBVelc0RHFreUNQdF8yMGQwMnJxRQ?oc=5"
+        },
+        "context": "Chris Jones Faces NFL Discipline After Controversial Hit on Justin Herbert Against Chargers",
+        "id": 1049799,
+        "published_at_epoch": 1792505647,
+        "source": "Yardbarker",
+        "title": "Chris Jones Faces NFL Discipline After Controversial Hit on Justin Herbert Against Chargers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.975304533364193,
+            "clickbait": 36.72587562131243,
+            "emotion": 13.93352972431354,
+            "movement": 2.916459867476627,
+            "subject": 86.9752612323944
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxOLU43YnYwVlNaRHR2RGpTNC0wczRZMmlJUHdkbXVHamhkU1ZadEp2MnJPcDFLUjEtbWw5S2tTU2xDSUVDODJpamxPZWpvVm5jaElkS1BsZXB4NjRLUGNKYlp2RWhJREhiOUp0LTRBbU5UUEVlQ0VrcnhLR2JjZG9SMGNOTjJIcDVy?oc=5"
+        },
+        "context": "‘Very Weird,’ ‘People Will Write Anything’ — NFL Fans Defend Madison Beer After Columnist Blames Her for Justin Herbert’s Struggles",
+        "id": 1001962,
+        "published_at_epoch": 1792470120,
+        "source": "Yahoo Sports",
+        "title": "‘Very Weird,’ ‘People Will Write Anything’ — NFL Fans Defend Madison Beer After Columnist Blames Her for Justin Herbert’s Struggles"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.774050690939588,
+            "clickbait": 10.082673440875585,
+            "emotion": 1.9972417286787083,
+            "movement": 58.578580150730886,
+            "subject": 90.8699108191828
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxPbHAweG5UN0RYNjdiOWxyYzBNZFFsRDN2N0ZERVN1NnJielhuWGpsQ0hPRnFlTjhLTzVXRWR2SmVVN0kzTl9vdmYtc2ZPNUlSXzBzbEFFZFN6N3JZWmVZVjZCVkMzRGszWFNydHJNM1l5NnV6NjYtaG5ZWFQxUU91b1ZpVjdLU2JUV29NdVI3WC15UnB5UjRfbWJLU3plZw?oc=5"
+        },
+        "context": "AFC Notes: Justin Herbert, Bo Nix, Kenneth Walker, Broncos, Chargers, Chiefs",
+        "id": 1001805,
+        "published_at_epoch": 1792456248,
+        "source": "NFLTradeRumors.co",
+        "title": "AFC Notes: Justin Herbert, Bo Nix, Kenneth Walker, Broncos, Chargers, Chiefs"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.719390258289195,
+            "clickbait": 12.029805757197908,
+            "emotion": 2.9142734717749854,
+            "movement": 23.281021682376473,
+            "subject": 93.47751842287336
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxNSUtGYmE5Z2JSVXE4ZjRkdVo4bjRDQ3ROT01ueFJuZzdCdlJkVHFYeFpuUWduTjdyRHowMXNRX2lQbmxCWjhVVm83cndTcEVfUkdEVnEzYWRqWlZ6d3hJUjRuWXd5aUFUZk9aTGlWQXFEUWYzXzVYb0wtYjVwdnRLdktPZEw4SUdkaVVzRGNQc2drdw?oc=5"
+        },
+        "context": "Examining Chargers’ chances of landing Ohio State’s Jeremiah Smith in 2027 NFL Draft to save Justin Herbert",
+        "id": 1001948,
+        "published_at_epoch": 1792440944,
+        "source": "Yahoo Sports",
+        "title": "Examining Chargers’ chances of landing Ohio State’s Jeremiah Smith in 2027 NFL Draft to save Justin Herbert"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 21.505373679572585,
+            "clickbait": 60.86658449810255,
+            "emotion": 47.808145450268,
+            "movement": 11.051652010076728,
+            "subject": 91.7509326652172
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiywFBVV95cUxNNmE5RDFhRHpGajQyTC13dGZ3U05uNG94RGxkd0l4SFlpVDhwOEdKQUtnNjJfc05FMlM1QmMzd0Z3TzFBQVBnbGhzQllHdlZOcjljVHNLenpvNFFVWjZTMWRqam9fLVZ6ODVqUWt0M2xMdXlVSExFemh3ZkFFZmhiU2s1V09ZQ09DN29sWlZkZlRDNFREOVFDSzJCV0N3ZVEwYzlia1pIZ2VwcXhMdkp2ZWpyekNQWEFTdzJ2d2s4VTJrNmZtMUNNaUNSSQ?oc=5"
+        },
+        "context": "'Self-Inflicted… S--t,' Justin Herbert, Jim Harbaugh, McDaniel's Chargers Called Out by NFL Coach",
+        "id": 1001989,
+        "published_at_epoch": 1792429114,
+        "source": "Bleacher Report",
+        "title": "'Self-Inflicted… S--t,' Justin Herbert, Jim Harbaugh, McDaniel's Chargers Called Out by NFL Coach"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.4798067944122306,
+            "clickbait": 46.04736921962904,
+            "emotion": 64.83828678770162,
+            "movement": 2.1311287273830435,
+            "subject": 88.64401859451621
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE1jRE9SV0lpMUY3UzFwaEI2d1JnY2hoWS0zMVJESWhVakQtdXBaMEI2UXZLbHhEOWlJYTlraG56OUNWX2FCMDN5M3l2OU1SSTlfaWJGSTRoSmtRTHpDeXplWG5TQUlUTldvRXpwcmxNZFdIWmlyOXp3T3FBczRPbm8?oc=5"
+        },
+        "context": "‘He’s God-Awful, He’s Been Terrible’ — NFL Legend Shannon Sharpe Shows Justin Herbert Absolutely No Mercy as Chargers Drop to 0-6",
+        "id": 993464,
+        "published_at_epoch": 1792429040,
+        "source": "Pro Football Network",
+        "title": "‘He’s God-Awful, He’s Been Terrible’ — NFL Legend Shannon Sharpe Shows Justin Herbert Absolutely No Mercy as Chargers Drop to 0-6"
+      }
+    ],
+    "subject": {
+      "entity_id": 45,
+      "entity_type": "player",
+      "name": "Justin Herbert",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "name": "player-17896040-NBA",
+  "task": "transfer",
+  "sport": "NBA",
+  "parts": {
+    "subject": {
+      "entity_id": 17896040,
+      "entity_type": "player",
+      "name": "Jalen Johnson",
+      "sport": "NBA"
+    },
+    "database_record": "Jalen Johnson — F, on record at Atlanta Hawks. Nationality: USA. Record: roster; observed 2026-07-04.\ndate_of_birth: 2001-12-18 [2026-09-12; source 88859]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPOXBGdE1KQi1qR1FrT01WaGhDcnVmRkQtcHp1ZllsdXktM3BPMEZlSmIzVEs0OXc1cGpHY0tjQ056TmEyN0xBa2QyQm1LMmw2X2F6WDBQNGZsY2l1NUIzY1hpVHdKWFg3emM0UXYzNW95YUNWdUlZdEdIVXVaX3dWZm8waUFSUQ?oc=5",
+          "spectrum": {
+            "emotion": 5.421946144288014,
+            "subject": 91.41734668036656,
+            "movement": 83.38466283040835,
+            "clickbait": 18.06887319526297,
+            "availability": 12.906703464206656
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1259443
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "NBA stars Paolo Banchero, Jalen Johnson have to be seperated after tense end to Hawks-Magic",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T03:49:00Z",
+        "co_mentions": [
+          {
+            "name": "Paolo Banchero",
+            "entity_type": "player"
+          },
+          {
+            "name": "Atlanta Hawks",
+            "entity_type": "team"
+          },
+          {
+            "name": "Orlando Magic",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxQUDlxRW5iWDJSWjNxTkVfdjRRYXlhMWhiSWEyb0JQb2x1OGFRQUZBWGg4NldMNnF5dThMeE9KN2M4TDNUbHVRTUEtVDJMU0dib3g5NVVQZjc5UnVHeV9kT2dZdU1rc0twX2hVSUJfUkstdl96YkZVV2JIcUdxbmpORXpFY0paYjlrSl9DY3d2d0hPd0gzTTdTc0ZHOE5BbjVCTnBQbGs4dnZwS19xUFl3?oc=5",
+          "spectrum": {
+            "emotion": 5.434763508048899,
+            "subject": 91.37010413109743,
+            "movement": 85.28510037871064,
+            "availability": 78.17237013591578
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1409591
+        },
+        "publisher": "ClutchPoints",
+        "headline": "NBA stars Paolo Banchero, Jalen Johnson have to be seperated after tense end to Hawks-Magic",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T02:49:00Z",
+        "co_mentions": [
+          {
+            "name": "Paolo Banchero",
+            "entity_type": "player"
+          },
+          {
+            "name": "Atlanta Hawks",
+            "entity_type": "team"
+          },
+          {
+            "name": "Orlando Magic",
+            "entity_type": "team"
+          }
+        ]
+      }
+    ]
+  },
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Jalen Johnson\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Jalen Johnson — F, on record at Atlanta Hawks. Nationality: USA. Record: roster; observed 2026-07-04.\\ndate_of_birth: 2001-12-18 [2026-09-12; source 88859]\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1259443,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxPOXBGdE1KQi1qR1FrT01WaGhDcnVmRkQtcHp1ZllsdXktM3BPMEZlSmIzVEs0OXc1cGpHY0tjQ056TmEyN0xBa2QyQm1LMmw2X2F6WDBQNGZsY2l1NUIzY1hpVHdKWFg3emM0UXYzNW95YUNWdUlZdEdIVXVaX3dWZm8waUFSUQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Paolo Banchero\"},{\"entity_type\":\"team\",\"name\":\"Atlanta Hawks\"},{\"entity_type\":\"team\",\"name\":\"Orlando Magic\"}],\"headline\":\"NBA stars Paolo Banchero, Jalen Johnson have to be seperated after tense end to Hawks-Magic\",\"published_at\":\"2026-10-22T03:49:00Z\",\"publisher\":\"Yahoo Sports\",\"report_index\":0},{\"classifier_world\":{\"article_id\":1409591,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxQUDlxRW5iWDJSWjNxTkVfdjRRYXlhMWhiSWEyb0JQb2x1OGFRQUZBWGg4NldMNnF5dThMeE9KN2M4TDNUbHVRTUEtVDJMU0dib3g5NVVQZjc5UnVHeV9kT2dZdU1rc0twX2hVSUJfUkstdl96YkZVV2JIcUdxbmpORXpFY0paYjlrSl9DY3d2d0hPd0gzTTdTc0ZHOE5BbjVCTnBQbGs4dnZwS19xUFl3?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Paolo Banchero\"},{\"entity_type\":\"team\",\"name\":\"Atlanta Hawks\"},{\"entity_type\":\"team\",\"name\":\"Orlando Magic\"}],\"headline\":\"NBA stars Paolo Banchero, Jalen Johnson have to be seperated after tense end to Hawks-Magic\",\"published_at\":\"2026-10-22T02:49:00Z\",\"publisher\":\"ClutchPoints\",\"report_index\":1}]},\"tone\":\"Informed, alert, measured.\"}",
+  "prompt_version": "insider-source-v22-report-indices",
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

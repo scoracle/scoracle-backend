@@ -1,0 +1,24 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/candidate/vibe-person-959-NFL.json",
+  "generation_wall_ms": 7960,
+  "input_tokens": 1971,
+  "name": "vibe-person-959-NFL",
+  "output_limit": 600,
+  "output_tokens": 83,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v35-context-guide",
+  "reading": "Mixed reactions to Jerry Jones amid Cowboys struggles\n\nCoverage presents conflicting views on Jerry Jones. One headline frames his criticism of the owner as a 'swipe' amidst team struggles, while another explicitly labels him 'disappointed' and notes his desire to improve the roster before the trade deadline. The tone reflects uncertainty and division regarding his current standing and future plans.",
+  "request_bytes": 5320,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 7967
+}

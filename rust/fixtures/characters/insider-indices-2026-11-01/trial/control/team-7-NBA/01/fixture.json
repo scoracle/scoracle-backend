@@ -1,0 +1,293 @@
+{
+  "name": "team-7-NBA",
+  "task": "transfer",
+  "sport": "NBA",
+  "parts": {
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Dallas Mavericks",
+      "sport": "NBA"
+    },
+    "database_record": "Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxOd1d6VjA4ekx0X2JZcW1saW1ITFpvUHFrSWNfYUtpdTlVdWJ5bXNFYTVwSFJBcElsam01VGFIemtYclpfb21sbDlWME1ON1R1TlRmM21mX1J2YWZkbWkyaUhaNUg0S2hQV0hVNHY5VXpUcWQzOVBBZDVlbHVLRDYtSjktR1g4M05QdzlV?oc=5",
+          "spectrum": {
+            "emotion": 1.762632245176656,
+            "subject": 92.64066565479416,
+            "movement": 96.42815942624247,
+            "availability": 81.09249984117274
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1397985
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Former Florida star Walter Clayton Jr. lands with Mavericks",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T22:00:33Z",
+        "co_mentions": [
+          {
+            "name": "Walter Clayton Jr.",
+            "entity_type": "player"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxNN3g5bGNGbjRhaE52V016VldPSWFpd3BGWnROMktseHpsSWNkOGJEV1FnN3VOMGdJVlFyRDh2ZHBJdW5zb004OTZUaVhOek9waVJXZmRqY0ZJbE1xekFKaGhvbzhtX19xQ0RwOFNSUkUzOS13MmZFY0I5MnJOVVA2VWt1VHk1TnliVExBNU5HM0Q1MEZsRFpNRkNlSjRxT0E?oc=5",
+          "spectrum": {
+            "emotion": 1.5218692193033785,
+            "subject": 84.32442239372051,
+            "movement": 96.62149148679012,
+            "availability": 65.9607320875893
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1387766
+        },
+        "publisher": "WRUF",
+        "headline": "Walter Clayton Jr. Signs Two-Way NBA Deal With Mavericks",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T21:21:47Z",
+        "co_mentions": [
+          {
+            "name": "Walter Clayton Jr.",
+            "entity_type": "player"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAJBVV95cUxNdU1la0hmTS1MV1B5ZmJ3aVpSeDlpX1h5dVZNNklZb1EzdzBuYTU0QmZNVlR4SmZoRHBXV3Q1TGdKekNSSXI5b1hzT1YtcWhzSXlfbmY2dWxScVFVX1pTQlYtaWVlU1hHNENfakFKNHJ1OGZLZVNPNEFjaERaSDdsRWZueTQzWWcya29WOUtTY1BGLUZ5QXVIOHhuVzhlLURYY3lucW11NF8zUHA5VUx5a194R3BjNlBka3hyRnN0cUJlc1JZTjhTS2doVG8yOEFQOERYdy1EZ1h0eFdVQldoSkd6bWx3RGJoeGg2ck43NVZJa2tKbmYxdEU5OXplN2tZOVQ2V1ZJWGM3RzA4?oc=5",
+          "spectrum": {
+            "emotion": 1.4592668313020472,
+            "subject": 95.13391472145584,
+            "movement": 97.95729824722612,
+            "clickbait": 5.622338963284583,
+            "availability": 7.00785378406726
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1338431
+        },
+        "publisher": "Sporting News",
+        "headline": "Mavericks sign former first-rounder, ex-Grizzlies and Jazz combo-guard after waiving Dwight Powell",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T15:17:44Z",
+        "co_mentions": [
+          {
+            "name": "Dwight Powell",
+            "entity_type": "player"
+          },
+          {
+            "name": "Memphis Grizzlies",
+            "entity_type": "team"
+          },
+          {
+            "name": "Utah Jazz",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPTVljRnlPV3VSWmRmTHBjVkpEZTFJaHBfNmlKZDVsVDlvQ25oeUxtbExNX0ZVaFhVR1VNZGNtN0JtOExfNEFTdE1OTGNhdEI2Ny1VYjRhUUFXNmQ2Mlc3RkVtTGVSUHNOQTg2ck5oMmdEbXA2SEdSb1U5OHRVWWhJNnZkcDF0cWFjZ2hXUg?oc=5",
+          "spectrum": {
+            "emotion": 1.4292571052034542,
+            "subject": 94.94021272861795,
+            "movement": 98.03048965135889,
+            "clickbait": 6.6112576710165545,
+            "availability": 8.805164556462444
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1318047
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Mavericks sign former first-rounder, ex-Grizzlies and Jazz combo-guard after waiving Dwight Powell",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T15:17:44Z",
+        "co_mentions": [
+          {
+            "name": "Dwight Powell",
+            "entity_type": "player"
+          },
+          {
+            "name": "Memphis Grizzlies",
+            "entity_type": "team"
+          },
+          {
+            "name": "Utah Jazz",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQWk5MRGlMOUg1ci00cDlFdmNsTElRZ2VxN3NOTHpTNUxMQ3ZoT3FZeWZLU2pqLWNDRlpBaXVETm9XUFA1U1BhWmo3d01KMDZJdDBycVd5cHduUjczVnN1alA3alQxcEw2bEdIN3NkLXcwSEhrTHZNQnVJa1lmLW0xV3pSckEwbzE5MGJDTE1MeVo?oc=5",
+          "spectrum": {
+            "emotion": 1.517020148994637,
+            "subject": 92.87649747119292,
+            "movement": 91.85573289307654,
+            "clickbait": 10.970465613374463,
+            "availability": 2.4521947071822403
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1260017
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Rockets predicted to trade for Mavericks' $118M veteran NBA champion to reunite with Kevin Durant",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T04:27:00Z",
+        "co_mentions": [
+          {
+            "name": "Kevin Durant",
+            "entity_type": "player"
+          },
+          {
+            "name": "Houston Rockets",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNVU5QZWF2SkpISUs2OUNRektrWG84MVlMVGtRZTgwMHF6R3VyX1pkb1dfZzN5N0pMTm9mR3NRRmVISjVWMUpvT3RkNmpJdXF1RVRhcVU3ZWpLNVUzNDNHell6QjlmNUdJSExsa3lucDZhMmkyTVRWOHhQOVdmNHYyd0xSVjlUYXJHNHc?oc=5",
+          "spectrum": {
+            "emotion": 1.4056435274186112,
+            "subject": 95.89187012033206,
+            "movement": 98.01781129790722,
+            "clickbait": 4.070747523891933,
+            "availability": 3.971667564140434
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1260020
+        },
+        "publisher": "NBA.com",
+        "headline": "Mavericks Sign Walter Clayton Jr. to Two-Way Contract | Dallas Mavericks",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-21T21:51:00Z",
+        "co_mentions": [
+          {
+            "name": "Walter Clayton Jr.",
+            "entity_type": "player"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxNQ1RsTUlNRUNMZlBaMnVOOGpJcF9sYzdYeTU0VVhWWTlhVlRHeUhqY0ZvNDQ1YzBDSjNTNjR5THJwMFZTU1g5SU4xcUVKOHBMYkc4eEFkd1VXSzdOTHBxejJWZUd2bFZCUW5zeG5RRWxnai1sOFVGSFcwM0NVRjBfSGFHVUs1RXJ1MnpfZzRDUW5JVHM?oc=5",
+          "spectrum": {
+            "emotion": 2.330843993476198,
+            "subject": 87.07407387766166,
+            "movement": 85.58118458218942,
+            "clickbait": 18.55906049185233,
+            "availability": 59.23470025524312
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1260102
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Mavericks Emerge As Potential Suitor For Walter Clayton Jr. After Grizzlies Waive Him",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-21T11:32:16Z",
+        "co_mentions": [
+          {
+            "name": "Walter Clayton Jr.",
+            "entity_type": "player"
+          },
+          {
+            "name": "Memphis Grizzlies",
+            "entity_type": "team"
+          }
+        ]
+      }
+    ]
+  },
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Dallas Mavericks\",\"entity_type\":\"team\",\"sport\":\"basketball\",\"database_record\":\"Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1397985,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxOd1d6VjA4ekx0X2JZcW1saW1ITFpvUHFrSWNfYUtpdTlVdWJ5bXNFYTVwSFJBcElsam01VGFIemtYclpfb21sbDlWME1ON1R1TlRmM21mX1J2YWZkbWkyaUhaNUg0S2hQV0hVNHY5VXpUcWQzOVBBZDVlbHVLRDYtSjktR1g4M05QdzlV?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Walter Clayton Jr.\"}],\"headline\":\"Former Florida star Walter Clayton Jr. lands with Mavericks\",\"published_at\":\"2026-10-22T22:00:33Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1387766,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMinwFBVV95cUxNN3g5bGNGbjRhaE52V016VldPSWFpd3BGWnROMktseHpsSWNkOGJEV1FnN3VOMGdJVlFyRDh2ZHBJdW5zb004OTZUaVhOek9waVJXZmRqY0ZJbE1xekFKaGhvbzhtX19xQ0RwOFNSUkUzOS13MmZFY0I5MnJOVVA2VWt1VHk1TnliVExBNU5HM0Q1MEZsRFpNRkNlSjRxT0E?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Walter Clayton Jr.\"}],\"headline\":\"Walter Clayton Jr. Signs Two-Way NBA Deal With Mavericks\",\"published_at\":\"2026-10-22T21:21:47Z\",\"publisher\":\"WRUF\"},{\"classifier_world\":{\"article_id\":1338431,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMijAJBVV95cUxNdU1la0hmTS1MV1B5ZmJ3aVpSeDlpX1h5dVZNNklZb1EzdzBuYTU0QmZNVlR4SmZoRHBXV3Q1TGdKekNSSXI5b1hzT1YtcWhzSXlfbmY2dWxScVFVX1pTQlYtaWVlU1hHNENfakFKNHJ1OGZLZVNPNEFjaERaSDdsRWZueTQzWWcya29WOUtTY1BGLUZ5QXVIOHhuVzhlLURYY3lucW11NF8zUHA5VUx5a194R3BjNlBka3hyRnN0cUJlc1JZTjhTS2doVG8yOEFQOERYdy1EZ1h0eFdVQldoSkd6bWx3RGJoeGg2ck43NVZJa2tKbmYxdEU5OXplN2tZOVQ2V1ZJWGM3RzA4?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Dwight Powell\"},{\"entity_type\":\"team\",\"name\":\"Memphis Grizzlies\"},{\"entity_type\":\"team\",\"name\":\"Utah Jazz\"}],\"headline\":\"Mavericks sign former first-rounder, ex-Grizzlies and Jazz combo-guard after waiving Dwight Powell\",\"published_at\":\"2026-10-22T15:17:44Z\",\"publisher\":\"Sporting News\"},{\"classifier_world\":{\"article_id\":1318047,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPTVljRnlPV3VSWmRmTHBjVkpEZTFJaHBfNmlKZDVsVDlvQ25oeUxtbExNX0ZVaFhVR1VNZGNtN0JtOExfNEFTdE1OTGNhdEI2Ny1VYjRhUUFXNmQ2Mlc3RkVtTGVSUHNOQTg2ck5oMmdEbXA2SEdSb1U5OHRVWWhJNnZkcDF0cWFjZ2hXUg?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Dwight Powell\"},{\"entity_type\":\"team\",\"name\":\"Memphis Grizzlies\"},{\"entity_type\":\"team\",\"name\":\"Utah Jazz\"}],\"headline\":\"Mavericks sign former first-rounder, ex-Grizzlies and Jazz combo-guard after waiving Dwight Powell\",\"published_at\":\"2026-10-22T15:17:44Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1260017,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxQWk5MRGlMOUg1ci00cDlFdmNsTElRZ2VxN3NOTHpTNUxMQ3ZoT3FZeWZLU2pqLWNDRlpBaXVETm9XUFA1U1BhWmo3d01KMDZJdDBycVd5cHduUjczVnN1alA3alQxcEw2bEdIN3NkLXcwSEhrTHZNQnVJa1lmLW0xV3pSckEwbzE5MGJDTE1MeVo?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Kevin Durant\"},{\"entity_type\":\"team\",\"name\":\"Houston Rockets\"}],\"headline\":\"Rockets predicted to trade for Mavericks' $118M veteran NBA champion to reunite with Kevin Durant\",\"published_at\":\"2026-10-22T04:27:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1260020,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxNVU5QZWF2SkpISUs2OUNRektrWG84MVlMVGtRZTgwMHF6R3VyX1pkb1dfZzN5N0pMTm9mR3NRRmVISjVWMUpvT3RkNmpJdXF1RVRhcVU3ZWpLNVUzNDNHell6QjlmNUdJSExsa3lucDZhMmkyTVRWOHhQOVdmNHYyd0xSVjlUYXJHNHc?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Walter Clayton Jr.\"}],\"headline\":\"Mavericks Sign Walter Clayton Jr. to Two-Way Contract | Dallas Mavericks\",\"published_at\":\"2026-10-21T21:51:00Z\",\"publisher\":\"NBA.com\"},{\"classifier_world\":{\"article_id\":1260102,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxNQ1RsTUlNRUNMZlBaMnVOOGpJcF9sYzdYeTU0VVhWWTlhVlRHeUhqY0ZvNDQ1YzBDSjNTNjR5THJwMFZTU1g5SU4xcUVKOHBMYkc4eEFkd1VXSzdOTHBxejJWZUd2bFZCUW5zeG5RRWxnai1sOFVGSFcwM0NVRjBfSGFHVUs1RXJ1MnpfZzRDUW5JVHM?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Walter Clayton Jr.\"},{\"entity_type\":\"team\",\"name\":\"Memphis Grizzlies\"}],\"headline\":\"Mavericks Emerge As Potential Suitor For Walter Clayton Jr. After Grizzlies Waive Him\",\"published_at\":\"2026-10-21T11:32:16Z\",\"publisher\":\"Yahoo Sports\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "prompt_version": "insider-source-v21-perspective",
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

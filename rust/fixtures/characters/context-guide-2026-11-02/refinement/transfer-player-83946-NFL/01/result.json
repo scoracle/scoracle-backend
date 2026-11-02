@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/refined/transfer-player-83946-NFL.json",
+  "generation_wall_ms": 13302,
+  "input_tokens": 3992,
+  "name": "transfer-player-83946-NFL",
+  "output_limit": 1400,
+  "output_tokens": 59,
+  "parsed": false,
+  "prompt_version": "insider-source-v25-context-guide",
+  "reading": "named claim is absent from cited reports: New York Giants",
+  "request_bytes": 8162,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 13312
+}

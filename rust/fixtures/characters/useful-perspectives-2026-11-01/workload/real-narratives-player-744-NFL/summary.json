@@ -1,0 +1,23 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "error": "complete input (16699) plus reserved output (2100) exceeds actual model context (7900); no source was clipped",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-narratives-player-744-NFL.json",
+      "name": "real-narratives-player-744-NFL",
+      "output_limit": 2100,
+      "prompt_version": "n120-useful-perspectives",
+      "request_bytes": 31984,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "error",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 15
+    }
+  ],
+  "completed": 1
+}

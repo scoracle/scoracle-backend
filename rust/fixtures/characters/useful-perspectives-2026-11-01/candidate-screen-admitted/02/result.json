@@ -1,0 +1,33 @@
+{
+  "case": 2,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-momentum-mixed-peak-up-vibe-down.json",
+  "generation_wall_ms": 3374,
+  "input_tokens": 576,
+  "name": "mixed-peak-up-vibe-down",
+  "output_limit": 700,
+  "output_tokens": 56,
+  "parsed": true,
+  "prompt_version": "momentum-s42-dated-perspective",
+  "reading": "Rowe's measured profile shows improvement in creation efficiency, yet coverage tone is cooling despite this stronger statistical work; the divergence between rising performance metrics and declining mood indicates a tension where the data contradicts the narrative, though no comparison evidence confirms a trend.",
+  "request_bytes": 396,
+  "review": [
+    "Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 3395
+}

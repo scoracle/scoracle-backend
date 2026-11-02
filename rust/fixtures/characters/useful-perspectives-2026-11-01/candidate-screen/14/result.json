@@ -1,0 +1,16 @@
+{
+  "case": 14,
+  "error": "llama.cpp template omitted or changed supplied input",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-transfer-fully-named-interest.json",
+  "name": "fully-named-interest",
+  "output_limit": 1400,
+  "prompt_version": "insider-source-v20-perspective",
+  "request_bytes": 410,
+  "review": [
+    "Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty."
+  ],
+  "status": "error",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 1
+}

@@ -1,0 +1,7 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / vibe-person-959-NFL [accepted]
+Mixed reactions to Jerry Jones amid Cowboys struggles
+
+Coverage presents conflicting views on Jerry Jones. Yahoo Sports headlines suggest he faces criticism from former players, while The New York Times headline frames him as 'disappointed' and focused on roster improvements. The supplied reports offer no consensus or unified emotional tone, only these distinct, unverified perspectives.

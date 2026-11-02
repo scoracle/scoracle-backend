@@ -1,0 +1,19 @@
+{
+  "arm": "both",
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "input_tokens": 4300,
+  "name": "team-37-FOOTBALL",
+  "output_tokens": 79,
+  "parser_detail": "0 finding(s) | Roma are currently managing a significant injury crisis, with coach Pellegrini sidelined for at least six to eight weeks due to a serious injury, according to multiple sources including LiveScore, Yahoo Sports, and Football Italia. Additionally, the club is reportedly looking to make two signings in January, as noted by Yahoo Sports.",
+  "receipt": "04-team-37-FOOTBALL-both",
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 14351
+}

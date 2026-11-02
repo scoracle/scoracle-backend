@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / real-player:129602:FOOTBALL-rating [rejected]
+In the 2026 season, Bruno Fernandes recorded 630 minutes played across a thin sample of seven appearances, which falls below the 10-appearance minimum required for reliable cohort comparison. Within this limited dataset, his expected assists (1.5) ranked at the 97.6th percentile and expected goals (2.66) at the 95.5th percentile among 287 and 266 players respectively, both classified as elite. No cross-season comparisons are available. There is no availability information.

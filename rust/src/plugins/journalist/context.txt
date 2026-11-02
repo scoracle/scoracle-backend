@@ -1,0 +1,9 @@
+fresh is a list of source reports selected about meta.name. Read each report as one source statement with its own actor and relation to the target:
+- publisher: the outlet or organization supplying this item. A speaker named inside the text is a separate role.
+- headline: the supplied article title.
+- publisher_excerpt: the supplied passage, when present.
+- evidence_scope: headline means only the title is available; publisher_excerpt means the provided passage is available. The unseen article supplies nothing.
+- published_at: publication time, not necessarily event time.
+- report_key: the citation handle for this exact report object.
+- article_id and url: the stored source reference and link, not additional content.
+The target is the topic of your assignment, but each report's text tells you who actually speaks or acts. Keep that actor, action and qualification together. Several reports may cover one story; different developments remain separate stories even when they concern the same target.

@@ -1,0 +1,729 @@
+{
+  "name": "real-vibe-team-22-NFL",
+  "task": "vibe",
+  "sport": "NFL",
+  "prompt_version": "vibe-frame-v33-coverage-tone",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Green Bay Packers\",\"entity_type\":\"team\",\"sport\":\"American football\",\"database_record\":\"Green Bay Packers — NFC NORTH. Venue: Lambeau Field. City: Green Bay. Country: United States. Coach on record: Adam Stenavich.\"},\"fresh\":{\"reporting_start\":\"2026-10-22T04:00:00Z\",\"reporting_end\":\"2026-10-23T04:00:00Z\",\"reports\":[{\"article_id\":1431775,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxPQnJXeXhQZldYcmRBWWxGeGRhcFdJSF9qblFTcmNCNlVWS1VzekFrX0d1c0xfNFhSVTB0MW54ZzVlSEo4TVB6ZXZqTmJEbDVpVzFOUVNoOTdTaHBHTHhzR0E4RldSa2xwMm1qMGhPcGRZc1JXNE1Wc2p1TlEyZk5DSWU5Ui1BbF9SNFE?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers Get Bad News on Potential Trades for 2 Colts Veterans\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-23T00:40:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1402215,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxPZWFZcEtuemxKUUF0Q0U4YjBBdmpPY2dSUlFiNXY0NS00UmlURU1hRXB5ODNVRy1tOVllNXpkaHo3ZzBKMGF4eHF0ZHdoZzhpWGxZS0RCM0NnTnp1aVM0S29tNEVvdGpZUFRqQ0N2SkdQU0p6X0hZeXZ6alJrOEk0dQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Josh Jacobs says his time away from the Packers was ‘one of the best things’ for his life\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T22:04:57Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1391085,\"url\":\"https://news.google.com/rss/articles/CBMilwFBVV95cUxNS2N1VkRQS3BvNXRoeTVkMm8xR2x3ZVRPS1dpcUhVVmM2YzBFMmFHUWxwRWdPVFFrU0ZvMGtPb3d1VUFWbUFDX2tmZjcxRzRVeGJoZjNVZDM0U1k1V21UcWZEb1ZMSmtOSzNWS1FFcmp5VXVFanFkQWpCQnVLVUxZR1g3d0dJYTNrejBFeDZjWkZLaThTQlhR?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers Get Bad News on Potential Trades for 2 Colts Veterans\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T21:40:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1302830,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxQWXo1a3hwSnpPUTl0aVVocnVYS1JOMGZ4UE5BQ1FTZ2VaZmNPWlVzWHdCS0NEM19INVAxaWpOSVVuMXBDS2l6UWtDam5Rd2ZJMVdReTVueGJXZ1BRYjZBZzZ5QTg4WmJRU2R2Z3FqVjh3UDRCUzJNcTU5bjVHUWRUeU1KRDJVTjA?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"‘Awful Look,’ ‘Completely Tone-Deaf’ — Packers HC Matt LaFleur Faces Backlash for Defending Josh Jacobs Ahead of RB’s Return\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T13:08:52Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1302795,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxPMWdsdTlUQmg4aUlOWHpmbmhyRXVUbWUteG9HWXJzSHViU09SemF2R0JYYkxhZndkT0hPdlowVnFzcV9MdU9CTkFrQXcwa1ZpNTA0WTROMTV6Y0laeGFPQUFfX1hWWGNON2Rvd0RCUnVEc1JJUjRwU2RLSXREMkFKMGtqdXQ2WFowdGpicndEQUpHdGU3TWNFVHAyRGF1MEc0ZTdlNklfMA?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Big Rapids Pioneer\",\"published_at\":\"2026-10-22T09:34:33Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1264229,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxQdVI0ZXFTcnlpWnRWNlNsQWlzeDFYeUlPaUhRMV9NNWZENWlJUXhMVWJxejJEZ1R0a05DTWNPZ2ZVS1JSeUJ3TXllNlNGWERkYjRFVXVLVDU1WWtleVc1OXQyV2ZCaTFZRnRNMmNRX0hNNGlSdGp6a0JkNm0wVTBWbmxSdm5JWXpGRjFqV1JqdFFEeGJQY2tQQXEtMFVSXzdFNHc?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers RB Josh Jacobs: 'Sorry for putting team in this situation'\",\"publisher\":\"National Football Post\",\"published_at\":\"2026-10-22T02:40:54Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1413360,\"url\":\"https://news.google.com/rss/articles/CBMikAJBVV95cUxNai1WX2VULWk2VHphRHZQZU4wNWJ0OEc0RHZpVlFsellXaDRDMUdDVjRxeUJaRTl0M3U4ZXVmZlRHZ2NKeXJVYktQbVBua2liNmo4R0FNUVU5RjdDQl8wQjNPVFBzZTJKaV9VRTM4NlkzbjRXNm44cG9qN2pRbUlaOTNHSXZEeXpkaWhVTVNxb19Wem9sbFdEN1FrT25HcldhLVVvRDdDTUhIbmFZUGNrUmJObTdBQzViT1dKQzMwRm9fb0RHZThLUk5ReDJwSGtVSVRCd01JMW9qeEV6empMNGxGdTRJQlU0Z2U2WVZ0SFdJYjdxbzRXMWdnOGFFUWJmV0llSnZBamFVSkhSSjhFRQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"www.pmg-ky3.com\",\"published_at\":\"2026-10-22T01:10:05Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1245309,\"url\":\"https://news.google.com/rss/articles/CBMiyAFBVV95cUxPSV9RbEtxTFdTNWRMcEk1UmthYWVudGRLT2x6NkYxYnBnMWdwUWZrYVd2elp4ZU5KeGtTdDA5QTlEc0c2ZVRXV1NBRnMxVTF3STAyajZxNHdzeVAtTzFJY0ZQMlhQLWlxUFJ0aE1DSjZyVEZmTkYzbGNiVFNtR1ZpQ2x6VFpGYl9nYzdTdndhWlp0QUJ0WGFQeVA0UDJWZkkyaGdQVFNFREtVd0VXQ1BTLTQxbFFfUTRZbk8zdVJtTnZtR2pKcFZRTtIBzgFBVV95cUxNZGhCanJqMFc2c2tQUlRXYjZYRC01UFkwWkZMUlp5V3F4LURxU0FfalczVnpJRUllU2p3WE1BVzllb01LTlJuZmlkZ3Nqd3ZGNFFKTDZ5RVN2WF82YVp6R29QaXJzYldqbENaMnU1VEFpQmpOcjF3ektzNlZyOGdDczdITm40N1hFU2RNUmZtcnJSZ1QzZlhLMVFnQ2hYLUhJempUSXlIYXg5aXNublpTZWtzWXpBSkhoaDJ2NWlBaG1LeGhzY01KbU9WZzh1dw?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"KRQE\",\"published_at\":\"2026-10-22T00:28:39Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1264240,\"url\":\"https://news.google.com/rss/articles/CBMihgJBVV95cUxQNjBUeDJTTWVCZk14SlJhc25UMkZlRU1TcUhMRWVlTHJKaVBiMl9LYkpqeFhEa2Q4cFBLZmVlUUpSNEJIUEFKbjV4aEd2bGFMdDhISzNkeW5QcHo0WW9uelhRNzVQVjRYTTNic3ZzM2hrR0ZnQldVbzFvMUExN0o2NEtXR3Zab0M2UVpJV01zcEw0NFN1QmhPQ3otek0ya2ZEeTYtNkV0ajBZN3YyOGNCSWRTVkhvQ1RldklwVXp0bHAyRC14QThmZXVQblV2WHhIT1JJZkpZVDZKNXJFNjZ3QWNXSjM2YmpvSW9iTnRrV0hmUndULW1GMl9YSElHNVV5X3QtajF3?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Eagle-Tribune\",\"published_at\":\"2026-10-22T00:28:39Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1401304,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxQSVBDTWdLLV80SXc5RHBfYzlta05Kc3RsM0d4UzViX1JqeXZXX1JwQUNaX2QwTzlBX2F6Vk03TWwwcThOZHdqRXE3cFZ3SVY5Y1F5T2ZBZFc1Ym1ibGpZMW5JLU1ma3JDM0dPN3Vkd3dVTlZqM0hHQi04Tm1ZdjRreGJsVnVZU3dldVdXTUV6MEhMN1pGa3fSAZYBQVVfeXFMUElQQ01nSy1fNEl3OURwX2M5bWtOSnN0bDNHeFM1Yl9Sanl2V19ScEFDWl9kME85QV9helZNN01sMHE4TmR3akVxN3BWd0lWOWNReU9mQWRXNWJtYmxqWTFuSS1NZmtyQzNHTzd1ZHd3VU5WajNIR0ItOE5tWXY0a3hibFZ1WVN3ZXVXV01FejBITDdaRmt3?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Action News Jax\",\"published_at\":\"2026-10-22T00:28:39Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1371871,\"url\":\"https://news.google.com/rss/articles/CBMipwJBVV95cUxOVWFPX25pNkxZazVLUkNBbzg0VW53V0F5aVJVckwybzYwd2NUNDZDVXlWTlY2YlVMajZWLXhmUEFsMWhyYmZpZnVVUEpkWUFnSUQ4MDUxM3hhZmZPVWRULXRNNDZRSFJvSmVVNVNBSG5zTTg2dVlieEpwRHVQWVVEMURCQXZlT0JaT1F4WDViV1hMbGppX0lNZE02YVBNcXAtbk9kX2stT2E2OXlTM1BWLTZnVDUtWk4zMGgwZ3JGRDlwcU0wai1oYllpZnN6dGlhakZOMldNNVd1RTdkdnRScmhvcFdkWTU5N2xocWJ5M1ZTNlJBc3dKSmpXQUFJbHAwcUU2NFlPc0c5UnJRN1RrbkRHM0hjYlhXS1hGNTV4aTc5YTluY2M0?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Herald Bulletin\",\"published_at\":\"2026-10-22T00:28:39Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1312593,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxPX1k0TlY3OUxyYzI1eDlJaUw3dkxLMG5uaDN5UGF3UEQ0SzBpV3V4eG41UlpDMnBGOUQtamhDX1AtbzIweWdsSHFSczFnX0N3Y1hKQkY2V3BxSk9rRjVyZGhVejBEb3JYZ1oteGxPdVRTZl9SRUxUb0RtQ2NFWTAxLWNUNHJMcldwU3g3bTlHRdIBjwFBVV95cUxPX1k0TlY3OUxyYzI1eDlJaUw3dkxLMG5uaDN5UGF3UEQ0SzBpV3V4eG41UlpDMnBGOUQtamhDX1AtbzIweWdsSHFSczFnX0N3Y1hKQkY2V3BxSk9rRjVyZGhVejBEb3JYZ1oteGxPdVRTZl9SRUxUb0RtQ2NFWTAxLWNUNHJMcldwU3g3bTlHRQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"95.5 WSB\",\"published_at\":\"2026-10-22T00:28:39Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1293743,\"url\":\"https://news.google.com/rss/articles/CBMiywFBVV95cUxOSFdkU2pKQVI1Z0RpUnJkdjdHZHdjQ0hpQXpLQ2lFcG1pbnY3UUg4LW9zdUhvRzg2TzVEZ3Ytdk90cFJaWkJBSnF2N0ViN2htekEtUlYydlZmb25EbVkxcWY4T1QwbHNIZTdBR1FUeF84bzZjT3FGRHNfVEtDS09XWkJHTXJ1UkIxZU14Y3piSmNLZy1fWGZ0bHVJZGk1dFRFelQxcjR1R09lWXQyemg2emR2V0ZuWXlPcEJSNmRkMEt4d1BlQWZKM3cwWQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Queen City News\",\"published_at\":\"2026-10-22T00:28:39Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1283455,\"url\":\"https://news.google.com/rss/articles/CBMiiAJBVV95cUxOb1FiWDNGeExMX0JvYmN2MmEtMDN2Qzd6ZGR2Z3A3UXR0OHRBNlUzRk5xeEJMd1Q2YmZSOU5CbnZNdVZSekRIZlpKN0ZsSlRTWGUwZjRrR2tTbS13Q1dabjh5bnJ4aEc1MDBSeGppRzRja3poWWZTRlRZeS1UQTI4b2tuWW5yaGo4YkJUekFGU3FXZmsteUtwaUlNMXJwQmNOdkFSNWhJcmMtR19hWHBNLTdabVhyZDZfX1RmYmNWWHZXWFFmSTBaMzFOMkgtSUpCV1JWcll1VTk5YmdTdmV0V2xQSGJpRzJ3WDZwdUV0ZXUweS1abGJQZ2N1T1NvSlZsbmZNVHZHVnI?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"The Killeen Daily Herald\",\"published_at\":\"2026-10-22T00:28:39Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1273857,\"url\":\"https://news.google.com/rss/articles/CBMikwJBVV95cUxPMWNBQ0xmc2lWVTBXQnFvTTNpT25lbG9paEtFY2RfeEpzTkpQcnFpejhOUkEyNzNXVDE2SGdYNk8yLXl4RGZqaERhZkZMaFVkUW02WWJLTDE0RjFUVFFuakloelA4amQ3Y2VydXEyQWJPNTg0REpmVjhsb3psTEZzX1VoQ1VLZmpuRzg0d3J3MmJfaWZEMTIta3Z6bm95Rnhpd0tjbDhOQi1EM1d2QVAyUGtvNlJQVG4yXzB1WllFbDRjR2xNRWxnTEJjUERHemsycDR6UUJYMk1PVWo0MmRQdFRnUUZQYnV0eEotM2NKcTBfVHJRaWUtWDJsenJSZHI1Tk02MF92N21nQlJZVmRMMnNYOA?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Traverse City Record-Eagle\",\"published_at\":\"2026-10-22T00:28:39Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1265201,\"url\":\"https://news.google.com/rss/articles/CBMimwJBVV95cUxOa0F3dTJxQk9iWDlORXVXdmtMMEVwSTR3XzBmVDNlaktrd2ZUVGc5bmVSNE1CVERWQnRMWVBKNFZIWTI1Y003SElHZjFZOFFLcElVOXJONmdQdEpwOWlTUDJVWTRmdV9RWTZ3RWJwZDNpSHFKUm51RVZzN3o4S1h0dUstQlVYOHpIVll5SzNZWTc2ZHNmQzRpRjRUaEVNQ2ViMkhCanpCZi1zMW8yRmp0TEtsdXJwc3RrNWM4YWZyYmhHN2EzUFh5bjlsbmU1MklnUHhyRlNpcTR4T3pmNk9WS0h2STUxOWpZdE9HbE5OcWxhTl9tV0FyY0JPdzFyVC1RcDA2WDhEMDR4SlBQa1JGRDFVcGhlZzFGanVz?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"News-Press NOW\",\"published_at\":\"2026-10-22T00:28:39Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1293075,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxNZWVQQWJMR0RDY2twZU1hT2JsNDB2VUJoLU9jdG9HZkI3Z2R1ekZETU44amhiOGNHZUdVcmhpM3M1WDdENG91MVlncGNSYWZiUVkzMzJRdjhZUHRRb0VUUWc3Q0F6ZDhLZWtlai1MeWZOcnZUbWM4bVBBMml4dk9pZU1nYWhOZw?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"AP News\",\"published_at\":\"2026-10-22T00:28:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1225538,\"url\":\"https://news.google.com/rss/articles/CBMilgJBVV95cUxNRVpNeUthbzI1T1luUTNoa0xGdHJjbUd0OVluUm1FY2Jfa0FQOUR2VkJaYmZkX1l6NlNaVWJacnQ2bklBWk85bUt1cjRId1FmVGZLY3B4WkgxS2hHbkVqUEd5SXNyZkxpOTE0RGdSNW4wN3paVEpDMjRBdGxvQnhSb050T1N4NlMwMWNfMlJxb3JsSDFzcHo5TmROVTExMmdfWGYxeWJUb1JSZVNHQ3lXbXgyM0tyTDdlZmNiQWJFWkZtV0psVXBUbzhMUTYwLVphVElQVUZSUzBLcTBZRnpEY0NjRmRFaG5ybWVpTUh5WmFkR2YzaURoOUo1UzBxN09KVXlnRWxZTHFjV1NWRUhhV1p5NGFBUQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Ottumwa Courier\",\"published_at\":\"2026-10-21T23:25:48Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1225541,\"url\":\"https://news.google.com/rss/articles/CBMijwJBVV95cUxPSS1LcEVLcE9HNHBOSXJsbzJjWk5tZjVCTUl4ZXNqeUpQQlJabWgtRDBqU2lOMFBPN3lmZUtkbDkxeEoyYk1iM3ZFV2xZMENzcnloOG4tRnRZWGNNTWlPNkdMLWI0UXZPZlJ2TURHODJWQmg3eVRnenkwQndDa0NkSWNraEFjS1lJVGpzMnN6dkJKdzY3OGpUTV9BWHdfWlhEeHBWVkZzdzdDcTE3X3dkMkNqb3dDNk12LXllOVFVeEVXSjZxNXI0d3otWHdxMi16UjU2RlZGODFsNHJiY2JJUTRBamZpcVhBNGNNOEg1elNNWjZhb2FyM3Rqck5IQm81NmtrTk9MV2wzbDhfT0Vz?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Oskaloosa Herald\",\"published_at\":\"2026-10-21T23:25:43Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1312586,\"url\":\"https://news.google.com/rss/articles/CBMilgJBVV95cUxPdGZ5aDZhMGp6d0l1WjN3bzZJNWtEM2FvVHdUWWlQUUtaVnpIYldKbGd0WkJYbWRScThVVFBkTmNUVkpoSWpMM25OTXJvUWRSdEFlOG9hNnNab1FnRWo5RVI3TFVnMzZJZnRES05NaEhRWlhMNTBHYWpnYTJzUDdIcjhld2tidmlyZkNTT01CYVhudktUQjZGanRmY29WUnlZSUs0TDR6V2ZDOVNyRWtxVi1SM3I0b1pGdkpsbHNyNEdhdEtWYl9Obm43U2tuei1sQVpLNkMwSnMzbG9WR1RHX1hOc1UzMzYzTE5meXYzUEU2aGp2SGZkZ2VBa3d5akhlc3hjaGE1T0V3Q0VOU3BSTGM1bDdjZw?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"Toronto Star\",\"published_at\":\"2026-10-21T23:10:06Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1283813,\"url\":\"https://news.google.com/rss/articles/CBMi4AFBVV95cUxNY2kyLU9tTDk2NC1UUzR2SXF0OWd3dTlYMTNNVW9oXzQ4N2xPZ2JCeUlKR3VobGwyQnlXVzZqOGVaN1FoZE9RSWt5RjhnWWlaV1BaX0puZGhmVjNWbHpGWnVTbTM5U3NzanRuSnE1ZktOdFBpUk1jbkdxTTMwMGpKUnlYcmFFMGtEVDVsZUNvMjVkbjcwX0lXSFVlMXFTQV9ISEFOTkpFbHRBLUMwMVBMNVYtVUlGQzVoY25ySUpIMGM4N29fd2FzVmdLTDRaNml0TjdLNllMX1dIaF96Qm5WdA?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"ClickOnDetroit | WDIV Local 4\",\"published_at\":\"2026-10-21T23:09:29Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1234452,\"url\":\"https://news.google.com/rss/articles/CBMi2AFBVV95cUxQRFV4bTFHZnc5ZTk2RGo2M21sWVppRGJ1enR5czlzNWNtQktyV0lORGVQYjRzX2laWUVOMnFwV3ZQdGdLdUs0UUVKN28wR28xLWhJM0JhXzNmQWV4emJlZnNDRjlvU2UydVdmRmpyUDMxRDBvdXdQbkd4V2dQR0YtT0pzWV95R0YwRjRjbjVfTUdEcEowZkNfcktfcjNqNzd2Q1ktZnNjR3lad2plTGtpS0J0T2U0NjNkZEQ4ZXZVNFNLdkxLZS1YbmVfY1BQbDAzVnZSUUQzczQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"News4JAX\",\"published_at\":\"2026-10-21T23:09:29Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1226587,\"url\":\"https://news.google.com/rss/articles/CBMiygFBVV95cUxPZ2lqLWFnUUVYVWlzX2ZLQnFiRGJzd3Fpb3Vid3FfWmdKdndBb0JVTFNScUZtZXduWjg1VDI2Nk0xeC1XcE1nMU02OThKYjJPSWdxOTQ5WXVLWHdnMFk4V0dHbU95TDV4TlVYbUQ2ZDdtRFB2ZUZVUHczQzB5OXlXc2RlR1phQzhiSXBLSXBJMG13dExIaHFJd2Q5T3lVVnlUUl9yTmFjMmZlSEd5aVFaYlNtZjlXUUMyZ0NhTUUxNWxhenVGTmI3VlN30gHPAUFVX3lxTFBUNkpwMFFOb1dfNVRiSXJodmRQMmcwcnllbFlYVmRGT2prZWtGU3BwREViVG1uMzN4V2tzUTVMZ2RnNEpvNlEwZXpBejhmT3lZM1NGT0Vsdms3S0NST3EzRjRjNWRkdTZjRDR0QUtGNG1uUW54LVVrd1BMOU03ZjhuYjNILUFTMVRSRklkZTNaZDFNd0ZZend5U2VTZzBCLUFaMjlCamVvaUdPWmZ4b1hLb2xSd1AtVWNVOWZrd2RnMGMwWlNQdS1hUWpucE1ESQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation\",\"publisher\":\"FOX16.com\",\"published_at\":\"2026-10-21T23:09:29Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}}]},\"tone\":\"Conversational, emotionally attentive and measured. Clear, natural prose with restrained energy.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 22,
+      "entity_type": "team",
+      "name": "Green Bay Packers",
+      "sport": "NFL"
+    },
+    "database_record": "Green Bay Packers — NFC NORTH. Venue: Lambeau Field. City: Green Bay. Country: United States. Coach on record: Adam Stenavich.",
+    "day": {
+      "start": 1792641600,
+      "end": 1792728000,
+      "cutoff": 1792728012
+    },
+    "sources": [
+      {
+        "classification_id": 239579,
+        "article_id": 1431775,
+        "headline": "Packers Get Bad News on Potential Trades for 2 Colts Veterans",
+        "context": "Packers Get Bad News on Potential Trades for 2 Colts Veterans",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792716000,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPQnJXeXhQZldYcmRBWWxGeGRhcFdJSF9qblFTcmNCNlVWS1VzekFrX0d1c0xfNFhSVTB0MW54ZzVlSEo4TVB6ZXZqTmJEbDVpVzFOUVNoOTdTaHBHTHhzR0E4RldSa2xwMm1qMGhPcGRZc1JXNE1Wc2p1TlEyZk5DSWU5Ui1BbF9SNFE?oc=5",
+          "spectrum": {
+            "emotion": 54.389638293619356,
+            "subject": 94.1176787800694,
+            "movement": 92.53400602464096,
+            "availability": 75.16403236807334
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 230949,
+        "article_id": 1402215,
+        "headline": "Josh Jacobs says his time away from the Packers was ‘one of the best things’ for his life",
+        "context": "Josh Jacobs says his time away from the Packers was ‘one of the best things’ for his life",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792706697,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxPZWFZcEtuemxKUUF0Q0U4YjBBdmpPY2dSUlFiNXY0NS00UmlURU1hRXB5ODNVRy1tOVllNXpkaHo3ZzBKMGF4eHF0ZHdoZzhpWGxZS0RCM0NnTnp1aVM0S29tNEVvdGpZUFRqQ0N2SkdQU0p6X0hZeXZ6alJrOEk0dQ?oc=5",
+          "spectrum": {
+            "emotion": 39.16535847330015,
+            "subject": 92.32879682801499,
+            "movement": 51.31786333722853,
+            "availability": 85.88249951456662
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 230813,
+        "article_id": 1391085,
+        "headline": "Packers Get Bad News on Potential Trades for 2 Colts Veterans",
+        "context": "Packers Get Bad News on Potential Trades for 2 Colts Veterans",
+        "source": "Heavy.com",
+        "published_at_epoch": 1792705200,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxNS2N1VkRQS3BvNXRoeTVkMm8xR2x3ZVRPS1dpcUhVVmM2YzBFMmFHUWxwRWdPVFFrU0ZvMGtPb3d1VUFWbUFDX2tmZjcxRzRVeGJoZjNVZDM0U1k1V21UcWZEb1ZMSmtOSzNWS1FFcmp5VXVFanFkQWpCQnVLVUxZR1g3d0dJYTNrejBFeDZjWkZLaThTQlhR?oc=5",
+          "spectrum": {
+            "emotion": 54.0242697810823,
+            "subject": 94.56904845120022,
+            "movement": 92.92786219417269,
+            "availability": 74.66855844531185
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 200579,
+        "article_id": 1302830,
+        "headline": "‘Awful Look,’ ‘Completely Tone-Deaf’ — Packers HC Matt LaFleur Faces Backlash for Defending Josh Jacobs Ahead of RB’s Return",
+        "context": "‘Awful Look,’ ‘Completely Tone-Deaf’ — Packers HC Matt LaFleur Faces Backlash for Defending Josh Jacobs Ahead of RB’s Return",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792674532,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQWXo1a3hwSnpPUTl0aVVocnVYS1JOMGZ4UE5BQ1FTZ2VaZmNPWlVzWHdCS0NEM19INVAxaWpOSVVuMXBDS2l6UWtDam5Rd2ZJMVdReTVueGJXZ1BRYjZBZzZ5QTg4WmJRU2R2Z3FqVjh3UDRCUzJNcTU5bjVHUWRUeU1KRDJVTjA?oc=5",
+          "spectrum": {
+            "emotion": 44.13141604464834,
+            "subject": 95.19888329856228,
+            "movement": 11.2355620950623,
+            "clickbait": 56.12772750532141,
+            "availability": 81.18546783263363
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 201475,
+        "article_id": 1302795,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "Big Rapids Pioneer",
+        "published_at_epoch": 1792661673,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxPMWdsdTlUQmg4aUlOWHpmbmhyRXVUbWUteG9HWXJzSHViU09SemF2R0JYYkxhZndkT0hPdlowVnFzcV9MdU9CTkFrQXcwa1ZpNTA0WTROMTV6Y0laeGFPQUFfX1hWWGNON2Rvd0RCUnVEc1JJUjRwU2RLSXREMkFKMGtqdXQ2WFowdGpicndEQUpHdGU3TWNFVHAyRGF1MEc0ZTdlNklfMA?oc=5",
+          "spectrum": {
+            "emotion": 19.314708277872462,
+            "subject": 95.8683480205514,
+            "movement": 3.4289904641664655,
+            "clickbait": 6.6228903729727255,
+            "availability": 93.20658149459152
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 186492,
+        "article_id": 1264229,
+        "headline": "Packers RB Josh Jacobs: 'Sorry for putting team in this situation'",
+        "context": "Packers RB Josh Jacobs: 'Sorry for putting team in this situation'",
+        "source": "National Football Post",
+        "published_at_epoch": 1792636854,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxQdVI0ZXFTcnlpWnRWNlNsQWlzeDFYeUlPaUhRMV9NNWZENWlJUXhMVWJxejJEZ1R0a05DTWNPZ2ZVS1JSeUJ3TXllNlNGWERkYjRFVXVLVDU1WWtleVc1OXQyV2ZCaTFZRnRNMmNRX0hNNGlSdGp6a0JkNm0wVTBWbmxSdm5JWXpGRjFqV1JqdFFEeGJQY2tQQXEtMFVSXzdFNHc?oc=5",
+          "spectrum": {
+            "emotion": 30.830127031510944,
+            "subject": 96.03602169818146,
+            "movement": 5.613277570122971,
+            "clickbait": 5.331007296470001,
+            "availability": 6.558309330364216
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 236227,
+        "article_id": 1413360,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "www.pmg-ky3.com",
+        "published_at_epoch": 1792631405,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikAJBVV95cUxNai1WX2VULWk2VHphRHZQZU4wNWJ0OEc0RHZpVlFsellXaDRDMUdDVjRxeUJaRTl0M3U4ZXVmZlRHZ2NKeXJVYktQbVBua2liNmo4R0FNUVU5RjdDQl8wQjNPVFBzZTJKaV9VRTM4NlkzbjRXNm44cG9qN2pRbUlaOTNHSXZEeXpkaWhVTVNxb19Wem9sbFdEN1FrT25HcldhLVVvRDdDTUhIbmFZUGNrUmJObTdBQzViT1dKQzMwRm9fb0RHZThLUk5ReDJwSGtVSVRCd01JMW9qeEV6empMNGxGdTRJQlU0Z2U2WVZ0SFdJYjdxbzRXMWdnOGFFUWJmV0llSnZBamFVSkhSSjhFRQ?oc=5",
+          "spectrum": {
+            "emotion": 19.51248596610026,
+            "subject": 95.89972979814256,
+            "movement": 3.192333757122428,
+            "availability": 95.6703700427533
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": true,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 233044,
+        "article_id": 1245309,
+        "headline": "Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "KRQE",
+        "published_at_epoch": 1792628919,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiyAFBVV95cUxPSV9RbEtxTFdTNWRMcEk1UmthYWVudGRLT2x6NkYxYnBnMWdwUWZrYVd2elp4ZU5KeGtTdDA5QTlEc0c2ZVRXV1NBRnMxVTF3STAyajZxNHdzeVAtTzFJY0ZQMlhQLWlxUFJ0aE1DSjZyVEZmTkYzbGNiVFNtR1ZpQ2x6VFpGYl9nYzdTdndhWlp0QUJ0WGFQeVA0UDJWZkkyaGdQVFNFREtVd0VXQ1BTLTQxbFFfUTRZbk8zdVJtTnZtR2pKcFZRTtIBzgFBVV95cUxNZGhCanJqMFc2c2tQUlRXYjZYRC01UFkwWkZMUlp5V3F4LURxU0FfalczVnpJRUllU2p3WE1BVzllb01LTlJuZmlkZ3Nqd3ZGNFFKTDZ5RVN2WF82YVp6R29QaXJzYldqbENaMnU1VEFpQmpOcjF3ektzNlZyOGdDczdITm40N1hFU2RNUmZtcnJSZ1QzZlhLMVFnQ2hYLUhJempUSXlIYXg5aXNublpTZWtzWXpBSkhoaDJ2NWlBaG1LeGhzY01KbU9WZzh1dw?oc=5",
+          "spectrum": {
+            "emotion": 17.77801987951302,
+            "subject": 95.63559341695368,
+            "movement": 3.1140377592114734,
+            "availability": 95.73358004233377
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": true,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 233038,
+        "article_id": 1264240,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "Eagle-Tribune",
+        "published_at_epoch": 1792628919,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihgJBVV95cUxQNjBUeDJTTWVCZk14SlJhc25UMkZlRU1TcUhMRWVlTHJKaVBiMl9LYkpqeFhEa2Q4cFBLZmVlUUpSNEJIUEFKbjV4aEd2bGFMdDhISzNkeW5QcHo0WW9uelhRNzVQVjRYTTNic3ZzM2hrR0ZnQldVbzFvMUExN0o2NEtXR3Zab0M2UVpJV01zcEw0NFN1QmhPQ3otek0ya2ZEeTYtNkV0ajBZN3YyOGNCSWRTVkhvQ1RldklwVXp0bHAyRC14QThmZXVQblV2WHhIT1JJZkpZVDZKNXJFNjZ3QWNXSjM2YmpvSW9iTnRrV0hmUndULW1GMl9YSElHNVV5X3QtajF3?oc=5",
+          "spectrum": {
+            "emotion": 19.658117950857974,
+            "subject": 95.85900762413932,
+            "movement": 3.196362167139144,
+            "availability": 95.69734104742315
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": true,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 233036,
+        "article_id": 1401304,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "Action News Jax",
+        "published_at_epoch": 1792628919,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQSVBDTWdLLV80SXc5RHBfYzlta05Kc3RsM0d4UzViX1JqeXZXX1JwQUNaX2QwTzlBX2F6Vk03TWwwcThOZHdqRXE3cFZ3SVY5Y1F5T2ZBZFc1Ym1ibGpZMW5JLU1ma3JDM0dPN3Vkd3dVTlZqM0hHQi04Tm1ZdjRreGJsVnVZU3dldVdXTUV6MEhMN1pGa3fSAZYBQVVfeXFMUElQQ01nSy1fNEl3OURwX2M5bWtOSnN0bDNHeFM1Yl9Sanl2V19ScEFDWl9kME85QV9helZNN01sMHE4TmR3akVxN3BWd0lWOWNReU9mQWRXNWJtYmxqWTFuSS1NZmtyQzNHTzd1ZHd3VU5WajNIR0ItOE5tWXY0a3hibFZ1WVN3ZXVXV01FejBITDdaRmt3?oc=5",
+          "spectrum": {
+            "emotion": 20.57225422251198,
+            "subject": 95.6741133661244,
+            "movement": 3.294683436043892,
+            "availability": 95.74373490780688
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": true,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 222918,
+        "article_id": 1371871,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "Herald Bulletin",
+        "published_at_epoch": 1792628919,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipwJBVV95cUxOVWFPX25pNkxZazVLUkNBbzg0VW53V0F5aVJVckwybzYwd2NUNDZDVXlWTlY2YlVMajZWLXhmUEFsMWhyYmZpZnVVUEpkWUFnSUQ4MDUxM3hhZmZPVWRULXRNNDZRSFJvSmVVNVNBSG5zTTg2dVlieEpwRHVQWVVEMURCQXZlT0JaT1F4WDViV1hMbGppX0lNZE02YVBNcXAtbk9kX2stT2E2OXlTM1BWLTZnVDUtWk4zMGgwZ3JGRDlwcU0wai1oYllpZnN6dGlhakZOMldNNVd1RTdkdnRScmhvcFdkWTU5N2xocWJ5M1ZTNlJBc3dKSmpXQUFJbHAwcUU2NFlPc0c5UnJRN1RrbkRHM0hjYlhXS1hGNTV4aTc5YTluY2M0?oc=5",
+          "spectrum": {
+            "emotion": 19.59905152152473,
+            "subject": 95.69477219938658,
+            "movement": 3.277776537856889,
+            "availability": 95.68755274103036
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": true,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 206172,
+        "article_id": 1312593,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "95.5 WSB",
+        "published_at_epoch": 1792628919,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxPX1k0TlY3OUxyYzI1eDlJaUw3dkxLMG5uaDN5UGF3UEQ0SzBpV3V4eG41UlpDMnBGOUQtamhDX1AtbzIweWdsSHFSczFnX0N3Y1hKQkY2V3BxSk9rRjVyZGhVejBEb3JYZ1oteGxPdVRTZl9SRUxUb0RtQ2NFWTAxLWNUNHJMcldwU3g3bTlHRdIBjwFBVV95cUxPX1k0TlY3OUxyYzI1eDlJaUw3dkxLMG5uaDN5UGF3UEQ0SzBpV3V4eG41UlpDMnBGOUQtamhDX1AtbzIweWdsSHFSczFnX0N3Y1hKQkY2V3BxSk9rRjVyZGhVejBEb3JYZ1oteGxPdVRTZl9SRUxUb0RtQ2NFWTAxLWNUNHJMcldwU3g3bTlHRQ?oc=5",
+          "spectrum": {
+            "emotion": 19.82854225242591,
+            "subject": 95.67086775122377,
+            "movement": 3.4015903728791055,
+            "clickbait": 6.811520342299206,
+            "availability": 93.52768089865312
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 199395,
+        "article_id": 1293743,
+        "headline": "Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "Queen City News",
+        "published_at_epoch": 1792628919,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiywFBVV95cUxOSFdkU2pKQVI1Z0RpUnJkdjdHZHdjQ0hpQXpLQ2lFcG1pbnY3UUg4LW9zdUhvRzg2TzVEZ3Ytdk90cFJaWkJBSnF2N0ViN2htekEtUlYydlZmb25EbVkxcWY4T1QwbHNIZTdBR1FUeF84bzZjT3FGRHNfVEtDS09XWkJHTXJ1UkIxZU14Y3piSmNLZy1fWGZ0bHVJZGk1dFRFelQxcjR1R09lWXQyemg2emR2V0ZuWXlPcEJSNmRkMEt4d1BlQWZKM3cwWQ?oc=5",
+          "spectrum": {
+            "emotion": 19.15313841465623,
+            "subject": 96.35356643815554,
+            "movement": 3.4209025475966897,
+            "clickbait": 6.271326417792173,
+            "availability": 92.78465609797692
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 196700,
+        "article_id": 1283455,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "The Killeen Daily Herald",
+        "published_at_epoch": 1792628919,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiAJBVV95cUxOb1FiWDNGeExMX0JvYmN2MmEtMDN2Qzd6ZGR2Z3A3UXR0OHRBNlUzRk5xeEJMd1Q2YmZSOU5CbnZNdVZSekRIZlpKN0ZsSlRTWGUwZjRrR2tTbS13Q1dabjh5bnJ4aEc1MDBSeGppRzRja3poWWZTRlRZeS1UQTI4b2tuWW5yaGo4YkJUekFGU3FXZmsteUtwaUlNMXJwQmNOdkFSNWhJcmMtR19hWHBNLTdabVhyZDZfX1RmYmNWWHZXWFFmSTBaMzFOMkgtSUpCV1JWcll1VTk5YmdTdmV0V2xQSGJpRzJ3WDZwdUV0ZXUweS1abGJQZ2N1T1NvSlZsbmZNVHZHVnI?oc=5",
+          "spectrum": {
+            "emotion": 20.745671585503608,
+            "subject": 95.89597816761251,
+            "movement": 3.4746042263661283,
+            "clickbait": 6.409551741993896,
+            "availability": 93.13140480459809
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 193351,
+        "article_id": 1273857,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "Traverse City Record-Eagle",
+        "published_at_epoch": 1792628919,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwJBVV95cUxPMWNBQ0xmc2lWVTBXQnFvTTNpT25lbG9paEtFY2RfeEpzTkpQcnFpejhOUkEyNzNXVDE2SGdYNk8yLXl4RGZqaERhZkZMaFVkUW02WWJLTDE0RjFUVFFuakloelA4amQ3Y2VydXEyQWJPNTg0REpmVjhsb3psTEZzX1VoQ1VLZmpuRzg0d3J3MmJfaWZEMTIta3Z6bm95Rnhpd0tjbDhOQi1EM1d2QVAyUGtvNlJQVG4yXzB1WllFbDRjR2xNRWxnTEJjUERHemsycDR6UUJYMk1PVWo0MmRQdFRnUUZQYnV0eEotM2NKcTBfVHJRaWUtWDJsenJSZHI1Tk02MF92N21nQlJZVmRMMnNYOA?oc=5",
+          "spectrum": {
+            "emotion": 20.552283859831135,
+            "subject": 95.78514042512441,
+            "movement": 3.2553623453704184,
+            "clickbait": 6.94443088378687,
+            "availability": 93.26459865953753
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 187072,
+        "article_id": 1265201,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "News-Press NOW",
+        "published_at_epoch": 1792628919,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimwJBVV95cUxOa0F3dTJxQk9iWDlORXVXdmtMMEVwSTR3XzBmVDNlaktrd2ZUVGc5bmVSNE1CVERWQnRMWVBKNFZIWTI1Y003SElHZjFZOFFLcElVOXJONmdQdEpwOWlTUDJVWTRmdV9RWTZ3RWJwZDNpSHFKUm51RVZzN3o4S1h0dUstQlVYOHpIVll5SzNZWTc2ZHNmQzRpRjRUaEVNQ2ViMkhCanpCZi1zMW8yRmp0TEtsdXJwc3RrNWM4YWZyYmhHN2EzUFh5bjlsbmU1MklnUHhyRlNpcTR4T3pmNk9WS0h2STUxOWpZdE9HbE5OcWxhTl9tV0FyY0JPdzFyVC1RcDA2WDhEMDR4SlBQa1JGRDFVcGhlZzFGanVz?oc=5",
+          "spectrum": {
+            "emotion": 18.767583923654943,
+            "subject": 95.92340156303536,
+            "movement": 3.220867910367917,
+            "clickbait": 6.810963441627309,
+            "availability": 93.42308128569697
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 199398,
+        "article_id": 1293075,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "AP News",
+        "published_at_epoch": 1792628880,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxNZWVQQWJMR0RDY2twZU1hT2JsNDB2VUJoLU9jdG9HZkI3Z2R1ekZETU44amhiOGNHZUdVcmhpM3M1WDdENG91MVlncGNSYWZiUVkzMzJRdjhZUHRRb0VUUWc3Q0F6ZDhLZWtlai1MeWZOcnZUbWM4bVBBMml4dk9pZU1nYWhOZw?oc=5",
+          "spectrum": {
+            "emotion": 16.48651786558549,
+            "subject": 95.7805177842809,
+            "movement": 3.143677230950612,
+            "clickbait": 5.905987697882718,
+            "availability": 93.09717556898276
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 202101,
+        "article_id": 1225538,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "Ottumwa Courier",
+        "published_at_epoch": 1792625148,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgJBVV95cUxNRVpNeUthbzI1T1luUTNoa0xGdHJjbUd0OVluUm1FY2Jfa0FQOUR2VkJaYmZkX1l6NlNaVWJacnQ2bklBWk85bUt1cjRId1FmVGZLY3B4WkgxS2hHbkVqUEd5SXNyZkxpOTE0RGdSNW4wN3paVEpDMjRBdGxvQnhSb050T1N4NlMwMWNfMlJxb3JsSDFzcHo5TmROVTExMmdfWGYxeWJUb1JSZVNHQ3lXbXgyM0tyTDdlZmNiQWJFWkZtV0psVXBUbzhMUTYwLVphVElQVUZSUzBLcTBZRnpEY0NjRmRFaG5ybWVpTUh5WmFkR2YzaURoOUo1UzBxN09KVXlnRWxZTHFjV1NWRUhhV1p5NGFBUQ?oc=5",
+          "spectrum": {
+            "emotion": 17.622093496928425,
+            "subject": 94.9785022721974,
+            "movement": 3.49108208836404,
+            "clickbait": 6.41703866162716,
+            "availability": 93.33526648942096
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 196736,
+        "article_id": 1225541,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "Oskaloosa Herald",
+        "published_at_epoch": 1792625143,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijwJBVV95cUxPSS1LcEVLcE9HNHBOSXJsbzJjWk5tZjVCTUl4ZXNqeUpQQlJabWgtRDBqU2lOMFBPN3lmZUtkbDkxeEoyYk1iM3ZFV2xZMENzcnloOG4tRnRZWGNNTWlPNkdMLWI0UXZPZlJ2TURHODJWQmg3eVRnenkwQndDa0NkSWNraEFjS1lJVGpzMnN6dkJKdzY3OGpUTV9BWHdfWlhEeHBWVkZzdzdDcTE3X3dkMkNqb3dDNk12LXllOVFVeEVXSjZxNXI0d3otWHdxMi16UjU2RlZGODFsNHJiY2JJUTRBamZpcVhBNGNNOEg1elNNWjZhb2FyM3Rqck5IQm81NmtrTk9MV2wzbDhfT0Vz?oc=5",
+          "spectrum": {
+            "emotion": 19.778802540694503,
+            "subject": 95.41586979420892,
+            "movement": 3.2746577509356207,
+            "clickbait": 6.432978289403243,
+            "availability": 93.28175978044037
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 206198,
+        "article_id": 1312586,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "Toronto Star",
+        "published_at_epoch": 1792624206,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgJBVV95cUxPdGZ5aDZhMGp6d0l1WjN3bzZJNWtEM2FvVHdUWWlQUUtaVnpIYldKbGd0WkJYbWRScThVVFBkTmNUVkpoSWpMM25OTXJvUWRSdEFlOG9hNnNab1FnRWo5RVI3TFVnMzZJZnRES05NaEhRWlhMNTBHYWpnYTJzUDdIcjhld2tidmlyZkNTT01CYVhudktUQjZGanRmY29WUnlZSUs0TDR6V2ZDOVNyRWtxVi1SM3I0b1pGdkpsbHNyNEdhdEtWYl9Obm43U2tuei1sQVpLNkMwSnMzbG9WR1RHX1hOc1UzMzYzTE5meXYzUEU2aGp2SGZkZ2VBa3d5akhlc3hjaGE1T0V3Q0VOU3BSTGM1bDdjZw?oc=5",
+          "spectrum": {
+            "emotion": 19.68590718793787,
+            "subject": 95.88904402491359,
+            "movement": 3.420436256529929,
+            "clickbait": 6.51548428818913,
+            "availability": 93.02264933765836
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 196780,
+        "article_id": 1283813,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "ClickOnDetroit | WDIV Local 4",
+        "published_at_epoch": 1792624169,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi4AFBVV95cUxNY2kyLU9tTDk2NC1UUzR2SXF0OWd3dTlYMTNNVW9oXzQ4N2xPZ2JCeUlKR3VobGwyQnlXVzZqOGVaN1FoZE9RSWt5RjhnWWlaV1BaX0puZGhmVjNWbHpGWnVTbTM5U3NzanRuSnE1ZktOdFBpUk1jbkdxTTMwMGpKUnlYcmFFMGtEVDVsZUNvMjVkbjcwX0lXSFVlMXFTQV9ISEFOTkpFbHRBLUMwMVBMNVYtVUlGQzVoY25ySUpIMGM4N29fd2FzVmdLTDRaNml0TjdLNllMX1dIaF96Qm5WdA?oc=5",
+          "spectrum": {
+            "emotion": 20.652998327819773,
+            "subject": 95.88163926350445,
+            "movement": 3.096282219555179,
+            "clickbait": 8.524245777619718,
+            "availability": 92.76191951409362
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 187444,
+        "article_id": 1234452,
+        "headline": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers' Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "News4JAX",
+        "published_at_epoch": 1792624169,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi2AFBVV95cUxQRFV4bTFHZnc5ZTk2RGo2M21sWVppRGJ1enR5czlzNWNtQktyV0lORGVQYjRzX2laWUVOMnFwV3ZQdGdLdUs0UUVKN28wR28xLWhJM0JhXzNmQWV4emJlZnNDRjlvU2UydVdmRmpyUDMxRDBvdXdQbkd4V2dQR0YtT0pzWV95R0YwRjRjbjVfTUdEcEowZkNfcktfcjNqNzd2Q1ktZnNjR3lad2plTGtpS0J0T2U0NjNkZEQ4ZXZVNFNLdkxLZS1YbmVfY1BQbDAzVnZSUUQzczQ?oc=5",
+          "spectrum": {
+            "emotion": 19.629305156866128,
+            "subject": 95.41693754390592,
+            "movement": 3.2203269183584697,
+            "clickbait": 7.036683269355046,
+            "availability": 93.22632516389504
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 187440,
+        "article_id": 1226587,
+        "headline": "Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "context": "Packers’ Josh Jacobs shows contrition as he prepares to play again amid ongoing NFL investigation",
+        "source": "FOX16.com",
+        "published_at_epoch": 1792624169,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiygFBVV95cUxPZ2lqLWFnUUVYVWlzX2ZLQnFiRGJzd3Fpb3Vid3FfWmdKdndBb0JVTFNScUZtZXduWjg1VDI2Nk0xeC1XcE1nMU02OThKYjJPSWdxOTQ5WXVLWHdnMFk4V0dHbU95TDV4TlVYbUQ2ZDdtRFB2ZUZVUHczQzB5OXlXc2RlR1phQzhiSXBLSXBJMG13dExIaHFJd2Q5T3lVVnlUUl9yTmFjMmZlSEd5aVFaYlNtZjlXUUMyZ0NhTUUxNWxhenVGTmI3VlN30gHPAUFVX3lxTFBUNkpwMFFOb1dfNVRiSXJodmRQMmcwcnllbFlYVmRGT2prZWtGU3BwREViVG1uMzN4V2tzUTVMZ2RnNEpvNlEwZXpBejhmT3lZM1NGT0Vsdms3S0NST3EzRjRjNWRkdTZjRDR0QUtGNG1uUW54LVVrd1BMOU03ZjhuYjNILUFTMVRSRklkZTNaZDFNd0ZZend5U2VTZzBCLUFaMjlCamVvaUdPWmZ4b1hLb2xSd1AtVWNVOWZrd2RnMGMwWlNQdS1hUWpucE1ESQ?oc=5",
+          "spectrum": {
+            "emotion": 18.46460132234533,
+            "subject": 95.80029942227536,
+            "movement": 3.3311755435707697,
+            "clickbait": 7.551312277253026,
+            "availability": 93.07936905683486
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      }
+    ],
+    "excluded": [
+      {
+        "article_id": 1273863,
+        "classification_id": 191412,
+        "in_day": true,
+        "reason": "unresolved_target_identity"
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

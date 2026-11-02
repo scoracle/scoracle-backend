@@ -1,0 +1,110 @@
+{
+  "name": "real-person:86:FOOTBALL-narratives",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n120-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Martín Demichelis\",\"entity_type\":\"person\",\"sport\":\"FOOTBALL\",\"database_record\":\"Martín Demichelis — coach; club: RB Leipzig; checked: 2026-09-30.\\ndate_of_birth: 1980-12-20 [2026-10-15; source 134092]\\nrole: coach [2026-09-07; source 71593]\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":996179,\"url\":\"https://news.google.com/rss/articles/CBMi2wFBVV95cUxNeVhTZFk4WTMwWm1hUGJRSGUycExZaldMZGhGdjhXcjU4b20yVU05eXNQYU80V0JlZlFkX1oySXRKVmp6c3ItZnNUVndJRmc3N0pGZDlhV016NFZQY1lVbmdVS2hGbzhEeWxPRmFXbDUwWWUwMk93X1BJVXlGcE5XOXRiVjlVejRTOVZUNDNlbVVJZ1Q1MkZMN0tmUzdBdkhJeHlQZ1paVzZhN2hOUWpldHJqeDd4RFdwUl83eDJudnVXU29yclFON3NteFgzNmw5ZVN2S083OFRiTnM?oc=5\",\"headline\":\"Martin Demichelis hails Yan Diomande before Real Madrid v Leipzig Champions League tie at the Bernabeu\",\"publisher\":\"OneFootball\",\"published_at\":\"2026-10-20T12:02:32Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1024896,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxNNkR3NTZfQzlRckJPbVdVSURiS2JCRVA1MlZpWHJjM21RR3RoVndyTDJsd21qV0xWbU5GOFNONm0xeEVGZUxYWVBEVVRjX2pEMHVfcllWcHZkSlplbkdOeTZ1Vk1abEJkU1NSVzNLbVc4bHVVT3FzeFlFa3JvLUFSWWY3Mk5GUEJP?oc=5\",\"headline\":\"RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash\",\"publisher\":\"Yahoo\",\"published_at\":\"2026-10-20T10:14:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":995853,\"url\":\"https://news.google.com/rss/articles/CBMivAFBVV95cUxQblJvUjBZQWVGYVduenE2a2FPdUlGRmhGYmxGT2ZJNlIxcnRzRU5aaEpramxDakxoX1M4d2VqRmNuNktTV0xISTJRTUVxdmx5Z3FXblNXMnZrVDgzX2N6Zm5OUmswcmljMkw4aUNoQmswOFh4aFVEQWZBeXhmU2taS1R3V0MzazZEcnJjbTZldG1CODN4TlZBWnRCTEdKYmVkNVVCZE1IbF81TFozUTl4cFhHVlZFQXVlN1FkSQ?oc=5\",\"headline\":\"'He needs time' - Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite Fiorentina loan spell\",\"publisher\":\"Goal.com\",\"published_at\":\"2026-10-20T07:19:33Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Martín Demichelis — coach; club: RB Leipzig; checked: 2026-09-30.\ndate_of_birth: 1980-12-20 [2026-10-15; source 134092]\nrole: coach [2026-09-07; source 71593]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.4626737141444215,
+            "clickbait": 4.361207327476239,
+            "emotion": 13.69709882897423,
+            "movement": 19.92976490860821,
+            "subject": 88.27040307459596
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi2wFBVV95cUxNeVhTZFk4WTMwWm1hUGJRSGUycExZaldMZGhGdjhXcjU4b20yVU05eXNQYU80V0JlZlFkX1oySXRKVmp6c3ItZnNUVndJRmc3N0pGZDlhV016NFZQY1lVbmdVS2hGbzhEeWxPRmFXbDUwWWUwMk93X1BJVXlGcE5XOXRiVjlVejRTOVZUNDNlbVVJZ1Q1MkZMN0tmUzdBdkhJeHlQZ1paVzZhN2hOUWpldHJqeDd4RFdwUl83eDJudnVXU29yclFON3NteFgzNmw5ZVN2S083OFRiTnM?oc=5"
+        },
+        "context": "Martin Demichelis hails Yan Diomande before Real Madrid v Leipzig Champions League tie at the Bernabeu",
+        "id": 996179,
+        "published_at_epoch": 1792497752,
+        "source": "OneFootball",
+        "title": "Martin Demichelis hails Yan Diomande before Real Madrid v Leipzig Champions League tie at the Bernabeu"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.3449982236671483,
+            "clickbait": 9.359091605706809,
+            "emotion": 83.10324649173359,
+            "movement": 9.239577994579616,
+            "subject": 92.50682906151717
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNNkR3NTZfQzlRckJPbVdVSURiS2JCRVA1MlZpWHJjM21RR3RoVndyTDJsd21qV0xWbU5GOFNONm0xeEVGZUxYWVBEVVRjX2pEMHVfcllWcHZkSlplbkdOeTZ1Vk1abEJkU1NSVzNLbVc4bHVVT3FzeFlFa3JvLUFSWWY3Mk5GUEJP?oc=5"
+        },
+        "context": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash",
+        "id": 1024896,
+        "published_at_epoch": 1792491281,
+        "source": "Yahoo",
+        "title": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 36.41789108020384,
+            "clickbait": 7.139709872926938,
+            "emotion": 3.2290887013890157,
+            "movement": 32.53451069524863,
+            "subject": 86.50081907779725
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxQblJvUjBZQWVGYVduenE2a2FPdUlGRmhGYmxGT2ZJNlIxcnRzRU5aaEpramxDakxoX1M4d2VqRmNuNktTV0xISTJRTUVxdmx5Z3FXblNXMnZrVDgzX2N6Zm5OUmswcmljMkw4aUNoQmswOFh4aFVEQWZBeXhmU2taS1R3V0MzazZEcnJjbTZldG1CODN4TlZBWnRCTEdKYmVkNVVCZE1IbF81TFozUTl4cFhHVlZFQXVlN1FkSQ?oc=5"
+        },
+        "context": "'He needs time' - Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite Fiorentina loan spell",
+        "id": 995853,
+        "published_at_epoch": 1792480773,
+        "source": "Goal.com",
+        "title": "'He needs time' - Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite Fiorentina loan spell"
+      }
+    ],
+    "subject": {
+      "entity_id": 86,
+      "entity_type": "person",
+      "name": "Martín Demichelis",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

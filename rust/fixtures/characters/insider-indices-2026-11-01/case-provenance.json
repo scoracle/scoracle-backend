@@ -1,0 +1,196 @@
+[
+  {
+    "case": "person-107-FOOTBALL",
+    "subject": "Eddie Howe",
+    "edition_date": "2026-10-23",
+    "reports": 3,
+    "held": [
+      {
+        "article_id": 1383699,
+        "reason": "known_copy"
+      }
+    ],
+    "article_ids": [
+      1403992,
+      1393813,
+      1275611
+    ]
+  },
+  {
+    "case": "player-529856-FOOTBALL",
+    "subject": "Jean-Clair Todibo",
+    "edition_date": "2026-10-23",
+    "reports": 2,
+    "held": [],
+    "article_ids": [
+      1362836,
+      1323377
+    ]
+  },
+  {
+    "case": "player-37550443-FOOTBALL",
+    "subject": "Alex Scott",
+    "edition_date": "2026-10-23",
+    "reports": 5,
+    "held": [
+      {
+        "article_id": 1275232,
+        "reason": "known_copy"
+      }
+    ],
+    "article_ids": [
+      1324463,
+      1394295,
+      1284813,
+      1266352,
+      1285625
+    ]
+  },
+  {
+    "case": "team-37-FOOTBALL",
+    "subject": "Roma",
+    "edition_date": "2026-10-23",
+    "reports": 9,
+    "held": [
+      {
+        "article_id": 1324234,
+        "reason": "known_copy"
+      }
+    ],
+    "article_ids": [
+      1333951,
+      1326962,
+      1324232,
+      1336810,
+      1304808,
+      1305627,
+      1295087,
+      1275820,
+      1304835
+    ]
+  },
+  {
+    "case": "player-185-NBA",
+    "subject": "Draymond Green",
+    "edition_date": "2026-10-23",
+    "reports": 2,
+    "held": [],
+    "article_ids": [
+      1337909,
+      1328024
+    ]
+  },
+  {
+    "case": "player-322-NBA",
+    "subject": "Donovan Mitchell",
+    "edition_date": "2026-10-23",
+    "reports": 2,
+    "held": [],
+    "article_ids": [
+      1317981,
+      1298571
+    ]
+  },
+  {
+    "case": "player-17896040-NBA",
+    "subject": "Jalen Johnson",
+    "edition_date": "2026-10-23",
+    "reports": 2,
+    "held": [],
+    "article_ids": [
+      1259443,
+      1409591
+    ]
+  },
+  {
+    "case": "team-7-NBA",
+    "subject": "Dallas Mavericks",
+    "edition_date": "2026-10-23",
+    "reports": 7,
+    "held": [
+      {
+        "article_id": 1212431,
+        "reason": "unresolved_target_identity"
+      }
+    ],
+    "article_ids": [
+      1397985,
+      1387766,
+      1338431,
+      1318047,
+      1260017,
+      1260020,
+      1260102
+    ]
+  },
+  {
+    "case": "person-8-NFL",
+    "subject": "Dan Quinn",
+    "edition_date": "2026-10-23",
+    "reports": 5,
+    "held": [],
+    "article_ids": [
+      1381778,
+      1312419,
+      1264048,
+      1402176,
+      1402174
+    ]
+  },
+  {
+    "case": "player-45-NFL",
+    "subject": "Justin Herbert",
+    "edition_date": "2026-10-23",
+    "reports": 5,
+    "held": [
+      {
+        "article_id": 1332015,
+        "reason": "known_copy"
+      }
+    ],
+    "article_ids": [
+      1401706,
+      1351333,
+      1321781,
+      1331521,
+      1273425
+    ]
+  },
+  {
+    "case": "player-83946-NFL",
+    "subject": "Evan Neal",
+    "edition_date": "2026-10-23",
+    "reports": 7,
+    "held": [],
+    "article_ids": [
+      1422285,
+      1391857,
+      1381475,
+      1381527,
+      1381549,
+      1422166,
+      1381735
+    ]
+  },
+  {
+    "case": "player-278370-NFL",
+    "subject": "Brian Thomas Jr.",
+    "edition_date": "2026-10-23",
+    "reports": 12,
+    "held": [],
+    "article_ids": [
+      1411427,
+      1391127,
+      1341016,
+      1340955,
+      1391147,
+      1340954,
+      1331053,
+      1311655,
+      1402171,
+      1391148,
+      1360867,
+      1197495
+    ]
+  }
+]

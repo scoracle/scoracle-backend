@@ -1,0 +1,71 @@
+{
+  "name": "rating-player-744-NFL",
+  "task": "rating",
+  "sport": "NFL",
+  "prompt_version": "s81-job-target-fresh",
+  "user_prompt": "{\"job\":\"Your task is to explain the target entity's performance using the supplied measurements. Describe meaningful measured strengths, weaknesses and contrasts, with the sample limits that affect the reading. Do not invent measurements or explanations. Write with the observant, direct voice of an experienced scout.\",\n\"meta\":{\"target\":\"The target entity is Sam LaPorta, a NFL Football player. Recorded position: TE. Team on record: Detroit Lions (observed 2026-10-23).\",\"name\":\"Sam LaPorta\",\"entity_type\":\"player\",\"sport\":\"NFL Football\",\"attributes\":{\"affiliation_on_record\":{\"observed_at\":\"2026-10-23\",\"source\":\"roster\",\"team\":\"Detroit Lions\"},\"position\":\"TE\",\"recorded_facts\":[{\"attribute\":\"date_of_birth\",\"recorded_at\":\"2026-09-14\",\"source_document_id\":94186,\"value\":\"2001-01-12\"}]}},\n\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"Air Yards Responsible\",\"measure\":\"sum of passing, receiving, kick-return, punt-return, punt and interception yards\",\"value\":316.0,\"percentile\":90.6,\"cohort\":828.0,\"band\":\"elite\"},{\"label\":\"Points Responsible For\",\"measure\":\"6 x touchdowns (passing, rushing, receiving, kick return, punt return, interception, fumble) + 3 x field goals made + extra points made\",\"value\":18.0,\"percentile\":89.4,\"cohort\":828.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":5.0,\"minimum\":10.0},\"availability\":[]},\n\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": {
+      "affiliation_on_record": {
+        "observed_at": "2026-10-23",
+        "source": "roster",
+        "team": "Detroit Lions"
+      },
+      "position": "TE",
+      "recorded_facts": [
+        {
+          "attribute": "date_of_birth",
+          "recorded_at": "2026-09-14",
+          "source_document_id": 94186,
+          "value": "2001-01-12"
+        }
+      ]
+    },
+    "profile": {
+      "limit": {
+        "appearances": 5.0,
+        "kind": "thin_sample",
+        "minimum": 10.0
+      },
+      "season": 2026,
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 828.0,
+          "label": "Air Yards Responsible",
+          "measure": "sum of passing, receiving, kick-return, punt-return, punt and interception yards",
+          "percentile": 90.6,
+          "value": 316.0
+        },
+        {
+          "band": "strong",
+          "cohort": 828.0,
+          "label": "Points Responsible For",
+          "measure": "6 x touchdowns (passing, rushing, receiving, kick return, punt return, interception, fumble) + 3 x field goals made + extra points made",
+          "percentile": 89.4,
+          "value": 18.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "NFL Football",
+    "subject": {
+      "entity_id": 744,
+      "entity_type": "player",
+      "name": "Sam LaPorta",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "system": ""
+}

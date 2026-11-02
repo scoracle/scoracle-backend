@@ -1,0 +1,9 @@
+{
+  "name": "02-player-322-NBA-worked",
+  "arm": "sampled",
+  "wall_ms": 6761,
+  "input_tokens": 1953,
+  "output_tokens": 47,
+  "status": "rejected",
+  "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers"
+}

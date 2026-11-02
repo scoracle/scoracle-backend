@@ -1,0 +1,55 @@
+{
+  "name": "real-team:8:FOOTBALL-rating",
+  "task": "rating",
+  "sport": "FOOTBALL",
+  "prompt_version": "s79-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Liverpool\",\"entity_type\":\"team\",\"sport\":\"Football (Soccer)\",\"database_record\":\"Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.\"},\"fresh\":{\"season\":2026,\"values\":[{\"label\":\"xG Against\",\"measure\":\"xG Against\",\"value\":8.28,\"percentile\":84.2,\"cohort\":20.0,\"band\":\"strong\"},{\"label\":\"Clean Sheets\",\"measure\":\"Clean Sheets\",\"value\":3.0,\"percentile\":73.7,\"cohort\":20.0,\"band\":\"above average\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":7.0,\"minimum\":10.0},\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.",
+    "profile": {
+      "limit": {
+        "appearances": 7.0,
+        "kind": "thin_sample",
+        "minimum": 10.0
+      },
+      "season": 2026,
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "strong",
+          "cohort": 20.0,
+          "label": "xG Against",
+          "measure": "xG Against",
+          "percentile": 84.2,
+          "value": 8.28
+        },
+        {
+          "band": "above average",
+          "cohort": 20.0,
+          "label": "Clean Sheets",
+          "measure": "Clean Sheets",
+          "percentile": 73.7,
+          "value": 3.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "Football (Soccer)",
+    "subject": {
+      "entity_id": 8,
+      "entity_type": "team",
+      "name": "Liverpool",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

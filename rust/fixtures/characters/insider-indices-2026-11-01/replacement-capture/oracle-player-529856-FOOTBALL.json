@@ -1,0 +1,52 @@
+{
+  "name": "real-player:529856:FOOTBALL-oracle",
+  "task": "oracle",
+  "sport": "FOOTBALL",
+  "prompt_version": "or31-five-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Jean-Clair Todibo\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\",\"database_record\":\"Jean-Clair Todibo — Defender, on record at West Ham United (Premier League). Nationality: France. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"journalist\":[{\"generated_at\":\"2026-10-23 16:01:55.651688+00\",\"source_article_ids\":[1362836,1323377],\"title\":\"Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo\",\"body\":\"Lens is not planning to terminate the loan of West Ham defender Jean-Clair Todibo.\",\"trajectory\":\"developing_story\",\"source_count\":2,\"source_age_days\":10}]},\"tone\":\"Reflective, economical and quietly evocative. Use a light metaphor only when it clarifies the reading.\"}",
+  "parts": {
+    "cards": {
+      "insider": null,
+      "momentum": {
+        "blurb": null,
+        "direction": null,
+        "generated_at": null,
+        "input_hash": null,
+        "momentum_score": null,
+        "rating_samples": 0,
+        "rating_slope": null,
+        "vibe_samples": 0,
+        "vibe_slope": null
+      },
+      "narratives": [
+        {
+          "body": "Lens is not planning to terminate the loan of West Ham defender Jean-Clair Todibo.",
+          "generated_at": "2026-10-23 16:01:55.651688+00",
+          "impact": 37.0,
+          "source_age_days": 10,
+          "source_article_ids": [
+            1362836,
+            1323377
+          ],
+          "source_count": 2,
+          "title": "Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo",
+          "trajectory": "developing_story"
+        }
+      ],
+      "rating": null,
+      "vibe": null
+    },
+    "subject": {
+      "database_record": "Jean-Clair Todibo — Defender, on record at West Ham United (Premier League). Nationality: France. Record: roster; observed 2026-07-04.",
+      "entity_id": 529856,
+      "entity_name": "Jean-Clair Todibo",
+      "entity_type": "player",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

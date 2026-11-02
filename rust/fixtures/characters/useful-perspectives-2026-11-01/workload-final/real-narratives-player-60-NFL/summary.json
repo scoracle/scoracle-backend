@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-narratives-player-60-NFL.json",
+      "generation_wall_ms": 57074,
+      "input_tokens": 3936,
+      "name": "real-narratives-player-60-NFL",
+      "output_limit": 2100,
+      "output_tokens": 137,
+      "parsed": false,
+      "prompt_version": "n121-useful-perspectives",
+      "reading": "named claim is absent from cited reports: Seahawks QB",
+      "request_bytes": 2268,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "rejected",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 57083
+    }
+  ],
+  "completed": 1
+}

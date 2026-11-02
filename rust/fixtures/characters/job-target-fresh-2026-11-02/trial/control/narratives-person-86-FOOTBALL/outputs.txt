@@ -1,0 +1,7 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / narratives-person-86-FOOTBALL [accepted]
+OneFootball, Yardbarker, and Yahoo report that RB Leipzig coach Martín Demichelis has praised Yan Diomande ahead of the Champions League clash between Real Madrid and Leipzig at the Bernabéu.
+
+Goal.com reports that Martín Demichelis insists Franco Mastantuono is built for Real Madrid despite his loan spell at Fiorentina, noting the player needs time.

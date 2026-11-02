@@ -1,0 +1,13 @@
+{
+  "arm": "eligible-worked",
+  "checks": [],
+  "input_tokens": 2744,
+  "name": "person-8-NFL",
+  "output_tokens": 55,
+  "parser_detail": "named claim is absent from cited reports: Washington Commanders",
+  "receipt": "03-person-8-NFL-eligible-worked",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9099
+}

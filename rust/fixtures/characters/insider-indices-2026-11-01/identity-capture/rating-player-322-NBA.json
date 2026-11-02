@@ -1,0 +1,99 @@
+{
+  "name": "real-player:322:NBA-rating",
+  "task": "rating",
+  "sport": "NBA",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Donovan Mitchell\",\"entity_type\":\"player\",\"sport\":\"NBA Basketball\",\"database_record\":\"Donovan Mitchell — G, on record at Cleveland Cavaliers. Nationality: USA. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"season\":2025,\"sample\":{\"Games Played\":77.0,\"Minutes Per Game\":33.6},\"values\":[{\"label\":\"3PT Shooting\",\"measure\":\"three-point field goals made\",\"value\":3.2,\"percentile\":95.6,\"cohort\":253.0,\"band\":\"elite\",\"prior_percentile\":96.5,\"standing_change\":\"held\"},{\"label\":\"Ball Security\",\"measure\":\"turnovers\",\"value\":2.8,\"percentile\":7.9,\"cohort\":253.0,\"band\":\"poor\",\"prior_percentile\":22.5,\"standing_change\":\"fell\"},{\"label\":\"Discipline\",\"measure\":\"personal fouls\",\"value\":2.4,\"percentile\":26.2,\"cohort\":253.0,\"band\":\"poor\",\"prior_percentile\":50.0,\"standing_change\":\"fell\"},{\"label\":\"On-Court Impact\",\"measure\":\"plus-minus\",\"value\":4.8,\"percentile\":86.1,\"cohort\":253.0,\"band\":\"strong\",\"prior_percentile\":98.4,\"standing_change\":\"fell\"},{\"label\":\"Playmaking\",\"measure\":\"assists\",\"value\":5.4,\"percentile\":85.7,\"cohort\":253.0,\"band\":\"strong\",\"prior_percentile\":81.0,\"standing_change\":\"rose\"},{\"label\":\"Steals\",\"measure\":\"steals\",\"value\":1.4,\"percentile\":89.7,\"cohort\":253.0,\"band\":\"strong\",\"prior_percentile\":88.8,\"standing_change\":\"held\"}],\"composite\":66.5,\"supports_cross_season\":true,\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Donovan Mitchell — G, on record at Cleveland Cavaliers. Nationality: USA. Record: roster; observed 2026-07-04.",
+    "profile": {
+      "composite": 66.5,
+      "sample": {
+        "Games Played": 77.0,
+        "Minutes Per Game": 33.6
+      },
+      "season": 2025,
+      "supports_cross_season": true,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 253.0,
+          "label": "3PT Shooting",
+          "measure": "three-point field goals made",
+          "percentile": 95.6,
+          "prior_percentile": 96.5,
+          "standing_change": "held",
+          "value": 3.2
+        },
+        {
+          "band": "poor",
+          "cohort": 253.0,
+          "label": "Ball Security",
+          "measure": "turnovers",
+          "percentile": 7.9,
+          "prior_percentile": 22.5,
+          "standing_change": "fell",
+          "value": 2.8
+        },
+        {
+          "band": "poor",
+          "cohort": 253.0,
+          "label": "Discipline",
+          "measure": "personal fouls",
+          "percentile": 26.2,
+          "prior_percentile": 50.0,
+          "standing_change": "fell",
+          "value": 2.4
+        },
+        {
+          "band": "strong",
+          "cohort": 253.0,
+          "label": "On-Court Impact",
+          "measure": "plus-minus",
+          "percentile": 86.1,
+          "prior_percentile": 98.4,
+          "standing_change": "fell",
+          "value": 4.8
+        },
+        {
+          "band": "strong",
+          "cohort": 253.0,
+          "label": "Playmaking",
+          "measure": "assists",
+          "percentile": 85.7,
+          "prior_percentile": 81.0,
+          "standing_change": "rose",
+          "value": 5.4
+        },
+        {
+          "band": "strong",
+          "cohort": 253.0,
+          "label": "Steals",
+          "measure": "steals",
+          "percentile": 89.7,
+          "prior_percentile": 88.8,
+          "standing_change": "held",
+          "value": 1.4
+        }
+      ]
+    },
+    "season": 2025,
+    "sport_name": "NBA Basketball",
+    "subject": {
+      "entity_id": 322,
+      "entity_type": "player",
+      "name": "Donovan Mitchell",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

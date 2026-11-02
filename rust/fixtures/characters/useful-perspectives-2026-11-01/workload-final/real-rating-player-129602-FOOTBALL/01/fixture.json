@@ -1,0 +1,58 @@
+{
+  "name": "real-player:129602:FOOTBALL-rating",
+  "task": "rating",
+  "sport": "FOOTBALL",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Bruno Fernandes\",\"entity_type\":\"player\",\"sport\":\"Football (Soccer)\",\"database_record\":\"Bruno Fernandes — Midfielder, on record at Manchester United (Premier League). Nationality: Portugal. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"season\":2026,\"sample\":{\"Minutes Played\":630.0},\"values\":[{\"label\":\"Chance Creation\",\"measure\":\"expected assists\",\"value\":1.5,\"percentile\":97.6,\"cohort\":287.0,\"band\":\"elite\"},{\"label\":\"Shooting\",\"measure\":\"expected goals\",\"value\":2.66,\"percentile\":95.5,\"cohort\":266.0,\"band\":\"elite\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":7.0,\"minimum\":10.0},\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Bruno Fernandes — Midfielder, on record at Manchester United (Premier League). Nationality: Portugal. Record: roster; observed 2026-07-04.",
+    "profile": {
+      "limit": {
+        "appearances": 7.0,
+        "kind": "thin_sample",
+        "minimum": 10.0
+      },
+      "sample": {
+        "Minutes Played": 630.0
+      },
+      "season": 2026,
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "elite",
+          "cohort": 287.0,
+          "label": "Chance Creation",
+          "measure": "expected assists",
+          "percentile": 97.6,
+          "value": 1.5
+        },
+        {
+          "band": "elite",
+          "cohort": 266.0,
+          "label": "Shooting",
+          "measure": "expected goals",
+          "percentile": 95.5,
+          "value": 2.66
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "Football (Soccer)",
+    "subject": {
+      "entity_id": 129602,
+      "entity_type": "player",
+      "name": "Bruno Fernandes",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

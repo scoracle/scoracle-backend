@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-vibe-person-23-FOOTBALL.json",
+      "generation_wall_ms": 32323,
+      "input_tokens": 4665,
+      "name": "real-vibe-person-23-FOOTBALL",
+      "output_limit": 600,
+      "output_tokens": 169,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v32-coverage-tone",
+      "reading": "De Zerbi expresses delight and hope as Tottenham's resilience and family spirit shine after a crucial Coventry victory.\n\nThe coverage surrounding Roberto De Zerbi is overwhelmingly positive, characterized by a tone of relief and optimism following Tottenham's win against Coventry. Headlines consistently highlight his visible joy, with reports noting he was 'delighted' and 'very happy' to praise the team's resilience. There is a strong sense of hope regarding the squad's 'attitude' and 'mentality,' reinforced by De Zerbi's emphasis on the team bonding like a 'family.' While one headline offers a slight ironic nuance regarding his comments, the dominant emotional reading is one of supported joy and confidence in the team's progress.",
+      "request_bytes": 7664,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 32331
+    }
+  ],
+  "completed": 1
+}

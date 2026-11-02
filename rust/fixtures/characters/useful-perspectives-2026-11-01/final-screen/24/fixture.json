@@ -1,0 +1,113 @@
+{
+  "name": "regression-chicago-bears-reserved",
+  "task": "narratives",
+  "sport": "NFL",
+  "prompt_version": "n121-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Chicago Bears\",\"entity_type\":\"team\",\"sport\":\"American football\",\"database_record\":\"Chicago Bears — NFC NORTH. Home: Soldier Field, Chicago. Coach on record: Richard Hightower.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1410388,\"url\":\"https://news.google.com/rss/articles/CBMivwFBVV95cUxOVE1PUkNqNTZHOWdVTzlmU0hwb1J5b05RMkE1VUpHWHY4R0lzMmhmbDBKZ3dRQm5OQVIxWG5sanMwc0RTODF5MHZzdndwMnAzOXByRU1MSXpNcmJZOUZZWWd3QzhLNzh5Z0txdHJiVXlQeVdWVFBRcTdXU0VLU1NiRzVkSzVQYUVGWmowbHlJTjBtdFVfYlhwZ3BMOFJ5X0pMdTJ3aUtkSnVvR2pRZFdNQ2dYbTAyWW5pZy1tY0tzcw?oc=5\",\"headline\":\"Patriots vs. Bears inactives: Christian Gonzalez good to go despite newly-announced illness\",\"publisher\":\"Pats Pulpit\",\"published_at\":\"2026-10-22T22:51:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1410389,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxQTTJWRTBoYnVoMlN3dm1XeFI5b184b1pteTMyOWRjRS1ZSVZib3VrMklIMVdab3V5aTRubTdSZEtINzVlTW9FTWpyYmNRTGhlSlpuVXJBd2hXcWlVb1l0dkh3eWxhTHZCUXhSbmJ2RHI0VUdMUWdaYndyMVdwRENnQ2JQOXg?oc=5\",\"headline\":\"Patriots’ Mike Vrabel set to snap bonkers 27-year streak on TNF vs. Bears\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T22:46:13Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1330977,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxOUHA1MTdYMUtYVUtMVHhxQUhYeXhPTlkyOXZpN0MxUXB0TlprZFpzM2FOVTNZaFRjTkhLWjI3QWlXMTM2N25udDJxbmZZWTl3aTRuZUJiMTg1QkpxOFVrYk04enF4dUpMc0xUTDMyZlhzVWEtWWF2alNGZFVVRFN1ZENYRGJtcUNQZTlR?oc=5\",\"headline\":\"What to know about the Chicago Bears’ possible move from Soldier Field\",\"publisher\":\"Chicago Tribune\",\"published_at\":\"2026-10-22T14:38:02Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Chicago Bears — NFC NORTH. Home: Soldier Field, Chicago. Coach on record: Richard Hightower.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 91.793605587762,
+            "emotion": 2.199469139562544,
+            "movement": 4.343397800899566,
+            "subject": 94.55030741331788
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMivwFBVV95cUxOVE1PUkNqNTZHOWdVTzlmU0hwb1J5b05RMkE1VUpHWHY4R0lzMmhmbDBKZ3dRQm5OQVIxWG5sanMwc0RTODF5MHZzdndwMnAzOXByRU1MSXpNcmJZOUZZWWd3QzhLNzh5Z0txdHJiVXlQeVdWVFBRcTdXU0VLU1NiRzVkSzVQYUVGWmowbHlJTjBtdFVfYlhwZ3BMOFJ5X0pMdTJ3aUtkSnVvR2pRZFdNQ2dYbTAyWW5pZy1tY0tzcw?oc=5"
+        },
+        "context": "Patriots vs. Bears inactives: Christian Gonzalez good to go despite newly-announced illness",
+        "id": 1410388,
+        "published_at_epoch": 1792709478,
+        "source": "Pats Pulpit",
+        "title": "Patriots vs. Bears inactives: Christian Gonzalez good to go despite newly-announced illness"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 16.97279102726145,
+            "emotion": 3.8364804484499535,
+            "movement": 3.139678263902733,
+            "subject": 94.75090694655736
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxQTTJWRTBoYnVoMlN3dm1XeFI5b184b1pteTMyOWRjRS1ZSVZib3VrMklIMVdab3V5aTRubTdSZEtINzVlTW9FTWpyYmNRTGhlSlpuVXJBd2hXcWlVb1l0dkh3eWxhTHZCUXhSbmJ2RHI0VUdMUWdaYndyMVdwRENnQ2JQOXg?oc=5"
+        },
+        "context": "Patriots’ Mike Vrabel set to snap bonkers 27-year streak on TNF vs. Bears",
+        "id": 1410389,
+        "published_at_epoch": 1792709173,
+        "source": "Yahoo Sports",
+        "title": "Patriots’ Mike Vrabel set to snap bonkers 27-year streak on TNF vs. Bears"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.7529773158716666,
+            "clickbait": 8.004721472435772,
+            "emotion": 2.234348578797492,
+            "movement": 59.8503791920789,
+            "subject": 97.16787223506545
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxOUHA1MTdYMUtYVUtMVHhxQUhYeXhPTlkyOXZpN0MxUXB0TlprZFpzM2FOVTNZaFRjTkhLWjI3QWlXMTM2N25udDJxbmZZWTl3aTRuZUJiMTg1QkpxOFVrYk04enF4dUpMc0xUTDMyZlhzVWEtWWF2alNGZFVVRFN1ZENYRGJtcUNQZTlR?oc=5"
+        },
+        "context": "What to know about the Chicago Bears’ possible move from Soldier Field",
+        "id": 1330977,
+        "published_at_epoch": 1792679882,
+        "source": "Chicago Tribune",
+        "title": "What to know about the Chicago Bears’ possible move from Soldier Field"
+      }
+    ],
+    "subject": {
+      "entity_id": 24,
+      "entity_type": "team",
+      "name": "Chicago Bears",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

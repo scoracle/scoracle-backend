@@ -1,0 +1,20 @@
+{
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "url": "http://127.0.0.1:8081",
+  "temperature": 0,
+  "concurrency": 1,
+  "retries": 0,
+  "database_access": false,
+  "publishes": false,
+  "binaries": {
+    "control": {
+      "path": "/private/tmp/scoracle-insider-unindexed-outputs",
+      "sha256": "bcb3a469f3116d4f81e890e7095bf7e90232ba24b55014cfb61ac0fe7095d563"
+    },
+    "indexed": {
+      "path": "/Users/scotty/scoracle/scoracle-backend/rust/target/release/examples/character_outputs",
+      "sha256": "1bfd9764dc8e5246469a23671d7a1692283b8b26c86226df1b3f0aa0e8dda837"
+    }
+  },
+  "design": "Twelve frozen cases, both arms once, alternating control-first and indexed-first. Only report_index input fields differ."
+}

@@ -315,6 +315,7 @@ mod tests {
             })
             .collect();
         let mut parts = Parts {
+            database_record: None,
             subject: serde_json::from_value(records[0]["subject"].clone()).unwrap(),
             day: Day {
                 start: 1792296000,
@@ -326,13 +327,7 @@ mod tests {
             excluded: vec![],
         };
         let packet: Value = serde_json::from_str(&parts.assemble()).unwrap();
-        assert_eq!(packet["memories"][0]["headline"], records[0]["headline"]);
-        assert_eq!(
-            packet["memories"][0]["published_at"],
-            records[0]["published_at"]
-        );
-        assert_eq!(packet["memories"][0]["publisher"], records[0]["publisher"]);
-        assert_eq!(packet["memories"][0].as_object().unwrap().len(), 3);
+        assert!(packet.get("memories").is_none());
         let retained = serde_json::to_value(&parts.memories[0]).unwrap();
         assert_eq!(retained["spectrum"], records[0]["spectrum"]);
         assert_eq!(retained["article_id"], records[0]["article_id"]);
@@ -343,13 +338,13 @@ mod tests {
         );
         assert!(packet.get("voice").is_none());
         assert!(packet.get("task").is_none());
-        assert_eq!(packet.as_object().unwrap().len(), 3);
+        assert_eq!(packet.as_object().unwrap().len(), 5);
         assert!(packet["fresh"]["reports"][0]
             .get("publisher_text")
             .is_none());
         let with_memories = Assignment::from_parts(parts.clone()).unwrap().input_hash;
         parts.memories.clear();
-        assert_ne!(
+        assert_eq!(
             with_memories,
             Assignment::from_parts(parts).unwrap().input_hash
         );

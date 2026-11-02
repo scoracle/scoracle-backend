@@ -1,0 +1,980 @@
+{
+  "name": "real-player:278370:NFL-narratives",
+  "task": "narratives",
+  "sport": "NFL",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Brian Thomas Jr.\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1411427,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxQYmk1bk1DeFFyR01wd0NqNGhDMkIyWnBKd3Rrb1VmM0pYZW1ncUh2eFNfVWljaXJRNm9GTU05NnVMeF9Nc1BjWHJjeVUzWi1MWC1qcUdLY1N0bFA4aWdjbWx1WlVKbjJTdFhkYUtrRnlFNzZGaV8zN0RkQ2dBWWg4T1JaUzZQLW5iRVQ0Q2ZFVW1WNkdCMThGWDFvTEk4d29IMEQ0Vk1DdmRJQQ?oc=5\",\"headline\":\"Jaguars’ Brian Thomas Jr. Big Concern Raised Amid Trade Rumors\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T23:01:12Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1391127,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPMWI5aHdvYWR3anBqVklJYVJTU21GM1VQMmFTT0FneXZIYlU0UHF0SEtFZTlpNW43YTBTQ3RoWmZCSUhvTFhTYkdOLTdWdUk3UE8tNjZUanhTMVpYR1FzZHlTbjNYY0lXWXlDUGxRYnJiMWIxLTktX1JMUk5nZWFMQzFHbFVoRTQ?oc=5\",\"headline\":\"Rams Trading for Wide Receiver Brian Thomas Jr. Would Be a Mistake They Can't Afford\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-22T21:19:56Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1391153,\"url\":\"https://news.google.com/rss/articles/CBMiwwFBVV95cUxPYzU3LWV0dC1sOVFkb2lwNV85OVpLZDUtdXlhQTR3S0ZtVU8zcVEzUG12Y1lQNlJOVlhxNHpXVEVUazA5WldBb1l6YVV2ODNDU1dJWHJzVjJILWFfUVc1WGJCYVV2RXMzM0U3b3dQckVRaUprbnhLQVF1cjRnUXBKSUYzb1FoNGxOZV9vZm85NXN3Q20tUHdYM1FOaDctc1FrcmFWYUxHemgyVnNfU1VlWDhlOG12ME5MNlJtbUNNbVRkdkk?oc=5\",\"headline\":\"Why The Jaguars Shouldn’t Trade Brian Thomas Jr. Despite His Strugles\",\"publisher\":\"Yardbarker\",\"published_at\":\"2026-10-22T20:43:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1401317,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxPUEgxQnRmQXpGRUtYMVNIRGo1YUtaeUJET1NIWjlzaWxIdmxKWW1DUUpndTJ5enUyREdsYll4V1BJNGY5Vk5nSDREZ0RrZzg2N0dWX1QyV0Nrb2FjTHdCd2Rjbk01UVVjUkQ4Z0hHQzNYTDFGay0ycklpaGxLd3VXTlc0a05LUGZS?oc=5\",\"headline\":\"Why The Jaguars Shouldn't Trade Brian Thomas Jr. Despite His Struggles\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T20:17:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1341016,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxPS3JfSVNNdHYxZldIdVpDWGJMRTcxM3JwTXJZc0dDWDMxTjEzNk01N2M1MEU2VmpvR1NkTzhUS0psaFNGS1VuMmdkZEhKbV9nU1I5Q25oNHk1bnBZRU91ZHlOc3gzcmVvNGl2LXBnSWoyX2R3MXZhV2FXVGFzR0hOTkVydw?oc=5\",\"headline\":\"ESPN proposes Jaguars trade Brian Thomas Jr. to fellow AFC team\",\"publisher\":\"AOL.com\",\"published_at\":\"2026-10-22T17:34:57Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1340986,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxON1JXcWxYbEo4ZDZ6VjZFaW9RTjZBY1ZxYnFmb1JBRFNweTdtRlcwMW5kUElMcHQyY0dXQ2tEQUx4WmhWUkIwME5qZEtCcFFtSVAtQWxiTGFmYktfNDAzOFBFY2ZZMWU3akdUVTNqWDNsX29rM1hFbER0aW9wZ0RFRnM1cDRvTDVpY01wd1JiWXBBemd4VHN6ZEx5c0FqZw?oc=5\",\"headline\":\"Liam Coen's Frustration Tells the Jaguars to Take a Second-Round Pick for Brian Thomas Jr.\",\"publisher\":\"Athlon Sports\",\"published_at\":\"2026-10-22T17:15:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1331053,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxOSUQwdVZOa2EyV0tJU0MzcGZKcjVLWHBBSEF4RkRCTW9VMkw3VGFiR09PczJvcERDbEF3YmM5NlJMbzk4aGF4UzFjbkV0cTRSckdIeW9hMy1MUi16MkFtNFBaX0NXdzdZeExScTVreWhpSmt2aHFNMFVEOUpJY1BySVdDdU5TekM4OXEtMkpkc19wS01YT21fTU5ZXzZROWJfMUE?oc=5\",\"headline\":\"Raiders Get Brian Thomas Jr. at Bargain Price from Jaguars in Latest Trade Pitch\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T16:45:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1311655,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxQVHpyb3pIOEk3aFgxZGwzcHJSeDdSaGtSY0Q0RmJ0R2FGM2ticUptX2R5djV6ZFVqaUhuWENwSG9na3VNWWlsNkNIV0Z6RWg3T21ZajZSRndxWGVCcV9xZjQwd2VHM3Zsa0FtdEJLU0NVcGo3T0h5N25acmdGUlIyOFQ2Q1VBeUxlU3Jna3NRZXVVOEk?oc=5\",\"headline\":\"Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-22T14:06:44Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1311709,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxOckg3ZGRGYkVpV1FDdWExUWZfdUVRM1VDOElyTDU2OXptX214TnBkcEdFUDlQME1uSWQ2UEJXMmYwSE9CUkM4RDZPdnRFMXctTkd4VmhFWWJ2dnFNREd3OWhxZnpXbS1ucmVzM0RQaWlVX2RJMHdwcE9zakFjYmVHcEtsLWFTUGpqSzFFYUF0cXl6UUlZaVVKai1zd016bGYyTlpGSlFsVlBFeFBzNkE?oc=5\",\"headline\":\"Latest ESPN intel reveals Jaguars' Brian Thomas Jr. could solve major Rams issue\",\"publisher\":\"Black and Teal\",\"published_at\":\"2026-10-22T10:00:01Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1402171,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxQcV9JYmhOLTU2cWZjSmUyNTM0TXc5bVlSY09pMGh3c2VwQ3R2R1dHVDIySy00RjNibDcxMlZScUZVbDk3Q0llSjNRb09ZZks0T1V3RFhvUmMzbjB1UEdPejRqNk5vR3hRNVI3UTRadl96SDd2Y3BNVDkxR2NQRGtxSk9ubHZiMFEwVmc?oc=5\",\"headline\":\"Most Likely Landing Spots if Jaguars Trade Brian Thomas Jr.\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T00:04:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1391148,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxORnhHUklSbFktek5QWmc1d19hMWhSeTJVQVJWT3lTUXhzT3JDbG5CYmd4bmFndHgtb1d6R1l1d19PT3ZOalNJMy0xNEdxOW55R3R2Ul9YVUNvZjNuM0ppeExlS201SDA5NGlJZDBXbnY2dUhkazRob3VSYlZmLWNNZQ?oc=5\",\"headline\":\"Jaguars WR Brian Thomas Jr. Could be Intriguing Trade Candidate for NFC East Team\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T23:43:11Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1360867,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxOcm5Sa1RNOHM0ZGZVbVlhWVpySHlvNE5FSmdYSGVWR2xmbjl5V3ZFVHFqcUN4WS1vS2R2SjRJX1U0YkRVS0Q1V3Q3V19xZEg0Z0twa1g4OVdoLVhTaVBkaXVQcXNMdzdfaF9QUF9NTjNGODZGVWFfSDlveEFyZktIeGoySzhtZTBBZVhRV05n?oc=5\",\"headline\":\"Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr.\",\"publisher\":\"AOL.com\",\"published_at\":\"2026-10-21T20:00:40Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1186130,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxPWVBQT3E3YnhVQ0dSaURoOXNPdEhuY3k2eG93Rm9vVllUQ29JNkpiekZrQVFvdGpCdlRyZXpaaUtfQlRpUlg3V25LaDZZWkczdUlFTDBHZjhLeDZOYk9xWnZKVUx3SmFWWkExYWFMS29LcG9NU1JZbmt5cjhSVmFkR2lVLWlHVERSN2Qyblg0RUdob3VJbXRfRHpkRDB1Zw?oc=5\",\"headline\":\"Jaguars voice drops brutal truth about Brian Thomas Jr.'s struggles\",\"publisher\":\"Black and Teal\",\"published_at\":\"2026-10-21T16:39:35Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1186094,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxQcTRVblFUQXRNNFB2UE54eklZcGhWb1MtY1g3Q25CaXRGQ0pBbzhkZEpHLWRqR05VWmtZcHRDaGxxTWcwRWEwSlZCWkRwVEFXZ1daTGRhX3prckxVbFNxZGpSd1c4S3RtMDUzcTRCTjlnb1BtRWZNNG03Ql9nUTBON0RGaUJLZFlWWmZteVRlb2c?oc=5\",\"headline\":\"Bills trade deadline candidate: Jaguars receiver Brian Thomas Jr.\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T14:15:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1263628,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxQMTJfZ0tJVFUyZVdUWWVJSWNpd1NwRmRwQ2RKMUczbFdjSHJETU5uUnBYZEJDUlRaajY2LXdtajM2UXZwZ1dWU2hyN1pMaktQZThneVE1dXBMejRWbEthUFJlVHY3d0ZHS0Z4bGgtcjNFT09BUHNjMXQzOENpMnJyaEx0Mm5oVzQ?oc=5\",\"headline\":\"Jaguars Urged to Move Brian Thomas Jr. to Las Vegas as Parker Washington Takes His Role\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T12:45:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1160015,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxObHA4Ylo4ekYtWVlPUmhiZnhVSENxTEVjSDV4cm9GbE1KOVc2OUFxSkRUYjVlNDZzbUczWDhLcm12dE5aSDNZSnVJeFdFbkVLRG1POVBoY0dSVVVpamIzUHVybUF5bS02RmN4WWVTbndSNXc2cmJ2aE4yRHg4dXVfaQ?oc=5\",\"headline\":\"NFL Expert Cautions Jacksonville Jaguars About Brian Thomas Jr. Trade\",\"publisher\":\"Gridiron Heroics\",\"published_at\":\"2026-10-21T11:32:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":803461,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxOYm1XRHllQmZUX1JyWHY1Z0R1Ti1DUzN5STdQMnFfVE95M3RqRXZhaEVnT0R2OTlfRVRQeDM3eFczb2VuazlTclNIWHhvZUcwTFBUU1ZtaTBZdGtwc1FWc2ZXcDBFZlBLSEk2QWJnWUlOZ05OdjVPekV6UWUtdnZZSmFFOTU?oc=5\",\"headline\":\"49ers named as trade fit for Jaguars WR Brian Thomas Jr.\",\"publisher\":\"49ers Webzone\",\"published_at\":\"2026-10-21T10:50:13Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1159995,\"url\":\"https://news.google.com/rss/articles/CBMi0AFBVV95cUxNRUhEaGQwbHV6TFI1LXhFajlYQl8yVUVhVzJia29BSkR0TVFPTGNYSGJGbTQtSTBnWkI2NERXRmRpSUpvVnZBNnhBWGNkWUNtdzBWR205VGFHMkVRbmhpNksydFhxS0VzVE9jd19FOUxRZXhrSUJrNlpqTXdBeHVFeHBKZHBhZnlucXhyN1drUkREYWx1a1h4RE1ud1dvZUJRUGdIZUl6ZFMxUmNYQ3ZZNmtxZUFiSzg0TXV0SjllUXNRM2pGZDdqYWJuUUkzaU1C?oc=5\",\"headline\":\"What's next for Jaguars, Brian Thomas Jr. after 15 snap game v. Houston?\",\"publisher\":\"Jaguars Wire\",\"published_at\":\"2026-10-21T10:08:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1159984,\"url\":\"https://news.google.com/rss/articles/CBMipgFBVV95cUxQVDV5WnVCU1pTbkVfM0NCY2xtMnRwNE1mS0Z2dDNaSmNuTDNNVjFfWFVkM0JmWVVKekhWV191Z1pHa3Fueno1dzg3NEktRWoxNklIR1JJZ3RYUkg2NkV1WXJxcGdoSEw0QVd0UXlTUk5NRkQwZF82VmQyV3VkNmM0MGVGdzlWVW5HOVVWeGp4bWExcmtSZUtxTF9DcFdXMHd2THQ5bV9n?oc=5\",\"headline\":\"Jaguars could gift LA Rams a WR spark with Brian Thomas Jr. trade\",\"publisher\":\"Black and Teal\",\"published_at\":\"2026-10-21T10:00:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1159199,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxNeHZTejVMTTdFUkp0V0hHOWJULVZSRmI1STdreWRUc0R0eGV0U044R0Vrc2pDSjZFRzg3bU5Ub3NPdnprYVU3QkhqQlZ3bl9waWJhWEZERjF2eXpMVnY1RmhGaEMta0lhZXYwS2VJMG1rUlhUU1NPLVdDcDJodVc3T0pkYTZTdw?oc=5\",\"headline\":\"Miami Dolphins: Brian Thomas Jr. Presents a Potential Opportunity, Not a Confirmed Dolphins Target\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T02:08:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1102520,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxOazd0N1VTZEdtajY4bi1sNi1LWEhPT2lTakQtcC1ZVGxpQ05iRnFtVWIzdXJzTGRrUU9abEZjV3pjQzFqenlvN2FJcFFKTHJ5eWlkck9rMlZoZU1hOXljZ2xwdW5iRF9weThJUG9iUVFfZFFGd0FoZTBEUElzQUh3bDAzTTJQWlhvM19seFlWUQ?oc=5\",\"headline\":\"Jaguars Trevor Lawrence, Travis Hunter Send Strong Message to Brian Thomas Jr. Critics\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T20:48:17Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1074051,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxOV2xGZ1ItQm1oakhYYlBURWtVZC1IQWJnMm9yMTRNdlZVMWJZSVBMMG5sSXJBOGJvdTFfbGtoaXRGR0VlYVlPYVg4Rl8zWmVVMmFpRU9wTzllV0dpQW54M0VTQnNiLTFKWVRTOWxXSTdra09VOW1SZWlkV01Sc0JKUVZMQ0ZDSFpGd09DSlJNWlJ0b3pzWEwwU3k5cXFzUQ?oc=5\",\"headline\":\"Jaguars may be done with Brian Thomas Jr., but Trevor Lawrence isn't\",\"publisher\":\"Black and Teal\",\"published_at\":\"2026-10-20T18:09:24Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1121561,\"url\":\"https://news.google.com/rss/articles/CBMi3wFBVV95cUxQM3hJMXBWMjgzeWN1R1hvYi1FeVlnWVVHWnBTTWQtOTR3YXVyeWlCa1ZDWDJLVndBNXFFWmFLazYyb2hBcDItdFEyNjlBdEE2ZzU2S0xMQ2ZxWTlWbmdHOUpuWFdHNUJRMTQyODZfMjl5aDR4bXZmaElJRmdVNkMtTTgyRWYxeEtkTElEMVhhczVXcEJHcVJ0QWxQWVdnUi1DbDhKZDhodFZ0QjVIb2Jld2dtVGpNMzBPV2hWUXAyUTloZEo0S3lhM25udHlLV0FuUzRibGhtNzJGXy1iZUdJ?oc=5\",\"headline\":\"Brian Thomas Jr. rumor reveals 'a lot' of believers that Jaguars will make a trade\",\"publisher\":\"Sporting News\",\"published_at\":\"2026-10-20T17:37:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1021196,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxQUHRkbUJqclA2QVJLMEZIQmRyanpmS2tHUTlQQWg0bEdaRDloNnlremdUTTRyQmJSalllN0hIVGJfT3pMZjJZWUxVVENYVklFNjNQVHhjT1Y0bHBvUXR1WkJtQW1JUFpJMnRBTEp2U3ptakNqQ3Nhb25Tb3BvbHhVUFpmMA?oc=5\",\"headline\":\"Raiders news: What price would you pay for Brian Thomas Jr.?\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T14:06:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1020934,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxPNk9yZjN4NDh2QnQtVU1fVkVGdGliZ2o1ZUV0NzQtZXdTTE9IVU5fNzBfRmVvdmF2SFdhQmNCN3RTSC1TZ0Q4QUFnLXRNZkFIZmNiY0V1NENQS2t2b2xzcXRjeHNLdUlHSi1kbWlld0VIcXdmWFRPR3FMTTZzYnlNUWs5TlMyallRbTh6LUhJSQ?oc=5\",\"headline\":\"Why Raiders Should Consider Trading for Brian Thomas Jr.\",\"publisher\":\"Sports Illustrated\",\"published_at\":\"2026-10-20T13:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1020885,\"url\":\"https://news.google.com/rss/articles/CBMi-AFBVV95cUxPX0FnbU1mbFdPS3paT29LY2xWUjk1azdzckh4UlBXZDZwVHFFLVVQQnJQRXZNMkFPc1NiSFRJcFZ5eU9FSjZxYlItNm5DeURNbEhZOEhpaENyTlI5NXUyMWZnUUp5TEZfN3lCSEJZUDFxaU5TYUJwTVVBSVZ3ek1ER05sdEllUVFpeDVhdXBPYTdZQ0NobjlnSTFXX0NUZVdiTFZWX19QLUktOVUtR0FYWjRnMHo2OG80d2VoWW9DZ3NyZWJVVE9RbjhHTTZQdEVwS212VVBiMXlsaXVSNFBhN3FacHA5SU5WaGVTQm11N09XWXZZVERsMtIB-AFBVV95cUxPX0FnbU1mbFdPS3paT29LY2xWUjk1azdzckh4UlBXZDZwVHFFLVVQQnJQRXZNMkFPc1NiSFRJcFZ5eU9FSjZxYlItNm5DeURNbEhZOEhpaENyTlI5NXUyMWZnUUp5TEZfN3lCSEJZUDFxaU5TYUJwTVVBSVZ3ek1ER05sdEllUVFpeDVhdXBPYTdZQ0NobjlnSTFXX0NUZVdiTFZWX19QLUktOVUtR0FYWjRnMHo2OG80d2VoWW9DZ3NyZWJVVE9RbjhHTTZQdEVwS212VVBiMXlsaXVSNFBhN3FacHA5SU5WaGVTQm11N09XWXZZVERsMg?oc=5\",\"headline\":\"Jaguars appear ready to phase out speedy receiver Brian Thomas Jr. after Wembley woes\",\"publisher\":\"Action News Jax\",\"published_at\":\"2026-10-20T11:33:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1001533,\"url\":\"https://news.google.com/rss/articles/CBMixAFBVV95cUxPZkZaczVrVXB6eTZRTmh0dTNJcXQ2NmNzWDZMT21scFBIcW9qRU9NTFV0b3h4WEVUUFpkR2RKY1FJMWNsVGcxa0FFdDdOYndwRFlEMFlSNXp5elpJUjF5bndmU2JncFNQVVQ0WDczc3JMZnU0andlckdqbWFPcHo4Zk5jQktBcVFVNG9ON1k5eFctZnVtaUVTVXBuRW4xNng2Y0RZWXVTSE5xa3JYR2ItS0hSUXdERjZ5aXpHaEtQNWJsZUNM?oc=5\",\"headline\":\"Commanders need to call Jaguars about Brian Thomas Jr. amid Terry McLaurin injury\",\"publisher\":\"Black and Teal\",\"published_at\":\"2026-10-20T10:00:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1049642,\"url\":\"https://news.google.com/rss/articles/CBMixgFBVV95cUxPRlRSanA4SzVXRlF3SGpwT3EyVUJPRldkN0t5UG83bXBYR29UTFlYNlJKR3NuTElYZEZzcUpRdEYtcDlkU2d6Vk80ZzZKc1RHMWx4d3lJN1dfeFh5RUViSkxWMDNLY3hvSm8wNi1ZYVdFRWNZTHFQVG1zQUhBNTBJWkpud2JLa0RLN1pvNXFINW5tSmsya0hybHFXclhZODczbXFaQ3VfSkhuOHFBdEZsSDVjdURaSGlrZTI1Q1B0QXU4ZnlwdFE?oc=5\",\"headline\":\"Could Jaguars trade Brian Thomas Jr.? 4 teams that make sense\",\"publisher\":\"The Florida Times-Union\",\"published_at\":\"2026-10-20T09:11:34Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1020923,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxPcGNrYUw0RFlZV0JEQXZDTXZhbVB5REw4ck1wVVBKcE1DblhGdXZtd1VSU002REI4allULTBRMFAzSzdoWUc2TG40UW1WRVptbHFSeHZkaFByZXQtZzFCd3B1QTZHNUl3TnY1Tm9NY0xyU3FGMWtZMk5RakhyV21CWUlBZEVpLThhQ0F1QUdLaEkxdw?oc=5\",\"headline\":\"Likelihood of Jaguars Trading Brian Thomas Jr. Debated\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-19T23:29:21Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1049712,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE9saFVTUUxwQ2tleUdzdlR5SkpnNHRfeVlnTXFaOEtsdTVQVkJPX3NBb21JMGZmYmdOaVlBMkpPLXpiaDNTd2FQUzRiMHZDdG1fZllENWs0cUNQRlYtV3hCbE50WGMycndFT3ZnV3FaSmVDenNuQUtGT1MzQ1loZE0?oc=5\",\"headline\":\"Jaguars Bye Week Could Decide Brian Thomas Jr. Future\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-19T22:04:21Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1011332,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxPczJaUnk1V24zN0cyeEMzSl9XTkhMZW9CMHN0eXFXVk1rNzMtWE1RVmJ4Q0NhUm1KX0pKWmlQaVF3blJNcUJ3b2xDNHg5OXVLRFVkNWY3a0dGX1ZKUlJ2V3ZMS0wxM3NrSmRHUTduel9GUjB5UUpMYU5kMEd4X1dEalFMRlg?oc=5\",\"headline\":\"Jaguars Snap Counts Show Josh Cameron Taking Brian Thomas Jr.'s Role Into the Bye\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-19T21:45:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1001550,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxPc0N2ZlVYTmlTamVkaXJ5ZTBSRXh6bGlwc3BDSjBYYUZhUElHc19nejAyR25TVUNYcTdTU1NrNVNBOGxueGxTMTAzWWRSZWY3ZXdjbmdtdkEyMTZWeWhXTXczZXAxSzM3RXR6b1hsUEpFVlFBclNiVWR3UEdkNi1ycFZZTUo?oc=5\",\"headline\":\"Jaguars’ Brian Thomas Jr. Trade Plans Made Clear by ESPN\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-19T21:20:22Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1049711,\"url\":\"https://news.google.com/rss/articles/CBMi0wFBVV95cUxOM1I0VEctT0FuMnZmWGxGSWFLdUIwODEtUUtqWHlmbklaeGp5ZG1FS2NmdDhBOWlnbXdFVkwtRU5QVVZTUC12aXFKSE5Ic0MxazM4dFVmM3p0aHNGWHBsaTRscFZWYmdRUkJnNUt4cWhEVUpqeDNKbDdOZ0V4WFJraTRtbkxnSG1oTUxXSU84eWRZZ2xMRjhBdFdpc0JEdkhxQzN4NUtPQTJUZmhzUmVuclJlVUp5a181Wk5PbjZXOU1HemFaUEhJTWE5M1d0ZDFNUXln?oc=5\",\"headline\":\"Why Was Brian Thomas Jr. Benched in London? Answering 5 Questions Jaguars Fans Are Asking\",\"publisher\":\"Athlon Sports\",\"published_at\":\"2026-10-19T18:00:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 58.88304851386278,
+            "emotion": 11.82118166437931,
+            "movement": 92.25119354040996,
+            "subject": 92.45322701077043
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQYmk1bk1DeFFyR01wd0NqNGhDMkIyWnBKd3Rrb1VmM0pYZW1ncUh2eFNfVWljaXJRNm9GTU05NnVMeF9Nc1BjWHJjeVUzWi1MWC1qcUdLY1N0bFA4aWdjbWx1WlVKbjJTdFhkYUtrRnlFNzZGaV8zN0RkQ2dBWWg4T1JaUzZQLW5iRVQ0Q2ZFVW1WNkdCMThGWDFvTEk4d29IMEQ0Vk1DdmRJQQ?oc=5"
+        },
+        "context": "Jaguars’ Brian Thomas Jr. Big Concern Raised Amid Trade Rumors",
+        "id": 1411427,
+        "published_at_epoch": 1792710072,
+        "source": "Heavy.com",
+        "title": "Jaguars’ Brian Thomas Jr. Big Concern Raised Amid Trade Rumors"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 38.922681368689105,
+            "emotion": 13.245996867454554,
+            "movement": 90.98891797191814,
+            "subject": 88.05294723836595
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPMWI5aHdvYWR3anBqVklJYVJTU21GM1VQMmFTT0FneXZIYlU0UHF0SEtFZTlpNW43YTBTQ3RoWmZCSUhvTFhTYkdOLTdWdUk3UE8tNjZUanhTMVpYR1FzZHlTbjNYY0lXWXlDUGxRYnJiMWIxLTktX1JMUk5nZWFMQzFHbFVoRTQ?oc=5"
+        },
+        "context": "Rams Trading for Wide Receiver Brian Thomas Jr. Would Be a Mistake They Can't Afford",
+        "id": 1391127,
+        "published_at_epoch": 1792703996,
+        "source": "Sports Illustrated",
+        "title": "Rams Trading for Wide Receiver Brian Thomas Jr. Would Be a Mistake They Can't Afford"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 46.3160637098317,
+            "emotion": 6.795302785517371,
+            "movement": 76.29557029086784,
+            "subject": 92.32848610984938
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxPYzU3LWV0dC1sOVFkb2lwNV85OVpLZDUtdXlhQTR3S0ZtVU8zcVEzUG12Y1lQNlJOVlhxNHpXVEVUazA5WldBb1l6YVV2ODNDU1dJWHJzVjJILWFfUVc1WGJCYVV2RXMzM0U3b3dQckVRaUprbnhLQVF1cjRnUXBKSUYzb1FoNGxOZV9vZm85NXN3Q20tUHdYM1FOaDctc1FrcmFWYUxHemgyVnNfU1VlWDhlOG12ME5MNlJtbUNNbVRkdkk?oc=5"
+        },
+        "context": "Why The Jaguars Shouldn’t Trade Brian Thomas Jr. Despite His Strugles",
+        "id": 1391153,
+        "published_at_epoch": 1792701785,
+        "source": "Yardbarker",
+        "title": "Why The Jaguars Shouldn’t Trade Brian Thomas Jr. Despite His Strugles"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 40.09041895199373,
+            "emotion": 7.827637399374086,
+            "movement": 76.70831362030918,
+            "subject": 92.09608955415764
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxPUEgxQnRmQXpGRUtYMVNIRGo1YUtaeUJET1NIWjlzaWxIdmxKWW1DUUpndTJ5enUyREdsYll4V1BJNGY5Vk5nSDREZ0RrZzg2N0dWX1QyV0Nrb2FjTHdCd2Rjbk01UVVjUkQ4Z0hHQzNYTDFGay0ycklpaGxLd3VXTlc0a05LUGZS?oc=5"
+        },
+        "context": "Why The Jaguars Shouldn't Trade Brian Thomas Jr. Despite His Struggles",
+        "id": 1401317,
+        "published_at_epoch": 1792700222,
+        "source": "Yahoo Sports",
+        "title": "Why The Jaguars Shouldn't Trade Brian Thomas Jr. Despite His Struggles"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.170980119546727,
+            "clickbait": 10.414087966308752,
+            "emotion": 2.156114627067818,
+            "movement": 93.3032315862896,
+            "subject": 93.1671647128073
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxPS3JfSVNNdHYxZldIdVpDWGJMRTcxM3JwTXJZc0dDWDMxTjEzNk01N2M1MEU2VmpvR1NkTzhUS0psaFNGS1VuMmdkZEhKbV9nU1I5Q25oNHk1bnBZRU91ZHlOc3gzcmVvNGl2LXBnSWoyX2R3MXZhV2FXVGFzR0hOTkVydw?oc=5"
+        },
+        "context": "ESPN proposes Jaguars trade Brian Thomas Jr. to fellow AFC team",
+        "id": 1341016,
+        "published_at_epoch": 1792690497,
+        "source": "AOL.com",
+        "title": "ESPN proposes Jaguars trade Brian Thomas Jr. to fellow AFC team"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.3727352884715773,
+            "clickbait": 11.02410127248044,
+            "emotion": 89.28799980831997,
+            "movement": 50.20990248394735,
+            "subject": 89.63797075659214
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxON1JXcWxYbEo4ZDZ6VjZFaW9RTjZBY1ZxYnFmb1JBRFNweTdtRlcwMW5kUElMcHQyY0dXQ2tEQUx4WmhWUkIwME5qZEtCcFFtSVAtQWxiTGFmYktfNDAzOFBFY2ZZMWU3akdUVTNqWDNsX29rM1hFbER0aW9wZ0RFRnM1cDRvTDVpY01wd1JiWXBBemd4VHN6ZEx5c0FqZw?oc=5"
+        },
+        "context": "Liam Coen's Frustration Tells the Jaguars to Take a Second-Round Pick for Brian Thomas Jr.",
+        "id": 1340986,
+        "published_at_epoch": 1792689300,
+        "source": "Athlon Sports",
+        "title": "Liam Coen's Frustration Tells the Jaguars to Take a Second-Round Pick for Brian Thomas Jr."
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9784271271443956,
+            "clickbait": 13.51482345493577,
+            "emotion": 1.556040977324721,
+            "movement": 95.83515327754532,
+            "subject": 83.7057267428904
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxOSUQwdVZOa2EyV0tJU0MzcGZKcjVLWHBBSEF4RkRCTW9VMkw3VGFiR09PczJvcERDbEF3YmM5NlJMbzk4aGF4UzFjbkV0cTRSckdIeW9hMy1MUi16MkFtNFBaX0NXdzdZeExScTVreWhpSmt2aHFNMFVEOUpJY1BySVdDdU5TekM4OXEtMkpkc19wS01YT21fTU5ZXzZROWJfMUE?oc=5"
+        },
+        "context": "Raiders Get Brian Thomas Jr. at Bargain Price from Jaguars in Latest Trade Pitch",
+        "id": 1331053,
+        "published_at_epoch": 1792687508,
+        "source": "Heavy.com",
+        "title": "Raiders Get Brian Thomas Jr. at Bargain Price from Jaguars in Latest Trade Pitch"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.517640740301873,
+            "clickbait": 14.864529414730512,
+            "emotion": 3.6269625516278903,
+            "movement": 93.8082593350378,
+            "subject": 83.87630971640569
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQVHpyb3pIOEk3aFgxZGwzcHJSeDdSaGtSY0Q0RmJ0R2FGM2ticUptX2R5djV6ZFVqaUhuWENwSG9na3VNWWlsNkNIV0Z6RWg3T21ZajZSRndxWGVCcV9xZjQwd2VHM3Zsa0FtdEJLU0NVcGo3T0h5N25acmdGUlIyOFQ2Q1VBeUxlU3Jna3NRZXVVOEk?oc=5"
+        },
+        "context": "Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks",
+        "id": 1311655,
+        "published_at_epoch": 1792678004,
+        "source": "Heavy.com",
+        "title": "Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.612390129227955,
+            "clickbait": 29.32953557098398,
+            "emotion": 3.997411593500376,
+            "movement": 69.18536779917432,
+            "subject": 89.80583685492977
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOckg3ZGRGYkVpV1FDdWExUWZfdUVRM1VDOElyTDU2OXptX214TnBkcEdFUDlQME1uSWQ2UEJXMmYwSE9CUkM4RDZPdnRFMXctTkd4VmhFWWJ2dnFNREd3OWhxZnpXbS1ucmVzM0RQaWlVX2RJMHdwcE9zakFjYmVHcEtsLWFTUGpqSzFFYUF0cXl6UUlZaVVKai1zd016bGYyTlpGSlFsVlBFeFBzNkE?oc=5"
+        },
+        "context": "Latest ESPN intel reveals Jaguars' Brian Thomas Jr. could solve major Rams issue",
+        "id": 1311709,
+        "published_at_epoch": 1792663201,
+        "source": "Black and Teal",
+        "title": "Latest ESPN intel reveals Jaguars' Brian Thomas Jr. could solve major Rams issue"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 26.21192484568734,
+            "emotion": 1.9156586658120311,
+            "movement": 88.86357843936231,
+            "subject": 92.04565538846748
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxQcV9JYmhOLTU2cWZjSmUyNTM0TXc5bVlSY09pMGh3c2VwQ3R2R1dHVDIySy00RjNibDcxMlZScUZVbDk3Q0llSjNRb09ZZks0T1V3RFhvUmMzbjB1UEdPejRqNk5vR3hRNVI3UTRadl96SDd2Y3BNVDkxR2NQRGtxSk9ubHZiMFEwVmc?oc=5"
+        },
+        "context": "Most Likely Landing Spots if Jaguars Trade Brian Thomas Jr.",
+        "id": 1402171,
+        "published_at_epoch": 1792627440,
+        "source": "Yahoo Sports",
+        "title": "Most Likely Landing Spots if Jaguars Trade Brian Thomas Jr."
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 14.51238814388689,
+            "emotion": 3.405446884037747,
+            "movement": 81.34231590117918,
+            "subject": 89.64131861174484
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxORnhHUklSbFktek5QWmc1d19hMWhSeTJVQVJWT3lTUXhzT3JDbG5CYmd4bmFndHgtb1d6R1l1d19PT3ZOalNJMy0xNEdxOW55R3R2Ul9YVUNvZjNuM0ppeExlS201SDA5NGlJZDBXbnY2dUhkazRob3VSYlZmLWNNZQ?oc=5"
+        },
+        "context": "Jaguars WR Brian Thomas Jr. Could be Intriguing Trade Candidate for NFC East Team",
+        "id": 1391148,
+        "published_at_epoch": 1792626191,
+        "source": "Yahoo Sports",
+        "title": "Jaguars WR Brian Thomas Jr. Could be Intriguing Trade Candidate for NFC East Team"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 44.22262073913623,
+            "emotion": 2.8158076239698544,
+            "movement": 94.1306115779224,
+            "subject": 89.99374155975639
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOcm5Sa1RNOHM0ZGZVbVlhWVpySHlvNE5FSmdYSGVWR2xmbjl5V3ZFVHFqcUN4WS1vS2R2SjRJX1U0YkRVS0Q1V3Q3V19xZEg0Z0twa1g4OVdoLVhTaVBkaXVQcXNMdzdfaF9QUF9NTjNGODZGVWFfSDlveEFyZktIeGoySzhtZTBBZVhRV05n?oc=5"
+        },
+        "context": "Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr.",
+        "id": 1360867,
+        "published_at_epoch": 1792612840,
+        "source": "AOL.com",
+        "title": "Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr."
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 30.7597640452302,
+            "clickbait": 27.213976697523357,
+            "emotion": 16.936750671150552,
+            "movement": 7.044910044854199,
+            "subject": 92.55426024315943
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxPWVBQT3E3YnhVQ0dSaURoOXNPdEhuY3k2eG93Rm9vVllUQ29JNkpiekZrQVFvdGpCdlRyZXpaaUtfQlRpUlg3V25LaDZZWkczdUlFTDBHZjhLeDZOYk9xWnZKVUx3SmFWWkExYWFMS29LcG9NU1JZbmt5cjhSVmFkR2lVLWlHVERSN2Qyblg0RUdob3VJbXRfRHpkRDB1Zw?oc=5"
+        },
+        "context": "Jaguars voice drops brutal truth about Brian Thomas Jr.'s struggles",
+        "id": 1186130,
+        "published_at_epoch": 1792600775,
+        "source": "Black and Teal",
+        "title": "Jaguars voice drops brutal truth about Brian Thomas Jr.'s struggles"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.5111865444009815,
+            "clickbait": 7.651031227456478,
+            "emotion": 1.7171622274224227,
+            "movement": 90.62776167416676,
+            "subject": 90.94743706762256
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQcTRVblFUQXRNNFB2UE54eklZcGhWb1MtY1g3Q25CaXRGQ0pBbzhkZEpHLWRqR05VWmtZcHRDaGxxTWcwRWEwSlZCWkRwVEFXZ1daTGRhX3prckxVbFNxZGpSd1c4S3RtMDUzcTRCTjlnb1BtRWZNNG03Ql9nUTBON0RGaUJLZFlWWmZteVRlb2c?oc=5"
+        },
+        "context": "Bills trade deadline candidate: Jaguars receiver Brian Thomas Jr.",
+        "id": 1186094,
+        "published_at_epoch": 1792592108,
+        "source": "Yahoo Sports",
+        "title": "Bills trade deadline candidate: Jaguars receiver Brian Thomas Jr."
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.19592514394779,
+            "clickbait": 9.099357498273172,
+            "emotion": 3.008096534816528,
+            "movement": 70.96789965497942,
+            "subject": 94.2250174926971
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQMTJfZ0tJVFUyZVdUWWVJSWNpd1NwRmRwQ2RKMUczbFdjSHJETU5uUnBYZEJDUlRaajY2LXdtajM2UXZwZ1dWU2hyN1pMaktQZThneVE1dXBMejRWbEthUFJlVHY3d0ZHS0Z4bGgtcjNFT09BUHNjMXQzOENpMnJyaEx0Mm5oVzQ?oc=5"
+        },
+        "context": "Jaguars Urged to Move Brian Thomas Jr. to Las Vegas as Parker Washington Takes His Role",
+        "id": 1263628,
+        "published_at_epoch": 1792586700,
+        "source": "Yahoo Sports",
+        "title": "Jaguars Urged to Move Brian Thomas Jr. to Las Vegas as Parker Washington Takes His Role"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.1548061666547307,
+            "clickbait": 10.400074071189785,
+            "emotion": 7.090460899212051,
+            "movement": 89.39123353544211,
+            "subject": 90.80550817531385
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxObHA4Ylo4ekYtWVlPUmhiZnhVSENxTEVjSDV4cm9GbE1KOVc2OUFxSkRUYjVlNDZzbUczWDhLcm12dE5aSDNZSnVJeFdFbkVLRG1POVBoY0dSVVVpamIzUHVybUF5bS02RmN4WWVTbndSNXc2cmJ2aE4yRHg4dXVfaQ?oc=5"
+        },
+        "context": "NFL Expert Cautions Jacksonville Jaguars About Brian Thomas Jr. Trade",
+        "id": 1160015,
+        "published_at_epoch": 1792582330,
+        "source": "Gridiron Heroics",
+        "title": "NFL Expert Cautions Jacksonville Jaguars About Brian Thomas Jr. Trade"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 14.858616704926323,
+            "clickbait": 7.028290887148008,
+            "emotion": 1.886579435703277,
+            "movement": 79.78738216605859,
+            "subject": 90.00304693375593
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxOYm1XRHllQmZUX1JyWHY1Z0R1Ti1DUzN5STdQMnFfVE95M3RqRXZhaEVnT0R2OTlfRVRQeDM3eFczb2VuazlTclNIWHhvZUcwTFBUU1ZtaTBZdGtwc1FWc2ZXcDBFZlBLSEk2QWJnWUlOZ05OdjVPekV6UWUtdnZZSmFFOTU?oc=5"
+        },
+        "context": "49ers named as trade fit for Jaguars WR Brian Thomas Jr.",
+        "id": 803461,
+        "published_at_epoch": 1792579813,
+        "source": "49ers Webzone",
+        "title": "49ers named as trade fit for Jaguars WR Brian Thomas Jr."
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.767798893646248,
+            "clickbait": 10.212827355630164,
+            "emotion": 2.6892980286083485,
+            "movement": 8.868469985634425,
+            "subject": 87.35392414720316
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi0AFBVV95cUxNRUhEaGQwbHV6TFI1LXhFajlYQl8yVUVhVzJia29BSkR0TVFPTGNYSGJGbTQtSTBnWkI2NERXRmRpSUpvVnZBNnhBWGNkWUNtdzBWR205VGFHMkVRbmhpNksydFhxS0VzVE9jd19FOUxRZXhrSUJrNlpqTXdBeHVFeHBKZHBhZnlucXhyN1drUkREYWx1a1h4RE1ud1dvZUJRUGdIZUl6ZFMxUmNYQ3ZZNmtxZUFiSzg0TXV0SjllUXNRM2pGZDdqYWJuUUkzaU1C?oc=5"
+        },
+        "context": "What's next for Jaguars, Brian Thomas Jr. after 15 snap game v. Houston?",
+        "id": 1159995,
+        "published_at_epoch": 1792577280,
+        "source": "Jaguars Wire",
+        "title": "What's next for Jaguars, Brian Thomas Jr. after 15 snap game v. Houston?"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.9610000976055386,
+            "clickbait": 17.555850151873937,
+            "emotion": 3.5613968127984954,
+            "movement": 91.72172509577628,
+            "subject": 90.65481422576548
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxQVDV5WnVCU1pTbkVfM0NCY2xtMnRwNE1mS0Z2dDNaSmNuTDNNVjFfWFVkM0JmWVVKekhWV191Z1pHa3Fueno1dzg3NEktRWoxNklIR1JJZ3RYUkg2NkV1WXJxcGdoSEw0QVd0UXlTUk5NRkQwZF82VmQyV3VkNmM0MGVGdzlWVW5HOVVWeGp4bWExcmtSZUtxTF9DcFdXMHd2THQ5bV9n?oc=5"
+        },
+        "context": "Jaguars could gift LA Rams a WR spark with Brian Thomas Jr. trade",
+        "id": 1159984,
+        "published_at_epoch": 1792576804,
+        "source": "Black and Teal",
+        "title": "Jaguars could gift LA Rams a WR spark with Brian Thomas Jr. trade"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.243179664386353,
+            "clickbait": 40.41468315532713,
+            "emotion": 3.869300265748289,
+            "movement": 68.3453735490848,
+            "subject": 68.38794310849356
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxNeHZTejVMTTdFUkp0V0hHOWJULVZSRmI1STdreWRUc0R0eGV0U044R0Vrc2pDSjZFRzg3bU5Ub3NPdnprYVU3QkhqQlZ3bl9waWJhWEZERjF2eXpMVnY1RmhGaEMta0lhZXYwS2VJMG1rUlhUU1NPLVdDcDJodVc3T0pkYTZTdw?oc=5"
+        },
+        "context": "Miami Dolphins: Brian Thomas Jr. Presents a Potential Opportunity, Not a Confirmed Dolphins Target",
+        "id": 1159199,
+        "published_at_epoch": 1792548480,
+        "source": "Yahoo Sports",
+        "title": "Miami Dolphins: Brian Thomas Jr. Presents a Potential Opportunity, Not a Confirmed Dolphins Target"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.933345359174415,
+            "clickbait": 10.02745598952154,
+            "emotion": 5.587282397527658,
+            "movement": 7.583759090336631,
+            "subject": 74.76738927091424
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxOazd0N1VTZEdtajY4bi1sNi1LWEhPT2lTakQtcC1ZVGxpQ05iRnFtVWIzdXJzTGRrUU9abEZjV3pjQzFqenlvN2FJcFFKTHJ5eWlkck9rMlZoZU1hOXljZ2xwdW5iRF9weThJUG9iUVFfZFFGd0FoZTBEUElzQUh3bDAzTTJQWlhvM19seFlWUQ?oc=5"
+        },
+        "context": "Jaguars Trevor Lawrence, Travis Hunter Send Strong Message to Brian Thomas Jr. Critics",
+        "id": 1102520,
+        "published_at_epoch": 1792529297,
+        "source": "Yahoo Sports",
+        "title": "Jaguars Trevor Lawrence, Travis Hunter Send Strong Message to Brian Thomas Jr. Critics"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.614312435522258,
+            "clickbait": 13.17697604173842,
+            "emotion": 3.406808643247879,
+            "movement": 78.47101643093326,
+            "subject": 93.96268237940237
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxOV2xGZ1ItQm1oakhYYlBURWtVZC1IQWJnMm9yMTRNdlZVMWJZSVBMMG5sSXJBOGJvdTFfbGtoaXRGR0VlYVlPYVg4Rl8zWmVVMmFpRU9wTzllV0dpQW54M0VTQnNiLTFKWVRTOWxXSTdra09VOW1SZWlkV01Sc0JKUVZMQ0ZDSFpGd09DSlJNWlJ0b3pzWEwwU3k5cXFzUQ?oc=5"
+        },
+        "context": "Jaguars may be done with Brian Thomas Jr., but Trevor Lawrence isn't",
+        "id": 1074051,
+        "published_at_epoch": 1792519764,
+        "source": "Black and Teal",
+        "title": "Jaguars may be done with Brian Thomas Jr., but Trevor Lawrence isn't"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9217678822702433,
+            "clickbait": 23.167770874088266,
+            "emotion": 4.960574580034229,
+            "movement": 92.36505783816484,
+            "subject": 91.3865433879636
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3wFBVV95cUxQM3hJMXBWMjgzeWN1R1hvYi1FeVlnWVVHWnBTTWQtOTR3YXVyeWlCa1ZDWDJLVndBNXFFWmFLazYyb2hBcDItdFEyNjlBdEE2ZzU2S0xMQ2ZxWTlWbmdHOUpuWFdHNUJRMTQyODZfMjl5aDR4bXZmaElJRmdVNkMtTTgyRWYxeEtkTElEMVhhczVXcEJHcVJ0QWxQWVdnUi1DbDhKZDhodFZ0QjVIb2Jld2dtVGpNMzBPV2hWUXAyUTloZEo0S3lhM25udHlLV0FuUzRibGhtNzJGXy1iZUdJ?oc=5"
+        },
+        "context": "Brian Thomas Jr. rumor reveals 'a lot' of believers that Jaguars will make a trade",
+        "id": 1121561,
+        "published_at_epoch": 1792517825,
+        "source": "Sporting News",
+        "title": "Brian Thomas Jr. rumor reveals 'a lot' of believers that Jaguars will make a trade"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.824739288881206,
+            "clickbait": 13.700932228715518,
+            "emotion": 2.6124834352963675,
+            "movement": 62.63621292659539,
+            "subject": 70.19206362052554
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxQUHRkbUJqclA2QVJLMEZIQmRyanpmS2tHUTlQQWg0bEdaRDloNnlremdUTTRyQmJSalllN0hIVGJfT3pMZjJZWUxVVENYVklFNjNQVHhjT1Y0bHBvUXR1WkJtQW1JUFpJMnRBTEp2U3ptakNqQ3Nhb25Tb3BvbHhVUFpmMA?oc=5"
+        },
+        "context": "Raiders news: What price would you pay for Brian Thomas Jr.?",
+        "id": 1021196,
+        "published_at_epoch": 1792505160,
+        "source": "Yahoo Sports",
+        "title": "Raiders news: What price would you pay for Brian Thomas Jr.?"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.9170701827062775,
+            "clickbait": 9.84316749427048,
+            "emotion": 4.316990894827399,
+            "movement": 70.30539509446292,
+            "subject": 72.11736323477525
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxPNk9yZjN4NDh2QnQtVU1fVkVGdGliZ2o1ZUV0NzQtZXdTTE9IVU5fNzBfRmVvdmF2SFdhQmNCN3RTSC1TZ0Q4QUFnLXRNZkFIZmNiY0V1NENQS2t2b2xzcXRjeHNLdUlHSi1kbWlld0VIcXdmWFRPR3FMTTZzYnlNUWs5TlMyallRbTh6LUhJSQ?oc=5"
+        },
+        "context": "Why Raiders Should Consider Trading for Brian Thomas Jr.",
+        "id": 1020934,
+        "published_at_epoch": 1792503000,
+        "source": "Sports Illustrated",
+        "title": "Why Raiders Should Consider Trading for Brian Thomas Jr."
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 49.50291364054169,
+            "clickbait": 12.644874901203456,
+            "emotion": 5.085706394066443,
+            "movement": 77.92250566859694,
+            "subject": 93.86245446518468
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi-AFBVV95cUxPX0FnbU1mbFdPS3paT29LY2xWUjk1azdzckh4UlBXZDZwVHFFLVVQQnJQRXZNMkFPc1NiSFRJcFZ5eU9FSjZxYlItNm5DeURNbEhZOEhpaENyTlI5NXUyMWZnUUp5TEZfN3lCSEJZUDFxaU5TYUJwTVVBSVZ3ek1ER05sdEllUVFpeDVhdXBPYTdZQ0NobjlnSTFXX0NUZVdiTFZWX19QLUktOVUtR0FYWjRnMHo2OG80d2VoWW9DZ3NyZWJVVE9RbjhHTTZQdEVwS212VVBiMXlsaXVSNFBhN3FacHA5SU5WaGVTQm11N09XWXZZVERsMtIB-AFBVV95cUxPX0FnbU1mbFdPS3paT29LY2xWUjk1azdzckh4UlBXZDZwVHFFLVVQQnJQRXZNMkFPc1NiSFRJcFZ5eU9FSjZxYlItNm5DeURNbEhZOEhpaENyTlI5NXUyMWZnUUp5TEZfN3lCSEJZUDFxaU5TYUJwTVVBSVZ3ek1ER05sdEllUVFpeDVhdXBPYTdZQ0NobjlnSTFXX0NUZVdiTFZWX19QLUktOVUtR0FYWjRnMHo2OG80d2VoWW9DZ3NyZWJVVE9RbjhHTTZQdEVwS212VVBiMXlsaXVSNFBhN3FacHA5SU5WaGVTQm11N09XWXZZVERsMg?oc=5"
+        },
+        "context": "Jaguars appear ready to phase out speedy receiver Brian Thomas Jr. after Wembley woes",
+        "id": 1020885,
+        "published_at_epoch": 1792495987,
+        "source": "Action News Jax",
+        "title": "Jaguars appear ready to phase out speedy receiver Brian Thomas Jr. after Wembley woes"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 81.04176694879062,
+            "clickbait": 8.486411437713686,
+            "emotion": 2.705226616455516,
+            "movement": 33.58058873653191,
+            "subject": 91.61027238344629
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixAFBVV95cUxPZkZaczVrVXB6eTZRTmh0dTNJcXQ2NmNzWDZMT21scFBIcW9qRU9NTFV0b3h4WEVUUFpkR2RKY1FJMWNsVGcxa0FFdDdOYndwRFlEMFlSNXp5elpJUjF5bndmU2JncFNQVVQ0WDczc3JMZnU0andlckdqbWFPcHo4Zk5jQktBcVFVNG9ON1k5eFctZnVtaUVTVXBuRW4xNng2Y0RZWXVTSE5xa3JYR2ItS0hSUXdERjZ5aXpHaEtQNWJsZUNM?oc=5"
+        },
+        "context": "Commanders need to call Jaguars about Brian Thomas Jr. amid Terry McLaurin injury",
+        "id": 1001533,
+        "published_at_epoch": 1792490404,
+        "source": "Black and Teal",
+        "title": "Commanders need to call Jaguars about Brian Thomas Jr. amid Terry McLaurin injury"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.254855635076868,
+            "clickbait": 11.33493588631124,
+            "emotion": 2.450493471577465,
+            "movement": 93.5891208967332,
+            "subject": 90.6343209120865
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxPRlRSanA4SzVXRlF3SGpwT3EyVUJPRldkN0t5UG83bXBYR29UTFlYNlJKR3NuTElYZEZzcUpRdEYtcDlkU2d6Vk80ZzZKc1RHMWx4d3lJN1dfeFh5RUViSkxWMDNLY3hvSm8wNi1ZYVdFRWNZTHFQVG1zQUhBNTBJWkpud2JLa0RLN1pvNXFINW5tSmsya0hybHFXclhZODczbXFaQ3VfSkhuOHFBdEZsSDVjdURaSGlrZTI1Q1B0QXU4ZnlwdFE?oc=5"
+        },
+        "context": "Could Jaguars trade Brian Thomas Jr.? 4 teams that make sense",
+        "id": 1049642,
+        "published_at_epoch": 1792487494,
+        "source": "The Florida Times-Union",
+        "title": "Could Jaguars trade Brian Thomas Jr.? 4 teams that make sense"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.996603841420178,
+            "clickbait": 14.307541741300875,
+            "emotion": 2.948923245366084,
+            "movement": 89.73941367743085,
+            "subject": 90.35817334545936
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxPcGNrYUw0RFlZV0JEQXZDTXZhbVB5REw4ck1wVVBKcE1DblhGdXZtd1VSU002REI4allULTBRMFAzSzdoWUc2TG40UW1WRVptbHFSeHZkaFByZXQtZzFCd3B1QTZHNUl3TnY1Tm9NY0xyU3FGMWtZMk5RakhyV21CWUlBZEVpLThhQ0F1QUdLaEkxdw?oc=5"
+        },
+        "context": "Likelihood of Jaguars Trading Brian Thomas Jr. Debated",
+        "id": 1020923,
+        "published_at_epoch": 1792452561,
+        "source": "Yahoo Sports",
+        "title": "Likelihood of Jaguars Trading Brian Thomas Jr. Debated"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 66.52003237571277,
+            "clickbait": 15.254785623078767,
+            "emotion": 3.2428849828081496,
+            "movement": 11.774856403629435,
+            "subject": 92.28292933049217
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE9saFVTUUxwQ2tleUdzdlR5SkpnNHRfeVlnTXFaOEtsdTVQVkJPX3NBb21JMGZmYmdOaVlBMkpPLXpiaDNTd2FQUzRiMHZDdG1fZllENWs0cUNQRlYtV3hCbE50WGMycndFT3ZnV3FaSmVDenNuQUtGT1MzQ1loZE0?oc=5"
+        },
+        "context": "Jaguars Bye Week Could Decide Brian Thomas Jr. Future",
+        "id": 1049712,
+        "published_at_epoch": 1792447461,
+        "source": "Heavy.com",
+        "title": "Jaguars Bye Week Could Decide Brian Thomas Jr. Future"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 60.83495963906699,
+            "clickbait": 7.829509149709944,
+            "emotion": 1.8152813438169415,
+            "movement": 51.049030835535824,
+            "subject": 83.42608323719944
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxPczJaUnk1V24zN0cyeEMzSl9XTkhMZW9CMHN0eXFXVk1rNzMtWE1RVmJ4Q0NhUm1KX0pKWmlQaVF3blJNcUJ3b2xDNHg5OXVLRFVkNWY3a0dGX1ZKUlJ2V3ZMS0wxM3NrSmRHUTduel9GUjB5UUpMYU5kMEd4X1dEalFMRlg?oc=5"
+        },
+        "context": "Jaguars Snap Counts Show Josh Cameron Taking Brian Thomas Jr.'s Role Into the Bye",
+        "id": 1011332,
+        "published_at_epoch": 1792446300,
+        "source": "Yahoo Sports",
+        "title": "Jaguars Snap Counts Show Josh Cameron Taking Brian Thomas Jr.'s Role Into the Bye"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.227733493554175,
+            "clickbait": 10.334654550005432,
+            "emotion": 1.7086879362701726,
+            "movement": 86.62194008648811,
+            "subject": 90.81906698654224
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxPc0N2ZlVYTmlTamVkaXJ5ZTBSRXh6bGlwc3BDSjBYYUZhUElHc19nejAyR25TVUNYcTdTU1NrNVNBOGxueGxTMTAzWWRSZWY3ZXdjbmdtdkEyMTZWeWhXTXczZXAxSzM3RXR6b1hsUEpFVlFBclNiVWR3UEdkNi1ycFZZTUo?oc=5"
+        },
+        "context": "Jaguars’ Brian Thomas Jr. Trade Plans Made Clear by ESPN",
+        "id": 1001550,
+        "published_at_epoch": 1792444822,
+        "source": "Yahoo Sports",
+        "title": "Jaguars’ Brian Thomas Jr. Trade Plans Made Clear by ESPN"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 88.7363493422434,
+            "clickbait": 7.384458062963249,
+            "emotion": 2.857119070471286,
+            "movement": 41.43137041188762,
+            "subject": 94.47189398256327
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi0wFBVV95cUxOM1I0VEctT0FuMnZmWGxGSWFLdUIwODEtUUtqWHlmbklaeGp5ZG1FS2NmdDhBOWlnbXdFVkwtRU5QVVZTUC12aXFKSE5Ic0MxazM4dFVmM3p0aHNGWHBsaTRscFZWYmdRUkJnNUt4cWhEVUpqeDNKbDdOZ0V4WFJraTRtbkxnSG1oTUxXSU84eWRZZ2xMRjhBdFdpc0JEdkhxQzN4NUtPQTJUZmhzUmVuclJlVUp5a181Wk5PbjZXOU1HemFaUEhJTWE5M1d0ZDFNUXln?oc=5"
+        },
+        "context": "Why Was Brian Thomas Jr. Benched in London? Answering 5 Questions Jaguars Fans Are Asking",
+        "id": 1049711,
+        "published_at_epoch": 1792432800,
+        "source": "Athlon Sports",
+        "title": "Why Was Brian Thomas Jr. Benched in London? Answering 5 Questions Jaguars Fans Are Asking"
+      }
+    ],
+    "subject": {
+      "entity_id": 278370,
+      "entity_type": "player",
+      "name": "Brian Thomas Jr.",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

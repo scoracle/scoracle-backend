@@ -1,0 +1,47 @@
+{
+  "name": "real-player:744:NFL-momentum",
+  "task": "momentum",
+  "sport": "NFL",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Sam LaPorta\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]\"},\"fresh\":{\"scout\":{\"body\":\"In the 2026 season, Sam LaPorta recorded 316.0 yards responsible for and 18.0 points responsible for. These measurements place him at the 91.7th and 90.8th percentiles among 1014 peers, respectively, within the elite band. The data is based on a thin sample of 5.0 appearances.\",\"season\":2026,\"generated_at\":\"2026-10-23\"},\"influencer\":{\"body\":\"Sam LaPorta stated the Lions are not showing the love and revealed extreme frustrations, saying he breaks his back for the team. He indicated he is prepared to get paid elsewhere due to the stalled extension talks.\",\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]",
+    "influencer": {
+      "body": "Sam LaPorta stated the Lions are not showing the love and revealed extreme frustrations, saying he breaks his back for the team. He indicated he is prepared to get paid elsewhere due to the stalled extension talks.",
+      "generated_at": "2026-10-23",
+      "headline": "Sam LaPorta expresses frustration and disappointment with Lions over contract talks",
+      "input_hash": "8c504d8670138cc88f3873bc4868e48b",
+      "sentiment": 25
+    },
+    "scout": {
+      "body": "In the 2026 season, Sam LaPorta recorded 316.0 yards responsible for and 18.0 points responsible for. These measurements place him at the 91.7th and 90.8th percentiles among 1014 peers, respectively, within the elite band. The data is based on a thin sample of 5.0 appearances.",
+      "generated_at": "2026-10-23",
+      "headline": "Sam LaPorta: measured profile",
+      "input_hash": "a9efbaef26e230c7dab1ca78b2337bc1",
+      "season": 2026
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 744,
+      "entity_type": "player",
+      "name": "Sam LaPorta",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

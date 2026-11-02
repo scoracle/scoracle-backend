@@ -1,0 +1,48 @@
+{
+  "name": "crossroads-conflict",
+  "task": "oracle",
+  "prompt_version": "or30-five-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Marcus Vale\",\"entity_type\":\"player\",\"sport\":\"basketball\"},\"fresh\":{\"journalist\":[{\"generated_at\":null,\"source_article_ids\":[],\"title\":\"Marcus Vale trade demand reported\",\"body\":\"A trade-demand story broke this week and hangs over everything; the front office has not responded publicly.\",\"trajectory\":\"heating_up\",\"source_count\":4,\"source_age_days\":1}],\"scout\":{\"body\":\"Elite two-way production; the numbers have not blinked through the noise.\",\"direction\":\"unknown\"},\"influencer\":{\"body\":\"The room has soured — the standoff dominates every thread and the patience is thinning.\"},\"analyst\":{\"body\":\"Feeling is dragging the arc down while the production holds its line.\"}},\"tone\":\"Reflective, economical and quietly evocative. Use a light metaphor only when it clarifies the reading.\"}",
+  "temperature": 0.0,
+  "expect": {
+    "reading_max_sentences": 3
+  },
+  "review": [
+    "Preserve disagreement across the supplied pillars rather than forcing unanimous direction."
+  ],
+  "parts": {
+    "subject": {
+      "entity_id": 0,
+      "entity_type": "player",
+      "entity_name": "Marcus Vale",
+      "sport": "basketball"
+    },
+    "cards": {
+      "narratives": [
+        {
+          "body": "A trade-demand story broke this week and hangs over everything; the front office has not responded publicly.",
+          "source_age_days": 1,
+          "source_count": 4,
+          "title": "Marcus Vale trade demand reported",
+          "trajectory": "heating_up",
+          "impact": 0
+        }
+      ],
+      "rating": {
+        "body": "Elite two-way production; the numbers have not blinked through the noise.",
+        "notability": 0,
+        "rating_trajectory": "unknown",
+        "rating_trajectory_label": ""
+      },
+      "vibe": {
+        "prompt": "The room has soured — the standoff dominates every thread and the patience is thinning.",
+        "sentiment": 50
+      },
+      "momentum": {
+        "blurb": "Feeling is dragging the arc down while the production holds its line.",
+        "direction": null
+      },
+      "insider": null
+    }
+  }
+}

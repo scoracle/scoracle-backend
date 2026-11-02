@@ -1,0 +1,45 @@
+{
+  "name": "fully-named-interest",
+  "task": "transfer",
+  "sport": "FOOTBALL",
+  "prompt_version": "insider-source-v20-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Kai Sorensen\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\"},\"fresh\":{\"reports\":[{\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Chelsea\"}],\"headline\":\"Chelsea interested in signing Kai Sorensen — report\",\"publisher\":\"TransferTavern\",\"publisher_excerpt\":\"A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "parts": {
+    "reports": [
+      {
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Chelsea"
+          }
+        ],
+        "headline": "Chelsea interested in signing Kai Sorensen — report",
+        "publisher": "TransferTavern",
+        "publisher_excerpt": "A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned."
+      }
+    ],
+    "subject": {
+      "entity_id": 0,
+      "entity_type": "player",
+      "name": "Kai Sorensen",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "transfer_is_rumor": true,
+    "transfer_stage": "concrete_interest",
+    "subject_includes": [
+      "Sorensen"
+    ],
+    "summary_excludes": [
+      "$",
+      "£",
+      "€",
+      "million"
+    ]
+  },
+  "review": [
+    "Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty."
+  ]
+}

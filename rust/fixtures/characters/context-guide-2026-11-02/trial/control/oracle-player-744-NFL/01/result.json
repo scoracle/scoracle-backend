@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/control/oracle-player-744-NFL.json",
+  "generation_wall_ms": 5220,
+  "input_tokens": 1131,
+  "name": "oracle-player-744-NFL",
+  "output_limit": 700,
+  "output_tokens": 97,
+  "parsed": true,
+  "prompt_version": "or32-job-target-fresh",
+  "reading": "Sam LaPorta presents a striking divergence in late 2026, where elite statistical performance coexists with palpable frustration over stalled contract talks. This tension between his rising on-field metrics and his expressed willingness to seek payment elsewhere suggests a disconnect between his contributions and his perceived standing with the Detroit Lions. However, the thin sample of five appearances limits the certainty of his trajectory, leaving the depth of his dissatisfaction and the ultimate resolution of his future uncertain.",
+  "request_bytes": 2435,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 5226
+}

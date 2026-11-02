@@ -1,0 +1,42 @@
+{
+  "name": "real-team:37:FOOTBALL-oracle",
+  "task": "oracle",
+  "sport": "FOOTBALL",
+  "prompt_version": "or31-five-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Roma\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"Roma — Serie A (Italy). Venue: Stadio Olimpico. City: Roma. Country: Italy. Coach on record: Mirko Vučinić.\"},\"fresh\":{\"insider\":{\"body\":\"Roma are looking to make two signings in January and have rejected three offers for Pisilli this summer. The club is also considering reinforcements for the winter transfer window.\",\"generated_at\":\"2026-10-23\"}},\"tone\":\"Reflective, economical and quietly evocative. Use a light metaphor only when it clarifies the reading.\"}",
+  "parts": {
+    "cards": {
+      "insider": {
+        "body": "Roma are looking to make two signings in January and have rejected three offers for Pisilli this summer. The club is also considering reinforcements for the winter transfer window.",
+        "generated_at": "2026-10-23",
+        "score": 1
+      },
+      "momentum": {
+        "blurb": null,
+        "direction": null,
+        "generated_at": null,
+        "input_hash": null,
+        "momentum_score": null,
+        "rating_samples": 0,
+        "rating_slope": null,
+        "vibe_samples": 0,
+        "vibe_slope": null
+      },
+      "narratives": [],
+      "rating": null,
+      "vibe": null
+    },
+    "subject": {
+      "database_record": "Roma — Serie A (Italy). Venue: Stadio Olimpico. City: Roma. Country: Italy. Coach on record: Mirko Vučinić.",
+      "entity_id": 37,
+      "entity_name": "Roma",
+      "entity_type": "team",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

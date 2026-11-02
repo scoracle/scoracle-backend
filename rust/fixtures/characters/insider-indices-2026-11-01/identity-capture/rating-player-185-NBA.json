@@ -1,0 +1,79 @@
+{
+  "name": "real-player:185:NBA-rating",
+  "task": "rating",
+  "sport": "NBA",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Draymond Green\",\"entity_type\":\"player\",\"sport\":\"NBA Basketball\",\"database_record\":\"Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\\nrole: player [2026-09-05; source 65552]\"},\"fresh\":{\"season\":2025,\"sample\":{\"Games Played\":70.0,\"Minutes Per Game\":27.7},\"values\":[{\"label\":\"Foul Drawing\",\"measure\":\"free throws attempted\",\"value\":1.2,\"percentile\":13.1,\"cohort\":253.0,\"band\":\"poor\",\"prior_percentile\":43.8,\"standing_change\":\"fell\"},{\"label\":\"On-Court Impact\",\"measure\":\"plus-minus\",\"value\":-2.1,\"percentile\":28.6,\"cohort\":253.0,\"band\":\"poor\",\"prior_percentile\":78.3,\"standing_change\":\"fell\"},{\"label\":\"Rim Protection\",\"measure\":\"blocks\",\"value\":0.6,\"percentile\":65.9,\"cohort\":253.0,\"band\":\"above average\",\"prior_percentile\":85.3,\"standing_change\":\"fell\"},{\"label\":\"Steals\",\"measure\":\"steals\",\"value\":0.9,\"percentile\":48.0,\"cohort\":253.0,\"band\":\"below average\",\"prior_percentile\":90.7,\"standing_change\":\"fell\"}],\"composite\":41.1,\"supports_cross_season\":true,\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\nrole: player [2026-09-05; source 65552]",
+    "profile": {
+      "composite": 41.1,
+      "sample": {
+        "Games Played": 70.0,
+        "Minutes Per Game": 27.7
+      },
+      "season": 2025,
+      "supports_cross_season": true,
+      "values": [
+        {
+          "band": "poor",
+          "cohort": 253.0,
+          "label": "Foul Drawing",
+          "measure": "free throws attempted",
+          "percentile": 13.1,
+          "prior_percentile": 43.8,
+          "standing_change": "fell",
+          "value": 1.2
+        },
+        {
+          "band": "poor",
+          "cohort": 253.0,
+          "label": "On-Court Impact",
+          "measure": "plus-minus",
+          "percentile": 28.6,
+          "prior_percentile": 78.3,
+          "standing_change": "fell",
+          "value": -2.1
+        },
+        {
+          "band": "above average",
+          "cohort": 253.0,
+          "label": "Rim Protection",
+          "measure": "blocks",
+          "percentile": 65.9,
+          "prior_percentile": 85.3,
+          "standing_change": "fell",
+          "value": 0.6
+        },
+        {
+          "band": "below average",
+          "cohort": 253.0,
+          "label": "Steals",
+          "measure": "steals",
+          "percentile": 48.0,
+          "prior_percentile": 90.7,
+          "standing_change": "fell",
+          "value": 0.9
+        }
+      ]
+    },
+    "season": 2025,
+    "sport_name": "NBA Basketball",
+    "subject": {
+      "entity_id": 185,
+      "entity_type": "player",
+      "name": "Draymond Green",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

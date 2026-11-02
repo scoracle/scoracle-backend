@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — momentum / momentum-synthetic-dated-divergence [accepted]
+Harbor's measured rebounding profile is strong while its coverage leans cautious, creating a tension between performance and mood. Statistical distinctiveness increased by eight points and coverage tone decreased by twelve points over the same two-observation window, indicating a divergence in how the team is perceived versus how it is performing.

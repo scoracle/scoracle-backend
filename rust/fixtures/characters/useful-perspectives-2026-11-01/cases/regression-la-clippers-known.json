@@ -1,0 +1,113 @@
+{
+  "name": "regression-la-clippers-known",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n121-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"LA Clippers\",\"entity_type\":\"team\",\"sport\":\"basketball\",\"database_record\":\"LA Clippers — West Pacific. Coach on record: Will Hardy.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1289440,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxQLV9rWGxpMVJTd1ptX20tc0twRjVJRzBIQkxPSVljRnMtQ0hpRmZtSjJxZ0hFMmpvT0xSZkVCMVpfaVFLMzdpZVdRQy1ubjR4QS02czNtZzdXMzdaNWZ4XzFKWWxyNVkwczZtRVdjSm1TZFg0dU82QUFUNWlKRnFqeWRNTzdrWFRjLUlmX0NGMjY4aHc?oc=5\",\"headline\":\"Max Strus Ruled Out for Clippers’ Road Trip - NBA News | Fantasy Basketball\",\"publisher\":\"RotoBaller\",\"published_at\":\"2026-10-22T12:57:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1429100,\"url\":\"https://news.google.com/rss/articles/CBMiU0FVX3lxTE1lSUUzdzNXX0FZeFV4cmgtYVJOTkN2anN4WHptQkpvQ3hlRGN0blJqZ1Z3ZEV2eXludzJIM3Uzb09YZm5JNkhrYmVSVHIzbE0zcEdN?oc=5\",\"headline\":\"Orlando Magic vs LA Clippers Jan 15, 2027 Game - Scores, Stats & Highlights\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-23T00:50:14Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1398531,\"url\":\"https://news.google.com/rss/articles/CBMisgRBVV95cUxOanNBWVp3OXhJcW5zREVJWEJKUUtsWkZIdnNITjN5NExDcG1xM3M4M2tON3V2NUdWY21jRS1MMlNjWU9qOGd2ZFIxeXNGRThHSnczVGI0UzV5RDZZaldTMThBUkpDbC1mZTAycXBGdVhTYk9JWTF2VWR6ZmFLYkQ5d2ZVMThPZjk0d3U0YkN5aTU2UktqV1gyeUExcnJzdEoxRllpR2Roay1kMDU3WHgyNGk3b2R5U1NhbjdjRlFVa0NZTHl6WDY4UmhpYzRqb1dsNTJES3ViV3NSRUxnXzE0OFItZkVuNEU2T3ZDdGRkN205TF9VOW5Jd09wVkdYZTd4WFpPa2cyS2NYWkpOV0wydjVXWTBDdUJNeTl3SEhWOU03WXJPYVBsQTBZUEJuOWctODVYdHAxVzhtQTdOT2p1eWZGeVdXUHhNa1I3VzhSUlg5TzVmSTNWajdNckNDdksyLUlJSjFQTWdPOXdta2JjcTdCNXNKdWZUMjR2NWxqOTczRFVXdzgzb3drOWkxV0VVYjBWYnlQcmEzV1lvc0tSOFk3RS1KOXpPaWx5ZW1UekNTMV9Mb2VGczF2YmRuRzVqMkpncmg3blgwRDAwbTdRc25mWjhBUFNFN1pDek9EbWgzMDVyY2NmZ2JlZXpIaE9ITVNZSFY3dV9oSFpFQ2dzSkdzRmhqdnhLdUM2Mk1vYmtjQVNFcUpZSFdEbTBYR0pmYUJOdXRaNFphdHFnQjh4UGhR?oc=5\",\"headline\":\"Toronto Raptors vs LA Clippers Nov 2, 2026 Game Summary\",\"publisher\":\"NBA.com\",\"published_at\":\"2026-10-22T21:12:31Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "LA Clippers — West Pacific. Coach on record: Will Hardy.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 97.52987036690196,
+            "clickbait": 8.71320168247799,
+            "emotion": 1.884543427781072,
+            "movement": 60.09341639075668,
+            "subject": 94.28715067076936
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQLV9rWGxpMVJTd1ptX20tc0twRjVJRzBIQkxPSVljRnMtQ0hpRmZtSjJxZ0hFMmpvT0xSZkVCMVpfaVFLMzdpZVdRQy1ubjR4QS02czNtZzdXMzdaNWZ4XzFKWWxyNVkwczZtRVdjSm1TZFg0dU82QUFUNWlKRnFqeWRNTzdrWFRjLUlmX0NGMjY4aHc?oc=5"
+        },
+        "context": "Max Strus Ruled Out for Clippers’ Road Trip - NBA News | Fantasy Basketball",
+        "id": 1289440,
+        "published_at_epoch": 1792673830,
+        "source": "RotoBaller",
+        "title": "Max Strus Ruled Out for Clippers’ Road Trip - NBA News | Fantasy Basketball"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.125338179297643,
+            "emotion": 1.6417101757817472,
+            "movement": 4.131515993284063,
+            "subject": 95.40543009571772
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE1lSUUzdzNXX0FZeFV4cmgtYVJOTkN2anN4WHptQkpvQ3hlRGN0blJqZ1Z3ZEV2eXludzJIM3Uzb09YZm5JNkhrYmVSVHIzbE0zcEdN?oc=5"
+        },
+        "context": "Orlando Magic vs LA Clippers Jan 15, 2027 Game - Scores, Stats & Highlights",
+        "id": 1429100,
+        "published_at_epoch": 1792716614,
+        "source": "NBA.com",
+        "title": "Orlando Magic vs LA Clippers Jan 15, 2027 Game - Scores, Stats & Highlights"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.45376869442216,
+            "emotion": 2.023603880113015,
+            "movement": 5.373171810574697,
+            "subject": 95.32058379967428
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisgRBVV95cUxOanNBWVp3OXhJcW5zREVJWEJKUUtsWkZIdnNITjN5NExDcG1xM3M4M2tON3V2NUdWY21jRS1MMlNjWU9qOGd2ZFIxeXNGRThHSnczVGI0UzV5RDZZaldTMThBUkpDbC1mZTAycXBGdVhTYk9JWTF2VWR6ZmFLYkQ5d2ZVMThPZjk0d3U0YkN5aTU2UktqV1gyeUExcnJzdEoxRllpR2Roay1kMDU3WHgyNGk3b2R5U1NhbjdjRlFVa0NZTHl6WDY4UmhpYzRqb1dsNTJES3ViV3NSRUxnXzE0OFItZkVuNEU2T3ZDdGRkN205TF9VOW5Jd09wVkdYZTd4WFpPa2cyS2NYWkpOV0wydjVXWTBDdUJNeTl3SEhWOU03WXJPYVBsQTBZUEJuOWctODVYdHAxVzhtQTdOT2p1eWZGeVdXUHhNa1I3VzhSUlg5TzVmSTNWajdNckNDdksyLUlJSjFQTWdPOXdta2JjcTdCNXNKdWZUMjR2NWxqOTczRFVXdzgzb3drOWkxV0VVYjBWYnlQcmEzV1lvc0tSOFk3RS1KOXpPaWx5ZW1UekNTMV9Mb2VGczF2YmRuRzVqMkpncmg3blgwRDAwbTdRc25mWjhBUFNFN1pDek9EbWgzMDVyY2NmZ2JlZXpIaE9ITVNZSFY3dV9oSFpFQ2dzSkdzRmhqdnhLdUM2Mk1vYmtjQVNFcUpZSFdEbTBYR0pmYUJOdXRaNFphdHFnQjh4UGhR?oc=5"
+        },
+        "context": "Toronto Raptors vs LA Clippers Nov 2, 2026 Game Summary",
+        "id": 1398531,
+        "published_at_epoch": 1792703551,
+        "source": "NBA.com",
+        "title": "Toronto Raptors vs LA Clippers Nov 2, 2026 Game Summary"
+      }
+    ],
+    "subject": {
+      "entity_id": 13,
+      "entity_type": "team",
+      "name": "LA Clippers",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

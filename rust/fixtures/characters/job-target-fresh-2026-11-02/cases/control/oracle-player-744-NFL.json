@@ -1,0 +1,53 @@
+{
+  "name": "oracle-player-744-NFL",
+  "task": "oracle",
+  "sport": "NFL",
+  "prompt_version": "or31-five-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Sam LaPorta\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]\"},\"fresh\":{\"scout\":{\"body\":\"In the 2026 season, Sam LaPorta recorded 316.0 yards responsible for and 18.0 points responsible for. These measurements place him at the 91.7th and 90.8th percentiles among 1014 peers, respectively, within the elite band. The data is based on a thin sample of 5.0 appearances.\",\"direction\":\"rising\",\"generated_at\":\"2026-10-23 08:37:10.598715+00\"},\"influencer\":{\"body\":\"Sam LaPorta stated the Lions are not showing the love and revealed extreme frustrations, saying he breaks his back for the team. He indicated he is prepared to get paid elsewhere due to the stalled extension talks.\",\"generated_at\":\"2026-10-23 05:18:26.854224+00\"},\"analyst\":{\"body\":\"Sam LaPorta's 2026 performance metrics, derived from a thin sample of five appearances, place him in the elite band of peers regarding yards and points responsible for, yet his public statements reveal extreme frustration and a willingness to seek payment elsewhere due to stalled extension talks. The high percentile rankings of his limited statistical output contrast with his expressed dissatisfaction, suggesting a divergence between his on-field contributions and his off-field sentiment toward the team.\",\"generated_at\":\"2026-10-23 08:37:26.349827+00\"},\"insider\":{\"body\":\"Sam LaPorta has expressed frustration with the Detroit Lions regarding their contract extension negotiations, stating the team is not showing sufficient support. Multiple reports indicate he is prepared to leave Detroit if a new contract is not secured.\",\"generated_at\":\"2026-10-23\"}},\"tone\":\"Reflective, economical and quietly evocative. Use a light metaphor only when it clarifies the reading.\"}",
+  "parts": {
+    "cards": {
+      "insider": {
+        "body": "Sam LaPorta has expressed frustration with the Detroit Lions regarding their contract extension negotiations, stating the team is not showing sufficient support. Multiple reports indicate he is prepared to leave Detroit if a new contract is not secured.",
+        "generated_at": "2026-10-23",
+        "score": 1
+      },
+      "momentum": {
+        "blurb": "Sam LaPorta's 2026 performance metrics, derived from a thin sample of five appearances, place him in the elite band of peers regarding yards and points responsible for, yet his public statements reveal extreme frustration and a willingness to seek payment elsewhere due to stalled extension talks. The high percentile rankings of his limited statistical output contrast with his expressed dissatisfaction, suggesting a divergence between his on-field contributions and his off-field sentiment toward the team.",
+        "direction": null,
+        "generated_at": "2026-10-23 08:37:26.349827+00",
+        "input_hash": "c26405aae10eb47de4b70b25b01b2edf",
+        "momentum_score": null,
+        "rating_samples": 0,
+        "rating_slope": null,
+        "vibe_samples": 0,
+        "vibe_slope": null
+      },
+      "narratives": [],
+      "rating": {
+        "body": "In the 2026 season, Sam LaPorta recorded 316.0 yards responsible for and 18.0 points responsible for. These measurements place him at the 91.7th and 90.8th percentiles among 1014 peers, respectively, within the elite band. The data is based on a thin sample of 5.0 appearances.",
+        "generated_at": "2026-10-23 08:37:10.598715+00",
+        "notability": 76,
+        "rating_trajectory": "rising",
+        "rating_trajectory_label": "overall scores trending up over recent games"
+      },
+      "vibe": {
+        "generated_at": "2026-10-23 05:18:26.854224+00",
+        "prompt": "Sam LaPorta stated the Lions are not showing the love and revealed extreme frustrations, saying he breaks his back for the team. He indicated he is prepared to get paid elsewhere due to the stalled extension talks.",
+        "sentiment": 25
+      }
+    },
+    "subject": {
+      "database_record": "Sam LaPorta — TE, on record at Detroit Lions. Record: roster; observed 2026-10-23.\ndate_of_birth: 2001-01-12 [2026-09-14; source 94186]",
+      "entity_id": 744,
+      "entity_name": "Sam LaPorta",
+      "entity_type": "player",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "system": ""
+}

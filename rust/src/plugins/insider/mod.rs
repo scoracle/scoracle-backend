@@ -73,25 +73,29 @@ pub async fn create(
     reports: &[prompt::Report],
     num_ctx: i32,
 ) -> Result<Generation<Reply>> {
-    create_with_memories(studio, subject, reports, &[], num_ctx).await
+    create_with_record(studio, subject, reports, None, num_ctx).await
 }
 
-async fn create_with_memories(
+async fn create_with_record(
     studio: &Studio<'_>,
     subject: &EntityMeta,
     reports: &[prompt::Report],
-    memories: &[crate::plugins::classifier::memories::Headline],
+    database_record: Option<&crate::tools::meta::DatabaseRecord>,
     num_ctx: i32,
 ) -> Result<Generation<Reply>> {
     ensure!(!reports.is_empty(), "Insider needs a verified source");
-    let world = prompt::assemble_with_memories(subject, reports, memories);
-    let hash = crate::util::hash_components(&world);
+    let world = prompt::assemble_with_record(subject, reports, database_record);
+    let hash = crate::util::hash_components(&serde_json::to_string(&(
+        &world,
+        prompt::SYSTEM,
+        prompt::PROMPT_VERSION,
+    ))?);
     let extracted = studio
         .extract(
             &world,
             &prompt::options_for_reports(num_ctx, subject, reports),
             &ReplyParser { subject, reports },
-            crate::harness::session::publishing_correction,
+            crate::harness::session::no_rewrite,
         )
         .await?;
     let call = GenerationCall::from(&extracted);
@@ -164,7 +168,7 @@ async fn execute_prepared(
     backend: &dyn Inference,
     num_ctx: i32,
     item: &Item,
-    mut material: fresh::Material,
+    material: fresh::Material,
 ) -> Result<PluginOutcome> {
     let current: bool = sqlx::query_scalar(
         "SELECT EXISTS (SELECT 1 FROM public.pipeline_work \
@@ -224,26 +228,14 @@ async fn execute_prepared(
         }
         publication.commit_progress().await?;
     }
-    let result = loop {
-        let result = create_with_memories(
-            &Studio::new(backend),
-            &material.subject,
-            &material.reports,
-            &material.memories,
-            num_ctx,
-        )
-        .await;
-        if result
-            .as_ref()
-            .err()
-            .is_some_and(|error| error.is::<crate::harness::model::ContextExceeded>())
-            && !material.memories.is_empty()
-        {
-            material.memories.clear();
-            continue;
-        }
-        break result;
-    };
+    let result = create_with_record(
+        &Studio::new(backend),
+        &material.subject,
+        &material.reports,
+        material.database_record.as_ref(),
+        num_ctx,
+    )
+    .await;
     let generation = match result {
         Ok(generation) => generation,
         Err(error) => {
@@ -471,10 +463,10 @@ mod tests {
         };
         for (first_body, calls) in [
             (None, 1),
-            (Some("Jordan Sample"), 2),
+            (Some("Jordan Sample"), 1),
             (
                 Some("Jordan Sample is linked with Cleveland in Week 7, according to Wire."),
-                2,
+                1,
             ),
         ] {
             let fake = Fake(Mutex::new(0), first_body);
@@ -484,9 +476,16 @@ mod tests {
                 std::slice::from_ref(&report),
                 4096,
             )
-            .await
-            .unwrap();
+            .await;
             assert_eq!(*fake.0.lock().unwrap(), calls);
+            if first_body.is_some() {
+                assert!(
+                    generated.is_err(),
+                    "a rejected first pass must not be rewritten"
+                );
+                continue;
+            }
+            let generated = generated.unwrap();
             assert_eq!(generated.product.findings.len(), 1);
             assert!(generated.product.body.contains("Wire"));
             let final_world: serde_json::Value =

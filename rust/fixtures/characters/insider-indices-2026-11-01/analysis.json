@@ -1,0 +1,925 @@
+{
+  "totals": {
+    "control": {
+      "calls": 12,
+      "accepted": 1,
+      "findings": 14,
+      "exact_quote_at_cited_index": 11,
+      "wrong_index_findings": 3,
+      "wrong_index_cases": 3,
+      "absent_quotes": 0,
+      "counterparties_in_cited_report": 11,
+      "empty_findings": 5,
+      "input_tokens": 27311,
+      "output_tokens": 1138,
+      "summed_request_seconds": 109.854
+    },
+    "indexed": {
+      "calls": 12,
+      "accepted": 0,
+      "findings": 14,
+      "exact_quote_at_cited_index": 14,
+      "wrong_index_findings": 0,
+      "wrong_index_cases": 0,
+      "absent_quotes": 0,
+      "counterparties_in_cited_report": 13,
+      "empty_findings": 5,
+      "input_tokens": 27618,
+      "output_tokens": 1117,
+      "summed_request_seconds": 107.474
+    }
+  },
+  "elapsed": {
+    "seconds": 224.31880449969321
+  },
+  "cases": [
+    {
+      "case": "person-107-FOOTBALL",
+      "subject": "Eddie Howe",
+      "reports": 3,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "named claim is absent from cited reports: AFC Bournemouth",
+        "output": {
+          "body": "Eddie Howe is currently the head coach of AFC Bournemouth, with no reported movement or appointment changes in the supplied evidence. Reports focus on his decision-making process regarding a potential role at Manchester United, but no agreement or transfer has been confirmed.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 2177,
+        "output_tokens": 57,
+        "wall_seconds": 10.079,
+        "receipt": "trial/control/person-107-FOOTBALL/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "named claim is absent from cited reports: AFC Bournemouth",
+        "output": {
+          "body": "Eddie Howe is currently the head coach of AFC Bournemouth, having made a decision regarding a potential role at Manchester United. Reports indicate a civil war at Old Trafford is influencing his choice, but no specific appointment or departure has been confirmed beyond his existing position.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 2192,
+        "output_tokens": 60,
+        "wall_seconds": 7.811,
+        "receipt": "trial/indexed/person-107-FOOTBALL/01/result.json"
+      }
+    },
+    {
+      "case": "player-529856-FOOTBALL",
+      "subject": "Jean-Clair Todibo",
+      "reports": 2,
+      "control": {
+        "status": "accepted",
+        "parser_detail": "0 finding(s) | Jean-Clair Todibo remains on loan at Lens from West Ham, with no plans to terminate the deal.",
+        "output": {
+          "body": "Jean-Clair Todibo remains on loan at Lens from West Ham, with no plans to terminate the deal.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 1347,
+        "output_tokens": 31,
+        "wall_seconds": 2.422,
+        "receipt": "trial/control/player-529856-FOOTBALL/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "named claim is absent from cited reports: West Ham United",
+        "output": {
+          "body": "Jean-Clair Todibo remains on loan at West Ham United, with Lens confirmed as not planning to terminate the arrangement.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 1357,
+        "output_tokens": 33,
+        "wall_seconds": 4.667,
+        "receipt": "trial/indexed/player-529856-FOOTBALL/01/result.json"
+      }
+    },
+    {
+      "case": "player-37550443-FOOTBALL",
+      "subject": "Alex Scott",
+      "reports": 5,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "finding quote does not state a move",
+        "output": {
+          "body": "Alex Scott remains at AFC Bournemouth as the club's owner publicly warns him about transfer interest from Chelsea and Manchester City, framing the situation as a 'star struck' decision rather than a confirmed move.",
+          "findings": [
+            {
+              "counterparty": "Chelsea",
+              "evidence_quote": "Bournemouth owner admits Alex Scott could be lured by Chelsea or Manchester City",
+              "report_index": 1,
+              "stage": "concrete_interest",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Manchester City",
+              "evidence_quote": "Bournemouth owner admits Alex Scott could be lured by Chelsea or Manchester City",
+              "report_index": 1,
+              "stage": "concrete_interest",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 1,
+            "matching_report_indices": [
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 1,
+            "matching_report_indices": [
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 2489,
+        "output_tokens": 129,
+        "wall_seconds": 10.929,
+        "receipt": "trial/control/player-37550443-FOOTBALL/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "finding quote does not state a move",
+        "output": {
+          "body": "Alex Scott remains at AFC Bournemouth amid reports of intense interest from Chelsea and Manchester City. Bournemouth's owner has publicly warned Scott about the transfer pressure while simultaneously expressing hope he signs a new deal, indicating the club is actively managing the situation rather than confirming a move.",
+          "findings": [
+            {
+              "counterparty": "Chelsea",
+              "evidence_quote": "Bournemouth owner admits Alex Scott could be lured by Chelsea or Manchester City",
+              "report_index": 1,
+              "stage": "concrete_interest",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Manchester City",
+              "evidence_quote": "Bournemouth owner admits Alex Scott could be lured by Chelsea or Manchester City",
+              "report_index": 1,
+              "stage": "concrete_interest",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 1,
+            "matching_report_indices": [
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 1,
+            "matching_report_indices": [
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 2514,
+        "output_tokens": 143,
+        "wall_seconds": 11.471,
+        "receipt": "trial/indexed/player-37550443-FOOTBALL/01/result.json"
+      }
+    },
+    {
+      "case": "team-37-FOOTBALL",
+      "subject": "Roma",
+      "reports": 9,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "named claim is absent from cited reports: Mirko Vučinić",
+        "output": {
+          "body": "Roma are currently managing a significant injury crisis with coach Mirko Vučinić sidelined for 6-8 weeks, while simultaneously rejecting offers for Pisilli and looking to make two signings in January. Interest in Roma's squad is evident through reports of potential deals involving Thuram and Bakola, though no specific agreements have been confirmed.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 3485,
+        "output_tokens": 75,
+        "wall_seconds": 11.8,
+        "receipt": "trial/control/team-37-FOOTBALL/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "named claim is absent from cited reports: Mirko Vučinić",
+        "output": {
+          "body": "Roma are currently managing a significant injury crisis with coach Mirko Vučinić sidelined for 6-8 weeks, while simultaneously rejecting three offers for Pisilli and looking to make two signings in January. Interest in Roma's squad is evident through reports of a €50m package involving El Aynaoui and Gruda, though no specific agreement has been confirmed.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 3530,
+        "output_tokens": 82,
+        "wall_seconds": 12.214,
+        "receipt": "trial/indexed/team-37-FOOTBALL/01/result.json"
+      }
+    },
+    {
+      "case": "player-185-NBA",
+      "subject": "Draymond Green",
+      "reports": 2,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Draymond Green is linked to potential movement with the Golden State Warriors, though reports focus on internal team dynamics rather than confirmed exits or new signings.",
+          "findings": [
+            {
+              "counterparty": "Golden State Warriors",
+              "evidence_quote": "Warriors Looking to Trade Him",
+              "report_index": 1,
+              "stage": "speculation",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Golden State Warriors",
+              "evidence_quote": "Hints at Potential Warriors Exit",
+              "report_index": 0,
+              "stage": "speculation",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 1,
+            "matching_report_indices": [
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 0,
+            "matching_report_indices": [
+              0
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": false
+          }
+        ],
+        "input_tokens": 1404,
+        "output_tokens": 101,
+        "wall_seconds": 7.074,
+        "receipt": "trial/control/player-185-NBA/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Draymond Green is linked to potential movement with the Golden State Warriors, though reports focus on internal team dynamics rather than confirmed exits or new signings.",
+          "findings": [
+            {
+              "counterparty": "Golden State Warriors",
+              "evidence_quote": "Warriors Looking to Trade Him",
+              "report_index": 1,
+              "stage": "speculation",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Golden State Warriors",
+              "evidence_quote": "Hints at Potential Warriors Exit",
+              "report_index": 0,
+              "stage": "speculation",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 1,
+            "matching_report_indices": [
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 0,
+            "matching_report_indices": [
+              0
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": false
+          }
+        ],
+        "input_tokens": 1414,
+        "output_tokens": 101,
+        "wall_seconds": 4.853,
+        "receipt": "trial/indexed/player-185-NBA/01/result.json"
+      }
+    },
+    {
+      "case": "player-322-NBA",
+      "subject": "Donovan Mitchell",
+      "reports": 2,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+        "output": {
+          "body": "Donovan Mitchell is reported to have formally committed to retiring with the Cleveland Cavaliers, with no active trade negotiations or departures mentioned in the provided evidence.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 1350,
+        "output_tokens": 38,
+        "wall_seconds": 2.645,
+        "receipt": "trial/control/player-322-NBA/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+        "output": {
+          "body": "Donovan Mitchell is reported to have formally committed to retiring with the Cleveland Cavaliers, though a conflicting headline suggests he plans to leave unless traded.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 1360,
+        "output_tokens": 36,
+        "wall_seconds": 4.775,
+        "receipt": "trial/indexed/player-322-NBA/01/result.json"
+      }
+    },
+    {
+      "case": "player-17896040-NBA",
+      "subject": "Jalen Johnson",
+      "reports": 2,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "cited reports do not connect Jalen Johnson with numerical fact 2026",
+        "output": {
+          "body": "Jalen Johnson is currently on the Atlanta Hawks roster as of July 2026. Recent reports from late October 2026 describe a tense situation between the Hawks and Orlando Magic involving Johnson and Paolo Banchero, but no specific movement, negotiation, or appointment has been confirmed.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 1433,
+        "output_tokens": 68,
+        "wall_seconds": 6.013,
+        "receipt": "trial/control/player-17896040-NBA/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "cited reports do not connect Jalen Johnson with numerical fact 2026",
+        "output": {
+          "body": "Jalen Johnson is currently on the Atlanta Hawks roster as of July 2026. Recent headlines describe a tense situation between the Hawks and Orlando Magic involving Johnson and Paolo Banchero, but no specific movement, negotiation, or appointment is reported.",
+          "findings": []
+        },
+        "references": [],
+        "input_tokens": 1443,
+        "output_tokens": 59,
+        "wall_seconds": 3.398,
+        "receipt": "trial/indexed/player-17896040-NBA/01/result.json"
+      }
+    },
+    {
+      "case": "team-7-NBA",
+      "subject": "Dallas Mavericks",
+      "reports": 7,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Dallas Mavericks have confirmed the signing of Walter Clayton Jr. to a two-way contract, following reports of him being waived by Memphis Grizzlies.",
+          "findings": [
+            {
+              "counterparty": "Walter Clayton Jr.",
+              "evidence_quote": "Walter Clayton Jr. Signs Two-Way NBA Deal With Mavericks",
+              "report_index": 1,
+              "stage": "here_we_go",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Walter Clayton Jr.",
+              "evidence_quote": "Mavericks Sign Walter Clayton Jr. to Two-Way Contract | Dallas Mavericks",
+              "report_index": 4,
+              "stage": "here_we_go",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 1,
+            "matching_report_indices": [
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 4,
+            "matching_report_indices": [
+              5
+            ],
+            "exact_quote_at_cited_index": false,
+            "wrong_index": true,
+            "absent_quote": false,
+            "counterparty_in_cited_report": false
+          }
+        ],
+        "input_tokens": 2777,
+        "output_tokens": 121,
+        "wall_seconds": 11.473,
+        "receipt": "trial/control/team-7-NBA/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Dallas Mavericks have confirmed the signing of Walter Clayton Jr. to a two-way contract, ending speculation about his potential move from Memphis.",
+          "findings": [
+            {
+              "counterparty": "Walter Clayton Jr.",
+              "evidence_quote": "Walter Clayton Jr. Signs Two-Way NBA Deal With Mavericks",
+              "report_index": 1,
+              "stage": "here_we_go",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Walter Clayton Jr.",
+              "evidence_quote": "Mavericks Sign Walter Clayton Jr. to Two-Way Contract | Dallas Mavericks",
+              "report_index": 5,
+              "stage": "here_we_go",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 1,
+            "matching_report_indices": [
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 5,
+            "matching_report_indices": [
+              5
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 2812,
+        "output_tokens": 119,
+        "wall_seconds": 11.477,
+        "receipt": "trial/indexed/team-7-NBA/01/result.json"
+      }
+    },
+    {
+      "case": "person-8-NFL",
+      "subject": "Dan Quinn",
+      "reports": 5,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Dan Quinn faces a reported end to his tenure with the Washington Commanders, with multiple outlets citing Stephen A. Smith declaring his time in Washington over. Reports also note Quinn has hired a former head coach amid this uncertain future.",
+          "findings": [
+            {
+              "counterparty": "Washington Commanders",
+              "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+              "report_index": 0,
+              "stage": "speculation",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Washington Commanders",
+              "evidence_quote": "'It's over for Dan Quinn, this is it': Stephen A. Smith does not hold back on Commanders coach",
+              "report_index": 3,
+              "stage": "speculation",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 0,
+            "matching_report_indices": [
+              0,
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 3,
+            "matching_report_indices": [
+              3
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 2141,
+        "output_tokens": 149,
+        "wall_seconds": 10.668,
+        "receipt": "trial/control/person-8-NFL/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Dan Quinn is the subject of multiple reports stating his time with the Washington Commanders is over, with sources citing Stephen A. Smith's comments on the team's bye week.",
+          "findings": [
+            {
+              "counterparty": "Washington Commanders",
+              "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+              "report_index": 0,
+              "stage": null,
+              "status": "denied"
+            },
+            {
+              "counterparty": "Washington Commanders",
+              "evidence_quote": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+              "report_index": 1,
+              "stage": null,
+              "status": "denied"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 0,
+            "matching_report_indices": [
+              0,
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 1,
+            "matching_report_indices": [
+              0,
+              1
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 2166,
+        "output_tokens": 135,
+        "wall_seconds": 10.329,
+        "receipt": "trial/indexed/person-8-NFL/01/result.json"
+      }
+    },
+    {
+      "case": "player-45-NFL",
+      "subject": "Justin Herbert",
+      "reports": 5,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Justin Herbert remains on the Chargers roster as trade rumors swirl, with reports of interest from the Vikings and Browns but no confirmed moves.",
+          "findings": [
+            {
+              "counterparty": "Minnesota Vikings",
+              "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+              "report_index": 4,
+              "stage": "concrete_interest",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Cleveland Browns",
+              "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+              "report_index": 3,
+              "stage": "concrete_interest",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 4,
+            "matching_report_indices": [
+              4
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 3,
+            "matching_report_indices": [
+              3
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 2096,
+        "output_tokens": 111,
+        "wall_seconds": 9.443,
+        "receipt": "trial/control/player-45-NFL/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Justin Herbert remains on the Chargers roster as trade rumors swirl, with reports of interest from the Vikings and Browns but no confirmed moves.",
+          "findings": [
+            {
+              "counterparty": "Minnesota Vikings",
+              "evidence_quote": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+              "report_index": 4,
+              "stage": "concrete_interest",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Cleveland Browns",
+              "evidence_quote": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+              "report_index": 3,
+              "stage": "concrete_interest",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 4,
+            "matching_report_indices": [
+              4
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 3,
+            "matching_report_indices": [
+              3
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 2121,
+        "output_tokens": 111,
+        "wall_seconds": 9.467,
+        "receipt": "trial/indexed/player-45-NFL/01/result.json"
+      }
+    },
+    {
+      "case": "player-83946-NFL",
+      "subject": "Evan Neal",
+      "reports": 7,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "finding quote is not an exact publisher span",
+        "output": {
+          "body": "Evan Neal has been signed by the Philadelphia Eagles to their practice squad, moving from the New York Giants. Multiple outlets confirm the signing occurred on October 22, 2026.",
+          "findings": [
+            {
+              "counterparty": "Philadelphia Eagles",
+              "evidence_quote": "Eagles sign OL Evan Neal",
+              "report_index": 3,
+              "stage": "here_we_go",
+              "status": "reported"
+            },
+            {
+              "counterparty": "New York Giants",
+              "evidence_quote": "Ex-Giants Draft Bust Evan Neal Signs With NFC East Rival",
+              "report_index": 0,
+              "stage": "here_we_go",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 3,
+            "matching_report_indices": [
+              4,
+              5
+            ],
+            "exact_quote_at_cited_index": false,
+            "wrong_index": true,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 0,
+            "matching_report_indices": [
+              0,
+              6
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 2659,
+        "output_tokens": 121,
+        "wall_seconds": 11.367,
+        "receipt": "trial/control/player-83946-NFL/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Evan Neal has been signed by the Philadelphia Eagles to their practice squad, following his release from the New York Giants.",
+          "findings": [
+            {
+              "counterparty": "Philadelphia Eagles",
+              "evidence_quote": "Eagles sign OL Evan Neal",
+              "report_index": 4,
+              "stage": "here_we_go",
+              "status": "reported"
+            },
+            {
+              "counterparty": "New York Giants",
+              "evidence_quote": "Ex-Giants Draft Bust Evan Neal Signs With NFC East Rival",
+              "report_index": 6,
+              "stage": "here_we_go",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 4,
+            "matching_report_indices": [
+              4,
+              5
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 6,
+            "matching_report_indices": [
+              0,
+              6
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 2694,
+        "output_tokens": 105,
+        "wall_seconds": 11.051,
+        "receipt": "trial/indexed/player-83946-NFL/01/result.json"
+      }
+    },
+    {
+      "case": "player-278370-NFL",
+      "subject": "Brian Thomas Jr.",
+      "reports": 12,
+      "control": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Brian Thomas Jr. is the subject of conflicting trade rumors involving the Las Vegas Raiders and Seattle Seahawks, with reports suggesting active interest and finalized deals, though the database records him as currently on the Jacksonville Jaguars roster.",
+          "findings": [
+            {
+              "counterparty": "Las Vegas Raiders",
+              "evidence_quote": "Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks",
+              "report_index": 5,
+              "stage": "concrete_interest",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Seattle Seahawks",
+              "evidence_quote": "Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr.",
+              "report_index": 6,
+              "stage": "here_we_go",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 5,
+            "matching_report_indices": [
+              5,
+              7
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 6,
+            "matching_report_indices": [
+              10,
+              11
+            ],
+            "exact_quote_at_cited_index": false,
+            "wrong_index": true,
+            "absent_quote": false,
+            "counterparty_in_cited_report": false
+          }
+        ],
+        "input_tokens": 3953,
+        "output_tokens": 137,
+        "wall_seconds": 15.941,
+        "receipt": "trial/control/player-278370-NFL/01/result.json"
+      },
+      "indexed": {
+        "status": "rejected",
+        "parser_detail": "finding quote must name both the target and counterparty in full",
+        "output": {
+          "body": "Brian Thomas Jr. is the subject of conflicting trade rumors involving the Las Vegas Raiders and Seattle Seahawks, with reports suggesting both teams have made proposals or are urging finalization of a trade.",
+          "findings": [
+            {
+              "counterparty": "Las Vegas Raiders",
+              "evidence_quote": "Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks",
+              "report_index": 5,
+              "stage": "concrete_interest",
+              "status": "reported"
+            },
+            {
+              "counterparty": "Seattle Seahawks",
+              "evidence_quote": "Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr.",
+              "report_index": 10,
+              "stage": "concrete_interest",
+              "status": "reported"
+            }
+          ]
+        },
+        "references": [
+          {
+            "report_index": 5,
+            "matching_report_indices": [
+              5,
+              7
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          },
+          {
+            "report_index": 10,
+            "matching_report_indices": [
+              10,
+              11
+            ],
+            "exact_quote_at_cited_index": true,
+            "wrong_index": false,
+            "absent_quote": false,
+            "counterparty_in_cited_report": true
+          }
+        ],
+        "input_tokens": 4015,
+        "output_tokens": 133,
+        "wall_seconds": 15.961,
+        "receipt": "trial/indexed/player-278370-NFL/01/result.json"
+      }
+    }
+  ],
+  "caveat": "Exact quote location and co-mention membership are mechanical properties, not proof of movement or faithful meaning. Empty findings have no reference opportunity."
+}

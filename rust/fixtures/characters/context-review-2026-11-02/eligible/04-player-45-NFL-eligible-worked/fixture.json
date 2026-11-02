@@ -1,0 +1,201 @@
+{
+  "name": "player-45-NFL",
+  "task": "transfer",
+  "sport": "NFL",
+  "prompt_version": "insider-source-v22-quote-eligibility",
+  "user_prompt": "{\"meta\":{\"name\":\"Justin Herbert\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Justin Herbert — QB, on record at Los Angeles Chargers. Record: roster; observed 2026-10-23.\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1401706,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPV2xDZ2hzQU53VUhpc0RPMjE0b0xlMjcwV0JUOHlEYTBaVDBFcC03bzRYbkozWlJSSVZfNnE2SVlBX2lzanY0ZlRGREtCTkw3ZTlhcDNJMy1aTUFmU2FIY2NvdzVFWFJPRFdmN0NtUE52d3JKVmVkYTlmQ1JKOXBSb1ZyWllWM3M?oc=5\"},\"co_mentions\":[{\"entity_type\":\"player\",\"name\":\"Jonathan Taylor\"}],\"headline\":\"NFL Trade Deadline: Best Landing Spots for Justin Herbert, Jonathan Taylor and Others\",\"published_at\":\"2026-10-22T21:03:53Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1351333,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxQbWNBVWg4UjA0N2Mwbjgwcnk4OGM4S25nVTRSMTRZWTk1eEowNVRUNmhlSEZpXzduNDJLaTBqckNmSWZLeEQ5Q25XbGtwNll4eUxYcWl4MXlWRXVWWG1nNTk3T1A5OXNZVFg1NkVVTXhTbnhOLWhTQl9laEc0Y2RlclMxS2tZQlJOXzZ6QlFFMVBKQQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Minnesota Vikings\"}],\"headline\":\"Should Vikings trade for Justin Herbert? Making the case for and against potential blockbuster deal\",\"published_at\":\"2026-10-22T16:24:41Z\",\"publisher\":\"CBS Sports\"},{\"classifier_world\":{\"article_id\":1321781,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxOelZaVzZDaGNvMmt6THVuRTlTSDEtR0ZvOXdiSWtCTHZPc3NuZzZTRGg5aTZpX000MmVTanhBUXRtNGlCRjFHNnVpN1MwWkQySEJ2NkN6UDROS3dTdFdIZVpfc2h0RkM3clpZU3dSekhPSG14QUF6ejdyaTFTQ0Z2SHNuYXlzQzItWWZDRUhvSmVmWlFPN0hKeA?oc=5\"},\"co_mentions\":[],\"headline\":\"Which Teams Would Give Up Most Capital in a Justin Herbert Trade?\",\"published_at\":\"2026-10-22T15:30:00Z\",\"publisher\":\"Sports Illustrated\"},{\"classifier_world\":{\"article_id\":1331521,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMilwFBVV95cUxOODZVY2lkLTY4TGxlUkxldHVxSm9KTTVMeU9TUVVhaHYyNVFjZFFhTWlySGxZSjFnSXptYnBrTHZLUGVPQ0lPbFhsZURpdHNFM3c3em5BcU5lYkxDMFY4VGlsNEV5a3VpemRydG9CdnNCTmxSbnNYbE4xRVhMNjMyWUlCSFoyRmgzRWFwRlJxOGp2LThaNEZn?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Cleveland Browns\"},{\"entity_type\":\"team\",\"name\":\"Los Angeles Chargers\"}],\"headline\":\"Browns Linked To Blockbuster Justin Herbert Trade With Chargers\",\"published_at\":\"2026-10-22T11:59:42Z\",\"publisher\":\"Gridiron Heroics\"},{\"classifier_world\":{\"article_id\":1273425,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiuwFBVV95cUxNZjJ4X25ka0Z3NDlTZUlqQkFJRnNiR0s4S292eVVPMFdQSDNURXVSd1kzRm9QN0ZzNTJEUDVFWDB3Rl9GUndyOVgwNVZCUExZNXo3QXR2YXI5SjVaRFlkMnFreGo2OGxjVFBOXzZObUNGcjJzc3A0eng4bGpRQTNzek9VWFVha1VoRlhrdHNXNmE1N2VPWm9laUNNbEs3Si14MFVsT0tNS1BfOV9QbjhyczZMTVdFQUZaYWNv?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Los Angeles Chargers\"},{\"entity_type\":\"team\",\"name\":\"Minnesota Vikings\"}],\"headline\":\"Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings\",\"published_at\":\"2026-10-22T10:38:20Z\",\"publisher\":\"NDTV Sports\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "parts": {
+    "database_record": "Justin Herbert — QB, on record at Los Angeles Chargers. Record: roster; observed 2026-10-23.",
+    "reports": [
+      {
+        "classifier_world": {
+          "article_id": 1401706,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 25.42257127295975,
+            "emotion": 1.9890894962340704,
+            "movement": 80.27655145740422,
+            "subject": 95.50806328271072
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPV2xDZ2hzQU53VUhpc0RPMjE0b0xlMjcwV0JUOHlEYTBaVDBFcC03bzRYbkozWlJSSVZfNnE2SVlBX2lzanY0ZlRGREtCTkw3ZTlhcDNJMy1aTUFmU2FIY2NvdzVFWFJPRFdmN0NtUE52d3JKVmVkYTlmQ1JKOXBSb1ZyWllWM3M?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "player",
+            "name": "Jonathan Taylor"
+          }
+        ],
+        "headline": "NFL Trade Deadline: Best Landing Spots for Justin Herbert, Jonathan Taylor and Others",
+        "published_at": "2026-10-22T21:03:53Z",
+        "publisher": "Yahoo Sports",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1351333,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 22.75725874824605,
+            "emotion": 2.88593581444043,
+            "movement": 86.51003699667662,
+            "subject": 91.277903974936
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxQbWNBVWg4UjA0N2Mwbjgwcnk4OGM4S25nVTRSMTRZWTk1eEowNVRUNmhlSEZpXzduNDJLaTBqckNmSWZLeEQ5Q25XbGtwNll4eUxYcWl4MXlWRXVWWG1nNTk3T1A5OXNZVFg1NkVVTXhTbnhOLWhTQl9laEc0Y2RlclMxS2tZQlJOXzZ6QlFFMVBKQQ?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Minnesota Vikings"
+          }
+        ],
+        "headline": "Should Vikings trade for Justin Herbert? Making the case for and against potential blockbuster deal",
+        "published_at": "2026-10-22T16:24:41Z",
+        "publisher": "CBS Sports",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1321781,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.7734413555454114,
+            "clickbait": 12.2825383066424,
+            "emotion": 1.9114057066285008,
+            "movement": 83.74320529575702,
+            "subject": 93.68233464260936
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxOelZaVzZDaGNvMmt6THVuRTlTSDEtR0ZvOXdiSWtCTHZPc3NuZzZTRGg5aTZpX000MmVTanhBUXRtNGlCRjFHNnVpN1MwWkQySEJ2NkN6UDROS3dTdFdIZVpfc2h0RkM3clpZU3dSekhPSG14QUF6ejdyaTFTQ0Z2SHNuYXlzQzItWWZDRUhvSmVmWlFPN0hKeA?oc=5"
+        },
+        "co_mentions": [],
+        "headline": "Which Teams Would Give Up Most Capital in a Justin Herbert Trade?",
+        "published_at": "2026-10-22T15:30:00Z",
+        "publisher": "Sports Illustrated",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1331521,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.5808375171425224,
+            "clickbait": 25.16376451282858,
+            "emotion": 2.12658244075619,
+            "movement": 95.46258611763898,
+            "subject": 87.92243615238915
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxOODZVY2lkLTY4TGxlUkxldHVxSm9KTTVMeU9TUVVhaHYyNVFjZFFhTWlySGxZSjFnSXptYnBrTHZLUGVPQ0lPbFhsZURpdHNFM3c3em5BcU5lYkxDMFY4VGlsNEV5a3VpemRydG9CdnNCTmxSbnNYbE4xRVhMNjMyWUlCSFoyRmgzRWFwRlJxOGp2LThaNEZn?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Cleveland Browns"
+          },
+          {
+            "entity_type": "team",
+            "name": "Los Angeles Chargers"
+          }
+        ],
+        "headline": "Browns Linked To Blockbuster Justin Herbert Trade With Chargers",
+        "published_at": "2026-10-22T11:59:42Z",
+        "publisher": "Gridiron Heroics",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1273425,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.6353590919673464,
+            "clickbait": 11.364355353201764,
+            "emotion": 2.2990733184986745,
+            "movement": 88.67993082323915,
+            "subject": 88.74357252177984
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxNZjJ4X25ka0Z3NDlTZUlqQkFJRnNiR0s4S292eVVPMFdQSDNURXVSd1kzRm9QN0ZzNTJEUDVFWDB3Rl9GUndyOVgwNVZCUExZNXo3QXR2YXI5SjVaRFlkMnFreGo2OGxjVFBOXzZObUNGcjJzc3A0eng4bGpRQTNzek9VWFVha1VoRlhrdHNXNmE1N2VPWm9laUNNbEs3Si14MFVsT0tNS1BfOV9QbjhyczZMTVdFQUZaYWNv?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Los Angeles Chargers"
+          },
+          {
+            "entity_type": "team",
+            "name": "Minnesota Vikings"
+          }
+        ],
+        "headline": "Los Angeles Chargers Shut Down Justin Herbert Trade Talk With Minnesota Vikings",
+        "published_at": "2026-10-22T10:38:20Z",
+        "publisher": "NDTV Sports",
+        "publisher_excerpt": ""
+      }
+    ],
+    "subject": {
+      "entity_id": 45,
+      "entity_type": "player",
+      "name": "Justin Herbert",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

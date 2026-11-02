@@ -1,0 +1,13 @@
+{
+  "arm": "control-ordered",
+  "checks": [],
+  "input_tokens": 2096,
+  "name": "player-45-NFL",
+  "output_tokens": 127,
+  "parser_detail": "finding quote must name both the target and counterparty in full",
+  "receipt": "07-player-45-NFL-control-ordered",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9791
+}

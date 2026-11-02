@@ -1,0 +1,44 @@
+{
+  "name": "real-player:278370:NFL-oracle",
+  "task": "oracle",
+  "sport": "NFL",
+  "prompt_version": "or31-five-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Brian Thomas Jr.\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.\"},\"fresh\":{\"scout\":{\"body\":\"Brian Thomas Jr. recorded or stored appearances for the 2026 season in two categories: sum of passing, receiving, kick-return, punt-return, punt, and interception yards (105.0 yards, 78th percentile) and points responsible for (6.0 points, 76.5th percentile). Both categories are based on thin samples with a minimum of 10 appearances each. The data does not establish cross-season comparisons or confirm complete participation.\",\"direction\":\"falling\",\"generated_at\":\"2026-10-23 07:33:56.487393+00\"},\"analyst\":{\"body\":\"Brian Thomas Jr.: Mood reading unavailable. Agreement between performance and mood cannot be assessed.\",\"generated_at\":\"2026-10-23 07:34:04.897468+00\"}},\"tone\":\"Reflective, economical and quietly evocative. Use a light metaphor only when it clarifies the reading.\"}",
+  "parts": {
+    "cards": {
+      "insider": null,
+      "momentum": {
+        "blurb": "Brian Thomas Jr.: Mood reading unavailable. Agreement between performance and mood cannot be assessed.",
+        "direction": null,
+        "generated_at": "2026-10-23 07:34:04.897468+00",
+        "input_hash": "adf2ac328862ed1fb80a94e46fa607bc",
+        "momentum_score": null,
+        "rating_samples": 0,
+        "rating_slope": null,
+        "vibe_samples": 0,
+        "vibe_slope": null
+      },
+      "narratives": [],
+      "rating": {
+        "body": "Brian Thomas Jr. recorded or stored appearances for the 2026 season in two categories: sum of passing, receiving, kick-return, punt-return, punt, and interception yards (105.0 yards, 78th percentile) and points responsible for (6.0 points, 76.5th percentile). Both categories are based on thin samples with a minimum of 10 appearances each. The data does not establish cross-season comparisons or confirm complete participation.",
+        "generated_at": "2026-10-23 07:33:56.487393+00",
+        "notability": 45,
+        "rating_trajectory": "falling",
+        "rating_trajectory_label": "overall scores trending down over recent games"
+      },
+      "vibe": null
+    },
+    "subject": {
+      "database_record": "Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.",
+      "entity_id": 278370,
+      "entity_name": "Brian Thomas Jr.",
+      "entity_type": "player",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

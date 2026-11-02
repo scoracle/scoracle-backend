@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / real-player:744:NFL-rating [rejected]
+Sam LaPorta's 2026 season measurements (5 appearances, sample limit 10) show elite relative standing in air yards responsible (90.6th percentile) and strong relative standing in points responsible for (89.4th percentile). No cross-season comparison data is available for these measures. Availability information is not provided.

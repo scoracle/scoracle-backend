@@ -1,0 +1,78 @@
+{
+  "name": "real-team:7:NBA-rating",
+  "task": "rating",
+  "sport": "NBA",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Dallas Mavericks\",\"entity_type\":\"team\",\"sport\":\"NBA Basketball\",\"database_record\":\"Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.\"},\"fresh\":{\"season\":2025,\"sample\":{\"Games Played\":82.0},\"values\":[{\"label\":\"Rebounding\",\"measure\":\"total rebounds\",\"value\":44.7,\"percentile\":69.0,\"cohort\":30.0,\"band\":\"above average\",\"prior_percentile\":24.1,\"standing_change\":\"rose\"},{\"label\":\"Steals\",\"measure\":\"steals\",\"value\":7.5,\"percentile\":17.2,\"cohort\":30.0,\"band\":\"poor\",\"prior_percentile\":31.0,\"standing_change\":\"fell\"},{\"label\":\"3PT Shooting\",\"measure\":\"three-point field goals made\",\"value\":11.0,\"percentile\":6.9,\"cohort\":30.0,\"band\":\"poor\",\"prior_percentile\":20.7,\"standing_change\":\"fell\"},{\"label\":\"Scoring\",\"measure\":\"points\",\"value\":114.1,\"percentile\":24.1,\"cohort\":30.0,\"band\":\"poor\",\"prior_percentile\":58.6,\"standing_change\":\"fell\"}],\"composite\":43.2,\"supports_cross_season\":true,\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.",
+    "profile": {
+      "composite": 43.2,
+      "sample": {
+        "Games Played": 82.0
+      },
+      "season": 2025,
+      "supports_cross_season": true,
+      "values": [
+        {
+          "band": "above average",
+          "cohort": 30.0,
+          "label": "Rebounding",
+          "measure": "total rebounds",
+          "percentile": 69.0,
+          "prior_percentile": 24.1,
+          "standing_change": "rose",
+          "value": 44.7
+        },
+        {
+          "band": "poor",
+          "cohort": 30.0,
+          "label": "Steals",
+          "measure": "steals",
+          "percentile": 17.2,
+          "prior_percentile": 31.0,
+          "standing_change": "fell",
+          "value": 7.5
+        },
+        {
+          "band": "poor",
+          "cohort": 30.0,
+          "label": "3PT Shooting",
+          "measure": "three-point field goals made",
+          "percentile": 6.9,
+          "prior_percentile": 20.7,
+          "standing_change": "fell",
+          "value": 11.0
+        },
+        {
+          "band": "poor",
+          "cohort": 30.0,
+          "label": "Scoring",
+          "measure": "points",
+          "percentile": 24.1,
+          "prior_percentile": 58.6,
+          "standing_change": "fell",
+          "value": 114.1
+        }
+      ]
+    },
+    "season": 2025,
+    "sport_name": "NBA Basketball",
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Dallas Mavericks",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

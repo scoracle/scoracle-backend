@@ -1,0 +1,22 @@
+{
+  "case": 15,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/transfer-unnamed-signing-no-identity-join.json",
+  "generation_wall_ms": 3094,
+  "input_tokens": 597,
+  "name": "unnamed-signing-no-identity-join",
+  "output_limit": 1400,
+  "output_tokens": 45,
+  "parsed": false,
+  "prompt_version": "insider-source-v19-subject",
+  "reading": "served reading adds unsupported chronology or causality",
+  "request_bytes": 3016,
+  "review": [
+    "An unnamed signing cannot acquire the co-mentioned target identity. No linked finding."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 3102
+}

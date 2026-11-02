@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-momentum-player-744-NFL.json",
+  "generation_wall_ms": 4870,
+  "input_tokens": 747,
+  "name": "real-player:744:NFL-momentum",
+  "output_limit": 700,
+  "output_tokens": 81,
+  "parsed": true,
+  "prompt_version": "momentum-s42-dated-perspective",
+  "reading": "Sam LaPorta's 2026 performance metrics place him in the elite percentile band despite a thin sample of five appearances, while coverage reflects his expressed frustration regarding stalled extension talks and a lack of team support. The performance data establishes his statistical standing within the elite tier, whereas the tone indicates a disconnect between his on-field contributions and the organization's treatment of him.",
+  "request_bytes": 915,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 4877
+}

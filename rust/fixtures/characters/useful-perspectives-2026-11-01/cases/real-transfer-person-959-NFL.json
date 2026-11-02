@@ -1,0 +1,96 @@
+{
+  "name": "real-transfer-person-959-NFL",
+  "task": "transfer",
+  "sport": "NFL",
+  "prompt_version": "insider-source-v21-perspective",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Jerry Jones\",\"entity_type\":\"person\",\"sport\":\"American football\",\"database_record\":\"Jerry Jones — owner; club: Dallas Cowboys; checked: 2026-09-30.\\ndate_of_birth: 1942-10-13 [2026-09-09; source 78136]\\nrole: owner [2026-08-09; source 29402]\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1302572,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxPSV8zMTVKVGN3eXhVajBzd1hTSHo1SXh3Y0M0aHlZT3pUS1c4dlN3S1hzaFAyT3FVUWpMSWY2U01PNVhpSHp1cHVNQ01rQzZ2WGpSOVlncmFuQ1dPcEFYOVdXUmg2MG45QkdodU5iblRGbnREelBWVnd2TE9DRFVyWndQeE8?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Dallas Cowboys\"}],\"headline\":\"Jerry Jones Hints at Cowboys Trade Blockbuster: 'Buyer' Or 'Seller'?\",\"published_at\":\"2026-10-22T13:16:10Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1361476,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxOWGhoTkNnZW5OQkZnd1otb1F0UWJ0LWxHd0pPZnNzcGt3ZEhoNVZPcXVfakxrVVR0WmIzRUo0X0pzOERBQjJPSHNPbUlzbXllZk9WQTRSZjhaX0J6d1lKQ2NiRUVmbFp3Tmg5aXVuUTZvMkpVNXZpTzNuVjhld3FMbENIQVMxdw?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Dallas Cowboys\"}],\"headline\":\"Cowboys’ Jerry Jones Makes ‘Real Clear’ Statement on Trade Rumors\",\"published_at\":\"2026-10-21T20:08:49Z\",\"publisher\":\"Yahoo Sports\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 959,
+      "entity_type": "person",
+      "name": "Jerry Jones",
+      "sport": "NFL"
+    },
+    "database_record": "Jerry Jones — owner; club: Dallas Cowboys; checked: 2026-09-30.\ndate_of_birth: 1942-10-13 [2026-09-09; source 78136]\nrole: owner [2026-08-09; source 29402]",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxPSV8zMTVKVGN3eXhVajBzd1hTSHo1SXh3Y0M0aHlZT3pUS1c4dlN3S1hzaFAyT3FVUWpMSWY2U01PNVhpSHp1cHVNQ01rQzZ2WGpSOVlncmFuQ1dPcEFYOVdXUmg2MG45QkdodU5iblRGbnREelBWVnd2TE9DRFVyWndQeE8?oc=5",
+          "spectrum": {
+            "emotion": 1.6539419513222198,
+            "subject": 92.8140719330885,
+            "movement": 85.00567708950683,
+            "clickbait": 15.409410646375326,
+            "availability": 1.4932938369086062
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1302572
+        },
+        "publisher": "Yahoo Sports",
+        "published_at": "2026-10-22T13:16:10Z",
+        "headline": "Jerry Jones Hints at Cowboys Trade Blockbuster: 'Buyer' Or 'Seller'?",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Dallas Cowboys",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOWGhoTkNnZW5OQkZnd1otb1F0UWJ0LWxHd0pPZnNzcGt3ZEhoNVZPcXVfakxrVVR0WmIzRUo0X0pzOERBQjJPSHNPbUlzbXllZk9WQTRSZjhaX0J6d1lKQ2NiRUVmbFp3Tmg5aXVuUTZvMkpVNXZpTzNuVjhld3FMbENIQVMxdw?oc=5",
+          "spectrum": {
+            "emotion": 2.3530040874867217,
+            "subject": 92.58332236715373,
+            "movement": 94.62195779213084,
+            "availability": 20.744605354641877
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1361476
+        },
+        "publisher": "Yahoo Sports",
+        "published_at": "2026-10-21T20:08:49Z",
+        "headline": "Cowboys’ Jerry Jones Makes ‘Real Clear’ Statement on Trade Rumors",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Dallas Cowboys",
+            "entity_type": "team"
+          }
+        ]
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

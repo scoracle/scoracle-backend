@@ -1,0 +1,38 @@
+{
+  "case": 5,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    },
+    {
+      "detail": "sentences=2 ≤ 3",
+      "name": "reading_max_sentences",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-near-empty-quiet-wire.json",
+  "generation_wall_ms": 3042,
+  "input_tokens": 476,
+  "name": "near-empty-quiet-wire",
+  "output_limit": 700,
+  "output_tokens": 57,
+  "parsed": true,
+  "prompt_version": "or30-five-perspectives",
+  "reading": "Venezia has returned to preseason testing, marking the first visible movement in a developing story where no further details have emerged. This tentative return offers a quiet signal of activity, yet the absence of additional information leaves the broader trajectory and specific outcomes in meaningful uncertainty.",
+  "request_bytes": 460,
+  "review": [
+    "Make a restrained reading of sparse material; missing pillars do not become negative findings."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 3050
+}

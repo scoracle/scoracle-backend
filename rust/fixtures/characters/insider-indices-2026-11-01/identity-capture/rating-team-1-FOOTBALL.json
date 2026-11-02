@@ -1,0 +1,88 @@
+{
+  "name": "real-team:1:FOOTBALL-rating",
+  "task": "rating",
+  "sport": "FOOTBALL",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"West Ham United\",\"entity_type\":\"team\",\"sport\":\"Football (Soccer)\",\"database_record\":\"West Ham United — Premier League (England). City: London. Country: England.\"},\"fresh\":{\"season\":2025,\"sample\":{\"Matches Played\":38.0},\"values\":[{\"label\":\"Cards\",\"measure\":\"Cards\",\"value\":71.0,\"percentile\":52.6,\"cohort\":96.0,\"band\":\"average\",\"prior_percentile\":31.6,\"standing_change\":\"rose\"},{\"label\":\"Interceptions\",\"measure\":\"possession-adjusted interceptions\",\"value\":302.0,\"percentile\":53.7,\"cohort\":96.0,\"band\":\"average\",\"prior_percentile\":73.7,\"standing_change\":\"fell\"},{\"label\":\"Goals For\",\"measure\":\"Goals For\",\"value\":46.0,\"percentile\":41.1,\"cohort\":96.0,\"band\":\"below average\",\"prior_percentile\":42.1,\"standing_change\":\"held\"},{\"label\":\"Injuries\",\"measure\":\"Injuries\",\"value\":29.0,\"percentile\":56.8,\"cohort\":96.0,\"band\":\"average\",\"prior_percentile\":91.6,\"standing_change\":\"fell\"},{\"label\":\"Progression\",\"measure\":\"Progression\",\"value\":2174.0,\"percentile\":47.4,\"cohort\":96.0,\"band\":\"below average\",\"prior_percentile\":68.4,\"standing_change\":\"fell\"}],\"composite\":42.8,\"supports_cross_season\":true,\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "West Ham United — Premier League (England). City: London. Country: England.",
+    "profile": {
+      "composite": 42.8,
+      "sample": {
+        "Matches Played": 38.0
+      },
+      "season": 2025,
+      "supports_cross_season": true,
+      "values": [
+        {
+          "band": "average",
+          "cohort": 96.0,
+          "label": "Cards",
+          "measure": "Cards",
+          "percentile": 52.6,
+          "prior_percentile": 31.6,
+          "standing_change": "rose",
+          "value": 71.0
+        },
+        {
+          "band": "average",
+          "cohort": 96.0,
+          "label": "Interceptions",
+          "measure": "possession-adjusted interceptions",
+          "percentile": 53.7,
+          "prior_percentile": 73.7,
+          "standing_change": "fell",
+          "value": 302.0
+        },
+        {
+          "band": "below average",
+          "cohort": 96.0,
+          "label": "Goals For",
+          "measure": "Goals For",
+          "percentile": 41.1,
+          "prior_percentile": 42.1,
+          "standing_change": "held",
+          "value": 46.0
+        },
+        {
+          "band": "average",
+          "cohort": 96.0,
+          "label": "Injuries",
+          "measure": "Injuries",
+          "percentile": 56.8,
+          "prior_percentile": 91.6,
+          "standing_change": "fell",
+          "value": 29.0
+        },
+        {
+          "band": "below average",
+          "cohort": 96.0,
+          "label": "Progression",
+          "measure": "Progression",
+          "percentile": 47.4,
+          "prior_percentile": 68.4,
+          "standing_change": "fell",
+          "value": 2174.0
+        }
+      ]
+    },
+    "season": 2025,
+    "sport_name": "Football (Soccer)",
+    "subject": {
+      "entity_id": 1,
+      "entity_type": "team",
+      "name": "West Ham United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

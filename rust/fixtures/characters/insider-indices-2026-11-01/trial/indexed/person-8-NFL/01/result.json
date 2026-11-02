@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/insider-indices-2026-11-01/cases/indexed/person-8-NFL.json",
+  "generation_wall_ms": 10318,
+  "input_tokens": 2166,
+  "name": "person-8-NFL",
+  "output_limit": 1400,
+  "output_tokens": 135,
+  "parsed": false,
+  "prompt_version": "insider-source-v22-report-indices",
+  "reading": "finding quote must name both the target and counterparty in full",
+  "request_bytes": 3389,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 10329
+}

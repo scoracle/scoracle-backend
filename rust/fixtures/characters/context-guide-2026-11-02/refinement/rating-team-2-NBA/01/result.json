@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/refined/rating-team-2-NBA.json",
+  "generation_wall_ms": 12860,
+  "input_tokens": 2036,
+  "name": "rating-team-2-NBA",
+  "output_limit": 700,
+  "output_tokens": 226,
+  "parsed": true,
+  "prompt_version": "s83-context-guide",
+  "reading": "The Boston Celtics recorded 89 games played in the 2025 season. Their rebounding output of 46.4 total rebounds placed them at the 93.1st percentile in an elite band among 30 peers, a rise from the 72.4th percentile the prior season. Rim protection (5.0 blocks) sat at the 58.6th percentile in an average band, falling from the 79.3th percentile previously. Steals (7.0), foul drawing (18.8 free throws attempted), and playmaking (24.6 assists) all ranked in the poor band at the 3.4th, 0.0th, and 10.3th percentiles respectively, with assists and scoring declining from prior standings. Scoring (114.2 points) remained in the poor band at the 31.0th percentile, down from the 69.0th percentile. The team's composite score of 54.2 reflects this overall profile.",
+  "request_bytes": 5233,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 12871
+}

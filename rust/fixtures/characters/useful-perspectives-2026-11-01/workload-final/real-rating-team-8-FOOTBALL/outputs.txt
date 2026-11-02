@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / real-team:8:FOOTBALL-rating [rejected]
+Liverpool's 2026 season data shows xG Against at the 84th percentile in the strong band and Clean Sheets at the 73rd percentile in the above average band. These readings are based on a thin sample of 7 recorded appearances, which falls below the 10-appearence minimum limit.

@@ -1,0 +1,9 @@
+{
+  "name": "04-player-45-NFL-worked",
+  "arm": "sampled",
+  "wall_ms": 12456,
+  "input_tokens": 2699,
+  "output_tokens": 153,
+  "status": "rejected",
+  "parser_detail": "finding status must match an explicit denial of that move"
+}

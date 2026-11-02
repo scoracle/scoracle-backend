@@ -1,0 +1,287 @@
+{
+  "name": "regression-ac-milan-known",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n121-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"AC Milan\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"AC Milan — Serie A (Italy). Home: Giuseppe Meazza Stadium, Milano. Coach on record: Filippo Galli.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1276620,\"url\":\"https://news.google.com/rss/articles/CBMizwFBVV95cUxNbXRlS2FvQm54V1AwRXhvejA4MXNtWnlqNkh6VEY2Rk9PalYzdTQtODk1b3RkYTQ1dHdRc003UFRleXNfZWV5ODF3QmJxWGhMNWhmYmZGMW9uTTVGQThISFJlbXZjTExBU0NUQmxaTzdqSTRCNWltdmRweUlDMWFpa1VFUXNmRjBjand0cGJza3hQOE82MC04QWI4eEMyc0hIYXdvM0w0NVF4YkVFcGNFalNTM0o4SW1ZLWRJcXlJT0w0MnlsenpPYkpSckNCODQ?oc=5\",\"headline\":\"AC Milan, Arsenal have made a move for Tresoldi: 60 million as early as January\",\"publisher\":\"LiveScore\",\"published_at\":\"2026-10-22T11:01:17Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1424030,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxPYzdBSVFLSTh4S1AyalhNeHNWdktlVGtGYks5dnNWeFVPaGxzUGMtcG94M0NvUnlPaThIdHlpUm10YzV4dzZacEN0UzlwU3hvT1JCaWFJR3lpa2I4MXVGWGtHV3poaENIN01FN01RYjFDQ0VUZ2dYc3ZyZVdLMmxFcExpLXFnUQ?oc=5\",\"headline\":\"AC Milan Collapses 0-3 in Europa League After Maignan's Red Card\",\"publisher\":\"조선일보\",\"published_at\":\"2026-10-22T23:51:53Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1425437,\"url\":\"https://news.google.com/rss/articles/CBMi3gFBVV95cUxPQVZKTVVHWmdfQklnMDB1amJGczNvNnI3S1NaX2xEcXpzM2x6TjF6WGdDM3hoZUc3REt0Rmd6MERZUm41enRaMkJFcGZ5c1QzRGxlQ1VKZ2t4SjJCdmRXdEhscnFsQXJNRldWaXctZ3F2c2tRUzI0TE9JUjRQbFNSLTlLb0hNLUg5bXhDaFZoSk1jbzM1TEtwbFZXaFFqUGRBU0pma1NsVzFsN1dORHd4a0N1SlRjUklmemdlTHB3dkhfUjBuWlAxem4yaGdsTC1rM2czaEFSclZWYkY0Z1E?oc=5\",\"headline\":\"Pavlovic insists Milan ‘are on the right track’ even if ‘too many mistakes’ were made\",\"publisher\":\"LiveScore\",\"published_at\":\"2026-10-22T22:01:57Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1426503,\"url\":\"https://news.google.com/rss/articles/CBMizAFBVV95cUxNc3ZpY1REQnJSUkJzZHRubDVfdExqakt6dmFIbGRmbkpDY3lfQTY4Ukx5SVRTc29pT3RqLW1YWjB5XzYzTHQxNHFzMWREX0hOTkpOd3E0MTdLenlMckxoMWQxNVdUUUFlUFVxVWE2R3BNSzNReXpsYTRyYTB4MXNTZVFYTGQ2QWxhZ01VbnFXTHBZZHl6UmlxWjhfWFZDN2lSWlNnRkpCVFRJYzY1TkRhaWwzdzc3OEgyOE5SU3N3MGd2Y1R1Um5Ca3doYlDSAdIBQVVfeXFMTktTUHljWWRBZjd6SFVMYl9fY2ttR1R0cDRNMC10cEtYcjE4MGlDSmc4a2NUWEc0UVhkMkVObElsYjdVOVJ5WU9oSmtkUHQ4ZFFrTkMxWUtlVkNOdG5Cc1hvVGpyLXVaZlFGVUZmdnZSNUtJU2hvQlN3MmVrZWE3RC1JYUFOMWZjZzRrU2NGX1Zyb2FlX2tvZm95Um9yTGJtLXQyLXhFWExVTlpsbnN6MGhhcm8zeXFmVE14Y0tkdHctbmQ4QUp5bXVWR0IxNE0xM2Nn?oc=5\",\"headline\":\"Bournemouth beats 10-man Milan in Europa League after goalkeeper sent off. Juventus held to draw - KWKT\",\"publisher\":\"FOX 44\",\"published_at\":\"2026-10-22T21:49:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1414585,\"url\":\"https://news.google.com/rss/articles/CBMinwJBVV95cUxPWGdOQTlpRE94a29QTHQ5ODVRdFNaX1VrQTlkbnE2TXM2RXpvXzk3TEpmTlpta0hLVHlENmZSNENjQm5UN29sMGw5VW1ZWU5BeTBtSU16MDFWeElkYW5QY29qT3dYVHVxdXlzNFZ0ZUtXQnNhc0pyLTBYTWdIbFpobVhMSmhMWHFvbk11RFlmbXg3UVZjc1NIeVVMMUtyQ2UtWXZ5cmxvWnhtekxCREJzZDU5TnpOaUNUaUUxVWd0NFBFSDJ6QzB2Qjl4MFBHVU9PWkc5WS1KWF9vT1JMd01fSGtMOHQ1QnR1aTNGTVdOWS1fd0xTVE9rdnowZnhsM2N2UDZpaTVZNEF4N1plWGY2T21sTWV5UjYyZEl0MG9qOA?oc=5\",\"headline\":\"Bournemouth beats 10-man Milan in Europa League after goalkeeper sent off. Juventus held to draw\",\"publisher\":\"Ottumwa Courier\",\"published_at\":\"2026-10-22T21:49:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1415284,\"url\":\"https://news.google.com/rss/articles/CBMi4wFBVV95cUxNaGJzZDdxYXpUQ3JZbWhQai1fTmdzYlMyVmpCM0FKYXd0bk80aTNPd2JVa3RmT2xIeDZnRllNOVNJcXlsUnJ0MUVqbGt4cGNPSzF4c2tuVzBzNWZoeUdfbXFfbFBhd1JvanVSUThuR21IODd2T01VMW5RS0xaSldTYU5XbWR2aXZSVTlYLXZHbVg2N1RUdmsybDVwNERqTnlTYzBjVnZyeDc3dUpXWVJYWWZfUTE0X1B6a1F5TWRpVnREMlJJMVVac1lBU3p1ek8zQkVsRlFHd3Y1OWxlYkFLcmMtUQ?oc=5\",\"headline\":\"Bournemouth 3-0 AC Milan: Maignan sees red as the Rossoneri implode on the south coast\",\"publisher\":\"LiveScore\",\"published_at\":\"2026-10-22T21:18:51Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1394917,\"url\":\"https://news.google.com/rss/articles/CBMirgJBVV95cUxOdHh4WTlIbkJNVExPTUJGRVgxbUg4NUxES1VCOHlrZWpzSzM4OFI4OWdrbnhZQS1qbkNubTM2UHRBRGZtSFY0c2tHWFdnU2Zma2JLejlhQjhvcExuQVZrTG1iOFVoczNGcmR5LVhNRHBNTTh3cTB2RWtheUdUSXR0NmdiRHdEU2o5cHM3cG5XYk52c20wTXR3VENvOWd5UFo2clc1ajhKbF9OSTlKVlExQlRBdi16VmFqVkFtY28tbmdoaG1ZUzRQeGVlSTFtSm8xbDhQSzRzZVQzaUJCMGFySnQ5WTFMaF9SQ2lESkxYZ0NMT1dCNnNlOGE1LXptMlhRLThGaFZ4X1VmbTJob21wS3hEZ1ZjQThCYWFSLW93OUYwRlA0eDh3WnYzVzFVUQ?oc=5\",\"headline\":\"'Absolutely farcical!' - Milan forget to make substitution after Maignan sees red\",\"publisher\":\"TNT Sports\",\"published_at\":\"2026-10-22T21:03:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1374081,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxPYk9nZk52UEQwWlpkU0VZSFM0RlBDVlVYRERZbVhhYlNSZkFzRDhHUXJ1SGV3eDljek0xbnBEZk90TEUtQUtmWm9ROXc2QmV2R0ZBblU2WlRzWEl5SFdFRzVsUGdoeEFHeVBPdHY1ekJKTThicnM4VVV1M184SEpNQzJEa2QwVGRjSnc?oc=5\",\"headline\":\"📸 Bournemouth stun Milan with early lead in Europa League clash\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T19:26:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1363845,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxOa1RuTTVrT3Z6OGRDSkhyc0IxdDJDLXFKUlpESXVKR2hjTDVRZUJsYXlEbDFjVmN3NXFPejNRdnhRN2twS1o5dzJSWWUzSWtJWnA1STc1SExDNUw5RXpEbUNYVjlidzlOXzM1ZHBLR2dCbHJUTEZ1aEV3eEJ0aWhQYzRRdDhCa05yT0gybkwxdXVHN0hJTWRDTVlQMWI3c1hZT1FRVGoybw?oc=5\",\"headline\":\"Bournemouth hammer 10-man AC Milan in Europa League, Juventus denied at the death\",\"publisher\":\"The Straits Times\",\"published_at\":\"2026-10-22T19:16:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "AC Milan — Serie A (Italy). Home: Giuseppe Meazza Stadium, Milano. Coach on record: Filippo Galli.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.35760867926152,
+            "clickbait": 9.00848637138596,
+            "emotion": 1.3995056625154227,
+            "movement": 96.4993301334536,
+            "subject": 94.41549391753207
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizwFBVV95cUxNbXRlS2FvQm54V1AwRXhvejA4MXNtWnlqNkh6VEY2Rk9PalYzdTQtODk1b3RkYTQ1dHdRc003UFRleXNfZWV5ODF3QmJxWGhMNWhmYmZGMW9uTTVGQThISFJlbXZjTExBU0NUQmxaTzdqSTRCNWltdmRweUlDMWFpa1VFUXNmRjBjand0cGJza3hQOE82MC04QWI4eEMyc0hIYXdvM0w0NVF4YkVFcGNFalNTM0o4SW1ZLWRJcXlJT0w0MnlsenpPYkpSckNCODQ?oc=5"
+        },
+        "context": "AC Milan, Arsenal have made a move for Tresoldi: 60 million as early as January",
+        "id": 1276620,
+        "published_at_epoch": 1792666877,
+        "source": "LiveScore",
+        "title": "AC Milan, Arsenal have made a move for Tresoldi: 60 million as early as January"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 49.642616636250445,
+            "emotion": 6.779289784528881,
+            "movement": 1.8653032926646576,
+            "subject": 95.15539636735524
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPYzdBSVFLSTh4S1AyalhNeHNWdktlVGtGYks5dnNWeFVPaGxzUGMtcG94M0NvUnlPaThIdHlpUm10YzV4dzZacEN0UzlwU3hvT1JCaWFJR3lpa2I4MXVGWGtHV3poaENIN01FN01RYjFDQ0VUZ2dYc3ZyZVdLMmxFcExpLXFnUQ?oc=5"
+        },
+        "context": "AC Milan Collapses 0-3 in Europa League After Maignan's Red Card",
+        "id": 1424030,
+        "published_at_epoch": 1792713113,
+        "source": "조선일보",
+        "title": "AC Milan Collapses 0-3 in Europa League After Maignan's Red Card"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 35.35188626234642,
+            "emotion": 5.148474288133097,
+            "movement": 5.840665013565946,
+            "subject": 94.78375543667444
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxPQVZKTVVHWmdfQklnMDB1amJGczNvNnI3S1NaX2xEcXpzM2x6TjF6WGdDM3hoZUc3REt0Rmd6MERZUm41enRaMkJFcGZ5c1QzRGxlQ1VKZ2t4SjJCdmRXdEhscnFsQXJNRldWaXctZ3F2c2tRUzI0TE9JUjRQbFNSLTlLb0hNLUg5bXhDaFZoSk1jbzM1TEtwbFZXaFFqUGRBU0pma1NsVzFsN1dORHd4a0N1SlRjUklmemdlTHB3dkhfUjBuWlAxem4yaGdsTC1rM2czaEFSclZWYkY0Z1E?oc=5"
+        },
+        "context": "Pavlovic insists Milan ‘are on the right track’ even if ‘too many mistakes’ were made",
+        "id": 1425437,
+        "published_at_epoch": 1792706517,
+        "source": "LiveScore",
+        "title": "Pavlovic insists Milan ‘are on the right track’ even if ‘too many mistakes’ were made"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 77.28134239109204,
+            "emotion": 2.2695609947630326,
+            "movement": 3.198505181627469,
+            "subject": 94.5982060943716
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMizAFBVV95cUxNc3ZpY1REQnJSUkJzZHRubDVfdExqakt6dmFIbGRmbkpDY3lfQTY4Ukx5SVRTc29pT3RqLW1YWjB5XzYzTHQxNHFzMWREX0hOTkpOd3E0MTdLenlMckxoMWQxNVdUUUFlUFVxVWE2R3BNSzNReXpsYTRyYTB4MXNTZVFYTGQ2QWxhZ01VbnFXTHBZZHl6UmlxWjhfWFZDN2lSWlNnRkpCVFRJYzY1TkRhaWwzdzc3OEgyOE5SU3N3MGd2Y1R1Um5Ca3doYlDSAdIBQVVfeXFMTktTUHljWWRBZjd6SFVMYl9fY2ttR1R0cDRNMC10cEtYcjE4MGlDSmc4a2NUWEc0UVhkMkVObElsYjdVOVJ5WU9oSmtkUHQ4ZFFrTkMxWUtlVkNOdG5Cc1hvVGpyLXVaZlFGVUZmdnZSNUtJU2hvQlN3MmVrZWE3RC1JYUFOMWZjZzRrU2NGX1Zyb2FlX2tvZm95Um9yTGJtLXQyLXhFWExVTlpsbnN6MGhhcm8zeXFmVE14Y0tkdHctbmQ4QUp5bXVWR0IxNE0xM2Nn?oc=5"
+        },
+        "context": "Bournemouth beats 10-man Milan in Europa League after goalkeeper sent off. Juventus held to draw - KWKT",
+        "id": 1426503,
+        "published_at_epoch": 1792705783,
+        "source": "FOX 44",
+        "title": "Bournemouth beats 10-man Milan in Europa League after goalkeeper sent off. Juventus held to draw - KWKT"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 57.205332406965134,
+            "emotion": 2.2296536375968934,
+            "movement": 3.0677106173888142,
+            "subject": 95.0752619346676
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMinwJBVV95cUxPWGdOQTlpRE94a29QTHQ5ODVRdFNaX1VrQTlkbnE2TXM2RXpvXzk3TEpmTlpta0hLVHlENmZSNENjQm5UN29sMGw5VW1ZWU5BeTBtSU16MDFWeElkYW5QY29qT3dYVHVxdXlzNFZ0ZUtXQnNhc0pyLTBYTWdIbFpobVhMSmhMWHFvbk11RFlmbXg3UVZjc1NIeVVMMUtyQ2UtWXZ5cmxvWnhtekxCREJzZDU5TnpOaUNUaUUxVWd0NFBFSDJ6QzB2Qjl4MFBHVU9PWkc5WS1KWF9vT1JMd01fSGtMOHQ1QnR1aTNGTVdOWS1fd0xTVE9rdnowZnhsM2N2UDZpaTVZNEF4N1plWGY2T21sTWV5UjYyZEl0MG9qOA?oc=5"
+        },
+        "context": "Bournemouth beats 10-man Milan in Europa League after goalkeeper sent off. Juventus held to draw",
+        "id": 1414585,
+        "published_at_epoch": 1792705783,
+        "source": "Ottumwa Courier",
+        "title": "Bournemouth beats 10-man Milan in Europa League after goalkeeper sent off. Juventus held to draw"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 8.834461542436763,
+            "emotion": 18.18742920855412,
+            "movement": 2.932254377927043,
+            "subject": 94.62782697955636
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi4wFBVV95cUxNaGJzZDdxYXpUQ3JZbWhQai1fTmdzYlMyVmpCM0FKYXd0bk80aTNPd2JVa3RmT2xIeDZnRllNOVNJcXlsUnJ0MUVqbGt4cGNPSzF4c2tuVzBzNWZoeUdfbXFfbFBhd1JvanVSUThuR21IODd2T01VMW5RS0xaSldTYU5XbWR2aXZSVTlYLXZHbVg2N1RUdmsybDVwNERqTnlTYzBjVnZyeDc3dUpXWVJYWWZfUTE0X1B6a1F5TWRpVnREMlJJMVVac1lBU3p1ek8zQkVsRlFHd3Y1OWxlYkFLcmMtUQ?oc=5"
+        },
+        "context": "Bournemouth 3-0 AC Milan: Maignan sees red as the Rossoneri implode on the south coast",
+        "id": 1415284,
+        "published_at_epoch": 1792703931,
+        "source": "LiveScore",
+        "title": "Bournemouth 3-0 AC Milan: Maignan sees red as the Rossoneri implode on the south coast"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 76.7198299838078,
+            "emotion": 87.06314300820333,
+            "movement": 2.2304770514731778,
+            "subject": 94.7359078447579
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirgJBVV95cUxOdHh4WTlIbkJNVExPTUJGRVgxbUg4NUxES1VCOHlrZWpzSzM4OFI4OWdrbnhZQS1qbkNubTM2UHRBRGZtSFY0c2tHWFdnU2Zma2JLejlhQjhvcExuQVZrTG1iOFVoczNGcmR5LVhNRHBNTTh3cTB2RWtheUdUSXR0NmdiRHdEU2o5cHM3cG5XYk52c20wTXR3VENvOWd5UFo2clc1ajhKbF9OSTlKVlExQlRBdi16VmFqVkFtY28tbmdoaG1ZUzRQeGVlSTFtSm8xbDhQSzRzZVQzaUJCMGFySnQ5WTFMaF9SQ2lESkxYZ0NMT1dCNnNlOGE1LXptMlhRLThGaFZ4X1VmbTJob21wS3hEZ1ZjQThCYWFSLW93OUYwRlA0eDh3WnYzVzFVUQ?oc=5"
+        },
+        "context": "'Absolutely farcical!' - Milan forget to make substitution after Maignan sees red",
+        "id": 1394917,
+        "published_at_epoch": 1792702980,
+        "source": "TNT Sports",
+        "title": "'Absolutely farcical!' - Milan forget to make substitution after Maignan sees red"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.4106702179516075,
+            "emotion": 3.086899119118537,
+            "movement": 4.009176233081242,
+            "subject": 94.3107347845618
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPYk9nZk52UEQwWlpkU0VZSFM0RlBDVlVYRERZbVhhYlNSZkFzRDhHUXJ1SGV3eDljek0xbnBEZk90TEUtQUtmWm9ROXc2QmV2R0ZBblU2WlRzWEl5SFdFRzVsUGdoeEFHeVBPdHY1ekJKTThicnM4VVV1M184SEpNQzJEa2QwVGRjSnc?oc=5"
+        },
+        "context": "📸 Bournemouth stun Milan with early lead in Europa League clash",
+        "id": 1374081,
+        "published_at_epoch": 1792697160,
+        "source": "Yahoo Sports",
+        "title": "📸 Bournemouth stun Milan with early lead in Europa League clash"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 17.45047752499444,
+            "emotion": 4.645258102768102,
+            "movement": 3.304195130756681,
+            "subject": 94.52566542116436
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxOa1RuTTVrT3Z6OGRDSkhyc0IxdDJDLXFKUlpESXVKR2hjTDVRZUJsYXlEbDFjVmN3NXFPejNRdnhRN2twS1o5dzJSWWUzSWtJWnA1STc1SExDNUw5RXpEbUNYVjlidzlOXzM1ZHBLR2dCbHJUTEZ1aEV3eEJ0aWhQYzRRdDhCa05yT0gybkwxdXVHN0hJTWRDTVlQMWI3c1hZT1FRVGoybw?oc=5"
+        },
+        "context": "Bournemouth hammer 10-man AC Milan in Europa League, Juventus denied at the death",
+        "id": 1363845,
+        "published_at_epoch": 1792696560,
+        "source": "The Straits Times",
+        "title": "Bournemouth hammer 10-man AC Milan in Europa League, Juventus denied at the death"
+      }
+    ],
+    "subject": {
+      "entity_id": 113,
+      "entity_type": "team",
+      "name": "AC Milan",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "reviewer": "Codex, unblinded against frozen source inputs; development cases, not an independent or representative accuracy estimate",
+  "rubric": "Usable central reading; minor edit for a limited wording or role correction; material error for misleading actor, status, source, event or finding. Parser outcome is separate.",
+  "records": [
+    {
+      "case": "team-37-FOOTBALL",
+      "subject": "Roma",
+      "grade": "minor_edit",
+      "body_review": "Adds the coach from database background after two supported movement items. The earlier injury reassignment is gone; remove the background sentence.",
+      "findings_review": "none",
+      "parser_detail": "named claim is absent from cited reports: Mirko Vučinić",
+      "receipt": "eligible/01-team-37-FOOTBALL-eligible-worked/result.json"
+    },
+    {
+      "case": "player-322-NBA",
+      "subject": "Donovan Mitchell",
+      "grade": "usable",
+      "body_review": "Preserves the stated retirement intention and unless-traded condition; compatible reports remain compatible.",
+      "findings_review": "none",
+      "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "receipt": "eligible/02-player-322-NBA-eligible-worked/result.json"
+    },
+    {
+      "case": "person-8-NFL",
+      "subject": "Dan Quinn",
+      "grade": "usable",
+      "body_review": "Separates the reported staff hire from Stephen A. Smith's view about Quinn's tenure.",
+      "findings_review": "none",
+      "parser_detail": "named claim is absent from cited reports: Washington Commanders",
+      "receipt": "eligible/03-person-8-NFL-eligible-worked/result.json"
+    },
+    {
+      "case": "player-45-NFL",
+      "subject": "Justin Herbert",
+      "grade": "minor_edit",
+      "body_review": "Preserves the shutdown and distinguishes discussion from active negotiations. Calling different-team reports conflicting is misleading framing.",
+      "findings_review": "Both quoted findings now say denied/null; exact quote and parties are supplied. Existing denial-keyword parser rejects shut down.",
+      "parser_detail": "finding status must match an explicit denial of that move",
+      "receipt": "eligible/04-player-45-NFL-eligible-worked/result.json"
+    },
+    {
+      "case": "player-529856-FOOTBALL",
+      "subject": "Jean-Clair Todibo",
+      "grade": "material_error",
+      "body_review": "Invents direct confirmation from Lens and gives the loan continuation more certainty than the supplied not-planning-to-terminate headlines.",
+      "findings_review": "Both findings incorrectly encode a reported agreement.",
+      "parser_detail": "finding quote does not state a move",
+      "receipt": "eligible/05-player-529856-FOOTBALL-eligible-worked/result.json"
+    },
+    {
+      "case": "person-107-FOOTBALL",
+      "subject": "Eddie Howe",
+      "grade": "material_error",
+      "body_review": "Invents a potential return to Newcastle and frames the decision as his future at Manchester United. The reports only describe a decision about that job.",
+      "findings_review": "none",
+      "parser_detail": "named claim is absent from cited reports: Newcastle United",
+      "receipt": "eligible/06-person-107-FOOTBALL-eligible-worked/result.json"
+    },
+    {
+      "case": "player-37550443-FOOTBALL",
+      "subject": "Alex Scott",
+      "grade": "material_error",
+      "body_review": "Transfer crisis is inflated framing; the supported core is the owner's warning and reported interest.",
+      "findings_review": "Chelsea finding is supported by its interest headline. The owner's could-be-lured statement does not establish Manchester City concrete interest.",
+      "parser_detail": "finding quote does not state a move",
+      "receipt": "eligible/07-player-37550443-FOOTBALL-eligible-worked/result.json"
+    },
+    {
+      "case": "player-185-NBA",
+      "subject": "Draymond Green",
+      "grade": "usable",
+      "body_review": "Keeps the exit potential rather than completed, and correctly attaches the trade discussion to Porzingis. The Kerr exit headline remains ambiguous; the body does not settle a completed departure.",
+      "findings_review": "No borrowed-pronoun pair is emitted.",
+      "parser_detail": "named claim is absent from cited reports: Golden State Warriors",
+      "receipt": "eligible/08-player-185-NBA-eligible-worked/result.json"
+    },
+    {
+      "case": "player-17896040-NBA",
+      "subject": "Jalen Johnson",
+      "grade": "minor_edit",
+      "body_review": "Faithful altercation summary; add the short movement limit to fulfill the Insider brief.",
+      "findings_review": "none",
+      "parser_detail": "served reading adds unsupported chronology or causality",
+      "receipt": "eligible/09-player-17896040-NBA-eligible-worked/result.json"
+    },
+    {
+      "case": "team-7-NBA",
+      "subject": "Dallas Mavericks",
+      "grade": "material_error",
+      "body_review": "Introduces another signing from overlapping named and unnamed coverage without establishing that they are distinct signings.",
+      "findings_review": "Both quotes are absent from cited report 5; one quote describes a possible suitor rather than the agreement.",
+      "parser_detail": "finding quote is not an exact publisher span",
+      "receipt": "eligible/10-team-7-NBA-eligible-worked/result.json"
+    },
+    {
+      "case": "player-83946-NFL",
+      "subject": "Evan Neal",
+      "grade": "usable",
+      "body_review": "Preserves the Raiders release and Eagles practice-squad signing; removes the earlier incorrect Giants departure and invented event date.",
+      "findings_review": "No full-name quote is available, so empty findings is correct.",
+      "parser_detail": "named claim is absent from cited reports: Las Vegas Raiders",
+      "receipt": "eligible/11-player-83946-NFL-eligible-worked/result.json"
+    },
+    {
+      "case": "player-278370-NFL",
+      "subject": "Brian Thomas Jr.",
+      "grade": "material_error",
+      "body_review": "Still assigns a media trade proposal to the Seahawks, and contrasts compatible discussions as opposing positions.",
+      "findings_review": "No unsupported full-name pair is emitted.",
+      "parser_detail": "named claim is absent from cited reports: Las Vegas Raiders",
+      "receipt": "eligible/12-player-278370-NFL-eligible-worked/result.json"
+    }
+  ]
+}

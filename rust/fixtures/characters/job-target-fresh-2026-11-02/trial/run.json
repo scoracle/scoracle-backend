@@ -1,0 +1,19 @@
+{
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "temperature": 0,
+  "concurrency": 1,
+  "retries": 0,
+  "database_access": false,
+  "publishes": false,
+  "design": "Two cases per character; paired same fresh data, alternating arm order. One dated-comparison case is synthetic.",
+  "binaries": {
+    "control": {
+      "path": "/private/tmp/scoracle-before-job-target-outputs",
+      "sha256": "2993348f9334f0d981210cfd52b05b8078c064deeaf3d32e6aa114f339784875"
+    },
+    "candidate": {
+      "path": "/Users/scotty/scoracle/scoracle-backend/rust/target/release/examples/character_outputs",
+      "sha256": "ba16b37e813c193872dae8d119011471b244ade1bc65b449cef2cd4245068750"
+    }
+  }
+}

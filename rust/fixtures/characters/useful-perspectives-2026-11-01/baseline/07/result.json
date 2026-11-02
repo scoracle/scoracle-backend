@@ -1,0 +1,38 @@
+{
+  "case": 7,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    },
+    {
+      "detail": "sentences=6 ≤ 3",
+      "name": "reading_max_sentences",
+      "pass": false
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/oracle-crossroads-conflict.json",
+  "generation_wall_ms": 6911,
+  "input_tokens": 343,
+  "name": "crossroads-conflict",
+  "output_limit": 700,
+  "output_tokens": 180,
+  "parsed": true,
+  "prompt_version": "or29-evidence-only",
+  "reading": "Marcus Vale stands as an elite two-way production force, a reality confirmed by the scout who notes the numbers have not blinked through the noise. Yet, the arc of his current season feels dragged down by a feeling that is dragging, a sentiment echoed by the analyst who observes that while production holds its line, the emotional trajectory is faltering. This tension is compounded by a souring atmosphere in the room, where a standoff dominates every thread and patience is thinning. A trade-demand story broke this week and hangs over everything, though the front office has not responded publicly to this specific demand. The journalist reports four sources of this trade demand, with the trajectory heating up, yet the connection between this demand and the specific state of Vale's production remains unexplained by the available cards. The feeling drags the arc down while the production holds its line.",
+  "request_bytes": 1645,
+  "review": [
+    "Preserve disagreement across the supplied pillars rather than forcing unanimous direction."
+  ],
+  "status": "rejected",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 6917
+}

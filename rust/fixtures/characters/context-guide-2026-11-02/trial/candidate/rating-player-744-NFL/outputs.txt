@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / rating-player-744-NFL [accepted]
+Sam LaPorta's 2026 profile shows elite relative standing in air yards responsible (90.6th percentile) and strong relative standing in points responsible (89.4th percentile) within a cohort of 828 teams. These measurements are based on only five recorded appearances, which falls below the ten-appearance threshold for a robust reading.

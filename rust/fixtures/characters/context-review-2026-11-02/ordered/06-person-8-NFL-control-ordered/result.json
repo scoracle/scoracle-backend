@@ -1,0 +1,13 @@
+{
+  "arm": "control-ordered",
+  "checks": [],
+  "input_tokens": 2141,
+  "name": "person-8-NFL",
+  "output_tokens": 99,
+  "parser_detail": "cited reports do not connect Dan Quinn with numerical fact 2026",
+  "receipt": "06-person-8-NFL-control-ordered",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 8933
+}

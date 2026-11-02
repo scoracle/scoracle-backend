@@ -1,0 +1,1183 @@
+{
+  "name": "real-team:37:FOOTBALL-narratives",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"Roma\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"Roma — Serie A (Italy). Venue: Stadio Olimpico. City: Roma. Country: Italy. Coach on record: Mirko Vučinić.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1434767,\"url\":\"https://news.google.com/rss/articles/CBMipAFBVV95cUxPNmxKZWlSMXpYTllCbnc3eEZhY0tCMk5VSlFOSVh6a2NfWjVmRjl3OU5OdFN3VFJiOEVxbzJYSjBNQ05ydDJPekZSbFd3V0MzTmVCODllTE1nM2FJMElPc2gzdnNBQ1kxbl82LWcxMHRFaElVajNsanlCUVhTRXpYMFl4VmdoZmZnNXNoOU5tWW9NWHNhbC0welhtbzE5aEhyZ2hGUg?oc=5\",\"headline\":\"Napoli vs Roma Prediction, Betting Tips, Lineups & Odds | 24 Oct 2026\",\"publisher\":\"Sportsgambler\",\"published_at\":\"2026-10-23T01:06:38Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1095885,\"url\":\"https://news.google.com/rss/articles/CBMiY0FVX3lxTFBRbm8zV28zeFZtVHg1bTNid3hZcVBIZVBRLXBRXy0yREltRnpzaHF0WWdnOXM4TVdGUFkzSWFNRFd3WngzZzFVMDVGekJ4TWVUZWNrOFpEcXFXdGZwekF0eWFycw?oc=5\",\"headline\":\"Roma vs. Napoli Live Stream of Italian Serie A\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-23T00:17:54Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1097399,\"url\":\"https://news.google.com/rss/articles/CBMiY0FVX3lxTFBwczVZY25IaFVsWG5VQ25rMWxoSkxMU1FyOENaOHZvNnJ3YzdzeUJrMDExalhKSmYtMFBsRzVMajl0cmlQVF80bXpTYW54NEg5aGV6aVNvZzhqWE9RWW5mdHFzRQ?oc=5\",\"headline\":\"Cagliari vs. Roma Live Stream of Italian Serie A\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-23T00:17:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1126615,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxPalA3T3BIQXNQMXN0N1JaWllYUlhrOS1obWJiZUhhNjBaWWIyWG1aZTNzN0cwYjRRYVBXaV9VZXNaaVR1WllkbjBwYWdsYkhULXIyYjBmSnJBYXAzV2tzN24yRXg3UkQxRkdXbWxuYXJVVG53QXRCRGJON3FobUJlTmcyVXd0Z2ZjaUVBU2N0Zmp5Rk5CMlV1RVN3Sm1fdDJNX3c?oc=5\",\"headline\":\"Watch Roma vs Real Madrid\",\"publisher\":\"TOD\",\"published_at\":\"2026-10-22T19:24:46Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1363795,\"url\":\"https://news.google.com/rss/articles/CBMieEFVX3lxTFBiYk5WOFlxMURHLU1xekloQ0llclBNNE9QZVdmQzRTX3E0ZmRFUElDMm9QcDNQbms0ckJYNlc5a3VMS0pmMU1NZ1doR1BnR1ZzVXRoOENsQ0k1QkpHRVg4Y1NlbVVZY3FteEZfQVdoUFUyZzZYQXJZcg?oc=5\",\"headline\":\"Napoli vs AS Roma Preview, prediction, injury news & lineups | Serie A 2026-27\",\"publisher\":\"Khel Now\",\"published_at\":\"2026-10-22T19:10:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1343887,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxQalAzTEY0Y2JWTWlyejJLWjFqdmNKOGgtT3EyanNwbXZ0QlNfUmFMVzZ0R0dfdFo5Yjd1d042YVdvN3Z0bFlzanEyNnRTeGRQQUpaVVR0WVlKdG1RX3dONTNnZXRxSVNocU80LS1VZDVmQ25ERHhjTHFMZmJCX0ZFM2JCV0c4N1JSamlWdVE5WHdnYVphUktBcFN1NVVsRWpHVG9tNDdGZGw3akEx?oc=5\",\"headline\":\"Preview: Napoli vs Roma - prediction, team news, lineups\",\"publisher\":\"Sports Mole\",\"published_at\":\"2026-10-22T17:52:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1385717,\"url\":\"https://news.google.com/rss/articles/CBMitAFBVV95cUxPcmxVbzI2Y19RTkRzRVREM0VTQU5jLTZnNTJENkN3Y191c3RTeEJia3JHMElFTjNYVmNRNkgza2hyYUZpdnIzenN1Q1JVVmluZmMxQ2V4VFFYdUJ5ZjV0N0xrLUFwcjI4bXVZRjJuX1pTQmVTaXdpX1dvUlZWTUlfQ3lxV1M4Ujl3NkNYMFNkbTh6MTNvdnlnQTBWa0JYeFp3VU9Ga0Q5Rld0Y2ZVVENsNW1sclY?oc=5\",\"headline\":\"Napoli, Giovane challenges Roma: \\\"We're strong and can win.\\\"\",\"publisher\":\"Quotidiano Sportivo\",\"published_at\":\"2026-10-22T17:33:51Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1324232,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxQTkNFS2NTRDJXdlVHNm12M21Kd05rbUpKUVVla3ZpWHNxdXJjZmtPYnlPUFNNWEZNQ1Jfd0JlTjRTSjFFT2J4MjJIaVo3ckN0WjFSM0IxNmtQTnZJdWtBaWktLWEwd0E1aDRlX1ZJd0RmRkhzdkdiMVltTUx4WWZfX0UyUQ?oc=5\",\"headline\":\"Roma lose Pellegrini for at least 6-8 weeks with serious injury\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T15:45:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1333978,\"url\":\"https://news.google.com/rss/articles/CBMickFVX3lxTFBqMHFBai1DNG83aVdvUnEtZ0UzbFlBVFE1YmhobEpLS0hDRF9xLS1jX2lOVE5aY3RhUGJzTnduWjllRW9La0JHWV9SMVZDMmZuMlZVeUVLTzByZG1lOEZ1MHJrZDU3N1RJTE5PWFlwNEt5Zw?oc=5\",\"headline\":\"Serie A - Roma 2 - 2 Inter\",\"publisher\":\"OneFootball\",\"published_at\":\"2026-10-22T14:45:58Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1333958,\"url\":\"https://news.google.com/rss/articles/CBMiqwFBVV95cUxNM01UaURfS0twQ0FZUnM4QXE4UzV0NFRHUzhFQUNiTEZMZWd3NlVlOGZRSnV4WFlvclhXYXIyeHdGWHpJOTVXRWFsU1AxSWkyRks0NWJMUndSOVg4WlFqeVRrWDdLdnJ1bEpEeHpRLXo2MGpZeXhiOE1wb3pTS1hlWmRxNWRVZkw3X2dHZlVNeGpLaGRQanZwUENtRDg3NS1wUEFCWjItOW1BYWM?oc=5\",\"headline\":\"AS Roma vs. Parma Calcio - Live Score - November 14, 2026\",\"publisher\":\"FOX Sports\",\"published_at\":\"2026-10-22T14:44:53Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1295107,\"url\":\"https://news.google.com/rss/articles/CBMi0gFBVV95cUxNT0IxX1FSNEQ5TWZyNFhETWhaZkFIVUp0ZXgzMHMwZUVQMHM0VlZSeF8tZXRqVFY4WV9XOXdaZllfd3l2WF9PVEpLSFhZT0pHLW1kZVVoWllxX25MUTVJQm5Nc3pWaGkyZTc0U0dSa0tDWXF5NTJUclBTRUhKcktoZk1tcVJWaFl3Vk9QSUNIN01ZcTRLNUhIY3YxcnkyclFIYUJMTlM2MEg1eEM5VnB3UHpPd0hiLTNaNVFIQllsZjhKVDRncDVMaEkyVHNQVXFsakHSAdcBQVVfeXFMUEpXVmZNZFNsWEtCMExZSTd6ZkVKODhvQkdway1CY0N1RmxKY3phbC1TQnBPNjJRanBLU2F6UkxhMkVkem1DcjZfaXlkTTB3SENEdzY0Z3ZITDhVVER4QURzRVh5a0laTkVBRThTYTd2QVM1SmZ5TXFsci1OQXVSdTY5VTRkVHB4RWpGa3NzRTZDakRxQzByQ1QtVzdZTTZtSlJSdlZzaUJ4ZjFNTWZTanJCbHhEQ0FObk9ZalRYVE43dHg0VFBjbU94MmFTZUZtYUx6dlBOb2s?oc=5\",\"headline\":\"Napoli v Roma free-to-air on Dazn: how to watch matchday 8's big clash for free\",\"publisher\":\"La Gazzetta dello Sport\",\"published_at\":\"2026-10-22T12:41:54Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1295079,\"url\":\"https://news.google.com/rss/articles/CBMiwAFBVV95cUxQTGluR3Q1VWNYQmc2Y3lTUlhKVkFraWc2NDQxSVItamFoMUxGaVh0REdMODN2b0xDSkRqa1FySzlvNC0wVWZqSi11U09NVU9EajhQV0NrQnNjc3p4dnhUc2VYbVkwLVY0TUhvLXVJUU4wRkI5Sm5nX1pfLU05N2hjV2M4VFFuT2dZN3FtdHNSUXBJWlA3LVhja29raVZCbjdQRkZ0MU00R1ZfTXRxbmRWcjJydHNBQzUxSjYwY0Rua0Y?oc=5\",\"headline\":\"Juventus and Roma Intrigued by Sporting CP Youngster\",\"publisher\":\"LiveScore\",\"published_at\":\"2026-10-22T12:30:28Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1295880,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxNeGNiYUo1Wk5CeUViNFdMUF9jdjI5cTM4aERJaDJEcDFOWTRaUXg5V25laFNhN2UtUkFJYmEzSDBRcFBZTTM0ZV92LUlKNlZlYXAxN1BPY3JmZEhoQ2g2Wk9OT0oza1dfOGJ6bkRRRGozVGRTaUFRRmhWQWRESHJwQnVhVE05a1FZbjRFUFlRYjhxdG4zY2RuRUxR?oc=5\",\"headline\":\"Serie A Matchweek 8 Odds: Napoli Vs Roma, Inter Vs Fiorentina Picks\",\"publisher\":\"RG.org\",\"published_at\":\"2026-10-22T12:24:05Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1295087,\"url\":\"https://news.google.com/rss/articles/CBMi0AFBVV95cUxQSnpBTFgyQ0s1eGh5c3JSdkFtTW16b2tLMnR3YkI1bGsxU3V0dXNKdHZJNmlsM1ZtbWc0aHF5Tmp3elR4M05PVW1OVTdYdmpCVUZ3SzVxRmNCdkkxcTBVU24xdWJNa1dRenU2Qlc3YTNpdmJKZTdaWk5LdmJyd1JlQ0h3UXFtVDdUX05vMXY2eXBSNUptQUR2WmFGNThtaGhFNWhKRGJXc2taWGt1TkJoV3ZESHV4YkpnYUtRSUtfMkthSU1JYWtfVmloWGw2dlBI0gHWAUFVX3lxTE5mOWNndEI5aFJmcHBORVRSREYzSlAzQnVBc0ZQY3k5bTZqVW5sSU90RXlyUkxfdkh3ZjZzUDZHNUZfUGdLLURlNkRaZTJEcVViQll6ZUY4dUozb0pTWk1rblJXLVFscDJkakRxeEw3V0MyNFlEVS1mMm5DSUpIbEZVX2lGMGhDMkFNT3RNNjBVS3Y3UmN4YWMyUVljbGNOenZfdWNvNndwV0kwaHFnZ1dNVW9xR0U2QXlJWlA5djRMQkRHNnNqYUdsN2NQdS1UUEEtNWRsRUE?oc=5\",\"headline\":\"Roma decimated, crisis ahead of Napoli: Pellegrini and Svilar out too\",\"publisher\":\"La Gazzetta dello Sport\",\"published_at\":\"2026-10-22T12:13:22Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1307460,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxQNFlRSE4wWUtETnFPQTl6ZHVobWF4VGh4dGhidVFvZ3VZWmRvcF9nU3h5YkM3UFlDLVcxWE94TEdhZjhYUEc5SW5PXzJyMGVHYnFoUGFDeWpKR2VuNDJWcjZaenNEVlJEYXF3TEhIYkw2c25rUXR5eHhBTVhldUlJMGtpckFLM2lmZjlEcGtZNmZWVEEtckJXSXk1cmlqXzlNUmc?oc=5\",\"headline\":\"Napoli Vs Roma Odds, Inter Vs Fiorentina: Serie A Matchweek 8 Picks\",\"publisher\":\"RG.org\",\"published_at\":\"2026-10-22T12:04:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1275820,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPaHBrdHI2cFN6am5JRVlMSmFESU5EMV9VenFiS095TV92dmc3ZDR5cnkwYkxpQXVsSWdMSkpOMGcwcGRnTDItQkNmbXVnUUVDZERTRlNkbFdBU21QakpyLW5YVndhSXQ2UlpvcDItX3lmaFphMWhwUzZSRXloYndqek1FMVZ3czA?oc=5\",\"headline\":\"Revealed: Roma rejected 3 offers for Pisilli this summer\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T10:27:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1285417,\"url\":\"https://news.google.com/rss/articles/CBMiVEFVX3lxTE9sOHRONlY3VENyZUcxR29UYVRDR2ZMTlAtSW5fWkhyZlpfNUdJS09Rbkw0UUxqVGJwX0hDdlI4M29pZ0FLbkgyU1JhQTdYcWZzQ2JuMg?oc=5\",\"headline\":\"Roma Team News - Soccer\",\"publisher\":\"FOX Sports\",\"published_at\":\"2026-10-22T09:21:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1266123,\"url\":\"https://news.google.com/rss/articles/CBMiswFBVV95cUxNai1BZks0ajdFRDBnTFZLZklXZTZlN2xvNFhRN2g3a1lYcVJOdV9tTzZaQXZnaFJ4d1lHcFJVRTVWY3JJT0FmbzNjM2RmNUx2a2UxWWYxWUczNWN5b3VZb2dMajRYcDRBUVBLaDRpdld2SENDUi1BX0NKSDBCUzFDaTlDZFBIWWdJcGZVa2hUOUkyNkVBRHA0VW9QSDVaYWRpTmJ0RVdHLURxcFFDYmdMZFF6MA?oc=5\",\"headline\":\"Napoli vs. Roma preview: Team news, prediction, date, and how to watch Serie A on DAZN\",\"publisher\":\"DAZN\",\"published_at\":\"2026-10-22T08:54:47Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1304835,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxOY2VYVXBfQ0hPNXhLUHhNd09GYnV0UUloTFNCdWRmRFB1Um5oMDBpZFAzVEVBV3F3TEZabmhrc2MyQXRUTDVTNl8yTW9TeE9kZzZLbmxGLVpNbHQ0VTZNcnh4MHI5VUpmQXJ6U284V0VzckR3bVZKbzNKMkJVY1JtLXZ4SnYwd19OaWc?oc=5\",\"headline\":\"Roma looking to make two signings in January\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T07:46:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1304812,\"url\":\"https://news.google.com/rss/articles/CBMiswFBVV95cUxPYVYzSEcxR2NoLU1YRVNpZldhbUZqNlNOUUNBSTFQa0VlVFYtOUE5Y1ExR0RCNzRRNVU5ZjVjNTZYWmFQbEVHUkVST0otQjlmQ2dHWlo5MUJHOExFb1ZUTkhlRkQzVTY5RzBSeUFRa3FWcnN3ZkQ1WEpjS2M5V003Z21QMVlOb3lIMEF1TzZwczdYdWVmWS1SMU53aWM1SWJia2psUlRyelJuTU9ScEM3N2EyNA?oc=5\",\"headline\":\"AS Roma - Torino 2-1\",\"publisher\":\"Flashscore.co.za\",\"published_at\":\"2026-10-22T06:29:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1266109,\"url\":\"https://news.google.com/rss/articles/CBMiuwFBVV95cUxObGNHWkxlZkcxc01ETEUwVmo4RmRNR1pfbFo0bHhvMkFlTDBRaGpwWVVKWkVJWU44d0M5aDJPcVRpeEowSnNzM2lubEtDZng1ZGw0ZUF2OFVKN0p0RHJUT1RLNW1jNEtwZUQ0X0dCY0NnZU10Rm9ESXhHWDhJYmdwVnVvYzQwcDhSbmdmWjg5NElCMjNuZ0R4ZjI1VnF3T3pWdUJQaVV1cTBQVjh6eXkwbVFUTDEta2JOclJN?oc=5\",\"headline\":\"Real Madrid comeback stuns Roma as Mourinho enjoys happy reunion\",\"publisher\":\"The Daily Star\",\"published_at\":\"2026-10-22T06:24:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1343838,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxORzZGMENiYVBnNDY3TE81eUV1RVc4ZkNDeG5aN3B5RkFEQmhyYmdaa0VESlNLLVYyVEdndlhHaThEbi1fZlpqYzYzNEFDU0p2R1NYLXhkaVhzUFFjdjRwOU5rak5DMHpqMGZNdUpuM1pzQ212VmM4RXhwQkNLMGNSMQ?oc=5\",\"headline\":\"Napoli - AS Roma\",\"publisher\":\"Flashscore.com\",\"published_at\":\"2026-10-22T05:41:51Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1434824,\"url\":\"https://news.google.com/rss/articles/CBMimAJBVV95cUxNN3NncmZOQ2dfQnRueVprTDU4OHR4cGh3c0FvUFVVRFJtdVBVWE00eVItMEVuWWFNdHZmVW9sMnJja19OUlJOYmtEQ0R0bzQ3X0JLRGNzNEE5VHpoTDhRaGRpdUc2Q0NRRmtnOF9GeVYxbVhBOXE1TGIzT0NJMWx1OHl1bmZualN4bnpVVGJ3Vk9iWGhWSGJ2T0tQTmE0QkltY3hnMmk5ODhjdTY3TV9wektRWGZuVU5VMDBrS1l4LTh4dFJuY0tCRTFQZ1pHOFBMbmRlbGJRYW5yZDkyOVQwaDFoa1FrSS02ZVVDUlhwV2RuRGZKbkdxYV90ZFdkV1lhdXhjZDBhQkpUWjA5V1ZHVVpSVm9RSDM5?oc=5\",\"headline\":\"Lazio are top of the table, with Roma hot on their heels. Roma fans are crossing their fingers, whilst Lazio fans are on strike\",\"publisher\":\"Il Foglio\",\"published_at\":\"2026-10-22T04:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1365085,\"url\":\"https://news.google.com/rss/articles/CBMic0FVX3lxTE4xelc3ZzBCVmZLZHBQcndNaVFPZ0JEMW0wdFhVZmZqZTlPOVVjbkR6c0tHNm1qR1NuNEVSZmlFenRJeHBubWJNdERjUUYxY0VVdmJnVm1vcmtXXzhERDg5WE9VME5xVmJNZzlkTXNWRnkxa2M?oc=5\",\"headline\":\"Parma vs. Roma: Live game updates, stats, play-by-play\",\"publisher\":\"Yahoo\",\"published_at\":\"2026-10-22T03:19:58Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":757932,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxPSXFzYjZlLTQ2b255dlBiek5OeFdtSFNZUjRESGVmSWJBdHRsUkE2dm5lTEh4S3NvNEZvZm5iV0tIcFpfSTVHc3VYS2Y4S1doSGFoS3ZwMTA3dDEwclVGc3ZhcVJveTQwWVN1c1FDWUFlTS1KV1NOSDZWSy1SN05CMVdfMGJ1VUtmMmNZZ010ZXI1X3NrZ3BTOUFiaXVhdDFwRDJ3RDN5UmU1Zw?oc=5\",\"headline\":\"Watch OH Leuven vs Roma\",\"publisher\":\"TOD\",\"published_at\":\"2026-10-22T01:49:25Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1356555,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxOcXBfdkswOUMzNHpONUNLZ3hhZTJVTXhaVGpBUnFwTE8wUDhKQjBlWkhmQnNSU1cxby15WG0wRG9neFZLTkFHNThmVkNERHdUN0dlRE00dG05SDZZbFZhUldDQ2tERVRkVEItb05nQ2NPYTJoMmtEOUZPcWZTbTlIbmwwZGU?oc=5\",\"headline\":\"AS Roma - Frosinone\",\"publisher\":\"Flashscore.com\",\"published_at\":\"2026-10-22T00:46:56Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1404239,\"url\":\"https://news.google.com/rss/articles/CBMi3gFBVV95cUxNRlYyUWxId3ZZM2pSYktOM012NE53aWtPaTJHbjlxdHBVZXNncjVmUFM1c09rUUZ2c01zbkd4MjVSSkxib2UtVHFWUVpFYmRnSFIxdXV1R1huUFIxMFJkY3VnN3o3NFJHWFQtc0pRWXlxNzQzazBnTnVtMGhkQl9Demp4ZTZMNnNEZ0RaakdZOFJvZUlQNmhJaFk5TFdtZ3d3Q3JkbGJQSG9xa3Fqb2tnMkpWQVFJbzZ3V3pPdGhWWGU2QnRobU1PcGRXU0xVaWJPSjRaU3BONUxRcFNQaWc?oc=5\",\"headline\":\"UEFA Champions League - AS Roma v Slovan Bratislava Highlights\",\"publisher\":\"BBC\",\"published_at\":\"2026-10-22T00:32:21Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1217877,\"url\":\"https://news.google.com/rss/articles/CBMibEFVX3lxTFBTTTFVdC1CRFFodVRzQ2ZzVGRoWWF4ei1VODRadGxGSTZWQUxQUTBUZ2tVd01zeGlHZVlRWXg4QlBJSlVNQ2d3LVpDTU83dzZzQTNjYTktNUlYSHdJbjJxdnV2TzFUdHZXYXdCUA?oc=5\",\"headline\":\"Prediction: Napoli vs Roma\",\"publisher\":\"Soccer News\",\"published_at\":\"2026-10-21T22:32:43Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":950322,\"url\":\"https://news.google.com/rss/articles/CBMib0FVX3lxTFB3RG9YNjNBanNob25QVDdDam5RTFJmVGlXMjdmbjNibzNJQjRvOWp2QnpYMzNJSUp6MEVDT2g2TGllX2FiS3NiMUdpZjVHYnlTVm1ObWlJQ2owRXlkVWdyb3ZoQkMwaGxuU2xNQkRnUQ?oc=5\",\"headline\":\"AS Roma vs Slovan Bratislava » Best Odds and Stats\",\"publisher\":\"Odds Scanner\",\"published_at\":\"2026-10-21T18:38:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1304823,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxNdTlBTVYyX0t2WDRSSVhSV0d4RTJIX2NPS2JvYjRyU0tCZmJoMm5vaTQyVGxsX0pHWDgtY0dwZU5hQndEWi1HVmI4UVAzWWtnVFNNWGl1R3VOWmx3aUhHLU1GZWxRWnZaNEVyTEFVSVFib3puTExDOEktTzZmUXAtTw?oc=5\",\"headline\":\"Napoli v AS Roma LIVE 24/10/2026 | Soccer\",\"publisher\":\"Flashscore.co.za\",\"published_at\":\"2026-10-21T16:54:55Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1246941,\"url\":\"https://news.google.com/rss/articles/CBMi3gFBVV95cUxPRDRTbm5mOVVHU3NvQVp1Ri1JVUY0SjdLS0lpSVJsNVg0SU9DbDgteURacnA5QjZzNHRiSllQblBfbGFKLXBwbFg5SWVYSHI3eXNzbERFRVNiU2pGbjdCb0VHbTNDVXVKVWliQU1ZbWxrWTdYdDE2X1JZa2QtTzVaU243SENoSndfNXNHMEZNRTFWa25CSWk0cTAwT3FFUU5yRUVPSUJlZU1HMnYxdlJ3aUE5aEx5bnF1bXNXbGlxWXd3X0RadmdKR0diOGVyenVlUHBiTThWYnA5ODhIUFHSAeMBQVVfeXFMTlJkTE4tLTBvYUFLZE1NdFFTZHRjcXo5bk1OeWdaYVFGdW91YzJWMlF1ZHBsMGM2SzJLNGtza0RsZUNwVllHeFBWbmJjS2c3N1lXS0huUWZOR0RpOVdsV3IxV1RlY3g3MzZJaFNjdGhRczdRcTA3bEZ4cVNUcTRZb3c0SVN3VGZEUU5aSTFwdENKUU9VbWZSOFRfbTVWLVJpUlRjRGtMZWdGcUlXQXJ1TWdYN2NBSVMtXzk3ajNNWVlBR3hOckJ5NGxQbUcwU1BEYlZsajZ2a21TRkRINlpzNjl5bmc?oc=5\",\"headline\":\"Two arrests after clashes during Roma v Slovan: infiltration from the Wisla Krakow curva\",\"publisher\":\"La Gazzetta dello Sport\",\"published_at\":\"2026-10-21T15:59:32Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1188933,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxPaV9aUGlMQ1VMMXQ4U1haMW1LUm02bThFUnp0NXVkWHZnTXNfeXF5TDFSVDdwVVlXR2tiOVU5VGtzOURzYVNjMWdEZE1hRElQeEFUNldiVXUteFJYajRKLXRKSFA5b09JbUJ5VDR0RHBJQ0V4Xzd5MHpWMXNIRk52YllPTWdlV0p2a3lnNmtSeWpOU1UyZzFVWVlORzlCT00xRkZrYlhZdTFINEQ5X3hBQQ?oc=5\",\"headline\":\"Roma midfielder valued over £60m lined up by both Chelsea and Liverpool\",\"publisher\":\"DaveOCKOP\",\"published_at\":\"2026-10-21T15:44:38Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":393732,\"url\":\"https://news.google.com/rss/articles/CBMiggFBVV95cUxNXzFrWVRJbm5fMGFlcTZDQXgxazRnbnd3TVZJdFU2R05CQkE2Y1cxZWVVTlJEM08tVjUtVXEtUkQ3VlBra3BvUi1YelJTYlNwOUlVWThXM3Izc2ZfM0x0dDljcFZ0NGNfa0h0NTZ2eDhSZlhuS0NjVm1EaWV3T013X3Fn?oc=5\",\"headline\":\"Bologna - AS Roma\",\"publisher\":\"Flashscore.com\",\"published_at\":\"2026-10-21T13:41:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1217855,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxNVGZPQzNFV01zbVc0RzgwZzNvbVNxUHp2QWd5ZHNFQV9kNUJuLTd2Q25qWk1BTGl2aXVfUlJEZUxtd0l3UjdhTzIxNVhpdzZDUVk2Y0RMUTBUWDZkeWxKeXVWYkNlbjYwZXdQaXF5Q04yWWlBdmE5NkNhVzdRUm5DQU1LSTRzaWdsbXZyVWdB?oc=5\",\"headline\":\"Roma’s Champions League earnings reach €52 million\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T12:34:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1190543,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxPZmY3NXE2RFlneEtqaUJjV2R3T3VQM1cwMVhrYkJ0emgzU0VrdTA5NjhFMHpYTDVsY2k5RUhNV2k5RTZ6QnR1VzJ1OThpdVprTFh0Z1Utb0d1OEI1WXhfdF9XTllNT052WTRyQ1hBQ3pFWVFfQ2cxcjkwWi1xNXhTMk1uQkZodw?oc=5\",\"headline\":\"Napoli vs Roma Preview: Team News & Prediction\",\"publisher\":\"The Stats Zone\",\"published_at\":\"2026-10-21T11:23:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":1266110,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxNRDNsaG96cmU0WnU4T2pqeEx1eEZkZ0VLNkZiWUYxczMtMU5INVFmaVFYa2RLVGp1UmtrQkh5LTZNMFJaRk1jQ2QyUkIyZ3hXWU5ncHFtMGRlUHlxdDRMN2NwbUdNMzNuRzZ1NHBCYUd4ak9wcjZfYnRQd3V1NG15QmlZOS1wY1ljUFI1cjlrZDhXTjU0UDctUHFMU01DRDVmY3l1VnVEODZvS3JPYk4xRA?oc=5\",\"headline\":\"AS Roma 3 - 4 Real Madrid (14/10) - Match Report\",\"publisher\":\"365Scores\",\"published_at\":\"2026-10-21T11:01:54Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":1188918,\"url\":\"https://news.google.com/rss/articles/CBMi4gFBVV95cUxOdEgxM1JmNkZWel8tRVBTY1pLa0JGdFNFU3BPMU5PcHZ3bkFHUkc0NllScUhPTS1OQVVGUWVIa2FXcmp2YjdHdXNTajl2dEozUThVbm9Hb0NnblRpc1lEbV9RSmVoclZlOGVpdmFLQTQ4S3JmNTFoRnZhSG1XQTFiZ1VaZUw2Q05TV0REX3J5TmhaU0p6SkRmRVVTRGdxcHdEeHBBTWdXVTJkbXQ1QmNKVF93NGJSdWxrZWhKQ1lQTV9OT1F2RDExS2p6akd4SVVyVHc3MEdiTEs2WnpSRFM1SzZ3?oc=5\",\"headline\":\"The great UEFA Champions League escape act from Real Madrid against as Roma and another Kylian Mbappe milestone\",\"publisher\":\"Vodacom Soccer\",\"published_at\":\"2026-10-21T08:03:24Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":1188894,\"url\":\"https://news.google.com/rss/articles/CBMi2wFBVV95cUxPNlE2MDhSdU9FZmxNaHZRMGtwbzdqSDBnUS1zTU50VktBSFlZOWVvNF81eFZ5Q0N5aTRpRm5VNWh3T3ljaUR3aVNFVVdKM1pOVmExVWZGTkRBTUVSS3dyMnl1cmhPaVdnLTRvWmpYSDZ1RmlQVDhiRFNnTnYtdnd6RFRrNmE5d2lPck5ab2tDM2xaakxhdllBUWpkcUhxWGplV1dDVEZ4WXdUdzhMYlhqek5Pd2hSMWkxU1ljSmgtTGkyNjR4Zml0SGYtY0wzMWNtc3hjZ2toRFc4cnc?oc=5\",\"headline\":\"Acronis Expands #TeamUp Partnership with AS Roma, Supported by DSMatic\",\"publisher\":\"GlobeNewswire\",\"published_at\":\"2026-10-21T07:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":712357,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTFA4T19EOEVCeFROSmVNYzFFMnF5VU1rQ3VOdktXUE91ck03TGNydjJIaHZxQ25OVVpHTnFDN0dBRElpWXdDQi1ZM0lSY2h0T3dMaWlmR1liZjlaalB4dzZUMS1VZ2gwMGhzTXAxdExqYjZCT1poTHZWZUhnNnBfems?oc=5\",\"headline\":\"Parma - AS Roma\",\"publisher\":\"Flashscore.com\",\"published_at\":\"2026-10-21T04:24:48Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":1188906,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxOc0F4czJZcDFwVzNhZEQ2ZlZPOG5ENklJZ2VJbnlReVlldW5sY3lxYXZTSE1vaWdnSUIyYjM0SXZaUWlEYnprTkZNYXIxT084OF9FazU3cFFpdF81bmpaNkNILTNiZU9RaHZzUGdhZzBHZVhmQ2UyMGRBUHNyd1Fab0s1UFdFZS0ta0xtbXlGSno?oc=5\",\"headline\":\"Roma vs. Slovan Bratislava - Game Highlights Stream of General Videos\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-21T01:32:03Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "Roma — Serie A (Italy). Venue: Stadio Olimpico. City: Roma. Country: Italy. Coach on record: Mirko Vučinić.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.779170140738405,
+            "emotion": 1.7151933178598304,
+            "movement": 4.98661760870061,
+            "subject": 92.16724184093697
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxPNmxKZWlSMXpYTllCbnc3eEZhY0tCMk5VSlFOSVh6a2NfWjVmRjl3OU5OdFN3VFJiOEVxbzJYSjBNQ05ydDJPekZSbFd3V0MzTmVCODllTE1nM2FJMElPc2gzdnNBQ1kxbl82LWcxMHRFaElVajNsanlCUVhTRXpYMFl4VmdoZmZnNXNoOU5tWW9NWHNhbC0welhtbzE5aEhyZ2hGUg?oc=5"
+        },
+        "context": "Napoli vs Roma Prediction, Betting Tips, Lineups & Odds | 24 Oct 2026",
+        "id": 1434767,
+        "published_at_epoch": 1792717598,
+        "source": "Sportsgambler",
+        "title": "Napoli vs Roma Prediction, Betting Tips, Lineups & Odds | 24 Oct 2026"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.353497770704168,
+            "emotion": 1.6155017390359712,
+            "movement": 3.8935796614196825,
+            "subject": 91.27504876046363
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTFBRbm8zV28zeFZtVHg1bTNid3hZcVBIZVBRLXBRXy0yREltRnpzaHF0WWdnOXM4TVdGUFkzSWFNRFd3WngzZzFVMDVGekJ4TWVUZWNrOFpEcXFXdGZwekF0eWFycw?oc=5"
+        },
+        "context": "Roma vs. Napoli Live Stream of Italian Serie A",
+        "id": 1095885,
+        "published_at_epoch": 1792714674,
+        "source": "CBS Sports",
+        "title": "Roma vs. Napoli Live Stream of Italian Serie A"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.268288490745203,
+            "emotion": 1.607828686272537,
+            "movement": 4.529835636837075,
+            "subject": 93.2286012418004
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTFBwczVZY25IaFVsWG5VQ25rMWxoSkxMU1FyOENaOHZvNnJ3YzdzeUJrMDExalhKSmYtMFBsRzVMajl0cmlQVF80bXpTYW54NEg5aGV6aVNvZzhqWE9RWW5mdHFzRQ?oc=5"
+        },
+        "context": "Cagliari vs. Roma Live Stream of Italian Serie A",
+        "id": 1097399,
+        "published_at_epoch": 1792714657,
+        "source": "CBS Sports",
+        "title": "Cagliari vs. Roma Live Stream of Italian Serie A"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 12.395657160212645,
+            "emotion": 2.0225868766632376,
+            "movement": 5.364198684072175,
+            "subject": 92.43868179698238
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxPalA3T3BIQXNQMXN0N1JaWllYUlhrOS1obWJiZUhhNjBaWWIyWG1aZTNzN0cwYjRRYVBXaV9VZXNaaVR1WllkbjBwYWdsYkhULXIyYjBmSnJBYXAzV2tzN24yRXg3UkQxRkdXbWxuYXJVVG53QXRCRGJON3FobUJlTmcyVXd0Z2ZjaUVBU2N0Zmp5Rk5CMlV1RVN3Sm1fdDJNX3c?oc=5"
+        },
+        "context": "Watch Roma vs Real Madrid",
+        "id": 1126615,
+        "published_at_epoch": 1792697086,
+        "source": "TOD",
+        "title": "Watch Roma vs Real Madrid"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 84.28896696535243,
+            "emotion": 1.6228209928538282,
+            "movement": 10.02582134622833,
+            "subject": 92.97736531440113
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMieEFVX3lxTFBiYk5WOFlxMURHLU1xekloQ0llclBNNE9QZVdmQzRTX3E0ZmRFUElDMm9QcDNQbms0ckJYNlc5a3VMS0pmMU1NZ1doR1BnR1ZzVXRoOENsQ0k1QkpHRVg4Y1NlbVVZY3FteEZfQVdoUFUyZzZYQXJZcg?oc=5"
+        },
+        "context": "Napoli vs AS Roma Preview, prediction, injury news & lineups | Serie A 2026-27",
+        "id": 1363795,
+        "published_at_epoch": 1792696200,
+        "source": "Khel Now",
+        "title": "Napoli vs AS Roma Preview, prediction, injury news & lineups | Serie A 2026-27"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.861617108503242,
+            "clickbait": 6.014462964168237,
+            "emotion": 1.7603680255935308,
+            "movement": 7.028552619492087,
+            "subject": 94.70840786415596
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxQalAzTEY0Y2JWTWlyejJLWjFqdmNKOGgtT3EyanNwbXZ0QlNfUmFMVzZ0R0dfdFo5Yjd1d042YVdvN3Z0bFlzanEyNnRTeGRQQUpaVVR0WVlKdG1RX3dONTNnZXRxSVNocU80LS1VZDVmQ25ERHhjTHFMZmJCX0ZFM2JCV0c4N1JSamlWdVE5WHdnYVphUktBcFN1NVVsRWpHVG9tNDdGZGw3akEx?oc=5"
+        },
+        "context": "Preview: Napoli vs Roma - prediction, team news, lineups",
+        "id": 1343887,
+        "published_at_epoch": 1792691520,
+        "source": "Sports Mole",
+        "title": "Preview: Napoli vs Roma - prediction, team news, lineups"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.08756363907978,
+            "emotion": 17.702200352395757,
+            "movement": 5.973751374104365,
+            "subject": 93.87970482449616
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxPcmxVbzI2Y19RTkRzRVREM0VTQU5jLTZnNTJENkN3Y191c3RTeEJia3JHMElFTjNYVmNRNkgza2hyYUZpdnIzenN1Q1JVVmluZmMxQ2V4VFFYdUJ5ZjV0N0xrLUFwcjI4bXVZRjJuX1pTQmVTaXdpX1dvUlZWTUlfQ3lxV1M4Ujl3NkNYMFNkbTh6MTNvdnlnQTBWa0JYeFp3VU9Ga0Q5Rld0Y2ZVVENsNW1sclY?oc=5"
+        },
+        "context": "Napoli, Giovane challenges Roma: \"We're strong and can win.\"",
+        "id": 1385717,
+        "published_at_epoch": 1792690431,
+        "source": "Quotidiano Sportivo",
+        "title": "Napoli, Giovane challenges Roma: \"We're strong and can win.\""
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 97.42104645000596,
+            "clickbait": 22.974610133282784,
+            "emotion": 3.216601811032014,
+            "movement": 84.80120137239663,
+            "subject": 93.54850166924496
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxQTkNFS2NTRDJXdlVHNm12M21Kd05rbUpKUVVla3ZpWHNxdXJjZmtPYnlPUFNNWEZNQ1Jfd0JlTjRTSjFFT2J4MjJIaVo3ckN0WjFSM0IxNmtQTnZJdWtBaWktLWEwd0E1aDRlX1ZJd0RmRkhzdkdiMVltTUx4WWZfX0UyUQ?oc=5"
+        },
+        "context": "Roma lose Pellegrini for at least 6-8 weeks with serious injury",
+        "id": 1324232,
+        "published_at_epoch": 1792683900,
+        "source": "Yahoo Sports",
+        "title": "Roma lose Pellegrini for at least 6-8 weeks with serious injury"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.2491208736657144,
+            "clickbait": 4.0136782691267605,
+            "emotion": 1.56105676290583,
+            "movement": 5.858522757842637,
+            "subject": 93.00642692264653
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMickFVX3lxTFBqMHFBai1DNG83aVdvUnEtZ0UzbFlBVFE1YmhobEpLS0hDRF9xLS1jX2lOVE5aY3RhUGJzTnduWjllRW9La0JHWV9SMVZDMmZuMlZVeUVLTzByZG1lOEZ1MHJrZDU3N1RJTE5PWFlwNEt5Zw?oc=5"
+        },
+        "context": "Serie A - Roma 2 - 2 Inter",
+        "id": 1333978,
+        "published_at_epoch": 1792680358,
+        "source": "OneFootball",
+        "title": "Serie A - Roma 2 - 2 Inter"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.770279113802759,
+            "clickbait": 6.0404995014262015,
+            "emotion": 1.63186207693409,
+            "movement": 3.772520175667774,
+            "subject": 93.52468985108482
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxNM01UaURfS0twQ0FZUnM4QXE4UzV0NFRHUzhFQUNiTEZMZWd3NlVlOGZRSnV4WFlvclhXYXIyeHdGWHpJOTVXRWFsU1AxSWkyRks0NWJMUndSOVg4WlFqeVRrWDdLdnJ1bEpEeHpRLXo2MGpZeXhiOE1wb3pTS1hlWmRxNWRVZkw3X2dHZlVNeGpLaGRQanZwUENtRDg3NS1wUEFCWjItOW1BYWM?oc=5"
+        },
+        "context": "AS Roma vs. Parma Calcio - Live Score - November 14, 2026",
+        "id": 1333958,
+        "published_at_epoch": 1792680293,
+        "source": "FOX Sports",
+        "title": "AS Roma vs. Parma Calcio - Live Score - November 14, 2026"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.0333721113375303,
+            "clickbait": 8.578867900379723,
+            "emotion": 1.6654759527710363,
+            "movement": 3.87987789596411,
+            "subject": 92.34718966441534
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi0gFBVV95cUxNT0IxX1FSNEQ5TWZyNFhETWhaZkFIVUp0ZXgzMHMwZUVQMHM0VlZSeF8tZXRqVFY4WV9XOXdaZllfd3l2WF9PVEpLSFhZT0pHLW1kZVVoWllxX25MUTVJQm5Nc3pWaGkyZTc0U0dSa0tDWXF5NTJUclBTRUhKcktoZk1tcVJWaFl3Vk9QSUNIN01ZcTRLNUhIY3YxcnkyclFIYUJMTlM2MEg1eEM5VnB3UHpPd0hiLTNaNVFIQllsZjhKVDRncDVMaEkyVHNQVXFsakHSAdcBQVVfeXFMUEpXVmZNZFNsWEtCMExZSTd6ZkVKODhvQkdway1CY0N1RmxKY3phbC1TQnBPNjJRanBLU2F6UkxhMkVkem1DcjZfaXlkTTB3SENEdzY0Z3ZITDhVVER4QURzRVh5a0laTkVBRThTYTd2QVM1SmZ5TXFsci1OQXVSdTY5VTRkVHB4RWpGa3NzRTZDakRxQzByQ1QtVzdZTTZtSlJSdlZzaUJ4ZjFNTWZTanJCbHhEQ0FObk9ZalRYVE43dHg0VFBjbU94MmFTZUZtYUx6dlBOb2s?oc=5"
+        },
+        "context": "Napoli v Roma free-to-air on Dazn: how to watch matchday 8's big clash for free",
+        "id": 1295107,
+        "published_at_epoch": 1792672914,
+        "source": "La Gazzetta dello Sport",
+        "title": "Napoli v Roma free-to-air on Dazn: how to watch matchday 8's big clash for free"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.8227261792995777,
+            "clickbait": 15.357148535227331,
+            "emotion": 2.576812344555881,
+            "movement": 77.51749611977469,
+            "subject": 90.51396901686272
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiwAFBVV95cUxQTGluR3Q1VWNYQmc2Y3lTUlhKVkFraWc2NDQxSVItamFoMUxGaVh0REdMODN2b0xDSkRqa1FySzlvNC0wVWZqSi11U09NVU9EajhQV0NrQnNjc3p4dnhUc2VYbVkwLVY0TUhvLXVJUU4wRkI5Sm5nX1pfLU05N2hjV2M4VFFuT2dZN3FtdHNSUXBJWlA3LVhja29raVZCbjdQRkZ0MU00R1ZfTXRxbmRWcjJydHNBQzUxSjYwY0Rua0Y?oc=5"
+        },
+        "context": "Juventus and Roma Intrigued by Sporting CP Youngster",
+        "id": 1295079,
+        "published_at_epoch": 1792672228,
+        "source": "LiveScore",
+        "title": "Juventus and Roma Intrigued by Sporting CP Youngster"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.4359818877264017,
+            "clickbait": 5.30713719971573,
+            "emotion": 1.5296267394303025,
+            "movement": 6.285456469918747,
+            "subject": 92.35325324814778
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxNeGNiYUo1Wk5CeUViNFdMUF9jdjI5cTM4aERJaDJEcDFOWTRaUXg5V25laFNhN2UtUkFJYmEzSDBRcFBZTTM0ZV92LUlKNlZlYXAxN1BPY3JmZEhoQ2g2Wk9OT0oza1dfOGJ6bkRRRGozVGRTaUFRRmhWQWRESHJwQnVhVE05a1FZbjRFUFlRYjhxdG4zY2RuRUxR?oc=5"
+        },
+        "context": "Serie A Matchweek 8 Odds: Napoli Vs Roma, Inter Vs Fiorentina Picks",
+        "id": 1295880,
+        "published_at_epoch": 1792671845,
+        "source": "RG.org",
+        "title": "Serie A Matchweek 8 Odds: Napoli Vs Roma, Inter Vs Fiorentina Picks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 91.71643746464208,
+            "clickbait": 19.357190152344355,
+            "emotion": 11.358727313620111,
+            "movement": 86.90105655911587,
+            "subject": 89.30145562086595
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi0AFBVV95cUxQSnpBTFgyQ0s1eGh5c3JSdkFtTW16b2tLMnR3YkI1bGsxU3V0dXNKdHZJNmlsM1ZtbWc0aHF5Tmp3elR4M05PVW1OVTdYdmpCVUZ3SzVxRmNCdkkxcTBVU24xdWJNa1dRenU2Qlc3YTNpdmJKZTdaWk5LdmJyd1JlQ0h3UXFtVDdUX05vMXY2eXBSNUptQUR2WmFGNThtaGhFNWhKRGJXc2taWGt1TkJoV3ZESHV4YkpnYUtRSUtfMkthSU1JYWtfVmloWGw2dlBI0gHWAUFVX3lxTE5mOWNndEI5aFJmcHBORVRSREYzSlAzQnVBc0ZQY3k5bTZqVW5sSU90RXlyUkxfdkh3ZjZzUDZHNUZfUGdLLURlNkRaZTJEcVViQll6ZUY4dUozb0pTWk1rblJXLVFscDJkakRxeEw3V0MyNFlEVS1mMm5DSUpIbEZVX2lGMGhDMkFNT3RNNjBVS3Y3UmN4YWMyUVljbGNOenZfdWNvNndwV0kwaHFnZ1dNVW9xR0U2QXlJWlA5djRMQkRHNnNqYUdsN2NQdS1UUEEtNWRsRUE?oc=5"
+        },
+        "context": "Roma decimated, crisis ahead of Napoli: Pellegrini and Svilar out too",
+        "id": 1295087,
+        "published_at_epoch": 1792671202,
+        "source": "La Gazzetta dello Sport",
+        "title": "Roma decimated, crisis ahead of Napoli: Pellegrini and Svilar out too"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.482451167146611,
+            "clickbait": 3.7448045309973055,
+            "emotion": 1.5061476091127493,
+            "movement": 6.220885791067034,
+            "subject": 92.31658909221042
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxQNFlRSE4wWUtETnFPQTl6ZHVobWF4VGh4dGhidVFvZ3VZWmRvcF9nU3h5YkM3UFlDLVcxWE94TEdhZjhYUEc5SW5PXzJyMGVHYnFoUGFDeWpKR2VuNDJWcjZaenNEVlJEYXF3TEhIYkw2c25rUXR5eHhBTVhldUlJMGtpckFLM2lmZjlEcGtZNmZWVEEtckJXSXk1cmlqXzlNUmc?oc=5"
+        },
+        "context": "Napoli Vs Roma Odds, Inter Vs Fiorentina: Serie A Matchweek 8 Picks",
+        "id": 1307460,
+        "published_at_epoch": 1792670640,
+        "source": "RG.org",
+        "title": "Napoli Vs Roma Odds, Inter Vs Fiorentina: Serie A Matchweek 8 Picks"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.443261080634439,
+            "clickbait": 22.361207910530783,
+            "emotion": 4.448677477176677,
+            "movement": 93.12416610217524,
+            "subject": 90.95420293031832
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPaHBrdHI2cFN6am5JRVlMSmFESU5EMV9VenFiS095TV92dmc3ZDR5cnkwYkxpQXVsSWdMSkpOMGcwcGRnTDItQkNmbXVnUUVDZERTRlNkbFdBU21QakpyLW5YVndhSXQ2UlpvcDItX3lmaFphMWhwUzZSRXloYndqek1FMVZ3czA?oc=5"
+        },
+        "context": "Revealed: Roma rejected 3 offers for Pisilli this summer",
+        "id": 1275820,
+        "published_at_epoch": 1792664820,
+        "source": "Yahoo Sports",
+        "title": "Revealed: Roma rejected 3 offers for Pisilli this summer"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.886042585606344,
+            "clickbait": 3.850444632602591,
+            "emotion": 1.6074093238792422,
+            "movement": 11.570774749676684,
+            "subject": 92.53878789515836
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE9sOHRONlY3VENyZUcxR29UYVRDR2ZMTlAtSW5fWkhyZlpfNUdJS09Rbkw0UUxqVGJwX0hDdlI4M29pZ0FLbkgyU1JhQTdYcWZzQ2JuMg?oc=5"
+        },
+        "context": "Roma Team News - Soccer",
+        "id": 1285417,
+        "published_at_epoch": 1792660864,
+        "source": "FOX Sports",
+        "title": "Roma Team News - Soccer"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.4067082191023443,
+            "clickbait": 4.517832602927151,
+            "emotion": 1.5851311034852795,
+            "movement": 13.246413318196074,
+            "subject": 92.11826151954668
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxNai1BZks0ajdFRDBnTFZLZklXZTZlN2xvNFhRN2g3a1lYcVJOdV9tTzZaQXZnaFJ4d1lHcFJVRTVWY3JJT0FmbzNjM2RmNUx2a2UxWWYxWUczNWN5b3VZb2dMajRYcDRBUVBLaDRpdld2SENDUi1BX0NKSDBCUzFDaTlDZFBIWWdJcGZVa2hUOUkyNkVBRHA0VW9QSDVaYWRpTmJ0RVdHLURxcFFDYmdMZFF6MA?oc=5"
+        },
+        "context": "Napoli vs. Roma preview: Team news, prediction, date, and how to watch Serie A on DAZN",
+        "id": 1266123,
+        "published_at_epoch": 1792659287,
+        "source": "DAZN",
+        "title": "Napoli vs. Roma preview: Team news, prediction, date, and how to watch Serie A on DAZN"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.674637110400686,
+            "clickbait": 6.459457263432289,
+            "emotion": 1.5748303596261255,
+            "movement": 98.25698672593371,
+            "subject": 94.9144132941794
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxOY2VYVXBfQ0hPNXhLUHhNd09GYnV0UUloTFNCdWRmRFB1Um5oMDBpZFAzVEVBV3F3TEZabmhrc2MyQXRUTDVTNl8yTW9TeE9kZzZLbmxGLVpNbHQ0VTZNcnh4MHI5VUpmQXJ6U284V0VzckR3bVZKbzNKMkJVY1JtLXZ4SnYwd19OaWc?oc=5"
+        },
+        "context": "Roma looking to make two signings in January",
+        "id": 1304835,
+        "published_at_epoch": 1792655160,
+        "source": "Yahoo Sports",
+        "title": "Roma looking to make two signings in January"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.262751269219856,
+            "clickbait": 4.580819284932838,
+            "emotion": 1.9086326795548425,
+            "movement": 4.067158974097155,
+            "subject": 90.55546832303664
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxPYVYzSEcxR2NoLU1YRVNpZldhbUZqNlNOUUNBSTFQa0VlVFYtOUE5Y1ExR0RCNzRRNVU5ZjVjNTZYWmFQbEVHUkVST0otQjlmQ2dHWlo5MUJHOExFb1ZUTkhlRkQzVTY5RzBSeUFRa3FWcnN3ZkQ1WEpjS2M5V003Z21QMVlOb3lIMEF1TzZwczdYdWVmWS1SMU53aWM1SWJia2psUlRyelJuTU9ScEM3N2EyNA?oc=5"
+        },
+        "context": "AS Roma - Torino 2-1",
+        "id": 1304812,
+        "published_at_epoch": 1792650544,
+        "source": "Flashscore.co.za",
+        "title": "AS Roma - Torino 2-1"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.171199137951189,
+            "clickbait": 33.65558828029956,
+            "emotion": 20.812234124588237,
+            "movement": 6.101713078391886,
+            "subject": 93.84332961569652
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxObGNHWkxlZkcxc01ETEUwVmo4RmRNR1pfbFo0bHhvMkFlTDBRaGpwWVVKWkVJWU44d0M5aDJPcVRpeEowSnNzM2lubEtDZng1ZGw0ZUF2OFVKN0p0RHJUT1RLNW1jNEtwZUQ0X0dCY0NnZU10Rm9ESXhHWDhJYmdwVnVvYzQwcDhSbmdmWjg5NElCMjNuZ0R4ZjI1VnF3T3pWdUJQaVV1cTBQVjh6eXkwbVFUTDEta2JOclJN?oc=5"
+        },
+        "context": "Real Madrid comeback stuns Roma as Mourinho enjoys happy reunion",
+        "id": 1266109,
+        "published_at_epoch": 1792650247,
+        "source": "The Daily Star",
+        "title": "Real Madrid comeback stuns Roma as Mourinho enjoys happy reunion"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.5969520982940235,
+            "emotion": 1.6709983292826376,
+            "movement": 8.135895227954396,
+            "subject": 94.59260884125118
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxORzZGMENiYVBnNDY3TE81eUV1RVc4ZkNDeG5aN3B5RkFEQmhyYmdaa0VESlNLLVYyVEdndlhHaThEbi1fZlpqYzYzNEFDU0p2R1NYLXhkaVhzUFFjdjRwOU5rak5DMHpqMGZNdUpuM1pzQ212VmM4RXhwQkNLMGNSMQ?oc=5"
+        },
+        "context": "Napoli - AS Roma",
+        "id": 1343838,
+        "published_at_epoch": 1792647711,
+        "source": "Flashscore.com",
+        "title": "Napoli - AS Roma"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 25.24941877241312,
+            "emotion": 59.42703043298392,
+            "movement": 5.03520610248065,
+            "subject": 89.5604024358019
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimAJBVV95cUxNN3NncmZOQ2dfQnRueVprTDU4OHR4cGh3c0FvUFVVRFJtdVBVWE00eVItMEVuWWFNdHZmVW9sMnJja19OUlJOYmtEQ0R0bzQ3X0JLRGNzNEE5VHpoTDhRaGRpdUc2Q0NRRmtnOF9GeVYxbVhBOXE1TGIzT0NJMWx1OHl1bmZualN4bnpVVGJ3Vk9iWGhWSGJ2T0tQTmE0QkltY3hnMmk5ODhjdTY3TV9wektRWGZuVU5VMDBrS1l4LTh4dFJuY0tCRTFQZ1pHOFBMbmRlbGJRYW5yZDkyOVQwaDFoa1FrSS02ZVVDUlhwV2RuRGZKbkdxYV90ZFdkV1lhdXhjZDBhQkpUWjA5V1ZHVVpSVm9RSDM5?oc=5"
+        },
+        "context": "Lazio are top of the table, with Roma hot on their heels. Roma fans are crossing their fingers, whilst Lazio fans are on strike",
+        "id": 1434824,
+        "published_at_epoch": 1792641600,
+        "source": "Il Foglio",
+        "title": "Lazio are top of the table, with Roma hot on their heels. Roma fans are crossing their fingers, whilst Lazio fans are on strike"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.008413142158822,
+            "emotion": 1.5898422004634951,
+            "movement": 4.700380980136753,
+            "subject": 93.47381935954672
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMic0FVX3lxTE4xelc3ZzBCVmZLZHBQcndNaVFPZ0JEMW0wdFhVZmZqZTlPOVVjbkR6c0tHNm1qR1NuNEVSZmlFenRJeHBubWJNdERjUUYxY0VVdmJnVm1vcmtXXzhERDg5WE9VME5xVmJNZzlkTXNWRnkxa2M?oc=5"
+        },
+        "context": "Parma vs. Roma: Live game updates, stats, play-by-play",
+        "id": 1365085,
+        "published_at_epoch": 1792639198,
+        "source": "Yahoo",
+        "title": "Parma vs. Roma: Live game updates, stats, play-by-play"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.482700516696169,
+            "clickbait": 4.926229690065771,
+            "emotion": 1.9499195131535725,
+            "movement": 7.895417637913306,
+            "subject": 93.82901019253146
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxPSXFzYjZlLTQ2b255dlBiek5OeFdtSFNZUjRESGVmSWJBdHRsUkE2dm5lTEh4S3NvNEZvZm5iV0tIcFpfSTVHc3VYS2Y4S1doSGFoS3ZwMTA3dDEwclVGc3ZhcVJveTQwWVN1c1FDWUFlTS1KV1NOSDZWSy1SN05CMVdfMGJ1VUtmMmNZZ010ZXI1X3NrZ3BTOUFiaXVhdDFwRDJ3RDN5UmU1Zw?oc=5"
+        },
+        "context": "Watch OH Leuven vs Roma",
+        "id": 757932,
+        "published_at_epoch": 1792633765,
+        "source": "TOD",
+        "title": "Watch OH Leuven vs Roma"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 7.530473545149152,
+            "emotion": 1.5970320999973615,
+            "movement": 7.715943334605015,
+            "subject": 93.25897717118882
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxOcXBfdkswOUMzNHpONUNLZ3hhZTJVTXhaVGpBUnFwTE8wUDhKQjBlWkhmQnNSU1cxby15WG0wRG9neFZLTkFHNThmVkNERHdUN0dlRE00dG05SDZZbFZhUldDQ2tERVRkVEItb05nQ2NPYTJoMmtEOUZPcWZTbTlIbmwwZGU?oc=5"
+        },
+        "context": "AS Roma - Frosinone",
+        "id": 1356555,
+        "published_at_epoch": 1792630016,
+        "source": "Flashscore.com",
+        "title": "AS Roma - Frosinone"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.738567752645292,
+            "emotion": 2.16248946563418,
+            "movement": 8.437862763287846,
+            "subject": 90.79825989135313
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxNRlYyUWxId3ZZM2pSYktOM012NE53aWtPaTJHbjlxdHBVZXNncjVmUFM1c09rUUZ2c01zbkd4MjVSSkxib2UtVHFWUVpFYmRnSFIxdXV1R1huUFIxMFJkY3VnN3o3NFJHWFQtc0pRWXlxNzQzazBnTnVtMGhkQl9Demp4ZTZMNnNEZ0RaakdZOFJvZUlQNmhJaFk5TFdtZ3d3Q3JkbGJQSG9xa3Fqb2tnMkpWQVFJbzZ3V3pPdGhWWGU2QnRobU1PcGRXU0xVaWJPSjRaU3BONUxRcFNQaWc?oc=5"
+        },
+        "context": "UEFA Champions League - AS Roma v Slovan Bratislava Highlights",
+        "id": 1404239,
+        "published_at_epoch": 1792629141,
+        "source": "BBC",
+        "title": "UEFA Champions League - AS Roma v Slovan Bratislava Highlights"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.38137477412646,
+            "clickbait": 11.296195505622098,
+            "emotion": 1.9592732227401453,
+            "movement": 7.523291337628287,
+            "subject": 94.87683897974472
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTFBTTTFVdC1CRFFodVRzQ2ZzVGRoWWF4ei1VODRadGxGSTZWQUxQUTBUZ2tVd01zeGlHZVlRWXg4QlBJSlVNQ2d3LVpDTU83dzZzQTNjYTktNUlYSHdJbjJxdnV2TzFUdHZXYXdCUA?oc=5"
+        },
+        "context": "Prediction: Napoli vs Roma",
+        "id": 1217877,
+        "published_at_epoch": 1792621963,
+        "source": "Soccer News",
+        "title": "Prediction: Napoli vs Roma"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.601886614517742,
+            "clickbait": 5.686512882698363,
+            "emotion": 1.524973869796638,
+            "movement": 3.335311627007324,
+            "subject": 90.87339157377288
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMib0FVX3lxTFB3RG9YNjNBanNob25QVDdDam5RTFJmVGlXMjdmbjNibzNJQjRvOWp2QnpYMzNJSUp6MEVDT2g2TGllX2FiS3NiMUdpZjVHYnlTVm1ObWlJQ2owRXlkVWdyb3ZoQkMwaGxuU2xNQkRnUQ?oc=5"
+        },
+        "context": "AS Roma vs Slovan Bratislava » Best Odds and Stats",
+        "id": 950322,
+        "published_at_epoch": 1792607917,
+        "source": "Odds Scanner",
+        "title": "AS Roma vs Slovan Bratislava » Best Odds and Stats"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.174498157965027,
+            "clickbait": 9.038957350453565,
+            "emotion": 1.729135835080985,
+            "movement": 9.225320526611528,
+            "subject": 93.5964753746664
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxNdTlBTVYyX0t2WDRSSVhSV0d4RTJIX2NPS2JvYjRyU0tCZmJoMm5vaTQyVGxsX0pHWDgtY0dwZU5hQndEWi1HVmI4UVAzWWtnVFNNWGl1R3VOWmx3aUhHLU1GZWxRWnZaNEVyTEFVSVFib3puTExDOEktTzZmUXAtTw?oc=5"
+        },
+        "context": "Napoli v AS Roma LIVE 24/10/2026 | Soccer",
+        "id": 1304823,
+        "published_at_epoch": 1792601695,
+        "source": "Flashscore.co.za",
+        "title": "Napoli v AS Roma LIVE 24/10/2026 | Soccer"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 5.026567067573424,
+            "clickbait": 11.982090084767036,
+            "emotion": 3.0464172332243504,
+            "movement": 4.220762002039456,
+            "subject": 94.1177526972696
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxPRDRTbm5mOVVHU3NvQVp1Ri1JVUY0SjdLS0lpSVJsNVg0SU9DbDgteURacnA5QjZzNHRiSllQblBfbGFKLXBwbFg5SWVYSHI3eXNzbERFRVNiU2pGbjdCb0VHbTNDVXVKVWliQU1ZbWxrWTdYdDE2X1JZa2QtTzVaU243SENoSndfNXNHMEZNRTFWa25CSWk0cTAwT3FFUU5yRUVPSUJlZU1HMnYxdlJ3aUE5aEx5bnF1bXNXbGlxWXd3X0RadmdKR0diOGVyenVlUHBiTThWYnA5ODhIUFHSAeMBQVVfeXFMTlJkTE4tLTBvYUFLZE1NdFFTZHRjcXo5bk1OeWdaYVFGdW91YzJWMlF1ZHBsMGM2SzJLNGtza0RsZUNwVllHeFBWbmJjS2c3N1lXS0huUWZOR0RpOVdsV3IxV1RlY3g3MzZJaFNjdGhRczdRcTA3bEZ4cVNUcTRZb3c0SVN3VGZEUU5aSTFwdENKUU9VbWZSOFRfbTVWLVJpUlRjRGtMZWdGcUlXQXJ1TWdYN2NBSVMtXzk3ajNNWVlBR3hOckJ5NGxQbUcwU1BEYlZsajZ2a21TRkRINlpzNjl5bmc?oc=5"
+        },
+        "context": "Two arrests after clashes during Roma v Slovan: infiltration from the Wisla Krakow curva",
+        "id": 1246941,
+        "published_at_epoch": 1792598372,
+        "source": "La Gazzetta dello Sport",
+        "title": "Two arrests after clashes during Roma v Slovan: infiltration from the Wisla Krakow curva"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.1291564438036414,
+            "clickbait": 10.947424172963888,
+            "emotion": 1.3163101865637166,
+            "movement": 87.71215890153452,
+            "subject": 91.99543302835431
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxPaV9aUGlMQ1VMMXQ4U1haMW1LUm02bThFUnp0NXVkWHZnTXNfeXF5TDFSVDdwVVlXR2tiOVU5VGtzOURzYVNjMWdEZE1hRElQeEFUNldiVXUteFJYajRKLXRKSFA5b09JbUJ5VDR0RHBJQ0V4Xzd5MHpWMXNIRk52YllPTWdlV0p2a3lnNmtSeWpOU1UyZzFVWVlORzlCT00xRkZrYlhZdTFINEQ5X3hBQQ?oc=5"
+        },
+        "context": "Roma midfielder valued over £60m lined up by both Chelsea and Liverpool",
+        "id": 1188933,
+        "published_at_epoch": 1792597478,
+        "source": "DaveOCKOP",
+        "title": "Roma midfielder valued over £60m lined up by both Chelsea and Liverpool"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.944139679844642,
+            "clickbait": 4.854372854236336,
+            "emotion": 1.7413285155148073,
+            "movement": 8.192095288342621,
+            "subject": 91.90715188723952
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNXzFrWVRJbm5fMGFlcTZDQXgxazRnbnd3TVZJdFU2R05CQkE2Y1cxZWVVTlJEM08tVjUtVXEtUkQ3VlBra3BvUi1YelJTYlNwOUlVWThXM3Izc2ZfM0x0dDljcFZ0NGNfa0h0NTZ2eDhSZlhuS0NjVm1EaWV3T013X3Fn?oc=5"
+        },
+        "context": "Bologna - AS Roma",
+        "id": 393732,
+        "published_at_epoch": 1792590102,
+        "source": "Flashscore.com",
+        "title": "Bologna - AS Roma"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.7330033938570983,
+            "clickbait": 4.833177152504634,
+            "emotion": 1.5598760098624556,
+            "movement": 2.396648532206616,
+            "subject": 92.81501324217275
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNVGZPQzNFV01zbVc0RzgwZzNvbVNxUHp2QWd5ZHNFQV9kNUJuLTd2Q25qWk1BTGl2aXVfUlJEZUxtd0l3UjdhTzIxNVhpdzZDUVk2Y0RMUTBUWDZkeWxKeXVWYkNlbjYwZXdQaXF5Q04yWWlBdmE5NkNhVzdRUm5DQU1LSTRzaWdsbXZyVWdB?oc=5"
+        },
+        "context": "Roma’s Champions League earnings reach €52 million",
+        "id": 1217855,
+        "published_at_epoch": 1792586040,
+        "source": "Yahoo Sports",
+        "title": "Roma’s Champions League earnings reach €52 million"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.597014154139918,
+            "clickbait": 4.947292003944965,
+            "emotion": 1.906683919465443,
+            "movement": 13.798898421119723,
+            "subject": 93.53121306595038
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPZmY3NXE2RFlneEtqaUJjV2R3T3VQM1cwMVhrYkJ0emgzU0VrdTA5NjhFMHpYTDVsY2k5RUhNV2k5RTZ6QnR1VzJ1OThpdVprTFh0Z1Utb0d1OEI1WXhfdF9XTllNT052WTRyQ1hBQ3pFWVFfQ2cxcjkwWi1xNXhTMk1uQkZodw?oc=5"
+        },
+        "context": "Napoli vs Roma Preview: Team News & Prediction",
+        "id": 1190543,
+        "published_at_epoch": 1792581780,
+        "source": "The Stats Zone",
+        "title": "Napoli vs Roma Preview: Team News & Prediction"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.8962547002492665,
+            "clickbait": 6.669611580303654,
+            "emotion": 2.5979067094267956,
+            "movement": 4.355443183254339,
+            "subject": 91.6781011239418
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxNRDNsaG96cmU0WnU4T2pqeEx1eEZkZ0VLNkZiWUYxczMtMU5INVFmaVFYa2RLVGp1UmtrQkh5LTZNMFJaRk1jQ2QyUkIyZ3hXWU5ncHFtMGRlUHlxdDRMN2NwbUdNMzNuRzZ1NHBCYUd4ak9wcjZfYnRQd3V1NG15QmlZOS1wY1ljUFI1cjlrZDhXTjU0UDctUHFMU01DRDVmY3l1VnVEODZvS3JPYk4xRA?oc=5"
+        },
+        "context": "AS Roma 3 - 4 Real Madrid (14/10) - Match Report",
+        "id": 1266110,
+        "published_at_epoch": 1792580514,
+        "source": "365Scores",
+        "title": "AS Roma 3 - 4 Real Madrid (14/10) - Match Report"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.8421387460689473,
+            "clickbait": 27.36812961835285,
+            "emotion": 2.751088602948296,
+            "movement": 8.660490533613926,
+            "subject": 95.23694912153648
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi4gFBVV95cUxOdEgxM1JmNkZWel8tRVBTY1pLa0JGdFNFU3BPMU5PcHZ3bkFHUkc0NllScUhPTS1OQVVGUWVIa2FXcmp2YjdHdXNTajl2dEozUThVbm9Hb0NnblRpc1lEbV9RSmVoclZlOGVpdmFLQTQ4S3JmNTFoRnZhSG1XQTFiZ1VaZUw2Q05TV0REX3J5TmhaU0p6SkRmRVVTRGdxcHdEeHBBTWdXVTJkbXQ1QmNKVF93NGJSdWxrZWhKQ1lQTV9OT1F2RDExS2p6akd4SVVyVHc3MEdiTEs2WnpSRFM1SzZ3?oc=5"
+        },
+        "context": "The great UEFA Champions League escape act from Real Madrid against as Roma and another Kylian Mbappe milestone",
+        "id": 1188918,
+        "published_at_epoch": 1792569804,
+        "source": "Vodacom Soccer",
+        "title": "The great UEFA Champions League escape act from Real Madrid against as Roma and another Kylian Mbappe milestone"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.405306037467404,
+            "clickbait": 3.675312163144413,
+            "emotion": 1.5333861657703036,
+            "movement": 6.586617329607961,
+            "subject": 93.02753772561005
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi2wFBVV95cUxPNlE2MDhSdU9FZmxNaHZRMGtwbzdqSDBnUS1zTU50VktBSFlZOWVvNF81eFZ5Q0N5aTRpRm5VNWh3T3ljaUR3aVNFVVdKM1pOVmExVWZGTkRBTUVSS3dyMnl1cmhPaVdnLTRvWmpYSDZ1RmlQVDhiRFNnTnYtdnd6RFRrNmE5d2lPck5ab2tDM2xaakxhdllBUWpkcUhxWGplV1dDVEZ4WXdUdzhMYlhqek5Pd2hSMWkxU1ljSmgtTGkyNjR4Zml0SGYtY0wzMWNtc3hjZ2toRFc4cnc?oc=5"
+        },
+        "context": "Acronis Expands #TeamUp Partnership with AS Roma, Supported by DSMatic",
+        "id": 1188894,
+        "published_at_epoch": 1792566000,
+        "source": "GlobeNewswire",
+        "title": "Acronis Expands #TeamUp Partnership with AS Roma, Supported by DSMatic"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.892861108808527,
+            "clickbait": 4.11932489522043,
+            "emotion": 1.6690313672235586,
+            "movement": 8.126050137715396,
+            "subject": 94.31088829331485
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTFA4T19EOEVCeFROSmVNYzFFMnF5VU1rQ3VOdktXUE91ck03TGNydjJIaHZxQ25OVVpHTnFDN0dBRElpWXdDQi1ZM0lSY2h0T3dMaWlmR1liZjlaalB4dzZUMS1VZ2gwMGhzTXAxdExqYjZCT1poTHZWZUhnNnBfems?oc=5"
+        },
+        "context": "Parma - AS Roma",
+        "id": 712357,
+        "published_at_epoch": 1792556688,
+        "source": "Flashscore.com",
+        "title": "Parma - AS Roma"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.605204607666371,
+            "clickbait": 7.971832235511974,
+            "emotion": 2.0123615901979317,
+            "movement": 5.771070945233627,
+            "subject": 92.41586660022382
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxOc0F4czJZcDFwVzNhZEQ2ZlZPOG5ENklJZ2VJbnlReVlldW5sY3lxYXZTSE1vaWdnSUIyYjM0SXZaUWlEYnprTkZNYXIxT084OF9FazU3cFFpdF81bmpaNkNILTNiZU9RaHZzUGdhZzBHZVhmQ2UyMGRBUHNyd1Fab0s1UFdFZS0ta0xtbXlGSno?oc=5"
+        },
+        "context": "Roma vs. Slovan Bratislava - Game Highlights Stream of General Videos",
+        "id": 1188906,
+        "published_at_epoch": 1792546323,
+        "source": "CBS Sports",
+        "title": "Roma vs. Slovan Bratislava - Game Highlights Stream of General Videos"
+      }
+    ],
+    "subject": {
+      "entity_id": 37,
+      "entity_type": "team",
+      "name": "Roma",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

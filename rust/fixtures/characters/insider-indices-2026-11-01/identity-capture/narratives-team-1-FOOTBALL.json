@@ -1,0 +1,574 @@
+{
+  "name": "real-team:1:FOOTBALL-narratives",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n121-useful-perspectives",
+  "user_prompt": "{\"meta\":{\"name\":\"West Ham United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"West Ham United — Premier League (England). City: London. Country: England.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1284573,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxOVFNYdDR1OTBtM21oWU9tTmFMcVdGSU9HckpNS2taZUpXWVZIeEhUTWNhRExzMEpRMWdjZl9NNTJBV0p4ZGFnUmpyaGJhbWhINFF1UDl1a2QyWG9fX2loXzZMWHhTRTg0NXpWRlZKaXVvV0t2emtSUnNWejA4QldVOG1WVE5SZUcyX2FN?oc=5\",\"headline\":\"West Ham United v Southampton | All You Need To Know\",\"publisher\":\"West Ham United\",\"published_at\":\"2026-10-22T14:35:16Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1313644,\"url\":\"https://news.google.com/rss/articles/CBMixAFBVV95cUxPdFF0bWVoQW9lUW45aFlpZ2tuN1g1TTlIRVJyVGxSU1o2c1JmRGVwbWJUQjFHeVNpNm9MdjFHS1FVM1czcFpZOWxfQjlhTFJtY1Ixa0xpNzB0WlcxbEJqZE15ODlqN3REY291cXNmTjkwT0g0dTNWVWlHU1EtS0pXS1ZhLW9EZ21rZW1qSnEybTdTaGVZMXUtMXZLSEEwTHZ3dVpwOFFHX0Z1UW5TUC1kWHBPY2FTdHFFUFVPWmFHcEx3VEF3?oc=5\",\"headline\":\"Preview: West Ham United vs Southampton - prediction, team news, lineups\",\"publisher\":\"Sports Mole\",\"published_at\":\"2026-10-22T12:23:40Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1294202,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxNMUJCZV9keVFYNlk0WS1LRkZVamJQcTB6VlhyX2swN3RIYmVaVEY0MEI0UWtfaTFUQ20yZFI2dWpXWUpWZ0paNVR4eGlMcUc3bWo2OXkwY1c0T0tQSmV5b0ZPQ0gtaXFoZDFkQk9CYVZGcFR0NC1CcHhJaUVsUDQ0THpRUXYyMXZiQlRRMF9QeDJiLVRyUmVwdQ?oc=5\",\"headline\":\"West Ham United, BrewDog Launch Fan-Created Beer 'Boleyn Brew'\",\"publisher\":\"License Global\",\"published_at\":\"2026-10-22T12:19:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":994138,\"url\":\"https://news.google.com/rss/articles/CBMiY0FVX3lxTE1nbkx3ZmUtekJLLW5fa2FSeGQwQnJCWlNnaG5fR1pPOUpSSHhnTFM5U1JyV0lOX2RWT1hoa3NScnNFc3VSRjQxT2pBM29uVUNZM1YzWGZCVDFVTU9nb3RlQ1Jldw?oc=5\",\"headline\":\"West Ham United vs London City Lionesses: Women's Players Cup stats & head-to-head\",\"publisher\":\"BBC\",\"published_at\":\"2026-10-22T08:14:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1013242,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxQTGFXMmduZEJJLXNuXzItMVN6MnpRRDBna01wZTl5SGtFbWdIZ19Ja0RhMTBydHV5cmRHb3FsMU1DeVhkbElOVzZ3a0VfMXFFeWprTVd6SzZtVS1VejZFMm96U3F0aUxMQTY4ZmdLMmoyLU1VMXFTWHdHd3ZwRGtid2FkX2wyanRyUFdBNVFLZkZQNnh4bC1BdQ?oc=5\",\"headline\":\"Brighton (W) v West Ham United (W) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T00:05:29Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1197759,\"url\":\"https://news.google.com/rss/articles/CBMi3AFBVV95cUxNcWJOU1NHdWEtRXc2Z25CWk93eVhrVWIzT2tMei00dm9rcG1aRERsTTdJSUEtNnNYSnFYRDNpWldKUVJOSkpfUlhCaW91SXlmVjFLNTJyZEFDbmNTRnFrczNnQ0RqakcwTlltSDlCakdLVGtDbDRhNC1uQ2VkbW1idkJHd3RXZzdFdHR3QVNpMlBoTXY0V0tFVjB2RlpOdXNCMDlBeWpXdUNkNnZ0a1NXOUJGaEgxQUJDSlcySlVLSGRobFYwdnh3M0JOYjk5bmJwcl9Hb1hNNGNQcVZ3?oc=5\",\"headline\":\"West Ham United 1-2 London City Lionesses: First Half Goals See Out Win\",\"publisher\":\"VAVEL.com\",\"published_at\":\"2026-10-21T20:13:54Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1188079,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE03dWpEWm1QMDhDUThmbXBZZ05zX3BYeDhzUnc1QVVtLVVZWW5ZSUR0dDZRRW5vMkZ6SVVqdDRwNm9tcDlKQXhjQ0VSU3VXZGk4MGhPR1NPTG5FbDV1VDdVTEJUY0FySXItYjY0R09yUmJ2SGpYUjJnWUlKbFVWY3M?oc=5\",\"headline\":\"Brighton vs. West Ham United Live Stream of Barclays Women's Super League\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-21T19:30:09Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1188067,\"url\":\"https://news.google.com/rss/articles/CBMiXkFVX3lxTE9WSG5hNGxGaXdtNXgxT3A3a3pacFg5MUNDdjZFbkFmOXRrNHpkcmI4endxMXhpQjlYbVNOR3UxeXotc0JOb1pqZlRkOFI2eTVCLVFtakxUcThFb0dkZHc?oc=5\",\"headline\":\"Southampton vs. West Ham United Live Stream of English Football League\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-21T19:30:09Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1207459,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxQTk5HbXZ0bURrZWo0dTVwdnR5ODBfYURYTmJRdXVHYTNoWlUyelI5ZEwxc2cwc2Z6aVhINzkyYUpURmx6QUZCSzYwNmFIWklHU2owN3JuU09NZjV4VFZZU1ItWUdHb1BiOW4wcFloWnhGR2dHSDhxamdFS2hxeWh2TzFIWlVFVEFaLXpQQXdobFBza0Y3T1Bmc2lvUGZ5czU2SDdzcGt2SQ?oc=5\",\"headline\":\"How Jean-Clair Todibo became complete 'enigma' away from West Ham United\",\"publisher\":\"West Ham Zone\",\"published_at\":\"2026-10-21T17:10:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1188070,\"url\":\"https://news.google.com/rss/articles/CBMic0FVX3lxTFBMNVBFTDV2VzRydWpNWUIyb29zeFhRYlhkVTN1M2JKel9BUG1MMWRUU04weW5DQ1NPWHJqdHVDZ3VUWHMzTEtJVlh0OHdQZzIxR2xUdS1UTi1FZDJudDUwQ0tuZFQxTjBEOGs5VGYySkFVb2s?oc=5\",\"headline\":\"West Ham United and BrewDog Launch Fan-Created Boleyn Brew\",\"publisher\":\"365 Retail\",\"published_at\":\"2026-10-21T15:51:01Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1188064,\"url\":\"https://news.google.com/rss/articles/CBMiggFBVV95cUxOWFJOTVBpUnF3YjNha3NRNWkxRTlic2NJVEpKT0duUmlvbEZkbTZRUGd3M2J0ejRZNEFZdEhkX2dpTGlRVlFYOGFkZDVpdVlhOWpFV1g2VTJCTTl4dUtqalM1SjJzNUpya0ZGRVU0dUlad0dfSDJpWTRUcUJXOC11RVJ3?oc=5\",\"headline\":\"West Ham United and BrewDog launch Boleyn Brew\",\"publisher\":\"West Ham United\",\"published_at\":\"2026-10-21T15:02:53Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1161986,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxPSU92VGJXUE5nZjVxZkpUeG5uY1Nhck5sd1ExN2U2bFVlWHJVVk5DX1l3ZnBSSVFBMmZkZjZYYy1NYVEyNjRzeFB2MG5Wci1vWnJ1MFgyMGNabnFIcU13aHo3Z0xITEFiNFRVR29uVEN2UWd4eEtVOXVzNll5a29ERHl5TW14WUFHYnlmNU11dEk?oc=5\",\"headline\":\"West Ham United F.C. and BrewDog Unveil Boleyn Brew: A Fan-Created Matchday Beer Made by Hammers, for Hammers\",\"publisher\":\"Yahoo Finance\",\"published_at\":\"2026-10-21T11:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1161977,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxQSWRCbE5scURYYlphTy1keVFhUU1qQ0l2UlVTVWFMT2pJR3Q4RlpiMS11MlJrcjNwNVM2ejlzSUdKSnEtWnJfRERYQ1BSanNpbkphdU1hakZNTlRqSnhYTHNHNXdkQjVlQWJVV1BPcEdPZk1aXzlwMVdOc1YwbndqOE41N3B4NkdJZ0Q2X1hkWjZCXzg5LVE?oc=5\",\"headline\":\"West Ham United Foundation celebrates one year of The Foundry\",\"publisher\":\"West Ham United\",\"published_at\":\"2026-10-21T10:02:29Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1162019,\"url\":\"https://news.google.com/rss/articles/CBMiswFBVV95cUxOV1J2anFTSkxMRlFnVlJUdDdRLThEZ3ZfSzMzLURJaGdvd2xCN3dVTzdFZzNWbUpaaDVZOXFuRG5BUVM2V2M4NWRyaW1LTkV2c0wtYlg5bkhCN3d1d1EteVdBSXVmaVlEX3NKOXBwQUNDMEYzSlV2NTY5UHJNbUtYRDdEMU4ydjRBT3JPdm1LY2lVdkJVY0NuekJEU1hEaFNyX05fV2luaWRrWnhLcU5pd3BUOA?oc=5\",\"headline\":\"West Ham United v. Southampton: How to watch, TV channels and kick-off time\",\"publisher\":\"West Ham World\",\"published_at\":\"2026-10-21T09:25:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1113933,\"url\":\"https://news.google.com/rss/articles/CBMipAFBVV95cUxQeW8xbm5sOEpRaEVqTGxQNV9LMEp6TmxBemJpOS1JbFVyLXF6Nlp0TmZNSU1oTS1vLTFESTlTeG9BaHJvV3JLUUxkRXJBdWRZM0J4UlFncWplQVQ4Q1Y0WHFVcVRZZGJxeVFWRG9PSFFZY1o0VzJRazlwYVM1NG5DLTZWbGpKNDdmelpLdklYNzgtQnNTWUpFSHZFOUN3Qllsa0I5TQ?oc=5\",\"headline\":\"‘I’m Not So Sure’ – Experienced Boss Has West Ham United Doubts\",\"publisher\":\"Inside Futbol\",\"published_at\":\"2026-10-20T19:17:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1075990,\"url\":\"https://news.google.com/rss/articles/CBMiowFBVV95cUxOMGNaVDFiYkRrZklnNFMycjN6UWR5cGVQd2MwbnE2MDMxLVA4aTE5TDF3YkdUcm95UmVtM3lJU1cwUlEzdDZGaDB1UGdkTHFsU19GbjY2a1p1UFZfc01jeFNBRHZFOEpzc0h4d2JpRjNzeWNhenNGV3FPRW9HcXE2SjdFZ29ZMlFfdjRyc2M1QUQxQTBtcTE0UW9zZ3JVR1NEc0dz?oc=5\",\"headline\":\"'I'm Not So Sure' - Former Boss Doubts West Ham United\",\"publisher\":\"Inside Futbol\",\"published_at\":\"2026-10-20T19:17:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1022875,\"url\":\"https://news.google.com/rss/articles/CBMipgFBVV95cUxQNUxxM3ViZ2dTeFktUm1RQXhpM0FMZkd2bTV2aFNGdVF2YlowdDhWb2tUVGcxRXRPZm40VFpDMnhab0VtNEJQaXB0Uy1kdnNDUWljSmc3aHBlNGhFOFA4RVZXSWZpUmE0cXMyeklRd1BiLTA1emNyR2dKVlRjSzZ5OUg1eEZ3OTBUa2NvUkNCM09NSlZoUmFVVi1YbDdPS3ptUHRNemFB?oc=5\",\"headline\":\"London Stadium by the numbers: Key stats, interesting facts and records about West Ham United's home\",\"publisher\":\"Football Ground Guide\",\"published_at\":\"2026-10-20T13:38:06Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1003551,\"url\":\"https://news.google.com/rss/articles/CBMiqAFBVV95cUxQR3FMRWQxN1FFMWxXTGRqUjhZaERTRDNsR2lwZHk3UUFDNWVTSHhwMkR0UF91aHhyQllmR182dEpQLTloTlFGdjlWUHk4ZDhEQ1dUYjZpSzBDU2hvQTdFM1otMW1iYXNrNzhVRExaSFVxNVB0YUhLbmdROGpDLXUtcUlZYTQ4ZVN1NzJxbk1nN2diU1RDRl8zX3k4OFRpOC1QSFhtYVNOaHI?oc=5\",\"headline\":\"A Rough And Quirky Guide To West Ham United\",\"publisher\":\"FansNetwork.co.uk\",\"published_at\":\"2026-10-20T08:41:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":994161,\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxNWG9OSEdtZ2xVcWNfMU82SkVPa2tDRlRuM042SVBhUHdoR3hYYk9qXzlwOXQxNzMxVXM2TllyblgzdEY1N1hSTzllRk1XWFR2N193djBBOUhqZWZucnA5WXd5QnhtTUxDbFZmU0g5dnBYZzV5UDQwVnZ3eVZzZUZKUXFhLWZxN19iVWpLSGhkZkhUdXhDcDVXWVROMTRNYmRTcl91SWtueDB4R0xabHJ2Vll3dnIwQQ?oc=5\",\"headline\":\"Can Max Kilman complete his West Ham United redemption after early-season revival?\",\"publisher\":\"West Ham Zone\",\"published_at\":\"2026-10-19T15:10:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": "West Ham United — Premier League (England). City: London. Country: England.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.893798919459915,
+            "clickbait": 3.9601027536077646,
+            "emotion": 1.67961013998913,
+            "movement": 3.477720916844256,
+            "subject": 92.58904373062252
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxOVFNYdDR1OTBtM21oWU9tTmFMcVdGSU9HckpNS2taZUpXWVZIeEhUTWNhRExzMEpRMWdjZl9NNTJBV0p4ZGFnUmpyaGJhbWhINFF1UDl1a2QyWG9fX2loXzZMWHhTRTg0NXpWRlZKaXVvV0t2emtSUnNWejA4QldVOG1WVE5SZUcyX2FN?oc=5"
+        },
+        "context": "West Ham United v Southampton | All You Need To Know",
+        "id": 1284573,
+        "published_at_epoch": 1792679716,
+        "source": "West Ham United",
+        "title": "West Ham United v Southampton | All You Need To Know"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 4.900432442966679,
+            "clickbait": 7.014295115147759,
+            "emotion": 1.8636525678515432,
+            "movement": 3.0147537173299677,
+            "subject": 93.05277067666596
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMixAFBVV95cUxPdFF0bWVoQW9lUW45aFlpZ2tuN1g1TTlIRVJyVGxSU1o2c1JmRGVwbWJUQjFHeVNpNm9MdjFHS1FVM1czcFpZOWxfQjlhTFJtY1Ixa0xpNzB0WlcxbEJqZE15ODlqN3REY291cXNmTjkwT0g0dTNWVWlHU1EtS0pXS1ZhLW9EZ21rZW1qSnEybTdTaGVZMXUtMXZLSEEwTHZ3dVpwOFFHX0Z1UW5TUC1kWHBPY2FTdHFFUFVPWmFHcEx3VEF3?oc=5"
+        },
+        "context": "Preview: West Ham United vs Southampton - prediction, team news, lineups",
+        "id": 1313644,
+        "published_at_epoch": 1792671820,
+        "source": "Sports Mole",
+        "title": "Preview: West Ham United vs Southampton - prediction, team news, lineups"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.700509788696928,
+            "clickbait": 5.070766007075413,
+            "emotion": 1.7726773231027688,
+            "movement": 2.2178922372106253,
+            "subject": 94.33337100333983
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxNMUJCZV9keVFYNlk0WS1LRkZVamJQcTB6VlhyX2swN3RIYmVaVEY0MEI0UWtfaTFUQ20yZFI2dWpXWUpWZ0paNVR4eGlMcUc3bWo2OXkwY1c0T0tQSmV5b0ZPQ0gtaXFoZDFkQk9CYVZGcFR0NC1CcHhJaUVsUDQ0THpRUXYyMXZiQlRRMF9QeDJiLVRyUmVwdQ?oc=5"
+        },
+        "context": "West Ham United, BrewDog Launch Fan-Created Beer 'Boleyn Brew'",
+        "id": 1294202,
+        "published_at_epoch": 1792671540,
+        "source": "License Global",
+        "title": "West Ham United, BrewDog Launch Fan-Created Beer 'Boleyn Brew'"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 10.32647405591884,
+            "emotion": 1.6348806306792438,
+            "movement": 2.185138471571076,
+            "subject": 91.90242646510484
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE1nbkx3ZmUtekJLLW5fa2FSeGQwQnJCWlNnaG5fR1pPOUpSSHhnTFM5U1JyV0lOX2RWT1hoa3NScnNFc3VSRjQxT2pBM29uVUNZM1YzWGZCVDFVTU9nb3RlQ1Jldw?oc=5"
+        },
+        "context": "West Ham United vs London City Lionesses: Women's Players Cup stats & head-to-head",
+        "id": 994138,
+        "published_at_epoch": 1792656882,
+        "source": "BBC",
+        "title": "West Ham United vs London City Lionesses: Women's Players Cup stats & head-to-head"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.8279526570425335,
+            "clickbait": 3.9322900118756463,
+            "emotion": 1.6148319039558907,
+            "movement": 1.9269443716401944,
+            "subject": 92.87264767568809
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxQTGFXMmduZEJJLXNuXzItMVN6MnpRRDBna01wZTl5SGtFbWdIZ19Ja0RhMTBydHV5cmRHb3FsMU1DeVhkbElOVzZ3a0VfMXFFeWprTVd6SzZtVS1VejZFMm96U3F0aUxMQTY4ZmdLMmoyLU1VMXFTWHdHd3ZwRGtid2FkX2wyanRyUFdBNVFLZkZQNnh4bC1BdQ?oc=5"
+        },
+        "context": "Brighton (W) v West Ham United (W) Odds",
+        "id": 1013242,
+        "published_at_epoch": 1792627529,
+        "source": "FanDuel Sportsbook",
+        "title": "Brighton (W) v West Ham United (W) Odds"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.6458330929925669,
+            "clickbait": 7.976731139218884,
+            "emotion": 2.866551861276585,
+            "movement": 1.6138473485924207,
+            "subject": 89.7181787850498
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMi3AFBVV95cUxNcWJOU1NHdWEtRXc2Z25CWk93eVhrVWIzT2tMei00dm9rcG1aRERsTTdJSUEtNnNYSnFYRDNpWldKUVJOSkpfUlhCaW91SXlmVjFLNTJyZEFDbmNTRnFrczNnQ0RqakcwTlltSDlCakdLVGtDbDRhNC1uQ2VkbW1idkJHd3RXZzdFdHR3QVNpMlBoTXY0V0tFVjB2RlpOdXNCMDlBeWpXdUNkNnZ0a1NXOUJGaEgxQUJDSlcySlVLSGRobFYwdnh3M0JOYjk5bmJwcl9Hb1hNNGNQcVZ3?oc=5"
+        },
+        "context": "West Ham United 1-2 London City Lionesses: First Half Goals See Out Win",
+        "id": 1197759,
+        "published_at_epoch": 1792613634,
+        "source": "VAVEL.com",
+        "title": "West Ham United 1-2 London City Lionesses: First Half Goals See Out Win"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 6.458846486324313,
+            "emotion": 1.7302219173715403,
+            "movement": 1.6631378885714638,
+            "subject": 94.3008918741249
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE03dWpEWm1QMDhDUThmbXBZZ05zX3BYeDhzUnc1QVVtLVVZWW5ZSUR0dDZRRW5vMkZ6SVVqdDRwNm9tcDlKQXhjQ0VSU3VXZGk4MGhPR1NPTG5FbDV1VDdVTEJUY0FySXItYjY0R09yUmJ2SGpYUjJnWUlKbFVWY3M?oc=5"
+        },
+        "context": "Brighton vs. West Ham United Live Stream of Barclays Women's Super League",
+        "id": 1188079,
+        "published_at_epoch": 1792611009,
+        "source": "CBS Sports",
+        "title": "Brighton vs. West Ham United Live Stream of Barclays Women's Super League"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.7439229704998147,
+            "clickbait": 5.623280274977086,
+            "emotion": 1.8015137883775816,
+            "movement": 1.691935420794992,
+            "subject": 93.85567139882671
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE9WSG5hNGxGaXdtNXgxT3A3a3pacFg5MUNDdjZFbkFmOXRrNHpkcmI4endxMXhpQjlYbVNOR3UxeXotc0JOb1pqZlRkOFI2eTVCLVFtakxUcThFb0dkZHc?oc=5"
+        },
+        "context": "Southampton vs. West Ham United Live Stream of English Football League",
+        "id": 1188067,
+        "published_at_epoch": 1792611009,
+        "source": "CBS Sports",
+        "title": "Southampton vs. West Ham United Live Stream of English Football League"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.64147769978718,
+            "clickbait": 13.098313817949158,
+            "emotion": 2.1994732424496135,
+            "movement": 28.120701595248775,
+            "subject": 85.74448109312459
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxQTk5HbXZ0bURrZWo0dTVwdnR5ODBfYURYTmJRdXVHYTNoWlUyelI5ZEwxc2cwc2Z6aVhINzkyYUpURmx6QUZCSzYwNmFIWklHU2owN3JuU09NZjV4VFZZU1ItWUdHb1BiOW4wcFloWnhGR2dHSDhxamdFS2hxeWh2TzFIWlVFVEFaLXpQQXdobFBza0Y3T1Bmc2lvUGZ5czU2SDdzcGt2SQ?oc=5"
+        },
+        "context": "How Jean-Clair Todibo became complete 'enigma' away from West Ham United",
+        "id": 1207459,
+        "published_at_epoch": 1792602600,
+        "source": "West Ham Zone",
+        "title": "How Jean-Clair Todibo became complete 'enigma' away from West Ham United"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.8210252389630777,
+            "clickbait": 4.882038788622827,
+            "emotion": 1.785783535225586,
+            "movement": 2.948879575608773,
+            "subject": 94.61733580087989
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMic0FVX3lxTFBMNVBFTDV2VzRydWpNWUIyb29zeFhRYlhkVTN1M2JKel9BUG1MMWRUU04weW5DQ1NPWHJqdHVDZ3VUWHMzTEtJVlh0OHdQZzIxR2xUdS1UTi1FZDJudDUwQ0tuZFQxTjBEOGs5VGYySkFVb2s?oc=5"
+        },
+        "context": "West Ham United and BrewDog Launch Fan-Created Boleyn Brew",
+        "id": 1188070,
+        "published_at_epoch": 1792597861,
+        "source": "365 Retail",
+        "title": "West Ham United and BrewDog Launch Fan-Created Boleyn Brew"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.985096123701545,
+            "clickbait": 3.9631578919711856,
+            "emotion": 1.6902326255616271,
+            "movement": 4.035596350406519,
+            "subject": 93.434744220361
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxOWFJOTVBpUnF3YjNha3NRNWkxRTlic2NJVEpKT0duUmlvbEZkbTZRUGd3M2J0ejRZNEFZdEhkX2dpTGlRVlFYOGFkZDVpdVlhOWpFV1g2VTJCTTl4dUtqalM1SjJzNUpya0ZGRVU0dUlad0dfSDJpWTRUcUJXOC11RVJ3?oc=5"
+        },
+        "context": "West Ham United and BrewDog launch Boleyn Brew",
+        "id": 1188064,
+        "published_at_epoch": 1792594973,
+        "source": "West Ham United",
+        "title": "West Ham United and BrewDog launch Boleyn Brew"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.5139598813611617,
+            "clickbait": 7.022821497265146,
+            "emotion": 2.176240383670983,
+            "movement": 2.3949982622490613,
+            "subject": 93.19630870989356
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxPSU92VGJXUE5nZjVxZkpUeG5uY1Nhck5sd1ExN2U2bFVlWHJVVk5DX1l3ZnBSSVFBMmZkZjZYYy1NYVEyNjRzeFB2MG5Wci1vWnJ1MFgyMGNabnFIcU13aHo3Z0xITEFiNFRVR29uVEN2UWd4eEtVOXVzNll5a29ERHl5TW14WUFHYnlmNU11dEk?oc=5"
+        },
+        "context": "West Ham United F.C. and BrewDog Unveil Boleyn Brew: A Fan-Created Matchday Beer Made by Hammers, for Hammers",
+        "id": 1161986,
+        "published_at_epoch": 1792580400,
+        "source": "Yahoo Finance",
+        "title": "West Ham United F.C. and BrewDog Unveil Boleyn Brew: A Fan-Created Matchday Beer Made by Hammers, for Hammers"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.135050759973539,
+            "clickbait": 2.827790179571469,
+            "emotion": 2.4337752506489183,
+            "movement": 2.30436610543204,
+            "subject": 91.98733914293936
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQSWRCbE5scURYYlphTy1keVFhUU1qQ0l2UlVTVWFMT2pJR3Q4RlpiMS11MlJrcjNwNVM2ejlzSUdKSnEtWnJfRERYQ1BSanNpbkphdU1hakZNTlRqSnhYTHNHNXdkQjVlQWJVV1BPcEdPZk1aXzlwMVdOc1YwbndqOE41N3B4NkdJZ0Q2X1hkWjZCXzg5LVE?oc=5"
+        },
+        "context": "West Ham United Foundation celebrates one year of The Foundry",
+        "id": 1161977,
+        "published_at_epoch": 1792576949,
+        "source": "West Ham United",
+        "title": "West Ham United Foundation celebrates one year of The Foundry"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.9258164766489416,
+            "clickbait": 4.32335335354804,
+            "emotion": 1.5678624460517263,
+            "movement": 1.7593358833557726,
+            "subject": 92.03900555885616
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxOV1J2anFTSkxMRlFnVlJUdDdRLThEZ3ZfSzMzLURJaGdvd2xCN3dVTzdFZzNWbUpaaDVZOXFuRG5BUVM2V2M4NWRyaW1LTkV2c0wtYlg5bkhCN3d1d1EteVdBSXVmaVlEX3NKOXBwQUNDMEYzSlV2NTY5UHJNbUtYRDdEMU4ydjRBT3JPdm1LY2lVdkJVY0NuekJEU1hEaFNyX05fV2luaWRrWnhLcU5pd3BUOA?oc=5"
+        },
+        "context": "West Ham United v. Southampton: How to watch, TV channels and kick-off time",
+        "id": 1162019,
+        "published_at_epoch": 1792574700,
+        "source": "West Ham World",
+        "title": "West Ham United v. Southampton: How to watch, TV channels and kick-off time"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 9.648226158053458,
+            "clickbait": 9.545958828288402,
+            "emotion": 39.852804902573816,
+            "movement": 23.995931015866024,
+            "subject": 87.80193687111945
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxQeW8xbm5sOEpRaEVqTGxQNV9LMEp6TmxBemJpOS1JbFVyLXF6Nlp0TmZNSU1oTS1vLTFESTlTeG9BaHJvV3JLUUxkRXJBdWRZM0J4UlFncWplQVQ4Q1Y0WHFVcVRZZGJxeVFWRG9PSFFZY1o0VzJRazlwYVM1NG5DLTZWbGpKNDdmelpLdklYNzgtQnNTWUpFSHZFOUN3Qllsa0I5TQ?oc=5"
+        },
+        "context": "‘I’m Not So Sure’ – Experienced Boss Has West Ham United Doubts",
+        "id": 1113933,
+        "published_at_epoch": 1792523820,
+        "source": "Inside Futbol",
+        "title": "‘I’m Not So Sure’ – Experienced Boss Has West Ham United Doubts"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.583763455038734,
+            "clickbait": 14.279455944682216,
+            "emotion": 46.32592822520449,
+            "movement": 45.094017851844015,
+            "subject": 89.70518667341032
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxOMGNaVDFiYkRrZklnNFMycjN6UWR5cGVQd2MwbnE2MDMxLVA4aTE5TDF3YkdUcm95UmVtM3lJU1cwUlEzdDZGaDB1UGdkTHFsU19GbjY2a1p1UFZfc01jeFNBRHZFOEpzc0h4d2JpRjNzeWNhenNGV3FPRW9HcXE2SjdFZ29ZMlFfdjRyc2M1QUQxQTBtcTE0UW9zZ3JVR1NEc0dz?oc=5"
+        },
+        "context": "'I'm Not So Sure' - Former Boss Doubts West Ham United",
+        "id": 1075990,
+        "published_at_epoch": 1792523820,
+        "source": "Inside Futbol",
+        "title": "'I'm Not So Sure' - Former Boss Doubts West Ham United"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 1.7572075260938311,
+            "clickbait": 4.659124927606067,
+            "emotion": 1.5299715261748377,
+            "movement": 1.6438027425859272,
+            "subject": 75.97685577981052
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxQNUxxM3ViZ2dTeFktUm1RQXhpM0FMZkd2bTV2aFNGdVF2YlowdDhWb2tUVGcxRXRPZm40VFpDMnhab0VtNEJQaXB0Uy1kdnNDUWljSmc3aHBlNGhFOFA4RVZXSWZpUmE0cXMyeklRd1BiLTA1emNyR2dKVlRjSzZ5OUg1eEZ3OTBUa2NvUkNCM09NSlZoUmFVVi1YbDdPS3ptUHRNemFB?oc=5"
+        },
+        "context": "London Stadium by the numbers: Key stats, interesting facts and records about West Ham United's home",
+        "id": 1022875,
+        "published_at_epoch": 1792503486,
+        "source": "Football Ground Guide",
+        "title": "London Stadium by the numbers: Key stats, interesting facts and records about West Ham United's home"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 2.250861263531103,
+            "clickbait": 17.965814283535657,
+            "emotion": 5.102803105761536,
+            "movement": 4.0602064192345955,
+            "subject": 90.61143480075644
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxQR3FMRWQxN1FFMWxXTGRqUjhZaERTRDNsR2lwZHk3UUFDNWVTSHhwMkR0UF91aHhyQllmR182dEpQLTloTlFGdjlWUHk4ZDhEQ1dUYjZpSzBDU2hvQTdFM1otMW1iYXNrNzhVRExaSFVxNVB0YUhLbmdROGpDLXUtcUlZYTQ4ZVN1NzJxbk1nN2diU1RDRl8zX3k4OFRpOC1QSFhtYVNOaHI?oc=5"
+        },
+        "context": "A Rough And Quirky Guide To West Ham United",
+        "id": 1003551,
+        "published_at_epoch": 1792485660,
+        "source": "FansNetwork.co.uk",
+        "title": "A Rough And Quirky Guide To West Ham United"
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": false,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 53.30043836524793,
+            "clickbait": 9.588534534944197,
+            "emotion": 5.570503502365722,
+            "movement": 4.484937413315938,
+            "subject": 92.45740466671778
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxNWG9OSEdtZ2xVcWNfMU82SkVPa2tDRlRuM042SVBhUHdoR3hYYk9qXzlwOXQxNzMxVXM2TllyblgzdEY1N1hSTzllRk1XWFR2N193djBBOUhqZWZucnA5WXd5QnhtTUxDbFZmU0g5dnBYZzV5UDQwVnZ3eVZzZUZKUXFhLWZxN19iVWpLSGhkZkhUdXhDcDVXWVROMTRNYmRTcl91SWtueDB4R0xabHJ2Vll3dnIwQQ?oc=5"
+        },
+        "context": "Can Max Kilman complete his West Ham United redemption after early-season revival?",
+        "id": 994161,
+        "published_at_epoch": 1792422600,
+        "source": "West Ham Zone",
+        "title": "Can Max Kilman complete his West Ham United redemption after early-season revival?"
+      }
+    ],
+    "subject": {
+      "entity_id": 1,
+      "entity_type": "team",
+      "name": "West Ham United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

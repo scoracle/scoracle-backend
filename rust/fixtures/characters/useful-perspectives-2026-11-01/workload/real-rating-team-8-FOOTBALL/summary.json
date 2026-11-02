@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "no_banned_phrases",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-rating-team-8-FOOTBALL.json",
+      "generation_wall_ms": 30260,
+      "input_tokens": 791,
+      "name": "real-team:8:FOOTBALL-rating",
+      "output_limit": 700,
+      "output_tokens": 113,
+      "parsed": true,
+      "prompt_version": "s79-measured-perspective",
+      "reading": "Liverpool's 2026 season data indicates strong relative standing in defensive metrics: xG Against ranks at the 84.2nd percentile (band: strong) and Clean Sheets at the 73.7th percentile (band: above average) within a cohort of 20.0. These readings are based on a thin sample of 7 appearances, which falls below the 10 appearance minimum; the sample count reflects source coverage, not playing time. Cross-season comparison is unsupported. Availability is unknown.",
+      "request_bytes": 642,
+      "review": [
+        "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+      ],
+      "status": "accepted",
+      "task": "rating",
+      "temperature": 0.6,
+      "wall_ms": 30268
+    }
+  ],
+  "completed": 1
+}

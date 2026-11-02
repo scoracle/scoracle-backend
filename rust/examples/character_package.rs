@@ -12,7 +12,10 @@ fn main() -> Result<()> {
         fixture.prompt_version == task.prompt_version(),
         "fixture uses an older prompt contract"
     );
-    let request = task.prepare_fixture(&fixture)?;
+    let request = match &fixture.parts {
+        Some(parts) => task.assemble(parts)?,
+        None => task.prepare_fixture(&fixture)?,
+    };
     print!("{}", request.user_prompt);
     Ok(())
 }

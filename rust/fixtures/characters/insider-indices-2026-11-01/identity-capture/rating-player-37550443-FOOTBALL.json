@@ -1,0 +1,58 @@
+{
+  "name": "real-player:37550443:FOOTBALL-rating",
+  "task": "rating",
+  "sport": "FOOTBALL",
+  "prompt_version": "s80-measured-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Alex Scott\",\"entity_type\":\"player\",\"sport\":\"Football (Soccer)\",\"database_record\":\"Alex Scott — Midfielder, on record at AFC Bournemouth (Premier League). Nationality: England. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"season\":2026,\"sample\":{\"Minutes Played\":446.0},\"values\":[{\"label\":\"Defensive Work\",\"measure\":\"defensive contributions\",\"value\":60.0,\"percentile\":86.3,\"cohort\":292.0,\"band\":\"strong\"},{\"label\":\"Creation\",\"measure\":\"assists\",\"value\":2.0,\"percentile\":85.9,\"cohort\":292.0,\"band\":\"strong\"}],\"supports_cross_season\":false,\"limit\":{\"kind\":\"thin_sample\",\"appearances\":5.0,\"minimum\":10.0},\"availability\":[]},\"tone\":\"Observant, direct, specific to the sport and restrained.\"}",
+  "parts": {
+    "availability": {
+      "held": [],
+      "redundant": [],
+      "sources": []
+    },
+    "database_record": "Alex Scott — Midfielder, on record at AFC Bournemouth (Premier League). Nationality: England. Record: roster; observed 2026-07-04.",
+    "profile": {
+      "limit": {
+        "appearances": 5.0,
+        "kind": "thin_sample",
+        "minimum": 10.0
+      },
+      "sample": {
+        "Minutes Played": 446.0
+      },
+      "season": 2026,
+      "supports_cross_season": false,
+      "values": [
+        {
+          "band": "strong",
+          "cohort": 292.0,
+          "label": "Defensive Work",
+          "measure": "defensive contributions",
+          "percentile": 86.3,
+          "value": 60.0
+        },
+        {
+          "band": "strong",
+          "cohort": 292.0,
+          "label": "Creation",
+          "measure": "assists",
+          "percentile": 85.9,
+          "value": 2.0
+        }
+      ]
+    },
+    "season": 2026,
+    "sport_name": "Football (Soccer)",
+    "subject": {
+      "entity_id": 37550443,
+      "entity_type": "player",
+      "name": "Alex Scott",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.6,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

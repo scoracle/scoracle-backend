@@ -1,0 +1,53 @@
+{
+  "case": 17,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "findings=0",
+      "name": "has_source_linked_move",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_includes:Aaron Gordon",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:Gordon is linked",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:Gordon is moving",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:Gordon will join",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-transfer-unnamed-signing-no-identity-join.json",
+  "generation_wall_ms": 2417,
+  "input_tokens": 816,
+  "name": "unnamed-signing-no-identity-join",
+  "output_limit": 1400,
+  "output_tokens": 32,
+  "parsed": true,
+  "prompt_version": "insider-source-v21-perspective",
+  "reading": "0 finding(s) | Aaron Gordon is the subject of a reported community event attendance by the Denver Nuggets, with no supported movement or affiliation change.",
+  "request_bytes": 394,
+  "review": [
+    "An unnamed signing cannot acquire the co-mentioned target identity. No linked finding."
+  ],
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 2426
+}

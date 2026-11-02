@@ -1,0 +1,41 @@
+{
+  "name": "real-player:129602:FOOTBALL-momentum",
+  "task": "momentum",
+  "sport": "FOOTBALL",
+  "prompt_version": "momentum-s42-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Bruno Fernandes\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\",\"database_record\":\"Bruno Fernandes — Midfielder, on record at Manchester United (Premier League). Nationality: Portugal. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"scout\":{\"body\":\"In the 2026 season, measurements for Bruno Fernandes are based on a thin sample of 7 appearances, which is below the 10-apppearance minimum. Within this limited context, his chance creation (expected assists) is 1.5 at the 97.6th percentile among 287 peers, and his shooting (expected goals) is 2.66 at the 95.5th percentile among 266 peers, both classified in the elite band. These percentiles indicate relative standing within the sample, not absolute ability or a measure of difference. The supplied data does not support cross-season comparisons. No fixture measurements are provided for missing fixtures.\",\"season\":2026,\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "Bruno Fernandes — Midfielder, on record at Manchester United (Premier League). Nationality: Portugal. Record: roster; observed 2026-07-04.",
+    "influencer": null,
+    "scout": {
+      "body": "In the 2026 season, measurements for Bruno Fernandes are based on a thin sample of 7 appearances, which is below the 10-apppearance minimum. Within this limited context, his chance creation (expected assists) is 1.5 at the 97.6th percentile among 287 peers, and his shooting (expected goals) is 2.66 at the 95.5th percentile among 266 peers, both classified in the elite band. These percentiles indicate relative standing within the sample, not absolute ability or a measure of difference. The supplied data does not support cross-season comparisons. No fixture measurements are provided for missing fixtures.",
+      "generated_at": "2026-10-23",
+      "headline": "Bruno Fernandes: measured profile",
+      "input_hash": "52c6799f354e38f8d417b76893ba3d85",
+      "season": 2026
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 129602,
+      "entity_type": "player",
+      "name": "Bruno Fernandes",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

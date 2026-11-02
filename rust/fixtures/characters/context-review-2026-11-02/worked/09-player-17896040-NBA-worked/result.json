@@ -1,0 +1,13 @@
+{
+  "arm": "worked",
+  "checks": [],
+  "input_tokens": 2036,
+  "name": "player-17896040-NBA",
+  "output_tokens": 39,
+  "parser_detail": "served reading adds unsupported chronology or causality",
+  "receipt": "09-player-17896040-NBA-worked",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 6664
+}

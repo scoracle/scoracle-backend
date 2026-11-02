@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — oracle / oracle-team-2-NBA [accepted]
+The Boston Celtics present a fractured profile where elite defensive metrics and offensive precision clash with a poor standardized composite score, suggesting a team that is technically proficient but strategically disjointed. This tension between specific strengths and a failing overall trajectory remains the only known reality, as the absence of fixture data prevents any conclusion about the causes of this decline or the stability of the roster.

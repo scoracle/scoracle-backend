@@ -1,0 +1,24 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-vibe-person-86-FOOTBALL.json",
+  "generation_wall_ms": 11451,
+  "input_tokens": 1377,
+  "name": "real-vibe-person-86-FOOTBALL",
+  "output_limit": 600,
+  "output_tokens": 61,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v33-coverage-tone",
+  "reading": "Demichelis praises Diomande ahead of Real Madrid clash\n\nReports highlight Martin Demichelis's enthusiastic praise for Yan Diomande, describing his reaction as a 'rave' regarding the player's potential before the upcoming match against Real Madrid.",
+  "request_bytes": 1682,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 11458
+}

@@ -1,0 +1,21 @@
+   Compiling scoracle-cognition v0.0.0 (/Users/scotty/scoracle/scoracle-backend/rust)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.47s
+     Running unittests src/bin/eval.rs (target/debug/deps/eval-1fd3cdd24e297670)
+
+running 14 tests
+test tests::ledger_match_accepts_transfer_stage_plural ... ok
+test tests::fixture_name_from_ledger_sanitizes_pair_name ... ok
+test tests::parse_entity_accepts_transfer_pair_shape ... ok
+test tests::parse_entity_accepts_single_entity_shape ... ok
+test tests::fixture_raw_excerpt_handles_empty_and_truncates ... ok
+test tests::parse_args_accepts_capture_ledger ... ok
+test tests::unparseable_fixture_counts_authored_expectations ... ok
+test tests::parse_entity_rejects_non_team_pair_shape ... ok
+test tests::parse_assignment_capture_and_replay_modes ... ok
+test tests::prepared_no_call_skips_the_backend ... ok
+test tests::current_cases_reject_frozen_systems_and_stale_versions ... ok
+test tests::failed_generation_and_malformed_output_cannot_pass_an_empty_rubric ... ok
+test tests::historical_replay_and_season_capture_are_explicit ... ok
+test scout_replay::tests::replay_retains_rejected_response_without_rewriting ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s

@@ -1,0 +1,223 @@
+{
+  "name": "player-37550443-FOOTBALL",
+  "task": "transfer",
+  "sport": "FOOTBALL",
+  "parts": {
+    "subject": {
+      "entity_id": 37550443,
+      "entity_type": "player",
+      "name": "Alex Scott",
+      "sport": "FOOTBALL"
+    },
+    "database_record": "Alex Scott — Midfielder, on record at AFC Bournemouth (Premier League). Nationality: England. Record: roster; observed 2026-07-04.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi-wFBVV95cUxOb0tpVUJiTWlPT2dwbDJPYmFqQVR4NkNvOUgzVTFGcEViQ1hXRVZKTENRV1UzYTlROFQ5b3U0MXRlMGoxdkx6ODRkVU9XRl84OHRtLW4ya0dRRnF1RnphTl9CcHpKTWFSNnIyb2RkNTFWNERkaFZhLTVJYXgwNnBwS2JWOWxzX3paT0ZEMnpWMXBxbUg1SVRlWThaUGpyR1VEY2JIdnUzbElEV0g2d0FGbmtlRWRwYzVHSFdyZ3NaLUdjWk93TG1iTFhGT09hTVF3c09INTROSDd1UDRhRnVod050dDBRSWotd0N5RExZc0lRZnJtVnhzMllyNA?oc=5",
+          "spectrum": {
+            "emotion": 26.6178412801265,
+            "subject": 93.78903233965205,
+            "movement": 88.39150626778626,
+            "availability": 54.308763423922514
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1324463
+        },
+        "publisher": "TribalFootball",
+        "headline": "Bournemouth owner warns Alex Scott over 'star struck' transfer decision",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T16:18:38Z",
+        "co_mentions": [
+          {
+            "name": "AFC Bournemouth",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxQU29xWi02azBHaVVKd1EyeHh1RXNkNzFYb1NVaEFLaVBPVmNacE1lTHAxd0w5VGVqTy1pM3FuUVQ5VXBPRWNHdi0zbndkZHlfWGViNU9DMHJTamxCQ2p4R3MxN0hUbU5wSWU0QW5VXzFaUXd6YmNzWHVNNWNKWkJTZmJodWxweThfcThsUg?oc=5",
+          "spectrum": {
+            "emotion": 2.835573054941754,
+            "subject": 93.99807470670306,
+            "movement": 94.19671188395178,
+            "availability": 64.8141927567274
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1394295
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Bournemouth owner admits Alex Scott could be lured by Chelsea or Manchester City",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T13:05:00Z",
+        "co_mentions": [
+          {
+            "name": "Manchester City",
+            "entity_type": "team"
+          },
+          {
+            "name": "Chelsea",
+            "entity_type": "team"
+          },
+          {
+            "name": "AFC Bournemouth",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxPT3VxdVdoREZ4QW9LbWl0ME9ta1FlX1ZidUtXNUhxRmZvZVQ2cmNiMFRZZUNQVlRWMVpsb2hMMkQ5RTlCTnFWTGF5N3ZHZXIwVU03VG40a0NjM20tNm1GRXdvc2FjY3N5aHduY0p6TERoVnY3NDB6WEJfN3hDOUwwMkFlZmVxb0hEYUN3b2dZNlN1V240OHc?oc=5",
+          "spectrum": {
+            "emotion": 88.6017868114603,
+            "subject": 93.55370286134385,
+            "movement": 95.06423882193334,
+            "clickbait": 12.0427906226636,
+            "availability": 3.774480173413417
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1284813
+        },
+        "publisher": "The New York Times",
+        "headline": "Bournemouth owner hopes Alex Scott will sign new deal, admits fear of ‘Chelsea or Manchester City’ - The Athletic",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T11:23:23Z",
+        "co_mentions": [
+          {
+            "name": "Manchester City",
+            "entity_type": "team"
+          },
+          {
+            "name": "Chelsea",
+            "entity_type": "team"
+          },
+          {
+            "name": "Newcastle United",
+            "entity_type": "team"
+          },
+          {
+            "name": "AFC Bournemouth",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxNYko2VjlSYkVZS0g1LUV4Tkd2NklzaFJiaE5CQjVzVVRFSFZoUnRvUkUwSTQtRmloNFllZGhQcVNMQ05xTG1Oek1paG1RRWFMaXJNbnZQcGJNTjBJQTd4U205QVpjTkRLeG54VkNVQ3UyQmdLZm5Velk0bGRCeGhrWlBGalV1bXhlaHpkdmR4LUZsSmt2OFhBYk1BVC0?oc=5",
+          "spectrum": {
+            "emotion": 1.9831709731831106,
+            "subject": 84.89372229991282,
+            "movement": 81.5931329814498,
+            "clickbait": 12.019616165406175,
+            "availability": 2.228697519659954
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1266352
+        },
+        "publisher": "Football London",
+        "headline": "Chelsea's plan for £100m January signing becomes clear in major Alex Scott transfer update",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T09:59:57Z",
+        "co_mentions": [
+          {
+            "name": "Chelsea",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxOY0NTWm5TOF91MVFhT0JkUmVQVjlDX3Q5UnZlY1BWOTZidDl2d3JQVzFOM1NlZ2M3TXVldzFpLVJCeDZiRDR0VXNyN0NjSWNuMnM3djI5V2luUUktY09Gb2hvQzZIVGVWc0xENGlsdGtJMUF1ZjhJODF2STZ6MkRPaENxYk0yaWd1NUxXVGlhelB1LURUeFF5aWxPdWhiTlVvcm1fb2czU3g1LVBaQWV1MdIBtgFBVV95cUxQY1ZyQjZ0a3NsUFU4LVVURUhXZ24zLWltcHVvYUF5eXpHNzNqbmo1OXkxdjBHRF9jX3ZfQzM4X3ZPazdzcE02WXlIMUNSTTUwUVdseXk1NGlzbHFUMGNIMWpOb3hLLXByaUd2WEhISXJmaC1kcFgwN296bFFzTUw2LTU2Y3pFaHpSUGdCT29GdnhBVXpRU1l3R3BSUzVTdVBEMHJoVW5SU2YwQWNXYjJ2eE9Cb3FXdw?oc=5",
+          "spectrum": {
+            "emotion": 2.5485320192553282,
+            "subject": 91.56738175852568,
+            "movement": 89.69799780614099,
+            "clickbait": 9.98731244470472,
+            "availability": 1.820933169093315
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1285625
+        },
+        "publisher": "Metro.co.uk",
+        "headline": "Bournemouth send message to Alex Scott over Chelsea and Man City transfer interest",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T09:18:00Z",
+        "co_mentions": [
+          {
+            "name": "Chelsea",
+            "entity_type": "team"
+          },
+          {
+            "name": "AFC Bournemouth",
+            "entity_type": "team"
+          }
+        ]
+      }
+    ]
+  },
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Alex Scott\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\",\"database_record\":\"Alex Scott — Midfielder, on record at AFC Bournemouth (Premier League). Nationality: England. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1324463,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi-wFBVV95cUxOb0tpVUJiTWlPT2dwbDJPYmFqQVR4NkNvOUgzVTFGcEViQ1hXRVZKTENRV1UzYTlROFQ5b3U0MXRlMGoxdkx6ODRkVU9XRl84OHRtLW4ya0dRRnF1RnphTl9CcHpKTWFSNnIyb2RkNTFWNERkaFZhLTVJYXgwNnBwS2JWOWxzX3paT0ZEMnpWMXBxbUg1SVRlWThaUGpyR1VEY2JIdnUzbElEV0g2d0FGbmtlRWRwYzVHSFdyZ3NaLUdjWk93TG1iTFhGT09hTVF3c09INTROSDd1UDRhRnVod050dDBRSWotd0N5RExZc0lRZnJtVnhzMllyNA?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"AFC Bournemouth\"}],\"headline\":\"Bournemouth owner warns Alex Scott over 'star struck' transfer decision\",\"published_at\":\"2026-10-22T16:18:38Z\",\"publisher\":\"TribalFootball\"},{\"classifier_world\":{\"article_id\":1394295,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxQU29xWi02azBHaVVKd1EyeHh1RXNkNzFYb1NVaEFLaVBPVmNacE1lTHAxd0w5VGVqTy1pM3FuUVQ5VXBPRWNHdi0zbndkZHlfWGViNU9DMHJTamxCQ2p4R3MxN0hUbU5wSWU0QW5VXzFaUXd6YmNzWHVNNWNKWkJTZmJodWxweThfcThsUg?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Manchester City\"},{\"entity_type\":\"team\",\"name\":\"Chelsea\"},{\"entity_type\":\"team\",\"name\":\"AFC Bournemouth\"}],\"headline\":\"Bournemouth owner admits Alex Scott could be lured by Chelsea or Manchester City\",\"published_at\":\"2026-10-22T13:05:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1284813,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxPT3VxdVdoREZ4QW9LbWl0ME9ta1FlX1ZidUtXNUhxRmZvZVQ2cmNiMFRZZUNQVlRWMVpsb2hMMkQ5RTlCTnFWTGF5N3ZHZXIwVU03VG40a0NjM20tNm1GRXdvc2FjY3N5aHduY0p6TERoVnY3NDB6WEJfN3hDOUwwMkFlZmVxb0hEYUN3b2dZNlN1V240OHc?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Manchester City\"},{\"entity_type\":\"team\",\"name\":\"Chelsea\"},{\"entity_type\":\"team\",\"name\":\"Newcastle United\"},{\"entity_type\":\"team\",\"name\":\"AFC Bournemouth\"}],\"headline\":\"Bournemouth owner hopes Alex Scott will sign new deal, admits fear of ‘Chelsea or Manchester City’ - The Athletic\",\"published_at\":\"2026-10-22T11:23:23Z\",\"publisher\":\"The New York Times\"},{\"classifier_world\":{\"article_id\":1266352,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxNYko2VjlSYkVZS0g1LUV4Tkd2NklzaFJiaE5CQjVzVVRFSFZoUnRvUkUwSTQtRmloNFllZGhQcVNMQ05xTG1Oek1paG1RRWFMaXJNbnZQcGJNTjBJQTd4U205QVpjTkRLeG54VkNVQ3UyQmdLZm5Velk0bGRCeGhrWlBGalV1bXhlaHpkdmR4LUZsSmt2OFhBYk1BVC0?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Chelsea\"}],\"headline\":\"Chelsea's plan for £100m January signing becomes clear in major Alex Scott transfer update\",\"published_at\":\"2026-10-22T09:59:57Z\",\"publisher\":\"Football London\"},{\"classifier_world\":{\"article_id\":1285625,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxOY0NTWm5TOF91MVFhT0JkUmVQVjlDX3Q5UnZlY1BWOTZidDl2d3JQVzFOM1NlZ2M3TXVldzFpLVJCeDZiRDR0VXNyN0NjSWNuMnM3djI5V2luUUktY09Gb2hvQzZIVGVWc0xENGlsdGtJMUF1ZjhJODF2STZ6MkRPaENxYk0yaWd1NUxXVGlhelB1LURUeFF5aWxPdWhiTlVvcm1fb2czU3g1LVBaQWV1MdIBtgFBVV95cUxQY1ZyQjZ0a3NsUFU4LVVURUhXZ24zLWltcHVvYUF5eXpHNzNqbmo1OXkxdjBHRF9jX3ZfQzM4X3ZPazdzcE02WXlIMUNSTTUwUVdseXk1NGlzbHFUMGNIMWpOb3hLLXByaUd2WEhISXJmaC1kcFgwN296bFFzTUw2LTU2Y3pFaHpSUGdCT29GdnhBVXpRU1l3R3BSUzVTdVBEMHJoVW5SU2YwQWNXYjJ2eE9Cb3FXdw?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Chelsea\"},{\"entity_type\":\"team\",\"name\":\"AFC Bournemouth\"}],\"headline\":\"Bournemouth send message to Alex Scott over Chelsea and Man City transfer interest\",\"published_at\":\"2026-10-22T09:18:00Z\",\"publisher\":\"Metro.co.uk\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "prompt_version": "insider-source-v21-perspective",
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

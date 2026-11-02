@@ -1,0 +1,2462 @@
+{
+  "name": "real-narratives-team-8-FOOTBALL",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n121-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Liverpool\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1413638,\"url\":\"https://news.google.com/rss/articles/CBMijgJBVV95cUxQSHJCMVcyRVpZVE5KaWI5MFlrM2UxQ1BNUjE2SHdvVFlFeDBwOHEzYVBlb282SkN0OXBOOUpSSUdyQ045QTlJa3ZKRVRtUmxRZXJoN3pDZndXWEc0dmdqaUlGSk90R1VTWmFua2tMM3dtZEt3VGVLQ1dNS2MzT1FvUUU1M0U2UEZXaEpnVmdWLV95MmJScVh1Z2toeXRpQzl4cnBma3ZXUUdiMFRkQXphYUZXYkJDVGtQNmtzWUhYX204ZHlyREhreElqbVZXYjNZdG1Bb253LWRwRkUzSl9pSnJVM1BUT1R4akpvclRvNm9IaG9LeTNTUXZEQ0NQRlF6RkxacHZ6Y3ZBaGFKZmc?oc=5\",\"headline\":\"Premier League predictions & Jones Knows' best bets: Tottenham vs Chelsea, Brighton vs Liverpool, Man Utd vs Bournemouth and much more!\",\"publisher\":\"Sky Sports\",\"published_at\":\"2026-10-22T22:39:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1405792,\"url\":\"https://news.google.com/rss/articles/CBMiZkFVX3lxTE1nOFhqZ0dZZVVENjFHMmNtVjk4Wkw5cVBJenNPLXJtY1BKaTEwZGJRZE8zd2t3TFRqY0xJMFFrWEtyN2ZqT2FuaUx3bFctanl3eTdhWG1VTW13Wk5ERjBPZXhhdjJ2Zw?oc=5\",\"headline\":\"Sam Matterface: Liverpool Fans Will Feel Aggrieved by Man City Charges\",\"publisher\":\"Hard Rock Bet\",\"published_at\":\"2026-10-22T22:29:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1210527,\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxQLTdqYlhFTDhBS1JKSEJSNzRUcUJwNEFGUGdHSnp4S096WlRqZGZzNFRodm1UZDM4UTZFdHRpVjJkNEZkM1hZaG5nNFo2SmtLb1BqZ3ZLRGp6MFYwSHNfSUpCeVRycjZHVFJSMjVKQmZud1FWblY2bVdWZmZQYTlNVmg5a19tQ3FXaDRxckZfcDJ0ZE5oQ2xaX21HR1RxTzhRckx3MVN1WFh6THl0T1B3Mlk2LWVPdw?oc=5\",\"headline\":\"Liverpool strike back to beat Villarreal in seven-goal thriller\",\"publisher\":\"The Daily Star\",\"published_at\":\"2026-10-22T22:12:39Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1366512,\"url\":\"https://news.google.com/rss/articles/CBMitAFBVV95cUxOZjZBNzBteXJtalRJbklOTkVZTFJMS3FNX0l6bGl6b0V4VUtJUkdkQVRQTzAxdjZKZGNjUmhLdTh5UE5xM2lPLXd0WUNoa2wwRjIxcWQtOFJMemZJNC16WWh4MDVkNjdMOFBSanZacko1SUt3ZnZPeEM5RHdvY3AzSjBZU0lDVUdraEdpUkluUWhyNUktZnduc3NaT1NCQkZhN01fenQ2c09WalFTWGJjUkFGeE4?oc=5\",\"headline\":\"Liverpool vs. Villarreal: UCL Match Highlights (10/20) - Scoreline Stream of Soccer\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T20:56:15Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1386965,\"url\":\"https://news.google.com/rss/articles/CBMixgFBVV95cUxQcFVJX3lkRVdIaXBZeEpoOWdGSHR6dllLaEpFSFhjQkRlRloxNWdoUTRVQmRMYXFTcmNoOEVGdGZONkt0emJTUXFZM08welgtdlZpOHkwNzJEZDVrRmNYN3JkUV9zT1ZmS2xuY0lyRXZ4S05KRzA1ck1wUkNhSzdrbTN4eWpMdzdhMVNudk5wcjlwUE96QVFhTW1zRFpiZGR3OUxJYXFOdXRXeEFkUUM4WlpIVVJYVHc1a0JPWGdkRnZxZEZjc0E?oc=5\",\"headline\":\"Atletico De Madrid (PLAGUE) v Liverpool (HAYMAKER) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T20:37:23Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1397103,\"url\":\"https://news.google.com/rss/articles/CBMiyAFBVV95cUxPMl9jWHZQUEZUQWphUFlrS3pJdzdBSEpDa1pOQzM4Z1BVTUY1TW14MnptRENjT2w3UDNoVjlLLXhmY0tFTUtrMkJtWlNmX1Q0cUszWHZFaFB1NmhTallGM2VnUG9sNDhKbjZfM3k4UTI5UkR5VVdGX1FYRnY5ZXRrdzBuNVN2WFppbGJxcUhBVUZOMC1YRG5YaXdobXNhbzZ3bHgxV0kydVlWeGo5X0lLQmZXckFZbVF5dEFLU2F3Zl9Ob2xjc0ZnZw?oc=5\",\"headline\":\"Atletico De Madrid (EXECUTIONER) v Liverpool (DANTE) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T20:37:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1383263,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxQRTlzeUsyS09PSWlvcm1SUXZFME5ZOHk1dTFKdnkwNlltOEk5aW00UmVseGtKTDZfcTQ5SnpoNC1qMWFRMzNGd2ZxR0dHZVZnTm5FdGRRSkJFRDNBV0Z3VzFGYUVqY3lnSDJuRVZBZ2RIQU91eGctTnlFLTBxMTVDdW5NWl9rV2lCWUhrdFdHZG9GRmxHY3lpM2tKekgxa2ZGUG9TLWNteWZvaWt00gGyAUFVX3lxTFBndWN5V1dqSHI4Nl8yU2t6Zm5WNTNsSk1kbEJwTEY2NnJTMXFab3ZscmgxVWdwVUYxMEpMMXZ3YTZqOGdhSDEtRVVnc3NIb2FjQi1rcTFaOEExcGsybmx0MU9FcXJMbFk0MkNKVHR4RVR2S21SZjN1aURtR2Vxc0pkS0FXbTBWaTRIVnFlc2pPWU1BWUt0Mmt0MTY4aThIWTRRMkJHcmgzWVg5bm82dVBnUEE?oc=5\",\"headline\":\"Liverpool 'schedule imminent meeting with agents' to discuss cancelling transfer\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T19:55:45Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1162217,\"url\":\"https://news.google.com/rss/articles/CBMihgJBVV95cUxQU1F4ZVZOSnUzRDVvN0pCSGRjaDk3cFNLdTdYbjk2Nk5URnlrQ2lDTzFaeVpGd2FHTUtmd3Y0ajRsSkV3N3ljTUt6aGNEMDZWU3c0NVBpeGFQaVlNV3o0V2dtMXcxVUlCY0Y3cWxubmV3ak55RDZocXZGTGVfSGtwdVFDNm5KcGZ1VXVjTVQ4bHl1dnVYN0ZrMTRFREtKdEhtUlkzaEtOOWN6YXhCNUkwU0FXVXlNbDg3Y2NMZTJSNV9yMWNaOW5ZWVc2djJMSnFmc1R0eEplamQ0RUJJNTRrUmRVVjBZUlBrU3ItcU1tTHI1N0d0RFVFM3FkOVgxVklkU2lnNzJB?oc=5\",\"headline\":\"Liverpool FC, all the broadcast information at a glance: who shows / broadcasts the Reds’ matches live on TV and via live stream?\",\"publisher\":\"Goal.com\",\"published_at\":\"2026-10-22T19:54:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1265494,\"url\":\"https://news.google.com/rss/articles/CBMi2AFBVV95cUxNcDhKNGJPYjNjdDhXTnc2ZXBJUW1fSHRhYWJOWjFBMXd5QnpMcG9QQ290T1Y3Y2t2VnVKVXNabmMweXhZTkNrOUluaWw0TlpmWGUxUnliQmIxd3VFMklqdllNSWo3NEtqcm5rSnNZOERiaE9fYjY4MnkxQ1FaNm1OMTBsdVpwaTFFZTIydEtkZUw4bF9BWF9QNEJwN3RfN0hqMm5sZ3pzR0REX1pYTGZrMHlsVnhLUGVqRkdqSjc5d0JzQ1Z6TWVmdEdQaHJPaWhIRXZQcVFnN20?oc=5\",\"headline\":\"Transfer news LIVE: Galatasaray consider Ayari move, Liverpool join the race to sign Mexico star\",\"publisher\":\"Transfermarkt\",\"published_at\":\"2026-10-22T19:52:14Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1383399,\"url\":\"https://news.google.com/rss/articles/CBMisgFBVV95cUxQZ3VjeVdXakhyODZfMlNremZuVjUzbEpNZGxCcExGNjZyUzFxWm92bHJoMVVncFVGMTBKTDF2d2E2ajhnYUgxLUVVZ3NzSG9hY0Ita3ExWjhBMXBrMm5sdDFPRXFyTGxZNDJDSlR0eEVUdkttUmYzdWlEbUdlcXNKZEtBV20wVmk0SFZxZXNqT1lNQVlLdDJrdDE2OGk4SFk0UTJCR3JoM1lYOW5vNnVQZ1BB0gGyAUFVX3lxTFBndWN5V1dqSHI4Nl8yU2t6Zm5WNTNsSk1kbEJwTEY2NnJTMXFab3ZscmgxVWdwVUYxMEpMMXZ3YTZqOGdhSDEtRVVnc3NIb2FjQi1rcTFaOEExcGsybmx0MU9FcXJMbFk0MkNKVHR4RVR2S21SZjN1aURtR2Vxc0pkS0FXbTBWaTRIVnFlc2pPWU1BWUt0Mmt0MTY4aThIWTRRMkJHcmgzWVg5bm82dVBnUEE?oc=5\",\"headline\":\"Liverpool schedule 'imminent meeting with agents' to discuss cancelling transfer\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T19:49:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1383261,\"url\":\"https://news.google.com/rss/articles/CBMi5gFBVV95cUxNbmRxY3dFOHFpb3lmNENzUXd1QUVzQkVVaUVfYjRqZzZLS2Z0RTNDQWljYVdVaHJ0b0xaMzRFaktNUWYtYkhicUUxeUZudGpPSzg0VDVsenljaHhiMl9Bazg5azRDWk55STE1TE1pZHZPT05Cejhid0lqSHpXck1UR25xOFcwQWo2dGw2dWdRaFFCbVRsSnFHNmt2bFdpSWhTMUtNSEdmNUhEcTQ1dkVUOXJHc2lNMWlyNWlsMDd3Z0EwbmwtSUc1eGxCcWlXZTVNSlVGZFBNLXJqN3VDMDluajdQM1YtZw?oc=5\",\"headline\":\"Liverpool XI vs Brighton: Confirmed team news and predicted lineup\",\"publisher\":\"London Evening Standard\",\"published_at\":\"2026-10-22T18:57:34Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1334269,\"url\":\"https://news.google.com/rss/articles/CBMihAJBVV95cUxPN3JkU09USzNZN1ZxS29YTVZFZzBTZGZRQTRncjkwWGRUSUxxOXJhNDNsNUwzV05Gcjk4UWhYNG9TOVdvU3AzR1BobmI3amRMcHgyVXZVb1B0T1pKSzVXU1p4RGhUeG1xTFVQcXVieGZPNmtwM1QtQk5tSkN1VFl5N09FM2VDa1J2c0VaNnpoVUg4R3gxUDJXd2h3UUpZelBmdjQ2WUZwa1M3LTZENjlYYndnelJRbUgyYXJ2akFrbmxRQURxbG9Dc2F3TWR3ak51dFJDZlA4bG5SRmxUQjRxLTgtSmZMTlRORFlCNlFpRlEtRkR6cTk5Ni0xM0psNjdQYTVpLQ?oc=5\",\"headline\":\"‘It’s an important run for sure’ – Liverpool’s Virgil van Dijk seeking home comforts ahead of Brighton visit\",\"publisher\":\"Irish Independent\",\"published_at\":\"2026-10-22T17:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1336731,\"url\":\"https://news.google.com/rss/articles/CBMixAFBVV95cUxPU2dTRzhZclF5bFlVRks4ekYxN3RyaFR1MWd6TS05T3N5Y3g2VGdGSGhyRTMwTUFkQ21rVjFuUkc4Sk9JWlppdF9yOEhWSGgtck9ncWF2U2RCejNMTGZwaERxTXpEMEgxVHdfTjNaczFUeUd5bG9tQUxjTGExZkdNRjh3a0lGYzQ5aU5xUzFNbkF2R3dPN0pRUjQ3ZTdoakxOYkhwbkNuejBXNHFJNF82ZkhXXzd6eElLTHJIb3FwYmNqaG1M?oc=5\",\"headline\":\"Atletico De Madrid (GUARDIAN) v Liverpool (HAVOC) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T16:43:19Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1343437,\"url\":\"https://news.google.com/rss/articles/CBMiaEFVX3lxTE5nam43dFY4NlhhU2s4MzVHU3JFUmJzdWRtOXpiNElkRjhfRlA0dk9TT0oxT01qT2pjbVh2czZxZ08yTzh2Vl9Td2QxUGY4ZGFKQmYtQXJXUmV1Q0prazdCbUs3N2J5VmVX?oc=5\",\"headline\":\"Chelsea vs. Liverpool Live Stream of Carabao Cup\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T16:29:01Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1333261,\"url\":\"https://news.google.com/rss/articles/CBMioAFBVV95cUxQM0JLc0pKWnZHTnVTLVNua082OVFwUy1GRDN1a1dJX2E0Tkg3QjdiZUpjdW9pWnZjRjh5d1ZjS2VVLUpWSDJJaUI1NHRPc1VJMkRrNUx5bXRiQkRqQm5Gd1ZUd3NWR3FaT3hzMndwVVEwaUxkVjRZVmY5ZnhnS1RHLTNSLWFNZUZRT0h0eFlpTDVRa3o4ZGxVdEdJQmRvZkx1?oc=5\",\"headline\":\"Liverpool set for key Ifeanyi Ndukwe meeting – Latest LFC News\",\"publisher\":\"This Is Anfield\",\"published_at\":\"2026-10-22T16:07:52Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1363125,\"url\":\"https://news.google.com/rss/articles/CBMiqAFBVV95cUxPRmdKRmJ3aWVRa3lDbjJaQUJReS1sejg0TkNYeUNQd3djbmlLTC1kMlJNUzUwMG01YUUyaGpYbmVmMnFlRVJoNk5mVEtuT2lUOS1NYWFPVFBRQVVNZkh4eXpsUGJoeUpZMDZhS1JZVFVHYnlJREQ2N0NiSDdwNkRuRlNFcmJvZWFzQjdtVFRjd2hIVHdRbTVPY1RKTzlZaW9XWTRQSDV3bmXSAa4BQVVfeXFMTzdLelNRbVlWbWxpSzczc3FiYTR6T2c5ZUYwTHBVRzRJeHlmbHY2Z0J0WGRIVU9YcGJ6MFFPX1VtNmFmRk1BcW90SmE5QzhrY0lXWjZpOHlUU05fa0dnNG81WjlTOGVnSmNxS1hpVDlORk93bDBkWWR4VUJGbUtyamVRNUsyc0tlY3lKbzFDZEhMYzB6dXFjeEZ4Y3ota2xmS0FydVFKLU45N3VzbW9B?oc=5\",\"headline\":\"Andoni Iraola handed immediate £157m solution after Liverpool make ‘mistake after mistake’\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T15:54:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1326880,\"url\":\"https://news.google.com/rss/articles/CBMixAFBVV95cUxQRzY5QWxfeFJpaEtBaWR2OFdfYnF1MmtFTE9VdEdUVi1rZTQ4R1lYTzVIN3ZGMk1SalhDOU1XWlVxVWJ2SFBLdFpsZ1lwMDJVb3l6TXBFd3JibElnZUlLOExDR1M1OEdhQUx1dVJqZFRab2g5WVVFb3FmbUJraDhfUlBickUtczlKUWFRMUhpWXZDYktLcFpfdTNGcGNXMWhyZU40VlBEa010bVR1MWVmaG1MME9rM2dhbHk4MHNWZEFfY25Q?oc=5\",\"headline\":\"Liverpool (HAVOC) v Atletico De Madrid (GUARDIAN) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T15:50:23Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":973111,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxPdmZsaFBteWZFbnY1eTBhd1hGT1llWmdBMHQxT1VoOTlnM2FlakoxTV9oSXNqalZYU0M0VU1BdVcxTTltdmFlaHBfNnQ0ZnZEVWp6Wnk5VWg4UEVKRjROSHlaZTdiLVZvRExoQWFITlFfLU9TaU95ZFIwcmRxdHRqR0oyZm9UaGVpQ2ZQS0dRWjdsMUg2R2xPM3pQTHpReTZuSlViX2UtNA?oc=5\",\"headline\":\"Watch Liverpool vs Villarreal\",\"publisher\":\"TOD\",\"published_at\":\"2026-10-22T15:44:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1425725,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxNcnRZcHVpVk5RRklYOGFTOG5XNVZyLTJhYUk1X1FtZXNLUFgzMTVDOWpZQk9OZnYyZWZGNl9YWHQ0U2tZemdvS253NWctbVpWTnRVRjZ2MHlWdUFRd1l4Q0dfSEE0YUFpemJFWEY4ek1BVVlVbE9NN1pwMkR0Yk5Id1VOdzdnMVpheE5ndk1qSTBReHFhSHc?oc=5\",\"headline\":\"Bayern's dreams of signing Liverpool star Ngumoha dashed as new contract looms\",\"publisher\":\"Bulinews\",\"published_at\":\"2026-10-22T15:32:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1324153,\"url\":\"https://news.google.com/rss/articles/CBMie0FVX3lxTFB3dEU2UVBqa1k2NTVqOExKRGNPSzdiMENKbVRMbDlTQm54bHpEa01RTlkwNzJjLUxyZXg4SzYtQ1VIb2lLdEJCUklSc2l1UkM4SzdyY2RzbW9TSDYzUHVDdXBnVEpEdFZybXpNdy0zMzVGclU1UVRCWTBUcw?oc=5\",\"headline\":\"Ex-Liverpool boss Jürgen Klopp still grieving Diogo Jota's death in new biography\",\"publisher\":\"Yahoo\",\"published_at\":\"2026-10-22T14:48:27Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1393434,\"url\":\"https://news.google.com/rss/articles/CBMitAFBVV95cUxNSTJaanhiaGFxR3pqazNRNk5fUlVHRjc4LTVjanBVdUlMNTNSTElQWTJma0lkNnJzdE1Odl9VT3N4LUJfU1piRlBhM1p6QkQtMVlWRnFFUUlpc21BZGFZUjNUVTdqMUxTS1lsSUszYUliMFI3b0dWQjh4Y3g3TFdkLXlnN0lSUndIdk9zSE9IaEdQbmlCcVNabEtFVXYxT3ZBSmxpbWJfOTNmd2R2UUxHbE94b0g?oc=5\",\"headline\":\"Liverpool v Grimsby (20/10/1934)\",\"publisher\":\"Flashscore.co.za\",\"published_at\":\"2026-10-22T14:39:22Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1325807,\"url\":\"https://news.google.com/rss/articles/CBMiwwFBVV95cUxNSUxpNWZZUFllZ0xjZXUyUUpJOWhsdkZzbzg2WkRWODJ1M0JDMkxXejdpc0VKaDR6ZVZQWGdUZjZydVQzOHF2RHd2dGlVanVEdUNnTHFoT3RqLW51VDFaMDRNVmE0cDB5WVptYlQyNEJ5Sk04X05ZQjY3Vmt4QWJRY2NvRkozbU9vb3dtOXI1cE1wNXRuZGVZTEdPUE1tY2NscGM0UkNqWF9yT0RacENnRjk2QTZrX2pFYVY4TlFqYUMxYTg?oc=5\",\"headline\":\"Liverpool WIN 4-3 against Villarreal | Rio Ngumoha provides a spark - Champions Club Stream of Soccer\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T14:36:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1344868,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxOSk5ZRnFXUk9WRG9Zc1JPdlFtRHlUTldISVFPWFFFeXVURnM5aTlzUkQ1TkZJNkJfRFZCUGw1LVcya2hxLXBNNDJuYldlaXlRakJtUFhYN1B3TTl3dDFjUjBiaTd3clRZUFZ0QldJSEM3WEJ2dnhNRS1fR3ZaekY5U3NnazZlcWdRek5BTnd1T0xFUlgtbDIzdDhuelRBR1JEOXl1dFhtSG56UQ?oc=5\",\"headline\":\"Update on Harvey Elliott following Liverpool’s meeting with Valencia\",\"publisher\":\"DaveOCKOP\",\"published_at\":\"2026-10-22T14:25:47Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1333318,\"url\":\"https://news.google.com/rss/articles/CBMiO0FVX3lxTE1Sd25pemVVUnA5TER5bDk0SVQwcWVfWjhJenBCcDlVTTN2bTc3akZzQmFkQjg0cUJKazl3?oc=5\",\"headline\":\"Liverpool Releases Diogo Jota Biography - Latest Breaking News - News Central TV\",\"publisher\":\"Howl.link\",\"published_at\":\"2026-10-22T14:20:39Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1324725,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxQZWp0TnE4MDhCNGVqd2IyVHEtMDJaaVg0VnYxM3V2MVAwa0lRbHlBd2k3ZlpjSzNmRDZKOThoamxyTHFhN0laelRjdU1qenBTT21WVVoydXVsS3cxMGFORU1Xa1BTZjVRd1owNnBqVV9fV3NVS3dEQkx5bjF4TFRLdy1YMmxsLXM?oc=5\",\"headline\":\"Liverpool vs Brighton & Hove Albion - Premier League Round 8, 2026\",\"publisher\":\"Fox Sports\",\"published_at\":\"2026-10-22T14:01:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1306442,\"url\":\"https://news.google.com/rss/articles/CBMi1wFBVV95cUxQM3ZHT2ZBaWFHaXBUVjdMb1EtMU1lZnl6RzgzdE01SjctTzdRbXZIMm1uNzJrdDlHUm9QQmVoOGt5ZzBtUkxHX3RicWNHb2VmbF9nRTlXUE1iNmpOMDJIU3IyWERzNjNNNXBqajYxUmprdHVkY1l1QmhsUm92b3VCM3haVUZsZkhUaWJEQkFkdUUyeE1UelZRb18xVWp4ZXp4Y3JDZTY4TUxmbHIxUDJjaHhITFZSUEpnS0R3UXk4VEVSd2JsTnVOSFBmQ1pPUEpfNURHNEtJVQ?oc=5\",\"headline\":\"Champions League review: PSG take a hit, Man City’s empty seats and teenage hope for Liverpool\",\"publisher\":\"The Guardian\",\"published_at\":\"2026-10-22T13:43:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1305415,\"url\":\"https://news.google.com/rss/articles/CBMi5AFBVV95cUxQRmNweEU4MzFKMGlFY05VTDE5UkRHZHZ3VlQ2NEgwNlVmU3dfVkxNOWxIVmZ1Nm56X0dBRlUtbXZ5SmJUUU0ycUt2cVBoUkI5OV9FYTRNb3FTMWlNT0FtemdFTnpFTzlNdHBCWWtDNVBmS0h3TTUxZ19FSWg5bFlBdnBLczA4UXkxVGlfRGRpRWg3ZEJfWTVfd0VOaElTUk5WcGpQYWtxbkxIbTRBQ1h1cW00SzIzUWFvZG1TNDU1UGNfemhCblVGMUdqd3l6QU9lV0g2RDlEVjdoZm5tUE5QUER6WU0?oc=5\",\"headline\":\"Araujo: 'Too early' to make Liverpool transfer decision\",\"publisher\":\"TribalFootball\",\"published_at\":\"2026-10-22T13:40:03Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1333293,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxPVUpXa0x6V0xwc3dQOTNIZGhHaE1pNllZdWhUYTgtYWMtZ29zTkUxTU1aSDVjT0Z1UFdJS1FydnQtbDRMNmpzVFNyWkdtZXpCOVF2Y3JxYmZyeDdYa21ORlpha2h1R05GZ2FUaThLYXVCLXZYSU9aXzQ3QnFoazJLeXhGUm5Ub0FfX3JDYXh2QXB0NUFleFpoODh2LTFGWXAxMHc?oc=5\",\"headline\":\"Liverpool Release Diogo Jota Biography To Fund Grassroots Football Programme\",\"publisher\":\"TVC News\",\"published_at\":\"2026-10-22T13:14:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1294430,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxPVkhaR0VYX0dudF9ZYU9BWXNxVW8zVFFGRV8xR2tMLXZXYlF0SjFaV3A1Qnp6YjhZb0F5ZE9rVFZRajZqUzlrUjQ1WHMtVVU2UkRiNkw4UDhPcWplYU00X3Q1ZGs0SC1GRVBDU1F2bE10d1RZYVYtUlF5S2RLQU9HT2syVlFQNFg3MzBRQUlfNHJIRF9vRFlvbjZn?oc=5\",\"headline\":\"Diogo Jota biography released by Liverpool – with proceeds to fitting cause\",\"publisher\":\"This Is Anfield\",\"published_at\":\"2026-10-22T12:12:09Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1284754,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxQQlNDU1VVZWpsbklnWEpYdUVUOWRGUFFvOEZXTHM0bUIwSjdocnZnYUgyZ1hJeWtwc3ZKbVlWY3VGaW5fR3JaOTVkcEJQREppdUJOUUFYMy1RUnNoaUV2YVlfbktTdy02Qm5ad3dPTEtweWljT0lfcnZjR1JoRHNib2FDQllodHlZSWJKSGt3QlFrUXIzMWNnLWZ1ZjE?oc=5\",\"headline\":\"Saturday: Live U18s football - watch Manchester United v Liverpool\",\"publisher\":\"Liverpool FC\",\"published_at\":\"2026-10-22T11:54:48Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1145850,\"url\":\"https://news.google.com/rss/articles/CBMiwwFBVV95cUxPaEkxUFdobEVkVHVwSXNyb2lnU0dLUUxuc1N3N2RsWlFfRVE4T1Y3NU1Ma0kxblg5MVloLUYzMjN0TTJLTDlCM0dudndqaWxlLVp5dUJUY05sUFNUejZ1N3dqSGFGTzNFZzZfczJ2T2prRWhOdWZkTXEyZU1YaDNxSWZvdmRKOERidnhmb2xUdDBvRVZ0RnBzaDBFd2pocV9tdVR0a2JCUVJmSHhuQWQ4enNQR2tMNVVlWHExdkJtY0dQNkk?oc=5\",\"headline\":\"Liverpool player ratings vs Villarreal: Mac Allister and Rio Ngumoha star in 4-3 epic\",\"publisher\":\"OneFootball\",\"published_at\":\"2026-10-22T11:46:53Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1294471,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxPYmlPdU5lVG9TX2RZbkZ2RzRCSjNCdkFmaWlLd3B6SldQakJWUy10NnlGVEljNWtyOF83NGVOTG5tZHpCUlVfbHBfN2thbFdZWWFvLVdieEtMWFVUcFdxVnBZdUI0WkRUVEtmNzcwbjBnSFZUUW9xNWxyT2tPbzk1aXhhOWtCWVp3Wkp6RnVB?oc=5\",\"headline\":\"Liverpool in three-horse race with Champions League winners for €50m sensation\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T11:40:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1284797,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxOcDFlb0NXYnpmYlNvR3dtRFJ3djRET0lCYXdrM2ZZekkzbkY1TjgyV0xWTVZ3M082NzFobzc3cWRuY3VTYVpUU0IwSklHUElIQUt0MlNwLURJQzBuWVZINXhHUE9mWWNOT0Vxd05FaUlaMS1uVFFBZlBYM1JORnZjM0hic0hQVExuUjkyOVZsNHk?oc=5\",\"headline\":\"Liverpool release Diogo Jota biography 'Forever in our Hearts' with profits funding grassroots programme\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T11:35:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1307469,\"url\":\"https://news.google.com/rss/articles/CBMi0gFBVV95cUxPSlVld3paclZPX18tcjU0VzdjTktKWkJaVkhUY3BqMlVHcEdxTl9HTzh4QXg1d3l6UVMwN1VCRGotaFhaYmNoYXNtNWRwRFZjM0pzWVluLW9Xa2JMY3cxMHJLc3dNaXV6MFBYWFkwT1VNVE92LXRyTGp6XzI0ZHN0QmdvLTBLcHBMRm9UNW8wOUJFNlZkRm14UUhET2g4azh1NzltMmhGOENZYldjX2I5SWRZRVhMUDJMU1A5aWxFendUdnlRcEFIejFVaWJqVEcyakE?oc=5\",\"headline\":\"Liverpool's Diogo Jota biography draws on 90+ voices, including Klopp, with profits going to a programme in his name\",\"publisher\":\"https://www.footballmuse.com/\",\"published_at\":\"2026-10-22T11:32:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1346484,\"url\":\"https://news.google.com/rss/articles/CBMia0FVX3lxTE1WNjdvRmhkbWc4Y005NThVYmFlVXFZa2hxQXJ3aUl2Mkw2NXdnNzNvd21BR2l0X0FfeTBlLXloQXJHYW9ybTVDMmxiZjU0SGlKNV9vc1E1dVZBRTUteExVSU9xV1BnNFJxdDNR?oc=5\",\"headline\":\"Liverpool 4-3 Villarreal: Watch Champions League highlights\",\"publisher\":\"BBC\",\"published_at\":\"2026-10-22T11:08:38Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":1284794,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxNVWIxYUpOVVE4d1hMUWxXMmktYkYtZkpQU1lzbzdsOTFtLUdHM3EyNV9MZVZ5aXlybG1Uc3NlQV9ERHFEdDRnUnBkYy1ka2t0c3FhcXVIdXdXSVVyRlN4Qkg5bng0bTRub0NNQjRweGI2bjU5ODVHbkFmWHRhd0JkaUVNaWowY1FoZlVqWmhfNW9HdC05SElhYXlQRQ?oc=5\",\"headline\":\"Jeremie Frimpong’s sad struggle with injury and frustrating time at Liverpool\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-22T11:00:25Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":1278487,\"url\":\"https://news.google.com/rss/articles/CBMivwFBVV95cUxQRVMtbHhpZXBVcDVibXdrRk9jWXY1OFlxZUFUbHhwSERYOG04RFljcldXYlhmS1lSZ3RfRnVRN2RFN1hWNm03STA0ZTVwS2gtdTZJR1JOd0tVamVCX25vUV9yLXJmRmxMeDVJWnR0OEoxNjhzWkVGX3lTVVg5OUYyMWoxcnNuelVvMmo4SFU2TFNjT3BFQm1aZFhEWHc2OUxNN0FFYUpZS21Kb3J6M3EyZDRlZkJuNHV4Mmdud0I1SQ?oc=5\",\"headline\":\"Atletico De Madrid (SPARTAN) v Liverpool (ZT) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T10:52:28Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":1336504,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxNU2gxaXgtaWxOcjFtaWRsRUE0cmRJS0kzUkdkNXhZVVhhQTFyd0xkLVZMeW8tUWNHbzAxcXFhbE84bzN2VjcxdnhRbVZkVzF1RXlPRWpqRElrZ285VzZpSE5LaG1pSzJ5S2pYN0VQVXZINWZUUG5sdDhCRXFvcW1RSkl6M1VyYUNzYzJYOXQyQmtPbURMRks5bWYxTHNobWZuN0E?oc=5\",\"headline\":\"How Andoni Iraola changed game before half-time to help Liverpool beat Villarreal\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T10:45:16Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":1275179,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxQUTF4eFhzc3NsX19HZzJ0TWZBT25DVms5TllQT092LThfZTNvYVVpS0VNNFZSMjlCUnlScWtwWHh0eG1zNWJydk5fOW84RzNvNGl6T1BzQ2RFSTRySnN6M09fVHZ6ZHBoQkp6U1RXYklfVWJmN2Y0VUpMdXlfcE92YlUxYkN0VmVUWXdRVGZTdmV4NGZqMG4wLQ?oc=5\",\"headline\":\"Trey Nyoni Lifts Lid on Full European Debut as Liverpool Deliver Classic Anfield Comeback\",\"publisher\":\"Read Liverpool\",\"published_at\":\"2026-10-22T10:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":1304178,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxOSzNXckpvcDZIWXFzbFdvVGVCTkdxcEdYYURwT0lwRW9SS0p4RHI0MEJlNUQ2RUV3NzNLelYzaU9JSFRmb1o2S3VfNGhVd3pIUkRuSFdZQjRLY1R2UmRrd2dBbGNEMU0tVElNc1lZYjNBN2J5eVA1NGtyYm1FTEROdjJvX21mNzdSSWJfRUdCODMxS1hKN28wVmptZk1FbnV5N1p0XzRjVWJJNXNPWVRz0gGvAUFVX3lxTE5LM1dySm9wNkhZcXNsV29UZUJOR3FwR1hhRHBPSXBFb1JLSnhEcjQwQmU1RDZFRXc3M0t6VjNpT0lIVGZvWjZLdV80aFV3ekhSRG5IV1lCNEtjVHZSZGt3Z0FsY0QxTS1USU1zWVliM0E3Ynl5UDU0a3JibUVMRE52Mm9fbWY3N1JJYl9FR0I4MzFLWEo3bzBWam1mTUVudXk3WnRfNGNVYkk1c09ZVHM?oc=5\",\"headline\":\"'Wow' - Jeremy Jacquet's Liverpool impact clear as Reds wait on Virgil van Dijk decision\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T10:24:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_41\",\"article_id\":1423862,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxNN1c0U0ZyWGpJQ3hReU94dnhkNlVpZFpLQUgxNDRIcXphRm52UW1meXlsU1haUHM3d001WktFbTJJMUpLS3Y2OGdqeGczNzRZTHFBQU1GQ3UtbTJvWVNfZzU4dUxxVmdwTWRBRFBic3gxQ0hjUTRLeHFhMTZBX1NLLUlfNWRSLU1FNGl2TEZKZWlGS3F0UFZHWEpXbnRWcHRGSWc?oc=5\",\"headline\":\"Liverpool striker scores first-ever club goal: “I needed to show people”\",\"publisher\":\"This Is Anfield\",\"published_at\":\"2026-10-22T10:12:52Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_42\",\"article_id\":1275212,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPR0FMSkNxRHN0SkxyUy1KejM1U2lnRUZuZWdubXZIRzh1bWxjTEZOODdZSDFudmxSUFk0NDNXU2hQajQ3Wk56TGtrSXliOFp1RDhBSUdNejJTSHA0dnFhRXNCTDdEbkVIMkVHbjRXWnR2NE9iOE5Pa0M4NHBNVjA1anhwUGNaMkhwSW1QeQ?oc=5\",\"headline\":\"Diogo Jota's wife recalls harrowing moment she found out Liverpool star had died\",\"publisher\":\"Daily Mirror\",\"published_at\":\"2026-10-22T09:47:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_43\",\"article_id\":1266252,\"url\":\"https://news.google.com/rss/articles/CBMi4AFBVV95cUxOQ0JzR1JWdXJYMzY1YUNwZXRsbktIUkg5Yzl1NnMzZl9MY2pZWFBZem9xMk8zdGtFREVISU5qc2ZXRFZ6OWN5WU1DM2lUWEJWX1dNbl9qd184VFN1ZlRqcUNhRWkyNU5pcUtnOGZHLWNQVjRJMzdZX0lNelFZYzdmWGpKbjdKekNqX3VFMlpZd2pxQUN5N3RKSTdlWms4RkZQdkhnaHdBMHZMUGVDdUhweXRFd0pEaUxrSE1laDhhLVBha2hOcXk3TEM5ZVVFZW5nd2xCc210SmYwSHpJVzlSWQ?oc=5\",\"headline\":\"Liverpool unmoved on Mac Allister contract stance\",\"publisher\":\"TribalFootball\",\"published_at\":\"2026-10-22T09:43:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_44\",\"article_id\":1285899,\"url\":\"https://news.google.com/rss/articles/CBMihwJBVV95cUxPenBHckFLYVk3VW5jQkt5eDN4N2ZJd0NWOFdzOFdQSTFVa3JUcXR3WnBqZGxXMk0wYkZRRmFzZjdHUXgtUVBMT29WeW9Fd0dOS05uaTRHMWVyODJ6VzU3T0pfbTR1RzBBS05USTU5ZjQxa1h0Y0R0RlpENXl6cUxGN0t3N293RU9Sc2xCbFpUVThzSkp5dHdiSUpLWkVKVHZDQmNUVG0yUmxjeVFIREgtT0dtS3czbHc2b3pjZTBDZWxMS0wtdGFoUkN6QkVRVDVPSXNIa3lxMUFoazhZTHlPRktmdVUwQkpoNkdKbW1ydmp0V0oyLTNNZjFrSWw2UU5vMFN3dUdKSQ?oc=5\",\"headline\":\"Premier League Soccer Picks and Betting Odds: Predictions for Liverpool, Arsenal and Manchester City matches\",\"publisher\":\"Sports Interaction\",\"published_at\":\"2026-10-22T09:19:35Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_45\",\"article_id\":997524,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxPVlhsTVE2RXR2RGtSQkl1YTJXdGJrSjNLd2c2OFpoV2Y5SnBLY1U0TXluQ2NOejVSYlhfbWdNUzliWFc5NnQwaGZRTmtPek1GSFo3ejRYT2hNQWpLSklOMnUwYjZoSTNlc2R2ZDg4VGVMbzc2aWpkRERpTGhWdTdsRm5oZXVXQVJKN2lPTkhMTF9pRDY0UGQ4aTZRdTFWcThvSW92T2QyRQ?oc=5\",\"headline\":\"Why is Liverpool vs Villarreal not on TNT Sports?\",\"publisher\":\"London Evening Standard\",\"published_at\":\"2026-10-22T09:00:58Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_46\",\"article_id\":1268164,\"url\":\"https://news.google.com/rss/articles/CBMiswFBVV95cUxQc0NuRTdVYmJ3QU9CeDNFYVI2T3N3R1pkZkFicDh1WU5oUmV2eDdqYjY1QnhfTm1GbzdRRjlGcHZNY2M5NkM0dHdjNktpMld5Mm1kUjNicXdBNWhQUjJzVDI1RVh2bndRNkNLWkJ5RWpxZ0w5NWdWUTNXek05OVRCZGdsWC1hd1J3TzFxUWRqYklrTXBHeUhfSWEwcWd1NHdUMzhtMl85ZGZMdkZqeHJlWU9BZw?oc=5\",\"headline\":\"Jarell Quansah tight-lipped about future amid Liverpool, Arsenal and Real Madrid interest\",\"publisher\":\"Get German Football News\",\"published_at\":\"2026-10-22T08:29:26Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_47\",\"article_id\":1265865,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxOUEtpcHg5eHdmRWdYTl9STENVbUwyWXBDUE5pWk84Znp2Vjc2d1EzdTZQMHJjd3hCMnhRejBJMkZhc29hd3FEMnlTMDVuOU1QQ0dBcXoyV3lkYUVqZjN1a3Vyd0FNbHkxS2JBOG9na1JqdHJvTFJwZFg5alNOTG9yQjRoNzZ3S1Y5WFB3?oc=5\",\"headline\":\"Jarell Quansah tight-lipped about future amid Liverpool, Arsenal and Real Madrid interest\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T08:29:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_48\",\"article_id\":1334011,\"url\":\"https://news.google.com/rss/articles/CBMitwFBVV95cUxPVFM1Y29NaDIxNVBRcWdHQm43WWVmb2RuVER0cjRKZVhhYTA4RHZBR0oyTGpEQzhlYVBMWFhFWGpONU9QNFB1b1hSeGVUX1p4cGFYSWdiamx2XzJ2RGhzeDV0WWhob1EzdUFpZFBYU3NPQlVMeEFyd2thdVFkNDdZeVQzTTgyOERDVndLWjlHb1BIclFxMlU4bkt3MkJhdk93YUlvaFNHY1FnMzU5X2VzSEd1cXVVckHSAbwBQVVfeXFMTkZtSUY1RE9TYzl0MHdkTjNwTlRDVmxjcVRUVkxNZ0NabnZUMERvN0FOc1hkUTBqc1JfU0tLOVBQWnoxTDMwcVBHcE1Eemd0S3pJdUZ6ZG93c25XZzhhMTBERVMyTGJiWFRwLVd0THphelRpSExoRHMyR08wOXptZDFzMnMyc0wxTjJfN1V0QlcydFVRdG14em0tdHQwM3M0ZDg2MGl2TGcweUhBa0MweTJXZlB3bnZFaFJBYXc?oc=5\",\"headline\":\"Chelsea, Liverpool could offer over €60 million to sign Manu Kone\",\"publisher\":\"TheHardTackle.com\",\"published_at\":\"2026-10-22T07:57:46Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_49\",\"article_id\":1287730,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxPTXBWRU5jSlJNdUZjUWtwbUJka01MRngyTkYtWlhyaEtHY3YyVnN0SWg2UklYSTc4QkN0SnRNMVFpY0ZENEVMRml6MFExSUFnTlRUeVV3V3pSZ0ZYTVNsMnNwaGMtdzMzMXZicDVUcDJXRE1NRFlwN1JsX2N4UTdWOHhFYWtYTnB6T1pRaVRlR1lwS0I5c3dmLXNIZw?oc=5\",\"headline\":\"Quansah coy on Leverkusen future amid Liverpool, Arsenal and Real Madrid links\",\"publisher\":\"Bulinews\",\"published_at\":\"2026-10-22T07:57:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_50\",\"article_id\":1266637,\"url\":\"https://news.google.com/rss/articles/CBMipAFBVV95cUxQWEx5QkpINXFaZGhtWWhBZzNQYkRNTjE2bVpaMUFmWmdFOVBvdUg2ZHh6QUtRVTJBZ0NZMjk2LWgtRmhPdlgtcXU3UndwaFFqLVRVZzNNQmFFazNxYXM5NTZlVmJ1V2tGbURoOTlzbGtCQTdJaWR1UlZuNmVsLUlEX3I2b0Nvd2VLSlhmOGNpdnZmNWlpVEViY1ZCOWtSWnk4ZUJfXw?oc=5\",\"headline\":\"Liverpool vs Brighton: Where to watch, live stream, TV channel and kick-off time\",\"publisher\":\"Goal.com\",\"published_at\":\"2026-10-22T07:32:52Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_51\",\"article_id\":1295104,\"url\":\"https://news.google.com/rss/articles/CBMiywFBVV95cUxPajlJbHh1WFBjcEV3Y1VTZ3hzaXJUN0NxbTlxTXRMVlA3dlZOWjNVbDdiTXY1VDlDbkYzWkdUTlRFc2lxN3VFNFhXaUFuMGxBRTZFT0NxN3U1S1B2Tk9MN2MyZzFqa3RnOWNrbk9rMFRyZGZ0eGNkV2FPRkxyOHAzeDJaQXAxZzBQcGpWMUVMU1VwMUw2NlpTN3JUWVAyREt4d291dHBkVjVVeXNoWERuVTA3WDlHZ3ltMmV3TGdybGRrZ1AxRk5xU3ViZw?oc=5\",\"headline\":\"€60m+ bid incoming, Liverpool refuse to give up on France star\",\"publisher\":\"LiveScore\",\"published_at\":\"2026-10-22T05:39:52Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_52\",\"article_id\":1198006,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxOeUU4b1FvVXBqYnI4TV9jT21zX1lQZVIxNldvZlVfMEM1VnVNamNXT1V0Z3Y2X3Y5UE5LRURkbmZCN0JLR3JSY1FBNnNXYUZSbk84M2pkWWtCRC00dE9QdW5QWjZ1Y0FzWm53MEtEOC1QUGhYX05PZUNpbld6OHdOenQ2c2sxbWZuN2RPNWh0cVJqdjdISTNDM01JaDY5dWs1anZGSWVJS3oyckxUWk9rbi1ObGFQNlVuZ0FFaF9xTC1OM0VJNkotN1F2X2d0QQ?oc=5\",\"headline\":\"Liverpool injury update: Szoboszlai, Frimpong, Munoz return dates\",\"publisher\":\"London Evening Standard\",\"published_at\":\"2026-10-22T05:02:29Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_53\",\"article_id\":1265486,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxQUE1iQkcxWmJmMW5QN09lRno3b0s5MHpUV2twZHAxNmt6a1hjaG9pS3VLbWxObHZmWW5qR29Pei1yem12eFdMZkszUTB0TEhGSXlNLUdsMjk3RUxVNGRqVFkxaFl4WmVkX2dOb0psWVBXMXdpT1dzX1g1Q1ZUc1d3Rk40ZHpOVXAxekxGd3gwS01aRjc1QnZJUjNOd01Rd2FGQUtXNlBtbjBXbW9yV0HSAa4BQVVfeXFMUFBNYkJHMVpiZjFuUDdPZUZ6N29LOTB6VFdrcGRwMTZremtYY2hvaUt1S21sTmx2ZlluakdvT3otcnptdnhXTGZLM1EwdExIRkl5TS1HbDI5N0VMVTRkalRZMWhZeFplZF9nTm9KbFlQVzF3aU9Xc19YNUNWVHNXd0ZONGR6TlVwMXpMRnd4MEtNWkY3NUJ2SVIzTndNUXdhRkFLVzZQbW4wV21vcldB?oc=5\",\"headline\":\"Liverpool latest: Alexis Mac Allister's damning comment as Gilberto Mora links addressed\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T05:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_54\",\"article_id\":1208657,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxOZVdGQm1FNkxNQlk5NDl1OU93SkJ1M2dhVmdJLXU5TE5Oa3BPU211QXBNckVkc0RFdEZGOEJVZGVULXFpVGxUbW1RcU1vSERTdEozeUl1eVFrY0RQLUd3bkM2RzJ4M0xBaUprNjJLT1dSVERqQTFFME1MOHNQSXdLdVRXYng1UU53bE1ERUxzNWh0a0JNcnYxUE05aE9pRzBuU01JNnVZWGV3bVdZSUE?oc=5\",\"headline\":\"Watch Liverpool vs Brighton & Hove Albion\",\"publisher\":\"TOD\",\"published_at\":\"2026-10-22T04:55:48Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_55\",\"article_id\":1117182,\"url\":\"https://news.google.com/rss/articles/CBMi8gFBVV95cUxPUGxUcDF5LWxSbG9MbC0wVk9UZHNSY1VzTFN3UFBoa0ZHY1RyTGxtazFVVnR0azlESGtoNmcwdF96TUl2TmlSTmw5MnhKdW1HUnNkR3BoNVVGM1RsdWNrSk1TWDJNU0ltdlBOVlZWNko5djNZU1BZdTFzTzRyRERZMnlYTThsV2V2dGk4MTVJcExGZGgwWXRBZEt0Z044RGdlaXBkcXcwZWhPd19NeXRlUDFBOFBZNjdzeG1VT3c3eGVUSExXclJzM3R4a2RXbUNFZ1h1aW94V1BGeEdsQlJZTFJZRnp5dHBJMlNTSG0yWS1JZw?oc=5\",\"headline\":\"Liverpool 4-3 Villarreal: Rio Ngumoha stars and Florian Wirtz scores as Reds come from two down to win in Europe\",\"publisher\":\"Sky Sports\",\"published_at\":\"2026-10-22T04:04:21Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_56\",\"article_id\":1268854,\"url\":\"https://news.google.com/rss/articles/CBMiwAFBVV95cUxOYUxYbVY1OG4wMk52cDBkcFhybGM3N3N5aVlDcFpOcklkeFZXTWFUWUVxYkxNTDY3ck1wdGR0ZlBSbXFuTEtKRDc2a3dCMVNEcmdnVGtsSkE3WldBMzJ3anhJMnBpRVVQdHdXem1VTHp4dGtyYkRNRDF2dEx6YzFxcDNkeGJRT3djWXVpZzJjUzduYktzdVhuOHJPRy1GNFdYNkxHbmNEY1hTOEc1LW4xNG9hWHA4VzJUZHVFTDVoMk8?oc=5\",\"headline\":\"Atletico De Madrid (GRIMACE) v Liverpool (ENT) Odds\",\"publisher\":\"FanDuel Sportsbook\",\"published_at\":\"2026-10-22T04:02:48Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_57\",\"article_id\":1265502,\"url\":\"https://news.google.com/rss/articles/CBMiswFBVV95cUxNTHN3MWVycFRlOGptSWZWSmJaYXRtUGNyeEJLVGNXQkRIQXNSUjFxNFYxa19hYTZQc0hMRE1wQUtndW9LMHdGNXUwb200d28yd0s4TkFyV2U2cnFDbF9EYzBoUWhwcVFuN2ZoYWRLTzBwNFhYM3hSZ3YwUUl6bEg0cXRnOEFoZU9YWlVIN21ZUTE5cGFHdnBUXzZEV3c1aW9ZVnVPT0hJR1d1ZXlnV2NHRC1TTdIBswFBVV95cUxNTHN3MWVycFRlOGptSWZWSmJaYXRtUGNyeEJLVGNXQkRIQXNSUjFxNFYxa19hYTZQc0hMRE1wQUtndW9LMHdGNXUwb200d28yd0s4TkFyV2U2cnFDbF9EYzBoUWhwcVFuN2ZoYWRLTzBwNFhYM3hSZ3YwUUl6bEg0cXRnOEFoZU9YWlVIN21ZUTE5cGFHdnBUXzZEV3c1aW9ZVnVPT0hJR1d1ZXlnV2NHRC1TTQ?oc=5\",\"headline\":\"Liverpool told Jeremy Jacquet 'could become best Premier League centre-back in history'\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T04:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_58\",\"article_id\":1265506,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxNbUJ1SzB5VzJvdS16RWdKV29HRWZ1X20yU3M3MDlOdnJPdW1CMExUZ2pFSTNXZHF0aHJTU3R4eENHVGVrZUhoMnVVWGdzMXNualhkVm1vOE9xMnhVbGZvZ0R6UXV3ZEJDRHRldl9tdTFpYWNXWEZ6ZG9BZHNPZFVVaElDQVdOdWZDRDNqZWlpX3YwMzlMakpZVmY5bjI4eHZNNGxKV2VTWUpOdjBDcTM00gGvAUFVX3lxTE1tQnVLMHlXMm91LXpFZ0pXb0dFZnVfbTJTczcwOU52ck91bUIwTFRnakVJM1dkcXRoclNTdHh4Q0dUZWtlSGgydVVYZ3Mxc25qWGRWbW84T3EyeFVsZm9nRHpRdXdkQkNEdGV2X211MWlhY1dYRnpkb0Fkc09kVVVoSUNBV051ZkNEM2plaWlfdjAzOUxqSllWZjluMjh4dk00bEpXZVNZSk52MENxMzQ?oc=5\",\"headline\":\"Liverpool given Premier League title hope but warned defeat could lead to 'doing a Leicester'\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T04:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_59\",\"article_id\":1265488,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxNV1VQT1VRM3pZT0hzbGRWM1ZSYlNGcnZRSlkxaU1HaHo3cWRkeUVsR1R0ejVzVTFBa2lUdHZDSkdILU1yNGd6RkVORUVMckRRSVRlanU0TVdVeEY2WnQ5OTB3SUlLN1FuaVBvaEhncmVXU1B6RkhMZ0VEVU1kY2xVMzBjSEI4dEV6Z1ExNktEY2NsNzU2NFHSAZYBQVVfeXFMTVdVUE9VUTN6WU9Ic2xkVjNWUmJTRnJ2UUpZMWlNR2h6N3FkZHlFbEdUdHo1c1UxQWtpVHR2Q0pHSC1NcjRnekZFTkVFTHJEUUlUZWp1NE1XVXhGNlp0OTkwd0lJSzdRbmlQb2hIZ3JlV1NQekZITGdFRFVNZGNsVTMwY0hCOHRFemdRMTZLRGNjbDc1NjRR?oc=5\",\"headline\":\"Liverpool news: Andoni Iraola offers £38m transfer hope as damning Arne Slot comments made\",\"publisher\":\"Daily Mirror\",\"published_at\":\"2026-10-22T04:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_60\",\"article_id\":1268580,\"url\":\"https://news.google.com/rss/articles/CBMi5gFBVV95cUxPbG9ZSzBDSHV4Mi1tNklQUnUyM3NzeVlHQS1oVDVOVXZGOWNzRDFvMjhKLUdZQ0ZBN0NCZ0VTMGo1bE00eDczUjExWGF4YlRPbzVZaHFyaC1sNTM1WjZCaTFGdXVCX3R2bTZwTm9QSkJkU19EUTZWakhUZ1p0V185ei1tVFpQRkluRXdpNjVqcmlBMFQ4WGtnZ21sZ3FSQ2F6TWlkblloR1kydkRZT1FtQVVOZ2YtV1MtdXdmVTZyQkktRWRlVzFuUTE4ZDZUTU1RdS1yQ0RGaGlPQ054Q2Vhc0pKdXoxUQ?oc=5\",\"headline\":\"This is how Liverpool beat Villarreal in the Champions League\",\"publisher\":\"Flashscore.com\",\"published_at\":\"2026-10-22T01:22:11Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_61\",\"article_id\":1162542,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxOQ21HeWlRbDF6cmlQczQxVUpReGE1VFozMDN6MXc2OWQ4REE4R2Q3bkxRTXQ3dTFFNU5JRnFEN3Zxa05MZ2JsZ0FTTjc1cE1yOHdxUElweFlWQXFvVTFKM0s1X0ZnUEFGaEFpZ0t1Vk1OQUJsRkhsQnVaTGw2NXR2T2swZUNveDcwbzVMb0dRc3NqWTN2?oc=5\",\"headline\":\"Arsenal fans take Liverpool title as the worst in Premier League\",\"publisher\":\"Football365\",\"published_at\":\"2026-10-22T00:47:29Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_62\",\"article_id\":1267851,\"url\":\"https://news.google.com/rss/articles/CBMiqwFBVV95cUxPLWwzOXBON1pBcWtGQ2hTWkdzU29pRE9TSlZ0bGRKbGxIY2g0UVNUWUdUUFpqcXUxcE9WeWs3c2UyTXRCUUI2RXk3NUE5T1NVVnlNQml0NVREQXFYUHVwcWVYZFpodXhJR1MwT2N4UmJ0MlhOc1lrZE1FWFVycDB3YnJiZ0hYc0dJRlJCR29nSGhkNFBQR3dOMnFCWThrem52dEoyUlNMamF5OGM?oc=5\",\"headline\":\"PSG beats Barcelona in thriller as Liverpool completes rousing comeback\",\"publisher\":\"macau daily times 澳門每日時報\",\"published_at\":\"2026-10-22T00:10:46Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_63\",\"article_id\":1247039,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxPTkVpRkxxbHpOOVdhbFdpd0tqRnJlN3RHZzhIbFllWnJtZmJmcjBPM01NT1pObGtOTndYMXRsMGdWbzR0WjNtUmhWRTJOS3hodzFtYVNsRmt3MEJ1dVhybElSWEkzSDdqdEkzM1F5bnh5QUpPTzNXMUhQb3M0RElMOUdOV3NzVHdTdWl2ODdXaVFWZw?oc=5\",\"headline\":\"Football Live Scores: Liverpool vs Villarreal CF, UEFA Champions League, 2026-27 | Nine Wide World of Sports\",\"publisher\":\"Nine.com.au\",\"published_at\":\"2026-10-21T23:32:11Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_64\",\"article_id\":1268454,\"url\":\"https://news.google.com/rss/articles/CBMiqAFBVV95cUxPUXFLOUd2clBxZHF4SWRvRmVsaExNNWtDcHNFVEFuVXdmbDZTbTlEMlZnelV0RFh5eWdBeHRiWFhVZWlTUWFZU0FrTzV3OHg0STh3Z3RKMHc2MUVTa3VTVlIxU0hQY0taM2RNRXR4SkxCZE16aWc4SFFGZXRzd3RZR1RyUEdETlFJRVU4Q0VpcjFlYjZJTGVOZURFVEN0XzJiTTRxWnp1QVY?oc=5\",\"headline\":\"Liverpool - FC Porto Live - Champions League: Football Scores & Highlights - 09/12/2026\",\"publisher\":\"TNT Sports\",\"published_at\":\"2026-10-21T22:05:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_65\",\"article_id\":1095480,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxNMVFpUVQ4MlBVcU5hYngyR3VxdVd4Vm5icjBYRGF4UGgtVnBzMkpPenhHWmdaUVdpM1d2WmhER1Z1bEFPMWFYS2dQOWpCNnlLN1RhRHkwU3pNRVBlX3J0OFgzdTU2UmdPbnhyXzZVWDZKc3VxUWhMbmhoU2EtdlBRU3FvNTI5ajVkN0RJeG1JVHJURDk3RlFBclo1NzVQeEE5OF9pUTBzZEVFOHQ3bktROA?oc=5\",\"headline\":\"Mac Allister ignites Liverpool comeback\",\"publisher\":\"Nine.com.au\",\"published_at\":\"2026-10-21T22:01:52Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_66\",\"article_id\":1265518,\"url\":\"https://news.google.com/rss/articles/CBMitgFBVV95cUxQd1NkWXhNdGVEWm1oUDZtRXMtWS1qTFBxcF9hM1lmeFQ5UzJJS2xTVEdCTHhfd01BX0ltS2FrbF8xcWphYW5oN3IzX2w4OHN5TXN4dC0xak9xVEtmQWJGR2hJSTRoSU5XQTI1OGZkWU5EbHA5TUFPWi10MV8wdWpudjFjZzBNOGtFSmZVOWNhaEVFS1FXVFRrTmJHLUJaTVpzTEtHc2swN0VHQlBSdWphSTZqR1J2UQ?oc=5\",\"headline\":\"Subway Players Cup team news: Confirmed Liverpool line-up against Manchester United\",\"publisher\":\"Liverpool FC\",\"published_at\":\"2026-10-21T21:17:11Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_67\",\"article_id\":1210562,\"url\":\"https://news.google.com/rss/articles/CBMipAFBVV95cUxPd2xJRkE5eFZMdFVUYmlHbEJrb1FWSFQtN2ZGbzg5M0M4TFh5bVM0Vk9yYmVqTld0OVp2UUpmME5GSmw3THpCZndPbnlvOWdNeV9YaTlKUEgtVC1GbGIzdmFIQUt5bFk5UGk0Y0ZnMnEzQmNGSjl6SmMydjJjRFhfdjQ3WTNnenlRa1JBdHJGWXdTRUhCTVdmMTk4eVF4bmFxNFpZYg?oc=5\",\"headline\":\"UEFA Champions League - Liverpool v Villarreal Highlights\",\"publisher\":\"BBC\",\"published_at\":\"2026-10-21T21:13:34Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_68\",\"article_id\":994146,\"url\":\"https://news.google.com/rss/articles/CBMiY0FVX3lxTE9XbnlCOVNjZko1QkdXSjZwY2Z1U1RSSXhnYkNMQmdzaldtWWJrU0J4ZHBIU2tZUGs0Ry1mdFViUlRRZmVnS0ZTeU9vUndMaEx1YUNheE9Da2lUNEw2VlF1QUduUQ?oc=5\",\"headline\":\"Liverpool 3-5 Man Utd: Visitors win eight-goal thriller in Players Cup\",\"publisher\":\"BBC\",\"published_at\":\"2026-10-21T20:49:49Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_69\",\"article_id\":1265515,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxQR1pIUWJQT1VxRWFFS190QmZfMzJIY3RBUjVUY0xfalFnUnFPaXE4MzNIdE1tTFp3M29WeU8yQzRwSHdJdXhGYi12OTloeWYwREtYbTUxV3RtVkFBbmZLeXVRMEp1bWdieFQtN09WMU9DMXFHTzYyd3FUWWh2UnBCTnYtLW14WmpwMDlGa1VIcG1wQUJ0UFFMRm5xRExlWnNvbXZTNEhBU1JuRkRoRXBj?oc=5\",\"headline\":\"Liverpool v Brighton: Referee and officials confirmed for Premier League clash\",\"publisher\":\"Liverpool FC\",\"published_at\":\"2026-10-21T19:02:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_70\",\"article_id\":1326682,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxQZHFYZllqYU5MS2RKTmtsMVhiVnk1QkRQNWxBYnAzd1VCWVhCdlRldkIyVHlpeTI4QnE4SVczR2VZVkl0b3MzNlFHWTJFYnAxZ2FQT295eUJnemVqTmphVXY3ZVVCTGFMa1BVdldwQ3ZRVWpkZUE5bERjVkl3S3FIWmNrWEdHRzcyRDlDRWJRX3JCR2ZVSzRqeUdSVUVkMnN3ZkdOUmRyQUIxV0tH0gGwAUFVX3lxTE5XenNhSnEzdU1kTG1VaXBKWjNnZ05Dbi1lZTQ0WElRTFc4VnRuaXF5ZTFLTlJoeC1qYllkWUtaalZWLUUweWU3S3ZrSElyQ0dCNXBsbkpUcDZlMllaRGt0QzRGZnRaaTBlYlNlT0NLcHRvYksyc3lCckhESlFhVFVLSXBaeU01ZUNVS0FWZ3Z4WTFzY0dmM3c3REtuZEU2T2hEUjRwSkRRZGQyM0dmR2Zs?oc=5\",\"headline\":\"PSG sink Barcelona in six-goal thriller, Liverpool and City win\",\"publisher\":\"Kuwait Times\",\"published_at\":\"2026-10-21T17:18:36Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_71\",\"article_id\":1315156,\"url\":\"https://news.google.com/rss/articles/CBMisgFBVV95cUxNbUlsaTh0UGR6ZVQxTG5mdTRHME91Zl94Q1cybGVEclluSTRQTzN5dWppM2FyN2UwbllqVnBFMmVkZUdMZHgtWEEwa1kwaUhaVVRkOU5nak1iR3hnOXJiWWw2VWRoM2xfMVVCUUFqYVNqamZrUTdHc3hVLWRsOVFzYzZYUVVWQkhzUjhSTzJKWmM0SDBVZlVYWHpQZkJMUGdKU2NhTHkzSjBBcTBJUmRkeHd30gFaQVVfeXFMTUx2dHNJcERJSklhTG95LUU0RllUVHJBWlktWS1GOHFBUHFITHhyZDF4ZndPd2ZNYTA4Y0std1BPUDdnYTNNdE9OYkhzaEtiUWdWdmVGVHloUjZB?oc=5\",\"headline\":\"PSG late show downs Barca in CL, Liverpool fight back\",\"publisher\":\"Oman Observer\",\"published_at\":\"2026-10-21T16:39:34Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_72\",\"article_id\":1268595,\"url\":\"https://news.google.com/rss/articles/CBMi1wFBVV95cUxOZ01lSF9kNGNKaE04Y1BzVmFpWkVjaTk0aU5LZS1VRHVFaTd6LVJ3R0FkZkZUWTNSRlJRNlVINExlMDFTaFpYTnlhU0VnVVhhTFp3dERtUEFnekNsXy13LTFYY1c5ZnRuSjFuT1R3VldvcFBYWTZTM0VOWjQyVjhORk1qQ3dDTXp2d3dzYkg4b0V5SHIwR2JEdG9QUmprMUNhYXVveEl1ZVV0QUliTTEzcVZwbHRXczdvRWZPd2QyMmhVYTgwcllwdjRDQnJsYno4aXpaYUlWMA?oc=5\",\"headline\":\"Liverpool Trailblazer Matches Remarkable Lamine Yamal, Cristiano Ronaldo Record\",\"publisher\":\"LiveScore\",\"published_at\":\"2026-10-21T15:45:02Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_73\",\"article_id\":1191208,\"url\":\"https://news.google.com/rss/articles/CBMi9AFBVV95cUxPOFNlLUl4TjcybzM4TDJ5SkdMeHZtdUltS2k1OHZtdU5YbHI3ZUhDYkR0UGFkU0dnTkdBREIxaVJob3FYV0Y2RjBzZktnODN6ZEZwTXAxb3lpR1BBVXYzMGpsbmFyd0JoeHNuU0RFZi1zQmYwNTJJMDJtV194MUZNVnNWcDVPUFBkRk80ZHVKSVpWQzFObms3eTNjeWNfeG1LYjJZbUVWMnlzVHRXbzZ6MldqRmF2dWJ0ZmdYZWVsdnN3YUx4SGxqZkFNRXNmcTRTOGw1aDdFVzJkMjJ4a1BZRV9MaWFFVUVZa0VmYTllMmtXWmdv?oc=5\",\"headline\":\"Inigo Perez reveals 'exact moment' Villarreal lost Liverpool tie\",\"publisher\":\"TribalFootball\",\"published_at\":\"2026-10-21T15:38:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_74\",\"article_id\":1307276,\"url\":\"https://news.google.com/rss/articles/CBMiwwFBVV95cUxPNk1uMDF2TXlBU2ZoUjE5TUEyR2tlOWZOLXFYbTJwU1FXZUNrSTA0T1lxVWZKZ18zbjFDbXFfZnJDcVdqeGJ3cXEzaThsb0I3d2Q3dk5uemtfZDA0eEdUVk5xWWxSREQ5MURXUDlXSTdFVENua2ktSXZaejNhemdnSHNlVlgwQzBIbHhGTVpaU2RfSGM2YzZSZVY1bEpINENGM3g0V0Fkb0ZvcWw1UlE2NjV6c2xTMjVGWm1HSm04Q09ZTkk?oc=5\",\"headline\":\"Liverpool captain Van Dijk admits there is 'much more to come' from exciting Ngumoha\",\"publisher\":\"Flashscore.co.za\",\"published_at\":\"2026-10-21T15:32:07Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_75\",\"article_id\":1266255,\"url\":\"https://news.google.com/rss/articles/CBMi8AFBVV95cUxQWHJfMVlheEpCSkZoWTB6eG5wSk11Z3hxX1RVb3hQOTBEV1k1V1Naemp5eWlYR2NVN1NhYWx4UDFPMHRlazdFRFNpd25td2dqTVlxanNfbGxaT0wtYWxWcXZXSV9tYUVnVHBsczRQeWVoOEtTdE1GX3VGbklFTE1TbUlTMmpfUzk0dHF6NzA2SXdpckk1d01sLWxLQXpxN3BkWWN2aVliTXZZWXZqMHlKMFFScE1hck81dEFZUnZBY0s0T3VhTThxWVhxNnllZWwzSkNnZ1RQdEh0M2FneFRoMElrLUZHX0wwN3FqR2FfZ3E?oc=5\",\"headline\":\"Liverpool target poised for 'imminent move' after Iraola update\",\"publisher\":\"TribalFootball\",\"published_at\":\"2026-10-21T15:07:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_76\",\"article_id\":1191256,\"url\":\"https://news.google.com/rss/articles/CBMiswFBVV95cUxPTWlPbEtjN2E1YmVBVFFoa19hN0E4ajBrWHlLZ1JBWEFBdHNVOTdaVUkzUkp2Y3N6Y3ZhTFlJVnJWclhyTXZjUl9JZVl5ZmJLcUY3V0NyWDRadm9sT2JFLUlOaXpCbGRXLTU3SXhoYjlZX3NueVk3TVZBamVtcWFHdE42TjFzNzRaVFppX25QWVJJVkNXRHo0cWx5dzNoS1VHcE41T1FISTUzMTZ5ZWJPQUVMQQ?oc=5\",\"headline\":\"‘This is Anfield’ – Perez says Villarreal failed to deal with Liverpool atmosphere\",\"publisher\":\"Soccer News\",\"published_at\":\"2026-10-21T13:37:38Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_77\",\"article_id\":1258945,\"url\":\"https://news.google.com/rss/articles/CBMi5AFBVV95cUxOWlR0TGpUWDl3YjcyS3NLNVdDeU1kMUJncjIwd2Q2dmlXQUdMRE1PWEZjd0cxLTVKZS11NEt1dXBCUkFNMTdrM29xOERYUWhfSTdQQmdlMktFd0ZpQlp5bFFlb3AyS2NWQ3kwN1Y5eDRxU19ERy1ZSVdNSnZFNEowRV9ZTnZnQXY3Y3lpZlctT0FzdzV2US1wem9MQjF5S1NkSUJpRUxXdDg4aGlGaWR1ZnUxWVVDcmlpSWdRa1BuSld2MGhEakYzNmJzeFpzOWZTcVVNQ2RzSnR4Rl9jVUE2RUE4b3Q?oc=5\",\"headline\":\"Liverpool captain Van Dijk hails teen star Ngumoha\",\"publisher\":\"TribalFootball\",\"published_at\":\"2026-10-21T13:15:25Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_78\",\"article_id\":1265527,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxQckkzZDZUX2RCSXlPWEs3Mm1ORGd5SzV5TUp4UXY3c1AxRDA0OWtJZzRGd0FKWm03cncyX3RtUi1VUE9ndjhkTUJWck5iSmVpNDRKd04wVnFGSVEtdGFKem01MnFyWlVjVEVsMUI0VXN6RkxnMWxSU2NyQ0Y5TGNQTXY5Y1hOT0E3aEhLX2RtQi1HWDVNLXc?oc=5\",\"headline\":\"Inside story of Rio Ngumoha's dazzling rise to Liverpool stardom as he fills Mo Salah's boots in Anfield dressing room\",\"publisher\":\"The Sun\",\"published_at\":\"2026-10-21T12:57:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_79\",\"article_id\":1165360,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxQaGwtODdxS2szaTBXSkFheFVaalZ0UjhBTXVZM0FVSUFRbUYxZ2tiUnk5YkQxWVdfXzNXLWF0MU1zQVFxRHFERm53dm1iT05JX1dPeTZIdnZCbDFNN040UWNxNVpHRG9lV3RjQzVWNHdGWlJIMjlaZy1QOE0xM0hCWEU4NjNtYmliUm1NaFhCMDJhTWkwejRlLUpHR0Fsdw?oc=5\",\"headline\":\"Alexis Mac Allister shines in Liverpool win over Villarreal\",\"publisher\":\"Football Today\",\"published_at\":\"2026-10-21T11:53:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_80\",\"article_id\":1278245,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxPWXZzalB5Rl9Sdm1MVmdzMUd1Qm5Ld2RsOGNVMXhrYmlGUlMzVGh0RG5OZy1oMG5INkYtSjJCLUhMSUg1UUtKVW1Ec1VXX0QyZkE0TXRRTnZrZnN0bEJUdVNkVVRobHFzeUtkQXdUR21MckNQQlUzZC1jTDd3aWJKSW9tekZpZk5OUVEyb05iYy0tcGPSAZMBQVVfeXFMT1l2c2pQeUZfUnZtTFZnczFHdUJuS3dkbDhjVTF4a2JpRlJTM1RodERuTmctaDBuSDZGLUoyQi1ITElINVFLSlVtRHNVV19EMmZBNE10UU52a2ZzdGxCVHVTZFVUaGxxc3lLZEF3VEdtTHJDUEJVM2QtY0w3d2liSklvbXpGaWZOTlFRMm9OYmMtLXBj?oc=5\",\"headline\":\"Virgil van Dijk singles out two Liverpool stars as captain holds his hands up\",\"publisher\":\"Daily Express\",\"published_at\":\"2026-10-21T11:48:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_81\",\"article_id\":1268596,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxPMlhJUkJfbXVSV3RzR0pXQVY2ck84LTlrclZCWlVLMk9DV0tLU0JDYXVDVUlhemgtT2dGNVZ3OUJTNlZ4cUJpWXZJYVp3dFMzT2ctZHJhVUMzZngtUmFwcjA4bEwwOGZMbjIwZnBXTEpEc1RuVnNCOGN4ZFN5YV9fbERSV0ZCdVZCWEtMRWpramlma0RzeldrOFJITXhKdWpoMDRaYkcyS0JrSVdkQUE?oc=5\",\"headline\":\"Ronald Araújo: 'Finding what I needed' at Liverpool\",\"publisher\":\"ESPN\",\"published_at\":\"2026-10-21T11:44:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_82\",\"article_id\":1105899,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxONDBJTzVJVjRFS0ptSGVGU0ROVVp0NVY0R3dERERIZDFhNUkzZVloUFRlcTZvX3NacG1KNkJBbm5NU1VNSEZSSFNLWmlyTHhmbzhNVGpVM201NXUwTWdiZktCWHVheENMVWgybXdQT2Z3UndqWnVLX1g1RFZ2TmhsM0s4WFhSbUdaWV9R?oc=5\",\"headline\":\"Champions League briefing: Are PSG and Barcelona Europe’s best teams? Who is Liverpool’s new prodigy?\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-21T11:21:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_83\",\"article_id\":1268588,\"url\":\"https://news.google.com/rss/articles/CBMifkFVX3lxTE41NVNWVk9PNWNBUjFwVEdnOGs2TEdUcTA2T2Vabl9kRENxVzkxUV9ud0lMaEpRSHhIUmFlUkFlemIySU5FTG5nQjJqYlBuTmRCVzZpWlp5TGhVT0NvNTFmd1oyWk4zSlQxMzhERGQ1Q1JFOGVhSEtYMXVEZk5zUQ?oc=5\",\"headline\":\"Mac Allister double sparks Liverpool’s thrilling comeback win over Villarreal\",\"publisher\":\"PressReader\",\"published_at\":\"2026-10-21T11:10:14Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_84\",\"article_id\":284594,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxPc3ozMEk2cHB5cWFiVDZFSVRQR2Y1NjlTN09LWmdMYjhMNHk1LURZRndZVEd0bDhRSkdXQzM1SU4xakdHdFNRQ0Q3dnhSd3Z6a3l5Vk54VVNpdkRSbWJRMkZOQ0hWS1p1c1kycnhvM3hyN1V3WENtby1pXzNMN2d5b3RLYUExbEhuMFhYVG9TdlVGNTg?oc=5\",\"headline\":\"Premier League transfer net spend table for 26/27 season: £200m Liverpool above Spurs\",\"publisher\":\"Football365\",\"published_at\":\"2026-10-21T10:14:55Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 8,
+      "entity_type": "team",
+      "name": "Liverpool",
+      "sport": "FOOTBALL"
+    },
+    "database_record": "Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.",
+    "reports": [
+      {
+        "id": 1413638,
+        "title": "Premier League predictions & Jones Knows' best bets: Tottenham vs Chelsea, Brighton vs Liverpool, Man Utd vs Bournemouth and much more!",
+        "context": "Premier League predictions & Jones Knows' best bets: Tottenham vs Chelsea, Brighton vs Liverpool, Man Utd vs Bournemouth and much more!",
+        "source": "Sky Sports",
+        "published_at_epoch": 1792708742,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijgJBVV95cUxQSHJCMVcyRVpZVE5KaWI5MFlrM2UxQ1BNUjE2SHdvVFlFeDBwOHEzYVBlb282SkN0OXBOOUpSSUdyQ045QTlJa3ZKRVRtUmxRZXJoN3pDZndXWEc0dmdqaUlGSk90R1VTWmFua2tMM3dtZEt3VGVLQ1dNS2MzT1FvUUU1M0U2UEZXaEpnVmdWLV95MmJScVh1Z2toeXRpQzl4cnBma3ZXUUdiMFRkQXphYUZXYkJDVGtQNmtzWUhYX204ZHlyREhreElqbVZXYjNZdG1Bb253LWRwRkUzSl9pSnJVM1BUT1R4akpvclRvNm9IaG9LeTNTUXZEQ0NQRlF6RkxacHZ6Y3ZBaGFKZmc?oc=5",
+          "spectrum": {
+            "emotion": 1.793762766184124,
+            "subject": 86.82450773622729,
+            "movement": 4.51169865232157,
+            "availability": 8.907068017074753
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1405792,
+        "title": "Sam Matterface: Liverpool Fans Will Feel Aggrieved by Man City Charges",
+        "context": "Sam Matterface: Liverpool Fans Will Feel Aggrieved by Man City Charges",
+        "source": "Hard Rock Bet",
+        "published_at_epoch": 1792708140,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE1nOFhqZ0dZZVVENjFHMmNtVjk4Wkw5cVBJenNPLXJtY1BKaTEwZGJRZE8zd2t3TFRqY0xJMFFrWEtyN2ZqT2FuaUx3bFctanl3eTdhWG1VTW13Wk5ERjBPZXhhdjJ2Zw?oc=5",
+          "spectrum": {
+            "emotion": 65.207829711484,
+            "subject": 89.21583689692932,
+            "movement": 5.226117393902073,
+            "availability": 69.22374057400343
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1210527,
+        "title": "Liverpool strike back to beat Villarreal in seven-goal thriller",
+        "context": "Liverpool strike back to beat Villarreal in seven-goal thriller",
+        "source": "The Daily Star",
+        "published_at_epoch": 1792707159,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxQLTdqYlhFTDhBS1JKSEJSNzRUcUJwNEFGUGdHSnp4S096WlRqZGZzNFRodm1UZDM4UTZFdHRpVjJkNEZkM1hZaG5nNFo2SmtLb1BqZ3ZLRGp6MFYwSHNfSUpCeVRycjZHVFJSMjVKQmZud1FWblY2bVdWZmZQYTlNVmg5a19tQ3FXaDRxckZfcDJ0ZE5oQ2xaX21HR1RxTzhRckx3MVN1WFh6THl0T1B3Mlk2LWVPdw?oc=5",
+          "spectrum": {
+            "emotion": 3.344504925641936,
+            "subject": 90.75648653283773,
+            "movement": 3.5812928308789163,
+            "availability": 4.854073339463142
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1366512,
+        "title": "Liverpool vs. Villarreal: UCL Match Highlights (10/20) - Scoreline Stream of Soccer",
+        "context": "Liverpool vs. Villarreal: UCL Match Highlights (10/20) - Scoreline Stream of Soccer",
+        "source": "CBS Sports",
+        "published_at_epoch": 1792702575,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxOZjZBNzBteXJtalRJbklOTkVZTFJMS3FNX0l6bGl6b0V4VUtJUkdkQVRQTzAxdjZKZGNjUmhLdTh5UE5xM2lPLXd0WUNoa2wwRjIxcWQtOFJMemZJNC16WWh4MDVkNjdMOFBSanZacko1SUt3ZnZPeEM5RHdvY3AzSjBZU0lDVUdraEdpUkluUWhyNUktZnduc3NaT1NCQkZhN01fenQ2c09WalFTWGJjUkFGeE4?oc=5",
+          "spectrum": {
+            "emotion": 2.062107035114922,
+            "subject": 94.00085036054452,
+            "movement": 5.35699941734914,
+            "availability": 7.229824775199795
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1386965,
+        "title": "Atletico De Madrid (PLAGUE) v Liverpool (HAYMAKER) Odds",
+        "context": "Atletico De Madrid (PLAGUE) v Liverpool (HAYMAKER) Odds",
+        "source": "FanDuel Sportsbook",
+        "published_at_epoch": 1792701443,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxQcFVJX3lkRVdIaXBZeEpoOWdGSHR6dllLaEpFSFhjQkRlRloxNWdoUTRVQmRMYXFTcmNoOEVGdGZONkt0emJTUXFZM08welgtdlZpOHkwNzJEZDVrRmNYN3JkUV9zT1ZmS2xuY0lyRXZ4S05KRzA1ck1wUkNhSzdrbTN4eWpMdzdhMVNudk5wcjlwUE96QVFhTW1zRFpiZGR3OUxJYXFOdXRXeEFkUUM4WlpIVVJYVHc1a0JPWGdkRnZxZEZjc0E?oc=5",
+          "spectrum": {
+            "emotion": 3.929286495570409,
+            "subject": 95.08584283561252,
+            "movement": 4.995816195639345,
+            "availability": 11.857972664797249
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1397103,
+        "title": "Atletico De Madrid (EXECUTIONER) v Liverpool (DANTE) Odds",
+        "context": "Atletico De Madrid (EXECUTIONER) v Liverpool (DANTE) Odds",
+        "source": "FanDuel Sportsbook",
+        "published_at_epoch": 1792701438,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiyAFBVV95cUxPMl9jWHZQUEZUQWphUFlrS3pJdzdBSEpDa1pOQzM4Z1BVTUY1TW14MnptRENjT2w3UDNoVjlLLXhmY0tFTUtrMkJtWlNmX1Q0cUszWHZFaFB1NmhTallGM2VnUG9sNDhKbjZfM3k4UTI5UkR5VVdGX1FYRnY5ZXRrdzBuNVN2WFppbGJxcUhBVUZOMC1YRG5YaXdobXNhbzZ3bHgxV0kydVlWeGo5X0lLQmZXckFZbVF5dEFLU2F3Zl9Ob2xjc0ZnZw?oc=5",
+          "spectrum": {
+            "emotion": 1.6130964543101585,
+            "subject": 93.94676812438924,
+            "movement": 7.546253992841382,
+            "availability": 6.737054972701341
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1383263,
+        "title": "Liverpool 'schedule imminent meeting with agents' to discuss cancelling transfer",
+        "context": "Liverpool 'schedule imminent meeting with agents' to discuss cancelling transfer",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792698945,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxQRTlzeUsyS09PSWlvcm1SUXZFME5ZOHk1dTFKdnkwNlltOEk5aW00UmVseGtKTDZfcTQ5SnpoNC1qMWFRMzNGd2ZxR0dHZVZnTm5FdGRRSkJFRDNBV0Z3VzFGYUVqY3lnSDJuRVZBZ2RIQU91eGctTnlFLTBxMTVDdW5NWl9rV2lCWUhrdFdHZG9GRmxHY3lpM2tKekgxa2ZGUG9TLWNteWZvaWt00gGyAUFVX3lxTFBndWN5V1dqSHI4Nl8yU2t6Zm5WNTNsSk1kbEJwTEY2NnJTMXFab3ZscmgxVWdwVUYxMEpMMXZ3YTZqOGdhSDEtRVVnc3NIb2FjQi1rcTFaOEExcGsybmx0MU9FcXJMbFk0MkNKVHR4RVR2S21SZjN1aURtR2Vxc0pkS0FXbTBWaTRIVnFlc2pPWU1BWUt0Mmt0MTY4aThIWTRRMkJHcmgzWVg5bm82dVBnUEE?oc=5",
+          "spectrum": {
+            "emotion": 1.6848373271491837,
+            "subject": 95.73347876639866,
+            "movement": 87.38061701015629,
+            "availability": 76.77946069042709
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1162217,
+        "title": "Liverpool FC, all the broadcast information at a glance: who shows / broadcasts the Reds’ matches live on TV and via live stream?",
+        "context": "Liverpool FC, all the broadcast information at a glance: who shows / broadcasts the Reds’ matches live on TV and via live stream?",
+        "source": "Goal.com",
+        "published_at_epoch": 1792698867,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihgJBVV95cUxQU1F4ZVZOSnUzRDVvN0pCSGRjaDk3cFNLdTdYbjk2Nk5URnlrQ2lDTzFaeVpGd2FHTUtmd3Y0ajRsSkV3N3ljTUt6aGNEMDZWU3c0NVBpeGFQaVlNV3o0V2dtMXcxVUlCY0Y3cWxubmV3ak55RDZocXZGTGVfSGtwdVFDNm5KcGZ1VXVjTVQ4bHl1dnVYN0ZrMTRFREtKdEhtUlkzaEtOOWN6YXhCNUkwU0FXVXlNbDg3Y2NMZTJSNV9yMWNaOW5ZWVc2djJMSnFmc1R0eEplamQ0RUJJNTRrUmRVVjBZUlBrU3ItcU1tTHI1N0d0RFVFM3FkOVgxVklkU2lnNzJB?oc=5",
+          "spectrum": {
+            "emotion": 1.530267529148643,
+            "subject": 92.48840442601801,
+            "movement": 2.60566914821709,
+            "availability": 6.651374385279903
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1265494,
+        "title": "Transfer news LIVE: Galatasaray consider Ayari move, Liverpool join the race to sign Mexico star",
+        "context": "Transfer news LIVE: Galatasaray consider Ayari move, Liverpool join the race to sign Mexico star",
+        "source": "Transfermarkt",
+        "published_at_epoch": 1792698734,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi2AFBVV95cUxNcDhKNGJPYjNjdDhXTnc2ZXBJUW1fSHRhYWJOWjFBMXd5QnpMcG9QQ290T1Y3Y2t2VnVKVXNabmMweXhZTkNrOUluaWw0TlpmWGUxUnliQmIxd3VFMklqdllNSWo3NEtqcm5rSnNZOERiaE9fYjY4MnkxQ1FaNm1OMTBsdVpwaTFFZTIydEtkZUw4bF9BWF9QNEJwN3RfN0hqMm5sZ3pzR0REX1pYTGZrMHlsVnhLUGVqRkdqSjc5d0JzQ1Z6TWVmdEdQaHJPaWhIRXZQcVFnN20?oc=5",
+          "spectrum": {
+            "emotion": 1.9139821511826294,
+            "subject": 90.30897450670324,
+            "movement": 96.25091676603782,
+            "availability": 88.07331804356588
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1383399,
+        "title": "Liverpool schedule 'imminent meeting with agents' to discuss cancelling transfer",
+        "context": "Liverpool schedule 'imminent meeting with agents' to discuss cancelling transfer",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792698540,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxQZ3VjeVdXakhyODZfMlNremZuVjUzbEpNZGxCcExGNjZyUzFxWm92bHJoMVVncFVGMTBKTDF2d2E2ajhnYUgxLUVVZ3NzSG9hY0Ita3ExWjhBMXBrMm5sdDFPRXFyTGxZNDJDSlR0eEVUdkttUmYzdWlEbUdlcXNKZEtBV20wVmk0SFZxZXNqT1lNQVlLdDJrdDE2OGk4SFk0UTJCR3JoM1lYOW5vNnVQZ1BB0gGyAUFVX3lxTFBndWN5V1dqSHI4Nl8yU2t6Zm5WNTNsSk1kbEJwTEY2NnJTMXFab3ZscmgxVWdwVUYxMEpMMXZ3YTZqOGdhSDEtRVVnc3NIb2FjQi1rcTFaOEExcGsybmx0MU9FcXJMbFk0MkNKVHR4RVR2S21SZjN1aURtR2Vxc0pkS0FXbTBWaTRIVnFlc2pPWU1BWUt0Mmt0MTY4aThIWTRRMkJHcmgzWVg5bm82dVBnUEE?oc=5",
+          "spectrum": {
+            "emotion": 1.7848571270114761,
+            "subject": 95.52357689633362,
+            "movement": 86.65479517207609,
+            "availability": 67.76677804501769
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1383261,
+        "title": "Liverpool XI vs Brighton: Confirmed team news and predicted lineup",
+        "context": "Liverpool XI vs Brighton: Confirmed team news and predicted lineup",
+        "source": "London Evening Standard",
+        "published_at_epoch": 1792695454,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxNbmRxY3dFOHFpb3lmNENzUXd1QUVzQkVVaUVfYjRqZzZLS2Z0RTNDQWljYVdVaHJ0b0xaMzRFaktNUWYtYkhicUUxeUZudGpPSzg0VDVsenljaHhiMl9Bazg5azRDWk55STE1TE1pZHZPT05Cejhid0lqSHpXck1UR25xOFcwQWo2dGw2dWdRaFFCbVRsSnFHNmt2bFdpSWhTMUtNSEdmNUhEcTQ1dkVUOXJHc2lNMWlyNWlsMDd3Z0EwbmwtSUc1eGxCcWlXZTVNSlVGZFBNLXJqN3VDMDluajdQM1YtZw?oc=5",
+          "spectrum": {
+            "emotion": 1.4494749399593077,
+            "subject": 90.66587712052797,
+            "movement": 8.626392258297937,
+            "availability": 64.00823859513194
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1334269,
+        "title": "‘It’s an important run for sure’ – Liverpool’s Virgil van Dijk seeking home comforts ahead of Brighton visit",
+        "context": "‘It’s an important run for sure’ – Liverpool’s Virgil van Dijk seeking home comforts ahead of Brighton visit",
+        "source": "Irish Independent",
+        "published_at_epoch": 1792688400,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihAJBVV95cUxPN3JkU09USzNZN1ZxS29YTVZFZzBTZGZRQTRncjkwWGRUSUxxOXJhNDNsNUwzV05Gcjk4UWhYNG9TOVdvU3AzR1BobmI3amRMcHgyVXZVb1B0T1pKSzVXU1p4RGhUeG1xTFVQcXVieGZPNmtwM1QtQk5tSkN1VFl5N09FM2VDa1J2c0VaNnpoVUg4R3gxUDJXd2h3UUpZelBmdjQ2WUZwa1M3LTZENjlYYndnelJRbUgyYXJ2akFrbmxRQURxbG9Dc2F3TWR3ak51dFJDZlA4bG5SRmxUQjRxLTgtSmZMTlRORFlCNlFpRlEtRkR6cTk5Ni0xM0psNjdQYTVpLQ?oc=5",
+          "spectrum": {
+            "emotion": 4.822984364377253,
+            "subject": 88.36417660336221,
+            "movement": 3.115396130447431,
+            "clickbait": 7.655466225358396,
+            "availability": 12.827155375262212
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1336731,
+        "title": "Atletico De Madrid (GUARDIAN) v Liverpool (HAVOC) Odds",
+        "context": "Atletico De Madrid (GUARDIAN) v Liverpool (HAVOC) Odds",
+        "source": "FanDuel Sportsbook",
+        "published_at_epoch": 1792687399,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMixAFBVV95cUxPU2dTRzhZclF5bFlVRks4ekYxN3RyaFR1MWd6TS05T3N5Y3g2VGdGSGhyRTMwTUFkQ21rVjFuUkc4Sk9JWlppdF9yOEhWSGgtck9ncWF2U2RCejNMTGZwaERxTXpEMEgxVHdfTjNaczFUeUd5bG9tQUxjTGExZkdNRjh3a0lGYzQ5aU5xUzFNbkF2R3dPN0pRUjQ3ZTdoakxOYkhwbkNuejBXNHFJNF82ZkhXXzd6eElLTHJIb3FwYmNqaG1M?oc=5",
+          "spectrum": {
+            "emotion": 1.9682954720256072,
+            "subject": 92.9439152945307,
+            "movement": 3.955361244705393,
+            "clickbait": 10.802968870928401,
+            "availability": 2.7760646732358314
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1343437,
+        "title": "Chelsea vs. Liverpool Live Stream of Carabao Cup",
+        "context": "Chelsea vs. Liverpool Live Stream of Carabao Cup",
+        "source": "CBS Sports",
+        "published_at_epoch": 1792686541,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE5nam43dFY4NlhhU2s4MzVHU3JFUmJzdWRtOXpiNElkRjhfRlA0dk9TT0oxT01qT2pjbVh2czZxZ08yTzh2Vl9Td2QxUGY4ZGFKQmYtQXJXUmV1Q0prazdCbUs3N2J5VmVX?oc=5",
+          "spectrum": {
+            "emotion": 1.644576947239627,
+            "subject": 94.36039023999908,
+            "movement": 3.6009250601349034,
+            "clickbait": 6.889635042800454,
+            "availability": 3.002164462125731
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1333261,
+        "title": "Liverpool set for key Ifeanyi Ndukwe meeting – Latest LFC News",
+        "context": "Liverpool set for key Ifeanyi Ndukwe meeting – Latest LFC News",
+        "source": "This Is Anfield",
+        "published_at_epoch": 1792685272,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxQM0JLc0pKWnZHTnVTLVNua082OVFwUy1GRDN1a1dJX2E0Tkg3QjdiZUpjdW9pWnZjRjh5d1ZjS2VVLUpWSDJJaUI1NHRPc1VJMkRrNUx5bXRiQkRqQm5Gd1ZUd3NWR3FaT3hzMndwVVEwaUxkVjRZVmY5ZnhnS1RHLTNSLWFNZUZRT0h0eFlpTDVRa3o4ZGxVdEdJQmRvZkx1?oc=5",
+          "spectrum": {
+            "emotion": 1.7038000599073404,
+            "subject": 96.05607132638075,
+            "movement": 26.22982070119937,
+            "availability": 87.1359881449567
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1363125,
+        "title": "Andoni Iraola handed immediate £157m solution after Liverpool make ‘mistake after mistake’",
+        "context": "Andoni Iraola handed immediate £157m solution after Liverpool make ‘mistake after mistake’",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792684440,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxPRmdKRmJ3aWVRa3lDbjJaQUJReS1sejg0TkNYeUNQd3djbmlLTC1kMlJNUzUwMG01YUUyaGpYbmVmMnFlRVJoNk5mVEtuT2lUOS1NYWFPVFBRQVVNZkh4eXpsUGJoeUpZMDZhS1JZVFVHYnlJREQ2N0NiSDdwNkRuRlNFcmJvZWFzQjdtVFRjd2hIVHdRbTVPY1RKTzlZaW9XWTRQSDV3bmXSAa4BQVVfeXFMTzdLelNRbVlWbWxpSzczc3FiYTR6T2c5ZUYwTHBVRzRJeHlmbHY2Z0J0WGRIVU9YcGJ6MFFPX1VtNmFmRk1BcW90SmE5QzhrY0lXWjZpOHlUU05fa0dnNG81WjlTOGVnSmNxS1hpVDlORk93bDBkWWR4VUJGbUtyamVRNUsyc0tlY3lKbzFDZEhMYzB6dXFjeEZ4Y3ota2xmS0FydVFKLU45N3VzbW9B?oc=5",
+          "spectrum": {
+            "emotion": 21.205605625255842,
+            "subject": 86.81479514726752,
+            "movement": 72.22684495593963,
+            "availability": 36.51780687483759
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1326880,
+        "title": "Liverpool (HAVOC) v Atletico De Madrid (GUARDIAN) Odds",
+        "context": "Liverpool (HAVOC) v Atletico De Madrid (GUARDIAN) Odds",
+        "source": "FanDuel Sportsbook",
+        "published_at_epoch": 1792684223,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMixAFBVV95cUxQRzY5QWxfeFJpaEtBaWR2OFdfYnF1MmtFTE9VdEdUVi1rZTQ4R1lYTzVIN3ZGMk1SalhDOU1XWlVxVWJ2SFBLdFpsZ1lwMDJVb3l6TXBFd3JibElnZUlLOExDR1M1OEdhQUx1dVJqZFRab2g5WVVFb3FmbUJraDhfUlBickUtczlKUWFRMUhpWXZDYktLcFpfdTNGcGNXMWhyZU40VlBEa010bVR1MWVmaG1MME9rM2dhbHk4MHNWZEFfY25Q?oc=5",
+          "spectrum": {
+            "emotion": 6.088241887115914,
+            "subject": 90.28598082036329,
+            "movement": 4.704714617040009,
+            "clickbait": 50.22935706437524,
+            "availability": 2.779649881429825
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 973111,
+        "title": "Watch Liverpool vs Villarreal",
+        "context": "Watch Liverpool vs Villarreal",
+        "source": "TOD",
+        "published_at_epoch": 1792683858,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxPdmZsaFBteWZFbnY1eTBhd1hGT1llWmdBMHQxT1VoOTlnM2FlakoxTV9oSXNqalZYU0M0VU1BdVcxTTltdmFlaHBfNnQ0ZnZEVWp6Wnk5VWg4UEVKRjROSHlaZTdiLVZvRExoQWFITlFfLU9TaU95ZFIwcmRxdHRqR0oyZm9UaGVpQ2ZQS0dRWjdsMUg2R2xPM3pQTHpReTZuSlViX2UtNA?oc=5",
+          "spectrum": {
+            "emotion": 1.8901909709760547,
+            "subject": 92.71908132787236,
+            "movement": 5.442159423713898,
+            "clickbait": 5.4947219136127465,
+            "availability": 2.8757271853807187
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1425725,
+        "title": "Bayern's dreams of signing Liverpool star Ngumoha dashed as new contract looms",
+        "context": "Bayern's dreams of signing Liverpool star Ngumoha dashed as new contract looms",
+        "source": "Bulinews",
+        "published_at_epoch": 1792683120,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxNcnRZcHVpVk5RRklYOGFTOG5XNVZyLTJhYUk1X1FtZXNLUFgzMTVDOWpZQk9OZnYyZWZGNl9YWHQ0U2tZemdvS253NWctbVpWTnRVRjZ2MHlWdUFRd1l4Q0dfSEE0YUFpemJFWEY4ek1BVVlVbE9NN1pwMkR0Yk5Id1VOdzdnMVpheE5ndk1qSTBReHFhSHc?oc=5",
+          "spectrum": {
+            "emotion": 11.513404973154012,
+            "subject": 80.61501550116003,
+            "movement": 85.91235134788442,
+            "availability": 71.06867397233
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1324153,
+        "title": "Ex-Liverpool boss Jürgen Klopp still grieving Diogo Jota's death in new biography",
+        "context": "Ex-Liverpool boss Jürgen Klopp still grieving Diogo Jota's death in new biography",
+        "source": "Yahoo",
+        "published_at_epoch": 1792680507,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTFB3dEU2UVBqa1k2NTVqOExKRGNPSzdiMENKbVRMbDlTQm54bHpEa01RTlkwNzJjLUxyZXg4SzYtQ1VIb2lLdEJCUklSc2l1UkM4SzdyY2RzbW9TSDYzUHVDdXBnVEpEdFZybXpNdy0zMzVGclU1UVRCWTBUcw?oc=5",
+          "spectrum": {
+            "emotion": 70.4307926121209,
+            "subject": 85.10989085701209,
+            "movement": 8.82827271328445,
+            "clickbait": 10.847821899325236,
+            "availability": 2.5878578366407132
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1393434,
+        "title": "Liverpool v Grimsby (20/10/1934)",
+        "context": "Liverpool v Grimsby (20/10/1934)",
+        "source": "Flashscore.co.za",
+        "published_at_epoch": 1792679962,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxNSTJaanhiaGFxR3pqazNRNk5fUlVHRjc4LTVjanBVdUlMNTNSTElQWTJma0lkNnJzdE1Odl9VT3N4LUJfU1piRlBhM1p6QkQtMVlWRnFFUUlpc21BZGFZUjNUVTdqMUxTS1lsSUszYUliMFI3b0dWQjh4Y3g3TFdkLXlnN0lSUndIdk9zSE9IaEdQbmlCcVNabEtFVXYxT3ZBSmxpbWJfOTNmd2R2UUxHbE94b0g?oc=5",
+          "spectrum": {
+            "emotion": 1.703327357354666,
+            "subject": 93.55776213880486,
+            "movement": 8.544434908135116,
+            "availability": 7.19052176032669
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1325807,
+        "title": "Liverpool WIN 4-3 against Villarreal | Rio Ngumoha provides a spark - Champions Club Stream of Soccer",
+        "context": "Liverpool WIN 4-3 against Villarreal | Rio Ngumoha provides a spark - Champions Club Stream of Soccer",
+        "source": "CBS Sports",
+        "published_at_epoch": 1792679802,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxNSUxpNWZZUFllZ0xjZXUyUUpJOWhsdkZzbzg2WkRWODJ1M0JDMkxXejdpc0VKaDR6ZVZQWGdUZjZydVQzOHF2RHd2dGlVanVEdUNnTHFoT3RqLW51VDFaMDRNVmE0cDB5WVptYlQyNEJ5Sk04X05ZQjY3Vmt4QWJRY2NvRkozbU9vb3dtOXI1cE1wNXRuZGVZTEdPUE1tY2NscGM0UkNqWF9yT0RacENnRjk2QTZrX2pFYVY4TlFqYUMxYTg?oc=5",
+          "spectrum": {
+            "emotion": 5.074853238813321,
+            "subject": 92.52933999954458,
+            "movement": 3.0375905786942314,
+            "clickbait": 7.659269528516043,
+            "availability": 2.7404842185932634
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1344868,
+        "title": "Update on Harvey Elliott following Liverpool’s meeting with Valencia",
+        "context": "Update on Harvey Elliott following Liverpool’s meeting with Valencia",
+        "source": "DaveOCKOP",
+        "published_at_epoch": 1792679147,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxOSk5ZRnFXUk9WRG9Zc1JPdlFtRHlUTldISVFPWFFFeXVURnM5aTlzUkQ1TkZJNkJfRFZCUGw1LVcya2hxLXBNNDJuYldlaXlRakJtUFhYN1B3TTl3dDFjUjBiaTd3clRZUFZ0QldJSEM3WEJ2dnhNRS1fR3ZaekY5U3NnazZlcWdRek5BTnd1T0xFUlgtbDIzdDhuelRBR1JEOXl1dFhtSG56UQ?oc=5",
+          "spectrum": {
+            "emotion": 2.118597839327105,
+            "subject": 90.27104903014738,
+            "movement": 22.56061667335401,
+            "clickbait": 7.116943369874441,
+            "availability": 49.280883787515464
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1333318,
+        "title": "Liverpool Releases Diogo Jota Biography - Latest Breaking News - News Central TV",
+        "context": "Liverpool Releases Diogo Jota Biography - Latest Breaking News - News Central TV",
+        "source": "Howl.link",
+        "published_at_epoch": 1792678839,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiO0FVX3lxTE1Sd25pemVVUnA5TER5bDk0SVQwcWVfWjhJenBCcDlVTTN2bTc3akZzQmFkQjg0cUJKazl3?oc=5",
+          "spectrum": {
+            "emotion": 1.8961140964868106,
+            "subject": 93.1278778874645,
+            "movement": 4.933568999005048,
+            "clickbait": 9.693980531471228,
+            "availability": 2.369781021922707
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1324725,
+        "title": "Liverpool vs Brighton & Hove Albion - Premier League Round 8, 2026",
+        "context": "Liverpool vs Brighton & Hove Albion - Premier League Round 8, 2026",
+        "source": "Fox Sports",
+        "published_at_epoch": 1792677678,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxQZWp0TnE4MDhCNGVqd2IyVHEtMDJaaVg0VnYxM3V2MVAwa0lRbHlBd2k3ZlpjSzNmRDZKOThoamxyTHFhN0laelRjdU1qenBTT21WVVoydXVsS3cxMGFORU1Xa1BTZjVRd1owNnBqVV9fV3NVS3dEQkx5bjF4TFRLdy1YMmxsLXM?oc=5",
+          "spectrum": {
+            "emotion": 1.4710025236148656,
+            "subject": 92.8275319986108,
+            "movement": 4.707451806309561,
+            "clickbait": 4.879904658896999,
+            "availability": 2.7827029084150965
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1306442,
+        "title": "Champions League review: PSG take a hit, Man City’s empty seats and teenage hope for Liverpool",
+        "context": "Champions League review: PSG take a hit, Man City’s empty seats and teenage hope for Liverpool",
+        "source": "The Guardian",
+        "published_at_epoch": 1792676580,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxQM3ZHT2ZBaWFHaXBUVjdMb1EtMU1lZnl6RzgzdE01SjctTzdRbXZIMm1uNzJrdDlHUm9QQmVoOGt5ZzBtUkxHX3RicWNHb2VmbF9nRTlXUE1iNmpOMDJIU3IyWERzNjNNNXBqajYxUmprdHVkY1l1QmhsUm92b3VCM3haVUZsZkhUaWJEQkFkdUUyeE1UelZRb18xVWp4ZXp4Y3JDZTY4TUxmbHIxUDJjaHhITFZSUEpnS0R3UXk4VEVSd2JsTnVOSFBmQ1pPUEpfNURHNEtJVQ?oc=5",
+          "spectrum": {
+            "emotion": 69.07139439156205,
+            "subject": 84.53950318597504,
+            "movement": 16.657290562275463,
+            "clickbait": 6.854662599595807,
+            "availability": 30.710713269603772
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1305415,
+        "title": "Araujo: 'Too early' to make Liverpool transfer decision",
+        "context": "Araujo: 'Too early' to make Liverpool transfer decision",
+        "source": "TribalFootball",
+        "published_at_epoch": 1792676403,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi5AFBVV95cUxQRmNweEU4MzFKMGlFY05VTDE5UkRHZHZ3VlQ2NEgwNlVmU3dfVkxNOWxIVmZ1Nm56X0dBRlUtbXZ5SmJUUU0ycUt2cVBoUkI5OV9FYTRNb3FTMWlNT0FtemdFTnpFTzlNdHBCWWtDNVBmS0h3TTUxZ19FSWg5bFlBdnBLczA4UXkxVGlfRGRpRWg3ZEJfWTVfd0VOaElTUk5WcGpQYWtxbkxIbTRBQ1h1cW00SzIzUWFvZG1TNDU1UGNfemhCblVGMUdqd3l6QU9lV0g2RDlEVjdoZm5tUE5QUER6WU0?oc=5",
+          "spectrum": {
+            "emotion": 2.595957562111217,
+            "subject": 90.86682460664136,
+            "movement": 78.8533567680877,
+            "clickbait": 10.498056259354591,
+            "availability": 2.67017222097186
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1333293,
+        "title": "Liverpool Release Diogo Jota Biography To Fund Grassroots Football Programme",
+        "context": "Liverpool Release Diogo Jota Biography To Fund Grassroots Football Programme",
+        "source": "TVC News",
+        "published_at_epoch": 1792674840,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxPVUpXa0x6V0xwc3dQOTNIZGhHaE1pNllZdWhUYTgtYWMtZ29zTkUxTU1aSDVjT0Z1UFdJS1FydnQtbDRMNmpzVFNyWkdtZXpCOVF2Y3JxYmZyeDdYa21ORlpha2h1R05GZ2FUaThLYXVCLXZYSU9aXzQ3QnFoazJLeXhGUm5Ub0FfX3JDYXh2QXB0NUFleFpoODh2LTFGWXAxMHc?oc=5",
+          "spectrum": {
+            "emotion": 1.7315812740751297,
+            "subject": 93.79418570680473,
+            "movement": 4.724705180569983,
+            "clickbait": 5.621792463208393,
+            "availability": 2.186161969644453
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1294430,
+        "title": "Diogo Jota biography released by Liverpool – with proceeds to fitting cause",
+        "context": "Diogo Jota biography released by Liverpool – with proceeds to fitting cause",
+        "source": "This Is Anfield",
+        "published_at_epoch": 1792671129,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxPVkhaR0VYX0dudF9ZYU9BWXNxVW8zVFFGRV8xR2tMLXZXYlF0SjFaV3A1Qnp6YjhZb0F5ZE9rVFZRajZqUzlrUjQ1WHMtVVU2UkRiNkw4UDhPcWplYU00X3Q1ZGs0SC1GRVBDU1F2bE10d1RZYVYtUlF5S2RLQU9HT2syVlFQNFg3MzBRQUlfNHJIRF9vRFlvbjZn?oc=5",
+          "spectrum": {
+            "emotion": 1.6506039096393161,
+            "subject": 88.60111261173044,
+            "movement": 6.440502183315644,
+            "clickbait": 5.141483697247491,
+            "availability": 2.181944585207197
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1284754,
+        "title": "Saturday: Live U18s football - watch Manchester United v Liverpool",
+        "context": "Saturday: Live U18s football - watch Manchester United v Liverpool",
+        "source": "Liverpool FC",
+        "published_at_epoch": 1792670088,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxQQlNDU1VVZWpsbklnWEpYdUVUOWRGUFFvOEZXTHM0bUIwSjdocnZnYUgyZ1hJeWtwc3ZKbVlWY3VGaW5fR3JaOTVkcEJQREppdUJOUUFYMy1RUnNoaUV2YVlfbktTdy02Qm5ad3dPTEtweWljT0lfcnZjR1JoRHNib2FDQllodHlZSWJKSGt3QlFrUXIzMWNnLWZ1ZjE?oc=5",
+          "spectrum": {
+            "emotion": 2.180687024634654,
+            "subject": 81.15512043952657,
+            "movement": 4.779647024810808,
+            "clickbait": 6.335253382298105,
+            "availability": 3.2033571803247223
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1145850,
+        "title": "Liverpool player ratings vs Villarreal: Mac Allister and Rio Ngumoha star in 4-3 epic",
+        "context": "Liverpool player ratings vs Villarreal: Mac Allister and Rio Ngumoha star in 4-3 epic",
+        "source": "OneFootball",
+        "published_at_epoch": 1792669613,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxPaEkxUFdobEVkVHVwSXNyb2lnU0dLUUxuc1N3N2RsWlFfRVE4T1Y3NU1Ma0kxblg5MVloLUYzMjN0TTJLTDlCM0dudndqaWxlLVp5dUJUY05sUFNUejZ1N3dqSGFGTzNFZzZfczJ2T2prRWhOdWZkTXEyZU1YaDNxSWZvdmRKOERidnhmb2xUdDBvRVZ0RnBzaDBFd2pocV9tdVR0a2JCUVJmSHhuQWQ4enNQR2tMNVVlWHExdkJtY0dQNkk?oc=5",
+          "spectrum": {
+            "emotion": 2.2110649426422437,
+            "subject": 87.64019241013187,
+            "movement": 3.3670770848434897,
+            "clickbait": 18.12592439717464,
+            "availability": 4.271010842779059
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1294471,
+        "title": "Liverpool in three-horse race with Champions League winners for €50m sensation",
+        "context": "Liverpool in three-horse race with Champions League winners for €50m sensation",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792669200,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxPYmlPdU5lVG9TX2RZbkZ2RzRCSjNCdkFmaWlLd3B6SldQakJWUy10NnlGVEljNWtyOF83NGVOTG5tZHpCUlVfbHBfN2thbFdZWWFvLVdieEtMWFVUcFdxVnBZdUI0WkRUVEtmNzcwbjBnSFZUUW9xNWxyT2tPbzk1aXhhOWtCWVp3Wkp6RnVB?oc=5",
+          "spectrum": {
+            "emotion": 1.644360997545629,
+            "subject": 93.34462167551186,
+            "movement": 58.340131468984346,
+            "clickbait": 31.065925466110066,
+            "availability": 2.1267174207672666
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1284797,
+        "title": "Liverpool release Diogo Jota biography 'Forever in our Hearts' with profits funding grassroots programme",
+        "context": "Liverpool release Diogo Jota biography 'Forever in our Hearts' with profits funding grassroots programme",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792668900,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxOcDFlb0NXYnpmYlNvR3dtRFJ3djRET0lCYXdrM2ZZekkzbkY1TjgyV0xWTVZ3M082NzFobzc3cWRuY3VTYVpUU0IwSklHUElIQUt0MlNwLURJQzBuWVZINXhHUE9mWWNOT0Vxd05FaUlaMS1uVFFBZlBYM1JORnZjM0hic0hQVExuUjkyOVZsNHk?oc=5",
+          "spectrum": {
+            "emotion": 3.292781843908066,
+            "subject": 93.56673468937758,
+            "movement": 3.5621371392584438,
+            "clickbait": 4.904852064668083,
+            "availability": 1.8793520364012817
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1307469,
+        "title": "Liverpool's Diogo Jota biography draws on 90+ voices, including Klopp, with profits going to a programme in his name",
+        "context": "Liverpool's Diogo Jota biography draws on 90+ voices, including Klopp, with profits going to a programme in his name",
+        "source": "https://www.footballmuse.com/",
+        "published_at_epoch": 1792668720,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi0gFBVV95cUxPSlVld3paclZPX18tcjU0VzdjTktKWkJaVkhUY3BqMlVHcEdxTl9HTzh4QXg1d3l6UVMwN1VCRGotaFhaYmNoYXNtNWRwRFZjM0pzWVluLW9Xa2JMY3cxMHJLc3dNaXV6MFBYWFkwT1VNVE92LXRyTGp6XzI0ZHN0QmdvLTBLcHBMRm9UNW8wOUJFNlZkRm14UUhET2g4azh1NzltMmhGOENZYldjX2I5SWRZRVhMUDJMU1A5aWxFendUdnlRcEFIejFVaWJqVEcyakE?oc=5",
+          "spectrum": {
+            "emotion": 1.7765972408688837,
+            "subject": 93.23313923661036,
+            "movement": 2.9012582983272632,
+            "clickbait": 5.5649778821928315,
+            "availability": 1.964846286065803
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1346484,
+        "title": "Liverpool 4-3 Villarreal: Watch Champions League highlights",
+        "context": "Liverpool 4-3 Villarreal: Watch Champions League highlights",
+        "source": "BBC",
+        "published_at_epoch": 1792667318,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMia0FVX3lxTE1WNjdvRmhkbWc4Y005NThVYmFlVXFZa2hxQXJ3aUl2Mkw2NXdnNzNvd21BR2l0X0FfeTBlLXloQXJHYW9ybTVDMmxiZjU0SGlKNV9vc1E1dVZBRTUteExVSU9xV1BnNFJxdDNR?oc=5",
+          "spectrum": {
+            "emotion": 2.039071551962507,
+            "subject": 92.88386352569572,
+            "movement": 2.830847322344688,
+            "clickbait": 6.515437817938233,
+            "availability": 2.3872968317353895
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1284794,
+        "title": "Jeremie Frimpong’s sad struggle with injury and frustrating time at Liverpool",
+        "context": "Jeremie Frimpong’s sad struggle with injury and frustrating time at Liverpool",
+        "source": "The New York Times",
+        "published_at_epoch": 1792666825,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxNVWIxYUpOVVE4d1hMUWxXMmktYkYtZkpQU1lzbzdsOTFtLUdHM3EyNV9MZVZ5aXlybG1Uc3NlQV9ERHFEdDRnUnBkYy1ka2t0c3FhcXVIdXdXSVVyRlN4Qkg5bng0bTRub0NNQjRweGI2bjU5ODVHbkFmWHRhd0JkaUVNaWowY1FoZlVqWmhfNW9HdC05SElhYXlQRQ?oc=5",
+          "spectrum": {
+            "emotion": 71.07616388344749,
+            "subject": 89.36851171534845,
+            "movement": 4.129008571908304,
+            "clickbait": 18.93579585358127,
+            "availability": 90.32035306876503
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1278487,
+        "title": "Atletico De Madrid (SPARTAN) v Liverpool (ZT) Odds",
+        "context": "Atletico De Madrid (SPARTAN) v Liverpool (ZT) Odds",
+        "source": "FanDuel Sportsbook",
+        "published_at_epoch": 1792666348,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMivwFBVV95cUxQRVMtbHhpZXBVcDVibXdrRk9jWXY1OFlxZUFUbHhwSERYOG04RFljcldXYlhmS1lSZ3RfRnVRN2RFN1hWNm03STA0ZTVwS2gtdTZJR1JOd0tVamVCX25vUV9yLXJmRmxMeDVJWnR0OEoxNjhzWkVGX3lTVVg5OUYyMWoxcnNuelVvMmo4SFU2TFNjT3BFQm1aZFhEWHc2OUxNN0FFYUpZS21Kb3J6M3EyZDRlZkJuNHV4Mmdud0I1SQ?oc=5",
+          "spectrum": {
+            "emotion": 1.5312162679092625,
+            "subject": 93.61116075655076,
+            "movement": 4.53629041782963,
+            "clickbait": 4.41198118944035,
+            "availability": 2.711831017986864
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1336504,
+        "title": "How Andoni Iraola changed game before half-time to help Liverpool beat Villarreal",
+        "context": "How Andoni Iraola changed game before half-time to help Liverpool beat Villarreal",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792665916,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxNU2gxaXgtaWxOcjFtaWRsRUE0cmRJS0kzUkdkNXhZVVhhQTFyd0xkLVZMeW8tUWNHbzAxcXFhbE84bzN2VjcxdnhRbVZkVzF1RXlPRWpqRElrZ285VzZpSE5LaG1pSzJ5S2pYN0VQVXZINWZUUG5sdDhCRXFvcW1RSkl6M1VyYUNzYzJYOXQyQmtPbURMRks5bWYxTHNobWZuN0E?oc=5",
+          "spectrum": {
+            "emotion": 2.3074941702555454,
+            "subject": 88.47979217565751,
+            "movement": 65.04824417846844,
+            "availability": 22.233815120362124
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1275179,
+        "title": "Trey Nyoni Lifts Lid on Full European Debut as Liverpool Deliver Classic Anfield Comeback",
+        "context": "Trey Nyoni Lifts Lid on Full European Debut as Liverpool Deliver Classic Anfield Comeback",
+        "source": "Read Liverpool",
+        "published_at_epoch": 1792665000,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxQUTF4eFhzc3NsX19HZzJ0TWZBT25DVms5TllQT092LThfZTNvYVVpS0VNNFZSMjlCUnlScWtwWHh0eG1zNWJydk5fOW84RzNvNGl6T1BzQ2RFSTRySnN6M09fVHZ6ZHBoQkp6U1RXYklfVWJmN2Y0VUpMdXlfcE92YlUxYkN0VmVUWXdRVGZTdmV4NGZqMG4wLQ?oc=5",
+          "spectrum": {
+            "emotion": 3.1537923426585914,
+            "subject": 90.15573223747923,
+            "movement": 4.245109787212991,
+            "clickbait": 9.565624909576652,
+            "availability": 4.969673592103625
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1304178,
+        "title": "'Wow' - Jeremy Jacquet's Liverpool impact clear as Reds wait on Virgil van Dijk decision",
+        "context": "'Wow' - Jeremy Jacquet's Liverpool impact clear as Reds wait on Virgil van Dijk decision",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792664640,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxOSzNXckpvcDZIWXFzbFdvVGVCTkdxcEdYYURwT0lwRW9SS0p4RHI0MEJlNUQ2RUV3NzNLelYzaU9JSFRmb1o2S3VfNGhVd3pIUkRuSFdZQjRLY1R2UmRrd2dBbGNEMU0tVElNc1lZYjNBN2J5eVA1NGtyYm1FTEROdjJvX21mNzdSSWJfRUdCODMxS1hKN28wVmptZk1FbnV5N1p0XzRjVWJJNXNPWVRz0gGvAUFVX3lxTE5LM1dySm9wNkhZcXNsV29UZUJOR3FwR1hhRHBPSXBFb1JLSnhEcjQwQmU1RDZFRXc3M0t6VjNpT0lIVGZvWjZLdV80aFV3ekhSRG5IV1lCNEtjVHZSZGt3Z0FsY0QxTS1USU1zWVliM0E3Ynl5UDU0a3JibUVMRE52Mm9fbWY3N1JJYl9FR0I4MzFLWEo3bzBWam1mTUVudXk3WnRfNGNVYkk1c09ZVHM?oc=5",
+          "spectrum": {
+            "emotion": 59.17776126696281,
+            "subject": 93.67313939638031,
+            "movement": 12.551856729153563,
+            "clickbait": 26.62488321176394,
+            "availability": 86.68278279381539
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1423862,
+        "title": "Liverpool striker scores first-ever club goal: “I needed to show people”",
+        "context": "Liverpool striker scores first-ever club goal: “I needed to show people”",
+        "source": "This Is Anfield",
+        "published_at_epoch": 1792663972,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxNN1c0U0ZyWGpJQ3hReU94dnhkNlVpZFpLQUgxNDRIcXphRm52UW1meXlsU1haUHM3d001WktFbTJJMUpLS3Y2OGdqeGczNzRZTHFBQU1GQ3UtbTJvWVNfZzU4dUxxVmdwTWRBRFBic3gxQ0hjUTRLeHFhMTZBX1NLLUlfNWRSLU1FNGl2TEZKZWlGS3F0UFZHWEpXbnRWcHRGSWc?oc=5",
+          "spectrum": {
+            "emotion": 4.140621400634513,
+            "subject": 94.32004060757056,
+            "movement": 3.0032644018329826,
+            "availability": 7.0940427790834715
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1275212,
+        "title": "Diogo Jota's wife recalls harrowing moment she found out Liverpool star had died",
+        "context": "Diogo Jota's wife recalls harrowing moment she found out Liverpool star had died",
+        "source": "Daily Mirror",
+        "published_at_epoch": 1792662420,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPR0FMSkNxRHN0SkxyUy1KejM1U2lnRUZuZWdubXZIRzh1bWxjTEZOODdZSDFudmxSUFk0NDNXU2hQajQ3Wk56TGtrSXliOFp1RDhBSUdNejJTSHA0dnFhRXNCTDdEbkVIMkVHbjRXWnR2NE9iOE5Pa0M4NHBNVjA1anhwUGNaMkhwSW1QeQ?oc=5",
+          "spectrum": {
+            "emotion": 66.63114878395294,
+            "subject": 85.72880681600655,
+            "movement": 3.473683174656129,
+            "clickbait": 20.92370008934488,
+            "availability": 2.0738653722140907
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1266252,
+        "title": "Liverpool unmoved on Mac Allister contract stance",
+        "context": "Liverpool unmoved on Mac Allister contract stance",
+        "source": "TribalFootball",
+        "published_at_epoch": 1792662190,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi4AFBVV95cUxOQ0JzR1JWdXJYMzY1YUNwZXRsbktIUkg5Yzl1NnMzZl9MY2pZWFBZem9xMk8zdGtFREVISU5qc2ZXRFZ6OWN5WU1DM2lUWEJWX1dNbl9qd184VFN1ZlRqcUNhRWkyNU5pcUtnOGZHLWNQVjRJMzdZX0lNelFZYzdmWGpKbjdKekNqX3VFMlpZd2pxQUN5N3RKSTdlWms4RkZQdkhnaHdBMHZMUGVDdUhweXRFd0pEaUxrSE1laDhhLVBha2hOcXk3TEM5ZVVFZW5nd2xCc210SmYwSHpJVzlSWQ?oc=5",
+          "spectrum": {
+            "emotion": 2.4619499406489425,
+            "subject": 95.75062391537874,
+            "movement": 51.71136736726303,
+            "availability": 60.06615188849768
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1285899,
+        "title": "Premier League Soccer Picks and Betting Odds: Predictions for Liverpool, Arsenal and Manchester City matches",
+        "context": "Premier League Soccer Picks and Betting Odds: Predictions for Liverpool, Arsenal and Manchester City matches",
+        "source": "Sports Interaction",
+        "published_at_epoch": 1792660775,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwJBVV95cUxPenBHckFLYVk3VW5jQkt5eDN4N2ZJd0NWOFdzOFdQSTFVa3JUcXR3WnBqZGxXMk0wYkZRRmFzZjdHUXgtUVBMT29WeW9Fd0dOS05uaTRHMWVyODJ6VzU3T0pfbTR1RzBBS05USTU5ZjQxa1h0Y0R0RlpENXl6cUxGN0t3N293RU9Sc2xCbFpUVThzSkp5dHdiSUpLWkVKVHZDQmNUVG0yUmxjeVFIREgtT0dtS3czbHc2b3pjZTBDZWxMS0wtdGFoUkN6QkVRVDVPSXNIa3lxMUFoazhZTHlPRktmdVUwQkpoNkdKbW1ydmp0V0oyLTNNZjFrSWw2UU5vMFN3dUdKSQ?oc=5",
+          "spectrum": {
+            "emotion": 1.6182931307809825,
+            "subject": 92.04385373020256,
+            "movement": 5.234200553559125,
+            "clickbait": 6.458039881976088,
+            "availability": 3.213942723340857
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 997524,
+        "title": "Why is Liverpool vs Villarreal not on TNT Sports?",
+        "context": "Why is Liverpool vs Villarreal not on TNT Sports?",
+        "source": "London Evening Standard",
+        "published_at_epoch": 1792659658,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxPVlhsTVE2RXR2RGtSQkl1YTJXdGJrSjNLd2c2OFpoV2Y5SnBLY1U0TXluQ2NOejVSYlhfbWdNUzliWFc5NnQwaGZRTmtPek1GSFo3ejRYT2hNQWpLSklOMnUwYjZoSTNlc2R2ZDg4VGVMbzc2aWpkRERpTGhWdTdsRm5oZXVXQVJKN2lPTkhMTF9pRDY0UGQ4aTZRdTFWcThvSW92T2QyRQ?oc=5",
+          "spectrum": {
+            "emotion": 1.8450914329513008,
+            "subject": 93.51717769423527,
+            "movement": 3.5002961767921654,
+            "clickbait": 8.679565645825198,
+            "availability": 2.3305226990262673
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1268164,
+        "title": "Jarell Quansah tight-lipped about future amid Liverpool, Arsenal and Real Madrid interest",
+        "context": "Jarell Quansah tight-lipped about future amid Liverpool, Arsenal and Real Madrid interest",
+        "source": "Get German Football News",
+        "published_at_epoch": 1792657766,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxQc0NuRTdVYmJ3QU9CeDNFYVI2T3N3R1pkZkFicDh1WU5oUmV2eDdqYjY1QnhfTm1GbzdRRjlGcHZNY2M5NkM0dHdjNktpMld5Mm1kUjNicXdBNWhQUjJzVDI1RVh2bndRNkNLWkJ5RWpxZ0w5NWdWUTNXek05OVRCZGdsWC1hd1J3TzFxUWRqYklrTXBHeUhfSWEwcWd1NHdUMzhtMl85ZGZMdkZqeHJlWU9BZw?oc=5",
+          "spectrum": {
+            "emotion": 1.9280332419961945,
+            "subject": 94.15046502800516,
+            "movement": 65.26734879392986,
+            "clickbait": 29.44419688703676,
+            "availability": 2.255091060950989
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1265865,
+        "title": "Jarell Quansah tight-lipped about future amid Liverpool, Arsenal and Real Madrid interest",
+        "context": "Jarell Quansah tight-lipped about future amid Liverpool, Arsenal and Real Madrid interest",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792657740,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxOUEtpcHg5eHdmRWdYTl9STENVbUwyWXBDUE5pWk84Znp2Vjc2d1EzdTZQMHJjd3hCMnhRejBJMkZhc29hd3FEMnlTMDVuOU1QQ0dBcXoyV3lkYUVqZjN1a3Vyd0FNbHkxS2JBOG9na1JqdHJvTFJwZFg5alNOTG9yQjRoNzZ3S1Y5WFB3?oc=5",
+          "spectrum": {
+            "emotion": 1.929743480133762,
+            "subject": 93.90748178881316,
+            "movement": 58.266358857688495,
+            "clickbait": 29.20152964119084,
+            "availability": 2.272253213763698
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1334011,
+        "title": "Chelsea, Liverpool could offer over €60 million to sign Manu Kone",
+        "context": "Chelsea, Liverpool could offer over €60 million to sign Manu Kone",
+        "source": "TheHardTackle.com",
+        "published_at_epoch": 1792655866,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxPVFM1Y29NaDIxNVBRcWdHQm43WWVmb2RuVER0cjRKZVhhYTA4RHZBR0oyTGpEQzhlYVBMWFhFWGpONU9QNFB1b1hSeGVUX1p4cGFYSWdiamx2XzJ2RGhzeDV0WWhob1EzdUFpZFBYU3NPQlVMeEFyd2thdVFkNDdZeVQzTTgyOERDVndLWjlHb1BIclFxMlU4bkt3MkJhdk93YUlvaFNHY1FnMzU5X2VzSEd1cXVVckHSAbwBQVVfeXFMTkZtSUY1RE9TYzl0MHdkTjNwTlRDVmxjcVRUVkxNZ0NabnZUMERvN0FOc1hkUTBqc1JfU0tLOVBQWnoxTDMwcVBHcE1Eemd0S3pJdUZ6ZG93c25XZzhhMTBERVMyTGJiWFRwLVd0THphelRpSExoRHMyR08wOXptZDFzMnMyc0wxTjJfN1V0QlcydFVRdG14em0tdHQwM3M0ZDg2MGl2TGcweUhBa0MweTJXZlB3bnZFaFJBYXc?oc=5",
+          "spectrum": {
+            "emotion": 1.584205997144561,
+            "subject": 94.8949705159842,
+            "movement": 95.173004060788,
+            "clickbait": 16.704795074599684,
+            "availability": 2.152693037211226
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1287730,
+        "title": "Quansah coy on Leverkusen future amid Liverpool, Arsenal and Real Madrid links",
+        "context": "Quansah coy on Leverkusen future amid Liverpool, Arsenal and Real Madrid links",
+        "source": "Bulinews",
+        "published_at_epoch": 1792655820,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxPTXBWRU5jSlJNdUZjUWtwbUJka01MRngyTkYtWlhyaEtHY3YyVnN0SWg2UklYSTc4QkN0SnRNMVFpY0ZENEVMRml6MFExSUFnTlRUeVV3V3pSZ0ZYTVNsMnNwaGMtdzMzMXZicDVUcDJXRE1NRFlwN1JsX2N4UTdWOHhFYWtYTnB6T1pRaVRlR1lwS0I5c3dmLXNIZw?oc=5",
+          "spectrum": {
+            "emotion": 2.97158466828381,
+            "subject": 73.94136019415227,
+            "movement": 57.01191235104564,
+            "availability": 23.019667569004394
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1266637,
+        "title": "Liverpool vs Brighton: Where to watch, live stream, TV channel and kick-off time",
+        "context": "Liverpool vs Brighton: Where to watch, live stream, TV channel and kick-off time",
+        "source": "Goal.com",
+        "published_at_epoch": 1792654372,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxQWEx5QkpINXFaZGhtWWhBZzNQYkRNTjE2bVpaMUFmWmdFOVBvdUg2ZHh6QUtRVTJBZ0NZMjk2LWgtRmhPdlgtcXU3UndwaFFqLVRVZzNNQmFFazNxYXM5NTZlVmJ1V2tGbURoOTlzbGtCQTdJaWR1UlZuNmVsLUlEX3I2b0Nvd2VLSlhmOGNpdnZmNWlpVEViY1ZCOWtSWnk4ZUJfXw?oc=5",
+          "spectrum": {
+            "emotion": 1.467942660588738,
+            "subject": 91.93671014162408,
+            "movement": 3.5188011877482834,
+            "clickbait": 4.203293424453823,
+            "availability": 2.3212152943059507
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1295104,
+        "title": "€60m+ bid incoming, Liverpool refuse to give up on France star",
+        "context": "€60m+ bid incoming, Liverpool refuse to give up on France star",
+        "source": "LiveScore",
+        "published_at_epoch": 1792647592,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiywFBVV95cUxPajlJbHh1WFBjcEV3Y1VTZ3hzaXJUN0NxbTlxTXRMVlA3dlZOWjNVbDdiTXY1VDlDbkYzWkdUTlRFc2lxN3VFNFhXaUFuMGxBRTZFT0NxN3U1S1B2Tk9MN2MyZzFqa3RnOWNrbk9rMFRyZGZ0eGNkV2FPRkxyOHAzeDJaQXAxZzBQcGpWMUVMU1VwMUw2NlpTN3JUWVAyREt4d291dHBkVjVVeXNoWERuVTA3WDlHZ3ltMmV3TGdybGRrZ1AxRk5xU3ViZw?oc=5",
+          "spectrum": {
+            "emotion": 3.330745626174709,
+            "subject": 94.67584227924748,
+            "movement": 94.42579315085233,
+            "clickbait": 10.567380165311764,
+            "availability": 2.487068086901639
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1198006,
+        "title": "Liverpool injury update: Szoboszlai, Frimpong, Munoz return dates",
+        "context": "Liverpool injury update: Szoboszlai, Frimpong, Munoz return dates",
+        "source": "London Evening Standard",
+        "published_at_epoch": 1792645349,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxOeUU4b1FvVXBqYnI4TV9jT21zX1lQZVIxNldvZlVfMEM1VnVNamNXT1V0Z3Y2X3Y5UE5LRURkbmZCN0JLR3JSY1FBNnNXYUZSbk84M2pkWWtCRC00dE9QdW5QWjZ1Y0FzWm53MEtEOC1QUGhYX05PZUNpbld6OHdOenQ2c2sxbWZuN2RPNWh0cVJqdjdISTNDM01JaDY5dWs1anZGSWVJS3oyckxUWk9rbi1ObGFQNlVuZ0FFaF9xTC1OM0VJNkotN1F2X2d0QQ?oc=5",
+          "spectrum": {
+            "emotion": 1.5044678206342799,
+            "subject": 95.97852537458544,
+            "movement": 2.7026775101255973,
+            "availability": 96.17919479473082
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": true,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1265486,
+        "title": "Liverpool latest: Alexis Mac Allister's damning comment as Gilberto Mora links addressed",
+        "context": "Liverpool latest: Alexis Mac Allister's damning comment as Gilberto Mora links addressed",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792645200,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxQUE1iQkcxWmJmMW5QN09lRno3b0s5MHpUV2twZHAxNmt6a1hjaG9pS3VLbWxObHZmWW5qR29Pei1yem12eFdMZkszUTB0TEhGSXlNLUdsMjk3RUxVNGRqVFkxaFl4WmVkX2dOb0psWVBXMXdpT1dzX1g1Q1ZUc1d3Rk40ZHpOVXAxekxGd3gwS01aRjc1QnZJUjNOd01Rd2FGQUtXNlBtbjBXbW9yV0HSAa4BQVVfeXFMUFBNYkJHMVpiZjFuUDdPZUZ6N29LOTB6VFdrcGRwMTZremtYY2hvaUt1S21sTmx2ZlluakdvT3otcnptdnhXTGZLM1EwdExIRkl5TS1HbDI5N0VMVTRkalRZMWhZeFplZF9nTm9KbFlQVzF3aU9Xc19YNUNWVHNXd0ZONGR6TlVwMXpMRnd4MEtNWkY3NUJ2SVIzTndNUXdhRkFLVzZQbW4wV21vcldB?oc=5",
+          "spectrum": {
+            "emotion": 22.92186303406779,
+            "subject": 92.7213986915328,
+            "movement": 8.938021346493741,
+            "clickbait": 17.19153701931638,
+            "availability": 3.713490914316407
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1208657,
+        "title": "Watch Liverpool vs Brighton & Hove Albion",
+        "context": "Watch Liverpool vs Brighton & Hove Albion",
+        "source": "TOD",
+        "published_at_epoch": 1792644948,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOZVdGQm1FNkxNQlk5NDl1OU93SkJ1M2dhVmdJLXU5TE5Oa3BPU211QXBNckVkc0RFdEZGOEJVZGVULXFpVGxUbW1RcU1vSERTdEozeUl1eVFrY0RQLUd3bkM2RzJ4M0xBaUprNjJLT1dSVERqQTFFME1MOHNQSXdLdVRXYng1UU53bE1ERUxzNWh0a0JNcnYxUE05aE9pRzBuU01JNnVZWGV3bVdZSUE?oc=5",
+          "spectrum": {
+            "emotion": 1.8375451543952117,
+            "subject": 92.48527658528168,
+            "movement": 4.715852438976414,
+            "clickbait": 5.271211614130495,
+            "availability": 2.9610987469798027
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1117182,
+        "title": "Liverpool 4-3 Villarreal: Rio Ngumoha stars and Florian Wirtz scores as Reds come from two down to win in Europe",
+        "context": "Liverpool 4-3 Villarreal: Rio Ngumoha stars and Florian Wirtz scores as Reds come from two down to win in Europe",
+        "source": "Sky Sports",
+        "published_at_epoch": 1792641861,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi8gFBVV95cUxPUGxUcDF5LWxSbG9MbC0wVk9UZHNSY1VzTFN3UFBoa0ZHY1RyTGxtazFVVnR0azlESGtoNmcwdF96TUl2TmlSTmw5MnhKdW1HUnNkR3BoNVVGM1RsdWNrSk1TWDJNU0ltdlBOVlZWNko5djNZU1BZdTFzTzRyRERZMnlYTThsV2V2dGk4MTVJcExGZGgwWXRBZEt0Z044RGdlaXBkcXcwZWhPd19NeXRlUDFBOFBZNjdzeG1VT3c3eGVUSExXclJzM3R4a2RXbUNFZ1h1aW94V1BGeEdsQlJZTFJZRnp5dHBJMlNTSG0yWS1JZw?oc=5",
+          "spectrum": {
+            "emotion": 2.7605396548197643,
+            "subject": 91.60785323268536,
+            "movement": 2.719540826497312,
+            "clickbait": 7.6231139961124805,
+            "availability": 3.3668040337389593
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1268854,
+        "title": "Atletico De Madrid (GRIMACE) v Liverpool (ENT) Odds",
+        "context": "Atletico De Madrid (GRIMACE) v Liverpool (ENT) Odds",
+        "source": "FanDuel Sportsbook",
+        "published_at_epoch": 1792641768,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiwAFBVV95cUxOYUxYbVY1OG4wMk52cDBkcFhybGM3N3N5aVlDcFpOcklkeFZXTWFUWUVxYkxNTDY3ck1wdGR0ZlBSbXFuTEtKRDc2a3dCMVNEcmdnVGtsSkE3WldBMzJ3anhJMnBpRVVQdHdXem1VTHp4dGtyYkRNRDF2dEx6YzFxcDNkeGJRT3djWXVpZzJjUzduYktzdVhuOHJPRy1GNFdYNkxHbmNEY1hTOEc1LW4xNG9hWHA4VzJUZHVFTDVoMk8?oc=5",
+          "spectrum": {
+            "emotion": 1.610307835657557,
+            "subject": 93.69905513202525,
+            "movement": 4.589288767391729,
+            "clickbait": 14.639254205040983,
+            "availability": 3.1808065750767582
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1265502,
+        "title": "Liverpool told Jeremy Jacquet 'could become best Premier League centre-back in history'",
+        "context": "Liverpool told Jeremy Jacquet 'could become best Premier League centre-back in history'",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792641600,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxNTHN3MWVycFRlOGptSWZWSmJaYXRtUGNyeEJLVGNXQkRIQXNSUjFxNFYxa19hYTZQc0hMRE1wQUtndW9LMHdGNXUwb200d28yd0s4TkFyV2U2cnFDbF9EYzBoUWhwcVFuN2ZoYWRLTzBwNFhYM3hSZ3YwUUl6bEg0cXRnOEFoZU9YWlVIN21ZUTE5cGFHdnBUXzZEV3c1aW9ZVnVPT0hJR1d1ZXlnV2NHRC1TTdIBswFBVV95cUxNTHN3MWVycFRlOGptSWZWSmJaYXRtUGNyeEJLVGNXQkRIQXNSUjFxNFYxa19hYTZQc0hMRE1wQUtndW9LMHdGNXUwb200d28yd0s4TkFyV2U2cnFDbF9EYzBoUWhwcVFuN2ZoYWRLTzBwNFhYM3hSZ3YwUUl6bEg0cXRnOEFoZU9YWlVIN21ZUTE5cGFHdnBUXzZEV3c1aW9ZVnVPT0hJR1d1ZXlnV2NHRC1TTQ?oc=5",
+          "spectrum": {
+            "emotion": 3.534388296563646,
+            "subject": 93.95904581609517,
+            "movement": 19.22441808997925,
+            "clickbait": 18.925170192023785,
+            "availability": 2.9179453640118567
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1265506,
+        "title": "Liverpool given Premier League title hope but warned defeat could lead to 'doing a Leicester'",
+        "context": "Liverpool given Premier League title hope but warned defeat could lead to 'doing a Leicester'",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792641600,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxNbUJ1SzB5VzJvdS16RWdKV29HRWZ1X20yU3M3MDlOdnJPdW1CMExUZ2pFSTNXZHF0aHJTU3R4eENHVGVrZUhoMnVVWGdzMXNualhkVm1vOE9xMnhVbGZvZ0R6UXV3ZEJDRHRldl9tdTFpYWNXWEZ6ZG9BZHNPZFVVaElDQVdOdWZDRDNqZWlpX3YwMzlMakpZVmY5bjI4eHZNNGxKV2VTWUpOdjBDcTM00gGvAUFVX3lxTE1tQnVLMHlXMm91LXpFZ0pXb0dFZnVfbTJTczcwOU52ck91bUIwTFRnakVJM1dkcXRoclNTdHh4Q0dUZWtlSGgydVVYZ3Mxc25qWGRWbW84T3EyeFVsZm9nRHpRdXdkQkNEdGV2X211MWlhY1dYRnpkb0Fkc09kVVVoSUNBV051ZkNEM2plaWlfdjAzOUxqSllWZjluMjh4dk00bEpXZVNZSk52MENxMzQ?oc=5",
+          "spectrum": {
+            "emotion": 49.653678710454315,
+            "subject": 94.21094854190886,
+            "movement": 4.108437953974154,
+            "clickbait": 15.315047582065548,
+            "availability": 1.7658287945867794
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1265488,
+        "title": "Liverpool news: Andoni Iraola offers £38m transfer hope as damning Arne Slot comments made",
+        "context": "Liverpool news: Andoni Iraola offers £38m transfer hope as damning Arne Slot comments made",
+        "source": "Daily Mirror",
+        "published_at_epoch": 1792641600,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxNV1VQT1VRM3pZT0hzbGRWM1ZSYlNGcnZRSlkxaU1HaHo3cWRkeUVsR1R0ejVzVTFBa2lUdHZDSkdILU1yNGd6RkVORUVMckRRSVRlanU0TVdVeEY2WnQ5OTB3SUlLN1FuaVBvaEhncmVXU1B6RkhMZ0VEVU1kY2xVMzBjSEI4dEV6Z1ExNktEY2NsNzU2NFHSAZYBQVVfeXFMTVdVUE9VUTN6WU9Ic2xkVjNWUmJTRnJ2UUpZMWlNR2h6N3FkZHlFbEdUdHo1c1UxQWtpVHR2Q0pHSC1NcjRnekZFTkVFTHJEUUlUZWp1NE1XVXhGNlp0OTkwd0lJSzdRbmlQb2hIZ3JlV1NQekZITGdFRFVNZGNsVTMwY0hCOHRFemdRMTZLRGNjbDc1NjRR?oc=5",
+          "spectrum": {
+            "emotion": 23.89828393703339,
+            "subject": 96.0882368094336,
+            "movement": 90.0267391143024,
+            "clickbait": 22.421863933864298,
+            "availability": 2.206907626125515
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1268580,
+        "title": "This is how Liverpool beat Villarreal in the Champions League",
+        "context": "This is how Liverpool beat Villarreal in the Champions League",
+        "source": "Flashscore.com",
+        "published_at_epoch": 1792632131,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxPbG9ZSzBDSHV4Mi1tNklQUnUyM3NzeVlHQS1oVDVOVXZGOWNzRDFvMjhKLUdZQ0ZBN0NCZ0VTMGo1bE00eDczUjExWGF4YlRPbzVZaHFyaC1sNTM1WjZCaTFGdXVCX3R2bTZwTm9QSkJkU19EUTZWakhUZ1p0V185ei1tVFpQRkluRXdpNjVqcmlBMFQ4WGtnZ21sZ3FSQ2F6TWlkblloR1kydkRZT1FtQVVOZ2YtV1MtdXdmVTZyQkktRWRlVzFuUTE4ZDZUTU1RdS1yQ0RGaGlPQ054Q2Vhc0pKdXoxUQ?oc=5",
+          "spectrum": {
+            "emotion": 2.3802709709220404,
+            "subject": 92.75719257189284,
+            "movement": 4.086260706948029,
+            "clickbait": 8.252792575599976,
+            "availability": 2.2871162670827103
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1162542,
+        "title": "Arsenal fans take Liverpool title as the worst in Premier League",
+        "context": "Arsenal fans take Liverpool title as the worst in Premier League",
+        "source": "Football365",
+        "published_at_epoch": 1792630049,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxOQ21HeWlRbDF6cmlQczQxVUpReGE1VFozMDN6MXc2OWQ4REE4R2Q3bkxRTXQ3dTFFNU5JRnFEN3Zxa05MZ2JsZ0FTTjc1cE1yOHdxUElweFlWQXFvVTFKM0s1X0ZnUEFGaEFpZ0t1Vk1OQUJsRkhsQnVaTGw2NXR2T2swZUNveDcwbzVMb0dRc3NqWTN2?oc=5",
+          "spectrum": {
+            "emotion": 10.675514482046857,
+            "subject": 79.9688386861712,
+            "movement": 3.934545896288589,
+            "clickbait": 28.7419626890783,
+            "availability": 2.196545684616048
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1267851,
+        "title": "PSG beats Barcelona in thriller as Liverpool completes rousing comeback",
+        "context": "PSG beats Barcelona in thriller as Liverpool completes rousing comeback",
+        "source": "macau daily times 澳門每日時報",
+        "published_at_epoch": 1792627846,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxPLWwzOXBON1pBcWtGQ2hTWkdzU29pRE9TSlZ0bGRKbGxIY2g0UVNUWUdUUFpqcXUxcE9WeWs3c2UyTXRCUUI2RXk3NUE5T1NVVnlNQml0NVREQXFYUHVwcWVYZFpodXhJR1MwT2N4UmJ0MlhOc1lrZE1FWFVycDB3YnJiZ0hYc0dJRlJCR29nSGhkNFBQR3dOMnFCWThrem52dEoyUlNMamF5OGM?oc=5",
+          "spectrum": {
+            "emotion": 11.737004540804234,
+            "subject": 78.8661394407639,
+            "movement": 6.085134587388776,
+            "clickbait": 16.91014899318394,
+            "availability": 1.8706316686935769
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1247039,
+        "title": "Football Live Scores: Liverpool vs Villarreal CF, UEFA Champions League, 2026-27 | Nine Wide World of Sports",
+        "context": "Football Live Scores: Liverpool vs Villarreal CF, UEFA Champions League, 2026-27 | Nine Wide World of Sports",
+        "source": "Nine.com.au",
+        "published_at_epoch": 1792625531,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxPTkVpRkxxbHpOOVdhbFdpd0tqRnJlN3RHZzhIbFllWnJtZmJmcjBPM01NT1pObGtOTndYMXRsMGdWbzR0WjNtUmhWRTJOS3hodzFtYVNsRmt3MEJ1dVhybElSWEkzSDdqdEkzM1F5bnh5QUpPTzNXMUhQb3M0RElMOUdOV3NzVHdTdWl2ODdXaVFWZw?oc=5",
+          "spectrum": {
+            "emotion": 1.9147664948935024,
+            "subject": 92.9383844132753,
+            "movement": 4.134402841100207,
+            "clickbait": 6.499099433646946,
+            "availability": 3.1599850772847287
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1268454,
+        "title": "Liverpool - FC Porto Live - Champions League: Football Scores & Highlights - 09/12/2026",
+        "context": "Liverpool - FC Porto Live - Champions League: Football Scores & Highlights - 09/12/2026",
+        "source": "TNT Sports",
+        "published_at_epoch": 1792620318,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxPUXFLOUd2clBxZHF4SWRvRmVsaExNNWtDcHNFVEFuVXdmbDZTbTlEMlZnelV0RFh5eWdBeHRiWFhVZWlTUWFZU0FrTzV3OHg0STh3Z3RKMHc2MUVTa3VTVlIxU0hQY0taM2RNRXR4SkxCZE16aWc4SFFGZXRzd3RZR1RyUEdETlFJRVU4Q0VpcjFlYjZJTGVOZURFVEN0XzJiTTRxWnp1QVY?oc=5",
+          "spectrum": {
+            "emotion": 1.7685968934587455,
+            "subject": 92.5199735068188,
+            "movement": 3.8169870450131573,
+            "clickbait": 5.735731143493005,
+            "availability": 2.940544695933905
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1095480,
+        "title": "Mac Allister ignites Liverpool comeback",
+        "context": "Mac Allister ignites Liverpool comeback",
+        "source": "Nine.com.au",
+        "published_at_epoch": 1792620112,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxNMVFpUVQ4MlBVcU5hYngyR3VxdVd4Vm5icjBYRGF4UGgtVnBzMkpPenhHWmdaUVdpM1d2WmhER1Z1bEFPMWFYS2dQOWpCNnlLN1RhRHkwU3pNRVBlX3J0OFgzdTU2UmdPbnhyXzZVWDZKc3VxUWhMbmhoU2EtdlBRU3FvNTI5ajVkN0RJeG1JVHJURDk3RlFBclo1NzVQeEE5OF9pUTBzZEVFOHQ3bktROA?oc=5",
+          "spectrum": {
+            "emotion": 8.39112038355261,
+            "subject": 90.05089401759436,
+            "movement": 12.015744058346185,
+            "availability": 72.13162845682564
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1265518,
+        "title": "Subway Players Cup team news: Confirmed Liverpool line-up against Manchester United",
+        "context": "Subway Players Cup team news: Confirmed Liverpool line-up against Manchester United",
+        "source": "Liverpool FC",
+        "published_at_epoch": 1792617431,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxQd1NkWXhNdGVEWm1oUDZtRXMtWS1qTFBxcF9hM1lmeFQ5UzJJS2xTVEdCTHhfd01BX0ltS2FrbF8xcWphYW5oN3IzX2w4OHN5TXN4dC0xak9xVEtmQWJGR2hJSTRoSU5XQTI1OGZkWU5EbHA5TUFPWi10MV8wdWpudjFjZzBNOGtFSmZVOWNhaEVFS1FXVFRrTmJHLUJaTVpzTEtHc2swN0VHQlBSdWphSTZqR1J2UQ?oc=5",
+          "spectrum": {
+            "emotion": 1.8429544367389656,
+            "subject": 83.8368820308457,
+            "movement": 13.050061488486934,
+            "clickbait": 6.919623515682476,
+            "availability": 9.387818828386736
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1210562,
+        "title": "UEFA Champions League - Liverpool v Villarreal Highlights",
+        "context": "UEFA Champions League - Liverpool v Villarreal Highlights",
+        "source": "BBC",
+        "published_at_epoch": 1792617214,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxPd2xJRkE5eFZMdFVUYmlHbEJrb1FWSFQtN2ZGbzg5M0M4TFh5bVM0Vk9yYmVqTld0OVp2UUpmME5GSmw3THpCZndPbnlvOWdNeV9YaTlKUEgtVC1GbGIzdmFIQUt5bFk5UGk0Y0ZnMnEzQmNGSjl6SmMydjJjRFhfdjQ3WTNnenlRa1JBdHJGWXdTRUhCTVdmMTk4eVF4bmFxNFpZYg?oc=5",
+          "spectrum": {
+            "emotion": 2.1488114949284394,
+            "subject": 94.1885320768878,
+            "movement": 7.6084865097131065,
+            "clickbait": 5.610771933984438,
+            "availability": 3.816727963326837
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 994146,
+        "title": "Liverpool 3-5 Man Utd: Visitors win eight-goal thriller in Players Cup",
+        "context": "Liverpool 3-5 Man Utd: Visitors win eight-goal thriller in Players Cup",
+        "source": "BBC",
+        "published_at_epoch": 1792615789,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE9XbnlCOVNjZko1QkdXSjZwY2Z1U1RSSXhnYkNMQmdzaldtWWJrU0J4ZHBIU2tZUGs0Ry1mdFViUlRRZmVnS0ZTeU9vUndMaEx1YUNheE9Da2lUNEw2VlF1QUduUQ?oc=5",
+          "spectrum": {
+            "emotion": 2.488585776342915,
+            "subject": 92.23089483637402,
+            "movement": 3.121331331236623,
+            "availability": 2.6907409435364977
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1265515,
+        "title": "Liverpool v Brighton: Referee and officials confirmed for Premier League clash",
+        "context": "Liverpool v Brighton: Referee and officials confirmed for Premier League clash",
+        "source": "Liverpool FC",
+        "published_at_epoch": 1792609324,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxQR1pIUWJQT1VxRWFFS190QmZfMzJIY3RBUjVUY0xfalFnUnFPaXE4MzNIdE1tTFp3M29WeU8yQzRwSHdJdXhGYi12OTloeWYwREtYbTUxV3RtVkFBbmZLeXVRMEp1bWdieFQtN09WMU9DMXFHTzYyd3FUWWh2UnBCTnYtLW14WmpwMDlGa1VIcG1wQUJ0UFFMRm5xRExlWnNvbXZTNEhBU1JuRkRoRXBj?oc=5",
+          "spectrum": {
+            "emotion": 1.4825637116600459,
+            "subject": 91.49794790472114,
+            "movement": 3.262716900302916,
+            "clickbait": 3.814166064883304,
+            "availability": 2.077505760185848
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1326682,
+        "title": "PSG sink Barcelona in six-goal thriller, Liverpool and City win",
+        "context": "PSG sink Barcelona in six-goal thriller, Liverpool and City win",
+        "source": "Kuwait Times",
+        "published_at_epoch": 1792603116,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxQZHFYZllqYU5MS2RKTmtsMVhiVnk1QkRQNWxBYnAzd1VCWVhCdlRldkIyVHlpeTI4QnE4SVczR2VZVkl0b3MzNlFHWTJFYnAxZ2FQT295eUJnemVqTmphVXY3ZVVCTGFMa1BVdldwQ3ZRVWpkZUE5bERjVkl3S3FIWmNrWEdHRzcyRDlDRWJRX3JCR2ZVSzRqeUdSVUVkMnN3ZkdOUmRyQUIxV0tH0gGwAUFVX3lxTE5XenNhSnEzdU1kTG1VaXBKWjNnZ05Dbi1lZTQ0WElRTFc4VnRuaXF5ZTFLTlJoeC1qYllkWUtaalZWLUUweWU3S3ZrSElyQ0dCNXBsbkpUcDZlMllaRGt0QzRGZnRaaTBlYlNlT0NLcHRvYksyc3lCckhESlFhVFVLSXBaeU01ZUNVS0FWZ3Z4WTFzY0dmM3c3REtuZEU2T2hEUjRwSkRRZGQyM0dmR2Zs?oc=5",
+          "spectrum": {
+            "emotion": 2.7001006731049717,
+            "subject": 92.21164336990711,
+            "movement": 5.549031722802653,
+            "clickbait": 10.368249227525144,
+            "availability": 2.0545666916798777
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1315156,
+        "title": "PSG late show downs Barca in CL, Liverpool fight back",
+        "context": "PSG late show downs Barca in CL, Liverpool fight back",
+        "source": "Oman Observer",
+        "published_at_epoch": 1792600774,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxNbUlsaTh0UGR6ZVQxTG5mdTRHME91Zl94Q1cybGVEclluSTRQTzN5dWppM2FyN2UwbllqVnBFMmVkZUdMZHgtWEEwa1kwaUhaVVRkOU5nak1iR3hnOXJiWWw2VWRoM2xfMVVCUUFqYVNqamZrUTdHc3hVLWRsOVFzYzZYUVVWQkhzUjhSTzJKWmM0SDBVZlVYWHpQZkJMUGdKU2NhTHkzSjBBcTBJUmRkeHd30gFaQVVfeXFMTUx2dHNJcERJSklhTG95LUU0RllUVHJBWlktWS1GOHFBUHFITHhyZDF4ZndPd2ZNYTA4Y0std1BPUDdnYTNNdE9OYkhzaEtiUWdWdmVGVHloUjZB?oc=5",
+          "spectrum": {
+            "emotion": 3.2325354267000095,
+            "subject": 87.5752336791217,
+            "movement": 3.3393172217008598,
+            "clickbait": 11.797145900628891,
+            "availability": 2.9822721348425443
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1268595,
+        "title": "Liverpool Trailblazer Matches Remarkable Lamine Yamal, Cristiano Ronaldo Record",
+        "context": "Liverpool Trailblazer Matches Remarkable Lamine Yamal, Cristiano Ronaldo Record",
+        "source": "LiveScore",
+        "published_at_epoch": 1792597502,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxOZ01lSF9kNGNKaE04Y1BzVmFpWkVjaTk0aU5LZS1VRHVFaTd6LVJ3R0FkZkZUWTNSRlJRNlVINExlMDFTaFpYTnlhU0VnVVhhTFp3dERtUEFnekNsXy13LTFYY1c5ZnRuSjFuT1R3VldvcFBYWTZTM0VOWjQyVjhORk1qQ3dDTXp2d3dzYkg4b0V5SHIwR2JEdG9QUmprMUNhYXVveEl1ZVV0QUliTTEzcVZwbHRXczdvRWZPd2QyMmhVYTgwcllwdjRDQnJsYno4aXpaYUlWMA?oc=5",
+          "spectrum": {
+            "emotion": 2.056240840944291,
+            "subject": 94.10611586923837,
+            "movement": 5.606006048718805,
+            "clickbait": 13.621495387463606,
+            "availability": 6.5398421790552135
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1191208,
+        "title": "Inigo Perez reveals 'exact moment' Villarreal lost Liverpool tie",
+        "context": "Inigo Perez reveals 'exact moment' Villarreal lost Liverpool tie",
+        "source": "TribalFootball",
+        "published_at_epoch": 1792597117,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi9AFBVV95cUxPOFNlLUl4TjcybzM4TDJ5SkdMeHZtdUltS2k1OHZtdU5YbHI3ZUhDYkR0UGFkU0dnTkdBREIxaVJob3FYV0Y2RjBzZktnODN6ZEZwTXAxb3lpR1BBVXYzMGpsbmFyd0JoeHNuU0RFZi1zQmYwNTJJMDJtV194MUZNVnNWcDVPUFBkRk80ZHVKSVpWQzFObms3eTNjeWNfeG1LYjJZbUVWMnlzVHRXbzZ6MldqRmF2dWJ0ZmdYZWVsdnN3YUx4SGxqZkFNRXNmcTRTOGw1aDdFVzJkMjJ4a1BZRV9MaWFFVUVZa0VmYTllMmtXWmdv?oc=5",
+          "spectrum": {
+            "emotion": 3.933190775365302,
+            "subject": 86.67994222497452,
+            "movement": 4.136663788426433,
+            "clickbait": 26.88574279825435,
+            "availability": 2.510988082721105
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1307276,
+        "title": "Liverpool captain Van Dijk admits there is 'much more to come' from exciting Ngumoha",
+        "context": "Liverpool captain Van Dijk admits there is 'much more to come' from exciting Ngumoha",
+        "source": "Flashscore.co.za",
+        "published_at_epoch": 1792596727,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxPNk1uMDF2TXlBU2ZoUjE5TUEyR2tlOWZOLXFYbTJwU1FXZUNrSTA0T1lxVWZKZ18zbjFDbXFfZnJDcVdqeGJ3cXEzaThsb0I3d2Q3dk5uemtfZDA0eEdUVk5xWWxSREQ5MURXUDlXSTdFVENua2ktSXZaejNhemdnSHNlVlgwQzBIbHhGTVpaU2RfSGM2YzZSZVY1bEpINENGM3g0V0Fkb0ZvcWw1UlE2NjV6c2xTMjVGWm1HSm04Q09ZTkk?oc=5",
+          "spectrum": {
+            "emotion": 18.202560956145707,
+            "subject": 92.05829839716031,
+            "movement": 5.92981787109806,
+            "clickbait": 11.144219548376656,
+            "availability": 2.676892153358887
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1266255,
+        "title": "Liverpool target poised for 'imminent move' after Iraola update",
+        "context": "Liverpool target poised for 'imminent move' after Iraola update",
+        "source": "TribalFootball",
+        "published_at_epoch": 1792595220,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi8AFBVV95cUxQWHJfMVlheEpCSkZoWTB6eG5wSk11Z3hxX1RVb3hQOTBEV1k1V1Naemp5eWlYR2NVN1NhYWx4UDFPMHRlazdFRFNpd25td2dqTVlxanNfbGxaT0wtYWxWcXZXSV9tYUVnVHBsczRQeWVoOEtTdE1GX3VGbklFTE1TbUlTMmpfUzk0dHF6NzA2SXdpckk1d01sLWxLQXpxN3BkWWN2aVliTXZZWXZqMHlKMFFScE1hck81dEFZUnZBY0s0T3VhTThxWVhxNnllZWwzSkNnZ1RQdEh0M2FneFRoMElrLUZHX0wwN3FqR2FfZ3E?oc=5",
+          "spectrum": {
+            "emotion": 2.550749900966977,
+            "subject": 95.21992760198424,
+            "movement": 87.955956698202,
+            "clickbait": 31.63742167325753,
+            "availability": 16.919289564440437
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1191256,
+        "title": "‘This is Anfield’ – Perez says Villarreal failed to deal with Liverpool atmosphere",
+        "context": "‘This is Anfield’ – Perez says Villarreal failed to deal with Liverpool atmosphere",
+        "source": "Soccer News",
+        "published_at_epoch": 1792589858,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxPTWlPbEtjN2E1YmVBVFFoa19hN0E4ajBrWHlLZ1JBWEFBdHNVOTdaVUkzUkp2Y3N6Y3ZhTFlJVnJWclhyTXZjUl9JZVl5ZmJLcUY3V0NyWDRadm9sT2JFLUlOaXpCbGRXLTU3SXhoYjlZX3NueVk3TVZBamVtcWFHdE42TjFzNzRaVFppX25QWVJJVkNXRHo0cWx5dzNoS1VHcE41T1FISTUzMTZ5ZWJPQUVMQQ?oc=5",
+          "spectrum": {
+            "emotion": 14.058771388564645,
+            "subject": 89.43175456740424,
+            "movement": 5.728084024898332,
+            "clickbait": 12.816388801308367,
+            "availability": 1.8472343187155165
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1258945,
+        "title": "Liverpool captain Van Dijk hails teen star Ngumoha",
+        "context": "Liverpool captain Van Dijk hails teen star Ngumoha",
+        "source": "TribalFootball",
+        "published_at_epoch": 1792588525,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi5AFBVV95cUxOWlR0TGpUWDl3YjcyS3NLNVdDeU1kMUJncjIwd2Q2dmlXQUdMRE1PWEZjd0cxLTVKZS11NEt1dXBCUkFNMTdrM29xOERYUWhfSTdQQmdlMktFd0ZpQlp5bFFlb3AyS2NWQ3kwN1Y5eDRxU19ERy1ZSVdNSnZFNEowRV9ZTnZnQXY3Y3lpZlctT0FzdzV2US1wem9MQjF5S1NkSUJpRUxXdDg4aGlGaWR1ZnUxWVVDcmlpSWdRa1BuSld2MGhEakYzNmJzeFpzOWZTcVVNQ2RzSnR4Rl9jVUE2RUE4b3Q?oc=5",
+          "spectrum": {
+            "emotion": 5.131827094357862,
+            "subject": 93.21202627242076,
+            "movement": 4.793746865222373,
+            "clickbait": 4.493663611552619,
+            "availability": 2.2106154685671076
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1265527,
+        "title": "Inside story of Rio Ngumoha's dazzling rise to Liverpool stardom as he fills Mo Salah's boots in Anfield dressing room",
+        "context": "Inside story of Rio Ngumoha's dazzling rise to Liverpool stardom as he fills Mo Salah's boots in Anfield dressing room",
+        "source": "The Sun",
+        "published_at_epoch": 1792587420,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxQckkzZDZUX2RCSXlPWEs3Mm1ORGd5SzV5TUp4UXY3c1AxRDA0OWtJZzRGd0FKWm03cncyX3RtUi1VUE9ndjhkTUJWck5iSmVpNDRKd04wVnFGSVEtdGFKem01MnFyWlVjVEVsMUI0VXN6RkxnMWxSU2NyQ0Y5TGNQTXY5Y1hOT0E3aEhLX2RtQi1HWDVNLXc?oc=5",
+          "spectrum": {
+            "emotion": 4.174487783160476,
+            "subject": 92.77350065215656,
+            "movement": 57.11201332036537,
+            "clickbait": 33.093473766003655,
+            "availability": 4.5077889117932655
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1165360,
+        "title": "Alexis Mac Allister shines in Liverpool win over Villarreal",
+        "context": "Alexis Mac Allister shines in Liverpool win over Villarreal",
+        "source": "Football Today",
+        "published_at_epoch": 1792583584,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxQaGwtODdxS2szaTBXSkFheFVaalZ0UjhBTXVZM0FVSUFRbUYxZ2tiUnk5YkQxWVdfXzNXLWF0MU1zQVFxRHFERm53dm1iT05JX1dPeTZIdnZCbDFNN040UWNxNVpHRG9lV3RjQzVWNHdGWlJIMjlaZy1QOE0xM0hCWEU4NjNtYmliUm1NaFhCMDJhTWkwejRlLUpHR0Fsdw?oc=5",
+          "spectrum": {
+            "emotion": 4.766971805260428,
+            "subject": 88.940132932752,
+            "movement": 2.7389391631430353,
+            "clickbait": 6.232858344033045,
+            "availability": 3.369231214192702
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1278245,
+        "title": "Virgil van Dijk singles out two Liverpool stars as captain holds his hands up",
+        "context": "Virgil van Dijk singles out two Liverpool stars as captain holds his hands up",
+        "source": "Daily Express",
+        "published_at_epoch": 1792583280,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxPWXZzalB5Rl9Sdm1MVmdzMUd1Qm5Ld2RsOGNVMXhrYmlGUlMzVGh0RG5OZy1oMG5INkYtSjJCLUhMSUg1UUtKVW1Ec1VXX0QyZkE0TXRRTnZrZnN0bEJUdVNkVVRobHFzeUtkQXdUR21MckNQQlUzZC1jTDd3aWJKSW9tekZpZk5OUVEyb05iYy0tcGPSAZMBQVVfeXFMT1l2c2pQeUZfUnZtTFZnczFHdUJuS3dkbDhjVTF4a2JpRlJTM1RodERuTmctaDBuSDZGLUoyQi1ITElINVFLSlVtRHNVV19EMmZBNE10UU52a2ZzdGxCVHVTZFVUaGxxc3lLZEF3VEdtTHJDUEJVM2QtY0w3d2liSklvbXpGaWZOTlFRMm9OYmMtLXBj?oc=5",
+          "spectrum": {
+            "emotion": 2.490122893263333,
+            "subject": 91.36459800354373,
+            "movement": 5.313582241132816,
+            "clickbait": 10.919043836112607,
+            "availability": 2.8117392725588743
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1268596,
+        "title": "Ronald Araújo: 'Finding what I needed' at Liverpool",
+        "context": "Ronald Araújo: 'Finding what I needed' at Liverpool",
+        "source": "ESPN",
+        "published_at_epoch": 1792583040,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxPMlhJUkJfbXVSV3RzR0pXQVY2ck84LTlrclZCWlVLMk9DV0tLU0JDYXVDVUlhemgtT2dGNVZ3OUJTNlZ4cUJpWXZJYVp3dFMzT2ctZHJhVUMzZngtUmFwcjA4bEwwOGZMbjIwZnBXTEpEc1RuVnNCOGN4ZFN5YV9fbERSV0ZCdVZCWEtMRWpramlma0RzeldrOFJITXhKdWpoMDRaYkcyS0JrSVdkQUE?oc=5",
+          "spectrum": {
+            "emotion": 5.501798003028294,
+            "subject": 91.90776189352302,
+            "movement": 34.975826968718465,
+            "clickbait": 4.719033148600764,
+            "availability": 2.7063262631141103
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1105899,
+        "title": "Champions League briefing: Are PSG and Barcelona Europe’s best teams? Who is Liverpool’s new prodigy?",
+        "context": "Champions League briefing: Are PSG and Barcelona Europe’s best teams? Who is Liverpool’s new prodigy?",
+        "source": "The New York Times",
+        "published_at_epoch": 1792581660,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxONDBJTzVJVjRFS0ptSGVGU0ROVVp0NVY0R3dERERIZDFhNUkzZVloUFRlcTZvX3NacG1KNkJBbm5NU1VNSEZSSFNLWmlyTHhmbzhNVGpVM201NXUwTWdiZktCWHVheENMVWgybXdQT2Z3UndqWnVLX1g1RFZ2TmhsM0s4WFhSbUdaWV9R?oc=5",
+          "spectrum": {
+            "emotion": 2.255019589843773,
+            "subject": 75.56077618596846,
+            "movement": 35.54505850957568,
+            "clickbait": 11.046965446411718,
+            "availability": 6.203405576133844
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1268588,
+        "title": "Mac Allister double sparks Liverpool’s thrilling comeback win over Villarreal",
+        "context": "Mac Allister double sparks Liverpool’s thrilling comeback win over Villarreal",
+        "source": "PressReader",
+        "published_at_epoch": 1792581014,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE41NVNWVk9PNWNBUjFwVEdnOGs2TEdUcTA2T2Vabl9kRENxVzkxUV9ud0lMaEpRSHhIUmFlUkFlemIySU5FTG5nQjJqYlBuTmRCVzZpWlp5TGhVT0NvNTFmd1oyWk4zSlQxMzhERGQ1Q1JFOGVhSEtYMXVEZk5zUQ?oc=5",
+          "spectrum": {
+            "emotion": 5.598340166686584,
+            "subject": 89.28163137283508,
+            "movement": 2.8815449510542366,
+            "clickbait": 13.949319662951517,
+            "availability": 2.5694678291373023
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 284594,
+        "title": "Premier League transfer net spend table for 26/27 season: £200m Liverpool above Spurs",
+        "context": "Premier League transfer net spend table for 26/27 season: £200m Liverpool above Spurs",
+        "source": "Football365",
+        "published_at_epoch": 1792577695,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxPc3ozMEk2cHB5cWFiVDZFSVRQR2Y1NjlTN09LWmdMYjhMNHk1LURZRndZVEd0bDhRSkdXQzM1SU4xakdHdFNRQ0Q3dnhSd3Z6a3l5Vk54VVNpdkRSbWJRMkZOQ0hWS1p1c1kycnhvM3hyN1V3WENtby1pXzNMN2d5b3RLYUExbEhuMFhYVG9TdlVGNTg?oc=5",
+          "spectrum": {
+            "emotion": 1.5750935050006747,
+            "subject": 87.55176277862084,
+            "movement": 91.18541171469928,
+            "clickbait": 8.173036459701311,
+            "availability": 1.7440262050035171
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

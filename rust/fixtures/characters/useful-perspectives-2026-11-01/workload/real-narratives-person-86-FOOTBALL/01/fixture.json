@@ -1,0 +1,142 @@
+{
+  "name": "real-narratives-person-86-FOOTBALL",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n120-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Martín Demichelis\",\"entity_type\":\"person\",\"sport\":\"FOOTBALL\",\"database_record\":\"Martín Demichelis — coach; club: RB Leipzig; checked: 2026-09-30.\\ndate_of_birth: 1980-12-20 [2026-10-15; source 134092]\\nrole: coach [2026-09-07; source 71593]\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":996179,\"url\":\"https://news.google.com/rss/articles/CBMi2wFBVV95cUxNeVhTZFk4WTMwWm1hUGJRSGUycExZaldMZGhGdjhXcjU4b20yVU05eXNQYU80V0JlZlFkX1oySXRKVmp6c3ItZnNUVndJRmc3N0pGZDlhV016NFZQY1lVbmdVS2hGbzhEeWxPRmFXbDUwWWUwMk93X1BJVXlGcE5XOXRiVjlVejRTOVZUNDNlbVVJZ1Q1MkZMN0tmUzdBdkhJeHlQZ1paVzZhN2hOUWpldHJqeDd4RFdwUl83eDJudnVXU29yclFON3NteFgzNmw5ZVN2S083OFRiTnM?oc=5\",\"headline\":\"Martin Demichelis hails Yan Diomande before Real Madrid v Leipzig Champions League tie at the Bernabeu\",\"publisher\":\"OneFootball\",\"published_at\":\"2026-10-20T12:02:32Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":996182,\"url\":\"https://news.google.com/rss/articles/CBMi6wFBVV95cUxQTDByaWZNdmJSUDZXWU5tM2oxN2ZhREcyTUhDcUdBb1VIME94VDFsY29HU0p6Z2tpNnRLVDZ4WTg0SnRHRExjbF9kRGZnQWJodUFpQjZqcHJHcUFmeGFueTB3RC1Tb0ZaVngyaHY2T1lxeldNSV9pRVUzOC03RzJVOW9qTXJBLUMzallWNGtYUTd4cHlNc2lLRjIwNUNxbHBKMmlEaGNsWlQxQzB5Z3phUTRtZXBqSGxGYXl0Z0JqXy1pNmpTREFjRFNtUFB5amIzOTNySzNoeFhpQmtmTTRQSm9PWnVpN0JfQlFN?oc=5\",\"headline\":\"RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash\",\"publisher\":\"Yardbarker\",\"published_at\":\"2026-10-20T10:25:58Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1024896,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxNNkR3NTZfQzlRckJPbVdVSURiS2JCRVA1MlZpWHJjM21RR3RoVndyTDJsd21qV0xWbU5GOFNONm0xeEVGZUxYWVBEVVRjX2pEMHVfcllWcHZkSlplbkdOeTZ1Vk1abEJkU1NSVzNLbVc4bHVVT3FzeFlFa3JvLUFSWWY3Mk5GUEJP?oc=5\",\"headline\":\"RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash\",\"publisher\":\"Yahoo\",\"published_at\":\"2026-10-20T10:14:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":995853,\"url\":\"https://news.google.com/rss/articles/CBMivAFBVV95cUxQblJvUjBZQWVGYVduenE2a2FPdUlGRmhGYmxGT2ZJNlIxcnRzRU5aaEpramxDakxoX1M4d2VqRmNuNktTV0xISTJRTUVxdmx5Z3FXblNXMnZrVDgzX2N6Zm5OUmswcmljMkw4aUNoQmswOFh4aFVEQWZBeXhmU2taS1R3V0MzazZEcnJjbTZldG1CODN4TlZBWnRCTEdKYmVkNVVCZE1IbF81TFozUTl4cFhHVlZFQXVlN1FkSQ?oc=5\",\"headline\":\"'He needs time' - Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite Fiorentina loan spell\",\"publisher\":\"Goal.com\",\"published_at\":\"2026-10-20T07:19:33Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 86,
+      "entity_type": "person",
+      "name": "Martín Demichelis",
+      "sport": "FOOTBALL"
+    },
+    "database_record": "Martín Demichelis — coach; club: RB Leipzig; checked: 2026-09-30.\ndate_of_birth: 1980-12-20 [2026-10-15; source 134092]\nrole: coach [2026-09-07; source 71593]",
+    "reports": [
+      {
+        "id": 996179,
+        "title": "Martin Demichelis hails Yan Diomande before Real Madrid v Leipzig Champions League tie at the Bernabeu",
+        "context": "Martin Demichelis hails Yan Diomande before Real Madrid v Leipzig Champions League tie at the Bernabeu",
+        "source": "OneFootball",
+        "published_at_epoch": 1792497752,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi2wFBVV95cUxNeVhTZFk4WTMwWm1hUGJRSGUycExZaldMZGhGdjhXcjU4b20yVU05eXNQYU80V0JlZlFkX1oySXRKVmp6c3ItZnNUVndJRmc3N0pGZDlhV016NFZQY1lVbmdVS2hGbzhEeWxPRmFXbDUwWWUwMk93X1BJVXlGcE5XOXRiVjlVejRTOVZUNDNlbVVJZ1Q1MkZMN0tmUzdBdkhJeHlQZ1paVzZhN2hOUWpldHJqeDd4RFdwUl83eDJudnVXU29yclFON3NteFgzNmw5ZVN2S083OFRiTnM?oc=5",
+          "spectrum": {
+            "emotion": 13.69709882897423,
+            "subject": 88.27040307459596,
+            "movement": 19.92976490860821,
+            "clickbait": 4.361207327476239,
+            "availability": 2.4626737141444215
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 996182,
+        "title": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash",
+        "context": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash",
+        "source": "Yardbarker",
+        "published_at_epoch": 1792491958,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi6wFBVV95cUxQTDByaWZNdmJSUDZXWU5tM2oxN2ZhREcyTUhDcUdBb1VIME94VDFsY29HU0p6Z2tpNnRLVDZ4WTg0SnRHRExjbF9kRGZnQWJodUFpQjZqcHJHcUFmeGFueTB3RC1Tb0ZaVngyaHY2T1lxeldNSV9pRVUzOC03RzJVOW9qTXJBLUMzallWNGtYUTd4cHlNc2lLRjIwNUNxbHBKMmlEaGNsWlQxQzB5Z3phUTRtZXBqSGxGYXl0Z0JqXy1pNmpTREFjRFNtUFB5amIzOTNySzNoeFhpQmtmTTRQSm9PWnVpN0JfQlFN?oc=5",
+          "spectrum": {
+            "emotion": 83.33804860694163,
+            "subject": 91.92546215953284,
+            "movement": 10.223256124786543,
+            "clickbait": 8.501651487220522,
+            "availability": 3.4656467682496603
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1024896,
+        "title": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash",
+        "context": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash",
+        "source": "Yahoo",
+        "published_at_epoch": 1792491281,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNNkR3NTZfQzlRckJPbVdVSURiS2JCRVA1MlZpWHJjM21RR3RoVndyTDJsd21qV0xWbU5GOFNONm0xeEVGZUxYWVBEVVRjX2pEMHVfcllWcHZkSlplbkdOeTZ1Vk1abEJkU1NSVzNLbVc4bHVVT3FzeFlFa3JvLUFSWWY3Mk5GUEJP?oc=5",
+          "spectrum": {
+            "emotion": 83.10324649173359,
+            "subject": 92.50682906151717,
+            "movement": 9.239577994579616,
+            "clickbait": 9.359091605706809,
+            "availability": 3.3449982236671483
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 995853,
+        "title": "'He needs time' - Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite Fiorentina loan spell",
+        "context": "'He needs time' - Martin Demichelis insists Franco Mastantuono is built for Real Madrid despite Fiorentina loan spell",
+        "source": "Goal.com",
+        "published_at_epoch": 1792480773,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxQblJvUjBZQWVGYVduenE2a2FPdUlGRmhGYmxGT2ZJNlIxcnRzRU5aaEpramxDakxoX1M4d2VqRmNuNktTV0xISTJRTUVxdmx5Z3FXblNXMnZrVDgzX2N6Zm5OUmswcmljMkw4aUNoQmswOFh4aFVEQWZBeXhmU2taS1R3V0MzazZEcnJjbTZldG1CODN4TlZBWnRCTEdKYmVkNVVCZE1IbF81TFozUTl4cFhHVlZFQXVlN1FkSQ?oc=5",
+          "spectrum": {
+            "emotion": 3.2290887013890157,
+            "subject": 86.50081907779725,
+            "movement": 32.53451069524863,
+            "clickbait": 7.139709872926938,
+            "availability": 36.417891080203844
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "case": 5,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/narratives-nba-attribution.json",
+  "generation_wall_ms": 3671,
+  "input_tokens": 3112,
+  "name": "nba-attribution-basketball-source-under-a-league-namespace",
+  "output_limit": 900,
+  "output_tokens": 73,
+  "parsed": false,
+  "prompt_version": "n119-detailed-summary",
+  "reading": "cited reports do not connect Cedar Comets with numerical fact 27",
+  "request_bytes": 458,
+  "review": [
+    "The identity part says basketball, not NBA: the sport, not the competition namespace.",
+    "Keep the question mark on Reed's availability; the source says questionable, not ruled out."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 3684
+}

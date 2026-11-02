@@ -1,5 +1,5 @@
 //! Load and bound fresh movement headlines and canonical candidate names.
-use super::prompt::{assemble_with_memories, Parts, CONTEXT_BUDGET_BYTES};
+use super::prompt::Parts;
 use crate::harness::queue::work::Item;
 use crate::plugins::classifier::delivery::{load_for_character, load_spectrum_sources_on};
 use crate::tools::{meta::EntityMeta, source::SourceContext};
@@ -15,8 +15,6 @@ pub struct Mention {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Report {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub classifier_world: Option<serde_json::Value>,
     pub publisher: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub published_at: Option<String>,
@@ -24,6 +22,8 @@ pub struct Report {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub publisher_excerpt: String,
     pub co_mentions: Vec<Mention>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub classifier_world: Option<serde_json::Value>,
 }
 
 #[derive(Clone)]
@@ -37,7 +37,7 @@ pub(super) struct Material {
     pub(super) subject: EntityMeta,
     pub(super) sources: Vec<SourceContext>,
     pub(super) reports: Vec<Report>,
-    pub(super) memories: Vec<crate::plugins::classifier::memories::Headline>,
+    pub(super) database_record: Option<crate::tools::meta::DatabaseRecord>,
     pub(super) mentions: Vec<Vec<Match>>,
     pub(super) held: Vec<(SourceContext, &'static str)>,
 }
@@ -92,7 +92,14 @@ pub(super) async fn load_material(pool: &PgPool, item: &Item) -> Result<Material
             })
             .collect::<Result<Vec<_>>>()?;
         reports.push(Report {
-            classifier_world: source.classifier_world.clone(),
+            classifier_world: Some({
+                let mut provenance = source
+                    .classifier_world
+                    .clone()
+                    .unwrap_or_else(|| serde_json::json!({}));
+                provenance["article_id"] = serde_json::json!(source.article_id);
+                provenance
+            }),
             publisher: source.source.clone(),
             published_at: source.published_at_epoch.map(crate::util::utc_timestamp),
             headline: source.headline.clone(),
@@ -115,28 +122,22 @@ pub(super) async fn load_material(pool: &PgPool, item: &Item) -> Result<Material
         });
         mentions.push(found);
     }
-    let memories = crate::plugins::classifier::memories::load_on(
-        &mut *pool.acquire().await?,
-        &subject,
-        &sources,
-        "insider",
+    let database_record = crate::tools::meta::load_character_identity(
+        pool,
+        &subject.entity_type,
+        subject.entity_id,
+        &subject.sport,
     )
     .await?;
     let mut material = Material {
         subject,
-        memories,
+        database_record,
         sources,
         reports,
         mentions,
         held: Vec::new(),
     };
     material.pack(crate::plugins::influencer::now());
-    while !material.memories.is_empty()
-        && assemble_with_memories(&material.subject, &material.reports, &material.memories).len()
-            > CONTEXT_BUDGET_BYTES
-    {
-        material.memories.pop();
-    }
     Ok(material)
 }
 
@@ -199,7 +200,8 @@ pub(crate) async fn preview(
     Ok((!material.sources.is_empty()).then_some(Parts {
         subject: material.subject,
         reports: material.reports,
-        memories: material.memories,
+        database_record: material.database_record,
+        memories: vec![],
     }))
 }
 
@@ -232,7 +234,7 @@ mod tests {
             },
             sources,
             reports,
-            memories: vec![],
+            database_record: None,
             mentions: vec![vec![]; 2],
             held: vec![],
         };
@@ -286,7 +288,7 @@ mod tests {
             })
             .collect();
         let mut material = Material {
-            memories: vec![],
+            database_record: None,
             subject: EntityMeta {
                 name: "Cedar".into(),
                 entity_type: "team".into(),

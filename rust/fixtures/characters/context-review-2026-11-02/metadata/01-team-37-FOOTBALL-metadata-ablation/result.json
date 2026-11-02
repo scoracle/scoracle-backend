@@ -1,0 +1,19 @@
+{
+  "arm": "metadata-ablation",
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "input_tokens": 4051,
+  "name": "team-37-FOOTBALL",
+  "output_tokens": 57,
+  "parser_detail": "0 finding(s) | Roma are looking to make two signings in January, according to Yahoo Sports. The club has also rejected three offers for Pisilli this summer, while head coach Pellegrini is expected to be out for six to eight weeks due to a serious injury.",
+  "receipt": "01-team-37-FOOTBALL-metadata-ablation",
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 12847
+}

@@ -1,0 +1,41 @@
+{
+  "name": "real-team:7:NBA-momentum",
+  "task": "momentum",
+  "sport": "NBA",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Dallas Mavericks\",\"entity_type\":\"team\",\"sport\":\"basketball\",\"database_record\":\"Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.\"},\"fresh\":{\"scout\":{\"body\":\"In the 2025 season, the Dallas Mavericks recorded 82 games played. The team allowed 119.6 points (24.1 percentile, poor band), scored 114.1 points (24.1 percentile, poor band), and averaged 44.7 total rebounds (69.0 percentile, above average band). Rim protection was 5.1 blocks (69.0 percentile, above average band), steals were 7.5 (17.2 percentile, poor band), and 3-point field goals made were 11.0 (6.9 percentile, poor band). Turnovers totaled 14.0 (41.4 percentile, below average band), free throws attempted were 25.8 (86.2 percentile, strong band), and assists were 25.3 (31.0 percentile, poor band). The team's composite score was 43.2. The sample is based on 82 games. Supports cross-season comparisons are available.\",\"season\":2025,\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "Dallas Mavericks — West Southwest. City: Dallas. Country: United States. Coach on record: Del Harris.",
+    "influencer": null,
+    "scout": {
+      "body": "In the 2025 season, the Dallas Mavericks recorded 82 games played. The team allowed 119.6 points (24.1 percentile, poor band), scored 114.1 points (24.1 percentile, poor band), and averaged 44.7 total rebounds (69.0 percentile, above average band). Rim protection was 5.1 blocks (69.0 percentile, above average band), steals were 7.5 (17.2 percentile, poor band), and 3-point field goals made were 11.0 (6.9 percentile, poor band). Turnovers totaled 14.0 (41.4 percentile, below average band), free throws attempted were 25.8 (86.2 percentile, strong band), and assists were 25.3 (31.0 percentile, poor band). The team's composite score was 43.2. The sample is based on 82 games. Supports cross-season comparisons are available.",
+      "generated_at": "2026-10-23",
+      "headline": "Dallas Mavericks: measured profile",
+      "input_hash": "ca9b838eb978cd6fafe042b8f4ffcbf6",
+      "season": 2025
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Dallas Mavericks",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-oracle-player-129602-FOOTBALL.json",
+  "generation_wall_ms": 12092,
+  "input_tokens": 700,
+  "name": "real-player:129602:FOOTBALL-oracle",
+  "output_limit": 700,
+  "output_tokens": 58,
+  "parsed": true,
+  "prompt_version": "or30-five-perspectives",
+  "reading": "The measured profile suggests an elite tier of performance within a narrow, incomplete sample, yet the lack of sufficient data renders this standing fragile and unverified. Without a corresponding mood reading, the relationship between these statistical peaks and the player's actual state remains an open question.",
+  "request_bytes": 1227,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 12101
+}

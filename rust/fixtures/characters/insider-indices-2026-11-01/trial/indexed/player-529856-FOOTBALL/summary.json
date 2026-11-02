@@ -1,0 +1,27 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/insider-indices-2026-11-01/cases/indexed/player-529856-FOOTBALL.json",
+      "generation_wall_ms": 4659,
+      "input_tokens": 1357,
+      "name": "player-529856-FOOTBALL",
+      "output_limit": 1400,
+      "output_tokens": 33,
+      "parsed": false,
+      "prompt_version": "insider-source-v22-report-indices",
+      "reading": "named claim is absent from cited reports: West Ham United",
+      "request_bytes": 1505,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 4667
+    }
+  ],
+  "completed": 1
+}

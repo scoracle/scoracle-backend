@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / real-vibe-player-237-NBA [error]
+complete input (57501) plus reserved output (600) exceeds actual model context (7900); no source was clipped

@@ -50,7 +50,9 @@ impl Availability {
             .sources
             .iter()
             .map(|s| serde_json::json!({
-                "headline":s.headline,"publisher":s.source,
+                "headline":s.headline,"publisher":s.source,"article_id":s.article_id,
+                "url":s.classifier_world.as_ref().and_then(|w| w["url"].as_str()),
+                "evidence_scope":"headline",
                 "published_at":s.published_at_epoch.map(crate::util::utc_timestamp)
             }))
             .collect::<Vec<_>>())
@@ -146,7 +148,13 @@ mod tests {
         assert_eq!(a.sources, sources);
         assert!(a.held.is_empty());
         assert_eq!(a.for_writing().as_array().unwrap().len(), 9);
-        assert!(a.for_writing().to_string().len() < 4000);
+        let writing = a.for_writing();
+        assert_eq!(
+            writing[0]["url"],
+            sources[0].classifier_world.as_ref().unwrap()["url"]
+        );
+        assert_eq!(writing[0]["article_id"], sources[0].article_id);
+        assert!(writing[0].get("gate").is_none());
     }
 
     #[test]

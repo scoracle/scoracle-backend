@@ -1,0 +1,104 @@
+{
+  "name": "real-transfer-player-237-NBA",
+  "task": "transfer",
+  "sport": "NBA",
+  "prompt_version": "insider-source-v21-perspective",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"LeBron James\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"LeBron James — F, on record at Los Angeles Lakers. Nationality: USA. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1309510,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi-wFBVV95cUxQRENqS3c0blZpeDIwd0lRd2VqTDJmVmNzQy10a0x1MUx4RzZRTGNDYlh5cjRyLVczZXdyazJWaWI0OW4wT2JvSW1qekJKNXZZMmVxMFZhdU9FSEoyYWlXNW1YOUdEQlhoZG5Dd29rSlNuMURTcVhRcmhJWUplMktkeXI5ajNacDVXYXNXQXZUaDRaZlBybDFkc2V1aVV3Qm45MnJuVzJmZmdaRnlreVIwbGRXQ3ZRZ29xOTA1ampCV25DTU5VSm04SjdNazhzbjYtMDhvZlhhSVQtNHMtM28wZE14bFktOEdZOW9VSWhacXQxSlQ0UzBqSDNJRdIBgAJBVV95cUxPVXp6cUJoTlpfdVNPT0FFZmdRdmF6bEpId1ZILVJ0dmR0cHZ2WmNsbzZkcXZiYW9ITDFIWGEwSEw4amFBNVFPQk52NFZxZl8xZlJVUFh3RklLd0FrNVY5cHlycWcwOVpRY1dRazYwWGlpVG5MbG43QmNwZXMtZ0YxTWI5VlllRjk5Unl6SGRrR0VWMDNSOU4tckhiOVlwcERUcG12ZmZBT3poWjlmOGRWZW03WnJJT1dLdXdheWV1dldDOFpEQ2pKamh1UVhFLWd2SUZtM185bnphWWxMb0hnQ2dSbFFiT05aV3hTUUo0OU5ObkFFNzA2c0FQMzc5VC1o?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"New York Knicks\"},{\"entity_type\":\"team\",\"name\":\"Philadelphia 76ers\"}],\"headline\":\"LeBron James, 41, helps Philadelphia 76ers beat New York Knicks in debut on a bargain two-year, $8 mn contract\",\"published_at\":\"2026-10-22T14:39:28Z\",\"publisher\":\"Livemint\"},{\"classifier_world\":{\"article_id\":1308968,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxNSEpSV0FfV2dSRXFlMGxCaTM5aW5OQWNadl9nMGswcVFzczhkUEk4ME00enNsRXlaLUtkaTFJaF8wMzVoTkRacFNqbmpKUlZheS1qVm9IR1NYWTdpUkhqbFkwQm12RS1uMVV3XzJtN2t0a0tnNkRFVU9TNHJzY25BX2lCTnJzUQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Los Angeles Lakers\"},{\"entity_type\":\"team\",\"name\":\"Philadelphia 76ers\"}],\"headline\":\"76ers predicted to sign ex-Lakers disappointing first-round pick, former LeBron James teammate\",\"published_at\":\"2026-10-22T14:31:42Z\",\"publisher\":\"Yahoo Sports\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 237,
+      "entity_type": "player",
+      "name": "LeBron James",
+      "sport": "NBA"
+    },
+    "database_record": "LeBron James — F, on record at Los Angeles Lakers. Nationality: USA. Record: roster; observed 2026-07-04.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi-wFBVV95cUxQRENqS3c0blZpeDIwd0lRd2VqTDJmVmNzQy10a0x1MUx4RzZRTGNDYlh5cjRyLVczZXdyazJWaWI0OW4wT2JvSW1qekJKNXZZMmVxMFZhdU9FSEoyYWlXNW1YOUdEQlhoZG5Dd29rSlNuMURTcVhRcmhJWUplMktkeXI5ajNacDVXYXNXQXZUaDRaZlBybDFkc2V1aVV3Qm45MnJuVzJmZmdaRnlreVIwbGRXQ3ZRZ29xOTA1ampCV25DTU5VSm04SjdNazhzbjYtMDhvZlhhSVQtNHMtM28wZE14bFktOEdZOW9VSWhacXQxSlQ0UzBqSDNJRdIBgAJBVV95cUxPVXp6cUJoTlpfdVNPT0FFZmdRdmF6bEpId1ZILVJ0dmR0cHZ2WmNsbzZkcXZiYW9ITDFIWGEwSEw4amFBNVFPQk52NFZxZl8xZlJVUFh3RklLd0FrNVY5cHlycWcwOVpRY1dRazYwWGlpVG5MbG43QmNwZXMtZ0YxTWI5VlllRjk5Unl6SGRrR0VWMDNSOU4tckhiOVlwcERUcG12ZmZBT3poWjlmOGRWZW03WnJJT1dLdXdheWV1dldDOFpEQ2pKamh1UVhFLWd2SUZtM185bnphWWxMb0hnQ2dSbFFiT05aV3hTUUo0OU5ObkFFNzA2c0FQMzc5VC1o?oc=5",
+          "spectrum": {
+            "emotion": 1.7060439595107915,
+            "subject": 92.21043784797364,
+            "movement": 91.8685228713065,
+            "clickbait": 12.00399316650155,
+            "availability": 1.8797741484108528
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1309510
+        },
+        "publisher": "Livemint",
+        "published_at": "2026-10-22T14:39:28Z",
+        "headline": "LeBron James, 41, helps Philadelphia 76ers beat New York Knicks in debut on a bargain two-year, $8 mn contract",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "New York Knicks",
+            "entity_type": "team"
+          },
+          {
+            "name": "Philadelphia 76ers",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxNSEpSV0FfV2dSRXFlMGxCaTM5aW5OQWNadl9nMGswcVFzczhkUEk4ME00enNsRXlaLUtkaTFJaF8wMzVoTkRacFNqbmpKUlZheS1qVm9IR1NYWTdpUkhqbFkwQm12RS1uMVV3XzJtN2t0a0tnNkRFVU9TNHJzY25BX2lCTnJzUQ?oc=5",
+          "spectrum": {
+            "emotion": 10.460659513208093,
+            "subject": 84.01037725701205,
+            "movement": 88.64156074587603,
+            "clickbait": 24.062539765867935,
+            "availability": 2.8518669954830047
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1308968
+        },
+        "publisher": "Yahoo Sports",
+        "published_at": "2026-10-22T14:31:42Z",
+        "headline": "76ers predicted to sign ex-Lakers disappointing first-round pick, former LeBron James teammate",
+        "publisher_excerpt": "",
+        "co_mentions": [
+          {
+            "name": "Los Angeles Lakers",
+            "entity_type": "team"
+          },
+          {
+            "name": "Philadelphia 76ers",
+            "entity_type": "team"
+          }
+        ]
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

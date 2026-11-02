@@ -1,0 +1,8 @@
+{
+  "arm": "sampled",
+  "name": "01-team-37-FOOTBALL-worked",
+  "status": "accepted",
+  "parser_detail": "0 finding(s) | Roma are likely to retain Gruda and El Aynaoui from Brighton for a \u20ac50m package as Leipzig move forward with that deal. The club is also looking to make two January signings while rejecting three summer offers for Pisilli.",
+  "wall_ms": null,
+  "bookkeeping_error": "Initial runner compared the dynamic inventory created timestamp. Response retained, no repeat generation; exact caller wall time unavailable."
+}

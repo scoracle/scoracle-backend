@@ -26,6 +26,128 @@ pub struct WritingIdentity<'a> {
     entity_type: &'a str,
     sport: &'a str,
 }
+
+/// New captures store named database attributes. Old captures remain readable without
+/// guessing structured facts from their prose.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(untagged)]
+pub enum DatabaseRecord {
+    Attributes(std::collections::BTreeMap<String, serde_json::Value>),
+    Legacy(String),
+}
+
+impl From<String> for DatabaseRecord {
+    fn from(value: String) -> Self {
+        Self::Legacy(value)
+    }
+}
+impl From<&str> for DatabaseRecord {
+    fn from(value: &str) -> Self {
+        Self::Legacy(value.to_owned())
+    }
+}
+
+pub async fn load_character_identity(
+    pool: &sqlx::PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> anyhow::Result<Option<DatabaseRecord>> {
+    let mut connection = pool.acquire().await?;
+    load_character_identity_on(&mut connection, entity_type, entity_id, sport).await
+}
+
+/// Read explicit identity fields, separately from the classifier's compact prose card.
+pub async fn load_character_identity_on(
+    connection: &mut sqlx::PgConnection,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> anyhow::Result<Option<DatabaseRecord>> {
+    let query = match entity_type {
+        "team" => {
+            r#"
+            SELECT jsonb_strip_nulls(jsonb_build_object(
+                'league', jsonb_build_object('name', l.name, 'country', l.country),
+                'location', jsonb_build_object('city', t.city, 'country', t.country, 'venue', t.venue_name),
+                'conference', t.conference, 'division', t.division, 'gender', t.meta->>'gender',
+                'coach_on_record', (SELECT jsonb_strip_nulls(jsonb_build_object(
+                    'name', pe.full_name, 'source', 'persons.team_id',
+                    'observed_at', left(pe.meta->>'affiliation_checked_at',10)))
+                    FROM public.persons pe WHERE pe.sport=t.sport AND pe.team_id=t.id AND pe.kind='coach'
+                    ORDER BY pe.created_at DESC LIMIT 1)))
+            FROM public.teams t LEFT JOIN public.leagues l ON l.id=t.league_id AND l.sport=t.sport
+            WHERE t.id=$1 AND t.sport=$2"#
+        }
+        "player" => {
+            r#"
+            SELECT jsonb_strip_nulls(jsonb_build_object(
+                'position', pci.position, 'nationality', p.nationality,
+                'affiliation_on_record', jsonb_build_object('team', t.name, 'league', l.name,
+                    'source', pci.source, 'observed_at', pci.source_updated_at::date::text)))
+            FROM public.players p
+            LEFT JOIN public.player_current_identity pci ON pci.player_id=p.id AND pci.sport=p.sport
+            LEFT JOIN public.teams t ON t.id=pci.team_id AND t.sport=p.sport
+            LEFT JOIN public.leagues l ON l.id=COALESCE(pci.league_id,t.league_id) AND l.sport=p.sport
+            WHERE p.id=$1 AND p.sport=$2"#
+        }
+        "person" => {
+            r#"
+            SELECT jsonb_strip_nulls(jsonb_build_object('role', p.kind,
+                'affiliation_on_record', jsonb_build_object('team', t.name, 'source', 'persons.team_id',
+                    'observed_at', left(p.meta->>'affiliation_checked_at',10))))
+            FROM public.persons p LEFT JOIN public.teams t ON t.id=p.team_id AND t.sport=p.sport
+            WHERE p.id=$1 AND p.sport=$2"#
+        }
+        _ => return Ok(None),
+    };
+    let sport = sport.to_uppercase();
+    let Some(mut attributes) = sqlx::query_scalar::<_, serde_json::Value>(query)
+        .bind(entity_id)
+        .bind(&sport)
+        .fetch_optional(&mut *connection)
+        .await?
+    else {
+        return Ok(None);
+    };
+    let facts: Vec<serde_json::Value> = sqlx::query_scalar(
+        r#"
+        SELECT DISTINCT ON (fact_type, COALESCE(value_text,value_jsonb::text))
+            jsonb_strip_nulls(jsonb_build_object('attribute', fact_type,
+                'value', COALESCE(to_jsonb(value_text),value_jsonb),
+                'valid_from', valid_from::date::text, 'valid_to', valid_to::date::text,
+                'recorded_at', created_at::date::text, 'source_document_id', source_document_id))
+        FROM public.entity_facts
+        WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 AND state='active'
+            AND (valid_from IS NULL OR valid_from<=NOW()) AND (valid_to IS NULL OR valid_to>NOW())
+            AND (value_text IS NOT NULL OR value_jsonb IS NOT NULL)
+            AND fact_type IN ('role','team_affiliation','playing_status','date_of_birth')
+        ORDER BY fact_type, COALESCE(value_text,value_jsonb::text), created_at DESC, id DESC"#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(&sport)
+    .fetch_all(&mut *connection)
+    .await?;
+    if !facts.is_empty() {
+        attributes["recorded_facts"] = serde_json::json!(facts);
+    }
+    remove_missing_attributes(&mut attributes);
+    Ok(Some(serde_json::from_value(attributes)?))
+}
+
+fn remove_missing_attributes(value: &mut serde_json::Value) {
+    if let Some(fields) = value.as_object_mut() {
+        for value in fields.values_mut() {
+            remove_missing_attributes(value);
+        }
+        fields.retain(|_, value| {
+            !value.is_null()
+                && !value.as_str().is_some_and(|v| v.trim().is_empty())
+                && !value.as_object().is_some_and(|v| v.is_empty())
+        });
+    }
+}
 /// Explicit team category from canonical metadata; absence never defaults to men.
 pub async fn load_team_gender(
     pool: &sqlx::PgPool,
@@ -49,14 +171,24 @@ pub async fn load_identity_record(
     entity_id: i32,
     sport: &str,
 ) -> anyhow::Result<Option<String>> {
-    use sqlx::Row;
     let mut connection = pool.acquire().await?;
+    load_identity_record_on(&mut connection, entity_type, entity_id, sport).await
+}
+
+pub async fn load_identity_record_on(
+    connection: &mut sqlx::PgConnection,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> anyhow::Result<Option<String>> {
+    use sqlx::Row;
     let sport_uc = sport.to_uppercase();
     let card = match entity_type {
         "team" => {
             let row = sqlx::query(
                 r#"
                 SELECT t.name, t.city, t.country, t.venue_name, t.conference, t.division,
+                       t.meta->>'gender' AS gender,
                        l.name AS league_name, l.country AS league_country,
                        (SELECT pe.full_name FROM public.persons pe
                          WHERE pe.sport = t.sport AND pe.team_id = t.id AND pe.kind = 'coach'
@@ -84,11 +216,15 @@ pub async fn load_identity_record(
                         line.push_str(&format!(" {div}"));
                     }
                 }
-                if let (Some(venue), Some(city)) = (
-                    r.get::<Option<String>, _>("venue_name"),
-                    r.get::<Option<String>, _>("city"),
-                ) {
-                    line.push_str(&format!(". Home: {venue}, {city}"));
+                for (label, field) in [
+                    ("Venue", "venue_name"),
+                    ("City", "city"),
+                    ("Country", "country"),
+                    ("Gender", "gender"),
+                ] {
+                    if let Some(value) = r.get::<Option<String>, _>(field) {
+                        line.push_str(&format!(". {label}: {value}"));
+                    }
                 }
                 if let Some(coach) = r.get::<Option<String>, _>("coach") {
                     line.push_str(&format!(". Coach on record: {coach}"));
@@ -204,6 +340,7 @@ impl EntityMeta {
         let sport = match self.sport.as_str() {
             "NBA" => "basketball",
             "NFL" => "American football",
+            "FOOTBALL" => "football",
             sport => sport,
         };
         WritingIdentity {
@@ -217,6 +354,14 @@ impl EntityMeta {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_attributes_are_omitted_without_guessing() {
+        let mut missing =
+            serde_json::json!({"position":null,"location":{"city":null},"gender":"women"});
+        remove_missing_attributes(&mut missing);
+        assert_eq!(missing, serde_json::json!({"gender":"women"}));
+    }
 
     #[test]
     fn writing_identity_describes_the_sport_not_the_competition_namespace() {

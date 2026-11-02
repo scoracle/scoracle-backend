@@ -12,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s78-availability-headlines";
+pub const RATING_PROMPT_VERSION: &str = "s83-context-guide";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -65,50 +65,14 @@ pub struct Assignment {
 }
 
 /// Instructions accompanying every prepared Scout world.
-pub const TASK: &str = "\
-Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names,
-identities, affiliations, causes, motives or outcomes. Missing information is unknown.
-Voice controls tone only; do not discuss the instructions.
+pub const TASK: &str = include_str!("instructions.txt");
 
-meta identifies the subject. A team is a team, never an individual player.
-Do not turn totals into averages or a team cohort into a player cohort.
-fresh contains selected season measurements and
-their sample and limits.
-voice sets tone. Return only JSON with body as concise prose or null.
-
-Describe what the supplied measurements establish in compact prose. Use only
-supplied measurements. A percentile is relative standing, not ability or
-the size of a difference. A prior percentile and standing_change apply only to
-that measure; supports_cross_season alone does not establish a comparison.
-Missing comparison is unknown, not stability. A composite
-is a standardized overall score with peer mean 50, not a percentile or a
-measure of any individual skill.
-
-Missing fixture measurements are unknown, not zero.
-availability contains only attributed participation headlines. It cannot change
-measurements or canonical identity. If mentioning availability, include a separate
-paragraph exactly as Publisher: Headline using a supplied publisher and complete
-headline verbatim. Preserve denial and uncertainty. Do not diagnose, predict a
-return date, infer recovery or explain measurements using a headline.
-
-State any thin-sample limit and its supplied sample count explicitly.
-Do not infer cohesion, effectiveness, consistency or ability from relative ranks.
-Honor any limit. Sample counts describe source coverage, not playing time or
-when a season began. Do not infer a cause, role, tactics, fitness or future
-outcome from a measurement. A short or null body is valid when the supplied
-measurements do not support more.";
-
-/// Retry the same bounded task without silently changing its content policy.
-pub fn correction(error: &anyhow::Error) -> Option<String> {
-    (error.is::<crate::tools::form::SurfaceError>()
-        || crate::harness::model::is_incomplete_output(error))
-    .then(|| format!("{error:#} Return the complete requested JSON within the declared output limits. Preserve the supplied qualifications and use only the prepared evidence."))
-}
-
-/// Fixture-replayable selected world. Wire order is the field order of [`Input`].
+/// Fixture-replayable selected world, rendered through the shared context envelope.
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct Parts {
     pub subject: EntityMeta,
+    #[serde(default)]
+    pub database_record: Option<crate::tools::meta::DatabaseRecord>,
     #[serde(default)]
     pub sport_name: String,
     pub season: i32,
@@ -134,7 +98,7 @@ impl Parts {
         temperature: f64,
     ) -> crate::harness::model::GenerateOptions {
         crate::harness::model::GenerateOptions {
-            system: None,
+            system: Some(TASK.trim().to_owned()),
             temperature: Some(temperature),
             num_predict: RATING_NUM_PREDICT,
             num_ctx,
@@ -175,19 +139,17 @@ impl Parts {
     /// Preserve the completed wire world and provenance in one debounce input.
     pub fn input_components(&self, provenance: serde_json::Value) -> String {
         serde_json::json!({"world": self.render(), "prompt_version": RATING_PROMPT_VERSION,
-            "output_contract": parser::RATING_OUTPUT_CONTRACT_VERSION, "provenance": provenance})
+            "instructions": TASK, "output_contract": parser::RATING_OUTPUT_CONTRACT_VERSION, "provenance": provenance})
         .to_string()
     }
 
     /// Field order is the wire order; this package contains selected measurements.
     pub fn render(&self) -> String {
         #[derive(Serialize)]
-        struct Input<'a> {
-            meta: crate::tools::meta::WritingIdentity<'a>,
-            task: &'static str,
-            fresh: &'a Profile,
+        struct Fresh<'a> {
+            #[serde(flatten)]
+            profile: &'a Profile,
             availability: serde_json::Value,
-            voice: &'static str,
         }
         let mut meta = self.subject.for_writing();
         if !self.sport_name.trim().is_empty() {
@@ -197,14 +159,17 @@ impl Parts {
                 &self.sport_name,
             );
         }
-        serde_json::to_string(&Input {
+        crate::tools::context::assemble(
+            TASK,
+            include_str!("context.txt"),
             meta,
-            task: TASK,
-            fresh: &self.profile,
-            availability: self.availability.for_writing(),
-            voice: super::voice::VOICE,
-        })
-        .expect("scout world serializes")
+            self.database_record.as_ref(),
+            Fresh {
+                profile: &self.profile,
+                availability: self.availability.for_writing(),
+            },
+            super::voice::VOICE,
+        )
     }
 }
 
@@ -358,6 +323,13 @@ pub(crate) async fn build_rating_request_on(
             entity_id: req.entity_id,
             sport: subject.sport.clone(),
         },
+        database_record: crate::tools::meta::load_character_identity_on(
+            connection,
+            &req.entity_type,
+            req.entity_id,
+            &req.sport,
+        )
+        .await?,
         sport_name: subject.sport_name.clone(),
         season: profile.season,
         availability: availability.clone(),
@@ -397,17 +369,6 @@ mod tests {
     use super::*;
     use crate::plugins::scout::performance::Limit;
     use serde_json::json;
-
-    #[test]
-    fn correction_preserves_the_provider_failure_under_context() {
-        let error = anyhow::Error::new(crate::harness::model::IncompleteOutput(
-            "incomplete model output (finish reason: length)".into(),
-        ))
-        .context("model generate");
-        assert!(correction(&error)
-            .unwrap()
-            .contains("finish reason: length"));
-    }
 
     #[test]
     fn rendered_directions_match_acceptance_without_borrowing_missing_comparisons() {

@@ -1,0 +1,13 @@
+{
+  "arm": "eligible-worked",
+  "checks": [],
+  "input_tokens": 2699,
+  "name": "player-45-NFL",
+  "output_tokens": 144,
+  "parser_detail": "finding status must match an explicit denial of that move",
+  "receipt": "04-player-45-NFL-eligible-worked",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 12036
+}

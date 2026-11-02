@@ -1,0 +1,38 @@
+{
+  "case": 11,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "Body uses numeric value 50.0, which is absent from the retained evidence. Remove it or use the exact supplied measurement.",
+      "name": "production_acceptance",
+      "pass": false
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/rating-nfl-team-zero-interceptions.json",
+  "generation_wall_ms": 4461,
+  "input_tokens": 491,
+  "name": "nfl-team-zero-interceptions",
+  "output_limit": 700,
+  "output_tokens": 94,
+  "parsed": false,
+  "prompt_version": "s78-availability-headlines",
+  "reading": "In the 2026 season, the Briar Bears recorded 12.0 games played. Their composite score of 64.0 places them above the peer mean of 50.0. Regarding specific skills, the team threw 0.0 interceptions, a measurement that establishes a 99.0th percentile relative standing within the elite band. This data supports cross-season comparisons. No availability headlines are provided.",
+  "request_bytes": 2276,
+  "review": [
+    "NFL team positive control: zero interceptions thrown is measured, not forcing opponent interceptions or quarterback skill. No team-to-player identity conversion."
+  ],
+  "status": "rejected",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 4468
+}

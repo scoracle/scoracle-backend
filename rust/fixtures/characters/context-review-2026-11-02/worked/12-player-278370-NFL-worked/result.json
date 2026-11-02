@@ -1,0 +1,13 @@
+{
+  "arm": "worked",
+  "checks": [],
+  "input_tokens": 4556,
+  "name": "player-278370-NFL",
+  "output_tokens": 147,
+  "parser_detail": "finding quote must name both the target and counterparty in full",
+  "receipt": "12-player-278370-NFL-worked",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 17843
+}

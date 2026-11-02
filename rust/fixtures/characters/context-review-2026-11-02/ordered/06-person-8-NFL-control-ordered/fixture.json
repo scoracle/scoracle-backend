@@ -1,0 +1,198 @@
+{
+  "name": "person-8-NFL",
+  "task": "transfer",
+  "sport": "NFL",
+  "prompt_version": "insider-source-v21-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Dan Quinn\",\"entity_type\":\"person\",\"sport\":\"American football\",\"database_record\":\"Dan Quinn — coach; club: Philadelphia Eagles; checked: 2026-09-30.\\ndate_of_birth: 1970-09-11 [2026-10-05; source 130990]\\nrole: coach [2026-09-05; source 66340]\\nteam_affiliation: Philadelphia Eagles [2026-09-30; source 126380]\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1381778,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxOMy1RejQtMm03R3VwdzExOWZYaTlYd3NrRWFqX2pyQ1h2ZVR3elhjOHFWSjJoVzlZbkt4LThTNWZGSk5YSzN2WE9hQmJ6QXlGMFlsLUpPREE1RDZ1WFNUX2RZYWRUbGtrRWVIWEVnN2NoVENYTnZTMWd2WXZmUVR1cFJZQzA?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Washington Commanders\"}],\"headline\":\"Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye\",\"published_at\":\"2026-10-22T14:40:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1312419,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxOaGRvTjJHdDZKUGZaczZ0cGRaVU9mUkgwWXlOcnFPZ29aQVE5bEZLSnFaTl9KazQ1UjcxanBjOEdIZzRhWldyM3dHcExHRlVwTTB4VUxuR0NqRVd5TzZhVGp6alpUdVNnU0hJa19fdHV2cjJOaGs2aFM0UGxMTVd5UlBfelJhR1JPc0FDUzV6S2Q?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Washington Commanders\"}],\"headline\":\"Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye\",\"published_at\":\"2026-10-22T14:40:00Z\",\"publisher\":\"Athlon Sports\"},{\"classifier_world\":{\"article_id\":1264048,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxOc0VRQVo1MmhZdU5qTHlYUVRJRmpJUGtaV2Nnd2tvZk1DYzhIa0txWl9VWmVHYzk4cFVxcGxHTnY2eVdWeWg5eWxJLVg0ZGRVdEVCazRQdVJPeldmSFpxbHlPeUZ0NTlVVGdDWHVCSUc5U0V0ZHhaTEd1eko4ekRUQ1V2bTh4MWxYWGNmbk0zZw?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Washington Commanders\"}],\"headline\":\"Former Commanders’ HC Names ‘Impressive’ Dan Quinn Replacement\",\"published_at\":\"2026-10-22T00:40:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1402176,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxNUUxNUlJXYUtPN3R6SjZRYmtvRjN2c0VieFNZZmdsOU1aMEZ1WWdPNG9meUZiM3FxWVgySi0xX1d1QjlOWWh1YVczVmNkZEtFVFFVR2JUUVRLS25sR3h3UXppakpGNFlGY2NEdE5USGlaNmt2SjlHOEFaOEdRSVBIbEFUaFg5dDQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Washington Commanders\"}],\"headline\":\"'It's over for Dan Quinn, this is it': Stephen A. Smith does not hold back on Commanders coach\",\"published_at\":\"2026-10-22T00:27:38Z\",\"publisher\":\"The Comeback\"},{\"classifier_world\":{\"article_id\":1402174,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxQRkRpSjkxUHpua25saS1uSm5iV1Nxd3dySnMtOXA2MW5DZ3J4Mkk5Z0pfZFVWMmlFTjlDX3VSQWZRRFdjWjNPU1VvRnBBRk03QmhPS1RLck5wY25mRHhWRlZjZDFRaXFXdFpVTnlTc3dWTVA0d182ZlJVUXFtcnY4TTF6ZG56cUhpdmVUd25JSmtCRWwwV3dfb3Rpaw?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Washington Commanders\"}],\"headline\":\"Dan Quinn Hires Former Head Coach Amid Uncertain Future With Commanders\",\"published_at\":\"2026-10-21T23:07:44Z\",\"publisher\":\"The Spun\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "parts": {
+    "database_record": "Dan Quinn — coach; club: Philadelphia Eagles; checked: 2026-09-30.\ndate_of_birth: 1970-09-11 [2026-10-05; source 130990]\nrole: coach [2026-09-05; source 66340]\nteam_affiliation: Philadelphia Eagles [2026-09-30; source 126380]",
+    "reports": [
+      {
+        "classifier_world": {
+          "article_id": 1381778,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 88.16760040590039,
+            "emotion": 4.78202610398659,
+            "movement": 80.2872701287389,
+            "subject": 88.21005656876628
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxOMy1RejQtMm03R3VwdzExOWZYaTlYd3NrRWFqX2pyQ1h2ZVR3elhjOHFWSjJoVzlZbkt4LThTNWZGSk5YSzN2WE9hQmJ6QXlGMFlsLUpPREE1RDZ1WFNUX2RZYWRUbGtrRWVIWEVnN2NoVENYTnZTMWd2WXZmUVR1cFJZQzA?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Washington Commanders"
+          }
+        ],
+        "headline": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+        "published_at": "2026-10-22T14:40:00Z",
+        "publisher": "Yahoo Sports",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1312419,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 13.914647268486918,
+            "clickbait": 9.11156000766574,
+            "emotion": 4.976244413092646,
+            "movement": 81.59651296582133,
+            "subject": 88.10115889296807
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxOaGRvTjJHdDZKUGZaczZ0cGRaVU9mUkgwWXlOcnFPZ29aQVE5bEZLSnFaTl9KazQ1UjcxanBjOEdIZzRhWldyM3dHcExHRlVwTTB4VUxuR0NqRVd5TzZhVGp6alpUdVNnU0hJa19fdHV2cjJOaGs2aFM0UGxMTVd5UlBfelJhR1JPc0FDUzV6S2Q?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Washington Commanders"
+          }
+        ],
+        "headline": "Stephen A. Smith Says Dan Quinn's Time in Washington Is Over as the Commanders Hit Their Bye",
+        "published_at": "2026-10-22T14:40:00Z",
+        "publisher": "Athlon Sports",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1264048,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.8456457820578622,
+            "clickbait": 10.068140045782776,
+            "emotion": 7.088300011669391,
+            "movement": 87.03172404039577,
+            "subject": 89.69544186909243
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxOc0VRQVo1MmhZdU5qTHlYUVRJRmpJUGtaV2Nnd2tvZk1DYzhIa0txWl9VWmVHYzk4cFVxcGxHTnY2eVdWeWg5eWxJLVg0ZGRVdEVCazRQdVJPeldmSFpxbHlPeUZ0NTlVVGdDWHVCSUc5U0V0ZHhaTEd1eko4ekRUQ1V2bTh4MWxYWGNmbk0zZw?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Washington Commanders"
+          }
+        ],
+        "headline": "Former Commanders’ HC Names ‘Impressive’ Dan Quinn Replacement",
+        "published_at": "2026-10-22T00:40:00Z",
+        "publisher": "Yahoo Sports",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1402176,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": true,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 67.6213277946741,
+            "emotion": 45.153433417843665,
+            "movement": 82.90691309231862,
+            "subject": 87.60434283978736
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNUUxNUlJXYUtPN3R6SjZRYmtvRjN2c0VieFNZZmdsOU1aMEZ1WWdPNG9meUZiM3FxWVgySi0xX1d1QjlOWWh1YVczVmNkZEtFVFFVR2JUUVRLS25sR3h3UXppakpGNFlGY2NEdE5USGlaNmt2SjlHOEFaOEdRSVBIbEFUaFg5dDQ?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Washington Commanders"
+          }
+        ],
+        "headline": "'It's over for Dan Quinn, this is it': Stephen A. Smith does not hold back on Commanders coach",
+        "published_at": "2026-10-22T00:27:38Z",
+        "publisher": "The Comeback",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1402174,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 74.20020370320168,
+            "emotion": 1.8812487521860983,
+            "movement": 94.03782997157234,
+            "subject": 92.39447610454548
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQRkRpSjkxUHpua25saS1uSm5iV1Nxd3dySnMtOXA2MW5DZ3J4Mkk5Z0pfZFVWMmlFTjlDX3VSQWZRRFdjWjNPU1VvRnBBRk03QmhPS1RLck5wY25mRHhWRlZjZDFRaXFXdFpVTnlTc3dWTVA0d182ZlJVUXFtcnY4TTF6ZG56cUhpdmVUd25JSmtCRWwwV3dfb3Rpaw?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Washington Commanders"
+          }
+        ],
+        "headline": "Dan Quinn Hires Former Head Coach Amid Uncertain Future With Commanders",
+        "published_at": "2026-10-21T23:07:44Z",
+        "publisher": "The Spun",
+        "publisher_excerpt": ""
+      }
+    ],
+    "subject": {
+      "entity_id": 8,
+      "entity_type": "person",
+      "name": "Dan Quinn",
+      "sport": "NFL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

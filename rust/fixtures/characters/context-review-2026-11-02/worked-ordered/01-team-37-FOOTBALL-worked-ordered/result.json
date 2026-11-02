@@ -1,0 +1,13 @@
+{
+  "arm": "worked-ordered",
+  "checks": [],
+  "input_tokens": 4088,
+  "name": "team-37-FOOTBALL",
+  "output_tokens": 100,
+  "parser_detail": "named claim is absent from cited reports: RB Leipzig",
+  "receipt": "01-team-37-FOOTBALL-worked-ordered",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 14489
+}

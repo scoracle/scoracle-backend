@@ -1,0 +1,20 @@
+[
+  {
+    "arm": "control",
+    "reports": 24,
+    "input_tokens": 10076,
+    "output_reservation": 2100,
+    "context_limit": 7900,
+    "fits": false,
+    "model_calls": 0
+  },
+  {
+    "arm": "candidate",
+    "reports": 24,
+    "input_tokens": 10354,
+    "output_reservation": 2100,
+    "context_limit": 7900,
+    "fits": false,
+    "model_calls": 0
+  }
+]

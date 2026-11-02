@@ -1,0 +1,3 @@
+{"name": "02-player-322-NBA-worked", "arm": "sampled", "wall_ms": 6761, "input_tokens": 1953, "output_tokens": 47, "status": "rejected", "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers"}
+{"name": "03-person-8-NFL-worked", "arm": "sampled", "wall_ms": 11812, "input_tokens": 2744, "output_tokens": 129, "status": "rejected", "parser_detail": "finding quote must name both the target and counterparty in full"}
+{"name": "04-player-45-NFL-worked", "arm": "sampled", "wall_ms": 12456, "input_tokens": 2699, "output_tokens": 153, "status": "rejected", "parser_detail": "finding status must match an explicit denial of that move"}

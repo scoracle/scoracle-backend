@@ -1,0 +1,76 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — momentum / missing-mood-peer [no_call]
+No model call
+
+2 — momentum / mixed-peak-up-vibe-down [error]
+llama.cpp template omitted or changed supplied input
+
+3 — momentum / rising-confirmed [error]
+llama.cpp template omitted or changed supplied input
+
+4 — narratives / distinct-developments-three-independent-developments,-three-keyed-slots [accepted]
+Cedar United has appointed Jo Vale as head coach on a two-year contract, while goalkeeper Kim Park is set to miss the next match due to an ankle injury with no return date specified.
+
+Cedar United secured a 2–1 victory against Vale City on Sunday, marking their latest result in the league.
+
+5 — narratives / nba-attribution-basketball-source-under-a-league-namespace [rejected]
+cited reports do not connect Cedar Comets with numerical fact 27
+
+6 — narratives / rumour-and-denial-rumour-with-its-denial-intact [accepted]
+City Wire reports that Cedar United are reportedly in talks to sign Alex Stone, with no agreement reached and the club declining to comment.
+
+7 — oracle / crossroads-conflict [error]
+llama.cpp template omitted or changed supplied input
+
+8 — oracle / near-empty-quiet-wire [error]
+llama.cpp template omitted or changed supplied input
+
+9 — oracle / three-card-newcomer [error]
+llama.cpp template omitted or changed supplied input
+
+10 — rating / football-player-total [error]
+llama.cpp template omitted or changed supplied input
+
+11 — rating / nfl-team-zero-interceptions [error]
+llama.cpp template omitted or changed supplied input
+
+12 — rating / synthetic-sparse [error]
+llama.cpp template omitted or changed supplied input
+
+13 — transfer / explicit-denial-clears-prior-rumor [error]
+llama.cpp template omitted or changed supplied input
+
+14 — transfer / fully-named-interest [error]
+llama.cpp template omitted or changed supplied input
+
+15 — transfer / unnamed-signing-no-identity-join [error]
+llama.cpp template omitted or changed supplied input
+
+16 — vibe / clearly-negative [error]
+llama.cpp template omitted or changed supplied input
+
+17 — vibe / clearly-positive [error]
+llama.cpp template omitted or changed supplied input
+
+18 — vibe / quiet-mixed [error]
+llama.cpp template omitted or changed supplied input
+
+19 — narratives / regression-ac-milan-known [error]
+complete input (13194) plus reserved output (2100) exceeds actual model context (7900); no source was clipped
+
+20 — narratives / regression-ac-milan-reserved [error]
+complete input (13194) plus reserved output (2100) exceeds actual model context (7900); no source was clipped
+
+21 — narratives / regression-chicago-bears-known [error]
+complete input (11638) plus reserved output (2100) exceeds actual model context (7900); no source was clipped
+
+22 — narratives / regression-chicago-bears-reserved [error]
+complete input (11638) plus reserved output (2100) exceeds actual model context (7900); no source was clipped
+
+23 — narratives / regression-la-clippers-known [error]
+complete input (12127) plus reserved output (2100) exceeds actual model context (7900); no source was clipped
+
+24 — narratives / regression-la-clippers-reserved [error]
+complete input (12127) plus reserved output (2100) exceeds actual model context (7900); no source was clipped

@@ -115,7 +115,7 @@ async fn articulate(
     (direction, score): (String, i32),
 ) -> Result<Option<MomentumOutput>> {
     let ctx = &assignment.context;
-    if ctx.rating.is_none() || ctx.vibe.is_none() {
+    if (ctx.rating.is_none() || ctx.vibe.is_none()) && !fresh::has_comparison(&ctx.snapshot) {
         return Ok(Some(Generation::uncalled(
             MomentumSummary {
                 direction,
@@ -147,19 +147,21 @@ async fn articulate(
         entity_id: assignment.entity_id,
         sport: assignment.sport.clone(),
     };
-    let prompt = prompt::assemble(
-        &subject,
-        ctx.rating.as_ref(),
-        ctx.vibe.as_ref(),
-        &ctx.snapshot,
-    );
+    let prompt = prompt::Parts {
+        subject,
+        database_record: ctx.database_record.clone(),
+        scout: ctx.rating.clone(),
+        influencer: ctx.vibe.clone(),
+        snapshot: ctx.snapshot.clone(),
+    }
+    .assemble();
     let opts = prompt::generation_options(assignment.voice_num_ctx);
     let extracted = studio
         .extract(
             &prompt,
             &opts,
             &parser::RequestParser(&prompt),
-            crate::harness::session::structured_correction,
+            crate::harness::session::no_rewrite,
         )
         .await?;
     let call = GenerationCall::from(&extracted);

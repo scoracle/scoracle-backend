@@ -99,7 +99,7 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
                 prompt,
                 &opts,
                 &recording.parser,
-                scoracle_cognition::plugins::scout::prompt::correction,
+                scoracle_cognition::harness::session::no_rewrite,
             )
             .await;
         let outcome = match result {
@@ -151,7 +151,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn replay_retains_rejected_response_and_bounded_correction() {
+    async fn replay_retains_rejected_response_without_rewriting() {
         let backend = Backend(Mutex::new(vec![
             json!({"body":"His limited playing time explains the numbers."}).to_string(),
             json!({"body":"The measured rebounding is strong."}).to_string(),
@@ -168,17 +168,17 @@ mod tests {
             num_predict: 700,
             ..Default::default()
         };
-        Studio::new(&recording)
+        let result = Studio::new(&recording)
             .extract(
                 "Evidence",
                 &opts,
                 &recording.parser,
-                scoracle_cognition::plugins::scout::prompt::correction,
+                scoracle_cognition::harness::session::no_rewrite,
             )
-            .await
-            .unwrap();
+            .await;
+        assert!(result.is_err());
         let attempts = recording.attempts.lock().unwrap();
-        assert_eq!(attempts.len(), 2);
+        assert_eq!(attempts.len(), 1);
         assert!(
             attempts[0]["guard_error"]
                 .as_str()
@@ -187,13 +187,7 @@ mod tests {
             "guard error was {:?}",
             attempts[0]["guard_error"]
         );
-        assert!(attempts[1]["guard_error"].is_null());
         assert_eq!(attempts[0]["raw_response_body"], "retained HTTP body");
         assert_eq!(attempts[0]["prompt_eval_count"], 31);
-        assert_eq!(attempts[1]["request"]["num_ctx"], 4096);
-        assert!(attempts[1]["request"]["prompt"]
-            .as_str()
-            .unwrap()
-            .contains("Output correction:"));
     }
 }

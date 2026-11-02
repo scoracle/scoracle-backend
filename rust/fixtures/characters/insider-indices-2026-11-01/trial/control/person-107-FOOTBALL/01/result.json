@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/insider-indices-2026-11-01/cases/control/person-107-FOOTBALL.json",
+  "generation_wall_ms": 9848,
+  "input_tokens": 2177,
+  "name": "person-107-FOOTBALL",
+  "output_limit": 1400,
+  "output_tokens": 57,
+  "parsed": false,
+  "prompt_version": "insider-source-v21-perspective",
+  "reading": "named claim is absent from cited reports: AFC Bournemouth",
+  "request_bytes": 2773,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 10079
+}

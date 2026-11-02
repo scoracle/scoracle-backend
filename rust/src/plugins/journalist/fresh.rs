@@ -36,13 +36,15 @@ impl From<&SourceContext> for CorpusItem {
 pub(super) struct Report<'a> {
     /// A request-local writing slot, not a durable source identity.
     report_key: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    headline: Option<String>,
     publisher: &'a str,
     published_at: Option<String>,
+    evidence_scope: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    headline: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     publisher_excerpt: Option<String>,
-    evidence_scope: &'static str,
+    article_id: i64,
+    url: Option<&'a str>,
 }
 
 impl Report<'_> {
@@ -71,6 +73,11 @@ pub(super) fn reports(reports: &[CorpusItem]) -> Vec<Report<'_>> {
         .enumerate()
         .map(|(index, report)| Report {
             report_key: format!("report_{}", index + 1),
+            article_id: report.id,
+            url: report
+                .classifier_world
+                .as_ref()
+                .and_then(|w| w["url"].as_str()),
             headline: report
                 .classifier_world
                 .as_ref()
@@ -202,7 +209,7 @@ pub async fn load_narratives_material(
     let fresh = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
     let mut assignment = prepare(subject, fresh, &[], now)?;
     if !assignment.selected.is_empty() {
-        assignment.database_record = crate::tools::meta::load_identity_record(
+        assignment.database_record = crate::tools::meta::load_character_identity(
             pool,
             &assignment.subject.entity_type,
             assignment.subject.entity_id,

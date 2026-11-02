@@ -1,0 +1,7 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / real-narratives-person-86-FOOTBALL [accepted]
+RB Leipzig coach Martín Demichelis has publicly praised Real Madrid's new signing, Yan Diomande, ahead of their Champions League clash at the Bernabéu. Multiple sources report that Demichelis 'raved' about the player, highlighting his potential impact despite the daunting nature of the upcoming match against his former club's rivals.
+
+In a separate development, Demichelis addressed the situation of Franco Mastantuono, who is on loan at Fiorentina. He stated that Mastantuono 'needs time' to develop and insisted that the player is fundamentally built for Real Madrid, despite his current spell away from the Spanish giants.

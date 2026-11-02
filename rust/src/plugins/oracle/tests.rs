@@ -7,6 +7,7 @@ use std::time::Duration;
 
 fn subject() -> Subject {
     Subject {
+        database_record: None,
         entity_id: 7,
         entity_type: "team".into(),
         entity_name: "Northbridge FC".into(),
@@ -17,6 +18,8 @@ fn subject() -> Subject {
 fn cards() -> Cards {
     Cards {
         narratives: vec![SynthNarrative {
+            generated_at: None,
+            source_article_ids: vec![],
             title: "A title challenge gathers".into(),
             body: "Northbridge FC have won three matches.".into(),
             impact: 75.0,
@@ -25,12 +28,14 @@ fn cards() -> Cards {
             source_age_days: Some(1),
         }],
         rating: Some(SynthRating {
+            generated_at: None,
             body: "Northbridge FC have a strong statistical profile.".into(),
             notability: 82,
             rating_trajectory: "rising".into(),
             rating_trajectory_label: "rising".into(),
         }),
         vibe: Some(SynthVibe {
+            generated_at: None,
             sentiment: 72,
             prompt: "Belief is strengthening around Northbridge FC.".into(),
         }),

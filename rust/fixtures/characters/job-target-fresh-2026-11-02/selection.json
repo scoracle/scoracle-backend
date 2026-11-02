@@ -1,0 +1,86 @@
+[
+  {
+    "name": "narratives-person-86-FOOTBALL",
+    "task": "narratives",
+    "source": "fixtures/characters/useful-perspectives-2026-11-01/workload-final/real-narratives-person-86-FOOTBALL/01/fixture.json",
+    "identity_capture": "person:86:FOOTBALL",
+    "synthetic": false
+  },
+  {
+    "name": "narratives-player-37-NBA",
+    "task": "narratives",
+    "source": "fixtures/characters/useful-perspectives-2026-11-01/workload-final/real-narratives-player-37-NBA/01/fixture.json",
+    "identity_capture": "player:37:NBA",
+    "synthetic": false
+  },
+  {
+    "name": "vibe-person-23-FOOTBALL",
+    "task": "vibe",
+    "source": "fixtures/characters/useful-perspectives-2026-11-01/workload-final/real-vibe-person-23-FOOTBALL/01/fixture.json",
+    "identity_capture": "person:23:FOOTBALL",
+    "synthetic": false
+  },
+  {
+    "name": "vibe-person-959-NFL",
+    "task": "vibe",
+    "source": "fixtures/characters/useful-perspectives-2026-11-01/workload-final/real-vibe-person-959-NFL/01/fixture.json",
+    "identity_capture": "person:959:NFL",
+    "synthetic": false
+  },
+  {
+    "name": "rating-team-2-NBA",
+    "task": "rating",
+    "source": "fixtures/characters/useful-perspectives-2026-11-01/workload-final/real-rating-team-2-NBA/01/fixture.json",
+    "identity_capture": "team:2:NBA",
+    "synthetic": false
+  },
+  {
+    "name": "rating-player-744-NFL",
+    "task": "rating",
+    "source": "fixtures/characters/useful-perspectives-2026-11-01/workload-final/real-rating-player-744-NFL/01/fixture.json",
+    "identity_capture": "player:744:NFL",
+    "synthetic": false
+  },
+  {
+    "name": "momentum-player-744-NFL",
+    "task": "momentum",
+    "source": "fixtures/characters/useful-perspectives-2026-11-01/workload-final/real-momentum-player-744-NFL/01/fixture.json",
+    "identity_capture": "player:744:NFL",
+    "synthetic": false
+  },
+  {
+    "name": "oracle-team-2-NBA",
+    "task": "oracle",
+    "source": "fixtures/characters/useful-perspectives-2026-11-01/workload-final/real-oracle-team-2-NBA/01/fixture.json",
+    "identity_capture": "team:2:NBA",
+    "synthetic": false
+  },
+  {
+    "name": "oracle-player-744-NFL",
+    "task": "oracle",
+    "source": "fixtures/characters/useful-perspectives-2026-11-01/workload-final/real-oracle-player-744-NFL/01/fixture.json",
+    "identity_capture": "player:744:NFL",
+    "synthetic": false
+  },
+  {
+    "name": "transfer-team-37-FOOTBALL",
+    "task": "transfer",
+    "source": "fixtures/characters/context-review-2026-11-02/eligible/01-team-37-FOOTBALL-eligible-worked/fixture.json",
+    "identity_capture": "team:37:FOOTBALL",
+    "synthetic": false
+  },
+  {
+    "name": "transfer-player-83946-NFL",
+    "task": "transfer",
+    "source": "fixtures/characters/context-review-2026-11-02/eligible/11-player-83946-NFL-eligible-worked/fixture.json",
+    "identity_capture": "player:83946:NFL",
+    "synthetic": false
+  },
+  {
+    "name": "momentum-synthetic-dated-divergence",
+    "task": "momentum",
+    "source": "fixtures/quality/momentum/synthetic-dated-divergence.json",
+    "identity_capture": null,
+    "synthetic": true
+  }
+]

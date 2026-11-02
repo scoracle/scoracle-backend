@@ -1,0 +1,1795 @@
+{
+  "name": "real-narratives-player-129602-FOOTBALL",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n121-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Bruno Fernandes\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\",\"database_record\":\"Bruno Fernandes — Midfielder, on record at Manchester United (Premier League). Nationality: Portugal. Record: roster; observed 2026-07-04.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1413886,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxQbGVUMGlXWFZkTF9kc0UwakdLd0hJMFdMZnh5Vjh2dkRuMDFTTnlpMXpUdzhHd2RYQTMwVllBUjRBcXp2QV9paTVVQXBDWmowcjBIR1hPUFNXTEZtZmM4WDM3MmI3QUVqT25aQkNEVFRxZW9UemV1bE1nT0d3X0UtZFExSGJSUQ?oc=5\",\"headline\":\"Bruno Fernandes Retains Captaincy Despite Criticizing Carrick’s Tactics\",\"publisher\":\"조선일보\",\"published_at\":\"2026-10-22T23:10:41Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1385045,\"url\":\"https://news.google.com/rss/articles/CBMigwJBVV95cUxPRGd3ckF2SUliTGctSHpBYi02b0JWX25raWg0blBpaGxjUlBwSkVxZ3RFQmx6MW1ldEtYRXp1am5HMXR2NE1GU0QwbGIySXZwaEtZdjB1dnhOVTR5bDUzazlUUDkybnF1VmtnRzZodVppOXNEVHp3WWVtNVJBQ0lUSE5RdkxKUU5CT1hiSDVLUE1ENVdMRmdibzZpU2ZQdk4wMU5MMUhCaUxrM0ptM2t0ODBfUlptY3FPeWpqS00wM1BrVFE5MkV1YURzelk4ZFp1Yjl3Q2RGZWxURFZpbnVIRFd6ZEZmaGpwRlFRdUVac1QzMTJkYUQzdGZ4bklTNWNIUEVN?oc=5\",\"headline\":\"Bruno Fernandes’ house burgled while Man United in Italy but skipper to avoid sanction for outburst after Como defeat\",\"publisher\":\"Irish Independent\",\"published_at\":\"2026-10-22T21:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1395195,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxQVmpkUHh5R3dTZ0U3UmlDQ2FVT2FLdkRtMUM1R0dRSTFWcjc3Z1NndWhTTVNIVXZ1YXVyWjY5TjFnZ3pXMWZwZGZERThQS1N0eVRVV1dPR0hMSDFTSnJfUkdSMUR0OXZTRGROZjNfVU8zMWhpZVFEUlRfNEpTLTFjdkd0dEN0UzdIQTZQS0pQenJrSUxMMUVEa1dHR2h6dlVacWlQWnRacjd3NDZS0gGyAUFVX3lxTFAxa2FpWU10VEd0QWFuSlZzRkp4ZDhWZkRnU2llM0FBSGgya3BRTk52dUt1Y3ctS0FuY3ZXbWFqdDFjak1zeGgwMlRWWW5ONUY5MzljcXpncnp4YzRvTzBYN1lQTkpGU0dpZG4xZlU4anA4NV9fMkg0WHJUeVlla1hlcHlUb2hpN2o4UWFXYkIxSkVmbkRaSUdkVGxDNVZjcnlOYjdLdHNjWVpDTHJoQ3hqUGc?oc=5\",\"headline\":\"Bruno Fernandes proves Wayne Rooney right in eight days as Man United decide on captaincy\",\"publisher\":\"Manchester Evening News\",\"published_at\":\"2026-10-22T19:59:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1364793,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxQblZLdG94OGhYWW9PR0dVc1RXVnF6N0F3Z3ZjNVVpenhpQzZGeEVJN1VabTBLOW9CbkxkamdiQ2VzemNkeTBiaDNUcTRzZzJUR3RLZkVNdm1IN0doaWdoc0tHVW5xWXI0TTZDeU1IM3RPSDZ2VUhMemZBSEUyVnVrUWd5MmhsN3ZxT0dCbDd3VldNVEN4N0Rka3NaVQ?oc=5\",\"headline\":\"Bruno Fernandes’ home burgled after Como defeat\",\"publisher\":\"The Telegraph\",\"published_at\":\"2026-10-22T19:18:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_5\",\"article_id\":1362882,\"url\":\"https://news.google.com/rss/articles/CBMi3wFBVV95cUxPU2lPNmstWGRrNVQ0TGRZX1puLVJGVU9velpKQkhQNTZmVUU2YXBRMl9JQjZLc0VSaWduSUVPaUtRalZQbHNHQjZLU0o5RzM4aXFJMVYxMFZFc3BvTVN2cTl3cnNUSzhSVU1qWjIwMHB1RmprX1l1NHlkZHF6d0VtSkNsUGxYNUdfOUhVWDJXUzRIVjBKX3pPekFMZjUwVnNCLWozNVQ2UDlKaWlaN2N0LVN2ektGMW1vczlMNnhweGg3RlN1d1U4VmtRVkRJZHpiZFVUSUdyUnR4MW5ZcmZj?oc=5\",\"headline\":\"While Bruno Fernandes was getting beat on the pitch, masked burglars broke into his home.\",\"publisher\":\"Facebook\",\"published_at\":\"2026-10-22T19:14:35Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_6\",\"article_id\":1413553,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxNT2NidVFIcmJkNVdhNUV5NzlmcERWWFRfeGFPRWlVRFFET3hoRC1uSTg1SXA5TG92R3NpWDVNcTA3aTFhaHNlcXFpQ2k4Sm15b21DdDRwN0owWnZtcUY3dE9KdC1xMnQ5RlZzdkNNN1l4aU15dFRxMkFEcUFHUWZnUHFNTWg1Z1BRNDFGMEw5blVaTXdHR2NncjVuTVQ?oc=5\",\"headline\":\"How Bruno Fernandes went rogue by ignoring Michael Carrick's tactics in Man Utd's 4-1 mauling at Como\",\"publisher\":\"The Irish Sun\",\"published_at\":\"2026-10-22T18:51:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_7\",\"article_id\":1395143,\"url\":\"https://news.google.com/rss/articles/CBMinwFBVV95cUxQeDhpYlpGbDljdGxKeGdHeDFOSlVyWldfcE1XOFZXblFHSGQ4QndxMHdNOVpWSTAyUDc5TlJFMWpSU25Tb3FxX0xBX1l4T0dxMWcyREVSRVdUMW1RQzVnNkJnMXBsN3NtR3kzMXd0RzAyWHVpUk1CRjZjandpelFnY01BNDB6WlE1MzJUYURaV2F1MTdCejlqSFdJWFVEMjQ?oc=5\",\"headline\":\"How Bruno Fernandes went rogue by ignoring Michael Carrick's tactics in Man Utd's 4-1 mauling at Como\",\"publisher\":\"The Sun\",\"published_at\":\"2026-10-22T18:47:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_8\",\"article_id\":1385029,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxOMUJ1eHdFcjN3cl9ON0h6b0tjSjJESUwtSWM2c0dIcjFzV0xpano2TEdHdndnMmUwVGdKNEdtbzUtWHZ3VHlHRHhNS2ZTMEZ5THJYOWZvX2xWNUJCN0tSbC1LVzRHY1RuMmZwdHF5STVmZVRvWWZZTU9FdUMxY2NzUk0zUzdneXJ4OWp4bzAwUzY2b2FQNlhMUWFRM3J3bXpjZ3pFdmRRc0hDLUJsc01pQtIBtgFBVV95cUxNSkRQN2FObEpOclhTSW5zZkVVMmRaQnpDVDllbXhvSldTdDN6X3VGOW9KcmdnQzJORGl5Sm9pX0xlOE1IQnJxTXlhMnhycEowSTIycjBQMTBQNVVUYjNFNTJqekJXZTFHNENoYTNCSXVZUUhCbmljbGxEZ2Mtc0NCcWRWVmtrTkFaTEpEYnBaQk1YWFNjbzBrRHQ3TDFZMW0xSlRiVDljNWhlVmhOS0ZxUVVWc29YQQ?oc=5\",\"headline\":\"Bruno Fernandes comments 'expose' Man United as new theory put forward to board\",\"publisher\":\"Manchester Evening News\",\"published_at\":\"2026-10-22T18:31:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_9\",\"article_id\":1354858,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxQa0piUXF5ZFBqeHM2Q05FSUlKT1lPaHpRbnRDOElNNUZQY3pCLUNBYm51d09MdHh5SVpkdURYeDdsWVZNSnBkc0plb1Z6ZnQ0cTBBYV9GaDNkdGxxSlI5WG94SFNXVjVZZnVDUTBabk9ka2t4WW9KV2w0UC11RzZuY0thdUNGa01V?oc=5\",\"headline\":\"Bruno Fernandes’ £4m Cheshire home burgled during Manchester United defeat to Como\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T18:25:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_10\",\"article_id\":1393583,\"url\":\"https://news.google.com/rss/articles/CBMiswFBVV95cUxOWm53eVNwX0RTSjJvMDBhbmtOWEZTdVVBdFVNa0JBOVRDbU1jcjVZWFI5d005X2JYWEhzeTFneFkxX1J6Rm9jcUViNzg1ZzFIT1cxS0sxSkpPNkVnSWRiNmY4Sm9qZ3gwam5EeFNXSjNXdnpOcC15UGY2ZUY1TzFFOThveTFESmRjaVR4RExMWjV0MjNaUllUSVdQWnRDT1c3WTEwWmdfSkRENEg0R1dIWkxJZw?oc=5\",\"headline\":\"Manchester United captain Bruno Fernandes to avoid punishment after Carrick criticism\",\"publisher\":\"101 Great Goals\",\"published_at\":\"2026-10-22T18:04:54Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_11\",\"article_id\":1325233,\"url\":\"https://news.google.com/rss/articles/CBMi7gFBVV95cUxOWXlQMDJCcHNaZzZQb095M1VQVlQ1M2VtZFkxTFNEMEZDcU95aG10RHZvclc5MzNDZVVhWVA0c0QyVXZ5YXBRUWtiMHBjRWpOdHZLRUZCdWZFRHRCcXFCS3JzdU9HWnpJNkZ4YjhicURUNnpnbF94M0o0NVhpQTAtN3c5Yl8xbHBlNG9RZjFob2hfdWxnTUdTcHN2R3ExUXZ4UEd6ZVFTeEk2ano1UW1PYUYtZFVCcmhmbTZJZmpCQ1FiV1FNWUFGT3BneDdGQU1JZGJ2TGpaSWdkLU02QklfeloxQkdOemI4U0lfZjV3?oc=5\",\"headline\":\"Man Utd boss Michael Carrick and captain Bruno Fernandes clash over tactics in Como defeat - but who was right?\",\"publisher\":\"Sky Sports\",\"published_at\":\"2026-10-22T17:25:50Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_12\",\"article_id\":1344935,\"url\":\"https://news.google.com/rss/articles/CBMirAFBVV95cUxQbm16RUhKQi03RlJnVHJNVC1Rd3NMNWs2Z0JqTW94elpTb0tVNk1scVVZckxnd3hoWjdRY3g5b1JpYi00N1dNeGc2SExFWWhaX3lhdUJSZk4xN0NQLUlBUDRlbW9lZWV3bElCVEdwNl90eHdjTUJXTjgxdDBmZDV4M0VDZXdZeWY0RUtRWWs5cTNaMnlod2owd1BmYkpZZXI5YjdoU3BwQjFSZGNq0gGyAUFVX3lxTE1NdWxidnpEd3djY3NqX2NRVDhFak5ya3BVbzBDQ3BBSjNVQXdJakdpTS02OGxYTk4zZ2pZSEpvbUs4YzktUUxPdHIyUm5wZlRhaWhJUk4xTTRuZ2ZlWjFSSDV5eVozU2xQd3Q3Qjk4cWVDNXQ5Zk1iNkNNekM0Wmt4Q2VEdDN6Yjd4WmZLOXpSVVA4V1pYR1VyTGtHQnhVSXBOeS1ibUp2aExacjVweTI3aHc?oc=5\",\"headline\":\"Man United make Bruno Fernandes punishment decision after bombshell Como interview\",\"publisher\":\"Manchester Evening News\",\"published_at\":\"2026-10-22T17:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_13\",\"article_id\":1353322,\"url\":\"https://news.google.com/rss/articles/CBMiowFBVV95cUxOQTBPRHRQVnNDaDFIb3FpTER3N3VJN2FOVFV1YW8tOE9xNGNQczJ0bjNfcTdiV01ZM2tHbDZaNlQ3aUZweFZVRVh3Y2wxRGlhVXBRNTFTVUxsVVdwWjdoU1o5YU55NjFkUFBlbW5uZWxYMGsxVTJGeWVHZ20zNG1HbzRNTGkxa0hELTVodGhneVotZWxmUkdsdXUwdlNROGNuOVZv?oc=5\",\"headline\":\"Bruno Fernandes: Police investigating burglary at Manchester United captain’s house following Como loss\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-22T16:16:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_14\",\"article_id\":1335028,\"url\":\"https://news.google.com/rss/articles/CBMipAFBVV95cUxPUVpQdDNJMGdqRkdpUzFXVmJEdVJOUTlyM2pWZno5cjhMdkV3YTFSZVdWMHE3QjVjMjVjZF9IZFdEcjFqYXZaeXZjMmNwMlVlTVQzTDZFaXFpd2RpYlRYUEtUSVFzcDFqT3d1cTFQLUIxay1ZXzRBN3M5b2p4UC1iRWRlQkM1VWRUd0RYVEY5a1h3Z3MxWmxPbWp6ZXFHbHRCS3Fmaw?oc=5\",\"headline\":\"Bruno Fernandes' rebellion in Como underlines Manchester United's never-ending problem\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T15:13:55Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_15\",\"article_id\":1325259,\"url\":\"https://news.google.com/rss/articles/CBMilwFBVV95cUxOSFBvaklFMGtfTWVfbm05LVI3R1ZyWHRJWFVENENCRms5dENOVkdYWHQ0Wl9pVlg0ZDlsck92ektZS2pKZVhFWTRfWUdKOWttMlNoLUJTY1ppS1ZoY1NjUFI0a0JoR1lYUDYzNzZmdXR6eDdRR3pxYzNGbzd4VHZMR0FiNkxOS1hPa0U0Y2p5el9PTGJVdzY40gGcAUFVX3lxTFBKdjF3T0FZMzZVLURYRTZ0Qk1Ta2l5YjF6eWt2d195bUJsVW14bk5RWEduT0piQXBfWjA3R3hXekRhU0o2ek96RHhJcU9TZHJfcU1tVDZmeWN6VE9lZFhSbHJ2U2N4N0t3U0VHdW9kSkFNUTJXSFdhbl9ISWN0YlY1UGV4R21ndHR2MWI4a0FpbGtRQk9RMm5ReVlKUg?oc=5\",\"headline\":\"Bruno Fernandes urges Man Utd to 'stop living in the past' in fresh damning interview\",\"publisher\":\"Daily Mirror\",\"published_at\":\"2026-10-22T15:07:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_16\",\"article_id\":1313855,\"url\":\"https://news.google.com/rss/articles/CBMimgFBVV95cUxNLWM2blk5WmU4WnhqeTdyRklwc3pMX2FsNHIwejQwR1gxekdYb1F1YzFZZ0lYVHg5VXNCaGx0UFVCRnowdGJuejd4X3N5ZHpjR0dUbEFmREh4czRxTGtRWUxCeDNJMWY4T1ViakdJSFctRGFmR2h6TW9wMTVkU2xQeDl1WERCOXBhbnE5MXI1YU9WcXFlc21USWF3?oc=5\",\"headline\":\"Bruno Fernandes, a deadly TV skewering and what it says about Manchester United\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-22T14:59:10Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_17\",\"article_id\":1383470,\"url\":\"https://news.google.com/rss/articles/CBMiygFBVV95cUxPTklHVm1DbVB0VE5FVDZxSVJkRl9wakQtZEl0Z3htZlV4Sk1Zb2VGd3UwUHp0elJlcDdobUtZWE9KLVpUR1JsbVQ2Z05za0RpcmRYNG9vTUVQd0xqT1EzUlJMVjh3QXEyY2Y3QktwaW1WR0swU2JmWXU3amR3MnVpZ2dyWnhCNnhucXpHY3pZOEhQTHVXLWFHQ1Q4OEFvakNwQ0ZlLXJaVEF6UUw1WndhY0d1VFZkYnNsd21GbzZWb25hMjNTSFdwZjBn?oc=5\",\"headline\":\"\\\"We're not in the past\\\" - Bruno Fernandes says winning trophies at Manchester United has become 'very difficult'\",\"publisher\":\"Sportskeeda\",\"published_at\":\"2026-10-22T14:01:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_18\",\"article_id\":1344367,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxQYU9hN0hNNF9SUTExMEc2d0diWm5MZllaVFFKOVJTQ2FpeUc0ZDdzdWpiZUNKVkRWMUNRazRKN25WZDREaXc0eEtxSlpaN0NmN3JPYWNZVXVTSm5uUldkSU5oaUxxWFU3RnNWVFNUTktFZ21fQ2prTWJDdTBXRGZlTWd1T0FNYXUxcmRjMW1NazZ5NFk?oc=5\",\"headline\":\"Should Bruno Fernandes be stripped of the captain's armband by Man Utd?\",\"publisher\":\"Daily Express\",\"published_at\":\"2026-10-22T13:40:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_19\",\"article_id\":1305335,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxNQVJNQkFtY3l6cEtXMWhHcW04LVd1U0xWX01NQU1ReWZGU3ZOM21qYmFQVnpqQXpoQkhHZlNFWG1SaE5pcVZHOGRNSm9oTEQzXzJBLURmcjlHV0R2OTI0UXg5ZWFrYnVpeHJMa2VRR09Fd2Y4T2hRbVJmT3llaVhoYWlCd2szMFHSAYwBQVVfeXFMUDJhY2JuV0FNTDlraEFHLVFwTnE0RG44ZjhxMVhBclZ5aFJsR3hqZWN1VUhTVnBDN1d0Sy1BSmVGM2FqYjI0ZkxvYm0yVGhTLWxpRkJEbVBRSFlNODRrdUxRS3oxaWZxVkdPT2tTbEhuUnRBQjJlUEotMDF6TW5oNEFlUVY3NG9WU0pUc2Y?oc=5\",\"headline\":\"Bruno Fernandes is a shameless coward - he's thrown Michael Carrick to the wolves\",\"publisher\":\"Daily Express\",\"published_at\":\"2026-10-22T12:56:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_20\",\"article_id\":1285076,\"url\":\"https://news.google.com/rss/articles/CBMi8wFBVV95cUxOdTBoM292QU5oaGtRenVEdnB3cHRhbFgtLW1sQ2dONmxhOVVfRVVaYTlfYXRqMTFJZVlxcXcwTmdwNGdwUjZJaVNEbUppUjh4Wm5zWjlwZE1iNEtWdXdJcVVOTUlNUkJ3WW9GYjVvcGJhU01FcExyQzJaMGI5aXJRTnpnT2oxdVNjYk5PTmFENGc0OEZ0WXhYd3pmV3lnYW95dFJwOUdJUUNvQzlCNEIwc2Y5Y3ZKTGhBNlhlcEphX0F2TjJwY3V5aURPbGh5ME9mRzJBS1FrUFpFc0pqNlJ3UENhdnJ3VlE0amNaVlliOFBsVzg?oc=5\",\"headline\":\"\\\"What I see too much is cheating, crying, complaining\\\" - Ex-Chelsea star slams Manchester United captain Bruno Fernandes after dig at Carrick\",\"publisher\":\"Sportskeeda\",\"published_at\":\"2026-10-22T11:34:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_21\",\"article_id\":1268882,\"url\":\"https://news.google.com/rss/articles/CBMihAJBVV95cUxPQmtZVUpvTmUtaHllTzFLeDhTSTVXc0VhUTVTSkJ1WGt5bnFScHl4RGxQVkhhNC1xY0laRV9wY1h0UU9jd1VRMENLVmFlOERqSEExdEE1dGNaZU9wek0xXy00ODViOXlySzN0MVlzOUtxSHZTbmNxZnI4Z3IwV0VlS3F3VzV5ek5HXzJielNWM1VxWUx0cVdMdUFDYTVKMFFIX3VTTVQ5ZVFTVXZKQnlJWTdLbnV2TzkxWkRmWlg1VGlzckN3bXFmYVBVSERwTWRkc2lJMkxsUWhETWkzQ1I1azdPOXhhR1FLTkpfckF3bV90MUJ3bUt4V0lHX0x2OXd3Yk5xOA?oc=5\",\"headline\":\"Manchester United: Bruno Fernandes criticises coaches as Michael Carrick questions players after Champions League loss to Como\",\"publisher\":\"Sky Sports\",\"published_at\":\"2026-10-22T11:26:12Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_22\",\"article_id\":1336618,\"url\":\"https://news.google.com/rss/articles/CBMikAFBVV95cUxQbTRsOTZKYlZDSVJ6dG81UGF1UnVoNC11Z1JhUEVPQjdub05sZlh4aDlGNTJ0VWJTRXFJakZJZDlsN1hsMDFMYXdzNlNFeGlmTGNQdnR2RXdQWDIzQkFxOUJVT2tNRHl4NnNiZ1YwbnpreVpBTTZLS2Q4eDZ4YXZoeVhEakRuWDdfMjFldkhaQ0k?oc=5\",\"headline\":\"Bruno Fernandes criticised Michael Carrick’s tactical setup. Here is why he was right\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-22T11:11:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_23\",\"article_id\":1286475,\"url\":\"https://news.google.com/rss/articles/CBMi3AFBVV95cUxONXc1YV84ekVJNVI0MGhWcTd6ZnFiX21wTXk2ZVUzOGcyNWxCd0FDVWFzcE4tWUc1cjhBQjViblYxenhHMThKdXpJU2NiRXJxY0RsZnZNZ1ZwSHRNaUJ6ZlBOYjA0ZlNpSEFiQWdNVk5iS3pwVzBYUk94MXBiZU5yczc5OUxFODNiUXZ6OU9wMWFZRnNVREFNcDRlZEhTQXBJQWdVYTRiWWdvRnlORnhPQkhKZC1jZVlsVVBPNGo1ZlpyNURkVHJ6R0ZOYzlLZW1yVTNyaHotSkl2S1NR?oc=5\",\"headline\":\"Man United captain Bruno Fernandes sends brutal message after Como humiliation\",\"publisher\":\"LiveScore\",\"published_at\":\"2026-10-22T11:01:18Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_24\",\"article_id\":1276878,\"url\":\"https://news.google.com/rss/articles/CBMi1AFBVV95cUxNekJ2UGFCYXg0RnI2YjhhYmp6ZVhzMUt2elNUNGNWVlB0UDFWc0xhMkhHUXdUcHg3NklIM3ZfOFFnOERxVWZJZEgzU1RCSXAtSG1YNEZwaWtudW9VV3BBenNfU1dxbXhaUlRocDdZMXRtUUE0aVRfNGpPYlV1UktRQ0dDeUJDQTZMb1NJUFZGSTRESEw2Y2lxWnNvek1WMnhkaVBxTE9ubWxqN2lkVWtnY1ZPY25iemlaTndESFUtalVwUzVaYmhPbTFfdFNTclBWZGV5cw?oc=5\",\"headline\":\"Why Man United didn’t let Bruno Fernandes speak Italian after Como loss\",\"publisher\":\"LiveScore\",\"published_at\":\"2026-10-22T10:39:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_25\",\"article_id\":1276278,\"url\":\"https://news.google.com/rss/articles/CBMiekFVX3lxTE1YUzhOUkktM195QmIwWmJFVXV1YnV1V01nRmR1VWZtWnlMSWViUGotR0VNOE9UZFhoLU9iTnhlUjRha1QtLTVoekdOU1FfUWdUR0NmdkhXaVFzNzlZeFR1d2JtSXBiYTdtc25SbkYzOVFvNlJtVkx1eDV3?oc=5\",\"headline\":\"Why Man United didn’t let Bruno Fernandes speak to the media in Italian after Como loss\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T10:25:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_26\",\"article_id\":1276826,\"url\":\"https://news.google.com/rss/articles/CBMifkFVX3lxTE8xLXpjMmI4YXZqSGY4azBIMXUydG1EVFJENlFXdHZnV01aajhLbURMdWZBWFZyR0pveWJSZEZURDA1Z1ZsbXBRMGUzSzgyR2tmaEZvRXlWTE4zYlFwVFVxZDhHdjdZSmgwRDZUclZBSDdnRFVTUFYtN3VVUjlnZ9IBgwFBVV95cUxPb2xMaU03OEt0bmpLN05OMlJPOUdWenhDRWliU29hVHR3NkNLZzNSaHZFdWZYZEIzSTE4d2xuQlhtOWdINXJQU0JBblFtRGNNejJCVU84a0loRVVHMElVX1B2a0E0akRlLVRWeUhlc3E1YTFWeldDQkVyNzVyZHJyV1c3OA?oc=5\",\"headline\":\"Why Man United didn’t let Bruno Fernandes speak to the media in Italian after Como loss\",\"publisher\":\"Football Italia\",\"published_at\":\"2026-10-22T10:20:42Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_27\",\"article_id\":1276810,\"url\":\"https://news.google.com/rss/articles/CBMihAFBVV95cUxPZFE0VThqZWNIVGdNc045cEc1MDJ1TkNkSktoejhVeTVaeUNqalRKWTA5RXJLYWNxZTlCVmJRUExHbC1VNXIwbzJqZEw5c2xLeExZT3VNdU1LTVliZXlpWV94NVA0SUVoXy1tSDgzd1JPZ3hYNzBTQjB2U2dkRmttNV94OXI?oc=5\",\"headline\":\"Bruno Fernandes Slams Man Utd Mentality After 4-1 Como Loss\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-22T09:18:30Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_28\",\"article_id\":1267172,\"url\":\"https://news.google.com/rss/articles/CBMi_AFBVV95cUxNUnp0MTFndWxJdGhwNkVaT1pabnh2Rm1uZnhyM1o3WGZqb1hvWGVpWG91TGpRTm9tM2dCZUFrZEFGQ1FwVXBHcHhBVWY2UnBiMVFneUxXRkV5d1FEMnFNLXAwLWFSVWUwLVNYd3JQRHMzVDRvZmUzOGxYV1JXNnRBcWFZbEYyc2ZtaVdGbXBPWHpQeWczbEN6eUUxVHpRQ3lEUW9NVGpabzJWXzZlYTFSUmQtSkd1NGhOYy1lcVdieWtPYUg2Tjd5eU5vU3hIUUpxdzl4NjVZU084b3lfVTlvVmVFOWFoV191dGd2LU9LTUhSemRUcnVrNmg2QmQ?oc=5\",\"headline\":\"Manchester United: Jamie Carragher calls out Bruno Fernandes for questioning Michael Carrick's tactics in 4-1 Como defeat\",\"publisher\":\"Sky Sports\",\"published_at\":\"2026-10-22T07:40:47Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_29\",\"article_id\":1189796,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxQdDNzdFNrUDBGR3lCLUpheUw4TWNhcHlqMkU0UlFWNEJZcEFEbjVDVUJxLXpwNV9QdjM0aFJUUzRaR0YzZEZNdGVsZXNvRzhiblh0NnktS3pkUDBSZzdVQ1hpTi1LeXdhVnVoNTF3OFNpaWNfaC05VFlUeGhmZ3dfU2xpY3FHb1VfYnZuNFBWekVjeGRObnZfMGtLR1F5b3hFY195VTltUUlTa2g4Slhr?oc=5\",\"headline\":\"Bruno Fernandes appears to question Man Utd tactics after Como loss: ‘We have to be more brave’\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-22T07:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_30\",\"article_id\":1354922,\"url\":\"https://news.google.com/rss/articles/CBMiwgFBVV95cUxPWmFjZXpiWXpPS1hJb0MxczVpYThZdzVDU29RS1RHcnRVZGpFc1VOd0tHSGRMcjd5Z0dJaUdKLWEtNzlWYTdfMXRkWGd1dzRaemF4aU1fUmdyR19sSk5wcjZEbWN1V3dKbW53V1d5QUVJbVJUWi11S3pmTkxsWVFsakdqSi15dG5yRlc4S2FYUC1TZFVRWXlhbGREVl85b3VZQWpkU0ZMYnVmTzg4TDFmak1ZazJ6SWxiaDVsQUwzREdqUQ?oc=5\",\"headline\":\"Jamie Carragher tears into ‘disgraceful’ Bruno Fernandes over Man United captain’s Como outburst\",\"publisher\":\"The Independent\",\"published_at\":\"2026-10-22T07:21:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_31\",\"article_id\":1295809,\"url\":\"https://news.google.com/rss/articles/CBMisAFBVV95cUxPRHJpQlZXZmxMbXFsaEdjdERxV1FWbmNNZTdnV01Lazl0UUs4RV8wY0l3WTRxZzZNcDFLdkwyd21ONk5ZMzlOcE4wOV83NXhsLWpGaUxtOEp0aGRvLUZrVkpQLUFFTE0zbUs4dlNrVnNPUmhtTkNEUTJ1T0RlTlg0VEtYVWlMdVNmbTcyeEk5YlhkNF9RQ0VnUF9kbE5ITm9hV0llbXppRXlCNU9JMHkxYtIBsAFBVV95cUxPRHJpQlZXZmxMbXFsaEdjdERxV1FWbmNNZTdnV01Lazl0UUs4RV8wY0l3WTRxZzZNcDFLdkwyd21ONk5ZMzlOcE4wOV83NXhsLWpGaUxtOEp0aGRvLUZrVkpQLUFFTE0zbUs4dlNrVnNPUmhtTkNEUTJ1T0RlTlg0VEtYVWlMdVNmbTcyeEk5YlhkNF9RQ0VnUF9kbE5ITm9hV0llbXppRXlCNU9JMHkxYg?oc=5\",\"headline\":\"Michael Carrick fires back at Bruno Fernandes comments and blasts players\",\"publisher\":\"Metro.co.uk\",\"published_at\":\"2026-10-22T07:12:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_32\",\"article_id\":1284997,\"url\":\"https://news.google.com/rss/articles/CBMi2wFBVV95cUxNT09tWEV5SmxXby14aS1CdTVMNnQyTWd4TGdrUFA1ajRadTNhbTdnRV90bUhPZHo5N01FbjJybGp1RF9rVVFNWXlNY3Z0cl9BZDZMbExfZHhDRnNEazlROW02QVdfTlNqZGlBTVhoNWJEazd4eGdCMnh1NFByZ0QwRVZabnZxMnpNOGl2UTZtdUFVdWQ3RWNQTVFmRXBOSEdhZ1hqTnhXWUpuZnBoYTZfUWxKQlVKTFVVTU5EVGRjTG56c1RnRHl2MHVhd2w1NHU2RDRxRnJqcFBnSlk?oc=5\",\"headline\":\"Jamie Carragher says Bruno Fernandes is 'killing' Manchester United after acting like a disgrace with comment on Como loss\",\"publisher\":\"Sportskeeda\",\"published_at\":\"2026-10-22T05:35:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_33\",\"article_id\":1209148,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxOclQ5bUJjYTE3ZEdNaEl5d3BCZmF1ZTBiRVJ0YkNqeWlra3NKYnRuRlpNdWxZWWdCemNTVDVwOUo2bnV2QXVTXzdBZ3EtVUdiQXFFQV9ROWhsUU02Nm9yOUh1a1ZYLTBfakZReGJwalBGNFdYeU9Ta01aX1JrWmNxSVpLZVFBVUYtUlRGcWs3UHpYUGd0SktSNkQtVEQwMXF0VHFOSDRfS2x5anhiajdsOTYxNy1tREp6cDc2WC0wWWxoR1lsRkdVYzR5emJVUQ?oc=5\",\"headline\":\"Paper Talk: Manchester United captain Bruno Fernandes criticised after Como humbling\",\"publisher\":\"Sky Sports\",\"published_at\":\"2026-10-21T21:59:29Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_34\",\"article_id\":1209134,\"url\":\"https://news.google.com/rss/articles/CBMiaEFVX3lxTE1HLTBQVmVwcUpIU2Z4TGJKTUV1djBtQ0JpTUtENDN2T0QtX3BIZ0hyMXd6dXN2eTRYZlVQSDRXcDNDVm5SaFk3aTNrQXp2UjRuRG5WTmJTdGRRaUdzREtFQUdVQXlwTElo?oc=5\",\"headline\":\"Champions League: Como 4-1 Manchester United - Bruno Fernandes talking in post-match\",\"publisher\":\"BBC\",\"published_at\":\"2026-10-21T21:41:37Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_35\",\"article_id\":1209210,\"url\":\"https://news.google.com/rss/articles/CBMi3gFBVV95cUxQTDlaZDBYZ254WWZ5Wlk4TWRncmVjRlRmYnhveGdHZGFfbmNBLU1RN2FUR2packN0WG02NG45SnNZNTVrNXdCeXU2ZGFmQ2JpMmJJZWJLelU3YmEzM3Z4Njk2QnBXLXE5X3VSVnUzb0pUSVo5LWJTbkFvVmRJRXpTTEUxNmFaWjJMVlJyWkFYNkNmNEE2N01XbHRDd0p2RmtIWnY3VE5iVjluVGZzaTNxcTg1VjVMQ09laFRSRVpUckZ2RC1CZWpXNDlmYzdmZ2tGcGpGYnJtU0xyc0FUU1E?oc=5\",\"headline\":\"Man United in a coma: Como give Carrick a football lesson as Bruno Fernandes questions his tactics\",\"publisher\":\"Gulf News\",\"published_at\":\"2026-10-21T20:50:34Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_36\",\"article_id\":1364880,\"url\":\"https://news.google.com/rss/articles/CBMiwgFBVV95cUxOVWI0QzNpZUhNRkFSQlk3cGw3cjhxQVNfOWZzNlpQOXNSQ05xalpvOTVRVWNjSkZWdjM5QkRHUEhCU3dnOGNEWUc4bDhXM2hsWkJMcEt4R3NDYlJhU21JbWlSMHFKdXlWMFpadTlrTXUwZ2hNcncyS3VZUlhRUHBYQ2xWZEc3MndzOWU4ZnJpelZQZ1p2VmhNdGd5eGRJUWZjWGtpZ29tR3lpd1N4TDdkWC1UVlRNMEhsdkxEZTRNWXU1UQ?oc=5\",\"headline\":\"Michael Carrick hits back at Bruno Fernandes criticism after Man United loss at Como\",\"publisher\":\"ESPN\",\"published_at\":\"2026-10-21T20:23:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_37\",\"article_id\":1307733,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxOem5rTHRPV1NiNWVMZGVoYnVuV2RhQjR3anhxZkVrT0JJZm9WeDlBR2M1VHhZY0VJbUlBOTJna1ZSMmI0U2FtX0J3Mmg2aHZwTnhkVWZUNlB2eHRmRHRxbXhvcVl5VThrajlMd1dsTmFlWENoU2ppTENaT2tRRUhjRlg1aDVyMjJzd215amxDYVJGQdIBlwFBVV95cUxQeHd2TEh2dTFpcEFTekh5ZWZlRFZoQnllc2JuY0I5clU4WVpKTG9sMnVnQkVkdlpJZ08yd0hwTmJzTWFyYzdMYWFEQWR3UGJqNExDTFFKSVVfNGNYb3NjNjRZUk9UakZ1STNTUVRteFBVUFQ1NWN1VjFPSjZZbW5CYkZmbVhfVTdOd0lyeDBJbFlzUExDOXhV?oc=5\",\"headline\":\"Michael Carrick loses it at 'unacceptable' Man Utd stars and fires back at Bruno Fernandes\",\"publisher\":\"Daily Express\",\"published_at\":\"2026-10-21T20:08:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_38\",\"article_id\":1209211,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxQR2NzdjdrVW0yUTg3V3VCeEMxR3ZkYUZFV2N2OEt3UkM2OGxhTll4X1B0eUdwY0RjbTc5azNDM0FUT2tCMVNQZkRjWEdzUVQ3Q2d3QTBGbk5tNi13dzg5OGJFMzBGYklTbTdDZFhBX2MtX3JYRlFmMDE1WkVlaHI3SUI2SDdrMzd6TDdGcFVRaUVaQmRMZDllelM5d2N4dXgyVmx5bWFMeFB2QdIBrwFBVV95cUxQWGNiaFZyTkdjNXM3ZEtGVFZDZG04dXB3cUNMaEtVc1d3bkl5UnlCU2F3b2twbC10Z3VqSHNyNkN5Ulk1dTZRX2syYnpzTk1adEZ0eEFHUl9uaWtLbXF2c01Da1VWSUpSWFRjVGhTd1d0aUJLX3BGZWgzT1ZOV05mSFd1MnF2a3BLNi1CcHBjUVR3RndHTDVJT291eG5CODJwd3c2WUk2SVNLTEJuWFp3?oc=5\",\"headline\":\"‘If you’re not going to run…’ – Michael Carrick on Bruno Fernandes’ comments and his future after heavy defeat to Como\",\"publisher\":\"Hayters\",\"published_at\":\"2026-10-21T20:06:48Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_39\",\"article_id\":1207815,\"url\":\"https://news.google.com/rss/articles/CBMizgFBVV95cUxQZDgyelphQmZkSS0zV3lCN2U3d1AxM2Q2a28xTEt6V1lUTzhibUktNWxuNkVBNnVOZ0JQMGl5WlhDMERUd1diZjBuME5vaEdDQ1ZlN1l4anBndzRsSHNkd2FzbzRGWUtsUGIzQThIRWEwRTl5LVl0Y29jNTZFNkZxRnhUcFlrZVF4X1VoT0FrdFBCSmxLZjBOMVF6TWd3SkM5aGJzcHo3VGpTUDUwN1J1UTB3WG4xc0ZKYkliTThWSlh3ZWNiOUhtSUpxWFVJdw?oc=5\",\"headline\":\"Manchester United captain Bruno Fernandes calls out Michael Carrick's tactics after 4-1 loss to Como in the UCL\",\"publisher\":\"Sportskeeda\",\"published_at\":\"2026-10-21T19:52:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_40\",\"article_id\":1189852,\"url\":\"https://news.google.com/rss/articles/CBMitAFBVV95cUxOaUZ2N0Q3VFlTMnZwSFZRdlc3RjhtTW80amNkUUpJLUVZal9CTGozOExpZDllVzJWY1ljdTUtTTk0eXNxLWF1NV9ETGIydmEya1h5aTJsVjB3eW96YTZKV0RFSkdhbDNBRFRNUjZGMlNQOGVsR3d0S0VVYzluMExUYU80Z0JOSlZvTjhNOTZ4YmVHMGM1UEE4UnJ1N09NNTF1TUNQY1VRZFVDWnJTallJOVFQSHQ?oc=5\",\"headline\":\"Bruno Fernandes unhappy with Michael Carrick’s tactics in dismal Man United defeat to Como\",\"publisher\":\"The Independent\",\"published_at\":\"2026-10-21T19:46:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_41\",\"article_id\":1256951,\"url\":\"https://news.google.com/rss/articles/CBMi2gFBVV95cUxNV0dnOHQwdmUzblVoUWdTXzIxZkJQUDVEMUFNRWVSaTR4MGZ0VFNEbDlRY25iLVlYX2c2RWhqT2JVZzVjOGZMTHpYVTZRV05QSjg2N3R5N3U4MWlTWnptMW1NUUxnT05LNVdrMkVTZ2dvMXhnNURMQU82ak90eUlXcXdZWjhyajJpbWxWVGxKd2hjbURtOGdHc05EYnBkSkNTczhGNllVeXBENDY4b0kxNlMyak1OZkV4UzJSOXFsbUQwa3pIY0I1OWJQWUwzQll4c1NvWHpybVYtZw?oc=5\",\"headline\":\"Video - Bruno Fernandes Reveals Michael Carrick Decision As Errors Continue\",\"publisher\":\"roundtable.io\",\"published_at\":\"2026-10-21T19:32:46Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_42\",\"article_id\":1188465,\"url\":\"https://news.google.com/rss/articles/CBMiswFBVV95cUxPZXFadkx1dHQzY25nakExRjVrY1o0WXRuUlotSWtQeU1uaVR5NXg1eHczcHRvUF9NajRCNW5mWFZXXzEyblpCSERPSlhmSnJYcVJqcE5DMzJGQzh2MkhBY191SUtQM01nTnJFSFZMcVRmX1FscU8xOGlYTTA4b00taDZZLTNzeDZjUko1Tkg4QV9lVFJEbWhVWDAxR3hHMzN5WERGU0tlci1HN25lT2wycE10NA?oc=5\",\"headline\":\"Bruno Fernandes questions tactics after Manchester United blown out at Como\",\"publisher\":\"NBC Sports\",\"published_at\":\"2026-10-21T19:32:08Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_43\",\"article_id\":1218808,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxQMVA3ZjY0Skc3ejhpVjEyU0lOMUs5RVU0RlNHeUN0cUw2a3dCSXJ3bDlHaERMNWZWaFI1aTRMaDZYV04tc3M1RWxQWUpmcGhvRkN2VnNNbTVqcWxURjR4QUpCVTBTRS1QcUR6Q2Zjb2pkOW9TOWdJdWJpSVFvd3podGgzX1BxZ0hxc1VQbWRCODVqY3JkMWVhcVV0c9IBoAFBVV95cUxQLVNna0FLN3NjaHBOYUlDblNMVEdHSEN3WWdralJaT0hnc0I1dXhRVUF4RDJkanZMd21qeUdQWHcyREtnejVMX0w5TjE4WFA5bW9OaVB0Sk9fQlZJSC1hZmpfZmY4SnVfbEY4bmpFVGVkQU1LY1doUXlMdXVJdXY1SVRDSGRsZlNSSF92VFdZOWN2QTBJX2dZWml6dGRtT0Fv?oc=5\",\"headline\":\"Bruno Fernandes points out flaw in Manchester United tactics vs Como - 'That's on the manager'\",\"publisher\":\"Manchester Evening News\",\"published_at\":\"2026-10-21T19:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_44\",\"article_id\":1189864,\"url\":\"https://news.google.com/rss/articles/CBMimAFBVV95cUxOMk41WDJnelZqaDg1SHhSdkdEQjE0UklBYXJJeUs2OUZkTVFRdk1BSE9PT3EzaWxGTjFRMFU4MTZFZjF3MWdITEoxUWZvMzJuS0g5RUdFZGZVQnlObUFUYTExSmZaYXdGN19aVGd5WHY5MjRoaXBWdUVhUjZPRDdiVzVySkpRUW54bE1oaF9vd1d0b0pORER6Qg?oc=5\",\"headline\":\"Bruno Fernandes frustrated at Manchester United tactics in 4-1 defeat to Como\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T19:30:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_45\",\"article_id\":1189850,\"url\":\"https://news.google.com/rss/articles/CBMikgFBVV95cUxNRDI5T1lFNVBuM2tZTXIxT3NRc2YtVTNmNFJ6cVZSZFpmNXd6eS1sbS1yYWUtbVFZU2otendueGpmeUppRTNOWVkyNzlUTkRsNjNCb2pKSGJaVndIYmxCUXlRQnJJZ1p4TEZYWFNxUzBUWTlUdVhRX05EczBVRWR5U293dkFyNjNJQTV4cUdsdU82QdIBlwFBVV95cUxQTnNqeGt6bFowdlFRQW8tYUVhNTltYUE1WlhmTk84eUdjUjFlc29CbGJzd0dvejlRUjFiSk55Wi01SDhJb01PaVpCVEpENmpHX1RRLXh3eXk0T3BHV2Q0ZkMzdENDaVZCWHhzTkFqSEpJc3lmU1pFYlJWV1hhdFYwRGRDcmZldGNtSlJ6YjJXZ2ZlUXdjcnRB?oc=5\",\"headline\":\"Bruno Fernandes points finger at 'decision from Man Utd staff' after Como thrashing\",\"publisher\":\"Daily Mirror\",\"published_at\":\"2026-10-21T19:28:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_46\",\"article_id\":1199592,\"url\":\"https://news.google.com/rss/articles/CBMifkFVX3lxTE9BaVhEbW5zZmhlRzVYTGRfckRjN1dwV25ObU4xTUdCT3U2VXFOYl9nUl9PWEJJRzdPeXd0bk4yRmFZZ0xMMWtWNXNrVlBPMUhmU0czaDhFSWVocXl6MEt5b0VUM19ZR1lKWUo3aEtiM3M3dXUxblZSYk82ZkRvUdIBgwFBVV95cUxOUV9lV3R2RDVTdEtfQlFaMUFrMlZ4LXRLRC1wcENxb2JBUWt0VzYwMm9fN041ZU9pNnZwR2FBZ3BRYmZmZFp6eUVyU2FWVU1HcWRCZ3JoenpyNDNCM1R0WVRJOER2T1l3ZjZ2WXRxUXNtTmZHa21xc3N5LXppSEFiRVJ1SQ?oc=5\",\"headline\":\"Bruno Fernandes frustrated at Manchester United tactics in 4-1 defeat to Como\",\"publisher\":\"Football Italia\",\"published_at\":\"2026-10-21T19:26:11Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_47\",\"article_id\":1307736,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxQdl9qWGNSWlZIWi16UTVQZFNVYVlUeXdqYmJxTlVaUHlmQkFHRzgzYUZNVDNwUi1VWmJMUjV4UnBSRm9ZSzVGQV93amplRDFsLW8zY01HSU9jSkdkRUFNeXNnRERsRnc0V29SVlJhUG5FZjE3TGhLTEdFbEh5Nnk5ZE9xX1dOdkprb0VwMVgzaUVsd0Zm0gGaAUFVX3lxTE9NY0ZRbXpBMEJsR1c4SzNTX2RCc3Bvc0Z0TXIzSUE2a2RvSDFuVGh5T3BkNUt1bXdtdGxfQW5PSEE2UE9jcXZBS000YmRUanp4Sk9PMnMzdXRQem9QX2lEU3dnVFdHOXZrV3BHWXdHMEJ6Slo2V25oVXF1LV9iV2M2NGZkWVJwbXRQeDIxRUNCeUxpMXVfMXBUZlE?oc=5\",\"headline\":\"Bruno Fernandes throws Michael Carrick under the bus as Man Utd row breaks out\",\"publisher\":\"Daily Express\",\"published_at\":\"2026-10-21T19:12:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_48\",\"article_id\":1188427,\"url\":\"https://news.google.com/rss/articles/CBMilwFBVV95cUxNQjdfcHlMSU9rMWpyYlRJODJpeDE1V2NpSE1Dc01RbEVFY1hoRXJKR2tHRU1Yc3FVaHlqclRMUzk3RENwVTdhZ1RiZnNwdmFZWTNWS0Y5Rk4xRTlUTl9mVFgwMzlPUVdaN3VqZUNuTWVIVUdVMUtBcVRaWmotTDNCQVBaNEpkdjk2SWRKNUVCTk1VQ3FBUHlZ0gGcAUFVX3lxTFA1aGtmYXBFcVUzV3AzS2xsSkJVN2w5bEUydUZFODVIZGtvR0M2dktoU2h3Sl93SVlNbDVpd1dkNTdLNDlNMk9KcXdXNE9OcGRrNm9rRXhqcTZhLWxZSTJvRUNjMG05ZVBRYkNtRGNhb1pNQkFWNTlJRFhiWFphQm9YeTVnRWxGbm5GeGlRQ2tZZ0ItM0VHRGRkRWRPYQ?oc=5\",\"headline\":\"Man Utd player ratings vs Como: 3/10 leads group of flops as Bruno Fernandes lets rip\",\"publisher\":\"Daily Express\",\"published_at\":\"2026-10-21T18:38:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_49\",\"article_id\":1208100,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxQeVdrV0FmdTdGLVVPZmhmMTNsLTgyVzl0WEZCQ3c4TG1POW9MQWRQYXpzZDhZeEU1RXdRV3NqUVpTaV9hY3BqN2hwVUI4bmpnUHVmcGFlLWFSYkNxV05tT2liQVp2aXVFYjdIZk95RlFqTlpQZDJKWFNScTA5bkoyeUwtMEttcWRiUkxtdmV3OG9hdnVWVEJsLWF6UUE2QdIBowFBVV95cUxPdW1xdngwUUs2emc0S2dLazlfUzcwRExYSnNCTWtQemdNVUlBVjhaNkdmaGtHMUZOcFh0MzZaYXpBa0ExcW1wSWl5anlaYjJWenJqWG0xVERZSU9sRmpDX21oU0FxUm1hS3A5TmhoTGJGMzBWcGQxbEc5REJqOVp6aXJsMW5YMDkwN0xVcFVLOEVNbF9ralZpX2owOUp3Nkpjd01V?oc=5\",\"headline\":\"What Bruno Fernandes did immediately after getting hooked vs Como speaks volumes\",\"publisher\":\"Daily Express\",\"published_at\":\"2026-10-21T18:18:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_50\",\"article_id\":1228366,\"url\":\"https://news.google.com/rss/articles/CBMiiwFBVV95cUxQY1hjQUdaT0VmYkRFYkl3TExTblJ6SkRmRDBSdzBCQjdIQVkxOGxPSFctWnJ1Sjd4M25xekh2MC1va0FLZThuRGFZbXR6anUwMU1kSHNmWEtPZTVWMjNoUjRIVXY4am81ckRJUVR0elFCMDhEbFlUdDdVZmctaDhnd0NTT1B5MXpBQVM0?oc=5\",\"headline\":\"Boban slams Bruno Fernandes: ‘United won’t have a strong future if he’s the best player’\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-21T17:37:09Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_51\",\"article_id\":1189258,\"url\":\"https://news.google.com/rss/articles/CBMifEFVX3lxTE9lUjNqZzA2TF9aREFyaVlFejMycjNmSFRuWThpTDRIUVZ1Uk5vNUFHVDZaeUVJUml3TklfZkZvVWpwbjBBRy1HRFlIUUlzay1HSS1EZGNsXzJ6cHlGdEVlejRvNlZlcHYtRDZlQU14RHpLb1pDdGFLM0txZFjSAXxBVV95cUxPZVIzamcwNkxfWkRBcmlZRXozMnIzZkhUblk4aUw0SFFWdVJObzVBR1Q2WnlFSVJpd05JX2ZGb1VqcG4wQUctR0RZSFFJc2stR0ktRGRjbF8yenB5RnRFZXo0bzZWZXB2LUQ2ZUFNeER6S29aQ3RhSzNLcWRY?oc=5\",\"headline\":\"Boban slams Bruno Fernandes: ‘United won’t have a strong future if he’s the best player’\",\"publisher\":\"Football Italia\",\"published_at\":\"2026-10-21T17:19:04Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_52\",\"article_id\":1173819,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxNSVE3bFVaUXV3MUZKRE5oNWhNSHNuRVdXUGdtNmpKVVpKc0lwUkdrUHFPZUxSZUZ0NFNmWXdaZkhRajlxSmNWWWxmQjNpTktETWh3WFJWWHFXWV91YlNUbUdWV1QwYXdSQWwtNGsyYTZqRzRLYUptZmx3X1M3emFUNGRRZGIwQ1piSE50TmNkclFuWDF3ZGZjOHFtQdIBoAFBVV95cUxNaDBNMUpXajlzQmhkeHJPVm14WUQzWk42LXJad0tpNjhWQW9PQ0JlSUlQUFRZeUNUaDlFNGtlV3VRaHpfWEdaX094T2pzQ1BDcDdmb0VHN3Q4eXU3bEp3YzdJbzh5aTg2cTZYc29OdHJOanFiX3dSa1BKTnROeDlkdDRXenloTkNZcFY4cW9pX3dabXJUVDVvNUZFLS1jdVVl?oc=5\",\"headline\":\"Michael Carrick might have to be true to his word with Bruno Fernandes at Manchester United\",\"publisher\":\"Manchester Evening News\",\"published_at\":\"2026-10-21T05:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_53\",\"article_id\":1076431,\"url\":\"https://news.google.com/rss/articles/CBMihAJBVV95cUxOVlNoN09rRldEYXUyLVZmMkxhaFRsc20ybzRDSkhzV3o3dkZJMzBJVFM0QjVpb0tFczBGMWRtRk1YUjhGYU4tZ3VuQkRUNjBheDV2cm9uUVE3amZOOXVvejJEYzlrajFnTnlPdGZQN2xmbW5kOFdqS3FrU1hZMjVCa25Pbnc1cmRJSmdzWkZ0VlFvU0RaVVNLWkRkS2VkczNjYjdrY2FhNzVHS0g5TGhiWEdNXzVPYXZadnUzd1R5TUx6eHo5Zmd2djBHN2h4YTM2Qk9mZ1M4LWRjZjFobjI2bUdVb1lfbjNfeVp4R280dFkwZ2RfZmFyTXNZYUhpOXltZlR1Xw?oc=5\",\"headline\":\"Uefa Champions League tips: Bruno Fernandes could be in the book as Manchester United face tough Italian job\",\"publisher\":\"The Irish News\",\"published_at\":\"2026-10-20T19:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_54\",\"article_id\":1077951,\"url\":\"https://news.google.com/rss/articles/CBMi7gFBVV95cUxPbVZDNDhOSURVcFVvOXVQeDdHclFSUXA4VmhRMmVYODFTalBIc1dJUzc3RHNQOV9xRDM4TTh4bUdhUzZTM2VvYWthb0Y1ZkZSUDFYbE1rVGJpSGU0dzV4RG45YXZNTzZyNkdXMnI0S1pzZEtaN3RJTWZUcTZ5V0Jrb3hnd0VseUxMOWVsM0VHZE52TDgwcEp3ajNlQlg1Qk9VcDY2OEhEa1hPTkppVjRMUVlHZ2VzaFc2X3pabDZjNmJsUjFONEpzSE5jLXMtN3dSQXJWM3ZseXJKN21QOXpWanJQcVZzLW4tNEVjU3Zn0gHuAUFVX3lxTE9tVkM0OE5JRFVwVW85dVB4N0dyUVJRcDhWaFEyZVg4MVNqUEhzV0lTNzdEc1A5X3FEMzhNOHhtR2FTNlMzZW9ha2FvRjVmRlJQMVhsTWtUYmlIZTR3NXhEbjlhdk1PNnI2R1cycjRLWnNkS1o3dElNZlRxNnlXQmtveGd3RWx5TEw5ZWwzRUdkTnZMODBwSndqM2VCWDVCT1VwNjY4SERrWE9OSmlWNExRWUdnZXNoVzZfelpsNmM2YmxSMU40SnNITmMtcy03d1JBclYzdmx5cko3bVA5elZqclBxVnMtbi00RWNTdmc?oc=5\",\"headline\":\"Together at Novara in Serie B, now Como v Manchester United in Champions League: Ludi reunites with Bruno Fernandes\",\"publisher\":\"La Gazzetta dello Sport\",\"published_at\":\"2026-10-20T18:31:25Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_55\",\"article_id\":1043368,\"url\":\"https://news.google.com/rss/articles/CBMiyAFBVV95cUxOam45OS1TMzFTVzY4YkM3d3BNQWNyUTN0ekNYblRoYVo5M1ZmX3NDTkNtTVFxT1h5Q3R4Zy01SGtoM2hOcFctcVZmZm56cnI0OUpVaF8zVmpxVV9lX2VSOGhZZ2U0djZpS3FMcEh1TEQtQmhwVGRlX3kyVWtuYy1KSVZlZlVIM2x6RGNvcHluQ2dDcWw2WFUtX3FtSW0wakN6c3g2MGhYRktENDdfODlEel9xY3EySzdzVEJEcUdxOWNSWDBoWm1OQg?oc=5\",\"headline\":\"Como sporting director reveals joking about signing Manchester United’s Bruno Fernandes\",\"publisher\":\"Get Italian Football News\",\"published_at\":\"2026-10-20T15:24:23Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_56\",\"article_id\":1043945,\"url\":\"https://news.google.com/rss/articles/CBMijwFBVV95cUxOQW5zSEEzQkdIWWVFWFpQY3NhWnd5S2ZWQlAtbl90SFhsaWVpbUFLRmdzNnE0Y2JyZGhGQU84dVozV1BSSDJZS1psTVMzWllOcXZCbXQ2M2VwUGxBU1UzeGtmd3M1MVd6ZmR1QzlXV2NmYUE2b3VXNU5RLUI4N1JGUmtNamJPOFRhbm1MNHVIRQ?oc=5\",\"headline\":\"Como sporting director reveals joking about signing Manchester United’s Bruno Fernandes\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T15:24:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_57\",\"article_id\":994690,\"url\":\"https://news.google.com/rss/articles/CBMiygFBVV95cUxQN2xRd0FmT0tESTRsUXZMX0twWDNxenhHNUFJaWxITmxwNGo3MHNBT1NvWHd2bWZWd0ZlZHFWaThGSFk1MlNmRGZUN0FRNGM0WVN1dE1paVFYd1hNY2xNOUowSDZXZGR2cU1Pd083UTZrMXNqQ1JhbkU5NVFETWpLUm8wRDBRdWxYcXBfRm1PZEZyR3VBanRyTWxVRU5WNUZsdFdfWk4wVjdnZi1QWG8xWkdqRE9KbjhVSGdUcERrUTdLYVRBZlVSMmpn?oc=5\",\"headline\":\"Transfer news LIVE: Galatasaray want Bruno Fernandes as Real Madrid eye Finn Jeltsch\",\"publisher\":\"Transfermarkt\",\"published_at\":\"2026-10-20T02:47:14Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_58\",\"article_id\":1004861,\"url\":\"https://news.google.com/rss/articles/CBMilAJBVV95cUxPalVuS0JITldON0xTemhWNGRYV3FyY09YZnJsZUtXTmozeE0xdUZuNWM1Z0ZlbHFRRFdyNTBidnFiWVR4amQtb1NoOTJVNGRYUkxhb2Y0Mldzd2NodjZwSHU4Tm5FTGZKX2t6aENYVERIcGE2MVBWUmtYalZKVDAwNVJFcU9IdGRtSWp1TnhWaXRKdGNPekJHQ1RzdFR5WWpIMFB6ZXJyemM4ckxjU3BpVHZCVUMtMGprRDdtbW9YTDlQcWlHemZJVVNadEhWXzl5RkxpQ3lFQk1UTHEwNHJZbmYtUHB2VXlMY0xzMUZ6OU9zeDMwSlRPUFFtVU04WjY3LWNSTWxyQmRUSU1PMTAxYU9nWm4?oc=5\",\"headline\":\"Bruno Fernandes' poor form attracts Galatasaray and Barcelona as Man Utd prepare for bids\",\"publisher\":\"TribalFootball\",\"published_at\":\"2026-10-19T21:28:51Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_59\",\"article_id\":995510,\"url\":\"https://news.google.com/rss/articles/CBMiwgFBVV95cUxQcjVkeFN5QThkVmNQeXplODBReVRzNkY0RnN2elVxMmxoUXo0QktXTW5BYjV6dTlwUTdpZHlGRjA3c0YyN3NDUFhmMzl2ZHRmRG1rMHpqdGZFOUhiWHBCaTV3Zkh5SjJCdy1VeXZkdFV0bXozRTBZYWNEbXRHSFBPcTVjeThLRm12NHN4MXp0NmxQSGdPQ0hVckdicGVMX3FNTXUxeGJBTUV4dHRWSjdFWDNPeGZRTHA4eEJVbGdYTlJjZw?oc=5\",\"headline\":\"Bruno Fernandes: Why Michael Carrick must take Man United nuclear option\",\"publisher\":\"Football Insider\",\"published_at\":\"2026-10-19T19:40:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_60\",\"article_id\":995496,\"url\":\"https://news.google.com/rss/articles/CBMi1AFBVV95cUxOY1BNbVVlWDg4cWtrRjVBaXUzbmkzb2NnY016SUQ2UlNuVDd1Y1haMHdZTVZqZ0htMjI1TVFNT2locGpyOWtNQmJqUXhkNDcyMEVlQXJqRW9ueWRYNWpkRGtlWHg4UUtwMUxQYnZqdkhFZUdFN29YaU9LcnJaSmhWc0ZzLXZNQ1hCdGRlanpVWmltdFlVUFZfaEJmUWIyTkpNQ2tHMTJUeld5blRHb1JUeUdfNTdiQjFIM0U5eVlBalBNc3FpQUpEN2hWbmhVRVdPQ09INA?oc=5\",\"headline\":\"Ex-refs chief drops Bruno Fernandes 'red card' verdict after Leeds vs Man United scenes\",\"publisher\":\"Football Insider\",\"published_at\":\"2026-10-19T14:00:00Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_61\",\"article_id\":995483,\"url\":\"https://news.google.com/rss/articles/CBMiqwFBVV95cUxQbUFLaEZReGNXMEd6N1pSbzNueGo2SWFCOWpKb3hrSThXVkVHc1VNaVVYSmNvNG5nY2w5aGdPdl9fWGpNMWJ2aW56N21yWTdfdnFWcFdBNjFNQ25yVVJ4VEpraE92MkZqckxGM0owT285eVhCU044bjhQenhjdElDWFRpVHM3cG9JRWtlcGFJZGplTnhmV3FUZEJGMFJuOXRKZ3VQV0hfczNBOEHSAbABQVVfeXFMUDFZR2NIazluRmhXcTV0T1I0QmJFXzNYdGJmQXFndEEyVUJZYXJJYlJDa1E5U013Vkc5Y0hyU0M5NEowWDFuNXdGamI5amstS2d0aEYzOHdQYUhWMzFzREItWmtIQXhkRDgyckItQy04ZUpWWmJFd05fazdDcDd3dDBRS3dUdFo3MGR0c3BsX0pMSWM3RWRSY05ZRVlHdlQ1aEoxeWY2dVFPeE5fSUUwR0Y?oc=5\",\"headline\":\"Bruno Fernandes reveals Man Utd players hit with ban after recent controversy\",\"publisher\":\"Metro.co.uk\",\"published_at\":\"2026-10-19T13:19:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 129602,
+      "entity_type": "player",
+      "name": "Bruno Fernandes",
+      "sport": "FOOTBALL"
+    },
+    "database_record": "Bruno Fernandes — Midfielder, on record at Manchester United (Premier League). Nationality: Portugal. Record: roster; observed 2026-07-04.",
+    "reports": [
+      {
+        "id": 1413886,
+        "title": "Bruno Fernandes Retains Captaincy Despite Criticizing Carrick’s Tactics",
+        "context": "Bruno Fernandes Retains Captaincy Despite Criticizing Carrick’s Tactics",
+        "source": "조선일보",
+        "published_at_epoch": 1792710641,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQbGVUMGlXWFZkTF9kc0UwakdLd0hJMFdMZnh5Vjh2dkRuMDFTTnlpMXpUdzhHd2RYQTMwVllBUjRBcXp2QV9paTVVQXBDWmowcjBIR1hPUFNXTEZtZmM4WDM3MmI3QUVqT25aQkNEVFRxZW9UemV1bE1nT0d3X0UtZFExSGJSUQ?oc=5",
+          "spectrum": {
+            "emotion": 4.3150453128861574,
+            "subject": 94.09912977236984,
+            "movement": 9.464860525818173,
+            "availability": 15.797077253904614
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1385045,
+        "title": "Bruno Fernandes’ house burgled while Man United in Italy but skipper to avoid sanction for outburst after Como defeat",
+        "context": "Bruno Fernandes’ house burgled while Man United in Italy but skipper to avoid sanction for outburst after Como defeat",
+        "source": "Irish Independent",
+        "published_at_epoch": 1792702800,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigwJBVV95cUxPRGd3ckF2SUliTGctSHpBYi02b0JWX25raWg0blBpaGxjUlBwSkVxZ3RFQmx6MW1ldEtYRXp1am5HMXR2NE1GU0QwbGIySXZwaEtZdjB1dnhOVTR5bDUzazlUUDkybnF1VmtnRzZodVppOXNEVHp3WWVtNVJBQ0lUSE5RdkxKUU5CT1hiSDVLUE1ENVdMRmdibzZpU2ZQdk4wMU5MMUhCaUxrM0ptM2t0ODBfUlptY3FPeWpqS00wM1BrVFE5MkV1YURzelk4ZFp1Yjl3Q2RGZWxURFZpbnVIRFd6ZEZmaGpwRlFRdUVac1QzMTJkYUQzdGZ4bklTNWNIUEVN?oc=5",
+          "spectrum": {
+            "emotion": 8.208391779003145,
+            "subject": 95.46489058632112,
+            "movement": 2.0918955554832435,
+            "availability": 63.258920296571084
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1395195,
+        "title": "Bruno Fernandes proves Wayne Rooney right in eight days as Man United decide on captaincy",
+        "context": "Bruno Fernandes proves Wayne Rooney right in eight days as Man United decide on captaincy",
+        "source": "Manchester Evening News",
+        "published_at_epoch": 1792699140,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxQVmpkUHh5R3dTZ0U3UmlDQ2FVT2FLdkRtMUM1R0dRSTFWcjc3Z1NndWhTTVNIVXZ1YXVyWjY5TjFnZ3pXMWZwZGZERThQS1N0eVRVV1dPR0hMSDFTSnJfUkdSMUR0OXZTRGROZjNfVU8zMWhpZVFEUlRfNEpTLTFjdkd0dEN0UzdIQTZQS0pQenJrSUxMMUVEa1dHR2h6dlVacWlQWnRacjd3NDZS0gGyAUFVX3lxTFAxa2FpWU10VEd0QWFuSlZzRkp4ZDhWZkRnU2llM0FBSGgya3BRTk52dUt1Y3ctS0FuY3ZXbWFqdDFjak1zeGgwMlRWWW5ONUY5MzljcXpncnp4YzRvTzBYN1lQTkpGU0dpZG4xZlU4anA4NV9fMkg0WHJUeVlla1hlcHlUb2hpN2o4UWFXYkIxSkVmbkRaSUdkVGxDNVZjcnlOYjdLdHNjWVpDTHJoQ3hqUGc?oc=5",
+          "spectrum": {
+            "emotion": 3.8799348016284165,
+            "subject": 93.57242696210912,
+            "movement": 4.11474706447045,
+            "availability": 18.707234167502175
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1364793,
+        "title": "Bruno Fernandes’ home burgled after Como defeat",
+        "context": "Bruno Fernandes’ home burgled after Como defeat",
+        "source": "The Telegraph",
+        "published_at_epoch": 1792696680,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQblZLdG94OGhYWW9PR0dVc1RXVnF6N0F3Z3ZjNVVpenhpQzZGeEVJN1VabTBLOW9CbkxkamdiQ2VzemNkeTBiaDNUcTRzZzJUR3RLZkVNdm1IN0doaWdoc0tHVW5xWXI0TTZDeU1IM3RPSDZ2VUhMemZBSEUyVnVrUWd5MmhsN3ZxT0dCbDd3VldNVEN4N0Rka3NaVQ?oc=5",
+          "spectrum": {
+            "emotion": 4.231662906584214,
+            "subject": 89.96791410423639,
+            "movement": 6.31028656117109,
+            "availability": 37.744878522704056
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1362882,
+        "title": "While Bruno Fernandes was getting beat on the pitch, masked burglars broke into his home.",
+        "context": "While Bruno Fernandes was getting beat on the pitch, masked burglars broke into his home.",
+        "source": "Facebook",
+        "published_at_epoch": 1792696475,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi3wFBVV95cUxPU2lPNmstWGRrNVQ0TGRZX1puLVJGVU9velpKQkhQNTZmVUU2YXBRMl9JQjZLc0VSaWduSUVPaUtRalZQbHNHQjZLU0o5RzM4aXFJMVYxMFZFc3BvTVN2cTl3cnNUSzhSVU1qWjIwMHB1RmprX1l1NHlkZHF6d0VtSkNsUGxYNUdfOUhVWDJXUzRIVjBKX3pPekFMZjUwVnNCLWozNVQ2UDlKaWlaN2N0LVN2ektGMW1vczlMNnhweGg3RlN1d1U4VmtRVkRJZHpiZFVUSUdyUnR4MW5ZcmZj?oc=5",
+          "spectrum": {
+            "emotion": 4.494138413710308,
+            "subject": 91.47181211033988,
+            "movement": 2.2599647174931445,
+            "availability": 38.84254448577625
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1413553,
+        "title": "How Bruno Fernandes went rogue by ignoring Michael Carrick's tactics in Man Utd's 4-1 mauling at Como",
+        "context": "How Bruno Fernandes went rogue by ignoring Michael Carrick's tactics in Man Utd's 4-1 mauling at Como",
+        "source": "The Irish Sun",
+        "published_at_epoch": 1792695060,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxNT2NidVFIcmJkNVdhNUV5NzlmcERWWFRfeGFPRWlVRFFET3hoRC1uSTg1SXA5TG92R3NpWDVNcTA3aTFhaHNlcXFpQ2k4Sm15b21DdDRwN0owWnZtcUY3dE9KdC1xMnQ5RlZzdkNNN1l4aU15dFRxMkFEcUFHUWZnUHFNTWg1Z1BRNDFGMEw5blVaTXdHR2NncjVuTVQ?oc=5",
+          "spectrum": {
+            "emotion": 6.643893731565482,
+            "subject": 95.30915331025392,
+            "movement": 1.9952341740254782,
+            "availability": 8.247566120145674
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1395143,
+        "title": "How Bruno Fernandes went rogue by ignoring Michael Carrick's tactics in Man Utd's 4-1 mauling at Como",
+        "context": "How Bruno Fernandes went rogue by ignoring Michael Carrick's tactics in Man Utd's 4-1 mauling at Como",
+        "source": "The Sun",
+        "published_at_epoch": 1792694820,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxQeDhpYlpGbDljdGxKeGdHeDFOSlVyWldfcE1XOFZXblFHSGQ4QndxMHdNOVpWSTAyUDc5TlJFMWpSU25Tb3FxX0xBX1l4T0dxMWcyREVSRVdUMW1RQzVnNkJnMXBsN3NtR3kzMXd0RzAyWHVpUk1CRjZjandpelFnY01BNDB6WlE1MzJUYURaV2F1MTdCejlqSFdJWFVEMjQ?oc=5",
+          "spectrum": {
+            "emotion": 6.9692463305087795,
+            "subject": 95.91077050988636,
+            "movement": 1.8919603361431905,
+            "availability": 7.877003647909218
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1385029,
+        "title": "Bruno Fernandes comments 'expose' Man United as new theory put forward to board",
+        "context": "Bruno Fernandes comments 'expose' Man United as new theory put forward to board",
+        "source": "Manchester Evening News",
+        "published_at_epoch": 1792693860,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxOMUJ1eHdFcjN3cl9ON0h6b0tjSjJESUwtSWM2c0dIcjFzV0xpano2TEdHdndnMmUwVGdKNEdtbzUtWHZ3VHlHRHhNS2ZTMEZ5THJYOWZvX2xWNUJCN0tSbC1LVzRHY1RuMmZwdHF5STVmZVRvWWZZTU9FdUMxY2NzUk0zUzdneXJ4OWp4bzAwUzY2b2FQNlhMUWFRM3J3bXpjZ3pFdmRRc0hDLUJsc01pQtIBtgFBVV95cUxNSkRQN2FObEpOclhTSW5zZkVVMmRaQnpDVDllbXhvSldTdDN6X3VGOW9KcmdnQzJORGl5Sm9pX0xlOE1IQnJxTXlhMnhycEowSTIycjBQMTBQNVVUYjNFNTJqekJXZTFHNENoYTNCSXVZUUhCbmljbGxEZ2Mtc0NCcWRWVmtrTkFaTEpEYnBaQk1YWFNjbzBrRHQ3TDFZMW0xSlRiVDljNWhlVmhOS0ZxUVVWc29YQQ?oc=5",
+          "spectrum": {
+            "emotion": 2.9806666429799376,
+            "subject": 93.96346137641054,
+            "movement": 51.25038774160329,
+            "availability": 3.897828554193238
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1354858,
+        "title": "Bruno Fernandes’ £4m Cheshire home burgled during Manchester United defeat to Como",
+        "context": "Bruno Fernandes’ £4m Cheshire home burgled during Manchester United defeat to Como",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792693500,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxQa0piUXF5ZFBqeHM2Q05FSUlKT1lPaHpRbnRDOElNNUZQY3pCLUNBYm51d09MdHh5SVpkdURYeDdsWVZNSnBkc0plb1Z6ZnQ0cTBBYV9GaDNkdGxxSlI5WG94SFNXVjVZZnVDUTBabk9ka2t4WW9KV2w0UC11RzZuY0thdUNGa01V?oc=5",
+          "spectrum": {
+            "emotion": 3.1588646164099137,
+            "subject": 82.93673321405089,
+            "movement": 3.229082741275919,
+            "availability": 11.26378410545828
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1393583,
+        "title": "Manchester United captain Bruno Fernandes to avoid punishment after Carrick criticism",
+        "context": "Manchester United captain Bruno Fernandes to avoid punishment after Carrick criticism",
+        "source": "101 Great Goals",
+        "published_at_epoch": 1792692294,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxOWm53eVNwX0RTSjJvMDBhbmtOWEZTdVVBdFVNa0JBOVRDbU1jcjVZWFI5d005X2JYWEhzeTFneFkxX1J6Rm9jcUViNzg1ZzFIT1cxS0sxSkpPNkVnSWRiNmY4Sm9qZ3gwam5EeFNXSjNXdnpOcC15UGY2ZUY1TzFFOThveTFESmRjaVR4RExMWjV0MjNaUllUSVdQWnRDT1c3WTEwWmdfSkRENEg0R1dIWkxJZw?oc=5",
+          "spectrum": {
+            "emotion": 2.9967648732928933,
+            "subject": 95.85491721882896,
+            "movement": 2.976152589311308,
+            "availability": 74.2360435387405
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1325233,
+        "title": "Man Utd boss Michael Carrick and captain Bruno Fernandes clash over tactics in Como defeat - but who was right?",
+        "context": "Man Utd boss Michael Carrick and captain Bruno Fernandes clash over tactics in Como defeat - but who was right?",
+        "source": "Sky Sports",
+        "published_at_epoch": 1792689950,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi7gFBVV95cUxOWXlQMDJCcHNaZzZQb095M1VQVlQ1M2VtZFkxTFNEMEZDcU95aG10RHZvclc5MzNDZVVhWVA0c0QyVXZ5YXBRUWtiMHBjRWpOdHZLRUZCdWZFRHRCcXFCS3JzdU9HWnpJNkZ4YjhicURUNnpnbF94M0o0NVhpQTAtN3c5Yl8xbHBlNG9RZjFob2hfdWxnTUdTcHN2R3ExUXZ4UEd6ZVFTeEk2ano1UW1PYUYtZFVCcmhmbTZJZmpCQ1FiV1FNWUFGT3BneDdGQU1JZGJ2TGpaSWdkLU02QklfeloxQkdOemI4U0lfZjV3?oc=5",
+          "spectrum": {
+            "emotion": 6.653245770632735,
+            "subject": 91.04403200332996,
+            "movement": 2.111493943526903,
+            "clickbait": 19.968813971634987,
+            "availability": 2.2266868234453026
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1344935,
+        "title": "Man United make Bruno Fernandes punishment decision after bombshell Como interview",
+        "context": "Man United make Bruno Fernandes punishment decision after bombshell Como interview",
+        "source": "Manchester Evening News",
+        "published_at_epoch": 1792688400,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxQbm16RUhKQi03RlJnVHJNVC1Rd3NMNWs2Z0JqTW94elpTb0tVNk1scVVZckxnd3hoWjdRY3g5b1JpYi00N1dNeGc2SExFWWhaX3lhdUJSZk4xN0NQLUlBUDRlbW9lZWV3bElCVEdwNl90eHdjTUJXTjgxdDBmZDV4M0VDZXdZeWY0RUtRWWs5cTNaMnlod2owd1BmYkpZZXI5YjdoU3BwQjFSZGNq0gGyAUFVX3lxTE1NdWxidnpEd3djY3NqX2NRVDhFak5ya3BVbzBDQ3BBSjNVQXdJakdpTS02OGxYTk4zZ2pZSEpvbUs4YzktUUxPdHIyUm5wZlRhaWhJUk4xTTRuZ2ZlWjFSSDV5eVozU2xQd3Q3Qjk4cWVDNXQ5Zk1iNkNNekM0Wmt4Q2VEdDN6Yjd4WmZLOXpSVVA4V1pYR1VyTGtHQnhVSXBOeS1ibUp2aExacjVweTI3aHc?oc=5",
+          "spectrum": {
+            "emotion": 6.2143572870976405,
+            "subject": 94.2665578130532,
+            "movement": 30.8697988142361,
+            "clickbait": 54.6623290532669,
+            "availability": 83.53188303186153
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1353322,
+        "title": "Bruno Fernandes: Police investigating burglary at Manchester United captain’s house following Como loss",
+        "context": "Bruno Fernandes: Police investigating burglary at Manchester United captain’s house following Como loss",
+        "source": "The New York Times",
+        "published_at_epoch": 1792685797,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiowFBVV95cUxOQTBPRHRQVnNDaDFIb3FpTER3N3VJN2FOVFV1YW8tOE9xNGNQczJ0bjNfcTdiV01ZM2tHbDZaNlQ3aUZweFZVRVh3Y2wxRGlhVXBRNTFTVUxsVVdwWjdoU1o5YU55NjFkUFBlbW5uZWxYMGsxVTJGeWVHZ20zNG1HbzRNTGkxa0hELTVodGhneVotZWxmUkdsdXUwdlNROGNuOVZv?oc=5",
+          "spectrum": {
+            "emotion": 2.008029690001281,
+            "subject": 86.27360916993813,
+            "movement": 1.6127665328836045,
+            "availability": 6.7764938202827585
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1335028,
+        "title": "Bruno Fernandes' rebellion in Como underlines Manchester United's never-ending problem",
+        "context": "Bruno Fernandes' rebellion in Como underlines Manchester United's never-ending problem",
+        "source": "CBS Sports",
+        "published_at_epoch": 1792682035,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxPUVpQdDNJMGdqRkdpUzFXVmJEdVJOUTlyM2pWZno5cjhMdkV3YTFSZVdWMHE3QjVjMjVjZF9IZFdEcjFqYXZaeXZjMmNwMlVlTVQzTDZFaXFpd2RpYlRYUEtUSVFzcDFqT3d1cTFQLUIxay1ZXzRBN3M5b2p4UC1iRWRlQkM1VWRUd0RYVEY5a1h3Z3MxWmxPbWp6ZXFHbHRCS3Fmaw?oc=5",
+          "spectrum": {
+            "emotion": 12.778224390302114,
+            "subject": 93.91171449110254,
+            "movement": 6.859754770380251,
+            "clickbait": 16.361581081460614,
+            "availability": 3.346737659459368
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1325259,
+        "title": "Bruno Fernandes urges Man Utd to 'stop living in the past' in fresh damning interview",
+        "context": "Bruno Fernandes urges Man Utd to 'stop living in the past' in fresh damning interview",
+        "source": "Daily Mirror",
+        "published_at_epoch": 1792681620,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxOSFBvaklFMGtfTWVfbm05LVI3R1ZyWHRJWFVENENCRms5dENOVkdYWHQ0Wl9pVlg0ZDlsck92ektZS2pKZVhFWTRfWUdKOWttMlNoLUJTY1ppS1ZoY1NjUFI0a0JoR1lYUDYzNzZmdXR6eDdRR3pxYzNGbzd4VHZMR0FiNkxOS1hPa0U0Y2p5el9PTGJVdzY40gGcAUFVX3lxTFBKdjF3T0FZMzZVLURYRTZ0Qk1Ta2l5YjF6eWt2d195bUJsVW14bk5RWEduT0piQXBfWjA3R3hXekRhU0o2ek96RHhJcU9TZHJfcU1tVDZmeWN6VE9lZFhSbHJ2U2N4N0t3U0VHdW9kSkFNUTJXSFdhbl9ISWN0YlY1UGV4R21ndHR2MWI4a0FpbGtRQk9RMm5ReVlKUg?oc=5",
+          "spectrum": {
+            "emotion": 12.148001186220391,
+            "subject": 94.298933677769,
+            "movement": 3.262175135199863,
+            "clickbait": 20.28697441450596,
+            "availability": 1.4545021883273723
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1313855,
+        "title": "Bruno Fernandes, a deadly TV skewering and what it says about Manchester United",
+        "context": "Bruno Fernandes, a deadly TV skewering and what it says about Manchester United",
+        "source": "The New York Times",
+        "published_at_epoch": 1792681150,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxNLWM2blk5WmU4WnhqeTdyRklwc3pMX2FsNHIwejQwR1gxekdYb1F1YzFZZ0lYVHg5VXNCaGx0UFVCRnowdGJuejd4X3N5ZHpjR0dUbEFmREh4czRxTGtRWUxCeDNJMWY4T1ViakdJSFctRGFmR2h6TW9wMTVkU2xQeDl1WERCOXBhbnE5MXI1YU9WcXFlc21USWF3?oc=5",
+          "spectrum": {
+            "emotion": 19.61585808304798,
+            "subject": 91.91669438844067,
+            "movement": 4.20919574723304,
+            "availability": 6.721013881358095
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1383470,
+        "title": "\"We're not in the past\" - Bruno Fernandes says winning trophies at Manchester United has become 'very difficult'",
+        "context": "\"We're not in the past\" - Bruno Fernandes says winning trophies at Manchester United has become 'very difficult'",
+        "source": "Sportskeeda",
+        "published_at_epoch": 1792677660,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiygFBVV95cUxPTklHVm1DbVB0VE5FVDZxSVJkRl9wakQtZEl0Z3htZlV4Sk1Zb2VGd3UwUHp0elJlcDdobUtZWE9KLVpUR1JsbVQ2Z05za0RpcmRYNG9vTUVQd0xqT1EzUlJMVjh3QXEyY2Y3QktwaW1WR0swU2JmWXU3amR3MnVpZ2dyWnhCNnhucXpHY3pZOEhQTHVXLWFHQ1Q4OEFvakNwQ0ZlLXJaVEF6UUw1WndhY0d1VFZkYnNsd21GbzZWb25hMjNTSFdwZjBn?oc=5",
+          "spectrum": {
+            "emotion": 8.892160736417436,
+            "subject": 95.32655253109607,
+            "movement": 2.7167315897659288,
+            "availability": 31.458905607599124
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1344367,
+        "title": "Should Bruno Fernandes be stripped of the captain's armband by Man Utd?",
+        "context": "Should Bruno Fernandes be stripped of the captain's armband by Man Utd?",
+        "source": "Daily Express",
+        "published_at_epoch": 1792676400,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQYU9hN0hNNF9SUTExMEc2d0diWm5MZllaVFFKOVJTQ2FpeUc0ZDdzdWpiZUNKVkRWMUNRazRKN25WZDREaXc0eEtxSlpaN0NmN3JPYWNZVXVTSm5uUldkSU5oaUxxWFU3RnNWVFNUTktFZ21fQ2prTWJDdTBXRGZlTWd1T0FNYXUxcmRjMW1NazZ5NFk?oc=5",
+          "spectrum": {
+            "emotion": 13.922668546680864,
+            "subject": 94.40570061962607,
+            "movement": 4.1029185121420815,
+            "clickbait": 21.77647918426293,
+            "availability": 2.8147586947322605
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1305335,
+        "title": "Bruno Fernandes is a shameless coward - he's thrown Michael Carrick to the wolves",
+        "context": "Bruno Fernandes is a shameless coward - he's thrown Michael Carrick to the wolves",
+        "source": "Daily Express",
+        "published_at_epoch": 1792673760,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNQVJNQkFtY3l6cEtXMWhHcW04LVd1U0xWX01NQU1ReWZGU3ZOM21qYmFQVnpqQXpoQkhHZlNFWG1SaE5pcVZHOGRNSm9oTEQzXzJBLURmcjlHV0R2OTI0UXg5ZWFrYnVpeHJMa2VRR09Fd2Y4T2hRbVJmT3llaVhoYWlCd2szMFHSAYwBQVVfeXFMUDJhY2JuV0FNTDlraEFHLVFwTnE0RG44ZjhxMVhBclZ5aFJsR3hqZWN1VUhTVnBDN1d0Sy1BSmVGM2FqYjI0ZkxvYm0yVGhTLWxpRkJEbVBRSFlNODRrdUxRS3oxaWZxVkdPT2tTbEhuUnRBQjJlUEotMDF6TW5oNEFlUVY3NG9WU0pUc2Y?oc=5",
+          "spectrum": {
+            "emotion": 89.05305927913622,
+            "subject": 94.19938050066908,
+            "movement": 24.820695871867425,
+            "clickbait": 91.48592169823769,
+            "availability": 4.938536279180919
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1285076,
+        "title": "\"What I see too much is cheating, crying, complaining\" - Ex-Chelsea star slams Manchester United captain Bruno Fernandes after dig at Carrick",
+        "context": "\"What I see too much is cheating, crying, complaining\" - Ex-Chelsea star slams Manchester United captain Bruno Fernandes after dig at Carrick",
+        "source": "Sportskeeda",
+        "published_at_epoch": 1792668840,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi8wFBVV95cUxOdTBoM292QU5oaGtRenVEdnB3cHRhbFgtLW1sQ2dONmxhOVVfRVVaYTlfYXRqMTFJZVlxcXcwTmdwNGdwUjZJaVNEbUppUjh4Wm5zWjlwZE1iNEtWdXdJcVVOTUlNUkJ3WW9GYjVvcGJhU01FcExyQzJaMGI5aXJRTnpnT2oxdVNjYk5PTmFENGc0OEZ0WXhYd3pmV3lnYW95dFJwOUdJUUNvQzlCNEIwc2Y5Y3ZKTGhBNlhlcEphX0F2TjJwY3V5aURPbGh5ME9mRzJBS1FrUFpFc0pqNlJ3UENhdnJ3VlE0amNaVlliOFBsVzg?oc=5",
+          "spectrum": {
+            "emotion": 63.49563396215001,
+            "subject": 91.33493671452024,
+            "movement": 2.9878233233668747,
+            "clickbait": 22.700211088151892,
+            "availability": 2.3575748713205047
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1268882,
+        "title": "Manchester United: Bruno Fernandes criticises coaches as Michael Carrick questions players after Champions League loss to Como",
+        "context": "Manchester United: Bruno Fernandes criticises coaches as Michael Carrick questions players after Champions League loss to Como",
+        "source": "Sky Sports",
+        "published_at_epoch": 1792668372,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihAJBVV95cUxPQmtZVUpvTmUtaHllTzFLeDhTSTVXc0VhUTVTSkJ1WGt5bnFScHl4RGxQVkhhNC1xY0laRV9wY1h0UU9jd1VRMENLVmFlOERqSEExdEE1dGNaZU9wek0xXy00ODViOXlySzN0MVlzOUtxSHZTbmNxZnI4Z3IwV0VlS3F3VzV5ek5HXzJielNWM1VxWUx0cVdMdUFDYTVKMFFIX3VTTVQ5ZVFTVXZKQnlJWTdLbnV2TzkxWkRmWlg1VGlzckN3bXFmYVBVSERwTWRkc2lJMkxsUWhETWkzQ1I1azdPOXhhR1FLTkpfckF3bV90MUJ3bUt4V0lHX0x2OXd3Yk5xOA?oc=5",
+          "spectrum": {
+            "emotion": 40.50455676699306,
+            "subject": 95.09970088728113,
+            "movement": 5.4597356819682235,
+            "clickbait": 9.382838976065672,
+            "availability": 2.1696680094408465
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1336618,
+        "title": "Bruno Fernandes criticised Michael Carrick’s tactical setup. Here is why he was right",
+        "context": "Bruno Fernandes criticised Michael Carrick’s tactical setup. Here is why he was right",
+        "source": "The New York Times",
+        "published_at_epoch": 1792667460,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQbTRsOTZKYlZDSVJ6dG81UGF1UnVoNC11Z1JhUEVPQjdub05sZlh4aDlGNTJ0VWJTRXFJakZJZDlsN1hsMDFMYXdzNlNFeGlmTGNQdnR2RXdQWDIzQkFxOUJVT2tNRHl4NnNiZ1YwbnpreVpBTTZLS2Q4eDZ4YXZoeVhEakRuWDdfMjFldkhaQ0k?oc=5",
+          "spectrum": {
+            "emotion": 7.963845922441639,
+            "subject": 92.33990754323594,
+            "movement": 4.895776811782474,
+            "clickbait": 6.876236933587275,
+            "availability": 1.850955595087738
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1286475,
+        "title": "Man United captain Bruno Fernandes sends brutal message after Como humiliation",
+        "context": "Man United captain Bruno Fernandes sends brutal message after Como humiliation",
+        "source": "LiveScore",
+        "published_at_epoch": 1792666878,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi3AFBVV95cUxONXc1YV84ekVJNVI0MGhWcTd6ZnFiX21wTXk2ZVUzOGcyNWxCd0FDVWFzcE4tWUc1cjhBQjViblYxenhHMThKdXpJU2NiRXJxY0RsZnZNZ1ZwSHRNaUJ6ZlBOYjA0ZlNpSEFiQWdNVk5iS3pwVzBYUk94MXBiZU5yczc5OUxFODNiUXZ6OU9wMWFZRnNVREFNcDRlZEhTQXBJQWdVYTRiWWdvRnlORnhPQkhKZC1jZVlsVVBPNGo1ZlpyNURkVHJ6R0ZOYzlLZW1yVTNyaHotSkl2S1NR?oc=5",
+          "spectrum": {
+            "emotion": 55.74312624510873,
+            "subject": 92.79899550704666,
+            "movement": 1.7665866183925336,
+            "clickbait": 39.33636264708021,
+            "availability": 1.6631815610989844
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1276878,
+        "title": "Why Man United didn’t let Bruno Fernandes speak Italian after Como loss",
+        "context": "Why Man United didn’t let Bruno Fernandes speak Italian after Como loss",
+        "source": "LiveScore",
+        "published_at_epoch": 1792665544,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi1AFBVV95cUxNekJ2UGFCYXg0RnI2YjhhYmp6ZVhzMUt2elNUNGNWVlB0UDFWc0xhMkhHUXdUcHg3NklIM3ZfOFFnOERxVWZJZEgzU1RCSXAtSG1YNEZwaWtudW9VV3BBenNfU1dxbXhaUlRocDdZMXRtUUE0aVRfNGpPYlV1UktRQ0dDeUJDQTZMb1NJUFZGSTRESEw2Y2lxWnNvek1WMnhkaVBxTE9ubWxqN2lkVWtnY1ZPY25iemlaTndESFUtalVwUzVaYmhPbTFfdFNTclBWZGV5cw?oc=5",
+          "spectrum": {
+            "emotion": 3.520077067018907,
+            "subject": 89.11519375831153,
+            "movement": 3.9303378360064007,
+            "clickbait": 18.666224985339216,
+            "availability": 3.9779793470112725
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1276278,
+        "title": "Why Man United didn’t let Bruno Fernandes speak to the media in Italian after Como loss",
+        "context": "Why Man United didn’t let Bruno Fernandes speak to the media in Italian after Como loss",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792664700,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiekFVX3lxTE1YUzhOUkktM195QmIwWmJFVXV1YnV1V01nRmR1VWZtWnlMSWViUGotR0VNOE9UZFhoLU9iTnhlUjRha1QtLTVoekdOU1FfUWdUR0NmdkhXaVFzNzlZeFR1d2JtSXBiYTdtc25SbkYzOVFvNlJtVkx1eDV3?oc=5",
+          "spectrum": {
+            "emotion": 3.7567788112481364,
+            "subject": 92.32387802128734,
+            "movement": 3.2288741440167184,
+            "clickbait": 14.930303085642398,
+            "availability": 3.0264255557189257
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1276826,
+        "title": "Why Man United didn’t let Bruno Fernandes speak to the media in Italian after Como loss",
+        "context": "Why Man United didn’t let Bruno Fernandes speak to the media in Italian after Como loss",
+        "source": "Football Italia",
+        "published_at_epoch": 1792664442,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE8xLXpjMmI4YXZqSGY4azBIMXUydG1EVFJENlFXdHZnV01aajhLbURMdWZBWFZyR0pveWJSZEZURDA1Z1ZsbXBRMGUzSzgyR2tmaEZvRXlWTE4zYlFwVFVxZDhHdjdZSmgwRDZUclZBSDdnRFVTUFYtN3VVUjlnZ9IBgwFBVV95cUxPb2xMaU03OEt0bmpLN05OMlJPOUdWenhDRWliU29hVHR3NkNLZzNSaHZFdWZYZEIzSTE4d2xuQlhtOWdINXJQU0JBblFtRGNNejJCVU84a0loRVVHMElVX1B2a0E0akRlLVRWeUhlc3E1YTFWeldDQkVyNzVyZHJyV1c3OA?oc=5",
+          "spectrum": {
+            "emotion": 3.8079082681826733,
+            "subject": 92.40021064595024,
+            "movement": 3.2644451097411564,
+            "clickbait": 13.042747990204868,
+            "availability": 3.1129043035646653
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1276810,
+        "title": "Bruno Fernandes Slams Man Utd Mentality After 4-1 Como Loss",
+        "context": "Bruno Fernandes Slams Man Utd Mentality After 4-1 Como Loss",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792660710,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxPZFE0VThqZWNIVGdNc045cEc1MDJ1TkNkSktoejhVeTVaeUNqalRKWTA5RXJLYWNxZTlCVmJRUExHbC1VNXIwbzJqZEw5c2xLeExZT3VNdU1LTVliZXlpWV94NVA0SUVoXy1tSDgzd1JPZ3hYNzBTQjB2U2dkRmttNV94OXI?oc=5",
+          "spectrum": {
+            "emotion": 86.78255830567603,
+            "subject": 91.1159329428482,
+            "movement": 1.8217278483947914,
+            "clickbait": 12.415305637176925,
+            "availability": 1.6424988180642666
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1267172,
+        "title": "Manchester United: Jamie Carragher calls out Bruno Fernandes for questioning Michael Carrick's tactics in 4-1 Como defeat",
+        "context": "Manchester United: Jamie Carragher calls out Bruno Fernandes for questioning Michael Carrick's tactics in 4-1 Como defeat",
+        "source": "Sky Sports",
+        "published_at_epoch": 1792654847,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi_AFBVV95cUxNUnp0MTFndWxJdGhwNkVaT1pabnh2Rm1uZnhyM1o3WGZqb1hvWGVpWG91TGpRTm9tM2dCZUFrZEFGQ1FwVXBHcHhBVWY2UnBiMVFneUxXRkV5d1FEMnFNLXAwLWFSVWUwLVNYd3JQRHMzVDRvZmUzOGxYV1JXNnRBcWFZbEYyc2ZtaVdGbXBPWHpQeWczbEN6eUUxVHpRQ3lEUW9NVGpabzJWXzZlYTFSUmQtSkd1NGhOYy1lcVdieWtPYUg2Tjd5eU5vU3hIUUpxdzl4NjVZU084b3lfVTlvVmVFOWFoV191dGd2LU9LTUhSemRUcnVrNmg2QmQ?oc=5",
+          "spectrum": {
+            "emotion": 24.413661700349206,
+            "subject": 80.95266741574966,
+            "movement": 3.616403552655165,
+            "clickbait": 9.107817182459772,
+            "availability": 2.1168226402832135
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1189796,
+        "title": "Bruno Fernandes appears to question Man Utd tactics after Como loss: ‘We have to be more brave’",
+        "context": "Bruno Fernandes appears to question Man Utd tactics after Como loss: ‘We have to be more brave’",
+        "source": "The New York Times",
+        "published_at_epoch": 1792654200,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxQdDNzdFNrUDBGR3lCLUpheUw4TWNhcHlqMkU0UlFWNEJZcEFEbjVDVUJxLXpwNV9QdjM0aFJUUzRaR0YzZEZNdGVsZXNvRzhiblh0NnktS3pkUDBSZzdVQ1hpTi1LeXdhVnVoNTF3OFNpaWNfaC05VFlUeGhmZ3dfU2xpY3FHb1VfYnZuNFBWekVjeGRObnZfMGtLR1F5b3hFY195VTltUUlTa2g4Slhr?oc=5",
+          "spectrum": {
+            "emotion": 11.712939681055856,
+            "subject": 92.85925311539263,
+            "movement": 3.336824716290312,
+            "clickbait": 8.710122450299258,
+            "availability": 1.9450353536086609
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1354922,
+        "title": "Jamie Carragher tears into ‘disgraceful’ Bruno Fernandes over Man United captain’s Como outburst",
+        "context": "Jamie Carragher tears into ‘disgraceful’ Bruno Fernandes over Man United captain’s Como outburst",
+        "source": "The Independent",
+        "published_at_epoch": 1792653660,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxPWmFjZXpiWXpPS1hJb0MxczVpYThZdzVDU29RS1RHcnRVZGpFc1VOd0tHSGRMcjd5Z0dJaUdKLWEtNzlWYTdfMXRkWGd1dzRaemF4aU1fUmdyR19sSk5wcjZEbWN1V3dKbW53V1d5QUVJbVJUWi11S3pmTkxsWVFsakdqSi15dG5yRlc4S2FYUC1TZFVRWXlhbGREVl85b3VZQWpkU0ZMYnVmTzg4TDFmak1ZazJ6SWxiaDVsQUwzREdqUQ?oc=5",
+          "spectrum": {
+            "emotion": 83.85873565919478,
+            "subject": 89.95132381021934,
+            "movement": 2.672894940512039,
+            "availability": 10.211218385895368
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1295809,
+        "title": "Michael Carrick fires back at Bruno Fernandes comments and blasts players",
+        "context": "Michael Carrick fires back at Bruno Fernandes comments and blasts players",
+        "source": "Metro.co.uk",
+        "published_at_epoch": 1792653120,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxPRHJpQlZXZmxMbXFsaEdjdERxV1FWbmNNZTdnV01Lazl0UUs4RV8wY0l3WTRxZzZNcDFLdkwyd21ONk5ZMzlOcE4wOV83NXhsLWpGaUxtOEp0aGRvLUZrVkpQLUFFTE0zbUs4dlNrVnNPUmhtTkNEUTJ1T0RlTlg0VEtYVWlMdVNmbTcyeEk5YlhkNF9RQ0VnUF9kbE5ITm9hV0llbXppRXlCNU9JMHkxYtIBsAFBVV95cUxPRHJpQlZXZmxMbXFsaEdjdERxV1FWbmNNZTdnV01Lazl0UUs4RV8wY0l3WTRxZzZNcDFLdkwyd21ONk5ZMzlOcE4wOV83NXhsLWpGaUxtOEp0aGRvLUZrVkpQLUFFTE0zbUs4dlNrVnNPUmhtTkNEUTJ1T0RlTlg0VEtYVWlMdVNmbTcyeEk5YlhkNF9RQ0VnUF9kbE5ITm9hV0llbXppRXlCNU9JMHkxYg?oc=5",
+          "spectrum": {
+            "emotion": 66.49747260310865,
+            "subject": 89.62873705788613,
+            "movement": 7.811538012478198,
+            "clickbait": 25.436351598965746,
+            "availability": 2.1907796443567586
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1284997,
+        "title": "Jamie Carragher says Bruno Fernandes is 'killing' Manchester United after acting like a disgrace with comment on Como loss",
+        "context": "Jamie Carragher says Bruno Fernandes is 'killing' Manchester United after acting like a disgrace with comment on Como loss",
+        "source": "Sportskeeda",
+        "published_at_epoch": 1792647300,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi2wFBVV95cUxNT09tWEV5SmxXby14aS1CdTVMNnQyTWd4TGdrUFA1ajRadTNhbTdnRV90bUhPZHo5N01FbjJybGp1RF9rVVFNWXlNY3Z0cl9BZDZMbExfZHhDRnNEazlROW02QVdfTlNqZGlBTVhoNWJEazd4eGdCMnh1NFByZ0QwRVZabnZxMnpNOGl2UTZtdUFVdWQ3RWNQTVFmRXBOSEdhZ1hqTnhXWUpuZnBoYTZfUWxKQlVKTFVVTU5EVGRjTG56c1RnRHl2MHVhd2w1NHU2RDRxRnJqcFBnSlk?oc=5",
+          "spectrum": {
+            "emotion": 85.85289600329405,
+            "subject": 88.30885735205581,
+            "movement": 3.3481940286352256,
+            "clickbait": 63.78075168764013,
+            "availability": 3.0137834997871207
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1209148,
+        "title": "Paper Talk: Manchester United captain Bruno Fernandes criticised after Como humbling",
+        "context": "Paper Talk: Manchester United captain Bruno Fernandes criticised after Como humbling",
+        "source": "Sky Sports",
+        "published_at_epoch": 1792619969,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxOclQ5bUJjYTE3ZEdNaEl5d3BCZmF1ZTBiRVJ0YkNqeWlra3NKYnRuRlpNdWxZWWdCemNTVDVwOUo2bnV2QXVTXzdBZ3EtVUdiQXFFQV9ROWhsUU02Nm9yOUh1a1ZYLTBfakZReGJwalBGNFdYeU9Ta01aX1JrWmNxSVpLZVFBVUYtUlRGcWs3UHpYUGd0SktSNkQtVEQwMXF0VHFOSDRfS2x5anhiajdsOTYxNy1tREp6cDc2WC0wWWxoR1lsRkdVYzR5emJVUQ?oc=5",
+          "spectrum": {
+            "emotion": 67.60921587084712,
+            "subject": 91.8974286889082,
+            "movement": 3.3682253744924293,
+            "clickbait": 13.78062244245487,
+            "availability": 2.8103114889129266
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1209134,
+        "title": "Champions League: Como 4-1 Manchester United - Bruno Fernandes talking in post-match",
+        "context": "Champions League: Como 4-1 Manchester United - Bruno Fernandes talking in post-match",
+        "source": "BBC",
+        "published_at_epoch": 1792618897,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTE1HLTBQVmVwcUpIU2Z4TGJKTUV1djBtQ0JpTUtENDN2T0QtX3BIZ0hyMXd6dXN2eTRYZlVQSDRXcDNDVm5SaFk3aTNrQXp2UjRuRG5WTmJTdGRRaUdzREtFQUdVQXlwTElo?oc=5",
+          "spectrum": {
+            "emotion": 2.9111019786753984,
+            "subject": 78.31743393768646,
+            "movement": 2.181089855222656,
+            "clickbait": 10.476641595374659,
+            "availability": 3.3705168756872794
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1209210,
+        "title": "Man United in a coma: Como give Carrick a football lesson as Bruno Fernandes questions his tactics",
+        "context": "Man United in a coma: Como give Carrick a football lesson as Bruno Fernandes questions his tactics",
+        "source": "Gulf News",
+        "published_at_epoch": 1792615834,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxQTDlaZDBYZ254WWZ5Wlk4TWRncmVjRlRmYnhveGdHZGFfbmNBLU1RN2FUR2packN0WG02NG45SnNZNTVrNXdCeXU2ZGFmQ2JpMmJJZWJLelU3YmEzM3Z4Njk2QnBXLXE5X3VSVnUzb0pUSVo5LWJTbkFvVmRJRXpTTEUxNmFaWjJMVlJyWkFYNkNmNEE2N01XbHRDd0p2RmtIWnY3VE5iVjluVGZzaTNxcTg1VjVMQ09laFRSRVpUckZ2RC1CZWpXNDlmYzdmZ2tGcGpGYnJtU0xyc0FUU1E?oc=5",
+          "spectrum": {
+            "emotion": 6.673768267744612,
+            "subject": 88.0799080557053,
+            "movement": 16.026885596609574,
+            "clickbait": 86.3942063473706,
+            "availability": 22.788521980494885
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1364880,
+        "title": "Michael Carrick hits back at Bruno Fernandes criticism after Man United loss at Como",
+        "context": "Michael Carrick hits back at Bruno Fernandes criticism after Man United loss at Como",
+        "source": "ESPN",
+        "published_at_epoch": 1792614180,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxOVWI0QzNpZUhNRkFSQlk3cGw3cjhxQVNfOWZzNlpQOXNSQ05xalpvOTVRVWNjSkZWdjM5QkRHUEhCU3dnOGNEWUc4bDhXM2hsWkJMcEt4R3NDYlJhU21JbWlSMHFKdXlWMFpadTlrTXUwZ2hNcncyS3VZUlhRUHBYQ2xWZEc3MndzOWU4ZnJpelZQZ1p2VmhNdGd5eGRJUWZjWGtpZ29tR3lpd1N4TDdkWC1UVlRNMEhsdkxEZTRNWXU1UQ?oc=5",
+          "spectrum": {
+            "emotion": 20.25602423336322,
+            "subject": 86.83683070525593,
+            "movement": 2.5001227795311,
+            "availability": 6.634872911653936
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1307733,
+        "title": "Michael Carrick loses it at 'unacceptable' Man Utd stars and fires back at Bruno Fernandes",
+        "context": "Michael Carrick loses it at 'unacceptable' Man Utd stars and fires back at Bruno Fernandes",
+        "source": "Daily Express",
+        "published_at_epoch": 1792613280,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxOem5rTHRPV1NiNWVMZGVoYnVuV2RhQjR3anhxZkVrT0JJZm9WeDlBR2M1VHhZY0VJbUlBOTJna1ZSMmI0U2FtX0J3Mmg2aHZwTnhkVWZUNlB2eHRmRHRxbXhvcVl5VThrajlMd1dsTmFlWENoU2ppTENaT2tRRUhjRlg1aDVyMjJzd215amxDYVJGQdIBlwFBVV95cUxQeHd2TEh2dTFpcEFTekh5ZWZlRFZoQnllc2JuY0I5clU4WVpKTG9sMnVnQkVkdlpJZ08yd0hwTmJzTWFyYzdMYWFEQWR3UGJqNExDTFFKSVVfNGNYb3NjNjRZUk9UakZ1STNTUVRteFBVUFQ1NWN1VjFPSjZZbW5CYkZmbVhfVTdOd0lyeDBJbFlzUExDOXhV?oc=5",
+          "spectrum": {
+            "emotion": 54.905651575441624,
+            "subject": 87.6777251783985,
+            "movement": 5.10934628563123,
+            "clickbait": 46.550517057110184,
+            "availability": 2.4983519752619534
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1209211,
+        "title": "‘If you’re not going to run…’ – Michael Carrick on Bruno Fernandes’ comments and his future after heavy defeat to Como",
+        "context": "‘If you’re not going to run…’ – Michael Carrick on Bruno Fernandes’ comments and his future after heavy defeat to Como",
+        "source": "Hayters",
+        "published_at_epoch": 1792613208,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQR2NzdjdrVW0yUTg3V3VCeEMxR3ZkYUZFV2N2OEt3UkM2OGxhTll4X1B0eUdwY0RjbTc5azNDM0FUT2tCMVNQZkRjWEdzUVQ3Q2d3QTBGbk5tNi13dzg5OGJFMzBGYklTbTdDZFhBX2MtX3JYRlFmMDE1WkVlaHI3SUI2SDdrMzd6TDdGcFVRaUVaQmRMZDllelM5d2N4dXgyVmx5bWFMeFB2QdIBrwFBVV95cUxQWGNiaFZyTkdjNXM3ZEtGVFZDZG04dXB3cUNMaEtVc1d3bkl5UnlCU2F3b2twbC10Z3VqSHNyNkN5Ulk1dTZRX2syYnpzTk1adEZ0eEFHUl9uaWtLbXF2c01Da1VWSUpSWFRjVGhTd1d0aUJLX3BGZWgzT1ZOV05mSFd1MnF2a3BLNi1CcHBjUVR3RndHTDVJT291eG5CODJwd3c2WUk2SVNLTEJuWFp3?oc=5",
+          "spectrum": {
+            "emotion": 17.401843775169052,
+            "subject": 79.47812693509672,
+            "movement": 17.518722710215016,
+            "clickbait": 9.151791671574124,
+            "availability": 4.966305745755706
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1207815,
+        "title": "Manchester United captain Bruno Fernandes calls out Michael Carrick's tactics after 4-1 loss to Como in the UCL",
+        "context": "Manchester United captain Bruno Fernandes calls out Michael Carrick's tactics after 4-1 loss to Como in the UCL",
+        "source": "Sportskeeda",
+        "published_at_epoch": 1792612320,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxQZDgyelphQmZkSS0zV3lCN2U3d1AxM2Q2a28xTEt6V1lUTzhibUktNWxuNkVBNnVOZ0JQMGl5WlhDMERUd1diZjBuME5vaEdDQ1ZlN1l4anBndzRsSHNkd2FzbzRGWUtsUGIzQThIRWEwRTl5LVl0Y29jNTZFNkZxRnhUcFlrZVF4X1VoT0FrdFBCSmxLZjBOMVF6TWd3SkM5aGJzcHo3VGpTUDUwN1J1UTB3WG4xc0ZKYkliTThWSlh3ZWNiOUhtSUpxWFVJdw?oc=5",
+          "spectrum": {
+            "emotion": 24.71982584372227,
+            "subject": 89.97550340143783,
+            "movement": 1.7841584526469094,
+            "clickbait": 7.012367116116066,
+            "availability": 1.6652635519671797
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1189852,
+        "title": "Bruno Fernandes unhappy with Michael Carrick’s tactics in dismal Man United defeat to Como",
+        "context": "Bruno Fernandes unhappy with Michael Carrick’s tactics in dismal Man United defeat to Como",
+        "source": "The Independent",
+        "published_at_epoch": 1792611960,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxOaUZ2N0Q3VFlTMnZwSFZRdlc3RjhtTW80amNkUUpJLUVZal9CTGozOExpZDllVzJWY1ljdTUtTTk0eXNxLWF1NV9ETGIydmEya1h5aTJsVjB3eW96YTZKV0RFSkdhbDNBRFRNUjZGMlNQOGVsR3d0S0VVYzluMExUYU80Z0JOSlZvTjhNOTZ4YmVHMGM1UEE4UnJ1N09NNTF1TUNQY1VRZFVDWnJTallJOVFQSHQ?oc=5",
+          "spectrum": {
+            "emotion": 83.57096619475752,
+            "subject": 93.0293561394288,
+            "movement": 1.8547397778900416,
+            "clickbait": 10.582802096216204,
+            "availability": 1.9196623209325623
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1256951,
+        "title": "Video - Bruno Fernandes Reveals Michael Carrick Decision As Errors Continue",
+        "context": "Video - Bruno Fernandes Reveals Michael Carrick Decision As Errors Continue",
+        "source": "roundtable.io",
+        "published_at_epoch": 1792611166,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi2gFBVV95cUxNV0dnOHQwdmUzblVoUWdTXzIxZkJQUDVEMUFNRWVSaTR4MGZ0VFNEbDlRY25iLVlYX2c2RWhqT2JVZzVjOGZMTHpYVTZRV05QSjg2N3R5N3U4MWlTWnptMW1NUUxnT05LNVdrMkVTZ2dvMXhnNURMQU82ak90eUlXcXdZWjhyajJpbWxWVGxKd2hjbURtOGdHc05EYnBkSkNTczhGNllVeXBENDY4b0kxNlMyak1OZkV4UzJSOXFsbUQwa3pIY0I1OWJQWUwzQll4c1NvWHpybVYtZw?oc=5",
+          "spectrum": {
+            "emotion": 3.5151767559894442,
+            "subject": 94.07427703180255,
+            "movement": 8.655392153566636,
+            "clickbait": 11.913164811768063,
+            "availability": 4.957149673670376
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1188465,
+        "title": "Bruno Fernandes questions tactics after Manchester United blown out at Como",
+        "context": "Bruno Fernandes questions tactics after Manchester United blown out at Como",
+        "source": "NBC Sports",
+        "published_at_epoch": 1792611128,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxPZXFadkx1dHQzY25nakExRjVrY1o0WXRuUlotSWtQeU1uaVR5NXg1eHczcHRvUF9NajRCNW5mWFZXXzEyblpCSERPSlhmSnJYcVJqcE5DMzJGQzh2MkhBY191SUtQM01nTnJFSFZMcVRmX1FscU8xOGlYTTA4b00taDZZLTNzeDZjUko1Tkg4QV9lVFJEbWhVWDAxR3hHMzN5WERGU0tlci1HN25lT2wycE10NA?oc=5",
+          "spectrum": {
+            "emotion": 22.443237357377672,
+            "subject": 92.08594832254592,
+            "movement": 3.15784369780933,
+            "clickbait": 7.168240326280463,
+            "availability": 2.035215681034552
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1218808,
+        "title": "Bruno Fernandes points out flaw in Manchester United tactics vs Como - 'That's on the manager'",
+        "context": "Bruno Fernandes points out flaw in Manchester United tactics vs Como - 'That's on the manager'",
+        "source": "Manchester Evening News",
+        "published_at_epoch": 1792611000,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxQMVA3ZjY0Skc3ejhpVjEyU0lOMUs5RVU0RlNHeUN0cUw2a3dCSXJ3bDlHaERMNWZWaFI1aTRMaDZYV04tc3M1RWxQWUpmcGhvRkN2VnNNbTVqcWxURjR4QUpCVTBTRS1QcUR6Q2Zjb2pkOW9TOWdJdWJpSVFvd3podGgzX1BxZ0hxc1VQbWRCODVqY3JkMWVhcVV0c9IBoAFBVV95cUxQLVNna0FLN3NjaHBOYUlDblNMVEdHSEN3WWdralJaT0hnc0I1dXhRVUF4RDJkanZMd21qeUdQWHcyREtnejVMX0w5TjE4WFA5bW9OaVB0Sk9fQlZJSC1hZmpfZmY4SnVfbEY4bmpFVGVkQU1LY1doUXlMdXVJdXY1SVRDSGRsZlNSSF92VFdZOWN2QTBJX2dZWml6dGRtT0Fv?oc=5",
+          "spectrum": {
+            "emotion": 3.456456974443125,
+            "subject": 92.60515167138806,
+            "movement": 3.0280549256761473,
+            "clickbait": 6.6753484395539315,
+            "availability": 1.6562362381978561
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1189864,
+        "title": "Bruno Fernandes frustrated at Manchester United tactics in 4-1 defeat to Como",
+        "context": "Bruno Fernandes frustrated at Manchester United tactics in 4-1 defeat to Como",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792611000,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxOMk41WDJnelZqaDg1SHhSdkdEQjE0UklBYXJJeUs2OUZkTVFRdk1BSE9PT3EzaWxGTjFRMFU4MTZFZjF3MWdITEoxUWZvMzJuS0g5RUdFZGZVQnlObUFUYTExSmZaYXdGN19aVGd5WHY5MjRoaXBWdUVhUjZPRDdiVzVySkpRUW54bE1oaF9vd1d0b0pORER6Qg?oc=5",
+          "spectrum": {
+            "emotion": 97.278182480559,
+            "subject": 92.79681567429128,
+            "movement": 2.350292909631655,
+            "clickbait": 9.786929455453908,
+            "availability": 2.1190448336962637
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1189850,
+        "title": "Bruno Fernandes points finger at 'decision from Man Utd staff' after Como thrashing",
+        "context": "Bruno Fernandes points finger at 'decision from Man Utd staff' after Como thrashing",
+        "source": "Daily Mirror",
+        "published_at_epoch": 1792610884,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxNRDI5T1lFNVBuM2tZTXIxT3NRc2YtVTNmNFJ6cVZSZFpmNXd6eS1sbS1yYWUtbVFZU2otendueGpmeUppRTNOWVkyNzlUTkRsNjNCb2pKSGJaVndIYmxCUXlRQnJJZ1p4TEZYWFNxUzBUWTlUdVhRX05EczBVRWR5U293dkFyNjNJQTV4cUdsdU82QdIBlwFBVV95cUxQTnNqeGt6bFowdlFRQW8tYUVhNTltYUE1WlhmTk84eUdjUjFlc29CbGJzd0dvejlRUjFiSk55Wi01SDhJb01PaVpCVEpENmpHX1RRLXh3eXk0T3BHV2Q0ZkMzdENDaVZCWHhzTkFqSEpJc3lmU1pFYlJWV1hhdFYwRGRDcmZldGNtSlJ6YjJXZ2ZlUXdjcnRB?oc=5",
+          "spectrum": {
+            "emotion": 13.871978109259905,
+            "subject": 88.28323333797775,
+            "movement": 4.26047986128898,
+            "clickbait": 12.3760974371478,
+            "availability": 2.062095478993243
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1199592,
+        "title": "Bruno Fernandes frustrated at Manchester United tactics in 4-1 defeat to Como",
+        "context": "Bruno Fernandes frustrated at Manchester United tactics in 4-1 defeat to Como",
+        "source": "Football Italia",
+        "published_at_epoch": 1792610771,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE9BaVhEbW5zZmhlRzVYTGRfckRjN1dwV25ObU4xTUdCT3U2VXFOYl9nUl9PWEJJRzdPeXd0bk4yRmFZZ0xMMWtWNXNrVlBPMUhmU0czaDhFSWVocXl6MEt5b0VUM19ZR1lKWUo3aEtiM3M3dXUxblZSYk82ZkRvUdIBgwFBVV95cUxOUV9lV3R2RDVTdEtfQlFaMUFrMlZ4LXRLRC1wcENxb2JBUWt0VzYwMm9fN041ZU9pNnZwR2FBZ3BRYmZmZFp6eUVyU2FWVU1HcWRCZ3JoenpyNDNCM1R0WVRJOER2T1l3ZjZ2WXRxUXNtTmZHa21xc3N5LXppSEFiRVJ1SQ?oc=5",
+          "spectrum": {
+            "emotion": 97.31732770313735,
+            "subject": 93.52808499562289,
+            "movement": 2.3977151069843403,
+            "clickbait": 8.539443152293055,
+            "availability": 2.126153736310793
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1307736,
+        "title": "Bruno Fernandes throws Michael Carrick under the bus as Man Utd row breaks out",
+        "context": "Bruno Fernandes throws Michael Carrick under the bus as Man Utd row breaks out",
+        "source": "Daily Express",
+        "published_at_epoch": 1792609920,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxQdl9qWGNSWlZIWi16UTVQZFNVYVlUeXdqYmJxTlVaUHlmQkFHRzgzYUZNVDNwUi1VWmJMUjV4UnBSRm9ZSzVGQV93amplRDFsLW8zY01HSU9jSkdkRUFNeXNnRERsRnc0V29SVlJhUG5FZjE3TGhLTEdFbEh5Nnk5ZE9xX1dOdkprb0VwMVgzaUVsd0Zm0gGaAUFVX3lxTE9NY0ZRbXpBMEJsR1c4SzNTX2RCc3Bvc0Z0TXIzSUE2a2RvSDFuVGh5T3BkNUt1bXdtdGxfQW5PSEE2UE9jcXZBS000YmRUanp4Sk9PMnMzdXRQem9QX2lEU3dnVFdHOXZrV3BHWXdHMEJ6Slo2V25oVXF1LV9iV2M2NGZkWVJwbXRQeDIxRUNCeUxpMXVfMXBUZlE?oc=5",
+          "spectrum": {
+            "emotion": 16.96585752112116,
+            "subject": 94.70948790847186,
+            "movement": 40.45947412105379,
+            "clickbait": 69.53489559923113,
+            "availability": 4.05647087781228
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1188427,
+        "title": "Man Utd player ratings vs Como: 3/10 leads group of flops as Bruno Fernandes lets rip",
+        "context": "Man Utd player ratings vs Como: 3/10 leads group of flops as Bruno Fernandes lets rip",
+        "source": "Daily Express",
+        "published_at_epoch": 1792607880,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxNQjdfcHlMSU9rMWpyYlRJODJpeDE1V2NpSE1Dc01RbEVFY1hoRXJKR2tHRU1Yc3FVaHlqclRMUzk3RENwVTdhZ1RiZnNwdmFZWTNWS0Y5Rk4xRTlUTl9mVFgwMzlPUVdaN3VqZUNuTWVIVUdVMUtBcVRaWmotTDNCQVBaNEpkdjk2SWRKNUVCTk1VQ3FBUHlZ0gGcAUFVX3lxTFA1aGtmYXBFcVUzV3AzS2xsSkJVN2w5bEUydUZFODVIZGtvR0M2dktoU2h3Sl93SVlNbDVpd1dkNTdLNDlNMk9KcXdXNE9OcGRrNm9rRXhqcTZhLWxZSTJvRUNjMG05ZVBRYkNtRGNhb1pNQkFWNTlJRFhiWFphQm9YeTVnRWxGbm5GeGlRQ2tZZ0ItM0VHRGRkRWRPYQ?oc=5",
+          "spectrum": {
+            "emotion": 12.843928200208968,
+            "subject": 84.21372769925229,
+            "movement": 2.5588601798164254,
+            "clickbait": 50.07672303853822,
+            "availability": 3.5401936020762754
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1208100,
+        "title": "What Bruno Fernandes did immediately after getting hooked vs Como speaks volumes",
+        "context": "What Bruno Fernandes did immediately after getting hooked vs Como speaks volumes",
+        "source": "Daily Express",
+        "published_at_epoch": 1792606680,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxQeVdrV0FmdTdGLVVPZmhmMTNsLTgyVzl0WEZCQ3c4TG1POW9MQWRQYXpzZDhZeEU1RXdRV3NqUVpTaV9hY3BqN2hwVUI4bmpnUHVmcGFlLWFSYkNxV05tT2liQVp2aXVFYjdIZk95RlFqTlpQZDJKWFNScTA5bkoyeUwtMEttcWRiUkxtdmV3OG9hdnVWVEJsLWF6UUE2QdIBowFBVV95cUxPdW1xdngwUUs2emc0S2dLazlfUzcwRExYSnNCTWtQemdNVUlBVjhaNkdmaGtHMUZOcFh0MzZaYXpBa0ExcW1wSWl5anlaYjJWenJqWG0xVERZSU9sRmpDX21oU0FxUm1hS3A5TmhoTGJGMzBWcGQxbEc5REJqOVp6aXJsMW5YMDkwN0xVcFVLOEVNbF9ralZpX2owOUp3Nkpjd01V?oc=5",
+          "spectrum": {
+            "emotion": 4.266046035648922,
+            "subject": 93.59842990771544,
+            "movement": 5.730731605374035,
+            "clickbait": 35.52723156865174,
+            "availability": 8.061762933918084
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1228366,
+        "title": "Boban slams Bruno Fernandes: ‘United won’t have a strong future if he’s the best player’",
+        "context": "Boban slams Bruno Fernandes: ‘United won’t have a strong future if he’s the best player’",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792604229,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxQY1hjQUdaT0VmYkRFYkl3TExTblJ6SkRmRDBSdzBCQjdIQVkxOGxPSFctWnJ1Sjd4M25xekh2MC1va0FLZThuRGFZbXR6anUwMU1kSHNmWEtPZTVWMjNoUjRIVXY4am81ckRJUVR0elFCMDhEbFlUdDdVZmctaDhnd0NTT1B5MXpBQVM0?oc=5",
+          "spectrum": {
+            "emotion": 82.25332406040047,
+            "subject": 90.39319521629278,
+            "movement": 3.601653430044295,
+            "clickbait": 12.00177713030324,
+            "availability": 1.7788519637251536
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1189258,
+        "title": "Boban slams Bruno Fernandes: ‘United won’t have a strong future if he’s the best player’",
+        "context": "Boban slams Bruno Fernandes: ‘United won’t have a strong future if he’s the best player’",
+        "source": "Football Italia",
+        "published_at_epoch": 1792603144,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMifEFVX3lxTE9lUjNqZzA2TF9aREFyaVlFejMycjNmSFRuWThpTDRIUVZ1Uk5vNUFHVDZaeUVJUml3TklfZkZvVWpwbjBBRy1HRFlIUUlzay1HSS1EZGNsXzJ6cHlGdEVlejRvNlZlcHYtRDZlQU14RHpLb1pDdGFLM0txZFjSAXxBVV95cUxPZVIzamcwNkxfWkRBcmlZRXozMnIzZkhUblk4aUw0SFFWdVJObzVBR1Q2WnlFSVJpd05JX2ZGb1VqcG4wQUctR0RZSFFJc2stR0ktRGRjbF8yenB5RnRFZXo0bzZWZXB2LUQ2ZUFNeER6S29aQ3RhSzNLcWRY?oc=5",
+          "spectrum": {
+            "emotion": 83.7031771332887,
+            "subject": 90.66473100148328,
+            "movement": 3.6330878048459887,
+            "clickbait": 10.836814485439495,
+            "availability": 1.6724279970758062
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1173819,
+        "title": "Michael Carrick might have to be true to his word with Bruno Fernandes at Manchester United",
+        "context": "Michael Carrick might have to be true to his word with Bruno Fernandes at Manchester United",
+        "source": "Manchester Evening News",
+        "published_at_epoch": 1792558800,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxNSVE3bFVaUXV3MUZKRE5oNWhNSHNuRVdXUGdtNmpKVVpKc0lwUkdrUHFPZUxSZUZ0NFNmWXdaZkhRajlxSmNWWWxmQjNpTktETWh3WFJWWHFXWV91YlNUbUdWV1QwYXdSQWwtNGsyYTZqRzRLYUptZmx3X1M3emFUNGRRZGIwQ1piSE50TmNkclFuWDF3ZGZjOHFtQdIBoAFBVV95cUxNaDBNMUpXajlzQmhkeHJPVm14WUQzWk42LXJad0tpNjhWQW9PQ0JlSUlQUFRZeUNUaDlFNGtlV3VRaHpfWEdaX094T2pzQ1BDcDdmb0VHN3Q4eXU3bEp3YzdJbzh5aTg2cTZYc29OdHJOanFiX3dSa1BKTnROeDlkdDRXenloTkNZcFY4cW9pX3dabXJUVDVvNUZFLS1jdVVl?oc=5",
+          "spectrum": {
+            "emotion": 4.194891686481555,
+            "subject": 91.07211075717956,
+            "movement": 41.5858552519122,
+            "clickbait": 15.333609865864,
+            "availability": 19.412003506474097
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1076431,
+        "title": "Uefa Champions League tips: Bruno Fernandes could be in the book as Manchester United face tough Italian job",
+        "context": "Uefa Champions League tips: Bruno Fernandes could be in the book as Manchester United face tough Italian job",
+        "source": "The Irish News",
+        "published_at_epoch": 1792522800,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihAJBVV95cUxOVlNoN09rRldEYXUyLVZmMkxhaFRsc20ybzRDSkhzV3o3dkZJMzBJVFM0QjVpb0tFczBGMWRtRk1YUjhGYU4tZ3VuQkRUNjBheDV2cm9uUVE3amZOOXVvejJEYzlrajFnTnlPdGZQN2xmbW5kOFdqS3FrU1hZMjVCa25Pbnc1cmRJSmdzWkZ0VlFvU0RaVVNLWkRkS2VkczNjYjdrY2FhNzVHS0g5TGhiWEdNXzVPYXZadnUzd1R5TUx6eHo5Zmd2djBHN2h4YTM2Qk9mZ1M4LWRjZjFobjI2bUdVb1lfbjNfeVp4R280dFkwZ2RfZmFyTXNZYUhpOXltZlR1Xw?oc=5",
+          "spectrum": {
+            "emotion": 2.9534245903935106,
+            "subject": 89.14614475247856,
+            "movement": 4.561491400469145,
+            "clickbait": 13.52178059939593,
+            "availability": 2.846745618462979
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1077951,
+        "title": "Together at Novara in Serie B, now Como v Manchester United in Champions League: Ludi reunites with Bruno Fernandes",
+        "context": "Together at Novara in Serie B, now Como v Manchester United in Champions League: Ludi reunites with Bruno Fernandes",
+        "source": "La Gazzetta dello Sport",
+        "published_at_epoch": 1792521085,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi7gFBVV95cUxPbVZDNDhOSURVcFVvOXVQeDdHclFSUXA4VmhRMmVYODFTalBIc1dJUzc3RHNQOV9xRDM4TTh4bUdhUzZTM2VvYWthb0Y1ZkZSUDFYbE1rVGJpSGU0dzV4RG45YXZNTzZyNkdXMnI0S1pzZEtaN3RJTWZUcTZ5V0Jrb3hnd0VseUxMOWVsM0VHZE52TDgwcEp3ajNlQlg1Qk9VcDY2OEhEa1hPTkppVjRMUVlHZ2VzaFc2X3pabDZjNmJsUjFONEpzSE5jLXMtN3dSQXJWM3ZseXJKN21QOXpWanJQcVZzLW4tNEVjU3Zn0gHuAUFVX3lxTE9tVkM0OE5JRFVwVW85dVB4N0dyUVJRcDhWaFEyZVg4MVNqUEhzV0lTNzdEc1A5X3FEMzhNOHhtR2FTNlMzZW9ha2FvRjVmRlJQMVhsTWtUYmlIZTR3NXhEbjlhdk1PNnI2R1cycjRLWnNkS1o3dElNZlRxNnlXQmtveGd3RWx5TEw5ZWwzRUdkTnZMODBwSndqM2VCWDVCT1VwNjY4SERrWE9OSmlWNExRWUdnZXNoVzZfelpsNmM2YmxSMU40SnNITmMtcy03d1JBclYzdmx5cko3bVA5elZqclBxVnMtbi00RWNTdmc?oc=5",
+          "spectrum": {
+            "emotion": 2.360509642471036,
+            "subject": 76.31612329593167,
+            "movement": 8.837257781622604,
+            "clickbait": 6.713376922098385,
+            "availability": 10.806461390897221
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1043368,
+        "title": "Como sporting director reveals joking about signing Manchester United’s Bruno Fernandes",
+        "context": "Como sporting director reveals joking about signing Manchester United’s Bruno Fernandes",
+        "source": "Get Italian Football News",
+        "published_at_epoch": 1792509863,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiyAFBVV95cUxOam45OS1TMzFTVzY4YkM3d3BNQWNyUTN0ekNYblRoYVo5M1ZmX3NDTkNtTVFxT1h5Q3R4Zy01SGtoM2hOcFctcVZmZm56cnI0OUpVaF8zVmpxVV9lX2VSOGhZZ2U0djZpS3FMcEh1TEQtQmhwVGRlX3kyVWtuYy1KSVZlZlVIM2x6RGNvcHluQ2dDcWw2WFUtX3FtSW0wakN6c3g2MGhYRktENDdfODlEel9xY3EySzdzVEJEcUdxOWNSWDBoWm1OQg?oc=5",
+          "spectrum": {
+            "emotion": 10.173646526985285,
+            "subject": 88.14124983503447,
+            "movement": 65.80416233176626,
+            "clickbait": 26.675776837053704,
+            "availability": 1.8483585809249394
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1043945,
+        "title": "Como sporting director reveals joking about signing Manchester United’s Bruno Fernandes",
+        "context": "Como sporting director reveals joking about signing Manchester United’s Bruno Fernandes",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792509840,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxOQW5zSEEzQkdIWWVFWFpQY3NhWnd5S2ZWQlAtbl90SFhsaWVpbUFLRmdzNnE0Y2JyZGhGQU84dVozV1BSSDJZS1psTVMzWllOcXZCbXQ2M2VwUGxBU1UzeGtmd3M1MVd6ZmR1QzlXV2NmYUE2b3VXNU5RLUI4N1JGUmtNamJPOFRhbm1MNHVIRQ?oc=5",
+          "spectrum": {
+            "emotion": 9.997639546725708,
+            "subject": 88.7654840909824,
+            "movement": 63.380744489352615,
+            "clickbait": 25.980142895669967,
+            "availability": 1.9367949272322633
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 994690,
+        "title": "Transfer news LIVE: Galatasaray want Bruno Fernandes as Real Madrid eye Finn Jeltsch",
+        "context": "Transfer news LIVE: Galatasaray want Bruno Fernandes as Real Madrid eye Finn Jeltsch",
+        "source": "Transfermarkt",
+        "published_at_epoch": 1792464434,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiygFBVV95cUxQN2xRd0FmT0tESTRsUXZMX0twWDNxenhHNUFJaWxITmxwNGo3MHNBT1NvWHd2bWZWd0ZlZHFWaThGSFk1MlNmRGZUN0FRNGM0WVN1dE1paVFYd1hNY2xNOUowSDZXZGR2cU1Pd083UTZrMXNqQ1JhbkU5NVFETWpLUm8wRDBRdWxYcXBfRm1PZEZyR3VBanRyTWxVRU5WNUZsdFdfWk4wVjdnZi1QWG8xWkdqRE9KbjhVSGdUcERrUTdLYVRBZlVSMmpn?oc=5",
+          "spectrum": {
+            "emotion": 2.6939740051826964,
+            "subject": 90.10360678284538,
+            "movement": 94.1012687652246,
+            "clickbait": 20.84658149216024,
+            "availability": 2.8581515469428815
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1004861,
+        "title": "Bruno Fernandes' poor form attracts Galatasaray and Barcelona as Man Utd prepare for bids",
+        "context": "Bruno Fernandes' poor form attracts Galatasaray and Barcelona as Man Utd prepare for bids",
+        "source": "TribalFootball",
+        "published_at_epoch": 1792445331,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilAJBVV95cUxPalVuS0JITldON0xTemhWNGRYV3FyY09YZnJsZUtXTmozeE0xdUZuNWM1Z0ZlbHFRRFdyNTBidnFiWVR4amQtb1NoOTJVNGRYUkxhb2Y0Mldzd2NodjZwSHU4Tm5FTGZKX2t6aENYVERIcGE2MVBWUmtYalZKVDAwNVJFcU9IdGRtSWp1TnhWaXRKdGNPekJHQ1RzdFR5WWpIMFB6ZXJyemM4ckxjU3BpVHZCVUMtMGprRDdtbW9YTDlQcWlHemZJVVNadEhWXzl5RkxpQ3lFQk1UTHEwNHJZbmYtUHB2VXlMY0xzMUZ6OU9zeDMwSlRPUFFtVU04WjY3LWNSTWxyQmRUSU1PMTAxYU9nWm4?oc=5",
+          "spectrum": {
+            "emotion": 10.487362007042861,
+            "subject": 89.08581593746919,
+            "movement": 82.8759959701025,
+            "clickbait": 17.08914093216967,
+            "availability": 50.867661150566555
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 995510,
+        "title": "Bruno Fernandes: Why Michael Carrick must take Man United nuclear option",
+        "context": "Bruno Fernandes: Why Michael Carrick must take Man United nuclear option",
+        "source": "Football Insider",
+        "published_at_epoch": 1792438800,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxQcjVkeFN5QThkVmNQeXplODBReVRzNkY0RnN2elVxMmxoUXo0QktXTW5BYjV6dTlwUTdpZHlGRjA3c0YyN3NDUFhmMzl2ZHRmRG1rMHpqdGZFOUhiWHBCaTV3Zkh5SjJCdy1VeXZkdFV0bXozRTBZYWNEbXRHSFBPcTVjeThLRm12NHN4MXp0NmxQSGdPQ0hVckdicGVMX3FNTXUxeGJBTUV4dHRWSjdFWDNPeGZRTHA4eEJVbGdYTlJjZw?oc=5",
+          "spectrum": {
+            "emotion": 3.625082934095557,
+            "subject": 91.84385333860085,
+            "movement": 10.166537076095526,
+            "clickbait": 10.902876675676612,
+            "availability": 2.8369344343326777
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 995496,
+        "title": "Ex-refs chief drops Bruno Fernandes 'red card' verdict after Leeds vs Man United scenes",
+        "context": "Ex-refs chief drops Bruno Fernandes 'red card' verdict after Leeds vs Man United scenes",
+        "source": "Football Insider",
+        "published_at_epoch": 1792418400,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi1AFBVV95cUxOY1BNbVVlWDg4cWtrRjVBaXUzbmkzb2NnY016SUQ2UlNuVDd1Y1haMHdZTVZqZ0htMjI1TVFNT2locGpyOWtNQmJqUXhkNDcyMEVlQXJqRW9ueWRYNWpkRGtlWHg4UUtwMUxQYnZqdkhFZUdFN29YaU9LcnJaSmhWc0ZzLXZNQ1hCdGRlanpVWmltdFlVUFZfaEJmUWIyTkpNQ2tHMTJUeld5blRHb1JUeUdfNTdiQjFIM0U5eVlBalBNc3FpQUpEN2hWbmhVRVdPQ09INA?oc=5",
+          "spectrum": {
+            "emotion": 5.227336202392859,
+            "subject": 91.88563302310963,
+            "movement": 22.918223793756688,
+            "clickbait": 21.59776205164352,
+            "availability": 7.410144871722118
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 995483,
+        "title": "Bruno Fernandes reveals Man Utd players hit with ban after recent controversy",
+        "context": "Bruno Fernandes reveals Man Utd players hit with ban after recent controversy",
+        "source": "Metro.co.uk",
+        "published_at_epoch": 1792415940,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxQbUFLaEZReGNXMEd6N1pSbzNueGo2SWFCOWpKb3hrSThXVkVHc1VNaVVYSmNvNG5nY2w5aGdPdl9fWGpNMWJ2aW56N21yWTdfdnFWcFdBNjFNQ25yVVJ4VEpraE92MkZqckxGM0owT285eVhCU044bjhQenhjdElDWFRpVHM3cG9JRWtlcGFJZGplTnhmV3FUZEJGMFJuOXRKZ3VQV0hfczNBOEHSAbABQVVfeXFMUDFZR2NIazluRmhXcTV0T1I0QmJFXzNYdGJmQXFndEEyVUJZYXJJYlJDa1E5U013Vkc5Y0hyU0M5NEowWDFuNXdGamI5amstS2d0aEYzOHdQYUhWMzFzREItWmtIQXhkRDgyckItQy04ZUpWWmJFd05fazdDcDd3dDBRS3dUdFo3MGR0c3BsX0pMSWM3RWRSY05ZRVlHdlQ1aEoxeWY2dVFPeE5fSUUwR0Y?oc=5",
+          "spectrum": {
+            "emotion": 3.752367672772019,
+            "subject": 94.05004139651068,
+            "movement": 5.784767105496792,
+            "clickbait": 21.130045932451672,
+            "availability": 93.71136326871324
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

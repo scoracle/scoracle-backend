@@ -1,0 +1,92 @@
+{
+  "name": "real-vibe-person-86-FOOTBALL",
+  "task": "vibe",
+  "sport": "FOOTBALL",
+  "prompt_version": "vibe-frame-v32-coverage-tone",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Martín Demichelis\",\"entity_type\":\"person\",\"sport\":\"FOOTBALL\",\"database_record\":\"Martín Demichelis — coach; club: RB Leipzig; checked: 2026-09-30.\\ndate_of_birth: 1980-12-20 [2026-10-15; source 134092]\\nrole: coach [2026-09-07; source 71593]\"},\"fresh\":{\"reporting_start\":\"2026-10-22T04:00:00Z\",\"reporting_end\":\"2026-10-23T04:00:00Z\",\"reports\":[{\"article_id\":996182,\"url\":\"https://news.google.com/rss/articles/CBMi6wFBVV95cUxQTDByaWZNdmJSUDZXWU5tM2oxN2ZhREcyTUhDcUdBb1VIME94VDFsY29HU0p6Z2tpNnRLVDZ4WTg0SnRHRExjbF9kRGZnQWJodUFpQjZqcHJHcUFmeGFueTB3RC1Tb0ZaVngyaHY2T1lxeldNSV9pRVUzOC03RzJVOW9qTXJBLUMzallWNGtYUTd4cHlNc2lLRjIwNUNxbHBKMmlEaGNsWlQxQzB5Z3phUTRtZXBqSGxGYXl0Z0JqXy1pNmpTREFjRFNtUFB5amIzOTNySzNoeFhpQmtmTTRQSm9PWnVpN0JfQlFN?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash\",\"publisher\":\"Yardbarker\",\"published_at\":\"2026-10-20T10:25:58Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi6wFBVV95cUxQTDByaWZNdmJSUDZXWU5tM2oxN2ZhREcyTUhDcUdBb1VIME94VDFsY29HU0p6Z2tpNnRLVDZ4WTg0SnRHRExjbF9kRGZnQWJodUFpQjZqcHJHcUFmeGFueTB3RC1Tb0ZaVngyaHY2T1lxeldNSV9pRVUzOC03RzJVOW9qTXJBLUMzallWNGtYUTd4cHlNc2lLRjIwNUNxbHBKMmlEaGNsWlQxQzB5Z3phUTRtZXBqSGxGYXl0Z0JqXy1pNmpTREFjRFNtUFB5amIzOTNySzNoeFhpQmtmTTRQSm9PWnVpN0JfQlFN?oc=5\"}},{\"article_id\":1024896,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxNNkR3NTZfQzlRckJPbVdVSURiS2JCRVA1MlZpWHJjM21RR3RoVndyTDJsd21qV0xWbU5GOFNONm0xeEVGZUxYWVBEVVRjX2pEMHVfcllWcHZkSlplbkdOeTZ1Vk1abEJkU1NSVzNLbVc4bHVVT3FzeFlFa3JvLUFSWWY3Mk5GUEJP?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash\",\"publisher\":\"Yahoo\",\"published_at\":\"2026-10-20T10:14:41Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxNNkR3NTZfQzlRckJPbVdVSURiS2JCRVA1MlZpWHJjM21RR3RoVndyTDJsd21qV0xWbU5GOFNONm0xeEVGZUxYWVBEVVRjX2pEMHVfcllWcHZkSlplbkdOeTZ1Vk1abEJkU1NSVzNLbVc4bHVVT3FzeFlFa3JvLUFSWWY3Mk5GUEJP?oc=5\"}}]},\"tone\":\"Conversational, emotionally attentive and measured. Clear, natural prose with restrained energy.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 86,
+      "entity_type": "person",
+      "name": "Martín Demichelis",
+      "sport": "FOOTBALL"
+    },
+    "database_record": "Martín Demichelis — coach; club: RB Leipzig; checked: 2026-09-30.\ndate_of_birth: 1980-12-20 [2026-10-15; source 134092]\nrole: coach [2026-09-07; source 71593]",
+    "day": {
+      "start": 1792641600,
+      "end": 1792728000,
+      "cutoff": 1792728012
+    },
+    "sources": [
+      {
+        "classification_id": 43965,
+        "article_id": 996182,
+        "headline": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash",
+        "context": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash",
+        "source": "Yardbarker",
+        "published_at_epoch": 1792491958,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi6wFBVV95cUxQTDByaWZNdmJSUDZXWU5tM2oxN2ZhREcyTUhDcUdBb1VIME94VDFsY29HU0p6Z2tpNnRLVDZ4WTg0SnRHRExjbF9kRGZnQWJodUFpQjZqcHJHcUFmeGFueTB3RC1Tb0ZaVngyaHY2T1lxeldNSV9pRVUzOC03RzJVOW9qTXJBLUMzallWNGtYUTd4cHlNc2lLRjIwNUNxbHBKMmlEaGNsWlQxQzB5Z3phUTRtZXBqSGxGYXl0Z0JqXy1pNmpTREFjRFNtUFB5amIzOTNySzNoeFhpQmtmTTRQSm9PWnVpN0JfQlFN?oc=5",
+          "spectrum": {
+            "emotion": 83.33804860694163,
+            "subject": 91.92546215953284,
+            "movement": 10.223256124786543,
+            "clickbait": 8.501651487220522,
+            "availability": 3.4656467682496603
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 58916,
+        "article_id": 1024896,
+        "headline": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash",
+        "context": "RB Leipzig boss Martin Demichelis raves about Yan Diomande ahead of daunting Real Madrid clash",
+        "source": "Yahoo",
+        "published_at_epoch": 1792491281,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNNkR3NTZfQzlRckJPbVdVSURiS2JCRVA1MlZpWHJjM21RR3RoVndyTDJsd21qV0xWbU5GOFNONm0xeEVGZUxYWVBEVVRjX2pEMHVfcllWcHZkSlplbkdOeTZ1Vk1abEJkU1NSVzNLbVc4bHVVT3FzeFlFa3JvLUFSWWY3Mk5GUEJP?oc=5",
+          "spectrum": {
+            "emotion": 83.10324649173359,
+            "subject": 92.50682906151717,
+            "movement": 9.239577994579616,
+            "clickbait": 9.359091605706809,
+            "availability": 3.3449982236671483
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      }
+    ],
+    "excluded": []
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

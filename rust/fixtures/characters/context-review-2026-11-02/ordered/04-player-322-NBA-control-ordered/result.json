@@ -1,0 +1,13 @@
+{
+  "arm": "control-ordered",
+  "checks": [],
+  "input_tokens": 1350,
+  "name": "player-322-NBA",
+  "output_tokens": 42,
+  "parser_detail": "named claim is absent from cited reports: Cleveland Cavaliers",
+  "receipt": "04-player-322-NBA-control-ordered",
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 4975
+}

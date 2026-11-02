@@ -1,0 +1,40 @@
+{
+  "name": "synthetic-dated-divergence",
+  "task": "momentum",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Harbor\",\"entity_type\":\"team\",\"sport\":\"basketball\"},\"fresh\":{\"scout\":{\"body\":\"Harbor has strong relative rebounding in its measured profile.\",\"season\":2026,\"generated_at\":\"2026-10-22\"},\"influencer\":{\"body\":\"The supplied coverage of Harbor leans cautious.\",\"generated_at\":\"2026-10-22\"},\"comparisons\":[{\"measure\":\"rating_notability\",\"change\":8.0,\"unit\":\"score points between dated observations\",\"direction\":\"increased\",\"samples\":2,\"window_start\":\"2026-10-20T12:00:00Z\",\"window_end\":\"2026-10-22T12:00:00Z\",\"computed_at\":\"2026-10-22T13:00:00Z\",\"limit\":\"Descriptive comparison only; distinctiveness is not skill, coverage tone is not population sentiment.\"},{\"measure\":\"coverage_tone\",\"change\":-12.0,\"unit\":\"score points between dated observations\",\"direction\":\"decreased\",\"samples\":2,\"window_start\":\"2026-10-19T12:00:00Z\",\"window_end\":\"2026-10-22T12:00:00Z\",\"computed_at\":\"2026-10-22T13:00:00Z\",\"limit\":\"Descriptive comparison only; distinctiveness is not skill, coverage tone is not population sentiment.\"}]},\"tone\":\"Detached, decisive, economical.\"}",
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Explain the dated change in statistical distinctiveness without calling it skill improvement.",
+    "Preserve two-observation sample and different coverage/performance dimensions; missing peer is unknown."
+  ],
+  "parts": {
+    "subject": {
+      "name": "Harbor",
+      "entity_type": "team",
+      "entity_id": 0,
+      "sport": "NBA"
+    },
+    "scout": {
+      "body": "Harbor has strong relative rebounding in its measured profile.",
+      "season": 2026,
+      "generated_at": "2026-10-22"
+    },
+    "influencer": {
+      "body": "The supplied coverage of Harbor leans cautious.",
+      "generated_at": "2026-10-22"
+    },
+    "snapshot": {
+      "rating_slope": 8.0,
+      "rating_samples": 2,
+      "rating_window_start": "2026-10-20T12:00:00Z",
+      "rating_window_end": "2026-10-22T12:00:00Z",
+      "vibe_slope": -12.0,
+      "vibe_samples": 2,
+      "vibe_window_start": "2026-10-19T12:00:00Z",
+      "vibe_window_end": "2026-10-22T12:00:00Z",
+      "generated_at": "2026-10-22T13:00:00Z"
+    }
+  }
+}

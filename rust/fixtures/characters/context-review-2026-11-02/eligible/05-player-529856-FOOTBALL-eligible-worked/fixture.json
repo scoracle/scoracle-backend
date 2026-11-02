@@ -1,0 +1,93 @@
+{
+  "name": "player-529856-FOOTBALL",
+  "task": "transfer",
+  "sport": "FOOTBALL",
+  "prompt_version": "insider-source-v22-quote-eligibility",
+  "user_prompt": "{\"meta\":{\"name\":\"Jean-Clair Todibo\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\",\"database_record\":\"Jean-Clair Todibo — Defender, on record at West Ham United (Premier League). Nationality: France. Record: roster; observed 2026-07-04.\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1362836,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiugFBVV95cUxPaVFKZXFuOUF1UGxBOEJPZmVvV3lPLWJDcHNWRndselIzV0xoeVJRRzBDV1NBOG1hQjViV0huYl9TMTZNZTBRQ2JXQ1FaRW13V2Vha3pRa2lNbXpJa2dPUWRxOERwQ3lkclVQbGl6OHZ0aktRblVBYWJyeTFtZ3AxNHFkNU4weTg0dldPcVhyS3pMZTZ1OERBbzJ6VXZDdm0ya2xiRldKU3NidThkZjktZVZuRXNNTTRsTEE?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Lens\"}],\"headline\":\"Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo\",\"published_at\":\"2026-10-22T15:24:12Z\",\"publisher\":\"Get French Football News\"},{\"classifier_world\":{\"article_id\":1323377,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxPNkZCZFVJMTk0Yl8yNlhiUjBPeGxjTThicjZnVmhET2lqQ21oUTUzRW9hTWJuYjJPU3hMN05GSUFTT0txZHNLcksyUzFzalhPcGxfMnBoendaeE1QaEpfdm1Mb0F2dVNnRFNwekV0WUZxVzdGMjlkNXBUYzBIZjR2NmxvMEpRNTFC?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Lens\"}],\"headline\":\"Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo\",\"published_at\":\"2026-10-22T15:24:00Z\",\"publisher\":\"Yahoo Sports\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "parts": {
+    "database_record": "Jean-Clair Todibo — Defender, on record at West Ham United (Premier League). Nationality: France. Record: roster; observed 2026-07-04.",
+    "reports": [
+      {
+        "classifier_world": {
+          "article_id": 1362836,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true,
+              "scout": false
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 30.390043498500123,
+            "emotion": 2.7673419720285546,
+            "movement": 93.92126068706254,
+            "subject": 94.4829305013566
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiugFBVV95cUxPaVFKZXFuOUF1UGxBOEJPZmVvV3lPLWJDcHNWRndselIzV0xoeVJRRzBDV1NBOG1hQjViV0huYl9TMTZNZTBRQ2JXQ1FaRW13V2Vha3pRa2lNbXpJa2dPUWRxOERwQ3lkclVQbGl6OHZ0aktRblVBYWJyeTFtZ3AxNHFkNU4weTg0dldPcVhyS3pMZTZ1OERBbzJ6VXZDdm0ya2xiRldKU3NidThkZjktZVZuRXNNTTRsTEE?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Lens"
+          }
+        ],
+        "headline": "Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo",
+        "published_at": "2026-10-22T15:24:12Z",
+        "publisher": "Get French Football News",
+        "publisher_excerpt": ""
+      },
+      {
+        "classifier_world": {
+          "article_id": 1323377,
+          "evidence_scope": "headline",
+          "gate": {
+            "admitted": true,
+            "characters": {
+              "influencer": false,
+              "insider": true,
+              "journalist": true
+            },
+            "coverage": "complete",
+            "scope": "headline"
+          },
+          "spectrum": {
+            "availability": 3.1699694469729396,
+            "clickbait": 7.012603425128846,
+            "emotion": 2.6831155101506874,
+            "movement": 93.6254277263536,
+            "subject": 94.25833626213252
+          },
+          "target_identity_resolved": true,
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxPNkZCZFVJMTk0Yl8yNlhiUjBPeGxjTThicjZnVmhET2lqQ21oUTUzRW9hTWJuYjJPU3hMN05GSUFTT0txZHNLcksyUzFzalhPcGxfMnBoendaeE1QaEpfdm1Mb0F2dVNnRFNwekV0WUZxVzdGMjlkNXBUYzBIZjR2NmxvMEpRNTFC?oc=5"
+        },
+        "co_mentions": [
+          {
+            "entity_type": "team",
+            "name": "Lens"
+          }
+        ],
+        "headline": "Lens not planning to terminate loan of West Ham defender Jean-Clair Todibo",
+        "published_at": "2026-10-22T15:24:00Z",
+        "publisher": "Yahoo Sports",
+        "publisher_excerpt": ""
+      }
+    ],
+    "subject": {
+      "entity_id": 529856,
+      "entity_type": "player",
+      "name": "Jean-Clair Todibo",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

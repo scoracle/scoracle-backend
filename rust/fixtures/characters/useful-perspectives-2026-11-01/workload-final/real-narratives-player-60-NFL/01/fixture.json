@@ -1,0 +1,142 @@
+{
+  "name": "real-narratives-player-60-NFL",
+  "task": "narratives",
+  "sport": "NFL",
+  "prompt_version": "n121-useful-perspectives",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Drew Lock\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Drew Lock — QB, on record at Seattle Seahawks. Record: roster; observed 2026-10-23.\"},\"fresh\":[{\"report_key\":\"report_1\",\"article_id\":1255543,\"url\":\"https://news.google.com/rss/articles/CBMingFBVV95cUxQUTYxZy1zUVU2UU5Ib3o0S2xTb1N5MTNsNEg5bTllMXNEQmtJc3cyT3Z5cURsb0h5U0dPWUhpOEE4ckJIOWI3RUREYUhZVlRWSmVzbHViNlJCZXNYbjNxRllEMWgwdjRidm1aUVhXT25uRjR2cDdZdWRHYUhCRGR2SHlKeFpySm5pcW9leDBnN29jQkY4eFNjUE1yZmlFdw?oc=5\",\"headline\":\"Seahawks' Drew Lock: Limited in practice Wednesday\",\"publisher\":\"CBS Sports\",\"published_at\":\"2026-10-22T00:50:34Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_2\",\"article_id\":1207190,\"url\":\"https://news.google.com/rss/articles/CBMinAFBVV95cUxPcTZoNDhVZnJ6ejh5bXJhaEZOS01PMFM3UDZSSGxEU2lNU0hEa3AyQWZSQUlnYmhvZG5jQThFaWhjU0xkakY4TGRuUWJmVzR4MlpSZnVUZVY2eW4xZ01na0h6MVE0eEtJeG9Tb3FBbkszSUZ1NDdtOXFCRm0zSjRKMDZXSWlUVmMwcnE1MHBWRTJUa0gxalNxMllFdWM?oc=5\",\"headline\":\"Seahawks Make Drew Lock Decision Before Chiefs Game Amid QB Controversy: Insider\",\"publisher\":\"Heavy.com\",\"published_at\":\"2026-10-21T21:34:51Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_3\",\"article_id\":1171667,\"url\":\"https://news.google.com/rss/articles/CBMi2AFBVV95cUxQT0RrbjU1Y1FCVUFWMXlFckplenZrRS00aDFDYkZkUVkyTFdVOE1zMVV5LVU4aDJKdWh6eUo4WExjMTNibnZnSTlrbHZxYmhZWlVPWHZmU3NRTEFFZVE5VThEbzNnS1hiZEtKV2pWb1g1c3U2OWcxRXpsZ0FDZE9PTFR6N1preTdqRUZzeXF0YTltVnRkaXdFQVI4a2pZQWhvTjRFNi1NaWJoM2Nla0p3MXljdDZqR0RMZEMyZlAxbVdJcnFsQ0xaMDc0cGdhMkkxUmZpc2RzUVc?oc=5\",\"headline\":\"How Drew Lock reportedly could cause Seahawks to make shocking Sam Darnold decision\",\"publisher\":\"Yardbarker\",\"published_at\":\"2026-10-21T12:34:53Z\",\"evidence_scope\":\"headline\"},{\"report_key\":\"report_4\",\"article_id\":1161776,\"url\":\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxNa3BlRV9Rc0VFZ2lTX0VCNm5fSG1GaXpTYnBfS1ZqYXEwLUlEeUpjMFFfZlFfY0VtbEMtdXhlZVFzLUJtQlB2TFdPV2lSYXYzQXRISjZCTUFkbFBUbG9LUHVHQ2w0M09uWWtsSFk0ZGJIUjhqYVEzOUNmSm9idm05ZGI1N1hGS2tO?oc=5\",\"headline\":\"Mike Macdonald Is Right to Stick With Sam Darnold Over Drew Lock, Even With 7 Interceptions\",\"publisher\":\"Yahoo Sports\",\"published_at\":\"2026-10-20T21:45:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 60,
+      "entity_type": "player",
+      "name": "Drew Lock",
+      "sport": "NFL"
+    },
+    "database_record": "Drew Lock — QB, on record at Seattle Seahawks. Record: roster; observed 2026-10-23.",
+    "reports": [
+      {
+        "id": 1255543,
+        "title": "Seahawks' Drew Lock: Limited in practice Wednesday",
+        "context": "Seahawks' Drew Lock: Limited in practice Wednesday",
+        "source": "CBS Sports",
+        "published_at_epoch": 1792630234,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxQUTYxZy1zUVU2UU5Ib3o0S2xTb1N5MTNsNEg5bTllMXNEQmtJc3cyT3Z5cURsb0h5U0dPWUhpOEE4ckJIOWI3RUREYUhZVlRWSmVzbHViNlJCZXNYbjNxRllEMWgwdjRidm1aUVhXT25uRjR2cDdZdWRHYUhCRGR2SHlKeFpySm5pcW9leDBnN29jQkY4eFNjUE1yZmlFdw?oc=5",
+          "spectrum": {
+            "emotion": 3.111742494645244,
+            "subject": 92.92512906122889,
+            "movement": 1.9739268976045807,
+            "clickbait": 9.548775466237833,
+            "availability": 83.7623595233081
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1207190,
+        "title": "Seahawks Make Drew Lock Decision Before Chiefs Game Amid QB Controversy: Insider",
+        "context": "Seahawks Make Drew Lock Decision Before Chiefs Game Amid QB Controversy: Insider",
+        "source": "Heavy.com",
+        "published_at_epoch": 1792618491,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxPcTZoNDhVZnJ6ejh5bXJhaEZOS01PMFM3UDZSSGxEU2lNU0hEa3AyQWZSQUlnYmhvZG5jQThFaWhjU0xkakY4TGRuUWJmVzR4MlpSZnVUZVY2eW4xZ01na0h6MVE0eEtJeG9Tb3FBbkszSUZ1NDdtOXFCRm0zSjRKMDZXSWlUVmMwcnE1MHBWRTJUa0gxalNxMllFdWM?oc=5",
+          "spectrum": {
+            "emotion": 2.300453272771651,
+            "subject": 90.10345371121764,
+            "movement": 51.47847931202851,
+            "clickbait": 19.33653533613065,
+            "availability": 13.326181054268382
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1171667,
+        "title": "How Drew Lock reportedly could cause Seahawks to make shocking Sam Darnold decision",
+        "context": "How Drew Lock reportedly could cause Seahawks to make shocking Sam Darnold decision",
+        "source": "Yardbarker",
+        "published_at_epoch": 1792586093,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi2AFBVV95cUxQT0RrbjU1Y1FCVUFWMXlFckplenZrRS00aDFDYkZkUVkyTFdVOE1zMVV5LVU4aDJKdWh6eUo4WExjMTNibnZnSTlrbHZxYmhZWlVPWHZmU3NRTEFFZVE5VThEbzNnS1hiZEtKV2pWb1g1c3U2OWcxRXpsZ0FDZE9PTFR6N1preTdqRUZzeXF0YTltVnRkaXdFQVI4a2pZQWhvTjRFNi1NaWJoM2Nla0p3MXljdDZqR0RMZEMyZlAxbVdJcnFsQ0xaMDc0cGdhMkkxUmZpc2RzUVc?oc=5",
+          "spectrum": {
+            "emotion": 6.272088839939971,
+            "subject": 93.81334245129764,
+            "movement": 56.7750791734129,
+            "clickbait": 56.76356398780362,
+            "availability": 6.721827052546383
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1161776,
+        "title": "Mike Macdonald Is Right to Stick With Sam Darnold Over Drew Lock, Even With 7 Interceptions",
+        "context": "Mike Macdonald Is Right to Stick With Sam Darnold Over Drew Lock, Even With 7 Interceptions",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792532700,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNa3BlRV9Rc0VFZ2lTX0VCNm5fSG1GaXpTYnBfS1ZqYXEwLUlEeUpjMFFfZlFfY0VtbEMtdXhlZVFzLUJtQlB2TFdPV2lSYXYzQXRISjZCTUFkbFBUbG9LUHVHQ2w0M09uWWtsSFk0ZGJIUjhqYVEzOUNmSm9idm05ZGI1N1hGS2tO?oc=5",
+          "spectrum": {
+            "emotion": 4.27815205517779,
+            "subject": 89.24521821359946,
+            "movement": 11.586123078143416,
+            "clickbait": 6.243077042833039,
+            "availability": 3.6457701803326823
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

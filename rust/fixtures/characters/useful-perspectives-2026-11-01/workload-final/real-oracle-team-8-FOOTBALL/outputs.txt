@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — oracle / real-team:8:FOOTBALL-oracle [accepted]
+Liverpool's available picture centers on a strong defensive record over a limited sample of seven appearances, characterized by an xG Against of 8.28 and above-average clean sheets. This narrow window of data, while showing resilience, leaves the broader season trajectory and overall team stability largely undefined.

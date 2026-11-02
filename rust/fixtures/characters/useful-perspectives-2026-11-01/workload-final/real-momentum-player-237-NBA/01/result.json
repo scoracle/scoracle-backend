@@ -1,0 +1,15 @@
+{
+  "case": 1,
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-momentum-player-237-NBA.json",
+  "name": "real-player:237:NBA-momentum",
+  "output_limit": 700,
+  "prompt_version": "momentum-s43-dated-perspective",
+  "request_bytes": 1435,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "no_call",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 0
+}

@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — oracle / oracle-player-744-NFL [accepted]
+Sam LaPorta presents a striking divergence in the 2026 season, where elite percentile rankings derived from a thin sample of five appearances contrast sharply with his expressed frustration and willingness to seek payment elsewhere. This tension between high statistical output and off-field dissatisfaction suggests a complex disconnect between his on-field contributions and his sentiment toward the Detroit Lions, leaving the stability of his future uncertain.

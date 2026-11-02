@@ -1,0 +1,7 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / vibe-person-23-FOOTBALL [accepted]
+De Zerbi expresses delight and praise for Tottenham's resilience
+
+The supplied coverage leans positive, reporting that Roberto De Zerbi is delighted with Tottenham's performance and praises the team's resilience, attitude, and bonding. Headlines describe him as 'very happy' and note his satisfaction with players' displays, while one report highlights his credit for the squad's improved talk and bonding.

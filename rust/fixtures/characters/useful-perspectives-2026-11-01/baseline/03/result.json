@@ -1,0 +1,33 @@
+{
+  "case": 3,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/baseline-cases/momentum-rising-confirmed.json",
+  "generation_wall_ms": 2430,
+  "input_tokens": 320,
+  "name": "rising-confirmed",
+  "output_limit": 700,
+  "output_tokens": 47,
+  "parsed": true,
+  "prompt_version": "momentum-s41-missing-peer",
+  "reading": "Carter's mood remains emphatically positive and warming, while his creation and finishing are strengthening together across the current sample. These readings reinforce each other, indicating a cohesive positive state in both performance and sentiment.",
+  "request_bytes": 1477,
+  "review": [
+    "Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 2437
+}

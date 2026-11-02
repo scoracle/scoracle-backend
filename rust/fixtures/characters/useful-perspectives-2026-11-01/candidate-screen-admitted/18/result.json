@@ -1,0 +1,24 @@
+{
+  "case": 18,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/regression-chicago-bears-known.json",
+  "generation_wall_ms": 12478,
+  "input_tokens": 1984,
+  "name": "regression-chicago-bears-known",
+  "output_limit": 2100,
+  "output_tokens": 218,
+  "parsed": true,
+  "prompt_version": "n120-useful-perspectives",
+  "reading": "Da Windy City reports that a potential trade for Donte Jackson could transform the Chicago Bears' defense into a Super Bowl threat, though the status of such a deal remains speculative. Separately, the team is preparing to honor former player Mike Ditka during their Thursday Night Football game against the Patriots, with Yahoo Sports and Establish The Run covering the specifics of the tribute.\n\nMultiple sources, including Yahoo Sports and Establish The Run, are discussing the Chicago Bears' plans to honor Mike Ditka during their Thursday Night Football matchup against the Patriots. While headlines confirm the tribute is happening, details regarding the specific nature of the honor remain the focus of ongoing reporting.",
+  "request_bytes": 2551,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 12488
+}

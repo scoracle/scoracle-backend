@@ -1,0 +1,17 @@
+{
+  "case": 1,
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-vibe-team-2-NBA.json",
+  "name": "real-vibe-team-2-NBA",
+  "output_limit": 600,
+  "prompt_version": "vibe-frame-v33-coverage-tone",
+  "request_bytes": 8827,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "no_call",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 0
+}

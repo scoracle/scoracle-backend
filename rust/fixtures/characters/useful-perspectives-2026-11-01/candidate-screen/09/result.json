@@ -1,0 +1,16 @@
+{
+  "case": 9,
+  "error": "llama.cpp template omitted or changed supplied input",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-oracle-three-card-newcomer.json",
+  "name": "three-card-newcomer",
+  "output_limit": 700,
+  "prompt_version": "or30-five-perspectives",
+  "request_bytes": 721,
+  "review": [
+    "Use the three supplied readings without implying the missing pillars were also observed."
+  ],
+  "status": "error",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 1
+}

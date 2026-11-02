@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/useful-perspectives-2026-11-01/cases/real-oracle-team-2-NBA.json",
+  "generation_wall_ms": 12172,
+  "input_tokens": 682,
+  "name": "real-team:2:NBA-oracle",
+  "output_limit": 700,
+  "output_tokens": 59,
+  "parsed": true,
+  "prompt_version": "or30-five-perspectives",
+  "reading": "The Celtics present a fractured profile where elite defensive metrics and scoring efficiency clash with poor rebounding, turnover control, and free-throw execution. This internal dissonance suggests a team capable of generating points and stopping shots, yet unable to sustain possession or convert opportunities consistently.",
+  "request_bytes": 950,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 12179
+}

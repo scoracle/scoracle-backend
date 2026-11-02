@@ -1,0 +1,41 @@
+{
+  "name": "real-player:185:NBA-momentum",
+  "task": "momentum",
+  "sport": "NBA",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Draymond Green\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":\"Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\\nrole: player [2026-09-05; source 65552]\"},\"fresh\":{\"scout\":{\"body\":\"In the 2025 season, with 70 games in the sample, Draymond Green demonstrates a highly uneven profile. His playmaking (88.1 percentile) and rebounding (68.7 percentile) stand above average, while his scoring (12.7 percentile), ball security (10.3 percentile), discipline (6.7 percentile), foul drawing (13.1 percentile), rim protection (65.9 percentile), and steals (48.0 percentile) fall into poor or below-average bands. His on-court impact is negative (-2.1, 28.6 percentile). A composite score of 41.1 reflects this mixed performance. The sample supports cross-season comparisons where applicable. No availability headlines are provided.\",\"season\":2025,\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "Draymond Green — F, on record at Golden State Warriors. Nationality: USA. Record: roster; observed 2026-07-04.\ndate_of_birth: 1990-03-04 [2026-09-08; source 65552]\nrole: player [2026-09-05; source 65552]",
+    "influencer": null,
+    "scout": {
+      "body": "In the 2025 season, with 70 games in the sample, Draymond Green demonstrates a highly uneven profile. His playmaking (88.1 percentile) and rebounding (68.7 percentile) stand above average, while his scoring (12.7 percentile), ball security (10.3 percentile), discipline (6.7 percentile), foul drawing (13.1 percentile), rim protection (65.9 percentile), and steals (48.0 percentile) fall into poor or below-average bands. His on-court impact is negative (-2.1, 28.6 percentile). A composite score of 41.1 reflects this mixed performance. The sample supports cross-season comparisons where applicable. No availability headlines are provided.",
+      "generated_at": "2026-10-23",
+      "headline": "Draymond Green: measured profile",
+      "input_hash": "94315a06a363111410152475548b38a9",
+      "season": 2025
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 185,
+      "entity_type": "player",
+      "name": "Draymond Green",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

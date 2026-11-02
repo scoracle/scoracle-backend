@@ -1,0 +1,456 @@
+{
+  "name": "player-278370-NFL",
+  "task": "transfer",
+  "sport": "NFL",
+  "parts": {
+    "subject": {
+      "entity_id": 278370,
+      "entity_type": "player",
+      "name": "Brian Thomas Jr.",
+      "sport": "NFL"
+    },
+    "database_record": "Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQYmk1bk1DeFFyR01wd0NqNGhDMkIyWnBKd3Rrb1VmM0pYZW1ncUh2eFNfVWljaXJRNm9GTU05NnVMeF9Nc1BjWHJjeVUzWi1MWC1qcUdLY1N0bFA4aWdjbWx1WlVKbjJTdFhkYUtrRnlFNzZGaV8zN0RkQ2dBWWg4T1JaUzZQLW5iRVQ0Q2ZFVW1WNkdCMThGWDFvTEk4d29IMEQ0Vk1DdmRJQQ?oc=5",
+          "spectrum": {
+            "emotion": 11.82118166437931,
+            "subject": 92.45322701077045,
+            "movement": 92.25119354040996,
+            "availability": 58.88304851386278
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1411427
+        },
+        "publisher": "Heavy.com",
+        "headline": "Jaguars’ Brian Thomas Jr. Big Concern Raised Amid Trade Rumors",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T23:01:12Z",
+        "co_mentions": [
+          {
+            "name": "Jacksonville Jaguars",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPMWI5aHdvYWR3anBqVklJYVJTU21GM1VQMmFTT0FneXZIYlU0UHF0SEtFZTlpNW43YTBTQ3RoWmZCSUhvTFhTYkdOLTdWdUk3UE8tNjZUanhTMVpYR1FzZHlTbjNYY0lXWXlDUGxRYnJiMWIxLTktX1JMUk5nZWFMQzFHbFVoRTQ?oc=5",
+          "spectrum": {
+            "emotion": 13.245996867454554,
+            "subject": 88.05294723836595,
+            "movement": 90.98891797191814,
+            "availability": 38.922681368689105
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1391127
+        },
+        "publisher": "Sports Illustrated",
+        "headline": "Rams Trading for Wide Receiver Brian Thomas Jr. Would Be a Mistake They Can't Afford",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T21:19:56Z",
+        "co_mentions": [
+          {
+            "name": "Los Angeles Rams",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxPS3JfSVNNdHYxZldIdVpDWGJMRTcxM3JwTXJZc0dDWDMxTjEzNk01N2M1MEU2VmpvR1NkTzhUS0psaFNGS1VuMmdkZEhKbV9nU1I5Q25oNHk1bnBZRU91ZHlOc3gzcmVvNGl2LXBnSWoyX2R3MXZhV2FXVGFzR0hOTkVydw?oc=5",
+          "spectrum": {
+            "emotion": 2.156114627067818,
+            "subject": 93.1671647128073,
+            "movement": 93.3032315862896,
+            "clickbait": 10.414087966308752,
+            "availability": 2.170980119546727
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1341016
+        },
+        "publisher": "AOL.com",
+        "headline": "ESPN proposes Jaguars trade Brian Thomas Jr. to fellow AFC team",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T17:34:57Z",
+        "co_mentions": [
+          {
+            "name": "Jacksonville Jaguars",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNMk5SVTNfMHdfM3ZqVEVpa08yLWEwRURDTzZjLWNIRV82aXczeEFEYUJMd3FKUEtFV2ZHTjdmci0yeVhfTnR5Vkx6VVZwMDJqemtPcmpzMy02Y1diUVg3Qmp1Wk5tbXE4ZC10em43WUREMUZwWmcxRVBOekU4QU1jbXk0NlhUZzc1ZkE?oc=5",
+          "spectrum": {
+            "emotion": 1.9277844072062713,
+            "subject": 93.09444169879517,
+            "movement": 93.45784915906572,
+            "clickbait": 9.26874578362157,
+            "availability": 2.1795480995612864
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1340955
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "ESPN proposes Jaguars trade Brian Thomas Jr. to fellow AFC team",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T17:34:57Z",
+        "co_mentions": [
+          {
+            "name": "Jacksonville Jaguars",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi2AFBVV95cUxPMXR4eE9pS0phZ1hpOEg4WHY3aHRhTVlFMmNDdmV1Tmp4WDRXYWxJcmF1Y1hBRUFtalRGeG9IY3VEV2MtSHRnZEIxdGlfRUhUdl9QS25uTWI2X20tTmtRdzZXRlU2LUwzTWl3ZUhnaU5maTBrSUViWU92UGduamhTV1EwNnJHMUNtWmMxbUxXMXJiS1kxMlZ0Q0RIMHo5S3VNd1Q0RklTRzl6VWlPbHVYUTJJLXBjUWNyM3lBRk1ySEdIRExCMF9xLU5FNHJrMEdyUkFFYTY0eUE?oc=5",
+          "spectrum": {
+            "emotion": 2.3046838789285493,
+            "subject": 92.37646961570952,
+            "movement": 93.84399077917153,
+            "availability": 66.09661199075144
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1391147
+        },
+        "publisher": "Jaguars Wire",
+        "headline": "ESPN proposes Jaguars trade Brian Thomas Jr. to fellow AFC team",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T17:34:00Z",
+        "co_mentions": [
+          {
+            "name": "Jacksonville Jaguars",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxORDJRaGYwUzh4QnNuZFpSclQ0RVNkYUdhS3UyQkdBY1hWU01MNWNTdTBsYXY1c3Bodnh0OFFMNF9tOXhqcXpFSUZqeUl5WS1OdlZGTmxjdFlUcEE5WWJidXZoYVRvbHJHaWlnR0s1WUZWZ0VVeWRSaEtiY010OFJwLUdjUllNc3pEQ2hWdg?oc=5",
+          "spectrum": {
+            "emotion": 3.4237141951371313,
+            "subject": 83.82017866819994,
+            "movement": 93.23321143653295,
+            "clickbait": 12.708469435204178,
+            "availability": 2.593947187592974
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1340954
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T17:06:44Z",
+        "co_mentions": [
+          {
+            "name": "Jacksonville Jaguars",
+            "entity_type": "team"
+          },
+          {
+            "name": "Las Vegas Raiders",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxOSUQwdVZOa2EyV0tJU0MzcGZKcjVLWHBBSEF4RkRCTW9VMkw3VGFiR09PczJvcERDbEF3YmM5NlJMbzk4aGF4UzFjbkV0cTRSckdIeW9hMy1MUi16MkFtNFBaX0NXdzdZeExScTVreWhpSmt2aHFNMFVEOUpJY1BySVdDdU5TekM4OXEtMkpkc19wS01YT21fTU5ZXzZROWJfMUE?oc=5",
+          "spectrum": {
+            "emotion": 1.556040977324721,
+            "subject": 83.7057267428904,
+            "movement": 95.83515327754532,
+            "clickbait": 13.51482345493577,
+            "availability": 1.9784271271443956
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1331053
+        },
+        "publisher": "Heavy.com",
+        "headline": "Raiders Get Brian Thomas Jr. at Bargain Price from Jaguars in Latest Trade Pitch",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T16:45:08Z",
+        "co_mentions": [
+          {
+            "name": "Jacksonville Jaguars",
+            "entity_type": "team"
+          },
+          {
+            "name": "Las Vegas Raiders",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQVHpyb3pIOEk3aFgxZGwzcHJSeDdSaGtSY0Q0RmJ0R2FGM2ticUptX2R5djV6ZFVqaUhuWENwSG9na3VNWWlsNkNIV0Z6RWg3T21ZajZSRndxWGVCcV9xZjQwd2VHM3Zsa0FtdEJLU0NVcGo3T0h5N25acmdGUlIyOFQ2Q1VBeUxlU3Jna3NRZXVVOEk?oc=5",
+          "spectrum": {
+            "emotion": 3.6269625516278903,
+            "subject": 83.87630971640569,
+            "movement": 93.8082593350378,
+            "clickbait": 14.864529414730512,
+            "availability": 2.517640740301873
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1311655
+        },
+        "publisher": "Heavy.com",
+        "headline": "Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T14:06:44Z",
+        "co_mentions": [
+          {
+            "name": "Jacksonville Jaguars",
+            "entity_type": "team"
+          },
+          {
+            "name": "Las Vegas Raiders",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxQcV9JYmhOLTU2cWZjSmUyNTM0TXc5bVlSY09pMGh3c2VwQ3R2R1dHVDIySy00RjNibDcxMlZScUZVbDk3Q0llSjNRb09ZZks0T1V3RFhvUmMzbjB1UEdPejRqNk5vR3hRNVI3UTRadl96SDd2Y3BNVDkxR2NQRGtxSk9ubHZiMFEwVmc?oc=5",
+          "spectrum": {
+            "emotion": 1.9156586658120311,
+            "subject": 92.04565538846748,
+            "movement": 88.86357843936231,
+            "availability": 26.21192484568734
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1402171
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Most Likely Landing Spots if Jaguars Trade Brian Thomas Jr.",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T00:04:00Z",
+        "co_mentions": [
+          {
+            "name": "Jacksonville Jaguars",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxORnhHUklSbFktek5QWmc1d19hMWhSeTJVQVJWT3lTUXhzT3JDbG5CYmd4bmFndHgtb1d6R1l1d19PT3ZOalNJMy0xNEdxOW55R3R2Ul9YVUNvZjNuM0ppeExlS201SDA5NGlJZDBXbnY2dUhkazRob3VSYlZmLWNNZQ?oc=5",
+          "spectrum": {
+            "emotion": 3.4054468840377474,
+            "subject": 89.64131861174484,
+            "movement": 81.34231590117918,
+            "availability": 14.51238814388689
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1391148
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Jaguars WR Brian Thomas Jr. Could be Intriguing Trade Candidate for NFC East Team",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-21T23:43:11Z",
+        "co_mentions": [
+          {
+            "name": "Jacksonville Jaguars",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOcm5Sa1RNOHM0ZGZVbVlhWVpySHlvNE5FSmdYSGVWR2xmbjl5V3ZFVHFqcUN4WS1vS2R2SjRJX1U0YkRVS0Q1V3Q3V19xZEg0Z0twa1g4OVdoLVhTaVBkaXVQcXNMdzdfaF9QUF9NTjNGODZGVWFfSDlveEFyZktIeGoySzhtZTBBZVhRV05n?oc=5",
+          "spectrum": {
+            "emotion": 2.8158076239698544,
+            "subject": 89.99374155975639,
+            "movement": 94.1306115779224,
+            "availability": 44.22262073913623
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1360867
+        },
+        "publisher": "AOL.com",
+        "headline": "Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr.",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-21T20:00:40Z",
+        "co_mentions": [
+          {
+            "name": "Seattle Seahawks",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxONmNFQnAySWFWRDRGeGNPNjVfOHVFYmhHb09iWktnaEpZUkdUNkNLeURMcUdnSmtpU2lHSjEwc2pZTWhMRG50THNsYkZXWGw0dFhEc29QOFl1V0k0YndqR2o5VDEyd1RGSXVTMEFZMWNkaXVHanc2ZFNrcHMzSkNBbTQxN2JiZFd1UGZxbGgxcG9GMnc3Z19MU3pTTUV5MFJkNEpGWjZuclFrN203NG9HTGNHWGkxUkdKQktDUHN0THBvUjg?oc=5",
+          "spectrum": {
+            "emotion": 2.8035365272221253,
+            "subject": 89.57172110870209,
+            "movement": 94.09552784564764,
+            "clickbait": 21.923138080008247,
+            "availability": 3.441980915384647
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1197495
+        },
+        "publisher": "Athlon Sports",
+        "headline": "Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr.",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-21T20:00:40Z",
+        "co_mentions": [
+          {
+            "name": "Seattle Seahawks",
+            "entity_type": "team"
+          }
+        ]
+      }
+    ]
+  },
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Brian Thomas Jr.\",\"entity_type\":\"player\",\"sport\":\"American football\",\"database_record\":\"Brian Thomas Jr. — WR, on record at Jacksonville Jaguars. Record: roster; observed 2026-10-23.\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1411427,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiqgFBVV95cUxQYmk1bk1DeFFyR01wd0NqNGhDMkIyWnBKd3Rrb1VmM0pYZW1ncUh2eFNfVWljaXJRNm9GTU05NnVMeF9Nc1BjWHJjeVUzWi1MWC1qcUdLY1N0bFA4aWdjbWx1WlVKbjJTdFhkYUtrRnlFNzZGaV8zN0RkQ2dBWWg4T1JaUzZQLW5iRVQ0Q2ZFVW1WNkdCMThGWDFvTEk4d29IMEQ0Vk1DdmRJQQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Jacksonville Jaguars\"}],\"headline\":\"Jaguars’ Brian Thomas Jr. Big Concern Raised Amid Trade Rumors\",\"published_at\":\"2026-10-22T23:01:12Z\",\"publisher\":\"Heavy.com\"},{\"classifier_world\":{\"article_id\":1391127,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPMWI5aHdvYWR3anBqVklJYVJTU21GM1VQMmFTT0FneXZIYlU0UHF0SEtFZTlpNW43YTBTQ3RoWmZCSUhvTFhTYkdOLTdWdUk3UE8tNjZUanhTMVpYR1FzZHlTbjNYY0lXWXlDUGxRYnJiMWIxLTktX1JMUk5nZWFMQzFHbFVoRTQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Los Angeles Rams\"}],\"headline\":\"Rams Trading for Wide Receiver Brian Thomas Jr. Would Be a Mistake They Can't Afford\",\"published_at\":\"2026-10-22T21:19:56Z\",\"publisher\":\"Sports Illustrated\"},{\"classifier_world\":{\"article_id\":1341016,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxPS3JfSVNNdHYxZldIdVpDWGJMRTcxM3JwTXJZc0dDWDMxTjEzNk01N2M1MEU2VmpvR1NkTzhUS0psaFNGS1VuMmdkZEhKbV9nU1I5Q25oNHk1bnBZRU91ZHlOc3gzcmVvNGl2LXBnSWoyX2R3MXZhV2FXVGFzR0hOTkVydw?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Jacksonville Jaguars\"}],\"headline\":\"ESPN proposes Jaguars trade Brian Thomas Jr. to fellow AFC team\",\"published_at\":\"2026-10-22T17:34:57Z\",\"publisher\":\"AOL.com\"},{\"classifier_world\":{\"article_id\":1340955,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxNMk5SVTNfMHdfM3ZqVEVpa08yLWEwRURDTzZjLWNIRV82aXczeEFEYUJMd3FKUEtFV2ZHTjdmci0yeVhfTnR5Vkx6VVZwMDJqemtPcmpzMy02Y1diUVg3Qmp1Wk5tbXE4ZC10em43WUREMUZwWmcxRVBOekU4QU1jbXk0NlhUZzc1ZkE?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Jacksonville Jaguars\"}],\"headline\":\"ESPN proposes Jaguars trade Brian Thomas Jr. to fellow AFC team\",\"published_at\":\"2026-10-22T17:34:57Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1391147,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi2AFBVV95cUxPMXR4eE9pS0phZ1hpOEg4WHY3aHRhTVlFMmNDdmV1Tmp4WDRXYWxJcmF1Y1hBRUFtalRGeG9IY3VEV2MtSHRnZEIxdGlfRUhUdl9QS25uTWI2X20tTmtRdzZXRlU2LUwzTWl3ZUhnaU5maTBrSUViWU92UGduamhTV1EwNnJHMUNtWmMxbUxXMXJiS1kxMlZ0Q0RIMHo5S3VNd1Q0RklTRzl6VWlPbHVYUTJJLXBjUWNyM3lBRk1ySEdIRExCMF9xLU5FNHJrMEdyUkFFYTY0eUE?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Jacksonville Jaguars\"}],\"headline\":\"ESPN proposes Jaguars trade Brian Thomas Jr. to fellow AFC team\",\"published_at\":\"2026-10-22T17:34:00Z\",\"publisher\":\"Jaguars Wire\"},{\"classifier_world\":{\"article_id\":1340954,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxORDJRaGYwUzh4QnNuZFpSclQ0RVNkYUdhS3UyQkdBY1hWU01MNWNTdTBsYXY1c3Bodnh0OFFMNF9tOXhqcXpFSUZqeUl5WS1OdlZGTmxjdFlUcEE5WWJidXZoYVRvbHJHaWlnR0s1WUZWZ0VVeWRSaEtiY010OFJwLUdjUllNc3pEQ2hWdg?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Jacksonville Jaguars\"},{\"entity_type\":\"team\",\"name\":\"Las Vegas Raiders\"}],\"headline\":\"Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks\",\"published_at\":\"2026-10-22T17:06:44Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1331053,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiogFBVV95cUxOSUQwdVZOa2EyV0tJU0MzcGZKcjVLWHBBSEF4RkRCTW9VMkw3VGFiR09PczJvcERDbEF3YmM5NlJMbzk4aGF4UzFjbkV0cTRSckdIeW9hMy1MUi16MkFtNFBaX0NXdzdZeExScTVreWhpSmt2aHFNMFVEOUpJY1BySVdDdU5TekM4OXEtMkpkc19wS01YT21fTU5ZXzZROWJfMUE?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Jacksonville Jaguars\"},{\"entity_type\":\"team\",\"name\":\"Las Vegas Raiders\"}],\"headline\":\"Raiders Get Brian Thomas Jr. at Bargain Price from Jaguars in Latest Trade Pitch\",\"published_at\":\"2026-10-22T16:45:08Z\",\"publisher\":\"Heavy.com\"},{\"classifier_world\":{\"article_id\":1311655,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMikwFBVV95cUxQVHpyb3pIOEk3aFgxZGwzcHJSeDdSaGtSY0Q0RmJ0R2FGM2ticUptX2R5djV6ZFVqaUhuWENwSG9na3VNWWlsNkNIV0Z6RWg3T21ZajZSRndxWGVCcV9xZjQwd2VHM3Zsa0FtdEJLU0NVcGo3T0h5N25acmdGUlIyOFQ2Q1VBeUxlU3Jna3NRZXVVOEk?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Jacksonville Jaguars\"},{\"entity_type\":\"team\",\"name\":\"Las Vegas Raiders\"}],\"headline\":\"Raiders Urged to Finalize Brian Thomas Jr. Trade As Jaguars Tension Peaks\",\"published_at\":\"2026-10-22T14:06:44Z\",\"publisher\":\"Heavy.com\"},{\"classifier_world\":{\"article_id\":1402171,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxQcV9JYmhOLTU2cWZjSmUyNTM0TXc5bVlSY09pMGh3c2VwQ3R2R1dHVDIySy00RjNibDcxMlZScUZVbDk3Q0llSjNRb09ZZks0T1V3RFhvUmMzbjB1UEdPejRqNk5vR3hRNVI3UTRadl96SDd2Y3BNVDkxR2NQRGtxSk9ubHZiMFEwVmc?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Jacksonville Jaguars\"}],\"headline\":\"Most Likely Landing Spots if Jaguars Trade Brian Thomas Jr.\",\"published_at\":\"2026-10-22T00:04:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1391148,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMigAFBVV95cUxORnhHUklSbFktek5QWmc1d19hMWhSeTJVQVJWT3lTUXhzT3JDbG5CYmd4bmFndHgtb1d6R1l1d19PT3ZOalNJMy0xNEdxOW55R3R2Ul9YVUNvZjNuM0ppeExlS201SDA5NGlJZDBXbnY2dUhkazRob3VSYlZmLWNNZQ?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Jacksonville Jaguars\"}],\"headline\":\"Jaguars WR Brian Thomas Jr. Could be Intriguing Trade Candidate for NFC East Team\",\"published_at\":\"2026-10-21T23:43:11Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1360867,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMijgFBVV95cUxOcm5Sa1RNOHM0ZGZVbVlhWVpySHlvNE5FSmdYSGVWR2xmbjl5V3ZFVHFqcUN4WS1vS2R2SjRJX1U0YkRVS0Q1V3Q3V19xZEg0Z0twa1g4OVdoLVhTaVBkaXVQcXNMdzdfaF9QUF9NTjNGODZGVWFfSDlveEFyZktIeGoySzhtZTBBZVhRV05n?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Seattle Seahawks\"}],\"headline\":\"Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr.\",\"published_at\":\"2026-10-21T20:00:40Z\",\"publisher\":\"AOL.com\"},{\"classifier_world\":{\"article_id\":1197495,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiwwFBVV95cUxONmNFQnAySWFWRDRGeGNPNjVfOHVFYmhHb09iWktnaEpZUkdUNkNLeURMcUdnSmtpU2lHSjEwc2pZTWhMRG50THNsYkZXWGw0dFhEc29QOFl1V0k0YndqR2o5VDEyd1RGSXVTMEFZMWNkaXVHanc2ZFNrcHMzSkNBbTQxN2JiZFd1UGZxbGgxcG9GMnc3Z19MU3pTTUV5MFJkNEpGWjZuclFrN203NG9HTGNHWGkxUkdKQktDUHN0THBvUjg?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Seattle Seahawks\"}],\"headline\":\"Seahawks Blockbuster Trade Proposal Lands Former First-Round WR Brian Thomas Jr.\",\"published_at\":\"2026-10-21T20:00:40Z\",\"publisher\":\"Athlon Sports\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "prompt_version": "insider-source-v21-perspective",
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

@@ -1,0 +1,7 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / vibe-person-959-NFL [accepted]
+Jerry Jones faces criticism amid roster struggles
+
+Coverage highlights Jerry Jones as a 'disappointed' figure facing backlash from an ex-Cowboys star, reflecting a tone of frustration and apprehension regarding the team's direction before the trade deadline.

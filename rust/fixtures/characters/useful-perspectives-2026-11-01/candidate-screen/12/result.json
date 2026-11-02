@@ -1,0 +1,18 @@
+{
+  "case": 12,
+  "error": "llama.cpp template omitted or changed supplied input",
+  "fixture": "fixtures/characters/useful-perspectives-2026-11-01/cases/screen-rating-synthetic-sparse.json",
+  "name": "synthetic-sparse",
+  "output_limit": 700,
+  "prompt_version": "s79-measured-perspective",
+  "request_bytes": 538,
+  "review": [
+    "Three stored games describe source coverage, not first games, early-season participation or future potential. No cross-season comparison is supplied.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+    "Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation."
+  ],
+  "status": "error",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 1
+}

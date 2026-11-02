@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — oracle / real-player:744:NFL-oracle [accepted]
+Sam LaPorta's profile centers on elite statistical performance within a thin sample, yet this strength is overshadowed by a palpable tension between his on-field contributions and his expressed frustration over stalled contract negotiations. The divergence between his high percentile rankings and his willingness to seek payment elsewhere creates a meaningful uncertainty regarding his future commitment to the team.

@@ -21,8 +21,8 @@ use crate::plugins::investigator::cognition::prompt::{
 use crate::plugins::journalist::prompt::CorpusItem;
 use crate::plugins::oracle::prompt::load_pillars;
 use crate::plugins::oracle::prompt::{
-    assemble as assemble_oracle_context, generation_options as oracle_generation_options,
-    Subject as OracleSubject, ORACLE_PROMPT_VERSION,
+    generation_options as oracle_generation_options, Subject as OracleSubject,
+    ORACLE_PROMPT_VERSION,
 };
 use crate::plugins::scout::prompt::{build_rating_request, RatingBuild, RatingReq};
 use crate::tools::guards::count_sentences;
@@ -92,7 +92,7 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         "vibe" => Some(LensParameters {
             operator: "The Influencer",
             mandate: "Articulate the plugin's supplied publisher reporting with its attribution and qualifications.",
-            credibility_guard: "Express feelings only when supplied by the source. History is context; unknown feelings remain unknown.",
+            credibility_guard: "Distinguish expressed reactions from interpretations of coverage tone. Neither establishes population sentiment.",
         }),
         "rating" => Some(LensParameters {
             operator: "The Scout",
@@ -729,6 +729,19 @@ impl LensTask for OracleTask {
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
         Ok(oracle_generation_options(temperature, 0))
     }
+    fn stores_parts(&self) -> bool {
+        true
+    }
+    fn assemble(&self, stored: &serde_json::Value) -> Result<Prepared> {
+        let parts: crate::plugins::oracle::prompt::Parts = serde_json::from_value(stored.clone())?;
+        Ok(Prepared {
+            user_prompt: parts.assemble(),
+            options: self.gen_options(0.0)?,
+            should_call: parts.cards.readiness()
+                != crate::plugins::oracle::prompt::Readiness::Empty,
+            parts: Some(stored.clone()),
+        })
+    }
     async fn build_request(
         &self,
         pool: &sqlx::PgPool,
@@ -742,18 +755,25 @@ impl LensTask for OracleTask {
         if cards.readiness() == crate::plugins::oracle::prompt::Readiness::Empty {
             return Ok(None);
         }
-        Ok(Some(Prepared::captured(
-            assemble_oracle_context(
-                &OracleSubject {
+        self.assemble(&serde_json::to_value(
+            crate::plugins::oracle::prompt::Parts {
+                subject: OracleSubject {
                     entity_id: e.entity_id,
                     entity_type: e.entity_type.clone(),
                     entity_name: name,
                     sport: e.sport.clone(),
+                    database_record: crate::tools::meta::load_character_identity(
+                        pool,
+                        &e.entity_type,
+                        e.entity_id,
+                        &sport,
+                    )
+                    .await?,
                 },
-                &cards,
-            ),
-            self.gen_options_for(0.0, e)?,
-        )))
+                cards,
+            },
+        )?)
+        .map(Some)
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let reading = match crate::plugins::oracle::parser::ReadingParser.parse(raw) {
@@ -1122,15 +1142,17 @@ impl LensTask for MomentumTask {
         options.temperature = Some(temperature);
         Ok(options)
     }
-    fn prepare_fixture(&self, fixture: &Fixture) -> Result<Prepared> {
-        let mut prepared = Prepared::captured(
-            fixture.user_prompt.clone(),
-            self.gen_options(fixture.temperature)?,
-        );
-        let world: serde_json::Value = serde_json::from_str(&prepared.user_prompt)?;
-        prepared.should_call =
-            world["fresh"]["scout"].is_object() && world["fresh"]["influencer"].is_object();
-        Ok(prepared)
+    fn stores_parts(&self) -> bool {
+        true
+    }
+    fn assemble(&self, stored: &serde_json::Value) -> Result<Prepared> {
+        let parts: crate::plugins::analyst::prompt::Parts = serde_json::from_value(stored.clone())?;
+        Ok(Prepared {
+            user_prompt: parts.assemble(),
+            options: self.gen_options(0.0)?,
+            should_call: parts.should_call(),
+            parts: Some(stored.clone()),
+        })
     }
     async fn build_request(
         &self,
@@ -1150,17 +1172,16 @@ impl LensTask for MomentumTask {
             entity_id: e.entity_id,
             sport: e.sport.clone(),
         };
-        let mut prepared = Prepared::captured(
-            crate::plugins::analyst::prompt::assemble(
-                &subject,
-                context.rating.as_ref(),
-                context.vibe.as_ref(),
-                &context.snapshot,
-            ),
-            self.gen_options_for(0.0, e)?,
-        );
-        prepared.should_call = context.rating.is_some() && context.vibe.is_some();
-        Ok(Some(prepared))
+        self.assemble(&serde_json::to_value(
+            crate::plugins::analyst::prompt::Parts {
+                subject,
+                database_record: context.database_record,
+                scout: context.rating,
+                influencer: context.vibe,
+                snapshot: context.snapshot,
+            },
+        )?)
+        .map(Some)
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let reply = match MomentumParser.parse(raw) {
@@ -1899,43 +1920,28 @@ mod tests {
                     let request = task.prepare_fixture(&fx).unwrap();
                     let package: serde_json::Value =
                         serde_json::from_str(&request.user_prompt).unwrap();
-                    if name == "vibe" {
-                        assert_eq!(
-                            request.options.system.as_deref(),
-                            Some(crate::plugins::influencer::prompt::TASK)
-                        );
-                        assert_eq!(package.as_object().unwrap().len(), 3);
-                        for field in ["meta", "fresh", "memories"] {
-                            assert!(package.get(field).is_some(), "{name}: missing {field}");
-                        }
-                    } else if name == "narratives" {
-                        assert_eq!(
-                            request.options.system,
-                            Some(crate::plugins::journalist::prompt::instructions())
-                        );
-                        assert_eq!(package.as_object().unwrap().len(), 3);
-                        for field in ["meta", "fresh", "tone"] {
-                            assert!(package.get(field).is_some(), "{name}: missing {field}");
-                        }
-                    } else {
-                        assert!(
-                            request.options.system.is_none(),
-                            "{name} has a second instruction input"
-                        );
-                        assert_eq!(
-                            package.as_object().unwrap().len(),
-                            if matches!(name, "narratives" | "transfer" | "rating") {
-                                5
-                            } else {
-                                4
-                            },
-                            "{name}"
-                        );
-                        for field in ["meta", "task", "fresh", "voice"] {
-                            assert!(package.get(field).is_some(), "{name}: missing {field}");
-                        }
-                        assert!(package["task"].as_str().is_some_and(|s| !s.is_empty()));
+                    assert!(request
+                        .options
+                        .system
+                        .as_ref()
+                        .is_some_and(|s| !s.is_empty()));
+                    assert_eq!(package.as_object().unwrap().len(), 5);
+                    assert_eq!(
+                        package["job"],
+                        request
+                            .options
+                            .system
+                            .as_ref()
+                            .unwrap()
+                            .trim()
+                            .split("\n\n")
+                            .next()
+                            .unwrap()
+                    );
+                    for field in ["job", "context_guide", "meta", "fresh", "tone"] {
+                        assert!(package.get(field).is_some(), "{name}: missing {field}");
                     }
+                    assert!(request.user_prompt.starts_with(r#"{"job":"#));
                     assert!(package["meta"].get("task").is_none());
                 }
                 assert!(!fx.review.is_empty());

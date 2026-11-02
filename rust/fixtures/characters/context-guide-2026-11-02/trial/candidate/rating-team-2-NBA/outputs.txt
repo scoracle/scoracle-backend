@@ -1,0 +1,5 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / rating-team-2-NBA [rejected]
+The Boston Celtics recorded 46.4 total rebounds across 89 games, placing the team at the 93.1st percentile in the elite band, a marked improvement from the 72.4th percentile last season. In contrast, rim protection (blocks) sits at the 58.6th percentile in the average band, having declined from the 79.3th percentile. Playmaking, scoring, and foul drawing all rank in the poor band, with playmaking and scoring showing declines from prior standings while steals and foul drawing remained held at poor levels. The composite score of 54.2 reflects this mixed profile. Readings are based on 89 games.

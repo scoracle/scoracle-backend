@@ -1,0 +1,41 @@
+{
+  "name": "real-team:8:FOOTBALL-momentum",
+  "task": "momentum",
+  "sport": "FOOTBALL",
+  "prompt_version": "momentum-s43-dated-perspective",
+  "user_prompt": "{\"meta\":{\"name\":\"Liverpool\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.\"},\"fresh\":{\"scout\":{\"body\":\"Liverpool's 2026 season measurements indicate a strong defensive record with an xG Against of 8.28 (84.2 percentile) and above-average clean sheets (3.0, 73.7 percentile), though these data are limited by a thin sample of 7 appearances and do not support cross-season comparisons.\",\"season\":2026,\"generated_at\":\"2026-10-23\"},\"comparisons\":[]},\"tone\":\"Detached, decisive, economical.\"}",
+  "parts": {
+    "database_record": "Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.",
+    "influencer": null,
+    "scout": {
+      "body": "Liverpool's 2026 season measurements indicate a strong defensive record with an xG Against of 8.28 (84.2 percentile) and above-average clean sheets (3.0, 73.7 percentile), though these data are limited by a thin sample of 7 appearances and do not support cross-season comparisons.",
+      "generated_at": "2026-10-23",
+      "headline": "Liverpool: measured profile",
+      "input_hash": "546a337ff0ee8ed213b345e72874aea1",
+      "season": 2026
+    },
+    "snapshot": {
+      "generated_at": null,
+      "momentum_score": null,
+      "rating_samples": 0,
+      "rating_slope": null,
+      "rating_window_end": null,
+      "rating_window_start": null,
+      "vibe_samples": 0,
+      "vibe_slope": null,
+      "vibe_window_end": null,
+      "vibe_window_start": null
+    },
+    "subject": {
+      "entity_id": 8,
+      "entity_type": "team",
+      "name": "Liverpool",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ]
+}

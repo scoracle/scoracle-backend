@@ -1,0 +1,314 @@
+{
+  "name": "team-37-FOOTBALL",
+  "task": "transfer",
+  "sport": "FOOTBALL",
+  "parts": {
+    "subject": {
+      "entity_id": 37,
+      "entity_type": "team",
+      "name": "Roma",
+      "sport": "FOOTBALL"
+    },
+    "database_record": "Roma — Serie A (Italy). Venue: Stadio Olimpico. City: Roma. Country: Italy. Coach on record: Mirko Vučinić.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxQYTVXekdZZ0NsYnhhS0NpZUxTMlk5cWJyTjdDYkotVURDMjlydHBfNVNEbWVSUHBSZk9YVFh6SUliRkNIakV4YWRMbTFBV0dNTU03ZWotblBZbDJqMEdPVjZPQk9BWlZhMkg3TUZFcHhMbk1IR2JXSWFfU1ZBakhENmV2emZDNzU4ZXZLQWtzd2FZQTVx?oc=5",
+          "spectrum": {
+            "emotion": 1.9135668273494049,
+            "subject": 77.42878487733434,
+            "movement": 86.72739377931255,
+            "availability": 57.68157604909807
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1333951
+        },
+        "publisher": "Bulinews",
+        "headline": "Leipzig likely to retain Brighton's Gruda and Roma's El Aynaoui for €50m package",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T16:21:00Z",
+        "co_mentions": [
+          {
+            "name": "RB Leipzig",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiywFBVV95cUxQa0FkU2NFU0szQVlXZldKdTBsOGFGYVMwVDc5QkRqeXh0VlFoLVd1TnVrNm1DWGNLOEFadE0xQUtQa3luSUowVDlqV1N3d0hJMFhvMUc1ZjUxTE1FNlQwTjVGZTNzTmc0a1BxRV9jb3JTOWgtUEFWNjlaLWQzcjdmamtLVk1DM25BMXhFZnMzamo4MHpGallRWWVGQnd4cGVUVm5fUEY4UWRvZ2NTUVFmQng2V3NMejRVRElKdmhzX2gwWE9oTF94VjJYVQ?oc=5",
+          "spectrum": {
+            "emotion": 3.228272264952192,
+            "subject": 92.8913107111302,
+            "movement": 85.69594227292913,
+            "clickbait": 20.770708269034188,
+            "availability": 97.48447426049268
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1326962
+        },
+        "publisher": "LiveScore",
+        "headline": "Roma lose Pellegrini for at least 6-8 weeks with serious injury",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T16:01:06Z",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxQTkNFS2NTRDJXdlVHNm12M21Kd05rbUpKUVVla3ZpWHNxdXJjZmtPYnlPUFNNWEZNQ1Jfd0JlTjRTSjFFT2J4MjJIaVo3ckN0WjFSM0IxNmtQTnZJdWtBaWktLWEwd0E1aDRlX1ZJd0RmRkhzdkdiMVltTUx4WWZfX0UyUQ?oc=5",
+          "spectrum": {
+            "emotion": 3.216601811032014,
+            "subject": 93.54850166924496,
+            "movement": 84.80120137239663,
+            "clickbait": 22.974610133282784,
+            "availability": 97.42104645000596
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1324232
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Roma lose Pellegrini for at least 6-8 weeks with serious injury",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T15:45:00Z",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOQ0JWanJoUV9ia2hZaE1kclR4NDMxOVVxZW84OE9LZnJEZDZYOUJrUk5Gc2dqdFJpdHJSZTg0VGNndnZheDUxT1pqUnBoM2RJMlFqZGhoWXVhMXQtdGcxd3h0aWE2Z3N0M1RFTDNFcTZmQmxKbTl0aXpYcklFVU9Gd0ZMMkktZ9IBhgFBVV95cUxOQ0JWanJoUV9ia2hZaE1kclR4NDMxOVVxZW84OE9LZnJEZDZYOUJrUk5Gc2dqdFJpdHJSZTg0VGNndnZheDUxT1pqUnBoM2RJMlFqZGhoWXVhMXQtdGcxd3h0aWE2Z3N0M1RFTDNFcTZmQmxKbTl0aXpYcklFVU9Gd0ZMMkktZw?oc=5",
+          "spectrum": {
+            "emotion": 3.0771680790487026,
+            "subject": 93.40813495965,
+            "movement": 84.51984855623535,
+            "clickbait": 19.782706823070964,
+            "availability": 97.42087392858171
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1336810
+        },
+        "publisher": "Football Italia",
+        "headline": "Roma lose Pellegrini for at least 6-8 weeks with serious injury",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T15:43:06Z",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNUE1sdGltcmdDLUN0Ym1weVctQ212S2QySVNjYWFrUUVkeXpGeUtRUDZwbEtpVzItY09qZUE3dnFSMDM5VlVsRzd1S2FqNWdTQk1pV0d2b1BrUmI5U1k3R3B1M2VUbUZBU0lFcllRX2ZpaGF2cEw4blg1WjlOTDZzN2NEUXFGc1ZrT2pXbFA0ZFQ3Zkc1RnJ3Y25GYnNiTk1meTZmQTZlMA?oc=5",
+          "spectrum": {
+            "emotion": 6.559548431275572,
+            "subject": 88.62601564301944,
+            "movement": 82.04371327436672,
+            "clickbait": 69.89727660462117,
+            "availability": 18.14948680232086
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1304808
+        },
+        "publisher": "OneFootball",
+        "headline": "Thuram deal, 3️⃣ Milan names, Roma-Bakola, ADL won't sell: today's news 🔥",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T13:42:24Z",
+        "co_mentions": [
+          {
+            "name": "AC Milan",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE1rTEZBS2pZYVZ6WEdmR21kNGNXMHFBcGhxMTJjTzVQVUZOOUNyWWdOaDB0SGJTaGR5RFc4ZGtIaEY1Yy1qbHJKVjV4bzNWTVEwQUZRNGZDQnI4U0FUczdjUjFoUEhuMWV4UzRFMVctWW5WZnZfZzlyOEJUN1hKZ2c?oc=5",
+          "spectrum": {
+            "emotion": 6.911139486649316,
+            "subject": 87.84980022415849,
+            "movement": 81.37167933347008,
+            "availability": 63.330529251441135
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1305627
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Thuram deal, 3️⃣ Milan names, Roma-Bakola, ADL won't sell: today's news 🔥",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T13:38:00Z",
+        "co_mentions": [
+          {
+            "name": "AC Milan",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi0AFBVV95cUxQSnpBTFgyQ0s1eGh5c3JSdkFtTW16b2tLMnR3YkI1bGsxU3V0dXNKdHZJNmlsM1ZtbWc0aHF5Tmp3elR4M05PVW1OVTdYdmpCVUZ3SzVxRmNCdkkxcTBVU24xdWJNa1dRenU2Qlc3YTNpdmJKZTdaWk5LdmJyd1JlQ0h3UXFtVDdUX05vMXY2eXBSNUptQUR2WmFGNThtaGhFNWhKRGJXc2taWGt1TkJoV3ZESHV4YkpnYUtRSUtfMkthSU1JYWtfVmloWGw2dlBI0gHWAUFVX3lxTE5mOWNndEI5aFJmcHBORVRSREYzSlAzQnVBc0ZQY3k5bTZqVW5sSU90RXlyUkxfdkh3ZjZzUDZHNUZfUGdLLURlNkRaZTJEcVViQll6ZUY4dUozb0pTWk1rblJXLVFscDJkakRxeEw3V0MyNFlEVS1mMm5DSUpIbEZVX2lGMGhDMkFNT3RNNjBVS3Y3UmN4YWMyUVljbGNOenZfdWNvNndwV0kwaHFnZ1dNVW9xR0U2QXlJWlA5djRMQkRHNnNqYUdsN2NQdS1UUEEtNWRsRUE?oc=5",
+          "spectrum": {
+            "emotion": 11.358727313620113,
+            "subject": 89.30145562086595,
+            "movement": 86.90105655911587,
+            "clickbait": 19.357190152344355,
+            "availability": 91.71643746464207
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1295087
+        },
+        "publisher": "La Gazzetta dello Sport",
+        "headline": "Roma decimated, crisis ahead of Napoli: Pellegrini and Svilar out too",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T12:13:22Z",
+        "co_mentions": [
+          {
+            "name": "Napoli",
+            "entity_type": "team"
+          }
+        ]
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPaHBrdHI2cFN6am5JRVlMSmFESU5EMV9VenFiS095TV92dmc3ZDR5cnkwYkxpQXVsSWdMSkpOMGcwcGRnTDItQkNmbXVnUUVDZERTRlNkbFdBU21QakpyLW5YVndhSXQ2UlpvcDItX3lmaFphMWhwUzZSRXloYndqek1FMVZ3czA?oc=5",
+          "spectrum": {
+            "emotion": 4.448677477176677,
+            "subject": 90.95420293031832,
+            "movement": 93.12416610217524,
+            "clickbait": 22.361207910530783,
+            "availability": 6.443261080634439
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1275820
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Revealed: Roma rejected 3 offers for Pisilli this summer",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T10:27:00Z",
+        "co_mentions": []
+      },
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxOY2VYVXBfQ0hPNXhLUHhNd09GYnV0UUloTFNCdWRmRFB1Um5oMDBpZFAzVEVBV3F3TEZabmhrc2MyQXRUTDVTNl8yTW9TeE9kZzZLbmxGLVpNbHQ0VTZNcnh4MHI5VUpmQXJ6U284V0VzckR3bVZKbzNKMkJVY1JtLXZ4SnYwd19OaWc?oc=5",
+          "spectrum": {
+            "emotion": 1.5748303596261257,
+            "subject": 94.9144132941794,
+            "movement": 98.25698672593371,
+            "clickbait": 6.459457263432289,
+            "availability": 2.674637110400686
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": false,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true,
+          "article_id": 1304835
+        },
+        "publisher": "Yahoo Sports",
+        "headline": "Roma looking to make two signings in January",
+        "publisher_excerpt": "",
+        "published_at": "2026-10-22T07:46:00Z",
+        "co_mentions": []
+      }
+    ]
+  },
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Roma\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"Roma — Serie A (Italy). Venue: Stadio Olimpico. City: Roma. Country: Italy. Coach on record: Mirko Vučinić.\"},\"fresh\":{\"reports\":[{\"classifier_world\":{\"article_id\":1333951,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMilAFBVV95cUxQYTVXekdZZ0NsYnhhS0NpZUxTMlk5cWJyTjdDYkotVURDMjlydHBfNVNEbWVSUHBSZk9YVFh6SUliRkNIakV4YWRMbTFBV0dNTU03ZWotblBZbDJqMEdPVjZPQk9BWlZhMkg3TUZFcHhMbk1IR2JXSWFfU1ZBakhENmV2emZDNzU4ZXZLQWtzd2FZQTVx?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"RB Leipzig\"}],\"headline\":\"Leipzig likely to retain Brighton's Gruda and Roma's El Aynaoui for €50m package\",\"published_at\":\"2026-10-22T16:21:00Z\",\"publisher\":\"Bulinews\"},{\"classifier_world\":{\"article_id\":1326962,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiywFBVV95cUxQa0FkU2NFU0szQVlXZldKdTBsOGFGYVMwVDc5QkRqeXh0VlFoLVd1TnVrNm1DWGNLOEFadE0xQUtQa3luSUowVDlqV1N3d0hJMFhvMUc1ZjUxTE1FNlQwTjVGZTNzTmc0a1BxRV9jb3JTOWgtUEFWNjlaLWQzcjdmamtLVk1DM25BMXhFZnMzamo4MHpGallRWWVGQnd4cGVUVm5fUEY4UWRvZ2NTUVFmQng2V3NMejRVRElKdmhzX2gwWE9oTF94VjJYVQ?oc=5\"},\"co_mentions\":[],\"headline\":\"Roma lose Pellegrini for at least 6-8 weeks with serious injury\",\"published_at\":\"2026-10-22T16:01:06Z\",\"publisher\":\"LiveScore\"},{\"classifier_world\":{\"article_id\":1324232,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMigwFBVV95cUxQTkNFS2NTRDJXdlVHNm12M21Kd05rbUpKUVVla3ZpWHNxdXJjZmtPYnlPUFNNWEZNQ1Jfd0JlTjRTSjFFT2J4MjJIaVo3ckN0WjFSM0IxNmtQTnZJdWtBaWktLWEwd0E1aDRlX1ZJd0RmRkhzdkdiMVltTUx4WWZfX0UyUQ?oc=5\"},\"co_mentions\":[],\"headline\":\"Roma lose Pellegrini for at least 6-8 weeks with serious injury\",\"published_at\":\"2026-10-22T15:45:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1336810,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihgFBVV95cUxOQ0JWanJoUV9ia2hZaE1kclR4NDMxOVVxZW84OE9LZnJEZDZYOUJrUk5Gc2dqdFJpdHJSZTg0VGNndnZheDUxT1pqUnBoM2RJMlFqZGhoWXVhMXQtdGcxd3h0aWE2Z3N0M1RFTDNFcTZmQmxKbTl0aXpYcklFVU9Gd0ZMMkktZ9IBhgFBVV95cUxOQ0JWanJoUV9ia2hZaE1kclR4NDMxOVVxZW84OE9LZnJEZDZYOUJrUk5Gc2dqdFJpdHJSZTg0VGNndnZheDUxT1pqUnBoM2RJMlFqZGhoWXVhMXQtdGcxd3h0aWE2Z3N0M1RFTDNFcTZmQmxKbTl0aXpYcklFVU9Gd0ZMMkktZw?oc=5\"},\"co_mentions\":[],\"headline\":\"Roma lose Pellegrini for at least 6-8 weeks with serious injury\",\"published_at\":\"2026-10-22T15:43:06Z\",\"publisher\":\"Football Italia\"},{\"classifier_world\":{\"article_id\":1304808,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMipwFBVV95cUxNUE1sdGltcmdDLUN0Ym1weVctQ212S2QySVNjYWFrUUVkeXpGeUtRUDZwbEtpVzItY09qZUE3dnFSMDM5VlVsRzd1S2FqNWdTQk1pV0d2b1BrUmI5U1k3R3B1M2VUbUZBU0lFcllRX2ZpaGF2cEw4blg1WjlOTDZzN2NEUXFGc1ZrT2pXbFA0ZFQ3Zkc1RnJ3Y25GYnNiTk1meTZmQTZlMA?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"AC Milan\"}],\"headline\":\"Thuram deal, 3️⃣ Milan names, Roma-Bakola, ADL won't sell: today's news 🔥\",\"published_at\":\"2026-10-22T13:42:24Z\",\"publisher\":\"OneFootball\"},{\"classifier_world\":{\"article_id\":1305627,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMif0FVX3lxTE1rTEZBS2pZYVZ6WEdmR21kNGNXMHFBcGhxMTJjTzVQVUZOOUNyWWdOaDB0SGJTaGR5RFc4ZGtIaEY1Yy1qbHJKVjV4bzNWTVEwQUZRNGZDQnI4U0FUczdjUjFoUEhuMWV4UzRFMVctWW5WZnZfZzlyOEJUN1hKZ2c?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"AC Milan\"}],\"headline\":\"Thuram deal, 3️⃣ Milan names, Roma-Bakola, ADL won't sell: today's news 🔥\",\"published_at\":\"2026-10-22T13:38:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1295087,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMi0AFBVV95cUxQSnpBTFgyQ0s1eGh5c3JSdkFtTW16b2tLMnR3YkI1bGsxU3V0dXNKdHZJNmlsM1ZtbWc0aHF5Tmp3elR4M05PVW1OVTdYdmpCVUZ3SzVxRmNCdkkxcTBVU24xdWJNa1dRenU2Qlc3YTNpdmJKZTdaWk5LdmJyd1JlQ0h3UXFtVDdUX05vMXY2eXBSNUptQUR2WmFGNThtaGhFNWhKRGJXc2taWGt1TkJoV3ZESHV4YkpnYUtRSUtfMkthSU1JYWtfVmloWGw2dlBI0gHWAUFVX3lxTE5mOWNndEI5aFJmcHBORVRSREYzSlAzQnVBc0ZQY3k5bTZqVW5sSU90RXlyUkxfdkh3ZjZzUDZHNUZfUGdLLURlNkRaZTJEcVViQll6ZUY4dUozb0pTWk1rblJXLVFscDJkakRxeEw3V0MyNFlEVS1mMm5DSUpIbEZVX2lGMGhDMkFNT3RNNjBVS3Y3UmN4YWMyUVljbGNOenZfdWNvNndwV0kwaHFnZ1dNVW9xR0U2QXlJWlA5djRMQkRHNnNqYUdsN2NQdS1UUEEtNWRsRUE?oc=5\"},\"co_mentions\":[{\"entity_type\":\"team\",\"name\":\"Napoli\"}],\"headline\":\"Roma decimated, crisis ahead of Napoli: Pellegrini and Svilar out too\",\"published_at\":\"2026-10-22T12:13:22Z\",\"publisher\":\"La Gazzetta dello Sport\"},{\"classifier_world\":{\"article_id\":1275820,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPaHBrdHI2cFN6am5JRVlMSmFESU5EMV9VenFiS095TV92dmc3ZDR5cnkwYkxpQXVsSWdMSkpOMGcwcGRnTDItQkNmbXVnUUVDZERTRlNkbFdBU21QakpyLW5YVndhSXQ2UlpvcDItX3lmaFphMWhwUzZSRXloYndqek1FMVZ3czA?oc=5\"},\"co_mentions\":[],\"headline\":\"Revealed: Roma rejected 3 offers for Pisilli this summer\",\"published_at\":\"2026-10-22T10:27:00Z\",\"publisher\":\"Yahoo Sports\"},{\"classifier_world\":{\"article_id\":1304835,\"evidence_scope\":\"headline\",\"target_identity_resolved\":true,\"url\":\"https://news.google.com/rss/articles/CBMiigFBVV95cUxOY2VYVXBfQ0hPNXhLUHhNd09GYnV0UUloTFNCdWRmRFB1Um5oMDBpZFAzVEVBV3F3TEZabmhrc2MyQXRUTDVTNl8yTW9TeE9kZzZLbmxGLVpNbHQ0VTZNcnh4MHI5VUpmQXJ6U284V0VzckR3bVZKbzNKMkJVY1JtLXZ4SnYwd19OaWc?oc=5\"},\"co_mentions\":[],\"headline\":\"Roma looking to make two signings in January\",\"published_at\":\"2026-10-22T07:46:00Z\",\"publisher\":\"Yahoo Sports\"}]},\"tone\":\"Informed, alert, measured.\"}",
+  "prompt_version": "insider-source-v21-perspective",
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ]
+}

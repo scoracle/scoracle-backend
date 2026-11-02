@@ -1,0 +1,7 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / real-vibe-person-23-FOOTBALL [accepted]
+De Zerbi expresses delight and hope after Spurs' Coventry win
+
+Coverage surrounding Roberto De Zerbi is overwhelmingly positive, capturing his visible delight and hope following Tottenham's victory over Coventry. Headlines highlight his praise for the team's resilience, style, and 'family' bonding, with specific mentions of his happiness regarding player performances and the return of key talent like Kulusevski. The reported tone reflects a supportive and optimistic view of the manager's leadership and the team's current momentum.

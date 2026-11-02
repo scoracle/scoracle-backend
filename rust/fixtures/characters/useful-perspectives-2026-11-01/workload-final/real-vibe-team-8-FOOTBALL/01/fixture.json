@@ -1,0 +1,543 @@
+{
+  "name": "real-vibe-team-8-FOOTBALL",
+  "task": "vibe",
+  "sport": "FOOTBALL",
+  "prompt_version": "vibe-frame-v33-coverage-tone",
+  "system": "",
+  "user_prompt": "{\"meta\":{\"name\":\"Liverpool\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":\"Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.\"},\"fresh\":{\"reporting_start\":\"2026-10-22T04:00:00Z\",\"reporting_end\":\"2026-10-23T04:00:00Z\",\"reports\":[{\"article_id\":1405792,\"url\":\"https://news.google.com/rss/articles/CBMiZkFVX3lxTE1nOFhqZ0dZZVVENjFHMmNtVjk4Wkw5cVBJenNPLXJtY1BKaTEwZGJRZE8zd2t3TFRqY0xJMFFrWEtyN2ZqT2FuaUx3bFctanl3eTdhWG1VTW13Wk5ERjBPZXhhdjJ2Zw?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Sam Matterface: Liverpool Fans Will Feel Aggrieved by Man City Charges\",\"publisher\":\"Hard Rock Bet\",\"published_at\":\"2026-10-22T22:29:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1363125,\"url\":\"https://news.google.com/rss/articles/CBMiqAFBVV95cUxPRmdKRmJ3aWVRa3lDbjJaQUJReS1sejg0TkNYeUNQd3djbmlLTC1kMlJNUzUwMG01YUUyaGpYbmVmMnFlRVJoNk5mVEtuT2lUOS1NYWFPVFBRQVVNZkh4eXpsUGJoeUpZMDZhS1JZVFVHYnlJREQ2N0NiSDdwNkRuRlNFcmJvZWFzQjdtVFRjd2hIVHdRbTVPY1RKTzlZaW9XWTRQSDV3bmXSAa4BQVVfeXFMTzdLelNRbVlWbWxpSzczc3FiYTR6T2c5ZUYwTHBVRzRJeHlmbHY2Z0J0WGRIVU9YcGJ6MFFPX1VtNmFmRk1BcW90SmE5QzhrY0lXWjZpOHlUU05fa0dnNG81WjlTOGVnSmNxS1hpVDlORk93bDBkWWR4VUJGbUtyamVRNUsyc0tlY3lKbzFDZEhMYzB6dXFjeEZ4Y3ota2xmS0FydVFKLU45N3VzbW9B?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Andoni Iraola handed immediate £157m solution after Liverpool make ‘mistake after mistake’\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T15:54:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1324153,\"url\":\"https://news.google.com/rss/articles/CBMie0FVX3lxTFB3dEU2UVBqa1k2NTVqOExKRGNPSzdiMENKbVRMbDlTQm54bHpEa01RTlkwNzJjLUxyZXg4SzYtQ1VIb2lLdEJCUklSc2l1UkM4SzdyY2RzbW9TSDYzUHVDdXBnVEpEdFZybXpNdy0zMzVGclU1UVRCWTBUcw?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Ex-Liverpool boss Jürgen Klopp still grieving Diogo Jota's death in new biography\",\"publisher\":\"Yahoo\",\"published_at\":\"2026-10-22T14:48:27Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1306442,\"url\":\"https://news.google.com/rss/articles/CBMi1wFBVV95cUxQM3ZHT2ZBaWFHaXBUVjdMb1EtMU1lZnl6RzgzdE01SjctTzdRbXZIMm1uNzJrdDlHUm9QQmVoOGt5ZzBtUkxHX3RicWNHb2VmbF9nRTlXUE1iNmpOMDJIU3IyWERzNjNNNXBqajYxUmprdHVkY1l1QmhsUm92b3VCM3haVUZsZkhUaWJEQkFkdUUyeE1UelZRb18xVWp4ZXp4Y3JDZTY4TUxmbHIxUDJjaHhITFZSUEpnS0R3UXk4VEVSd2JsTnVOSFBmQ1pPUEpfNURHNEtJVQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Champions League review: PSG take a hit, Man City’s empty seats and teenage hope for Liverpool\",\"publisher\":\"The Guardian\",\"published_at\":\"2026-10-22T13:43:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1284794,\"url\":\"https://news.google.com/rss/articles/CBMimwFBVV95cUxNVWIxYUpOVVE4d1hMUWxXMmktYkYtZkpQU1lzbzdsOTFtLUdHM3EyNV9MZVZ5aXlybG1Uc3NlQV9ERHFEdDRnUnBkYy1ka2t0c3FhcXVIdXdXSVVyRlN4Qkg5bng0bTRub0NNQjRweGI2bjU5ODVHbkFmWHRhd0JkaUVNaWowY1FoZlVqWmhfNW9HdC05SElhYXlQRQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Jeremie Frimpong’s sad struggle with injury and frustrating time at Liverpool\",\"publisher\":\"The New York Times\",\"published_at\":\"2026-10-22T11:00:25Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1304178,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxOSzNXckpvcDZIWXFzbFdvVGVCTkdxcEdYYURwT0lwRW9SS0p4RHI0MEJlNUQ2RUV3NzNLelYzaU9JSFRmb1o2S3VfNGhVd3pIUkRuSFdZQjRLY1R2UmRrd2dBbGNEMU0tVElNc1lZYjNBN2J5eVA1NGtyYm1FTEROdjJvX21mNzdSSWJfRUdCODMxS1hKN28wVmptZk1FbnV5N1p0XzRjVWJJNXNPWVRz0gGvAUFVX3lxTE5LM1dySm9wNkhZcXNsV29UZUJOR3FwR1hhRHBPSXBFb1JLSnhEcjQwQmU1RDZFRXc3M0t6VjNpT0lIVGZvWjZLdV80aFV3ekhSRG5IV1lCNEtjVHZSZGt3Z0FsY0QxTS1USU1zWVliM0E3Ynl5UDU0a3JibUVMRE52Mm9fbWY3N1JJYl9FR0I4MzFLWEo3bzBWam1mTUVudXk3WnRfNGNVYkk1c09ZVHM?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"'Wow' - Jeremy Jacquet's Liverpool impact clear as Reds wait on Virgil van Dijk decision\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T10:24:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1275212,\"url\":\"https://news.google.com/rss/articles/CBMijAFBVV95cUxPR0FMSkNxRHN0SkxyUy1KejM1U2lnRUZuZWdubXZIRzh1bWxjTEZOODdZSDFudmxSUFk0NDNXU2hQajQ3Wk56TGtrSXliOFp1RDhBSUdNejJTSHA0dnFhRXNCTDdEbkVIMkVHbjRXWnR2NE9iOE5Pa0M4NHBNVjA1anhwUGNaMkhwSW1QeQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Diogo Jota's wife recalls harrowing moment she found out Liverpool star had died\",\"publisher\":\"Daily Mirror\",\"published_at\":\"2026-10-22T09:47:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1265486,\"url\":\"https://news.google.com/rss/articles/CBMirgFBVV95cUxQUE1iQkcxWmJmMW5QN09lRno3b0s5MHpUV2twZHAxNmt6a1hjaG9pS3VLbWxObHZmWW5qR29Pei1yem12eFdMZkszUTB0TEhGSXlNLUdsMjk3RUxVNGRqVFkxaFl4WmVkX2dOb0psWVBXMXdpT1dzX1g1Q1ZUc1d3Rk40ZHpOVXAxekxGd3gwS01aRjc1QnZJUjNOd01Rd2FGQUtXNlBtbjBXbW9yV0HSAa4BQVVfeXFMUFBNYkJHMVpiZjFuUDdPZUZ6N29LOTB6VFdrcGRwMTZremtYY2hvaUt1S21sTmx2ZlluakdvT3otcnptdnhXTGZLM1EwdExIRkl5TS1HbDI5N0VMVTRkalRZMWhZeFplZF9nTm9KbFlQVzF3aU9Xc19YNUNWVHNXd0ZONGR6TlVwMXpMRnd4MEtNWkY3NUJ2SVIzTndNUXdhRkFLVzZQbW4wV21vcldB?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Liverpool latest: Alexis Mac Allister's damning comment as Gilberto Mora links addressed\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T05:00:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1265506,\"url\":\"https://news.google.com/rss/articles/CBMirwFBVV95cUxNbUJ1SzB5VzJvdS16RWdKV29HRWZ1X20yU3M3MDlOdnJPdW1CMExUZ2pFSTNXZHF0aHJTU3R4eENHVGVrZUhoMnVVWGdzMXNualhkVm1vOE9xMnhVbGZvZ0R6UXV3ZEJDRHRldl9tdTFpYWNXWEZ6ZG9BZHNPZFVVaElDQVdOdWZDRDNqZWlpX3YwMzlMakpZVmY5bjI4eHZNNGxKV2VTWUpOdjBDcTM00gGvAUFVX3lxTE1tQnVLMHlXMm91LXpFZ0pXb0dFZnVfbTJTczcwOU52ck91bUIwTFRnakVJM1dkcXRoclNTdHh4Q0dUZWtlSGgydVVYZ3Mxc25qWGRWbW84T3EyeFVsZm9nRHpRdXdkQkNEdGV2X211MWlhY1dYRnpkb0Fkc09kVVVoSUNBV051ZkNEM2plaWlfdjAzOUxqSllWZjluMjh4dk00bEpXZVNZSk52MENxMzQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Liverpool given Premier League title hope but warned defeat could lead to 'doing a Leicester'\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-22T04:00:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1265488,\"url\":\"https://news.google.com/rss/articles/CBMilgFBVV95cUxNV1VQT1VRM3pZT0hzbGRWM1ZSYlNGcnZRSlkxaU1HaHo3cWRkeUVsR1R0ejVzVTFBa2lUdHZDSkdILU1yNGd6RkVORUVMckRRSVRlanU0TVdVeEY2WnQ5OTB3SUlLN1FuaVBvaEhncmVXU1B6RkhMZ0VEVU1kY2xVMzBjSEI4dEV6Z1ExNktEY2NsNzU2NFHSAZYBQVVfeXFMTVdVUE9VUTN6WU9Ic2xkVjNWUmJTRnJ2UUpZMWlNR2h6N3FkZHlFbEdUdHo1c1UxQWtpVHR2Q0pHSC1NcjRnekZFTkVFTHJEUUlUZWp1NE1XVXhGNlp0OTkwd0lJSzdRbmlQb2hIZ3JlV1NQekZITGdFRFVNZGNsVTMwY0hCOHRFemdRMTZLRGNjbDc1NjRR?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Liverpool news: Andoni Iraola offers £38m transfer hope as damning Arne Slot comments made\",\"publisher\":\"Daily Mirror\",\"published_at\":\"2026-10-22T04:00:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1191204,\"url\":\"https://news.google.com/rss/articles/CBMiqwFBVV95cUxNODZQTk9JZS16My11VVR6NlJ4ZlAybEx0TFZYeHZwYWF6RE5fN0RMdFc4M0xXSWk2UXM3UUNkTWZPN041MHBfN1BDbGNPS2tlM29WZHdpemx2ay1mNS01dmJBOU1WZDJCRGNIWGh0eU1rTk9tQnlkcEhFa2RwR0hSWnVmVzVCTWdyY2NCY0duRDRxV3NUdzE4cXNDRW5RcEFDQzc4THBIRWFJQUk?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"‘A complete threat’: Rio Ngumoha’s electric display excites Van Dijk and Liverpool\",\"publisher\":\"The Guardian\",\"published_at\":\"2026-10-21T20:49:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1307276,\"url\":\"https://news.google.com/rss/articles/CBMiwwFBVV95cUxPNk1uMDF2TXlBU2ZoUjE5TUEyR2tlOWZOLXFYbTJwU1FXZUNrSTA0T1lxVWZKZ18zbjFDbXFfZnJDcVdqeGJ3cXEzaThsb0I3d2Q3dk5uemtfZDA0eEdUVk5xWWxSREQ5MURXUDlXSTdFVENua2ktSXZaejNhemdnSHNlVlgwQzBIbHhGTVpaU2RfSGM2YzZSZVY1bEpINENGM3g0V0Fkb0ZvcWw1UlE2NjV6c2xTMjVGWm1HSm04Q09ZTkk?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Liverpool captain Van Dijk admits there is 'much more to come' from exciting Ngumoha\",\"publisher\":\"Flashscore.co.za\",\"published_at\":\"2026-10-21T15:32:07Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1191422,\"url\":\"https://news.google.com/rss/articles/CBMi1gFBVV95cUxNZndCSl9Bdl9XREpEUzBpOHVHRnRockNvRENVM0pzeXJPb1pyaWs4aEVyeUlXQ1BYR1piellRRGFtMEliRDJSdmNWQzRGMDhiZzVvUVhrNVhURERVX3J6bGpGelZsMHRleDRRWDRtWHhwNWItV3JlTFdLdVZWWmdUZnIwWEM0amMxQmhBaTJjRmw5LWowRVc2cjFXaHdmU09TUlFOVy1CbWtBQzZQWG0zSVRYZ0RZOTkwZ2tPRW5tS0F3UlhWQlYxV0FDdXZWdjJwX19XdVBR?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Barcelona take heart despite third straight defeat to PSG, Liverpool and Man City win\",\"publisher\":\"Business Day\",\"published_at\":\"2026-10-21T12:30:46Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1198004,\"url\":\"https://news.google.com/rss/articles/CBMivAFBVV95cUxQVGI1NUNCbnc4LXJGRTlSWEM5bkw1cUZ5QmRBRUVDNGFhNkNOY096S0tJbjJQNmJwMW8wVjVEeFV0dUltOUxyT0E0T1pFX0loZ2s5THp1SXdMb2JXbmRfRXR6QTNUbzhNakRmZHRLWklxNUp4ZG1jdTZxS2xGTzVUZGtUQ09Qc1JpZ1J4UkxfYjd2S3dDdHJscVFPZlB4Y3RtX0xVNG5ILVFFQVExT1N2cGY5UmZ2THc1QU1GTQ?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"‘Don’t Give Up on Him’: Gerrard backs Wirtz to bounce back after difficult Liverpool start\",\"publisher\":\"https://www.footballmuse.com/\",\"published_at\":\"2026-10-21T09:58:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1165295,\"url\":\"https://news.google.com/rss/articles/CBMixAFBVV95cUxPeUVJMzJWSmM5MW9pSXpZbkUzWFhSSGxGN3lKa0lCekdwdmF0VlFqRTlVQVBtWHlvZ2tiQWlYN19Lc0VZS3Y0RGwzWUs1cU0yQjg1SWVhQnhSVDdjSjZId0tTN0wtTUtHaU9PRGNYRDN6RF9TZXRTMW80Q2hCOE1yNHNOUkNSVTBNT29mTHhDYV9qOHBTLXE3bGlyaUUxLXg5a2V4cXdrZjZ6RXFtRUFKVGNTRE83bmRkaHFFamlsVzBaZTNX?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Teenage sensation Rio Ngumoha feels 'very proud' after record-breaking display inspires Liverpool to fight back from two down against Villarreal\",\"publisher\":\"Goal.com\",\"published_at\":\"2026-10-21T05:55:59Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}},{\"article_id\":1207664,\"url\":\"https://news.google.com/rss/articles/CBMitwFBVV95cUxNSWM1OHA3cENBZDBTNlRkMXdHZ0steWRPNzhMREtSeHhiTEdFMmEwaVdsUnhvXy1YbXkteXlpSDBlZjZVR25aVm9oa3hTQzAtcjhIUnhudnlQVnhWWmJ5S2h5bm02SjRJSm0xWWJsbjJSWnlQS241dGpQRlZIRHJJVUZPdC0wYmZDWTdrTGlfaHBha2NjVjlUZFItckVHSndsek1hMDg2MWM5YVg0UHNnRHMwc0lMZ3fSAbcBQVVfeXFMTUljNThwN3BDQWQwUzZUZDF3R2dLLXlkTzc4TERLUnh4YkxHRTJhMGlXbFJ4b18tWG15LXl5aUgwZWY2VUduWlZvaGt4U0MwLXI4SFJ4bnZ5UFZ4VlpieUtoeW5tNko0SUptMVlibG4yUlp5UEtuNXRqUEZWSERySVVGT3QtMGJmQ1k3a0xpX2hwYWtjY1Y5VGRSLXJFR0p3bHpNYTA4NjFjOWFYNFBzZ0RzMHNJTGd3?oc=5\",\"evidence_scope\":\"headline\",\"headline\":\"Former Liverpool goalkeeper returns to ensure European frustration as chances missed\",\"publisher\":\"Liverpool Echo\",\"published_at\":\"2026-10-21T05:00:00Z\",\"classifier_world\":{\"evidence_scope\":\"headline\",\"target_identity_resolved\":true}}]},\"tone\":\"Conversational, emotionally attentive and measured. Clear, natural prose with restrained energy.\"}",
+  "parts": {
+    "subject": {
+      "entity_id": 8,
+      "entity_type": "team",
+      "name": "Liverpool",
+      "sport": "FOOTBALL"
+    },
+    "database_record": "Liverpool — Premier League (England). City: Liverpool. Country: England. Coach on record: Andoni Iraola.",
+    "day": {
+      "start": 1792641600,
+      "end": 1792728000,
+      "cutoff": 1792728012
+    },
+    "sources": [
+      {
+        "classification_id": 231880,
+        "article_id": 1405792,
+        "headline": "Sam Matterface: Liverpool Fans Will Feel Aggrieved by Man City Charges",
+        "context": "Sam Matterface: Liverpool Fans Will Feel Aggrieved by Man City Charges",
+        "source": "Hard Rock Bet",
+        "published_at_epoch": 1792708140,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE1nOFhqZ0dZZVVENjFHMmNtVjk4Wkw5cVBJenNPLXJtY1BKaTEwZGJRZE8zd2t3TFRqY0xJMFFrWEtyN2ZqT2FuaUx3bFctanl3eTdhWG1VTW13Wk5ERjBPZXhhdjJ2Zw?oc=5",
+          "spectrum": {
+            "emotion": 65.207829711484,
+            "subject": 89.21583689692932,
+            "movement": 5.226117393902073,
+            "availability": 69.22374057400343
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 220844,
+        "article_id": 1363125,
+        "headline": "Andoni Iraola handed immediate £157m solution after Liverpool make ‘mistake after mistake’",
+        "context": "Andoni Iraola handed immediate £157m solution after Liverpool make ‘mistake after mistake’",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792684440,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxPRmdKRmJ3aWVRa3lDbjJaQUJReS1sejg0TkNYeUNQd3djbmlLTC1kMlJNUzUwMG01YUUyaGpYbmVmMnFlRVJoNk5mVEtuT2lUOS1NYWFPVFBRQVVNZkh4eXpsUGJoeUpZMDZhS1JZVFVHYnlJREQ2N0NiSDdwNkRuRlNFcmJvZWFzQjdtVFRjd2hIVHdRbTVPY1RKTzlZaW9XWTRQSDV3bmXSAa4BQVVfeXFMTzdLelNRbVlWbWxpSzczc3FiYTR6T2c5ZUYwTHBVRzRJeHlmbHY2Z0J0WGRIVU9YcGJ6MFFPX1VtNmFmRk1BcW90SmE5QzhrY0lXWjZpOHlUU05fa0dnNG81WjlTOGVnSmNxS1hpVDlORk93bDBkWWR4VUJGbUtyamVRNUsyc0tlY3lKbzFDZEhMYzB6dXFjeEZ4Y3ota2xmS0FydVFKLU45N3VzbW9B?oc=5",
+          "spectrum": {
+            "emotion": 21.205605625255842,
+            "subject": 86.81479514726752,
+            "movement": 72.22684495593963,
+            "availability": 36.51780687483759
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 207355,
+        "article_id": 1324153,
+        "headline": "Ex-Liverpool boss Jürgen Klopp still grieving Diogo Jota's death in new biography",
+        "context": "Ex-Liverpool boss Jürgen Klopp still grieving Diogo Jota's death in new biography",
+        "source": "Yahoo",
+        "published_at_epoch": 1792680507,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTFB3dEU2UVBqa1k2NTVqOExKRGNPSzdiMENKbVRMbDlTQm54bHpEa01RTlkwNzJjLUxyZXg4SzYtQ1VIb2lLdEJCUklSc2l1UkM4SzdyY2RzbW9TSDYzUHVDdXBnVEpEdFZybXpNdy0zMzVGclU1UVRCWTBUcw?oc=5",
+          "spectrum": {
+            "emotion": 70.4307926121209,
+            "subject": 85.10989085701209,
+            "movement": 8.82827271328445,
+            "clickbait": 10.847821899325236,
+            "availability": 2.5878578366407132
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 201366,
+        "article_id": 1306442,
+        "headline": "Champions League review: PSG take a hit, Man City’s empty seats and teenage hope for Liverpool",
+        "context": "Champions League review: PSG take a hit, Man City’s empty seats and teenage hope for Liverpool",
+        "source": "The Guardian",
+        "published_at_epoch": 1792676580,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxQM3ZHT2ZBaWFHaXBUVjdMb1EtMU1lZnl6RzgzdE01SjctTzdRbXZIMm1uNzJrdDlHUm9QQmVoOGt5ZzBtUkxHX3RicWNHb2VmbF9nRTlXUE1iNmpOMDJIU3IyWERzNjNNNXBqajYxUmprdHVkY1l1QmhsUm92b3VCM3haVUZsZkhUaWJEQkFkdUUyeE1UelZRb18xVWp4ZXp4Y3JDZTY4TUxmbHIxUDJjaHhITFZSUEpnS0R3UXk4VEVSd2JsTnVOSFBmQ1pPUEpfNURHNEtJVQ?oc=5",
+          "spectrum": {
+            "emotion": 69.07139439156205,
+            "subject": 84.53950318597504,
+            "movement": 16.657290562275463,
+            "clickbait": 6.854662599595807,
+            "availability": 30.710713269603772
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 196400,
+        "article_id": 1284794,
+        "headline": "Jeremie Frimpong’s sad struggle with injury and frustrating time at Liverpool",
+        "context": "Jeremie Frimpong’s sad struggle with injury and frustrating time at Liverpool",
+        "source": "The New York Times",
+        "published_at_epoch": 1792666825,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMimwFBVV95cUxNVWIxYUpOVVE4d1hMUWxXMmktYkYtZkpQU1lzbzdsOTFtLUdHM3EyNV9MZVZ5aXlybG1Uc3NlQV9ERHFEdDRnUnBkYy1ka2t0c3FhcXVIdXdXSVVyRlN4Qkg5bng0bTRub0NNQjRweGI2bjU5ODVHbkFmWHRhd0JkaUVNaWowY1FoZlVqWmhfNW9HdC05SElhYXlQRQ?oc=5",
+          "spectrum": {
+            "emotion": 71.07616388344749,
+            "subject": 89.36851171534845,
+            "movement": 4.129008571908304,
+            "clickbait": 18.93579585358127,
+            "availability": 90.32035306876503
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 205561,
+        "article_id": 1304178,
+        "headline": "'Wow' - Jeremy Jacquet's Liverpool impact clear as Reds wait on Virgil van Dijk decision",
+        "context": "'Wow' - Jeremy Jacquet's Liverpool impact clear as Reds wait on Virgil van Dijk decision",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792664640,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxOSzNXckpvcDZIWXFzbFdvVGVCTkdxcEdYYURwT0lwRW9SS0p4RHI0MEJlNUQ2RUV3NzNLelYzaU9JSFRmb1o2S3VfNGhVd3pIUkRuSFdZQjRLY1R2UmRrd2dBbGNEMU0tVElNc1lZYjNBN2J5eVA1NGtyYm1FTEROdjJvX21mNzdSSWJfRUdCODMxS1hKN28wVmptZk1FbnV5N1p0XzRjVWJJNXNPWVRz0gGvAUFVX3lxTE5LM1dySm9wNkhZcXNsV29UZUJOR3FwR1hhRHBPSXBFb1JLSnhEcjQwQmU1RDZFRXc3M0t6VjNpT0lIVGZvWjZLdV80aFV3ekhSRG5IV1lCNEtjVHZSZGt3Z0FsY0QxTS1USU1zWVliM0E3Ynl5UDU0a3JibUVMRE52Mm9fbWY3N1JJYl9FR0I4MzFLWEo3bzBWam1mTUVudXk3WnRfNGNVYkk1c09ZVHM?oc=5",
+          "spectrum": {
+            "emotion": 59.17776126696281,
+            "subject": 93.67313939638031,
+            "movement": 12.551856729153563,
+            "clickbait": 26.62488321176394,
+            "availability": 86.68278279381539
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 191688,
+        "article_id": 1275212,
+        "headline": "Diogo Jota's wife recalls harrowing moment she found out Liverpool star had died",
+        "context": "Diogo Jota's wife recalls harrowing moment she found out Liverpool star had died",
+        "source": "Daily Mirror",
+        "published_at_epoch": 1792662420,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPR0FMSkNxRHN0SkxyUy1KejM1U2lnRUZuZWdubXZIRzh1bWxjTEZOODdZSDFudmxSUFk0NDNXU2hQajQ3Wk56TGtrSXliOFp1RDhBSUdNejJTSHA0dnFhRXNCTDdEbkVIMkVHbjRXWnR2NE9iOE5Pa0M4NHBNVjA1anhwUGNaMkhwSW1QeQ?oc=5",
+          "spectrum": {
+            "emotion": 66.63114878395294,
+            "subject": 85.72880681600655,
+            "movement": 3.473683174656129,
+            "clickbait": 20.92370008934488,
+            "availability": 2.0738653722140907
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 184828,
+        "article_id": 1265486,
+        "headline": "Liverpool latest: Alexis Mac Allister's damning comment as Gilberto Mora links addressed",
+        "context": "Liverpool latest: Alexis Mac Allister's damning comment as Gilberto Mora links addressed",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792645200,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxQUE1iQkcxWmJmMW5QN09lRno3b0s5MHpUV2twZHAxNmt6a1hjaG9pS3VLbWxObHZmWW5qR29Pei1yem12eFdMZkszUTB0TEhGSXlNLUdsMjk3RUxVNGRqVFkxaFl4WmVkX2dOb0psWVBXMXdpT1dzX1g1Q1ZUc1d3Rk40ZHpOVXAxekxGd3gwS01aRjc1QnZJUjNOd01Rd2FGQUtXNlBtbjBXbW9yV0HSAa4BQVVfeXFMUFBNYkJHMVpiZjFuUDdPZUZ6N29LOTB6VFdrcGRwMTZremtYY2hvaUt1S21sTmx2ZlluakdvT3otcnptdnhXTGZLM1EwdExIRkl5TS1HbDI5N0VMVTRkalRZMWhZeFplZF9nTm9KbFlQVzF3aU9Xc19YNUNWVHNXd0ZONGR6TlVwMXpMRnd4MEtNWkY3NUJ2SVIzTndNUXdhRkFLVzZQbW4wV21vcldB?oc=5",
+          "spectrum": {
+            "emotion": 22.92186303406779,
+            "subject": 92.7213986915328,
+            "movement": 8.938021346493741,
+            "clickbait": 17.19153701931638,
+            "availability": 3.713490914316407
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 185442,
+        "article_id": 1265506,
+        "headline": "Liverpool given Premier League title hope but warned defeat could lead to 'doing a Leicester'",
+        "context": "Liverpool given Premier League title hope but warned defeat could lead to 'doing a Leicester'",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792641600,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxNbUJ1SzB5VzJvdS16RWdKV29HRWZ1X20yU3M3MDlOdnJPdW1CMExUZ2pFSTNXZHF0aHJTU3R4eENHVGVrZUhoMnVVWGdzMXNualhkVm1vOE9xMnhVbGZvZ0R6UXV3ZEJDRHRldl9tdTFpYWNXWEZ6ZG9BZHNPZFVVaElDQVdOdWZDRDNqZWlpX3YwMzlMakpZVmY5bjI4eHZNNGxKV2VTWUpOdjBDcTM00gGvAUFVX3lxTE1tQnVLMHlXMm91LXpFZ0pXb0dFZnVfbTJTczcwOU52ck91bUIwTFRnakVJM1dkcXRoclNTdHh4Q0dUZWtlSGgydVVYZ3Mxc25qWGRWbW84T3EyeFVsZm9nRHpRdXdkQkNEdGV2X211MWlhY1dYRnpkb0Fkc09kVVVoSUNBV051ZkNEM2plaWlfdjAzOUxqSllWZjluMjh4dk00bEpXZVNZSk52MENxMzQ?oc=5",
+          "spectrum": {
+            "emotion": 49.653678710454315,
+            "subject": 94.21094854190886,
+            "movement": 4.108437953974154,
+            "clickbait": 15.315047582065548,
+            "availability": 1.7658287945867794
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 185439,
+        "article_id": 1265488,
+        "headline": "Liverpool news: Andoni Iraola offers £38m transfer hope as damning Arne Slot comments made",
+        "context": "Liverpool news: Andoni Iraola offers £38m transfer hope as damning Arne Slot comments made",
+        "source": "Daily Mirror",
+        "published_at_epoch": 1792641600,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxNV1VQT1VRM3pZT0hzbGRWM1ZSYlNGcnZRSlkxaU1HaHo3cWRkeUVsR1R0ejVzVTFBa2lUdHZDSkdILU1yNGd6RkVORUVMckRRSVRlanU0TVdVeEY2WnQ5OTB3SUlLN1FuaVBvaEhncmVXU1B6RkhMZ0VEVU1kY2xVMzBjSEI4dEV6Z1ExNktEY2NsNzU2NFHSAZYBQVVfeXFMTVdVUE9VUTN6WU9Ic2xkVjNWUmJTRnJ2UUpZMWlNR2h6N3FkZHlFbEdUdHo1c1UxQWtpVHR2Q0pHSC1NcjRnekZFTkVFTHJEUUlUZWp1NE1XVXhGNlp0OTkwd0lJSzdRbmlQb2hIZ3JlV1NQekZITGdFRFVNZGNsVTMwY0hCOHRFemdRMTZLRGNjbDc1NjRR?oc=5",
+          "spectrum": {
+            "emotion": 23.89828393703339,
+            "subject": 96.0882368094336,
+            "movement": 90.0267391143024,
+            "clickbait": 22.421863933864298,
+            "availability": 2.206907626125515
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 161227,
+        "article_id": 1191204,
+        "headline": "‘A complete threat’: Rio Ngumoha’s electric display excites Van Dijk and Liverpool",
+        "context": "‘A complete threat’: Rio Ngumoha’s electric display excites Van Dijk and Liverpool",
+        "source": "The Guardian",
+        "published_at_epoch": 1792615740,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxNODZQTk9JZS16My11VVR6NlJ4ZlAybEx0TFZYeHZwYWF6RE5fN0RMdFc4M0xXSWk2UXM3UUNkTWZPN041MHBfN1BDbGNPS2tlM29WZHdpemx2ay1mNS01dmJBOU1WZDJCRGNIWGh0eU1rTk9tQnlkcEhFa2RwR0hSWnVmVzVCTWdyY2NCY0duRDRxV3NUdzE4cXNDRW5RcEFDQzc4THBIRWFJQUk?oc=5",
+          "spectrum": {
+            "emotion": 23.151512137438964,
+            "subject": 88.75928181833224,
+            "movement": 6.9092377348763945,
+            "clickbait": 24.60578316017314,
+            "availability": 2.5935231295812535
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 202364,
+        "article_id": 1307276,
+        "headline": "Liverpool captain Van Dijk admits there is 'much more to come' from exciting Ngumoha",
+        "context": "Liverpool captain Van Dijk admits there is 'much more to come' from exciting Ngumoha",
+        "source": "Flashscore.co.za",
+        "published_at_epoch": 1792596727,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMiwwFBVV95cUxPNk1uMDF2TXlBU2ZoUjE5TUEyR2tlOWZOLXFYbTJwU1FXZUNrSTA0T1lxVWZKZ18zbjFDbXFfZnJDcVdqeGJ3cXEzaThsb0I3d2Q3dk5uemtfZDA0eEdUVk5xWWxSREQ5MURXUDlXSTdFVENua2ktSXZaejNhemdnSHNlVlgwQzBIbHhGTVpaU2RfSGM2YzZSZVY1bEpINENGM3g0V0Fkb0ZvcWw1UlE2NjV6c2xTMjVGWm1HSm04Q09ZTkk?oc=5",
+          "spectrum": {
+            "emotion": 18.202560956145707,
+            "subject": 92.05829839716031,
+            "movement": 5.92981787109806,
+            "clickbait": 11.144219548376656,
+            "availability": 2.676892153358887
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 150897,
+        "article_id": 1191422,
+        "headline": "Barcelona take heart despite third straight defeat to PSG, Liverpool and Man City win",
+        "context": "Barcelona take heart despite third straight defeat to PSG, Liverpool and Man City win",
+        "source": "Business Day",
+        "published_at_epoch": 1792585846,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMi1gFBVV95cUxNZndCSl9Bdl9XREpEUzBpOHVHRnRockNvRENVM0pzeXJPb1pyaWs4aEVyeUlXQ1BYR1piellRRGFtMEliRDJSdmNWQzRGMDhiZzVvUVhrNVhURERVX3J6bGpGelZsMHRleDRRWDRtWHhwNWItV3JlTFdLdVZWWmdUZnIwWEM0amMxQmhBaTJjRmw5LWowRVc2cjFXaHdmU09TUlFOVy1CbWtBQzZQWG0zSVRYZ0RZOTkwZ2tPRW5tS0F3UlhWQlYxV0FDdXZWdjJwX19XdVBR?oc=5",
+          "spectrum": {
+            "emotion": 18.851677157642676,
+            "subject": 91.35618223201396,
+            "movement": 4.948843936300671,
+            "clickbait": 6.631825196228615,
+            "availability": 2.658498688077825
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 155053,
+        "article_id": 1198004,
+        "headline": "‘Don’t Give Up on Him’: Gerrard backs Wirtz to bounce back after difficult Liverpool start",
+        "context": "‘Don’t Give Up on Him’: Gerrard backs Wirtz to bounce back after difficult Liverpool start",
+        "source": "https://www.footballmuse.com/",
+        "published_at_epoch": 1792576680,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxQVGI1NUNCbnc4LXJGRTlSWEM5bkw1cUZ5QmRBRUVDNGFhNkNOY096S0tJbjJQNmJwMW8wVjVEeFV0dUltOUxyT0E0T1pFX0loZ2s5THp1SXdMb2JXbmRfRXR6QTNUbzhNakRmZHRLWklxNUp4ZG1jdTZxS2xGTzVUZGtUQ09Qc1JpZ1J4UkxfYjd2S3dDdHJscVFPZlB4Y3RtX0xVNG5ILVFFQVExT1N2cGY5UmZ2THc1QU1GTQ?oc=5",
+          "spectrum": {
+            "emotion": 37.68990127144833,
+            "subject": 90.9002796381378,
+            "movement": 12.2793329222061,
+            "clickbait": 7.342914429869491,
+            "availability": 54.80702725477855
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 155846,
+        "article_id": 1165295,
+        "headline": "Teenage sensation Rio Ngumoha feels 'very proud' after record-breaking display inspires Liverpool to fight back from two down against Villarreal",
+        "context": "Teenage sensation Rio Ngumoha feels 'very proud' after record-breaking display inspires Liverpool to fight back from two down against Villarreal",
+        "source": "Goal.com",
+        "published_at_epoch": 1792562159,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMixAFBVV95cUxPeUVJMzJWSmM5MW9pSXpZbkUzWFhSSGxGN3lKa0lCekdwdmF0VlFqRTlVQVBtWHlvZ2tiQWlYN19Lc0VZS3Y0RGwzWUs1cU0yQjg1SWVhQnhSVDdjSjZId0tTN0wtTUtHaU9PRGNYRDN6RF9TZXRTMW80Q2hCOE1yNHNOUkNSVTBNT29mTHhDYV9qOHBTLXE3bGlyaUUxLXg5a2V4cXdrZjZ6RXFtRUFKVGNTRE83bmRkaHFFamlsVzBaZTNX?oc=5",
+          "spectrum": {
+            "emotion": 24.44419045614775,
+            "subject": 87.99437479913288,
+            "movement": 3.0487673074464943,
+            "clickbait": 11.916888213226153,
+            "availability": 1.5894244702123546
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "classification_id": 162915,
+        "article_id": 1207664,
+        "headline": "Former Liverpool goalkeeper returns to ensure European frustration as chances missed",
+        "context": "Former Liverpool goalkeeper returns to ensure European frustration as chances missed",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1792558800,
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxNSWM1OHA3cENBZDBTNlRkMXdHZ0steWRPNzhMREtSeHhiTEdFMmEwaVdsUnhvXy1YbXkteXlpSDBlZjZVR25aVm9oa3hTQzAtcjhIUnhudnlQVnhWWmJ5S2h5bm02SjRJSm0xWWJsbjJSWnlQS241dGpQRlZIRHJJVUZPdC0wYmZDWTdrTGlfaHBha2NjVjlUZFItckVHSndsek1hMDg2MWM5YVg0UHNnRHMwc0lMZ3fSAbcBQVVfeXFMTUljNThwN3BDQWQwUzZUZDF3R2dLLXlkTzc4TERLUnh4YkxHRTJhMGlXbFJ4b18tWG15LXl5aUgwZWY2VUduWlZvaGt4U0MwLXI4SFJ4bnZ5UFZ4VlpieUtoeW5tNko0SUptMVlibG4yUlp5UEtuNXRqUEZWSERySVVGT3QtMGJmQ1k3a0xpX2hwYWtjY1Y5VGRSLXJFR0p3bHpNYTA4NjFjOWFYNFBzZ0RzMHNJTGd3?oc=5",
+          "spectrum": {
+            "emotion": 59.49847681972757,
+            "subject": 85.3679423676466,
+            "movement": 7.470699554493734,
+            "clickbait": 19.115421392064604,
+            "availability": 54.81590878089614
+          },
+          "gate": {
+            "scope": "headline",
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            }
+          },
+          "target_identity_resolved": true
+        }
+      }
+    ],
+    "excluded": [
+      {
+        "article_id": 1383284,
+        "classification_id": 225626,
+        "in_day": true,
+        "reason": "unresolved_target_identity"
+      },
+      {
+        "article_id": 1313892,
+        "classification_id": 205415,
+        "in_day": true,
+        "reason": "unresolved_target_identity"
+      },
+      {
+        "article_id": 1265616,
+        "classification_id": 201456,
+        "in_day": true,
+        "reason": "unresolved_target_identity"
+      },
+      {
+        "article_id": 1313901,
+        "classification_id": 205884,
+        "in_day": true,
+        "reason": "unresolved_target_identity"
+      },
+      {
+        "article_id": 1265523,
+        "classification_id": 198780,
+        "in_day": true,
+        "reason": "unresolved_target_identity"
+      }
+    ]
+  },
+  "temperature": 0.0,
+  "expect": {},
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ]
+}

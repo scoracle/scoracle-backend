@@ -1,0 +1,23 @@
+{
+  "command": "cargo test --offline --lib --examples --bin eval",
+  "passed": 422,
+  "failed": 0,
+  "ignored": 74,
+  "format_check": true,
+  "diff_check": true,
+  "requests_checked": 61,
+  "changed_requests": 38,
+  "unchanged_requests": 23,
+  "source_parts_and_selection_unchanged": true,
+  "model_calls": 19,
+  "final_batch_calls": 9,
+  "temperature": 0,
+  "thinking": false,
+  "concurrency": 1,
+  "retries": 0,
+  "journalist_hook_generated_last": 5,
+  "production_recovery_document_unchanged": true,
+  "production_recovery_document_sha256": "ba141c9396f2ccca03ea198a5b5a858f9a7727b5414ef00732e39d9ceb7df086",
+  "deployed": false,
+  "published": false
+}

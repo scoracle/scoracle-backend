@@ -1,0 +1,24 @@
+{
+  "case": 3,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/narratives-player-37-NBA.json",
+  "generation_wall_ms": 12655,
+  "input_tokens": 2811,
+  "name": "narratives-player-37-NBA",
+  "output_limit": 2100,
+  "output_tokens": 158,
+  "parsed": true,
+  "prompt_version": "n129-shared-prompt",
+  "reading": "Bradley Beal is ruled out for the game against Sacramento due to a knee injury, according to NBC Sports.\n\nNBC Sports reports that Bradley Beal remains unavailable for the upcoming game against the Lakers due to his knee injury.\n\nABC30 Fresno reports that the Clippers have indicated Bradley Beal will wear Chris Paul's old No. 3 jersey.",
+  "request_bytes": 5016,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 12676
+}

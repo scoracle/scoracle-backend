@@ -1,0 +1,38 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / chelsea-target-preview [accepted]
+Estevao received brutally honest transfer advice from Chelsea despite Xabi Alonso's promise.
+
+Chelsea players with 23 minutes of playing time this season are urged to leave the club.
+
+Chelsea was labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict.
+
+2 — narratives / narratives-person-86-FOOTBALL [accepted]
+RB Leipzig coach Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu.
+
+Demichelis stated that Franco Mastantuono needs time to develop but believes he is built for Real Madrid despite his loan spell at Fiorentina.
+
+3 — narratives / narratives-player-37-NBA [accepted]
+Bradley Beal is ruled out for the game against Sacramento due to a knee injury, according to NBC Sports.
+
+NBC Sports reports that Bradley Beal remains unavailable for the upcoming game against the Lakers due to his knee injury.
+
+ABC30 Fresno reports that the Clippers have indicated Bradley Beal will wear Chris Paul's old No. 3 jersey.
+
+4 — transfer / transfer-player-83946-NFL [rejected]
+named claim is absent from cited reports: Philadelphia Eagles
+
+5 — transfer / transfer-team-37-FOOTBALL [accepted]
+0 finding(s) | Roma is looking to make two signings in January, though no specific targets or parties are named in the available reports. The club has rejected three offers for Pisilli this summer and will lose coach Pellegrini for at least six to eight weeks due to a serious injury. There is no reported movement involving Roma as a target or a mover in the provided data.
+
+6 — vibe / vibe-person-23-FOOTBALL [accepted]
+De Zerbi expresses delight and hope over Spurs' resilience and style
+
+Roberto De Zerbi is portrayed as deeply pleased with Tottenham's performance, describing himself as 'very happy' and 'delighted' after a crucial victory over Coventry. He specifically praises the team's resilience and hopes their positive 'attitude' and 'mentality' remain intact. While one source notes his focus on Kulusevski's return, the prevailing tone across reports is one of satisfaction and optimism regarding the team's style and response to the match.
+
+7 — vibe / vibe-person-959-NFL [accepted]
+Jerry Jones faces criticism from ex-Cowboys star and media reports of disappointment
+
+Coverage indicates Jerry Jones is feeling disappointed and is seeking roster improvements before the trade deadline. An ex-Cowboys star has publicly criticized Jones amid reports of team struggles. The tone reflects mixed reactions: internal dissatisfaction from Jones and external criticism from a former player, without evidence of a unified fan or organizational consensus.
+

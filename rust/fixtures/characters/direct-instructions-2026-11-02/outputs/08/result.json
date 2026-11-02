@@ -1,0 +1,24 @@
+{
+  "case": 8,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/vibe-person-23-FOOTBALL.json",
+  "generation_wall_ms": 7809,
+  "input_tokens": 1474,
+  "name": "vibe-person-23-FOOTBALL",
+  "output_limit": 600,
+  "output_tokens": 114,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v45-plain-brief",
+  "reading": "De Zerbi expresses delight over Spurs' resilience and style after Coventry victory.\n\nRoberto De Zerbi is described as 'very happy' and 'delighted' by multiple outlets, including Flashscore.co.za, VAVEL.com, Yellow Advertiser, Vodacom Soccer, and TribalFootball. He praised Tottenham's 'attitude,' 'mentality,' and ability to 'turn on the style' following their crucial win against Coventry.",
+  "request_bytes": 4495,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 7835
+}

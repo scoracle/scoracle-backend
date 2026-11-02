@@ -1,4 +1,4 @@
-use super::prompt::*;
+use super::request::*;
 use super::*;
 use crate::harness::model::{GenerateOptions, GenerateResult, Inference};
 use async_trait::async_trait;
@@ -185,7 +185,7 @@ async fn finished_cards_get_one_model_call_and_no_memory() {
     let prompt: serde_json::Value = serde_json::from_str(&model.calls.lock().unwrap()[0]).unwrap();
     assert!(prompt.get("memories").is_none());
     assert_eq!(
-        prompt["fresh"]["insider"]["body"],
+        prompt["new_content"]["insider"]["body"],
         "A source reports Northbridge FC are pursuing Vale."
     );
 }

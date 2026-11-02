@@ -1,0 +1,22 @@
+{
+  "case": 7,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+  "generation_wall_ms": 7136,
+  "input_tokens": 1451,
+  "name": "transfer-team-37-FOOTBALL",
+  "output_limit": 1400,
+  "output_tokens": 100,
+  "parsed": false,
+  "prompt_version": "insider-source-v32-clear-payload",
+  "reading": "named claim is absent from cited reports: Mirko Vučinić",
+  "request_bytes": 4212,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 7157
+}

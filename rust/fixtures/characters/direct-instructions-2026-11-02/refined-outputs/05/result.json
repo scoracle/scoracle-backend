@@ -1,0 +1,24 @@
+{
+  "case": 5,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/narratives-player-37-NBA.json",
+  "generation_wall_ms": 6921,
+  "input_tokens": 1025,
+  "name": "narratives-player-37-NBA",
+  "output_limit": 2100,
+  "output_tokens": 128,
+  "parsed": false,
+  "prompt_version": "n133-evidence-brief",
+  "reading": "named claim is absent from cited reports: Los Angeles Clippers",
+  "request_bytes": 3208,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 6932
+}

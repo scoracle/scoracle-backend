@@ -1,5 +1,5 @@
 //! Exact source spans, named counterparties and served-prose validation.
-use super::prompt::Report;
+use super::request::Report;
 use super::{Reply, Status};
 use crate::harness::Parser;
 use crate::tools::meta::EntityMeta;
@@ -18,7 +18,7 @@ impl Parser<Reply> for ReplyParser<'_> {
         ));
         crate::tools::form::validate_body(&reply.body)?;
         ensure!(
-            reply.body.chars().count() <= super::prompt::BODY_MAX_CHARS,
+            reply.body.chars().count() <= super::request::BODY_MAX_CHARS,
             "Insider body exceeds the reading budget"
         );
         let body = crate::tools::guards::fold_for_match(&reply.body);
@@ -42,7 +42,7 @@ impl Parser<Reply> for ReplyParser<'_> {
             "Insider reading violates served prose guard"
         );
         ensure!(
-            reply.findings.len() <= super::prompt::MAX_FINDINGS.min(self.reports.len() * 8),
+            reply.findings.len() <= super::request::MAX_FINDINGS.min(self.reports.len() * 8),
             "too many findings"
         );
         let mut seen = std::collections::HashSet::new();
@@ -71,7 +71,7 @@ impl Parser<Reply> for ReplyParser<'_> {
             ensure!(
                 !finding.evidence_quote.trim().is_empty()
                     && finding.evidence_quote.chars().count()
-                        <= super::prompt::EVIDENCE_QUOTE_MAX_CHARS
+                        <= super::request::EVIDENCE_QUOTE_MAX_CHARS
                     && (report.headline.contains(&finding.evidence_quote)
                         || report.publisher_excerpt.contains(&finding.evidence_quote)),
                 "finding quote is not an exact publisher span"
@@ -131,7 +131,7 @@ impl Parser<Reply> for ReplyParser<'_> {
             .map(|report| crate::tools::fresh::ReportEvidence {
                 publisher: &report.publisher,
                 text: format!("{}: {}", report.publisher, report.headline),
-                published_at: report.published_at.clone(),
+                published_at: None,
             })
             .collect();
         evidence.push(crate::tools::fresh::ReportEvidence {
@@ -178,7 +178,7 @@ mod source_fact_tests {
             published_at: None,
             headline: "DeMar DeRozan’s Career Takes Stunning Turn After 17 Years in the NBA As Nuggets Reveal New Plan".into(),
             publisher_excerpt: String::new(),
-            co_mentions: vec![super::super::prompt::Mention {
+            co_mentions: vec![super::super::request::Mention {
                 name: "Denver Nuggets".into(),
                 entity_type: "team".into(),
             }],
@@ -257,7 +257,7 @@ mod source_fact_tests {
             published_at: None,
             headline: "Chelsea star urged to leave after Xabi Alonso snub".into(),
             publisher_excerpt: String::new(),
-            co_mentions: vec![super::super::prompt::Mention {
+            co_mentions: vec![super::super::request::Mention {
                 name: "Xabi Alonso".into(),
                 entity_type: "person".into(),
             }],

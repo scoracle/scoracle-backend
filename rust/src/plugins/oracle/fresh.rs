@@ -1,11 +1,32 @@
 //! Current daily peer readings, projected without historical context.
-use super::prompt::{Cards, SynthNarrative};
+
+const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
+    relationship: "new_content contains prepared perspectives about the target, possibly sharing sources. Preserve each claim's actor, measure and qualifications; missing perspectives are unknown.",
+    fields: &[
+        ("journalist", "reported stories; title labels a story and body contains its qualified claims."),
+        ("journalist.generated_at", "reading creation date, not event date."),
+        ("journalist.source_count", "linked items, not independent confirmations."),
+        ("journalist.source_age_days", "age of source reporting."),
+        ("journalist.trajectory", "summary label, not dated measurements or causes."),
+        ("scout", "measured performance; each number and band belongs only to its named measure."),
+        ("scout.generated_at", "reading creation date, not event date."),
+        ("scout.direction", "summary label, not dated measurements or changes in every attribute."),
+        ("influencer", "coverage tone or attributed reactions."),
+        ("influencer.generated_at", "reading creation date, not event date."),
+        ("analyst", "performance/coverage relationship."),
+        ("analyst.generated_at", "reading creation date, not event date."),
+        ("analyst.direction", "summary label, not dated measurements or changes in every attribute."),
+        ("insider", "movement or appointment reporting."),
+        ("insider.generated_at", "reading creation date, not event date."),
+    ],
+};
+
+use super::request::{Cards, SynthNarrative};
 use serde::Serialize;
 
 #[derive(Serialize)]
 struct Narrative<'a> {
     generated_at: Option<&'a str>,
-    source_article_ids: &'a [i64],
     title: &'a str,
     body: &'a str,
     trajectory: &'a str,
@@ -45,7 +66,6 @@ pub(super) fn readings(cards: &Cards) -> Fresh<'_> {
         .take(3)
         .map(|n| Narrative {
             generated_at: n.generated_at.as_deref(),
-            source_article_ids: &n.source_article_ids,
             title: &n.title,
             body: &n.body,
             trajectory: &n.trajectory,
@@ -75,5 +95,12 @@ pub(super) fn readings(cards: &Cards) -> Fresh<'_> {
             direction: None,
             generated_at: r.generated_at.as_deref(),
         }),
+    }
+}
+
+pub(super) fn context(cards: &Cards) -> crate::tools::prompt::Context<Fresh<'_>> {
+    crate::tools::prompt::Context {
+        guide: GUIDE,
+        data: readings(cards),
     }
 }

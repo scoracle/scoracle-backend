@@ -1,0 +1,78 @@
+{
+  "retained": false,
+  "reason": "Avoid sentence-order and phrasing changes during a structural refactor; restore original jobs through one fixed voice marker.",
+  "model_calls": 7,
+  "accepted": 4,
+  "cases": [
+    {
+      "case": 1,
+      "name": "chelsea-target-preview",
+      "task": "narratives",
+      "input_tokens": 2459,
+      "output_tokens": 138,
+      "status": "rejected",
+      "review": "Regresses the charges story: 'following 114 guilty verdicts' and 'faces more charges' change the supplied relationship. Invents Chelsea as Estevao's adviser and Xabi Alonso as coach. Correctly keeps the 23-minute player singular. Parser rejects the expanded Manchester City name, not these factual errors.",
+      "receipt": "voice-at-end-outputs/01/result.json"
+    },
+    {
+      "case": 2,
+      "name": "narratives-person-86-FOOTBALL",
+      "task": "narratives",
+      "input_tokens": 2102,
+      "output_tokens": 123,
+      "status": "accepted",
+      "review": "Same substantive output as the previous top-five trial. Correctly separates Diomande praise from Mastantuono discussion; 'time to develop' expands 'needs time'.",
+      "receipt": "voice-at-end-outputs/02/result.json"
+    },
+    {
+      "case": 3,
+      "name": "narratives-player-37-NBA",
+      "task": "narratives",
+      "input_tokens": 2811,
+      "output_tokens": 158,
+      "status": "accepted",
+      "review": "Same substantive output as the previous top-five trial. Keeps the jersey story separate from injury reporting, with the supplied publishers and number.",
+      "receipt": "voice-at-end-outputs/03/result.json"
+    },
+    {
+      "case": 4,
+      "name": "transfer-player-83946-NFL",
+      "task": "transfer",
+      "input_tokens": 2163,
+      "output_tokens": 93,
+      "status": "rejected",
+      "review": "Repeats the previous destination-versus-opponent error: 'signs with NFC East rival' becomes 'to compete with an NFC East rival'. Parser still rejects Philadelphia Eagles because the cited text uses Eagles.",
+      "receipt": "voice-at-end-outputs/04/result.json"
+    },
+    {
+      "case": 5,
+      "name": "transfer-team-37-FOOTBALL",
+      "task": "transfer",
+      "input_tokens": 2457,
+      "output_tokens": 98,
+      "status": "rejected",
+      "review": "Worse than the previous trial: invents Mirko Vucinic as the injured coach instead of the headline's Pellegrini; improperly leads with injury absence. Parser rejects the invented name. Does retain the January-signings limit and past timing for offers.",
+      "receipt": "voice-at-end-outputs/05/result.json"
+    },
+    {
+      "case": 6,
+      "name": "vibe-person-23-FOOTBALL",
+      "task": "vibe",
+      "input_tokens": 2369,
+      "output_tokens": 130,
+      "status": "accepted",
+      "review": "Attributes happy/delighted to De Zerbi, but joins separate headline topics into an asserted common causal account, adds pride/celebration and exceeds the one-to-two-sentence instruction (four sentences). Mechanical acceptance does not establish fidelity.",
+      "receipt": "voice-at-end-outputs/06/result.json"
+    },
+    {
+      "case": 7,
+      "name": "vibe-person-959-NFL",
+      "task": "vibe",
+      "input_tokens": 1412,
+      "output_tokens": 85,
+      "status": "accepted",
+      "review": "Preserves Jones's disappointment and the former player's criticism as separate actors, but still assigns 50 despite both negative reactions. No new quality improvement established.",
+      "receipt": "voice-at-end-outputs/07/result.json"
+    }
+  ]
+}

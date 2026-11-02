@@ -1,0 +1,173 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/narratives-chelsea-top-five.json",
+      "generation_wall_ms": 11649,
+      "input_tokens": 2459,
+      "name": "chelsea-target-preview",
+      "output_limit": 2100,
+      "output_tokens": 137,
+      "parsed": true,
+      "prompt_version": "n129-shared-prompt",
+      "reading": "Estevao received brutally honest transfer advice from Chelsea despite Xabi Alonso's promise.\n\nChelsea players with 23 minutes of playing time this season are urged to leave the club.\n\nChelsea was labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict.",
+      "request_bytes": 4907,
+      "review": [
+        "Identity preview only; no model call and no claim this older source packet is current news."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 11665
+    },
+    {
+      "case": 2,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/narratives-person-86-FOOTBALL.json",
+      "generation_wall_ms": 9619,
+      "input_tokens": 2102,
+      "name": "narratives-person-86-FOOTBALL",
+      "output_limit": 2100,
+      "output_tokens": 123,
+      "parsed": true,
+      "prompt_version": "n129-shared-prompt",
+      "reading": "RB Leipzig coach Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu.\n\nDemichelis stated that Franco Mastantuono needs time to develop but believes he is built for Real Madrid despite his loan spell at Fiorentina.",
+      "request_bytes": 4534,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 9636
+    },
+    {
+      "case": 3,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/narratives-player-37-NBA.json",
+      "generation_wall_ms": 12655,
+      "input_tokens": 2811,
+      "name": "narratives-player-37-NBA",
+      "output_limit": 2100,
+      "output_tokens": 158,
+      "parsed": true,
+      "prompt_version": "n129-shared-prompt",
+      "reading": "Bradley Beal is ruled out for the game against Sacramento due to a knee injury, according to NBC Sports.\n\nNBC Sports reports that Bradley Beal remains unavailable for the upcoming game against the Lakers due to his knee injury.\n\nABC30 Fresno reports that the Clippers have indicated Bradley Beal will wear Chris Paul's old No. 3 jersey.",
+      "request_bytes": 5016,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 12676
+    },
+    {
+      "case": 4,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/transfer-player-83946-NFL.json",
+      "generation_wall_ms": 9000,
+      "input_tokens": 2162,
+      "name": "transfer-player-83946-NFL",
+      "output_limit": 1400,
+      "output_tokens": 93,
+      "parsed": false,
+      "prompt_version": "insider-source-v30-shared-prompt",
+      "reading": "named claim is absent from cited reports: Philadelphia Eagles",
+      "request_bytes": 5157,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 9019
+    },
+    {
+      "case": 5,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+      "generation_wall_ms": 9411,
+      "input_tokens": 2456,
+      "name": "transfer-team-37-FOOTBALL",
+      "output_limit": 1400,
+      "output_tokens": 88,
+      "parsed": true,
+      "prompt_version": "insider-source-v30-shared-prompt",
+      "reading": "0 finding(s) | Roma is looking to make two signings in January, though no specific targets or parties are named in the available reports. The club has rejected three offers for Pisilli this summer and will lose coach Pellegrini for at least six to eight weeks due to a serious injury. There is no reported movement involving Roma as a target or a mover in the provided data.",
+      "request_bytes": 5436,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "accepted",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 9434
+    },
+    {
+      "case": 6,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/vibe-person-23-FOOTBALL.json",
+      "generation_wall_ms": 10569,
+      "input_tokens": 2369,
+      "name": "vibe-person-23-FOOTBALL",
+      "output_limit": 600,
+      "output_tokens": 133,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v42-shared-prompt",
+      "reading": "De Zerbi expresses delight and hope over Spurs' resilience and style\n\nRoberto De Zerbi is portrayed as deeply pleased with Tottenham's performance, describing himself as 'very happy' and 'delighted' after a crucial victory over Coventry. He specifically praises the team's resilience and hopes their positive 'attitude' and 'mentality' remain intact. While one source notes his focus on Kulusevski's return, the prevailing tone across reports is one of satisfaction and optimism regarding the team's style and response to the match.",
+      "request_bytes": 5430,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 10589
+    },
+    {
+      "case": 7,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/vibe-person-959-NFL.json",
+      "generation_wall_ms": 6567,
+      "input_tokens": 1412,
+      "name": "vibe-person-959-NFL",
+      "output_limit": 600,
+      "output_tokens": 89,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v42-shared-prompt",
+      "reading": "Jerry Jones faces criticism from ex-Cowboys star and media reports of disappointment\n\nCoverage indicates Jerry Jones is feeling disappointed and is seeking roster improvements before the trade deadline. An ex-Cowboys star has publicly criticized Jones amid reports of team struggles. The tone reflects mixed reactions: internal dissatisfaction from Jones and external criticism from a former player, without evidence of a unified fan or organizational consensus.",
+      "request_bytes": 3613,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 6585
+    }
+  ],
+  "completed": 7
+}

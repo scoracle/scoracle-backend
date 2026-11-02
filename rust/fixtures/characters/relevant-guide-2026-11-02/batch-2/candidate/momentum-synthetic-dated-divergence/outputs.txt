@@ -1,0 +1,6 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — momentum / momentum-synthetic-dated-divergence [accepted]
+Harbor's measured rebounding is strong while coverage leans cautious, and rating notability increased by eight points over a two-observation window while coverage tone decreased by twelve points. These distinct metrics describe separate aspects of the current picture; neither establishes that the other is wrong or explains a change over time.
+

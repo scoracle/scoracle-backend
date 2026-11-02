@@ -1,5 +1,17 @@
 //! Load, select and present Classifier headlines for the daily package.
-use super::prompt::{assemble, prompt, Assignment, Disposition, NARRATIVES_PROMPT_VERSION};
+
+const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
+    relationship: "new_content contains the articles you may use as evidence. Their text identifies who acts, speaks or is discussed; the target is not automatically the actor or speaker. Keep names, actions, numbers, units, dates and qualifications with their original subjects. Preserve conditions, denials and corrections. Repeated claims are not independent confirmation. Target attributes are background, not evidence for a news story.",
+    fields: &[
+        ("id", "article number within this request; cite it in report_ids."),
+        ("publisher", "outlet supplying this article. Name it when citing the story; it is not necessarily the speaker or original source named in the text."),
+        ("headline", "article title, not the full article. Use only what it states; do not guess omitted details or identify unnamed people."),
+        ("publisher_excerpt", "supplied passage."),
+        ("evidence_scope", "available text only; headline supplies no unseen article contents."),
+    ],
+};
+
+use super::request::{assemble, prompt, Assignment, Disposition, NARRATIVES_PROMPT_VERSION};
 use crate::tools::meta::EntityMeta;
 use crate::tools::source::SourceContext;
 use anyhow::{ensure, Result};
@@ -35,16 +47,13 @@ impl From<&SourceContext> for CorpusItem {
 #[derive(Serialize)]
 pub(super) struct Report<'a> {
     /// A request-local writing slot, not a durable source identity.
-    report_key: String,
+    id: usize,
     publisher: &'a str,
-    published_at: Option<String>,
     evidence_scope: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     headline: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     publisher_excerpt: Option<String>,
-    article_id: i64,
-    url: Option<&'a str>,
 }
 
 impl Report<'_> {
@@ -59,7 +68,7 @@ impl Report<'_> {
                     .or(self.publisher_excerpt.as_deref())
                     .unwrap_or_default()
             ),
-            published_at: self.published_at.clone(),
+            published_at: None,
         }
     }
 }
@@ -72,19 +81,13 @@ pub(super) fn reports(reports: &[CorpusItem]) -> Vec<Report<'_>> {
         .iter()
         .enumerate()
         .map(|(index, report)| Report {
-            report_key: format!("report_{}", index + 1),
-            article_id: report.id,
-            url: report
-                .classifier_world
-                .as_ref()
-                .and_then(|w| w["url"].as_str()),
+            id: index + 1,
             headline: report
                 .classifier_world
                 .as_ref()
                 .is_some_and(|w| w["evidence_scope"] == "headline")
                 .then(|| crate::tools::fetch::decode_entities(&report.title)),
             publisher: &report.source,
-            published_at: report.published_at_epoch.map(crate::util::utc_timestamp),
             publisher_excerpt: report
                 .classifier_world
                 .as_ref()
@@ -101,6 +104,10 @@ pub(super) fn reports(reports: &[CorpusItem]) -> Vec<Report<'_>> {
             },
         })
         .collect()
+}
+
+pub(super) fn select(reports: &[CorpusItem]) -> Vec<CorpusItem> {
+    crate::tools::source::top_articles(reports, "subject", |r| r.classifier_world.as_ref())
 }
 
 /// Exact-text equality is duplication, never semantic corroboration. Preserve
@@ -167,13 +174,14 @@ pub fn prepare(
         seen.insert(key);
         selected.push(item);
     }
+    let selected = select(&selected);
     // The provider admits the complete request using exact tokens plus reserved output.
     let rendered = assemble(&subject, &selected, None);
     let input_hash = crate::util::hash_components(
         &json!({
             "subject": subject, "reports": selected, "version": NARRATIVES_PROMPT_VERSION,
             "fresh_contract": FRESH_VERSION, "world": crate::util::hash_components(&rendered),
-            "instruction": super::prompt::instructions(),
+            "instruction": super::character_instructions::INSTRUCTIONS,
         })
         .to_string(),
     );
@@ -225,4 +233,11 @@ pub async fn load_narratives_material(
         assignment,
         sources,
     })
+}
+
+pub(super) fn context(reports: &[CorpusItem]) -> crate::tools::prompt::Context<Vec<Report<'_>>> {
+    crate::tools::prompt::Context {
+        guide: GUIDE,
+        data: self::reports(reports),
+    }
 }

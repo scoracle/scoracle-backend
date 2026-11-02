@@ -1,0 +1,18 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / chelsea-live-live-journalist-preview [accepted]
+Chelsea FC Latest News .com reports that the club promoted Penders and Sharman-Lowe following Emi Martinez's injury. FootballTransfers.com notes Manu Kone is a record signing target. Talk Chelsea states a £100m target's boss claims his boss has not given up on securing a new contract. London Evening Standard and Flashscore.com provide injury updates and search for new right-back options amid Gusto uncertainty.
+
+2 — narratives / dak-prescott-live-journalist-preview [rejected]
+named claim is absent from cited reports: Dak Prescott Rankings Decline Amid Season Low
+
+3 — narratives / chelsea-target-preview [rejected]
+named claim is absent from cited reports: Xabi Alonso
+
+4 — narratives / narratives-person-86-FOOTBALL [accepted]
+Martin Demichelis, RB Leipzig coach, praised Yan Diomande ahead of the Real Madrid clash. Yahoo and Yardbarker reported that Demichelis raved about the player before the Champions League tie at the Bernabeu. OneFootball also noted Demichelis hailing Diomande before the match.
+
+5 — narratives / narratives-player-37-NBA [rejected]
+named claim is absent from cited reports: Los Angeles Clippers
+

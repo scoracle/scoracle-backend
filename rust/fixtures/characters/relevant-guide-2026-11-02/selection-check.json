@@ -1,0 +1,110 @@
+[
+  {
+    "case": "momentum-player-744-NFL",
+    "prompt_version": "momentum-s49-relevant-guide",
+    "selected_arm": "candidate",
+    "user_sha256": "7c53adad73a3fcf231bdff689fdfa1ee7062c3c89d8c4aae8a0ba2d1e7051c08",
+    "system_sha256": "cad2091d84454b5676168d8ac5365bcc79d6b414a13d60d75517521777f348f5",
+    "receipt": "batch-1/candidate/momentum-player-744-NFL/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "momentum-synthetic-dated-divergence",
+    "prompt_version": "momentum-s49-relevant-guide",
+    "selected_arm": "candidate",
+    "user_sha256": "f9a5fe7df9dc40f72d4ff81bfcfbaf2fd67267da947bb48903ca994a3ff64275",
+    "system_sha256": "cad2091d84454b5676168d8ac5365bcc79d6b414a13d60d75517521777f348f5",
+    "receipt": "batch-2/candidate/momentum-synthetic-dated-divergence/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "narratives-person-86-FOOTBALL",
+    "prompt_version": "n126-relevant-guide",
+    "selected_arm": "final",
+    "user_sha256": "47e645cc71a7657b83735f8d9f3411cdb85d48951c519e14ca90269b5cd3073e",
+    "system_sha256": "d9e16ac007ffd07174ebe4f3b1f8aeb3ebe56adb6449b295f471526c368c382e",
+    "receipt": "final/narratives-person-86-FOOTBALL/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "narratives-player-37-NBA",
+    "prompt_version": "n126-relevant-guide",
+    "selected_arm": "final",
+    "user_sha256": "92e8481de6f27a9aca1c1da5a58fae0265278efc7092eeb4685bf0595a8ef6a3",
+    "system_sha256": "d9e16ac007ffd07174ebe4f3b1f8aeb3ebe56adb6449b295f471526c368c382e",
+    "receipt": "final/narratives-player-37-NBA/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "oracle-player-744-NFL",
+    "prompt_version": "or37-relevant-guide",
+    "selected_arm": "candidate",
+    "user_sha256": "5ebc24c5a330ae90b30daac381294f6860b52111a6a9b731e546cd3e7c8d208d",
+    "system_sha256": "efcc445ceeebeb0a2c9ddf9ebc13c4a2c51876cf7339d29d196b3cd5035565e0",
+    "receipt": "batch-2/candidate/oracle-player-744-NFL/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "oracle-team-2-NBA",
+    "prompt_version": "or37-relevant-guide",
+    "selected_arm": "candidate",
+    "user_sha256": "024f6ab46a2016dba7c765166d1b1a3856e87dfff644c8d6a747bf12da514cfd",
+    "system_sha256": "efcc445ceeebeb0a2c9ddf9ebc13c4a2c51876cf7339d29d196b3cd5035565e0",
+    "receipt": "batch-1/candidate/oracle-team-2-NBA/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "rating-player-744-NFL",
+    "prompt_version": "s86-relevant-guide",
+    "selected_arm": "candidate",
+    "user_sha256": "edc27a9eba0b2ee7d51ee8ec3d55be21b84b23a6ee2bde1fb56a2ad6da567d6e",
+    "system_sha256": "cf7873c8514947f643e0a5c161ec003dfa570a1546c181ba922ba75981aad374",
+    "receipt": "batch-2/candidate/rating-player-744-NFL/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "rating-team-2-NBA",
+    "prompt_version": "s86-relevant-guide",
+    "selected_arm": "candidate",
+    "user_sha256": "0a5e040ca99b06a1f015f2870caac1a87817dd0c67e25358a6fd522fffb70fdc",
+    "system_sha256": "cf7873c8514947f643e0a5c161ec003dfa570a1546c181ba922ba75981aad374",
+    "receipt": "batch-1/candidate/rating-team-2-NBA/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "transfer-player-83946-NFL",
+    "prompt_version": "insider-source-v27-relevant-guide",
+    "selected_arm": "final",
+    "user_sha256": "2df3e1a03f35adb35036407292c065adbbcc7271dfb89128419e7912abf17f63",
+    "system_sha256": "ed777f7419787a4a9526610f8cd797536eeee30c9b001c51cfed2f67f2da3a6c",
+    "receipt": "final/transfer-player-83946-NFL/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "transfer-team-37-FOOTBALL",
+    "prompt_version": "insider-source-v27-relevant-guide",
+    "selected_arm": "final",
+    "user_sha256": "5c152b0a178f4ee74c809c57d0521fac376393009242f863bd4444232caee61a",
+    "system_sha256": "ed777f7419787a4a9526610f8cd797536eeee30c9b001c51cfed2f67f2da3a6c",
+    "receipt": "final/transfer-team-37-FOOTBALL/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "vibe-person-23-FOOTBALL",
+    "prompt_version": "vibe-frame-v39-relevant-guide",
+    "selected_arm": "candidate",
+    "user_sha256": "905eac461c98657e7a47f03aa5fea80b4d00d91cc71174847e1a0ddb19737a9b",
+    "system_sha256": "d44e5f752041d71626d4c05bd59e7daa27021f8ad4e27e36443c5cbe8c72b1da",
+    "receipt": "batch-1/candidate/vibe-person-23-FOOTBALL/01/result.json",
+    "exact_input_match": true
+  },
+  {
+    "case": "vibe-person-959-NFL",
+    "prompt_version": "vibe-frame-v39-relevant-guide",
+    "selected_arm": "candidate",
+    "user_sha256": "49146838b439e2df0598f2f71cf5c4760ea6b49f400fdcd7933c4de136e96c49",
+    "system_sha256": "d44e5f752041d71626d4c05bd59e7daa27021f8ad4e27e36443c5cbe8c72b1da",
+    "receipt": "batch-2/candidate/vibe-person-959-NFL/01/result.json",
+    "exact_input_match": true
+  }
+]

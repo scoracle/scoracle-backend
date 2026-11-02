@@ -1,7 +1,7 @@
 //! Unit and exact-publication tests for the Scout application adapter.
 
 use super::super::performance::RatingExclusions;
-use super::super::prompt::RATING_PROMPT_VERSION;
+use super::super::request::RATING_PROMPT_VERSION;
 use super::super::RatingProduct;
 use super::*;
 use crate::harness::Generation;

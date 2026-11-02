@@ -6,7 +6,7 @@ pub(crate) struct ReadingParser;
 
 impl Parser<String> for ReadingParser {
     fn parse(&self, raw: &str) -> Result<Option<String>> {
-        let prose = super::prompt::prose();
+        let prose = super::request::prose();
         let map = crate::tools::form::parse_prose_map(raw, &prose.keys)?;
         let Some(reading) = map.get("reading") else {
             return Ok(None);
@@ -33,7 +33,7 @@ impl Parser<String> for RequestParser<'_> {
         };
         crate::tools::fresh::validate_peer_reading(&reply, self.0)?;
         let package: serde_json::Value = serde_json::from_str(self.0)?;
-        let name = package["meta"]["name"]
+        let name = crate::tools::prompt::target(&package)["name"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing Oracle subject"))?;
         anyhow::ensure!(

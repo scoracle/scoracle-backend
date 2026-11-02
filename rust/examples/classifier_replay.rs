@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
             println!(
                 "{}",
                 json!({"id":case.id,"headline":case.headline,"publisher":case.publisher,"meta":case.meta,"sport":case.sport,"expected":case.expected,
-                "request":decision::request(&case.headline,&case.publisher,&case.sport,&case.meta)?})
+                "request":scoracle_cognition::plugins::classifier::character_instructions::request(&case.headline,&case.publisher,&case.sport,&case.meta)?})
             );
         }
         return Ok(());

@@ -1,6 +1,6 @@
 //! Exercise prepared cognition and actual provenance without application services.
 
-use super::prompt::*;
+use super::request::*;
 use super::*;
 use crate::harness::model::{GenerateResult, Inference};
 use crate::harness::{model::GenerateOptions, Parser};
@@ -143,12 +143,12 @@ async fn complete_assignment_creates_validated_product_with_actual_provenance() 
         .contains("Kerr's measured form is gaining ground."));
     assert_eq!(
         calls[0].1.system.as_deref(),
-        Some(MOMENTUM_SYSTEM_PROMPT.trim())
+        Some(super::character_instructions::INSTRUCTIONS.system())
     );
     let package: serde_json::Value = serde_json::from_str(&calls[0].0).unwrap();
     assert!(package.get("task").is_none());
     assert_eq!(
-        package["fresh"]["comparisons"][0]["measure"],
+        package["new_content"]["comparisons"][0]["measure"],
         "rating_notability"
     );
     assert_eq!(out.direction, "rising");

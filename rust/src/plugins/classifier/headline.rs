@@ -47,7 +47,12 @@ pub(super) async fn measure(
     for candidate in &before.query_entities {
         let meta = subject_meta(pool, candidate).await?;
         let target = json!({"entity_type":meta["identity"]["entity_type"],"entity_id":meta["identity"]["entity_id"],"sport":item.sport});
-        let request = decision::request(title, &before.source, &item.sport, &meta)?;
+        let request = crate::plugins::classifier::character_instructions::request(
+            title,
+            &before.source,
+            &item.sport,
+            &meta,
+        )?;
         let request_hash = hash(&request.to_string());
         let cached: Option<Value> = sqlx::query_scalar("SELECT receipt->'measurement' FROM classifier_measurements WHERE sport=$1 AND request_hash=$2 AND status='source_bound_provisional' AND receipt#>>'{measurement,response,model}'=$3 ORDER BY id DESC LIMIT 1")
             .bind(&item.sport).bind(&request_hash).bind(&model).fetch_optional(pool).await?;
@@ -142,7 +147,7 @@ mod gender_tests {
                 "entity_id":id,"sport":"FOOTBALL"}),
             )
             .await?;
-            let payload = decision::request(
+            let payload = crate::plugins::classifier::character_instructions::request(
                 "Cedar United Women appoint Jo Vale",
                 "Fixture Wire",
                 "FOOTBALL",

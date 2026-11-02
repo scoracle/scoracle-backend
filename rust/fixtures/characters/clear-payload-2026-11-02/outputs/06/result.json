@@ -1,0 +1,22 @@
+{
+  "case": 6,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/transfer-player-83946-NFL.json",
+  "generation_wall_ms": 7491,
+  "input_tokens": 1556,
+  "name": "transfer-player-83946-NFL",
+  "output_limit": 1400,
+  "output_tokens": 93,
+  "parsed": false,
+  "prompt_version": "insider-source-v32-clear-payload",
+  "reading": "named claim is absent from cited reports: Philadelphia Eagles",
+  "request_bytes": 4687,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 7505
+}

@@ -1,0 +1,21 @@
+{
+  "starting_commit": "6a87e76db7ef4b8c64bcd6ac4514efd42278bca0",
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "temperature": 0,
+  "thinking": false,
+  "concurrency": 1,
+  "retries": 0,
+  "database_access": false,
+  "publishes": false,
+  "design": "Same evidence; alternating arm order. Development cases, not held-out accuracy.",
+  "binaries": {
+    "baseline": {
+      "path": "/private/tmp/scoracle-6a87e76d-character_outputs",
+      "sha256": "b193b6d94ce0a2ae0e84e1e3cfbcdbda15d102f5b249b3741c6112d64db4e023"
+    },
+    "candidate": {
+      "path": "/Users/scotty/scoracle/scoracle-backend/rust/target/debug/examples/character_outputs",
+      "sha256": "508fe5ffd61e8caaa61974c2763e56ea7b8d7723f66b78a793493026fabefa7f"
+    }
+  }
+}

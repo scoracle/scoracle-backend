@@ -1,0 +1,211 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/chelsea-live.fixture.json",
+      "generation_wall_ms": 8162,
+      "input_tokens": 1224,
+      "name": "chelsea-live-live-journalist-preview",
+      "output_limit": 2100,
+      "output_tokens": 147,
+      "parsed": true,
+      "prompt_version": "n131-clear-payload",
+      "reading": "Chelsea FC Latest News .com reports that the club promoted Penders and Sharman-Lowe following Emi Martinez's injury.\n\nFootballTransfers.com headlines suggest Manu Kone is a record signing target for Chelsea.\n\nTalk Chelsea reports that Chelsea's £100m target claims his boss has not given up on signing a new contract.",
+      "request_bytes": 3203,
+      "review": [
+        "Read-only Archbox capture for inspecting current model inputs; no generation or publication."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 8183
+    },
+    {
+      "case": 2,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/dak-prescott.fixture.json",
+      "generation_wall_ms": 9045,
+      "input_tokens": 1188,
+      "name": "dak-prescott-live-journalist-preview",
+      "output_limit": 2100,
+      "output_tokens": 168,
+      "parsed": false,
+      "prompt_version": "n131-clear-payload",
+      "reading": "named claim is absent from cited reports: Dak Prescott's Season Rankings Hit",
+      "request_bytes": 3019,
+      "review": [
+        "Read-only Archbox capture for inspecting current model inputs; no generation or publication."
+      ],
+      "status": "rejected",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 9058
+    },
+    {
+      "case": 3,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/narratives-chelsea-top-five.json",
+      "generation_wall_ms": 7944,
+      "input_tokens": 1213,
+      "name": "chelsea-target-preview",
+      "output_limit": 2100,
+      "output_tokens": 144,
+      "parsed": true,
+      "prompt_version": "n131-clear-payload",
+      "reading": "Football London reported that Estevao received brutally honest transfer advice from Chelsea despite a promise from Xabi Alonso.\n\nCaughtOffside urged a Chelsea player with 23 minutes of playing time this season to leave the club.\n\nFootball London stated Chelsea were labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict.",
+      "request_bytes": 3122,
+      "review": [
+        "Identity preview only; no model call and no claim this older source packet is current news."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 7957
+    },
+    {
+      "case": 4,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/narratives-person-86-FOOTBALL.json",
+      "generation_wall_ms": 5955,
+      "input_tokens": 1322,
+      "name": "narratives-person-86-FOOTBALL",
+      "output_limit": 2100,
+      "output_tokens": 75,
+      "parsed": true,
+      "prompt_version": "n131-clear-payload",
+      "reading": "Martin Demichelis, RB Leipzig's coach, praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabeu.",
+      "request_bytes": 3479,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 5971
+    },
+    {
+      "case": 5,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/narratives-player-37-NBA.json",
+      "generation_wall_ms": 6798,
+      "input_tokens": 1069,
+      "name": "narratives-player-37-NBA",
+      "output_limit": 2100,
+      "output_tokens": 122,
+      "parsed": false,
+      "prompt_version": "n131-clear-payload",
+      "reading": "named claim is absent from cited reports: Los Angeles Clippers",
+      "request_bytes": 2562,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "rejected",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 6817
+    },
+    {
+      "case": 6,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/transfer-player-83946-NFL.json",
+      "generation_wall_ms": 7491,
+      "input_tokens": 1556,
+      "name": "transfer-player-83946-NFL",
+      "output_limit": 1400,
+      "output_tokens": 93,
+      "parsed": false,
+      "prompt_version": "insider-source-v32-clear-payload",
+      "reading": "named claim is absent from cited reports: Philadelphia Eagles",
+      "request_bytes": 4687,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 7505
+    },
+    {
+      "case": 7,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+      "generation_wall_ms": 7136,
+      "input_tokens": 1451,
+      "name": "transfer-team-37-FOOTBALL",
+      "output_limit": 1400,
+      "output_tokens": 100,
+      "parsed": false,
+      "prompt_version": "insider-source-v32-clear-payload",
+      "reading": "named claim is absent from cited reports: Mirko Vučinić",
+      "request_bytes": 4212,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 7157
+    },
+    {
+      "case": 8,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/vibe-person-23-FOOTBALL.json",
+      "generation_wall_ms": 6696,
+      "input_tokens": 1435,
+      "name": "vibe-person-23-FOOTBALL",
+      "output_limit": 600,
+      "output_tokens": 89,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v44-clear-payload",
+      "reading": "De Zerbi expresses joy over Spurs' resilience and style\n\nRoberto De Zerbi is portrayed as delighted and happy following Tottenham's victory over Coventry. Multiple sources report that he praised the team's attitude, mentality, and resilience, describing the result as 'great news' and noting how Spurs turned on their style.",
+      "request_bytes": 4322,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 6716
+    },
+    {
+      "case": 9,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/vibe-person-959-NFL.json",
+      "generation_wall_ms": 3623,
+      "input_tokens": 1210,
+      "name": "vibe-person-959-NFL",
+      "output_limit": 600,
+      "output_tokens": 14,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v44-clear-payload",
+      "reading": "empty reading",
+      "request_bytes": 3460,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 3642
+    }
+  ],
+  "completed": 9
+}

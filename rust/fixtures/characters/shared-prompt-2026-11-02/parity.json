@@ -1,0 +1,486 @@
+{
+  "character_requests": 59,
+  "quality_fixtures": 52,
+  "decision_requests": 24,
+  "decision_byte_identical": true,
+  "allowed_changes": [
+    "voice extracted without changing job wording or order",
+    "trailing tone removed for remaining characters",
+    "Scout obsolete tone-field reference removed",
+    "prompt versions bumped"
+  ],
+  "cases": [
+    {
+      "fixture": "fixtures/quality/narratives/synthetic-closed-training-fresh-only.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/one-result.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/conflicting-reports.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/synthetic-discussion-no-new-event.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/late-qualification.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/gordon-derozan-wrong-subject.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/synthetic-training-time-fresh-only.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/synthetic-meta-missing.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/distinct-developments.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/no-new-material.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/synthetic-meta-profile-only.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/headline-corpus.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/synthetic-meta-stale-affiliation.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/nba-attribution.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/rumour-and-denial.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/narratives/synthetic-meta-name-collision.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/synthetic-incompatible.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/synthetic-zero-unknown.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/synthetic-strong.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/synthetic-source-trigger.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/synthetic-daily-withdrawal.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/synthetic-sparse.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/nfl-team-zero-interceptions.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/synthetic-measured-memory.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/synthetic-composite.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/synthetic-withdrawn-report.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/rating/football-player-total.json",
+      "role": "scout",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "s87-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/momentum/falling-confirmed.json",
+      "role": "analyst",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "momentum-s50-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/momentum/shared-decline-holdout.json",
+      "role": "analyst",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "momentum-s50-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/momentum/synthetic-dated-missing-peer.json",
+      "role": "analyst",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "momentum-s50-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/momentum/sparse-samples-stay-steady.json",
+      "role": "analyst",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "momentum-s50-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/momentum/synthetic-dated-divergence.json",
+      "role": "analyst",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "momentum-s50-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/momentum/mixed-peak-up-vibe-down.json",
+      "role": "analyst",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "momentum-s50-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/momentum/missing-mood-peer.json",
+      "role": "analyst",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "momentum-s50-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/momentum/rising-confirmed.json",
+      "role": "analyst",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "momentum-s50-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/oracle/near-empty-quiet-wire.json",
+      "role": "oracle",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "or38-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/oracle/three-card-newcomer.json",
+      "role": "oracle",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "or38-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/oracle/crossroads-conflict.json",
+      "role": "oracle",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "or38-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/oracle/ascendant-aligned.json",
+      "role": "oracle",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "or38-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/transfer/explicit-denial-clears-prior-rumor.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/transfer/headline-unnamed-signing.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/transfer/fully-named-advanced-talks.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/transfer/fizzled-prior-lowrel-skeptic.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/transfer/gordon-derozan-wrong-subject.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/transfer/unnamed-signing-no-identity-join.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/transfer/reliable-source-heating-steam.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/transfer/fully-named-interest.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/vibe/quiet-mixed.json",
+      "role": "influencer",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "vibe-frame-v42-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/vibe/warm-memory-cold-coverage.json",
+      "role": "influencer",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "vibe-frame-v42-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/vibe/gordon-derozan-wrong-subject.json",
+      "role": "influencer",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "vibe-frame-v42-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/vibe/clearly-positive.json",
+      "role": "influencer",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "vibe-frame-v42-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/quality/vibe/clearly-negative.json",
+      "role": "influencer",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "vibe-frame-v42-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/characters/top-five-2026-11-02/cases/narratives-chelsea-top-five.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/characters/top-five-2026-11-02/cases/narratives-person-86-FOOTBALL.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/characters/top-five-2026-11-02/cases/narratives-player-37-NBA.json",
+      "role": "journalist",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "n129-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/characters/top-five-2026-11-02/cases/transfer-player-83946-NFL.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/characters/top-five-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+      "role": "insider",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "insider-source-v30-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/characters/top-five-2026-11-02/cases/vibe-person-23-FOOTBALL.json",
+      "role": "influencer",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "vibe-frame-v42-shared-prompt"
+    },
+    {
+      "fixture": "fixtures/characters/top-five-2026-11-02/cases/vibe-person-959-NFL.json",
+      "role": "influencer",
+      "evidence_unchanged": true,
+      "guide_meanings_unchanged": true,
+      "native_options_unchanged": true,
+      "prompt_version": "vibe-frame-v42-shared-prompt"
+    }
+  ]
+}

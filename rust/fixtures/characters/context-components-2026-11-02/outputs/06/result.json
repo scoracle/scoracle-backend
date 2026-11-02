@@ -1,0 +1,24 @@
+{
+  "case": 6,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-components-2026-11-02/cases/vibe-person-23-FOOTBALL.json",
+  "generation_wall_ms": 10667,
+  "input_tokens": 2369,
+  "name": "vibe-person-23-FOOTBALL",
+  "output_limit": 600,
+  "output_tokens": 133,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v43-context-components",
+  "reading": "De Zerbi expresses delight and hope over Spurs' resilience and style\n\nRoberto De Zerbi is portrayed as deeply pleased with Tottenham's performance, describing himself as 'very happy' and 'delighted' after a crucial victory over Coventry. He specifically praises the team's resilience and hopes their positive 'attitude' and 'mentality' remain intact. While one source notes his focus on Kulusevski's return, the prevailing tone across reports is one of satisfaction and optimism regarding the team's style and response to the match.",
+  "request_bytes": 5430,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 10691
+}

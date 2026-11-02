@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/chelsea-live.fixture.json",
+  "generation_wall_ms": 23635,
+  "input_tokens": 1114,
+  "name": "chelsea-live-live-journalist-preview",
+  "output_limit": 2100,
+  "output_tokens": 120,
+  "parsed": true,
+  "prompt_version": "n132-direct-instructions",
+  "reading": "Chelsea FC Latest News .com reports that the club promoted Penders and Sharman-Lowe following Emi Martinez's injury. FootballTransfers.com notes Manu Kone is a record signing target. Talk Chelsea states a £100m target's boss claims his boss has not given up on securing a new contract. London Evening Standard and Flashscore.com provide injury updates and search for new right-back options amid Gusto uncertainty.",
+  "request_bytes": 3772,
+  "review": [
+    "Read-only Archbox capture for inspecting current model inputs; no generation or publication."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 23720
+}

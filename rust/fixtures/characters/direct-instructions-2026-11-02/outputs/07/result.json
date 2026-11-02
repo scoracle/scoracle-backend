@@ -1,0 +1,22 @@
+{
+  "case": 7,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+  "generation_wall_ms": 7223,
+  "input_tokens": 1490,
+  "name": "transfer-team-37-FOOTBALL",
+  "output_limit": 1400,
+  "output_tokens": 88,
+  "parsed": false,
+  "prompt_version": "insider-source-v33-plain-brief",
+  "reading": "cited reports do not connect La Gazzetta with numerical fact 6",
+  "request_bytes": 4420,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 7257
+}

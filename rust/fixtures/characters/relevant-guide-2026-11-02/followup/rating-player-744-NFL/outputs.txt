@@ -1,0 +1,6 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / rating-player-744-NFL [accepted]
+Sam LaPorta's 2026 profile shows 316.0 yards responsible for and 18.0 points responsible for, placing the yards measure at the 90.6th percentile in the elite band and the points measure at the 89.4th percentile in the strong band. Both readings rest on a thin-sample limit of five appearances, which falls below the minimum threshold of ten required for cross-season comparison.
+

@@ -13,13 +13,10 @@ pub fn evidence_key(publisher: &str, text: &str) -> (String, String) {
 #[derive(Serialize)]
 pub struct Report<'a> {
     publisher: &'a str,
-    published_at: Option<String>,
     evidence_scope: &'static str,
     headline: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     publisher_text: Option<String>,
-    article_id: i64,
-    url: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     classifier_world: Option<serde_json::Value>,
 }
@@ -28,8 +25,6 @@ pub fn reports(sources: &[SourceContext]) -> Vec<Report<'_>> {
     sources
         .iter()
         .map(|s| Report {
-            article_id: s.article_id,
-            url: s.classifier_world.as_ref().and_then(|w| w["url"].as_str()),
             evidence_scope: if s
                 .classifier_world
                 .as_ref()
@@ -41,19 +36,12 @@ pub fn reports(sources: &[SourceContext]) -> Vec<Report<'_>> {
             },
             headline: super::fetch::decode_entities(&s.headline),
             publisher: &s.source,
-            published_at: s.published_at_epoch.map(crate::util::utc_timestamp),
             publisher_text: (s
                 .classifier_world
                 .as_ref()
                 .is_none_or(|w| w["evidence_scope"] != "headline"))
             .then(|| super::fetch::decode_entities(&s.context)),
-            classifier_world: evidence_world(s.classifier_world.as_ref()).map(|mut world| {
-                // The link already has its own field in this report projection.
-                if let Some(fields) = world.as_object_mut() {
-                    fields.remove("url");
-                }
-                world
-            }),
+            classifier_world: evidence_world(s.classifier_world.as_ref()),
         })
         .collect()
 }
@@ -62,7 +50,7 @@ pub fn reports(sources: &[SourceContext]) -> Vec<Report<'_>> {
 pub fn evidence_world(world: Option<&serde_json::Value>) -> Option<serde_json::Value> {
     world.cloned().map(|mut world| {
         if let Some(fields) = world.as_object_mut() {
-            for key in ["gate", "spectrum"] {
+            for key in ["gate", "spectrum", "article_id", "url", "published_at"] {
                 fields.remove(key);
             }
         }
@@ -82,7 +70,7 @@ mod tests {
         let result = evidence_world(Some(&world)).unwrap();
         assert_eq!(
             result,
-            json!({"url":"https://example.invalid", "evidence_scope":"headline", "target_identity_resolved":false,
+            json!({"evidence_scope":"headline", "target_identity_resolved":false,
             "qualified_claims":[{"negation":"not confirmed"}]})
         );
         assert!(world.get("url").is_some());
@@ -310,10 +298,10 @@ pub fn validate_report_facts(text: &str, reports: &[ReportEvidence<'_>]) -> anyh
 /// shortcut: lexical evidence checks do not establish entailment; retain human factual qualification.
 pub fn validate_peer_reading(text: &str, prompt: &str) -> anyhow::Result<()> {
     let package: serde_json::Value = serde_json::from_str(prompt)?;
-    let name = package["meta"]["name"]
+    let name = crate::tools::prompt::target(&package)["name"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("missing peer subject"))?;
-    let peers = package["fresh"]
+    let peers = crate::tools::prompt::new_content(&package)
         .as_object()
         .ok_or_else(|| anyhow::anyhow!("missing peer evidence"))?;
     let sources: Vec<String> = peers

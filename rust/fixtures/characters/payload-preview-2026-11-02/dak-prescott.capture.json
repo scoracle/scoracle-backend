@@ -1,0 +1,41 @@
+{
+  "read_only": "on",
+  "captured_at": "2026-11-02T15:25:23.354265-05:00",
+  "target": {
+    "id": 25,
+    "name": "Dak Prescott",
+    "sport": "NFL"
+  },
+  "model_generation_calls": 0,
+  "production_writes": false,
+  "source": "Archbox via existing local SSH tunnel",
+  "production_capture_exit": 0,
+  "prompt_version": "n130-context-components",
+  "articles": 5,
+  "input_tokens": 2360,
+  "should_call": true,
+  "selected_reports": [
+    {
+      "article_id": 1254314,
+      "subject_score": 96.5860099129386
+    },
+    {
+      "article_id": 755412,
+      "subject_score": 96.52470483035692
+    },
+    {
+      "article_id": 1243693,
+      "subject_score": 95.23606653119374
+    },
+    {
+      "article_id": 992763,
+      "subject_score": 95.04371294128056
+    },
+    {
+      "article_id": 992777,
+      "subject_score": 95.02023695335244
+    }
+  ],
+  "native_template_rendered": true,
+  "source_wording_preserved": true
+}

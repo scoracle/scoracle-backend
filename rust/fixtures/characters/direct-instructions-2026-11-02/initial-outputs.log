@@ -1,0 +1,10 @@
+case 1: narratives / chelsea-live-live-journalist-preview
+  "accepted" (23.7s)
+case 2: narratives / dak-prescott-live-journalist-preview
+  "rejected" (9.7s)
+case 3: narratives / chelsea-target-preview
+  "rejected" (11.9s)
+case 4: narratives / narratives-person-86-FOOTBALL
+  "accepted" (6.6s)
+case 5: narratives / narratives-player-37-NBA
+  "rejected" (7.9s)

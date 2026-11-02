@@ -1,0 +1,23 @@
+{
+  "starting_commit": "6a87e76db7ef4b8c64bcd6ac4514efd42278bca0",
+  "command": "cargo test --offline --lib --examples --bin eval",
+  "passed": 420,
+  "failed": 0,
+  "ignored": 74,
+  "format_check": true,
+  "diff_check": true,
+  "character_requests_checked": 61,
+  "decision_requests_byte_identical": 24,
+  "temperature": 0,
+  "thinking": false,
+  "concurrency": 1,
+  "retries": 0,
+  "native_token_ids_verified": true,
+  "source_parts_unchanged": true,
+  "baseline_binary_sha256": "4488a8040a68c3354e876fb9d03cf563f328f9113ce43c7a792f67ef5efa414c",
+  "new_binary_sha256": "141f72ccc380167d9c2b66dd1f1e811cd5deaa9c1a16fabee229b16cbf3031dd",
+  "production_recovery_document_sha256": "ba141c9396f2ccca03ea198a5b5a858f9a7727b5414ef00732e39d9ceb7df086",
+  "production_recovery_document_unchanged": true,
+  "deployed": false,
+  "published": false
+}

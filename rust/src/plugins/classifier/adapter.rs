@@ -236,7 +236,7 @@ async fn validate_admission(
         ensure!(entry["target"] == target, "admission target changed");
         let measured = super::decision::Measurement::from_receipt(entry["measurement"].clone())?;
         if measured.receipt["request"]
-            != super::decision::request(
+            != super::character_instructions::request(
                 before.provenance["title"].as_str().context("headline")?,
                 &before.source,
                 &item.sport,

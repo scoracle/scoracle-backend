@@ -1,0 +1,22 @@
+{
+  "starting_commit": "6a87e76db7ef4b8c64bcd6ac4514efd42278bca0",
+  "command": "cargo test --offline --lib --examples --bin eval",
+  "passed": 420,
+  "failed": 0,
+  "ignored": 74,
+  "format_check": true,
+  "diff_check": true,
+  "complete_character_requests": 59,
+  "decision_requests_byte_identical": 24,
+  "generation_calls": 14,
+  "final_generation_calls": 7,
+  "final_inputs_and_outputs_match_baseline": true,
+  "input_token_range": [
+    1412,
+    2811
+  ],
+  "production_recovery_document_sha256": "ba141c9396f2ccca03ea198a5b5a858f9a7727b5414ef00732e39d9ceb7df086",
+  "production_recovery_document_unchanged": true,
+  "deployed": false,
+  "published": false
+}

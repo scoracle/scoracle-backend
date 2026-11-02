@@ -1,0 +1,32 @@
+{
+  "starting_commit": "6a87e76db7ef4b8c64bcd6ac4514efd42278bca0",
+  "command": "cargo test --offline --lib --examples --bin eval",
+  "passed": 420,
+  "failed": 0,
+  "ignored": 74,
+  "format_check": true,
+  "diff_check": true,
+  "complete_character_requests_unchanged": 59,
+  "decision_requests_unchanged": 24,
+  "model_calls": 7,
+  "generation_characters": [
+    "Journalist",
+    "Insider",
+    "Influencer"
+  ],
+  "temperature": 0,
+  "thinking": false,
+  "concurrency": 1,
+  "retries": 0,
+  "input_token_range": [
+    1412,
+    2811
+  ],
+  "token_savings_this_refactor": 0,
+  "final_outputs_match_baseline": true,
+  "mechanically_accepted": 6,
+  "production_recovery_document_sha256": "ba141c9396f2ccca03ea198a5b5a858f9a7727b5414ef00732e39d9ceb7df086",
+  "production_recovery_document_unchanged": true,
+  "deployed": false,
+  "published": false
+}

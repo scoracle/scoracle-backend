@@ -1,0 +1,167 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/narratives-chelsea-top-five.json",
+      "generation_wall_ms": 11277,
+      "input_tokens": 2459,
+      "name": "chelsea-target-preview",
+      "output_limit": 2100,
+      "output_tokens": 138,
+      "parsed": false,
+      "prompt_version": "n128-shared-prompt",
+      "reading": "named claim is absent from cited reports: Manchester City",
+      "request_bytes": 4907,
+      "review": [
+        "Identity preview only; no model call and no claim this older source packet is current news."
+      ],
+      "status": "rejected",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 11311
+    },
+    {
+      "case": 2,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/narratives-person-86-FOOTBALL.json",
+      "generation_wall_ms": 10037,
+      "input_tokens": 2102,
+      "name": "narratives-person-86-FOOTBALL",
+      "output_limit": 2100,
+      "output_tokens": 123,
+      "parsed": true,
+      "prompt_version": "n128-shared-prompt",
+      "reading": "RB Leipzig coach Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu.\n\nDemichelis stated that Franco Mastantuono needs time to develop but believes he is built for Real Madrid despite his loan spell at Fiorentina.",
+      "request_bytes": 4534,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 10058
+    },
+    {
+      "case": 3,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/narratives-player-37-NBA.json",
+      "generation_wall_ms": 12699,
+      "input_tokens": 2811,
+      "name": "narratives-player-37-NBA",
+      "output_limit": 2100,
+      "output_tokens": 158,
+      "parsed": true,
+      "prompt_version": "n128-shared-prompt",
+      "reading": "Bradley Beal is ruled out for the game against Sacramento due to a knee injury, according to NBC Sports.\n\nNBC Sports reports that Bradley Beal remains unavailable for the upcoming game against the Lakers due to his knee injury.\n\nABC30 Fresno reports that the Clippers have indicated Bradley Beal will wear Chris Paul's old No. 3 jersey.",
+      "request_bytes": 5016,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 12736
+    },
+    {
+      "case": 4,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/transfer-player-83946-NFL.json",
+      "generation_wall_ms": 9140,
+      "input_tokens": 2163,
+      "name": "transfer-player-83946-NFL",
+      "output_limit": 1400,
+      "output_tokens": 93,
+      "parsed": false,
+      "prompt_version": "insider-source-v29-shared-prompt",
+      "reading": "named claim is absent from cited reports: Philadelphia Eagles",
+      "request_bytes": 5161,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 9155
+    },
+    {
+      "case": 5,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+      "generation_wall_ms": 9702,
+      "input_tokens": 2457,
+      "name": "transfer-team-37-FOOTBALL",
+      "output_limit": 1400,
+      "output_tokens": 98,
+      "parsed": false,
+      "prompt_version": "insider-source-v29-shared-prompt",
+      "reading": "named claim is absent from cited reports: Mirko Vučinić",
+      "request_bytes": 5440,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 9724
+    },
+    {
+      "case": 6,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/vibe-person-23-FOOTBALL.json",
+      "generation_wall_ms": 10488,
+      "input_tokens": 2369,
+      "name": "vibe-person-23-FOOTBALL",
+      "output_limit": 600,
+      "output_tokens": 130,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v41-shared-prompt",
+      "reading": "De Zerbi expresses joy and pride over Spurs' resilience and style.\n\nRoberto De Zerbi is portrayed as deeply pleased with Tottenham's performance. He explicitly stated he is 'very happy' and 'delighted' by the team's resilience and ability to turn on the style following a vital win against Coventry. While other reports focus on his hope that the team's 'attitude' and 'mentality' remain intact, the prevailing tone across the coverage is one of satisfaction and celebration regarding the team's recent success.",
+      "request_bytes": 5430,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 10508
+    },
+    {
+      "case": 7,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/vibe-person-959-NFL.json",
+      "generation_wall_ms": 6439,
+      "input_tokens": 1412,
+      "name": "vibe-person-959-NFL",
+      "output_limit": 600,
+      "output_tokens": 85,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v41-shared-prompt",
+      "reading": "Jerry Jones faces criticism from ex-Cowboys star and media reports of disappointment\n\nCoverage indicates Jerry Jones is described as 'disappointed' by The Athletic, while Yahoo Sports reports an ex-Cowboys star has criticized him amid team struggles. The sources express these sentiments separately without confirming a unified consensus or revealing the specific nature of the star's remarks beyond the headline.",
+      "request_bytes": 3613,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 6456
+    }
+  ],
+  "completed": 7
+}

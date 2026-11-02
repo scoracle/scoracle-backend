@@ -1,0 +1,24 @@
+{
+  "case": 4,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/narratives-person-86-FOOTBALL.json",
+  "generation_wall_ms": 7165,
+  "input_tokens": 1283,
+  "name": "narratives-person-86-FOOTBALL",
+  "output_limit": 2800,
+  "output_tokens": 112,
+  "parsed": true,
+  "prompt_version": "n134-recap-hook-last",
+  "reading": "RB Leipzig boss Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu, describing the French defender as exceptional despite the daunting nature of the upcoming fixture. The comments were reported by Yahoo, Yardbarker, and OneFootball, who all highlighted Demichelis's high regard for Diomande in the context of the European tie.",
+  "request_bytes": 4044,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 7184
+}

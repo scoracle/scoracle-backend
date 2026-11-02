@@ -1,5 +1,5 @@
 //! SQL-owned descriptive source activity; never confidence or corroboration.
-use super::prompt::CorpusItem;
+use super::request::CorpusItem;
 use anyhow::Result;
 use serde_json::json;
 use sqlx::PgPool;

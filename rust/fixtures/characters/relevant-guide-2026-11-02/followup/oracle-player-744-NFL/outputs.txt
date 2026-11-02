@@ -1,0 +1,6 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — oracle / oracle-player-744-NFL [accepted]
+Sam LaPorta's available picture centers on elite statistical standing within a thin sample of five appearances, yet this measured performance is set against a backdrop of expressed frustration and a willingness to seek payment elsewhere. The divergence between his high percentile rankings and his reported dissatisfaction creates a tension where on-field contributions do not yet resolve the uncertainty surrounding his future with the Detroit Lions.
+

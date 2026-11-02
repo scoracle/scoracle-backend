@@ -1,0 +1,9 @@
+{
+  "total": 61,
+  "briefs_changed": 38,
+  "other_requests_byte_identical": 23,
+  "source_wording_and_selection_unchanged": true,
+  "target_and_target_guide_unchanged": true,
+  "source_parts_unchanged": true,
+  "schema_change": "Journalist: paragraphs with integer report_ids, then one headline; paragraph count bounded by selected articles, body and hook length bounds unchanged"
+}

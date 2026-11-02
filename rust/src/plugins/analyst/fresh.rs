@@ -1,5 +1,27 @@
 //! Current peer readings and dated computed comparisons, without historical prose.
-use super::prompt::{Form, Mood, Snapshot};
+
+const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
+    relationship: "new_content contains prepared interpretations about the target, not independent raw reports. Missing readings supply no judgment.",
+    fields: &[
+        ("scout.body", "performance interpretation; preserve each measure and sample limit."),
+        ("scout.season", "performance season."),
+        ("scout.generated_at", "reading creation date, not event date."),
+        ("influencer.body", "coverage tone or attributed reactions; preserve speaker and conditions."),
+        ("influencer.generated_at", "reading creation date, not event date."),
+        ("comparisons", "computed changes; each item has its own observation window."),
+        ("comparisons.measure", "rating_notability is statistical distinctiveness; coverage_tone is estimated coverage tone, not skill or population feeling."),
+        ("comparisons.change", "computed difference."),
+        ("comparisons.unit", "difference's unit."),
+        ("comparisons.direction", "computed direction for this measure."),
+        ("comparisons.samples", "observations for this comparison only."),
+        ("comparisons.window_start", "this comparison's start; other comparisons may start elsewhere."),
+        ("comparisons.window_end", "this comparison's end."),
+        ("comparisons.computed_at", "calculation date, not event date."),
+        ("comparisons.limit", "interpretation boundary."),
+    ],
+};
+
+use super::request::{Form, Mood, Snapshot};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -99,5 +121,16 @@ mod tests {
         s.rating_samples = 2;
         s.rating_window_end = None;
         assert!(!has_comparison(&s));
+    }
+}
+
+pub(super) fn context<'a>(
+    scout: Option<&'a Form>,
+    influencer: Option<&'a Mood>,
+    snapshot: &'a Snapshot,
+) -> crate::tools::prompt::Context<Fresh<'a>> {
+    crate::tools::prompt::Context {
+        guide: GUIDE,
+        data: readings(scout, influencer, snapshot),
     }
 }

@@ -1,0 +1,24 @@
+{
+  "case": 4,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/narratives-person-86-FOOTBALL.json",
+  "generation_wall_ms": 6537,
+  "input_tokens": 1215,
+  "name": "narratives-person-86-FOOTBALL",
+  "output_limit": 2100,
+  "output_tokens": 99,
+  "parsed": true,
+  "prompt_version": "n132-direct-instructions",
+  "reading": "Martin Demichelis, RB Leipzig coach, praised Yan Diomande ahead of the Real Madrid clash. Yahoo and Yardbarker reported that Demichelis raved about the player before the Champions League tie at the Bernabeu. OneFootball also noted Demichelis hailing Diomande before the match.",
+  "request_bytes": 4065,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 6555
+}

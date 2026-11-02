@@ -1,0 +1,20 @@
+[
+  {
+    "arm": "baseline",
+    "reports": 24,
+    "input_tokens": 10323,
+    "output_reservation": 2100,
+    "fits_7900": false,
+    "fits_10240": false,
+    "model_generations": 0
+  },
+  {
+    "arm": "final",
+    "reports": 24,
+    "input_tokens": 9929,
+    "output_reservation": 2100,
+    "fits_7900": false,
+    "fits_10240": false,
+    "model_generations": 0
+  }
+]

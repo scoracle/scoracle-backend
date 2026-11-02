@@ -1,5 +1,21 @@
 //! Load and present the daily emotional headline package.
-use super::prompt::{Assignment, Day, Parts, VIBE_PROMPT_VERSION};
+
+const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
+    relationship: "new_content contains coverage about the target. Distinguish the target's expressed feelings, others' feelings about it, and publisher tone.",
+    fields: &[
+        ("reporting_start", "coverage window begins, not a change in feelings."),
+        ("reporting_end", "coverage window ends."),
+        ("reports.publisher", "supplying outlet, distinct from any speaker in its text."),
+        ("reports.headline", "supplied title."),
+        ("reports.publisher_text", "supplied passage."),
+        ("reports.evidence_scope", "available text only; headline supplies no unseen article contents."),
+        ("reports.classifier_world.target_identity_resolved", "upstream identity match, not claim verification."),
+        ("reports.classifier_world.evidence_scope", "available source text."),
+        ("reports.classifier_world.qualified_claims", "selected claims with their qualifications."),
+    ],
+};
+
+use super::request::{Assignment, Day, Parts, VIBE_PROMPT_VERSION};
 use crate::tools::{meta::EntityMeta, source::SourceContext};
 use anyhow::Result;
 use serde_json::{json, Value};
@@ -163,7 +179,7 @@ mod tests {
         assert_eq!(parts.sources.len(), 2);
         assert!(parts.excluded.is_empty());
         assert_eq!(parts.hold_reason(), None);
-        assert!(parts.assemble().len() > super::super::prompt::SOURCE_BUDGET_BYTES);
+        assert!(parts.assemble().len() > super::super::request::SOURCE_BUDGET_BYTES);
         assert!(parts
             .assemble()
             .contains(&"The club denied that report. ".repeat(600)));
@@ -228,4 +244,11 @@ pub async fn prepare_assignment(
     tx.commit().await?;
     let receipt = json!({"contract":VIBE_PROMPT_VERSION,"day":parts.day,"excluded":parts.excluded,"memories":parts.memories});
     Ok((Assignment::from_parts(parts)?, receipt))
+}
+
+pub(super) fn context(parts: &Parts) -> crate::tools::prompt::Context<Evidence<'_>> {
+    crate::tools::prompt::Context {
+        guide: GUIDE,
+        data: evidence(parts),
+    }
 }

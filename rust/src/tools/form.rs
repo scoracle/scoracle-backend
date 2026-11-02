@@ -2,7 +2,7 @@
 //!
 //! The reader sees a hook header and a body. Transport labels and JSON fields below
 //! retain the existing parser/storage contracts; they are not section headings.
-//! Voice modules own tone; prompt modules own instructions and content direction.
+//! Character instructions own tone and direction; context providers own evidence meaning.
 
 use serde_json::Value;
 
@@ -209,69 +209,93 @@ pub fn normalize_body(body: &str) -> String {
     paragraphs.join("\n\n")
 }
 
-/// Up to three narratives, each bound to the fresh headlines that support it.
+/// One recap: sourced paragraphs first, then a single hook.
+pub fn journalist_schema_raw(report_count: usize) -> String {
+    let ids: Vec<_> = (1..=report_count).collect();
+    let paragraphs = serde_json::json!({"type":"array","maxItems":report_count,"items":{
+        "type":"object","additionalProperties":false,"required":["body","report_ids"],
+        "properties":{"body":{"type":"string","minLength":1,"maxLength":JOURNALIST_REPORT_MAX_CHARS},
+            "report_ids":{"type":"array","minItems":1,"maxItems":report_count,"uniqueItems":true,
+                "items":{"type":"integer","enum":ids}}}}});
+    let headline =
+        serde_json::json!({"type":["string","null"],"minLength":1,"maxLength":HOOK_MAX_CHARS});
+    // Preserve generation order in the native schema instead of alphabetizing the hook first.
+    format!(
+        r#"{{"type":"object","additionalProperties":false,"required":["paragraphs","headline"],"properties":{{"paragraphs":{paragraphs},"headline":{headline}}}}}"#
+    )
+}
+
 pub fn journalist_schema(report_count: usize) -> serde_json::Value {
-    let keys: Vec<_> = (1..=report_count).map(|i| format!("report_{i}")).collect();
-    serde_json::json!({"type":"object","additionalProperties":false,"required":["narratives"],
-        "properties":{"narratives":{"type":"array","maxItems":report_count.min(3),"items":{
-            "type":"object","additionalProperties":false,"required":["headline","body","report_keys"],
-            "properties":{"headline":{"type":"string","minLength":1,"maxLength":HOOK_MAX_CHARS},
-                "body":{"type":"string","minLength":1,"maxLength":JOURNALIST_REPORT_MAX_CHARS},
-                "report_keys":{"type":"array","minItems":1,"maxItems":report_count,"uniqueItems":true,
-                    "items":{"type":"string","enum":keys}}}}}}})
+    serde_json::from_str(&journalist_schema_raw(report_count))
+        .expect("Journalist schema serializes")
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct JournalistReport {
-    pub headline: String,
+pub struct JournalistParagraph {
     pub body: String,
-    pub report_keys: Vec<String>,
+    pub report_ids: Vec<usize>,
 }
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JournalistReply {
-    pub narratives: Vec<JournalistReport>,
+    pub paragraphs: Vec<JournalistParagraph>,
+    pub headline: Option<String>,
 }
 
 pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
     let mut reply: JournalistReply = serde_json::from_str(raw)?;
+    // Option fields otherwise allow an omitted key, despite the native schema requiring it.
     anyhow::ensure!(
-        reply.narratives.len() <= report_count.min(3),
-        "too many narratives"
+        serde_json::from_str::<Value>(raw)?
+            .get("headline")
+            .is_some(),
+        "missing headline"
     );
-    for narrative in &mut reply.narratives {
-        narrative.headline = normalize_body(&narrative.headline);
-        narrative.body = normalize_body(&narrative.body);
-        narrative.headline = crate::tools::guards::clean_served_prose(&narrative.headline);
-        narrative.body = crate::tools::guards::clean_served_prose(&narrative.body);
-        for prose in [&narrative.headline, &narrative.body] {
-            anyhow::ensure!(
-                crate::tools::guards::first_product_name(prose).is_none()
-                    && !crate::tools::guards::has_bookkeeping_citation(prose)
-                    && !crate::tools::guards::has_foreign_script(prose),
-                "Journalist violates served prose guard"
-            );
-        }
-        validate_hook(Some(&narrative.headline))?;
-        validate_body(&narrative.body)?;
+    anyhow::ensure!(
+        reply.paragraphs.len() <= report_count,
+        "too many paragraphs"
+    );
+    anyhow::ensure!(
+        reply.headline.is_none() == reply.paragraphs.is_empty(),
+        "headline and paragraphs must both be present or both abstain"
+    );
+    if let Some(headline) = &mut reply.headline {
+        *headline = crate::tools::guards::clean_served_prose(&normalize_body(headline));
+    }
+    validate_hook(reply.headline.as_deref())?;
+    for paragraph in &mut reply.paragraphs {
+        paragraph.body = crate::tools::guards::clean_served_prose(&normalize_body(&paragraph.body));
+        validate_body(&paragraph.body)?;
         anyhow::ensure!(
-            narrative.body.chars().count() <= JOURNALIST_REPORT_MAX_CHARS,
-            "Journalist narrative exceeds the reading budget"
+            paragraph.body.chars().count() <= JOURNALIST_REPORT_MAX_CHARS,
+            "Journalist paragraph exceeds the reading budget"
         );
         let mut seen = std::collections::HashSet::new();
         anyhow::ensure!(
-            !narrative.report_keys.is_empty(),
-            "narrative has no fresh evidence"
+            !paragraph.report_ids.is_empty(),
+            "paragraph has no fresh evidence"
         );
-        for key in &narrative.report_keys {
-            let valid = (1..=report_count).any(|i| key == &format!("report_{i}"));
+        for id in &paragraph.report_ids {
             anyhow::ensure!(
-                valid && seen.insert(key),
-                "invalid or duplicate narrative report key"
+                (1..=report_count).contains(id) && seen.insert(id),
+                "invalid or duplicate paragraph report ID"
             );
         }
+    }
+    for prose in reply
+        .headline
+        .iter()
+        .map(String::as_str)
+        .chain(reply.paragraphs.iter().map(|p| p.body.as_str()))
+    {
+        anyhow::ensure!(
+            crate::tools::guards::first_product_name(prose).is_none()
+                && !crate::tools::guards::has_bookkeeping_citation(prose)
+                && !crate::tools::guards::has_foreign_script(prose),
+            "Journalist violates served prose guard"
+        );
     }
     Ok(reply)
 }
@@ -390,30 +414,66 @@ mod tests {
             "The Insider confirms it.",
             "The report (sentiment=30) is positive.",
         ] {
-            let raw=serde_json::json!({"narratives":[{"headline":"Cedar update","body":bad,"report_keys":["report_1"]}]}).to_string();
+            let raw=serde_json::json!({"headline":"Cedar update","paragraphs":[{"body":bad,"report_ids":[1]}]}).to_string();
             assert!(parse_journalist(&raw, 1).is_err());
         }
     }
 
     #[test]
-    fn narratives_require_fresh_unique_source_keys_and_bounded_prose() {
-        let good = serde_json::json!({"narratives":[{"headline":"Talks remain uncertain","body":"Wire reports talks, followed by a denial.","report_keys":["report_1","report_2"]}]});
+    fn narratives_require_fresh_unique_source_ids_and_bounded_prose() {
+        let good = serde_json::json!({"headline":"Talks remain uncertain","paragraphs":[{"body":"Wire reports talks, followed by a denial.","report_ids":[1,2]}]});
         assert!(parse_journalist(&good.to_string(), 2).is_ok());
         for keys in [
             serde_json::json!([]),
-            serde_json::json!(["report_3"]),
-            serde_json::json!(["report_1", "report_1"]),
+            serde_json::json!([0]),
+            serde_json::json!([-1]),
+            serde_json::json!([1.5]),
+            serde_json::json!(["1"]),
+            serde_json::json!(["report_1"]),
+            serde_json::json!([3]),
+            serde_json::json!([1, 1]),
         ] {
             let mut changed = good.clone();
-            changed["narratives"][0]["report_keys"] = keys;
+            changed["paragraphs"][0]["report_ids"] = keys;
             assert!(parse_journalist(&changed.to_string(), 2).is_err());
         }
         let mut changed = good;
-        changed["narratives"][0]["body"] =
+        changed["paragraphs"][0]["body"] =
             serde_json::json!("x".repeat(JOURNALIST_REPORT_MAX_CHARS + 1));
         assert!(parse_journalist(&changed.to_string(), 2).is_err());
-        assert!(parse_journalist(r#"{"narratives":[]}"#, 2).is_ok());
+        assert!(parse_journalist(r#"{"paragraphs":[],"headline":null}"#, 2).is_ok());
         assert!(parse_journalist(r#"{"report_1":"Old per-headline shape"}"#, 2).is_err());
+        assert!(parse_journalist(r#"{"headline":"Old citation","paragraphs":[{"body":"Wire reports talks.","report_keys":["report_1"]}]}"#, 2).is_err());
+    }
+
+    #[test]
+    fn recap_has_one_hook_after_supported_paragraphs_and_coherent_abstention() {
+        let raw_schema = journalist_schema_raw(5);
+        assert!(raw_schema.contains(r#""properties":{"paragraphs":"#));
+        assert_eq!(
+            serde_json::from_str::<Value>(&raw_schema).unwrap(),
+            journalist_schema(5)
+        );
+        let paragraphs: Vec<_> = (1..=5)
+            .map(|id| serde_json::json!({"body":"Wire reports a development.","report_ids":[id]}))
+            .collect();
+        let recap = serde_json::json!({"paragraphs":paragraphs,"headline":"Developments reported"});
+        assert_eq!(
+            parse_journalist(&recap.to_string(), 5)
+                .unwrap()
+                .paragraphs
+                .len(),
+            5
+        );
+        assert!(parse_journalist(&recap.to_string(), 4).is_err());
+        for invalid in [
+            serde_json::json!({"paragraphs":[]}),
+            serde_json::json!({"paragraphs":[],"headline":"Unsupported hook"}),
+            serde_json::json!({"paragraphs":[{"body":"Wire reports a development.","report_ids":[1]}],"headline":null}),
+            serde_json::json!({"paragraphs":[{"body":"Wire reports a development.","report_ids":[1],"headline":"Extra hook"}],"headline":"Hook"}),
+        ] {
+            assert!(parse_journalist(&invalid.to_string(), 5).is_err());
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 //! Claim-fenced crown/marker publication and diagnostic ledger.
-use super::prompt::ORACLE_NUM_PREDICT;
+use super::request::ORACLE_NUM_PREDICT;
 use super::{Prepared, SigilOutput};
 use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::harness::plugin::PluginOutcome;

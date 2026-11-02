@@ -1,0 +1,34 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/relevant-guide-2026-11-02/cases/candidate/momentum-synthetic-dated-divergence.json",
+  "generation_wall_ms": 5329,
+  "input_tokens": 1138,
+  "name": "momentum-synthetic-dated-divergence",
+  "output_limit": 700,
+  "output_tokens": 66,
+  "parsed": true,
+  "prompt_version": "momentum-s47-relevant-guide",
+  "reading": "Harbor's measured rebounding is strong while coverage leans cautious, and rating notability increased by eight points over a two-observation window while coverage tone decreased by twelve points. These distinct metrics describe separate aspects of the current picture; neither establishes that the other is wrong or explains a change over time.",
+  "request_bytes": 2935,
+  "review": [
+    "Explain the dated change in statistical distinctiveness without calling it skill improvement.",
+    "Preserve two-observation sample and different coverage/performance dimensions; missing peer is unknown."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 5344
+}

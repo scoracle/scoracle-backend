@@ -1,6 +1,6 @@
 //! Claim-fenced rumors, scores, source receipts, completion and ledger.
 use super::fresh::{Match, Material};
-use super::prompt;
+use super::request;
 use super::{record_transfer_event, Finding, Reply, Status, TRANSFER_PUBLISHED};
 use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::harness::plugin::PluginOutcome;
@@ -346,7 +346,7 @@ pub(super) async fn commit(
                 stage: "transfers", lens: "insider",
                 role: crate::plugins::insider::manifest::ROUTE,
                 product_table: "insider_scores",
-                output_contract_version: prompt::OUTPUT_CONTRACT_VERSION,
+                output_contract_version: request::OUTPUT_CONTRACT_VERSION,
             },
             LedgerEvent {
                 entity_type: &item.entity_type, entity_id: item.entity_id_i32()?, sport: &material.subject.sport,
@@ -354,7 +354,7 @@ pub(super) async fn commit(
                 product_row_ids: product_ids,
                 included_evidence: serde_json::json!({"article_ids":material.sources.iter().map(|s| s.article_id).collect::<Vec<_>>()}),
                 excluded_evidence: serde_json::json!([]),
-                context_budget: generation.context_budget(serde_json::json!({"num_predict":prompt::NUM_PREDICT})),
+                context_budget: generation.context_budget(serde_json::json!({"num_predict":request::NUM_PREDICT})),
                 parser_outcome: "parsed",
             }).await;
     Ok(if remaining > 0 {

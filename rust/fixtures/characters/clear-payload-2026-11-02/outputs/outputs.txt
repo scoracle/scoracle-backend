@@ -1,0 +1,40 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / chelsea-live-live-journalist-preview [accepted]
+Chelsea FC Latest News .com reports that the club promoted Penders and Sharman-Lowe following Emi Martinez's injury.
+
+FootballTransfers.com headlines suggest Manu Kone is a record signing target for Chelsea.
+
+Talk Chelsea reports that Chelsea's £100m target claims his boss has not given up on signing a new contract.
+
+2 — narratives / dak-prescott-live-journalist-preview [rejected]
+named claim is absent from cited reports: Dak Prescott's Season Rankings Hit
+
+3 — narratives / chelsea-target-preview [accepted]
+Football London reported that Estevao received brutally honest transfer advice from Chelsea despite a promise from Xabi Alonso.
+
+CaughtOffside urged a Chelsea player with 23 minutes of playing time this season to leave the club.
+
+Football London stated Chelsea were labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict.
+
+4 — narratives / narratives-person-86-FOOTBALL [accepted]
+Martin Demichelis, RB Leipzig's coach, praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabeu.
+
+5 — narratives / narratives-player-37-NBA [rejected]
+named claim is absent from cited reports: Los Angeles Clippers
+
+6 — transfer / transfer-player-83946-NFL [rejected]
+named claim is absent from cited reports: Philadelphia Eagles
+
+7 — transfer / transfer-team-37-FOOTBALL [rejected]
+named claim is absent from cited reports: Mirko Vučinić
+
+8 — vibe / vibe-person-23-FOOTBALL [accepted]
+De Zerbi expresses joy over Spurs' resilience and style
+
+Roberto De Zerbi is portrayed as delighted and happy following Tottenham's victory over Coventry. Multiple sources report that he praised the team's attitude, mentality, and resilience, describing the result as 'great news' and noting how Spurs turned on their style.
+
+9 — vibe / vibe-person-959-NFL [accepted]
+empty reading
+

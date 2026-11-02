@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/relevant-guide-2026-11-02/cases/candidate/rating-player-744-NFL.json",
+  "generation_wall_ms": 6893,
+  "input_tokens": 1439,
+  "name": "rating-player-744-NFL",
+  "output_limit": 700,
+  "output_tokens": 91,
+  "parsed": true,
+  "prompt_version": "s84-relevant-guide",
+  "reading": "Sam LaPorta's 2026 profile shows 316.0 total yards responsible and 18.0 points responsible, ranking at the 90.6th and 89.4th percentiles respectively within an elite and strong band among 828 peers. These readings rest on a thin sample of five appearances, which falls below the minimum threshold of ten required for reliable comparison.",
+  "request_bytes": 3016,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "rating",
+  "temperature": 0.0,
+  "wall_ms": 6908
+}

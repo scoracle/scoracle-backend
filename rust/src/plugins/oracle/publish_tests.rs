@@ -22,7 +22,7 @@ fn crown(score: Option<i32>) -> SigilOutput {
             omen: score.map(|_| "crossroads"),
         },
         "test-oracle-model".to_string(),
-        crate::plugins::oracle::prompt::ORACLE_PROMPT_VERSION,
+        crate::plugins::oracle::request::ORACLE_PROMPT_VERSION,
         Vec::new(),
         score.map(|_| "oracle-input-hash".to_string()),
     )

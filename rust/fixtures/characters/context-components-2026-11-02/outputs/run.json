@@ -1,0 +1,22 @@
+{
+  "base_url": "http://127.0.0.1:8081",
+  "concurrency": 1,
+  "context": 10240,
+  "database_access": false,
+  "fixtures": [
+    "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-components-2026-11-02/cases/narratives-chelsea-top-five.json",
+    "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-components-2026-11-02/cases/narratives-person-86-FOOTBALL.json",
+    "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-components-2026-11-02/cases/narratives-player-37-NBA.json",
+    "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-components-2026-11-02/cases/transfer-player-83946-NFL.json",
+    "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-components-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+    "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-components-2026-11-02/cases/vibe-person-23-FOOTBALL.json",
+    "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-components-2026-11-02/cases/vibe-person-959-NFL.json"
+  ],
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "publishes": false,
+  "qualification": "first-pass fixture outputs; human review required",
+  "retries": 0,
+  "shared_server": true,
+  "started_epoch": 1793649894,
+  "thinking": false
+}

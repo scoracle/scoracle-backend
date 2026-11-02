@@ -1,17 +1,18 @@
 //! Scout creation, queue policy, and durable execution.
 //!
-//! Preparation belongs to `prompt.rs`; performance reads belong to `performance.rs`.
+//! Preparation belongs to `request.rs`; performance reads belong to `performance.rs`.
 //! Publication transactions and receipts belong to `publish.rs`.
 
 pub mod availability;
+pub mod character_instructions;
+pub mod fresh;
 pub mod manifest;
 pub mod parser;
 pub mod performance;
-pub mod prompt;
 mod publish;
 pub mod reports;
+pub mod request;
 pub(crate) mod snapshot;
-pub mod voice;
 
 use crate::harness::models::ExecutionCapabilities;
 use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
@@ -21,12 +22,12 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use parser::RatingRequestParser;
 use performance::{current_season, RatingExclusions};
-use prompt::{
-    build_rating_request, Assignment, RatingBuild, RatingReq, RATING_PROMPT_VERSION,
-    RATING_TEMPERATURE,
-};
 use publish::{
     commit_claimed, persist_stat_summary, prepare, record_ledger, LedgerSubject, Prepared,
+};
+use request::{
+    build_rating_request, Assignment, RatingBuild, RatingReq, RATING_PROMPT_VERSION,
+    RATING_TEMPERATURE,
 };
 use sqlx::{PgPool, Postgres, Transaction};
 use tracing::debug;

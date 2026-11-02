@@ -1,0 +1,22 @@
+{
+  "case": 3,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/narratives-chelsea-top-five.json",
+  "generation_wall_ms": 7944,
+  "input_tokens": 1213,
+  "name": "chelsea-target-preview",
+  "output_limit": 2100,
+  "output_tokens": 144,
+  "parsed": true,
+  "prompt_version": "n131-clear-payload",
+  "reading": "Football London reported that Estevao received brutally honest transfer advice from Chelsea despite a promise from Xabi Alonso.\n\nCaughtOffside urged a Chelsea player with 23 minutes of playing time this season to leave the club.\n\nFootball London stated Chelsea were labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict.",
+  "request_bytes": 3122,
+  "review": [
+    "Identity preview only; no model call and no claim this older source packet is current news."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 7957
+}

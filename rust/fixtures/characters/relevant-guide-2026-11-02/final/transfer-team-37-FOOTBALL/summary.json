@@ -1,0 +1,33 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/relevant-guide-2026-11-02/cases/candidate/transfer-team-37-FOOTBALL.json",
+      "generation_wall_ms": 14975,
+      "input_tokens": 4372,
+      "name": "transfer-team-37-FOOTBALL",
+      "output_limit": 1400,
+      "output_tokens": 76,
+      "parsed": true,
+      "prompt_version": "insider-source-v27-relevant-guide",
+      "reading": "0 finding(s) | Roma are looking to make two signings in January, according to Yahoo Sports. The club has rejected three offers for Pisilli this summer and faces a crisis with Pellegrini and Svilar out due to injury. Reports also mention a €50m package involving Gruda and El Aynaoui, though no specific agreement with Roma is confirmed.",
+      "request_bytes": 8046,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "accepted",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 15002
+    }
+  ],
+  "completed": 1
+}

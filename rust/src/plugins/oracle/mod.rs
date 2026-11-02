@@ -1,10 +1,10 @@
 //! Oracle execution, completion barrier and SQL-derived crown fields.
+pub mod character_instructions;
 pub mod fresh;
 pub mod manifest;
 pub(crate) mod parser;
-pub mod prompt;
 mod publish;
-pub mod voice;
+pub mod request;
 
 use crate::harness::models::ExecutionCapabilities;
 use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
@@ -12,8 +12,8 @@ use crate::harness::queue::work::{self, Item, TaskKey};
 use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use prompt::{Assignment, Cards, Readiness, ORACLE_PROMPT_VERSION};
 use publish::{commit_claimed, record_ledger};
+use request::{Assignment, Cards, Readiness, ORACLE_PROMPT_VERSION};
 use sqlx::PgPool;
 use tracing::debug;
 
@@ -161,7 +161,7 @@ enum Prepared {
 }
 
 async fn prepare(pool: &PgPool, models: &ExecutionCapabilities, item: &Item) -> Result<Prepared> {
-    let assignment = prompt::load_assignment(pool, item, models.voice_num_ctx).await?;
+    let assignment = request::load_assignment(pool, item, models.voice_num_ctx).await?;
     let previous_score = if assignment.cards.readiness() == Readiness::Empty {
         None
     } else {
@@ -289,7 +289,7 @@ async fn articulate(
 
     let cards = &assignment.cards;
     let (score, convergence, omen) = metrics.context("Oracle nonempty cards need SQL metrics")?;
-    let prompt = prompt::assemble(&assignment.subject, cards);
+    let prompt = request::assemble(&assignment.subject, cards);
     let options = assignment.options.clone();
     let extracted = studio
         .extract(

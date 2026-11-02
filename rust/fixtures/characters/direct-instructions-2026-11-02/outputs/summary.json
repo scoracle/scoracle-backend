@@ -1,0 +1,211 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/chelsea-live.fixture.json",
+      "generation_wall_ms": 8174,
+      "input_tokens": 1182,
+      "name": "chelsea-live-live-journalist-preview",
+      "output_limit": 3500,
+      "output_tokens": 141,
+      "parsed": true,
+      "prompt_version": "n134-recap-hook-last",
+      "reading": "Chelsea FC Latest News .com reports that the club has promoted Penders and Sharman-Lowe following an injury to Emi Martinez. FootballTransfers.com notes that Manu Kone is being viewed as a record signing. Talk Chelsea states that a £100m target could yet sign a new contract, a claim made by his boss. London Evening Standard provides an injury update regarding Martinez, Chavarria, and James. Flashscore.com indicates Chelsea are searching for new right-back options amid Gusto's uncertainty.",
+      "request_bytes": 3751,
+      "review": [
+        "Read-only Archbox capture for inspecting current model inputs; no generation or publication."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 8472
+    },
+    {
+      "case": 2,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/dak-prescott.fixture.json",
+      "generation_wall_ms": 6159,
+      "input_tokens": 1146,
+      "name": "dak-prescott-live-journalist-preview",
+      "output_limit": 3500,
+      "output_tokens": 77,
+      "parsed": true,
+      "prompt_version": "n134-recap-hook-last",
+      "reading": "Dak Prescott announced personal news following the team's fourth loss, a development reported by Athlon Sports. Additionally, Prescott revealed what he finds most frustrating after another difficult game for the Cowboys, according to the New York Post.",
+      "request_bytes": 3567,
+      "review": [
+        "Read-only Archbox capture for inspecting current model inputs; no generation or publication."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 6173
+    },
+    {
+      "case": 3,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/narratives-chelsea-top-five.json",
+      "generation_wall_ms": 9941,
+      "input_tokens": 1171,
+      "name": "chelsea-target-preview",
+      "output_limit": 3500,
+      "output_tokens": 185,
+      "parsed": false,
+      "prompt_version": "n134-recap-hook-last",
+      "reading": "named claim is absent from cited reports: Manchester City",
+      "request_bytes": 3670,
+      "review": [
+        "Identity preview only; no model call and no claim this older source packet is current news."
+      ],
+      "status": "rejected",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 9967
+    },
+    {
+      "case": 4,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/narratives-person-86-FOOTBALL.json",
+      "generation_wall_ms": 7165,
+      "input_tokens": 1283,
+      "name": "narratives-person-86-FOOTBALL",
+      "output_limit": 2800,
+      "output_tokens": 112,
+      "parsed": true,
+      "prompt_version": "n134-recap-hook-last",
+      "reading": "RB Leipzig boss Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu, describing the French defender as exceptional despite the daunting nature of the upcoming fixture. The comments were reported by Yahoo, Yardbarker, and OneFootball, who all highlighted Demichelis's high regard for Diomande in the context of the European tie.",
+      "request_bytes": 4044,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 7184
+    },
+    {
+      "case": 5,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/narratives-player-37-NBA.json",
+      "generation_wall_ms": 6625,
+      "input_tokens": 1033,
+      "name": "narratives-player-37-NBA",
+      "output_limit": 2100,
+      "output_tokens": 116,
+      "parsed": false,
+      "prompt_version": "n134-recap-hook-last",
+      "reading": "named claim is absent from cited reports: Sacramento Kings",
+      "request_bytes": 3144,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "rejected",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 6641
+    },
+    {
+      "case": 6,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/transfer-player-83946-NFL.json",
+      "generation_wall_ms": 7653,
+      "input_tokens": 1595,
+      "name": "transfer-player-83946-NFL",
+      "output_limit": 1400,
+      "output_tokens": 92,
+      "parsed": false,
+      "prompt_version": "insider-source-v33-plain-brief",
+      "reading": "named claim is absent from cited reports: Philadelphia Eagles",
+      "request_bytes": 4895,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 7689
+    },
+    {
+      "case": 7,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+      "generation_wall_ms": 7223,
+      "input_tokens": 1490,
+      "name": "transfer-team-37-FOOTBALL",
+      "output_limit": 1400,
+      "output_tokens": 88,
+      "parsed": false,
+      "prompt_version": "insider-source-v33-plain-brief",
+      "reading": "cited reports do not connect La Gazzetta with numerical fact 6",
+      "request_bytes": 4420,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 7257
+    },
+    {
+      "case": 8,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/vibe-person-23-FOOTBALL.json",
+      "generation_wall_ms": 7809,
+      "input_tokens": 1474,
+      "name": "vibe-person-23-FOOTBALL",
+      "output_limit": 600,
+      "output_tokens": 114,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v45-plain-brief",
+      "reading": "De Zerbi expresses delight over Spurs' resilience and style after Coventry victory.\n\nRoberto De Zerbi is described as 'very happy' and 'delighted' by multiple outlets, including Flashscore.co.za, VAVEL.com, Yellow Advertiser, Vodacom Soccer, and TribalFootball. He praised Tottenham's 'attitude,' 'mentality,' and ability to 'turn on the style' following their crucial win against Coventry.",
+      "request_bytes": 4495,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 7835
+    },
+    {
+      "case": 9,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/vibe-person-959-NFL.json",
+      "generation_wall_ms": 6191,
+      "input_tokens": 1249,
+      "name": "vibe-person-959-NFL",
+      "output_limit": 600,
+      "output_tokens": 87,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v45-plain-brief",
+      "reading": "Jerry Jones faces criticism from ex-players and expresses disappointment\n\nThe New York Times reports Jerry Jones is 'disappointed' and wants to improve the Cowboys roster before the trade deadline. Yahoo Sports notes an ex-Cowboys star took a swipe at Jones amid team struggles. These sources indicate mixed reactions: Jones feels let down, while a former player is critical of his leadership.",
+      "request_bytes": 3633,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 6207
+    }
+  ],
+  "completed": 9
+}

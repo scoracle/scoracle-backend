@@ -1,5 +1,5 @@
 //! Claim-fenced publication, source dispositions, outbox and ledger.
-use super::prompt::{Disposition, NARRATIVES_OUTPUT_CONTRACT_VERSION, NUM_PREDICT};
+use super::request::{Disposition, NARRATIVES_OUTPUT_CONTRACT_VERSION, NUM_PREDICT};
 use super::NarrativesOutput;
 use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::harness::plugin::PluginOutcome;

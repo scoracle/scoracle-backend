@@ -1,0 +1,9 @@
+{
+  "character_requests": 61,
+  "quality_fixtures": 52,
+  "decision_requests": 24,
+  "selection_and_source_wording_unchanged": true,
+  "schemas_options_and_should_call_unchanged": true,
+  "candidate_parts_unchanged": true,
+  "decision_requests_byte_identical": true
+}

@@ -1,0 +1,129 @@
+{
+  "complete_native_input_tokens_before": 20743,
+  "complete_native_input_tokens_after": 11668,
+  "saved_tokens": 9075,
+  "saved_percent": 43.75,
+  "range": [
+    1069,
+    1556
+  ],
+  "cases": [
+    {
+      "case": "chelsea-live-live-journalist-preview",
+      "task": "narratives",
+      "articles": 5,
+      "baseline_input_tokens": 2612,
+      "input_tokens": 1224,
+      "saved_tokens": 1388,
+      "saved_percent": 53.14,
+      "baseline_status": "accepted",
+      "status": "accepted",
+      "baseline_receipt": "clear-payload-2026-11-02/baseline-live-outputs/01/result.json",
+      "receipt": "outputs/01/result.json"
+    },
+    {
+      "case": "dak-prescott-live-journalist-preview",
+      "task": "narratives",
+      "articles": 5,
+      "baseline_input_tokens": 2360,
+      "input_tokens": 1188,
+      "saved_tokens": 1172,
+      "saved_percent": 49.66,
+      "baseline_status": "rejected",
+      "status": "rejected",
+      "baseline_receipt": "clear-payload-2026-11-02/baseline-live-outputs/02/result.json",
+      "receipt": "outputs/02/result.json"
+    },
+    {
+      "case": "chelsea-target-preview",
+      "task": "narratives",
+      "articles": 5,
+      "baseline_input_tokens": 2459,
+      "input_tokens": 1213,
+      "saved_tokens": 1246,
+      "saved_percent": 50.67,
+      "baseline_status": "accepted",
+      "status": "accepted",
+      "baseline_receipt": "context-components-2026-11-02/outputs/01/result.json",
+      "receipt": "outputs/03/result.json"
+    },
+    {
+      "case": "narratives-person-86-FOOTBALL",
+      "task": "narratives",
+      "articles": 4,
+      "baseline_input_tokens": 2102,
+      "input_tokens": 1322,
+      "saved_tokens": 780,
+      "saved_percent": 37.11,
+      "baseline_status": "accepted",
+      "status": "accepted",
+      "baseline_receipt": "context-components-2026-11-02/outputs/02/result.json",
+      "receipt": "outputs/04/result.json"
+    },
+    {
+      "case": "narratives-player-37-NBA",
+      "task": "narratives",
+      "articles": 3,
+      "baseline_input_tokens": 2811,
+      "input_tokens": 1069,
+      "saved_tokens": 1742,
+      "saved_percent": 61.97,
+      "baseline_status": "accepted",
+      "status": "rejected",
+      "baseline_receipt": "context-components-2026-11-02/outputs/03/result.json",
+      "receipt": "outputs/05/result.json"
+    },
+    {
+      "case": "transfer-player-83946-NFL",
+      "task": "transfer",
+      "articles": 5,
+      "baseline_input_tokens": 2162,
+      "input_tokens": 1556,
+      "saved_tokens": 606,
+      "saved_percent": 28.03,
+      "baseline_status": "rejected",
+      "status": "rejected",
+      "baseline_receipt": "context-components-2026-11-02/outputs/04/result.json",
+      "receipt": "outputs/06/result.json"
+    },
+    {
+      "case": "transfer-team-37-FOOTBALL",
+      "task": "transfer",
+      "articles": 5,
+      "baseline_input_tokens": 2456,
+      "input_tokens": 1451,
+      "saved_tokens": 1005,
+      "saved_percent": 40.92,
+      "baseline_status": "accepted",
+      "status": "rejected",
+      "baseline_receipt": "context-components-2026-11-02/outputs/05/result.json",
+      "receipt": "outputs/07/result.json"
+    },
+    {
+      "case": "vibe-person-23-FOOTBALL",
+      "task": "vibe",
+      "articles": 5,
+      "baseline_input_tokens": 2369,
+      "input_tokens": 1435,
+      "saved_tokens": 934,
+      "saved_percent": 39.43,
+      "baseline_status": "accepted",
+      "status": "accepted",
+      "baseline_receipt": "context-components-2026-11-02/outputs/06/result.json",
+      "receipt": "outputs/08/result.json"
+    },
+    {
+      "case": "vibe-person-959-NFL",
+      "task": "vibe",
+      "articles": 2,
+      "baseline_input_tokens": 1412,
+      "input_tokens": 1210,
+      "saved_tokens": 202,
+      "saved_percent": 14.31,
+      "baseline_status": "accepted",
+      "status": "accepted",
+      "baseline_receipt": "context-components-2026-11-02/outputs/07/result.json",
+      "receipt": "outputs/09/result.json"
+    }
+  ]
+}

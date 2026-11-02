@@ -1,0 +1,18 @@
+case 1: narratives / chelsea-live-live-journalist-preview
+  "accepted" (8.5s)
+case 2: narratives / dak-prescott-live-journalist-preview
+  "accepted" (6.2s)
+case 3: narratives / chelsea-target-preview
+  "rejected" (10.0s)
+case 4: narratives / narratives-person-86-FOOTBALL
+  "accepted" (7.2s)
+case 5: narratives / narratives-player-37-NBA
+  "rejected" (6.7s)
+case 6: transfer / transfer-player-83946-NFL
+  "rejected" (7.7s)
+case 7: transfer / transfer-team-37-FOOTBALL
+  "rejected" (7.3s)
+case 8: vibe / vibe-person-23-FOOTBALL
+  "accepted" (7.8s)
+case 9: vibe / vibe-person-959-NFL
+  "accepted" (6.2s)

@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/narratives-chelsea-top-five.json",
+  "generation_wall_ms": 11277,
+  "input_tokens": 2459,
+  "name": "chelsea-target-preview",
+  "output_limit": 2100,
+  "output_tokens": 138,
+  "parsed": false,
+  "prompt_version": "n128-shared-prompt",
+  "reading": "named claim is absent from cited reports: Manchester City",
+  "request_bytes": 4907,
+  "review": [
+    "Identity preview only; no model call and no claim this older source packet is current news."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 11311
+}

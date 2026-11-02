@@ -1,5 +1,5 @@
 //! Influencer source publication and completion coordination.
-use super::{prompt::VIBE_NUM_PREDICT, VibeOutput};
+use super::{request::VIBE_NUM_PREDICT, VibeOutput};
 use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::harness::queue::work::Item;
 use anyhow::{Context, Result};
@@ -74,7 +74,7 @@ pub(super) async fn persist_to_vibe_scores(
     .bind(parts.day.start)
     .bind(parts.day.end)
     .bind(parts.day.cutoff)
-    .bind(super::prompt::SCORE_VERSION)
+    .bind(super::request::SCORE_VERSION)
     .fetch_one(&mut **tx)
     .await
     .context("persist vibe")?;

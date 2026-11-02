@@ -3,7 +3,7 @@ use crate::harness::{
     model::{GenerateOptions, GenerateResult, Inference},
     Studio,
 };
-use crate::plugins::journalist::{self, prompt::Assignment};
+use crate::plugins::journalist::{self, request::Assignment};
 use crate::tools::meta::EntityMeta;
 use async_trait::async_trait;
 use std::{
@@ -22,7 +22,7 @@ impl Inference for Model {
         self.0.fetch_add(1, Ordering::SeqCst);
         Ok((
             GenerateResult {
-                response: r#"{"narratives":[{"headline":"Cedar win","body":"Wire reports Cedar won.","report_keys":["report_1"]}]}"#.into(),
+                response: r#"{"headline":"Cedar win","paragraphs":[{"body":"Wire reports Cedar won.","report_ids":[1]}]}"#.into(),
                 thinking: String::new(),
                 model: "fake".into(),
                 total_duration: Duration::from_millis(1),

@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/chelsea-live.fixture.json",
+  "generation_wall_ms": 8162,
+  "input_tokens": 1224,
+  "name": "chelsea-live-live-journalist-preview",
+  "output_limit": 2100,
+  "output_tokens": 147,
+  "parsed": true,
+  "prompt_version": "n131-clear-payload",
+  "reading": "Chelsea FC Latest News .com reports that the club promoted Penders and Sharman-Lowe following Emi Martinez's injury.\n\nFootballTransfers.com headlines suggest Manu Kone is a record signing target for Chelsea.\n\nTalk Chelsea reports that Chelsea's £100m target claims his boss has not given up on signing a new contract.",
+  "request_bytes": 3203,
+  "review": [
+    "Read-only Archbox capture for inspecting current model inputs; no generation or publication."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 8183
+}

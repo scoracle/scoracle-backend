@@ -1,11 +1,10 @@
 //! Classifier stage 1: a System-1 decision model over llama.cpp `/v1/systemone`.
 //! A compact spectrum per RSS subject; publisher context only disambiguates identity.
+use super::character_instructions::{request, CRITERIA};
 use anyhow::{ensure, Context, Result};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
-const CRITERIA: &str =
-    include_str!("../../../fixtures/classifier/classification-criteria-v10-availability.json");
 const ROUTING: &str = include_str!("../../../fixtures/classifier/headline-routing-v2.json");
 pub const ROUTING_VERSION: &str = "headline-routing-v2";
 pub const CRITERIA_VERSION: &str = "classification-criteria-v10-availability";
@@ -125,52 +124,6 @@ impl Decision {
             .into()
         })
     }
-}
-
-pub fn request(headline: &str, publisher: &str, sport: &str, meta: &Value) -> Result<Value> {
-    ensure!(
-        !headline.trim().is_empty() && !headline.contains('\0'),
-        "missing or invalid RSS headline"
-    );
-    ensure!(!publisher.contains('\0'), "invalid RSS publisher");
-    let entity: crate::tools::meta::EntityMeta = serde_json::from_value(meta["identity"].clone())?;
-    ensure!(
-        entity.sport == sport && entity.entity_id > 0 && !entity.name.trim().is_empty(),
-        "invalid Classifier subject metadata"
-    );
-    // Bind identifying attributes into the question; context-only gender did not separate teams.
-    let subject = match meta.get("team_gender").filter(|gender| !gender.is_null()) {
-        Some(gender) => {
-            ensure!(
-                entity.entity_type == "team",
-                "team_gender requires a team subject"
-            );
-            let category = match gender.as_str() {
-                Some("men") => "men's",
-                Some("women") => "women's",
-                Some("mixed") => "mixed-gender",
-                _ => anyhow::bail!("team_gender must be men, women, mixed, or null"),
-            };
-            format!(
-                "the {category} {} team named {}",
-                entity.sport.to_lowercase(),
-                entity.name
-            )
-        }
-        None => entity.reference(),
-    };
-    let mut criteria: Value = serde_json::from_str(CRITERIA)?;
-    for question in criteria["questions"]
-        .as_object_mut()
-        .context("questions")?
-        .values_mut()
-    {
-        question["instructions"] = json!(format!("Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. {}",
-            question["instructions"].as_str().context("instructions")?.replace("{subject}", &subject)));
-    }
-    Ok(
-        json!({"state":{"subject_meta":meta,"article":{"sport":sport,"headline":headline,"publisher":publisher}},"questions":criteria["questions"]}),
-    )
 }
 
 fn model_identity(response: &Value) -> Result<&str> {

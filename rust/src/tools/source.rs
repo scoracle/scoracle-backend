@@ -13,6 +13,32 @@ pub struct SourceContext {
     pub classifier_world: Option<serde_json::Value>,
 }
 
+// shortcut: five articles per call during character tuning; revisit after output review.
+pub const CHARACTER_ARTICLE_LIMIT: usize = 5;
+
+/// Rank by the character's decision criterion. Stable ties retain incoming order;
+/// missing/invalid scores rank below every supplied score, including zero.
+pub fn top_articles<T: Clone>(
+    articles: &[T],
+    criterion: &str,
+    world: impl Fn(&T) -> Option<&serde_json::Value>,
+) -> Vec<T> {
+    let score = |article: &T| {
+        world(article)
+            .and_then(|w| w["spectrum"][criterion].as_f64())
+            .filter(|s| (0.0..=100.0).contains(s))
+    };
+    let mut ranked = articles.to_vec();
+    ranked.sort_by(|a, b| match (score(a), score(b)) {
+        (Some(a), Some(b)) => b.total_cmp(&a),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    });
+    ranked.truncate(CHARACTER_ARTICLE_LIMIT);
+    ranked
+}
+
 /// Mechanical detection of explicit attempts to override the writing contract.
 /// Plugins decide whether and where to apply this admission guard.
 pub fn contains_instruction_override(source: &str) -> bool {
@@ -100,6 +126,40 @@ pub fn is_headline_spam(headline: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn top_five_use_the_requested_score_with_stable_ties_and_zero_before_unknown() {
+        let articles = serde_json::json!([
+            {"id":0,"spectrum":{"subject":10,"emotion":100}},
+            {"id":1,"spectrum":{"subject":70}},
+            {"id":2,"spectrum":{"subject":50}},
+            {"id":3,"spectrum":{"subject":100}},
+            {"id":4,"spectrum":{"subject":0}},
+            {"id":5,"spectrum":{"subject":null}},
+            {"id":6,"spectrum":{"subject":70}},
+            {"id":7,"spectrum":{"subject":101}}
+        ]);
+        let articles = articles.as_array().unwrap();
+        let ids = |items: Vec<serde_json::Value>| {
+            items
+                .iter()
+                .map(|a| a["id"].as_i64().unwrap())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            ids(top_articles(articles, "subject", |v| Some(v))),
+            vec![3, 1, 6, 2, 0]
+        );
+        assert_eq!(
+            ids(top_articles(articles, "emotion", |v| Some(v))),
+            vec![0, 1, 2, 3, 4]
+        );
+        assert_eq!(
+            ids(top_articles(&articles[4..], "subject", |v| Some(v))),
+            vec![6, 4, 5, 7]
+        );
+        assert!(top_articles::<serde_json::Value>(&[], "subject", |v| Some(v)).is_empty());
+    }
+
     #[test]
     fn livestream_spam_preserves_broadcast_reporting_and_availability() {
         let cases: serde_json::Value = serde_json::from_str(include_str!(

@@ -16,6 +16,18 @@ fn main() -> Result<()> {
         Some(parts) => task.assemble(parts)?,
         None => task.prepare_fixture(&fixture)?,
     };
-    print!("{}", request.user_prompt);
+    if std::env::args().nth(2).as_deref() == Some("--request") {
+        let options = request.options;
+        println!(
+            "{}",
+            serde_json::json!({"user_prompt":request.user_prompt,
+            "should_call":request.should_call,"system":options.system,
+            "temperature":options.temperature,"num_predict":options.num_predict,
+            "num_ctx":options.num_ctx,"json_mode":options.json_mode,
+            "format_schema":options.format_schema,"format_schema_raw":options.format_schema_raw})
+        );
+    } else {
+        print!("{}", request.user_prompt);
+    }
     Ok(())
 }

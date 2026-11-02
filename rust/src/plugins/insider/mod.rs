@@ -1,10 +1,10 @@
 //! Insider execution: read verified source packages and publish under the queue claim.
+pub mod character_instructions;
 pub mod fresh;
 pub mod manifest;
 mod parser;
-pub mod prompt;
 mod publish;
-pub mod voice;
+pub mod request;
 
 use crate::harness::model::Inference;
 use crate::harness::models::ExecutionCapabilities;
@@ -70,7 +70,7 @@ pub(crate) async fn record_transfer_event(
 pub async fn create(
     studio: &Studio<'_>,
     subject: &EntityMeta,
-    reports: &[prompt::Report],
+    reports: &[request::Report],
     num_ctx: i32,
 ) -> Result<Generation<Reply>> {
     create_with_record(studio, subject, reports, None, num_ctx).await
@@ -79,21 +79,23 @@ pub async fn create(
 async fn create_with_record(
     studio: &Studio<'_>,
     subject: &EntityMeta,
-    reports: &[prompt::Report],
+    reports: &[request::Report],
     database_record: Option<&crate::tools::meta::DatabaseRecord>,
     num_ctx: i32,
 ) -> Result<Generation<Reply>> {
+    let selected = fresh::select(reports);
+    let reports = selected.as_slice();
     ensure!(!reports.is_empty(), "Insider needs a verified source");
-    let world = prompt::assemble_with_record(subject, reports, database_record);
+    let world = request::assemble_with_record(subject, reports, database_record);
     let hash = crate::util::hash_components(&serde_json::to_string(&(
         &world,
-        prompt::SYSTEM,
-        prompt::PROMPT_VERSION,
+        character_instructions::INSTRUCTIONS,
+        request::PROMPT_VERSION,
     ))?);
     let extracted = studio
         .extract(
             &world,
-            &prompt::options_for_reports(num_ctx, subject, reports),
+            &request::options_for_reports(num_ctx, subject, reports),
             &ReplyParser { subject, reports },
             crate::harness::session::no_rewrite,
         )
@@ -105,7 +107,7 @@ async fn create_with_record(
     Ok(Generation::called(
         value,
         extracted.model,
-        prompt::PROMPT_VERSION,
+        request::PROMPT_VERSION,
         Vec::new(),
         Some(hash),
         call,
@@ -244,7 +246,7 @@ async fn execute_prepared(
             {
                 (
                     "model_reply_rejected",
-                    serde_json::json!({"model":backend.model(),"prompt_version":prompt::PROMPT_VERSION,
+                    serde_json::json!({"model":backend.model(),"prompt_version":request::PROMPT_VERSION,
                     "error":format!("{error:#}"),"raw_response_body":rejected.raw_response_body,
                     "request":rejected.request_body,"prompt":rejected.built_prompt}),
                 )
@@ -449,14 +451,14 @@ mod tests {
             entity_id: 7,
             sport: "NFL".into(),
         };
-        let report = prompt::Report {
+        let report = request::Report {
             classifier_world: None,
             publisher: "Wire".into(),
             published_at: None,
             headline: "Browns pursue Jordan Sample".into(),
             publisher_excerpt:
                 "Cleveland Browns is monitoring Jordan Sample in trade talks in trade talks.".into(),
-            co_mentions: vec![prompt::Mention {
+            co_mentions: vec![request::Mention {
                 name: "Cleveland Browns".into(),
                 entity_type: "team".into(),
             }],
@@ -491,9 +493,9 @@ mod tests {
             let final_world: serde_json::Value =
                 serde_json::from_str(&generated.call.unwrap().built_prompt).unwrap();
             let original: serde_json::Value =
-                serde_json::from_str(&prompt::assemble(&subject, std::slice::from_ref(&report)))
+                serde_json::from_str(&request::assemble(&subject, std::slice::from_ref(&report)))
                     .unwrap();
-            assert_eq!(final_world["fresh"], original["fresh"]);
+            assert_eq!(final_world["new_content"], original["new_content"]);
         }
     }
 
@@ -505,7 +507,7 @@ mod tests {
             entity_id: 1,
             sport: "NFL".into(),
         };
-        let reports = [prompt::Report {
+        let reports = [request::Report {
             classifier_world: None,
             publisher: "Wire".into(),
             published_at: None,
@@ -517,7 +519,7 @@ mod tests {
             subject: &subject,
             reports: &reports,
         };
-        let too_long = serde_json::json!({"body":format!("Jordan Sample {}","x".repeat(prompt::BODY_MAX_CHARS)),"findings":[]});
+        let too_long = serde_json::json!({"body":format!("Jordan Sample {}","x".repeat(request::BODY_MAX_CHARS)),"findings":[]});
         assert!(parser
             .parse(&too_long.to_string())
             .unwrap_err()
@@ -540,14 +542,14 @@ mod tests {
             entity_id: 7,
             sport: "NFL".into(),
         };
-        let reports = [prompt::Report {
+        let reports = [request::Report {
             classifier_world: None,
             publisher: "Wire".into(),
             published_at: None,
             headline: "Browns pursue Jordan Sample".into(),
             publisher_excerpt: "Cleveland Browns is monitoring Jordan Sample in trade talks."
                 .into(),
-            co_mentions: vec![prompt::Mention {
+            co_mentions: vec![request::Mention {
                 name: "Cleveland Browns".into(),
                 entity_type: "team".into(),
             }],
@@ -567,13 +569,13 @@ mod tests {
             entity_id: 7,
             sport: "NFL".into(),
         };
-        let reports = [prompt::Report {
+        let reports = [request::Report {
             classifier_world: None,
             publisher: "Wire".into(),
             published_at: None,
             headline: "Browns deny Jordan Sample talks".into(),
             publisher_excerpt: "Cleveland Browns denied talks for Jordan Sample.".into(),
-            co_mentions: vec![prompt::Mention {
+            co_mentions: vec![request::Mention {
                 name: "Cleveland Browns".into(),
                 entity_type: "team".into(),
             }],

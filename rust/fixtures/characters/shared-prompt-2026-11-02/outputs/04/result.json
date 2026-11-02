@@ -1,0 +1,22 @@
+{
+  "case": 4,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/transfer-player-83946-NFL.json",
+  "generation_wall_ms": 9000,
+  "input_tokens": 2162,
+  "name": "transfer-player-83946-NFL",
+  "output_limit": 1400,
+  "output_tokens": 93,
+  "parsed": false,
+  "prompt_version": "insider-source-v30-shared-prompt",
+  "reading": "named claim is absent from cited reports: Philadelphia Eagles",
+  "request_bytes": 5157,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9019
+}

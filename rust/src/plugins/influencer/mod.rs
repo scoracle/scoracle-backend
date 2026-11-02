@@ -1,10 +1,10 @@
 //! One daily fresh reporting package, with atomic publication.
+pub mod character_instructions;
 pub mod fresh;
 pub mod manifest;
 mod parser;
-pub mod prompt;
 mod publish;
-pub mod voice;
+pub mod request;
 
 use crate::harness::model::Inference;
 use crate::harness::models::ExecutionCapabilities;
@@ -19,9 +19,9 @@ use crate::tools::source::SourceContext;
 use anyhow::{ensure, Context, Result};
 use async_trait::async_trait;
 pub use parser::VibeParser;
-use prompt::{Assignment, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION, VIBE_TEMPERATURE};
 pub(crate) use publish::VIBE_COMPLETED;
 use publish::{persist_to_vibe_scores, record_ledger, record_vibe_completed};
+use request::{Assignment, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION, VIBE_TEMPERATURE};
 use serde_json::{json, Value};
 use sqlx::PgPool;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -31,7 +31,7 @@ pub struct VibeScore {
     pub sentiment: Option<i32>,
     pub vibe_prompt: Option<String>,
     pub hook: Option<String>,
-    pub parts: prompt::Parts,
+    pub parts: request::Parts,
 }
 pub type VibeOutput = Generation<VibeScore>;
 
@@ -75,10 +75,10 @@ pub async fn create(
     num_ctx: i32,
 ) -> Result<(Option<VibeOutput>, Value)> {
     let world = assignment.parts.assemble();
-    let input_hash = prompt::request_hash(backend, assignment, num_ctx)?;
-    let options = prompt::generation_options(VIBE_TEMPERATURE, num_ctx, VIBE_NUM_PREDICT);
+    let input_hash = request::request_hash(backend, assignment, num_ctx)?;
+    let options = request::generation_options(VIBE_TEMPERATURE, num_ctx, VIBE_NUM_PREDICT);
     let mut receipt = json!({"model_version":backend.model(),"prompt_version":VIBE_PROMPT_VERSION,
-        "scoring_version":prompt::SCORE_VERSION,"input_hash":input_hash,
+        "scoring_version":request::SCORE_VERSION,"input_hash":input_hash,
         "packet":world,"input_components":assignment.parts,
         "request_body":backend.request_body(&world,&options)});
     if let Some(reason) = assignment.parts.hold_reason() {
@@ -276,14 +276,14 @@ pub(crate) async fn execute_with_backend(
     if assignment.parts.hold_reason().is_some() {
         return hold_daily(pool, item, &assignment, &pending, &disposition).await;
     }
-    let mut input_hash = prompt::request_hash(backend, &assignment, voice_num_ctx)?;
+    let mut input_hash = request::request_hash(backend, &assignment, voice_num_ctx)?;
     // A publication rollback must not discard an already validated model response.
     let mut previous = reusable_attempt(pool, &input_hash, backend.model()).await?;
     if previous.is_none() && !assignment.parts.memories.is_empty() {
         let mut parts = assignment.parts.clone();
         parts.memories.clear();
         let without_history = Assignment::from_parts(parts)?;
-        let hash = prompt::request_hash(backend, &without_history, voice_num_ctx)?;
+        let hash = request::request_hash(backend, &without_history, voice_num_ctx)?;
         previous = reusable_attempt(pool, &hash, backend.model()).await?;
         if previous.is_some() {
             assignment = without_history;
@@ -304,7 +304,7 @@ pub(crate) async fn execute_with_backend(
         if receipt["context_exceeded"] == true && !assignment.parts.memories.is_empty() {
             assignment.parts.memories.clear();
             assignment = Assignment::from_parts(assignment.parts)?;
-            input_hash = prompt::request_hash(backend, &assignment, voice_num_ctx)?;
+            input_hash = request::request_hash(backend, &assignment, voice_num_ctx)?;
             (output, receipt) = create(backend, &assignment, voice_num_ctx).await?;
         }
         if receipt["context_exceeded"] == true {

@@ -8,4 +8,4 @@ pub mod memories;
 pub mod meta;
 pub mod source;
 
-pub mod context;
+pub mod prompt;

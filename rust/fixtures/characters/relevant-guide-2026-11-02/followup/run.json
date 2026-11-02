@@ -1,0 +1,11 @@
+{
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "temperature": 0,
+  "thinking": false,
+  "concurrency": 1,
+  "retries": 0,
+  "database_access": false,
+  "publishes": false,
+  "binary_sha256": "d4a43583299265b0cb805d212e5b855c1211693a09ce5a90571eb71f33701eb0",
+  "design": "Refined concise guides on the same 12 development cases. Baseline from batches 1/2 retained."
+}

@@ -1,0 +1,9 @@
+{
+  "total": 61,
+  "journalist_changed": 21,
+  "other_requests_byte_identical": 40,
+  "source_wording_and_selection_unchanged": true,
+  "target_and_target_guide_unchanged": true,
+  "source_parts_unchanged": true,
+  "schema_change": "report_keys string handles replaced by report_ids integer handles; bounds unchanged"
+}

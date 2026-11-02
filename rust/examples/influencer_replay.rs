@@ -68,7 +68,7 @@ async fn main() -> Result<()> {
     for case in cases {
         let now = influencer::now();
         let mut record = json!({"article_id":case.article_id,"captured_at":now,
-            "prompt_version":influencer::prompt::VIBE_PROMPT_VERSION,"database_read_only":true});
+            "prompt_version":influencer::request::VIBE_PROMPT_VERSION,"database_read_only":true});
         let result: Result<()> = async {
             let subject = EntityMeta {
                 name: lookup_entity_name(&pool, &case.entity_type, case.entity_id, &case.sport)
@@ -140,13 +140,13 @@ async fn replay_recorded(input: &str, output: &str, url: &str, model: &str) -> R
         .filter(|line| !line.trim().is_empty())
     {
         let retained: Value = serde_json::from_str(line)?;
-        let parts: influencer::prompt::Parts =
+        let parts: influencer::request::Parts =
             serde_json::from_value(retained["input_components"].clone())?;
-        let assignment = influencer::prompt::Assignment::from_parts(parts)?;
+        let assignment = influencer::request::Assignment::from_parts(parts)?;
         let mut record = json!({"article_id":assignment.parts.sources[0].article_id,
             "name":retained["name"],"review":retained["review"],
             "recorded_evidence":true,"captured_at":influencer::now(),
-            "prompt_version":influencer::prompt::VIBE_PROMPT_VERSION,
+            "prompt_version":influencer::request::VIBE_PROMPT_VERSION,
             "world":serde_json::from_str::<Value>(&assignment.parts.assemble())?});
         match influencer::create(&model, &assignment, 4096).await {
             Ok((product, receipt)) => {

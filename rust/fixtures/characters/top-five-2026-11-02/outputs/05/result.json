@@ -1,0 +1,28 @@
+{
+  "case": 5,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/top-five-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+  "generation_wall_ms": 9391,
+  "input_tokens": 2456,
+  "name": "transfer-team-37-FOOTBALL",
+  "output_limit": 1400,
+  "output_tokens": 88,
+  "parsed": true,
+  "prompt_version": "insider-source-v28-top-five",
+  "reading": "0 finding(s) | Roma is looking to make two signings in January, though no specific targets or parties are named in the available reports. The club has rejected three offers for Pisilli this summer and will lose coach Pellegrini for at least six to eight weeks due to a serious injury. There is no reported movement involving Roma as a target or a mover in the provided data.",
+  "request_bytes": 5436,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9414
+}

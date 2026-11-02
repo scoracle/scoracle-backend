@@ -11,7 +11,7 @@ use scoracle_cognition::harness::models::Models;
 use scoracle_cognition::harness::providers::llama::LlamaClient;
 use scoracle_cognition::harness::queue::work;
 use scoracle_cognition::harness::route::Router;
-use scoracle_cognition::plugins::scout::prompt::{
+use scoracle_cognition::plugins::scout::request::{
     build_rating_request, RatingBuild, RatingReq, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
 };
 use scoracle_cognition::plugins::scout::{

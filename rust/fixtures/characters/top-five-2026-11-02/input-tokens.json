@@ -1,0 +1,65 @@
+[
+  {
+    "case": "narratives-chelsea-top-five",
+    "task": "narratives",
+    "articles": 5,
+    "input_tokens": 2459,
+    "below_4096": true,
+    "output_reservation": 2100,
+    "total_reserved": 4559
+  },
+  {
+    "case": "narratives-person-86-FOOTBALL",
+    "task": "narratives",
+    "articles": 4,
+    "input_tokens": 2102,
+    "below_4096": true,
+    "output_reservation": 2100,
+    "total_reserved": 4202
+  },
+  {
+    "case": "narratives-player-37-NBA",
+    "task": "narratives",
+    "articles": 3,
+    "input_tokens": 2811,
+    "below_4096": true,
+    "output_reservation": 2100,
+    "total_reserved": 4911
+  },
+  {
+    "case": "transfer-player-83946-NFL",
+    "task": "transfer",
+    "articles": 5,
+    "input_tokens": 2162,
+    "below_4096": true,
+    "output_reservation": 1400,
+    "total_reserved": 3562
+  },
+  {
+    "case": "transfer-team-37-FOOTBALL",
+    "task": "transfer",
+    "articles": 5,
+    "input_tokens": 2456,
+    "below_4096": true,
+    "output_reservation": 1400,
+    "total_reserved": 3856
+  },
+  {
+    "case": "vibe-person-23-FOOTBALL",
+    "task": "vibe",
+    "articles": 5,
+    "input_tokens": 2369,
+    "below_4096": true,
+    "output_reservation": 600,
+    "total_reserved": 2969
+  },
+  {
+    "case": "vibe-person-959-NFL",
+    "task": "vibe",
+    "articles": 2,
+    "input_tokens": 1412,
+    "below_4096": true,
+    "output_reservation": 600,
+    "total_reserved": 2012
+  }
+]

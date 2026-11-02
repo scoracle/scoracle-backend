@@ -50,10 +50,7 @@ impl Availability {
             .sources
             .iter()
             .map(|s| serde_json::json!({
-                "headline":s.headline,"publisher":s.source,"article_id":s.article_id,
-                "url":s.classifier_world.as_ref().and_then(|w| w["url"].as_str()),
-                "evidence_scope":"headline",
-                "published_at":s.published_at_epoch.map(crate::util::utc_timestamp)
+                "headline":s.headline,"publisher":s.source,"evidence_scope":"headline"
             }))
             .collect::<Vec<_>>())
     }
@@ -149,11 +146,15 @@ mod tests {
         assert!(a.held.is_empty());
         assert_eq!(a.for_writing().as_array().unwrap().len(), 9);
         let writing = a.for_writing();
+        for field in ["url", "article_id", "published_at"] {
+            assert!(writing[0].get(field).is_none());
+        }
+        assert_eq!(a.sources[0].article_id, sources[0].article_id);
         assert_eq!(
-            writing[0]["url"],
-            sources[0].classifier_world.as_ref().unwrap()["url"]
+            a.sources[0].published_at_epoch,
+            sources[0].published_at_epoch
         );
-        assert_eq!(writing[0]["article_id"], sources[0].article_id);
+        assert_eq!(a.sources[0].classifier_world, sources[0].classifier_world);
         assert!(writing[0].get("gate").is_none());
     }
 
@@ -232,7 +233,7 @@ async fn availability_routes_freezes_and_settles_without_inventing_a_profile() -
         .as_deref()
         .unwrap()
         .starts_with(classifier::AVAILABILITY_CONTRACT));
-    let req = scout::prompt::RatingReq {
+    let req = scout::request::RatingReq {
         entity_type: "team".into(),
         entity_id: 923001,
         sport: "ZZ_AVAIL".into(),
@@ -241,15 +242,15 @@ async fn availability_routes_freezes_and_settles_without_inventing_a_profile() -
         trigger_type: "daily".into(),
     };
     let mut tx = pool.begin().await?;
-    let prepared = scout::prompt::build_rating_request_on(&mut tx, 7900, &req, 0.0, false).await?;
-    let scout::prompt::RatingBuild::NoStats { availability, .. } = prepared else {
+    let prepared = scout::request::build_rating_request_on(&mut tx, 7900, &req, 0.0, false).await?;
+    let scout::request::RatingBuild::NoStats { availability, .. } = prepared else {
         panic!("headline invented a profile")
     };
     assert_eq!(availability.sources.len(), 1);
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
         "../../../fixtures/quality/rating/synthetic-strong.json"
     ))?;
-    let mut parts: scout::prompt::Parts = serde_json::from_value(fixture["parts"].clone())?;
+    let mut parts: scout::request::Parts = serde_json::from_value(fixture["parts"].clone())?;
     parts.availability = availability.clone();
     let before = parts.input_components(serde_json::json!({"availability":availability}));
     let measurements = serde_json::to_value(&parts.profile)?;

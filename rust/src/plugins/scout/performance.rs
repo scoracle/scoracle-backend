@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use sqlx::{PgPool, Row};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use super::prompt::RATING_PROMPT_VERSION;
+use super::request::RATING_PROMPT_VERSION;
 use crate::util::round1;
 
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt.

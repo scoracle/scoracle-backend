@@ -1,0 +1,188 @@
+{
+  "model_calls": 14,
+  "retained_batch_calls": 7,
+  "accepted": 6,
+  "discarded_batch": "voice-at-end-review.json",
+  "qualification": "Development refactor comparison; no held-out accuracy claim.",
+  "cases": [
+    {
+      "case": "narratives-chelsea-top-five",
+      "task": "narratives",
+      "articles": 5,
+      "input_tokens": 2459,
+      "previous_input_tokens": 2459,
+      "output_tokens": 137,
+      "status": "accepted",
+      "native_input_identical": true,
+      "output_matches_baseline": true,
+      "review": "Incorrectly makes Chelsea the source of Estevao's transfer advice and headlines it as advice to leave, neither established by that headline. Pluralizes the single Chelsea player with 23 minutes. The accusation is repeated without explicit publisher attribution. Smaller inputs do not fix these errors.",
+      "output": {
+        "narratives": [
+          {
+            "body": "Estevao received brutally honest transfer advice from Chelsea despite Xabi Alonso's promise.",
+            "headline": "Estevao urged to leave Chelsea despite Alonso promise",
+            "report_keys": [
+              "report_3"
+            ]
+          },
+          {
+            "body": "Chelsea players with 23 minutes of playing time this season are urged to leave the club.",
+            "headline": "Chelsea player with 23 minutes urged to leave",
+            "report_keys": [
+              "report_2"
+            ]
+          },
+          {
+            "body": "Chelsea was labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict.",
+            "headline": "Chelsea labelled 'bigger and worse offenders' than Man City",
+            "report_keys": [
+              "report_5"
+            ]
+          }
+        ]
+      },
+      "receipt": "outputs/01/result.json"
+    },
+    {
+      "case": "narratives-person-86-FOOTBALL",
+      "task": "narratives",
+      "articles": 4,
+      "input_tokens": 2102,
+      "previous_input_tokens": 2102,
+      "output_tokens": 123,
+      "status": "accepted",
+      "native_input_identical": true,
+      "output_matches_baseline": true,
+      "review": "Keeps Diomande praise and the Mastantuono discussion separate with the correct actor. 'Time to develop' expands the source's 'needs time'. Broadly preserves the two topics; no general improvement claim.",
+      "output": {
+        "narratives": [
+          {
+            "body": "RB Leipzig coach Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu.",
+            "headline": "Demichelis praises Yan Diomande ahead of Real Madrid clash",
+            "report_keys": [
+              "report_1",
+              "report_2",
+              "report_3"
+            ]
+          },
+          {
+            "body": "Demichelis stated that Franco Mastantuono needs time to develop but believes he is built for Real Madrid despite his loan spell at Fiorentina.",
+            "headline": "Demichelis insists Franco Mastantuono is built for Real Madrid",
+            "report_keys": [
+              "report_4"
+            ]
+          }
+        ]
+      },
+      "receipt": "outputs/02/result.json"
+    },
+    {
+      "case": "narratives-player-37-NBA",
+      "task": "narratives",
+      "articles": 3,
+      "input_tokens": 2811,
+      "previous_input_tokens": 2811,
+      "output_tokens": 158,
+      "status": "accepted",
+      "native_input_identical": true,
+      "output_matches_baseline": true,
+      "review": "Separates the jersey story from injury reporting, unlike the prior merged output. Covers the two injury games in separate entries; they could also have been grouped. Correct publishers and Chris Paul's old No. 3 survive. Parser accepts this wording.",
+      "output": {
+        "narratives": [
+          {
+            "body": "Bradley Beal is ruled out for the game against Sacramento due to a knee injury, according to NBC Sports.",
+            "headline": "Bradley Beal ruled out vs. Sacramento over knee injury",
+            "report_keys": [
+              "report_1"
+            ]
+          },
+          {
+            "body": "NBC Sports reports that Bradley Beal remains unavailable for the upcoming game against the Lakers due to his knee injury.",
+            "headline": "Bradley Beal remains out vs. Lakers due to knee injury",
+            "report_keys": [
+              "report_2"
+            ]
+          },
+          {
+            "body": "ABC30 Fresno reports that the Clippers have indicated Bradley Beal will wear Chris Paul's old No. 3 jersey.",
+            "headline": "Clippers indicate Bradley Beal will wear Chris Paul's old No. 3",
+            "report_keys": [
+              "report_3"
+            ]
+          }
+        ]
+      },
+      "receipt": "outputs/03/result.json"
+    },
+    {
+      "case": "transfer-player-83946-NFL",
+      "task": "transfer",
+      "articles": 5,
+      "input_tokens": 2162,
+      "previous_input_tokens": 2162,
+      "output_tokens": 93,
+      "status": "rejected",
+      "native_input_identical": true,
+      "output_matches_baseline": true,
+      "review": "Preserves signing after release but turns signing WITH an NFC East rival into competing WITH one. Repeats draft-bust language through broad outlet attribution. The unchanged parser rejects the expanded Philadelphia Eagles name; findings remain empty. The top five exclude the official club-publisher report because its movement score is lower.",
+      "output": {
+        "body": "Evan Neal has been confirmed by the Philadelphia Eagles as a signee, with reports indicating he joined the practice squad after being released by the Las Vegas Raiders. Multiple outlets describe the move as the Eagles signing an ex-Giants draft bust to compete with an NFC East rival.",
+        "findings": []
+      },
+      "receipt": "outputs/04/result.json"
+    },
+    {
+      "case": "transfer-team-37-FOOTBALL",
+      "task": "transfer",
+      "articles": 5,
+      "input_tokens": 2456,
+      "previous_input_tokens": 2456,
+      "output_tokens": 88,
+      "status": "accepted",
+      "native_input_identical": true,
+      "output_matches_baseline": true,
+      "review": "Invents coach as Pellegrini's role and includes unrelated injury coverage. Ends by claiming no reported movement despite its own signing-plan sentence and the selected Leipzig retention headline. Actor and relevance errors remain despite five articles.",
+      "output": {
+        "body": "Roma is looking to make two signings in January, though no specific targets or parties are named in the available reports. The club has rejected three offers for Pisilli this summer and will lose coach Pellegrini for at least six to eight weeks due to a serious injury. There is no reported movement involving Roma as a target or a mover in the provided data.",
+        "findings": []
+      },
+      "receipt": "outputs/05/result.json"
+    },
+    {
+      "case": "vibe-person-23-FOOTBALL",
+      "task": "vibe",
+      "articles": 5,
+      "input_tokens": 2369,
+      "previous_input_tokens": 2369,
+      "output_tokens": 133,
+      "status": "accepted",
+      "native_input_identical": true,
+      "output_matches_baseline": true,
+      "review": "Keeps positive expressed reactions with De Zerbi and preserves the hope about attitude/mentality. Gives three sentences instead of the requested one or two; within the parser's character limit, so accepted. No invented population-wide mood detected.",
+      "output": {
+        "score": 85,
+        "headline": "De Zerbi expresses delight and hope over Spurs' resilience and style",
+        "body": "Roberto De Zerbi is portrayed as deeply pleased with Tottenham's performance, describing himself as 'very happy' and 'delighted' after a crucial victory over Coventry. He specifically praises the team's resilience and hopes their positive 'attitude' and 'mentality' remain intact. While one source notes his focus on Kulusevski's return, the prevailing tone across reports is one of satisfaction and optimism regarding the team's style and response to the match."
+      },
+      "receipt": "outputs/06/result.json"
+    },
+    {
+      "case": "vibe-person-959-NFL",
+      "task": "vibe",
+      "articles": 2,
+      "input_tokens": 1412,
+      "previous_input_tokens": 1412,
+      "output_tokens": 89,
+      "status": "accepted",
+      "native_input_identical": true,
+      "output_matches_baseline": true,
+      "review": "Correctly separates Jones's disappointment from the ex-player's criticism of Jones, fixing the previous actor reversal on this case. Still calls two negative reactions mixed and scores them 50; no conflicting valence is established. Three sentences exceed the requested one or two.",
+      "output": {
+        "score": 50,
+        "headline": "Jerry Jones faces criticism from ex-Cowboys star and media reports of disappointment",
+        "body": "Coverage indicates Jerry Jones is feeling disappointed and is seeking roster improvements before the trade deadline. An ex-Cowboys star has publicly criticized Jones amid reports of team struggles. The tone reflects mixed reactions: internal dissatisfaction from Jones and external criticism from a former player, without evidence of a unified fan or organizational consensus."
+      },
+      "receipt": "outputs/07/result.json"
+    }
+  ]
+}

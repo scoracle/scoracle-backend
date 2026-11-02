@@ -7,7 +7,7 @@ use scoracle_cognition::harness::{
     Parser, Studio,
 };
 use scoracle_cognition::plugins::scout::parser::RatingRequestParser;
-use scoracle_cognition::plugins::scout::prompt::Parts;
+use scoracle_cognition::plugins::scout::request::Parts;
 use serde_json::{json, Value};
 use std::{path::Path, sync::Mutex};
 

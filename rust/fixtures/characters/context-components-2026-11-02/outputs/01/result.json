@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-components-2026-11-02/cases/narratives-chelsea-top-five.json",
+  "generation_wall_ms": 30574,
+  "input_tokens": 2459,
+  "name": "chelsea-target-preview",
+  "output_limit": 2100,
+  "output_tokens": 137,
+  "parsed": true,
+  "prompt_version": "n130-context-components",
+  "reading": "Estevao received brutally honest transfer advice from Chelsea despite Xabi Alonso's promise.\n\nChelsea players with 23 minutes of playing time this season are urged to leave the club.\n\nChelsea was labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict.",
+  "request_bytes": 4907,
+  "review": [
+    "Identity preview only; no model call and no claim this older source packet is current news."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 30607
+}

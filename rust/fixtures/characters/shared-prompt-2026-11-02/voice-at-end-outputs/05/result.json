@@ -1,0 +1,22 @@
+{
+  "case": 5,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/shared-prompt-2026-11-02/cases/transfer-team-37-FOOTBALL.json",
+  "generation_wall_ms": 9702,
+  "input_tokens": 2457,
+  "name": "transfer-team-37-FOOTBALL",
+  "output_limit": 1400,
+  "output_tokens": 98,
+  "parsed": false,
+  "prompt_version": "insider-source-v29-shared-prompt",
+  "reading": "named claim is absent from cited reports: Mirko Vučinić",
+  "request_bytes": 5440,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9724
+}

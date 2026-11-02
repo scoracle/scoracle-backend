@@ -89,8 +89,8 @@ fn statement_schema_order(schema: &Value) -> Result<String> {
         .map(|value| format!(r#", "unspecified":{value}"#))
         .unwrap_or_default();
     let ordered_statement = format!(
-        r#"{{"report_key":{}{gaps},"attribution":{},"clause":{}}}"#,
-        statement["report_key"], statement["attribution"], statement["clause"]
+        r#"{{"id":{}{gaps},"attribution":{},"clause":{}}}"#,
+        statement["id"], statement["attribution"], statement["clause"]
     );
     let ordered_item = format!(
         r#"{{"statements":{},"headline":{}}}"#,
@@ -136,10 +136,10 @@ fn render_statements(raw: &str, packet: &Value) -> Result<String> {
                     "invalid unspecified details"
                 );
             }
-            let key = statement["report_key"].as_str().context("report key")?;
+            let key = statement["id"].as_u64().context("report ID")?;
             let report = reports
                 .iter()
-                .find(|r| r["report_key"] == key)
+                .find(|r| r["id"] == key)
                 .context("statement cites outside its topic")?;
             let attribution = statement["attribution"].as_str().context("attribution")?;
             ensure!(
@@ -165,11 +165,11 @@ fn render_statements(raw: &str, packet: &Value) -> Result<String> {
             }
         }
         ensure!(
-            keys.iter().any(|k| group["anchor_report_key"] == *k),
+            keys.iter().any(|k| group["anchor_id"] == *k),
             "missing topic anchor"
         );
         rendered.push(
-            json!({"headline":entry["headline"],"body":sentences.join(" "),"report_keys":keys}),
+            json!({"headline":entry["headline"],"body":sentences.join(" "),"report_ids":keys}),
         );
     }
     Ok(serde_json::to_string(&json!({"narratives":rendered}))?)
@@ -180,8 +180,8 @@ fn citations_first(schema: &Value) -> Result<String> {
     let props = &schema["properties"]["narratives"]["items"]["properties"];
     let sorted = serde_json::to_string(props)?;
     let ordered = format!(
-        r#"{{"report_keys":{},"body":{},"headline":{}}}"#,
-        props["report_keys"], props["body"], props["headline"]
+        r#"{{"report_ids":{},"body":{},"headline":{}}}"#,
+        props["report_ids"], props["body"], props["headline"]
     );
     let raw = serde_json::to_string(schema)?.replacen(&sorted, &ordered, 1);
     ensure!(
@@ -197,7 +197,7 @@ fn source_blocks(packet: &Value) -> Result<String> {
     for report in packet["fresh"].as_array().context("fresh reports")? {
         text.push_str(&format!(
             "\n{} [{}] scope={} published_at={}\n{}\n",
-            report["report_key"].as_str().context("report key")?,
+            report["id"].as_u64().context("report ID")?,
             report["publisher"].as_str().context("publisher")?,
             report["evidence_scope"],
             report["published_at"],
@@ -255,6 +255,8 @@ async fn main() -> Result<()> {
     let model = LlamaClient::new(&args[4], &args[5], Duration::from_secs(180), Some(false))?;
     for (index, case) in cases.iter().enumerate() {
         let mut original = NarrativesTask.assemble(&case.parts)?;
+        ensure!(original.options.format_schema.as_ref().is_some_and(|s| s["properties"]["narratives"].is_object()),
+            "archived multi-story experiment; use character_outputs for the current one-hook recap contract");
         original.options.num_predict =
             output_budget(case.output_budget, original.options.num_predict)?;
         if let Some(user) = &case.user_prompt {
@@ -328,7 +330,7 @@ async fn main() -> Result<()> {
                     serde_json::from_str(&original.user_prompt)?;
                 let fresh: Vec<_> = packet["fresh"].as_array().context("reports")?.iter().map(|report| {
                     let evidence = report.get("headline").or(report.get("publisher_excerpt")).unwrap();
-                    json!({"report_key":report["report_key"], "published_at":report["published_at"],
+                    json!({"id":report["id"], "published_at":report["published_at"],
                         "publisher_statement":format!("{} published this {}: {}",report["publisher"].as_str().unwrap(),report["evidence_scope"].as_str().unwrap(),evidence)})
                 }).collect();
                 prepared.user_prompt = format!(
@@ -363,13 +365,13 @@ async fn main() -> Result<()> {
                     .unwrap()
                     .push(json!("evidence"));
                 item["properties"]["evidence"] = json!({"type":"array","minItems":1,"maxItems":3,
-                    "items":{"type":"object","additionalProperties":false,"required":["report_key","text"],
-                    "properties":{"report_key":item["properties"]["report_keys"]["items"],
+                    "items":{"type":"object","additionalProperties":false,"required":["id","text"],
+                    "properties":{"id":item["properties"]["report_ids"]["items"],
                     "text":{"type":"string","minLength":1,"maxLength":1200}}}});
                 let props = &item["properties"];
                 let ordered = format!(
-                    r#"{{"evidence":{},"report_keys":{},"body":{},"headline":{}}}"#,
-                    props["evidence"], props["report_keys"], props["body"], props["headline"]
+                    r#"{{"evidence":{},"report_ids":{},"body":{},"headline":{}}}"#,
+                    props["evidence"], props["report_ids"], props["body"], props["headline"]
                 );
                 let raw = serde_json::to_string(schema)?.replacen(
                     &serde_json::to_string(
@@ -458,7 +460,7 @@ async fn main() -> Result<()> {
                                     .as_array()
                                     .unwrap()
                                     .iter()
-                                    .find(|r| r["report_key"] == quote["report_key"]);
+                                    .find(|r| r["id"] == quote["id"]);
                                 copied &= report.is_some_and(|r| {
                                     r.get("headline")
                                         .or(r.get("publisher_excerpt"))
@@ -553,21 +555,18 @@ mod tests {
     }
     #[test]
     fn statement_rendering_binds_publishers_without_rewriting_claims() {
-        let packet = json!({"fresh":[{"anchor_report_key":"report_1","reports":[
-            {"report_key":"report_1","publisher":"Gazette"},
-            {"report_key":"report_2","publisher":"Ledger"}]}]});
+        let packet = json!({"fresh":[{"anchor_id":1,"reports":[
+            {"id":1,"publisher":"Gazette"},
+            {"id":2,"publisher":"Ledger"}]}]});
         let reply = json!({"narratives":[{"headline":"Harbor: loan reports","statements":[
-            {"report_key":"report_1","attribution":"reports that","clause":"Harbor may agree a loan."},
-            {"report_key":"report_2","attribution":"reports that","clause":"Harbor deny an agreement."}]}]});
+            {"id":1,"attribution":"reports that","clause":"Harbor may agree a loan."},
+            {"id":2,"attribution":"reports that","clause":"Harbor deny an agreement."}]}]});
         let rendered: Value =
             serde_json::from_str(&render_statements(&reply.to_string(), &packet).unwrap()).unwrap();
         assert_eq!(rendered["narratives"][0]["body"], "Gazette reports that Harbor may agree a loan. Ledger reports that Harbor deny an agreement.");
-        assert_eq!(
-            rendered["narratives"][0]["report_keys"],
-            json!(["report_1", "report_2"])
-        );
+        assert_eq!(rendered["narratives"][0]["report_ids"], json!([1, 2]));
         let mut invalid = reply.clone();
-        invalid["narratives"][0]["statements"][0]["report_key"] = json!("report_3");
+        invalid["narratives"][0]["statements"][0]["id"] = json!(3);
         assert!(render_statements(&invalid.to_string(), &packet).is_err());
         invalid = reply.clone();
         invalid["narratives"][0]["statements"][0]["attribution"] = json!("and another outlet say");
@@ -581,19 +580,19 @@ mod tests {
         assert!(render_statements(r#"{"narratives":[]}"#, &packet).is_err());
         let schema = json!({"properties":{"narratives":{"items":{"properties":{
         "headline":{"type":"string"},"statements":{"items":{"properties":{
-            "attribution":{"type":"string"},"clause":{"type":"string"},"report_key":{"type":"string"}
+            "attribution":{"type":"string"},"clause":{"type":"string"},"id":{"type":"string"}
         }}}}}}}});
         let raw = statement_schema_order(&schema).unwrap();
         assert!(raw.contains(r#""properties":{"statements":"#));
-        assert!(raw.contains(r#""properties":{"report_key":"#));
+        assert!(raw.contains(r#""properties":{"id":"#));
         assert_eq!(serde_json::from_str::<Value>(&raw).unwrap(), schema);
         let mut with_gaps = schema.clone();
         with_gaps["properties"]["narratives"]["items"]["properties"]["statements"]["items"]
             ["properties"]["unspecified"] = json!({"type":"array"});
         let raw = statement_schema_order(&with_gaps).unwrap();
-        assert!(raw.contains(
-            r#""report_key":{"type":"string"}, "unspecified":{"type":"array"},"attribution""#
-        ));
+        assert!(
+            raw.contains(r#""id":{"type":"string"}, "unspecified":{"type":"array"},"attribution""#)
+        );
         let mut annotated = reply.clone();
         annotated["narratives"][0]["statements"][0]["unspecified"] =
             json!(["whether an agreement will be reached"]);
@@ -605,14 +604,17 @@ mod tests {
 
     #[test]
     fn schema_order_and_source_values_survive_assembly_variants() {
-        let schema = scoracle_cognition::tools::form::journalist_schema(2);
+        let schema = json!({"properties":{"narratives":{"items":{"properties":{
+            "headline":{"type":"string"},"body":{"type":"string"},
+            "report_ids":{"type":"array","items":{"type":"integer","enum":[1,2]}}
+        }}}}});
         let raw = citations_first(&schema).unwrap();
-        assert!(raw.contains(r#""properties":{"report_keys":"#));
+        assert!(raw.contains(r#""properties":{"report_ids":"#));
         assert_eq!(serde_json::from_str::<Value>(&raw).unwrap(), schema);
-        let packet = json!({"meta":{"name":"A"},"fresh":[{"report_key":"report_1","publisher":"Wire","evidence_scope":"headline","published_at":null,"headline":"A said \"no\".\nNo deal."}],"tone":"Direct"});
+        let packet = json!({"meta":{"name":"A"},"fresh":[{"id":1,"publisher":"Wire","evidence_scope":"headline","published_at":null,"headline":"A said \"no\".\nNo deal."}],"tone":"Direct"});
         let blocks = source_blocks(&packet).unwrap();
         assert!(blocks.contains(r#""A said \"no\".\nNo deal.""#));
-        assert!(blocks.contains("report_1 [Wire]"));
+        assert!(blocks.contains("1 [Wire]"));
         assert!(blocks.contains("published_at=null"));
     }
 }

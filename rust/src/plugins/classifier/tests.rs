@@ -981,7 +981,7 @@ async fn exact_token_overflow_drops_history_then_holds_each_complete_character_p
         assert_eq!(first["memories"].as_array().unwrap().len(), 1);
         assert!(second["memories"].as_array().unwrap().is_empty());
         assert_eq!(
-            first["fresh"], second["fresh"],
+            first["new_content"], second["new_content"],
             "complete fresh evidence changed"
         );
     }

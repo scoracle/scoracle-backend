@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/refined/narratives-player-37-NBA.json",
+      "generation_wall_ms": 18040,
+      "input_tokens": 5344,
+      "name": "narratives-player-37-NBA",
+      "output_limit": 2100,
+      "output_tokens": 103,
+      "parsed": false,
+      "prompt_version": "n124-context-guide",
+      "reading": "cited reports do not connect Chris Paul with numerical fact 3",
+      "request_bytes": 6584,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "rejected",
+      "task": "narratives",
+      "temperature": 0.0,
+      "wall_ms": 18085
+    }
+  ],
+  "completed": 1
+}

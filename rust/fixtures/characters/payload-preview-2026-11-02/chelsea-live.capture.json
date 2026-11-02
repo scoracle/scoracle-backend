@@ -1,0 +1,41 @@
+{
+  "read_only": "on",
+  "captured_at": "2026-11-02T15:26:44.329868-05:00",
+  "target": {
+    "id": 18,
+    "name": "Chelsea",
+    "sport": "FOOTBALL"
+  },
+  "model_generation_calls": 0,
+  "production_writes": false,
+  "source": "Archbox via existing local SSH tunnel",
+  "production_capture_exit": 0,
+  "prompt_version": "n130-context-components",
+  "articles": 5,
+  "input_tokens": 2612,
+  "should_call": true,
+  "selected_reports": [
+    {
+      "article_id": 1265795,
+      "subject_score": 96.01542927020616
+    },
+    {
+      "article_id": 1208261,
+      "subject_score": 96.00635633700097
+    },
+    {
+      "article_id": 1343463,
+      "subject_score": 95.58583839724405
+    },
+    {
+      "article_id": 1265782,
+      "subject_score": 95.22503838074648
+    },
+    {
+      "article_id": 1207856,
+      "subject_score": 95.2110212420025
+    }
+  ],
+  "native_template_rendered": true,
+  "source_wording_preserved": true
+}

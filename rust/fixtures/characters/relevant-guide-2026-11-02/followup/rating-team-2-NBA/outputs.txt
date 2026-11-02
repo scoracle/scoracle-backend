@@ -1,0 +1,6 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — rating / rating-team-2-NBA [accepted]
+The Boston Celtics recorded 89 games played in the 2025 season. Rebounding totaled 46.4 points, ranking at the 93.1st percentile in the elite band among 30 peers, a rise from the 72.4th percentile. Rim Protection totaled 5.0 points, ranking at the 58.6th percentile in the average band among 30 peers, a fall from the 79.3th percentile. Steals totaled 7.0 points, ranking at the 3.4th percentile in the poor band among 30 peers, held steady from the 3.4th percentile. Foul Drawing totaled 18.8 points, ranking at the 0.0th percentile in the poor band among 30 peers, held steady from the 0.0th percentile. Playmaking totaled 24.6 points, ranking at the 10.3th percentile in the poor band among 30 peers, a fall from the 31.0th percentile. Scoring totaled 114.2 points, ranking at the 31.0th percentile in the poor band among 30 peers, a fall from the 69.0th percentile. The composite score is 54.2. No availability headlines are supplied.
+

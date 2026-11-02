@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "reading_plain_text",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/relevant-guide-2026-11-02/cases/candidate/oracle-player-744-NFL.json",
+  "generation_wall_ms": 6092,
+  "input_tokens": 1369,
+  "name": "oracle-player-744-NFL",
+  "output_limit": 700,
+  "output_tokens": 77,
+  "parsed": true,
+  "prompt_version": "or37-relevant-guide",
+  "reading": "Sam LaPorta's available picture centers on elite statistical standing within a thin sample of five appearances, yet this measured performance is set against a backdrop of expressed frustration and a willingness to seek payment elsewhere. The divergence between his high percentile rankings and his reported dissatisfaction creates a tension where on-field contributions do not yet resolve the uncertainty surrounding his future with the Detroit Lions.",
+  "request_bytes": 4452,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "oracle",
+  "temperature": 0.0,
+  "wall_ms": 6106
+}

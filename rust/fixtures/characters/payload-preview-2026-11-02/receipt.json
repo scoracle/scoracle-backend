@@ -1,0 +1,12 @@
+{
+  "character": "Journalist",
+  "target": "Chelsea",
+  "fixture": "fixtures/characters/context-components-2026-11-02/cases/narratives-chelsea-top-five.json",
+  "prompt_version": "n130-context-components",
+  "production_assembly": true,
+  "matches_previous_native_request": true,
+  "database_access": false,
+  "new_generation_calls": 0,
+  "dak_prescott": "Captured read-only from Archbox; see dak-prescott.capture.json.",
+  "current_chelsea_capture": "chelsea-live.capture.json"
+}

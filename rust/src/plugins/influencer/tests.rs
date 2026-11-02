@@ -48,7 +48,7 @@ async fn day_card_contract() {
         source: "Wire".into(),
         published_at_epoch: Some(1709164800),
     };
-    let a = Assignment::from_parts(prompt::Parts {
+    let a = Assignment::from_parts(request::Parts {
         database_record: None,
         memories: vec![],
         subject: EntityMeta {
@@ -57,7 +57,7 @@ async fn day_card_contract() {
             entity_id: 7,
             sport: "NBA".into(),
         },
-        day: prompt::Day {
+        day: request::Day {
             start: 1709164700,
             end: 1709251100,
             cutoff: 1709164900,
@@ -96,11 +96,11 @@ async fn day_card_contract() {
         2
     );
     let world: Value = serde_json::from_str(&a.parts.assemble()).unwrap();
-    assert!(world["fresh"]["reports"][1]["publisher_text"]
+    assert!(world["new_content"]["reports"][1]["publisher_text"]
         .as_str()
         .unwrap()
         .ends_with("No other supporters were interviewed."));
-    assert!(world["fresh"]["reports"][0]
+    assert!(world["new_content"]["reports"][0]
         .get("classification_id")
         .is_none());
     let mut changed = a.parts.clone();
@@ -150,7 +150,7 @@ async fn day_card_contract() {
     let receipt = &retained["receipt"];
     let mut retained_parts = receipt["input_components"].clone();
     retained_parts["day"] = retained_parts["period"].clone();
-    let mut daily: prompt::Parts = serde_json::from_value(retained_parts).unwrap();
+    let mut daily: request::Parts = serde_json::from_value(retained_parts).unwrap();
     assert!(
         Assignment::from_parts(daily.clone()).is_err(),
         "weekly generation is retired"
@@ -166,7 +166,7 @@ async fn day_card_contract() {
     .unwrap();
     assert_ne!(assignment.parts.assemble(), receipt["packet"]);
     assert_ne!(
-        prompt::request_hash(&backend, &assignment, 4096).unwrap(),
+        request::request_hash(&backend, &assignment, 4096).unwrap(),
         receipt["input_hash"]
     );
     let mut changed = assignment.parts.clone();
@@ -176,7 +176,8 @@ async fn day_card_contract() {
     let with_world = Assignment::from_parts(changed).unwrap();
     let packet: Value = serde_json::from_str(&with_world.parts.assemble()).unwrap();
     assert_eq!(
-        packet["fresh"]["reports"][0]["classifier_world"]["qualified_claims"][0]["target_relation"],
+        packet["new_content"]["reports"][0]["classifier_world"]["qualified_claims"][0]
+            ["target_relation"],
         "unknown"
     );
     assert_ne!(with_world.input_hash, assignment.input_hash);
@@ -190,7 +191,7 @@ async fn an_incomplete_day_never_calls_the_model() {
     .unwrap()["receipt"]["input_components"]
         .clone();
     captured["day"] = captured["period"].clone();
-    let mut parts: prompt::Parts = serde_json::from_value(captured).unwrap();
+    let mut parts: request::Parts = serde_json::from_value(captured).unwrap();
     parts.day.end = parts.day.start + 86400;
     parts.excluded.push(json!({"article_id":999,"classification_id":999,"in_day":true,"reason":"packet_budget_exceeded"}));
     let model = Model {
@@ -208,11 +209,11 @@ async fn an_incomplete_day_never_calls_the_model() {
 #[test]
 fn output_prose_cannot_exceed_the_native_budget_contract() {
     let oversized =
-        json!({"score":75,"headline":"Hope","body":"x".repeat(prompt::BODY_MAX_CHARS+1)});
+        json!({"score":75,"headline":"Hope","body":"x".repeat(request::BODY_MAX_CHARS+1)});
     assert!(VibeParser.parse(&oversized.to_string()).is_err());
     assert_eq!(
-        prompt::schema()["oneOf"][0]["properties"]["body"]["maxLength"],
-        prompt::BODY_MAX_CHARS
+        request::schema()["oneOf"][0]["properties"]["body"]["maxLength"],
+        request::BODY_MAX_CHARS
     );
 }
 

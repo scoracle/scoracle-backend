@@ -18,7 +18,7 @@ fn edition(narratives: Vec<Narrative>) -> NarrativesOutput {
             headline: Some("Test Team's story moves".to_string()),
         },
         "test-journalist-model".to_string(),
-        crate::plugins::journalist::prompt::NARRATIVES_PROMPT_VERSION,
+        crate::plugins::journalist::request::NARRATIVES_PROMPT_VERSION,
         input_ids,
         Some("narratives-input-hash".to_string()),
     )
@@ -150,7 +150,7 @@ mod postgres_publication_fencing_tests {
         assert_eq!(rows[0].3.as_deref(), Some("test-journalist-model"));
         assert_eq!(
             rows[0].4.as_deref(),
-            Some(crate::plugins::journalist::prompt::NARRATIVES_PROMPT_VERSION)
+            Some(crate::plugins::journalist::request::NARRATIVES_PROMPT_VERSION)
         );
         let event: (String, String, Option<String>) = sqlx::query_as(
             "SELECT kind, source_stage, source_input_version \

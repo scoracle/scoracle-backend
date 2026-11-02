@@ -8,7 +8,7 @@ use scoracle_cognition::harness::model::{
 };
 use scoracle_cognition::harness::providers::llama::LlamaClient;
 use scoracle_cognition::harness::Studio;
-use scoracle_cognition::plugins::journalist::{self, fresh, prompt};
+use scoracle_cognition::plugins::journalist::{self, fresh, request as prompt};
 use scoracle_cognition::tools::meta::EntityMeta;
 use serde::Deserialize;
 use serde_json::json;
@@ -174,7 +174,7 @@ async fn main() -> Result<()> {
             .context(case.name.clone())?;
         let base_record = json!({"name":case.name, "input_hash":assignment.input_hash,
             "dispositions":assignment.dispositions.iter().map(|d|json!({"article_id":d.article_id,"reason":d.reason})).collect::<Vec<_>>(),
-            "system":prompt::instructions()});
+            "system":scoracle_cognition::plugins::journalist::character_instructions::INSTRUCTIONS.system()});
         // Alternate which mode runs first to reduce a fixed cache/order advantage.
         let mut order = (0..modes.len()).collect::<Vec<_>>();
         if case_index % 2 == 1 {

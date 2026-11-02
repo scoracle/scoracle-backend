@@ -1,10 +1,10 @@
 //! Analyst execution, deterministic product fields and queue invalidation.
+pub mod character_instructions;
 pub mod fresh;
 pub mod manifest;
 pub mod parser;
-pub mod prompt;
 mod publish;
-pub mod voice;
+pub mod request;
 
 use crate::harness::models::ExecutionCapabilities;
 use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
@@ -13,8 +13,8 @@ use crate::harness::queue::work::{self, Item};
 use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use prompt::{Assignment, MOMENTUM_PROMPT_VERSION};
 use publish::{commit_claimed, record_ledger};
+use request::{Assignment, MOMENTUM_PROMPT_VERSION};
 use sqlx::{PgPool, Postgres, Transaction};
 use tracing::debug;
 
@@ -147,7 +147,7 @@ async fn articulate(
         entity_id: assignment.entity_id,
         sport: assignment.sport.clone(),
     };
-    let prompt = prompt::Parts {
+    let prompt = request::Parts {
         subject,
         database_record: ctx.database_record.clone(),
         scout: ctx.rating.clone(),
@@ -155,7 +155,7 @@ async fn articulate(
         snapshot: ctx.snapshot.clone(),
     }
     .assemble();
-    let opts = prompt::generation_options(assignment.voice_num_ctx);
+    let opts = request::generation_options(assignment.voice_num_ctx);
     let extracted = studio
         .extract(
             &prompt,
@@ -201,7 +201,7 @@ pub async fn enqueue_momentum_if_needed(
         return Ok(false);
     }
     let sport = sport.to_uppercase();
-    let ctx = prompt::load_momentum_context(pool, entity_type, entity_id, &sport).await?;
+    let ctx = request::load_momentum_context(pool, entity_type, entity_id, &sport).await?;
     if ctx.empty() {
         return Ok(false);
     }
@@ -308,7 +308,7 @@ impl StudioPlugin for MomentumHandler {
             crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &item.sport)
                 .await?;
         let context =
-            prompt::load_momentum_context(pool, &item.entity_type, entity_id, &sport).await?;
+            request::load_momentum_context(pool, &item.entity_type, entity_id, &sport).await?;
         let assignment = Assignment {
             entity_id,
             entity_type: item.entity_type.clone(),

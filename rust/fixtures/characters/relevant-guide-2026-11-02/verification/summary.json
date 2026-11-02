@@ -1,0 +1,8 @@
+{
+  "command": "cargo test --offline --lib --examples --bin eval",
+  "passed": 418,
+  "failed": 0,
+  "ignored": 74,
+  "initial_restricted_run": "Two local HTTP fixture-server binds were blocked by the sandbox; reran with loopback permission.",
+  "production_writes": false
+}

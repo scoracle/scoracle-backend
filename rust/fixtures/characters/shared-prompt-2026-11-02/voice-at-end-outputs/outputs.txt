@@ -1,0 +1,34 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / chelsea-target-preview [rejected]
+named claim is absent from cited reports: Manchester City
+
+2 — narratives / narratives-person-86-FOOTBALL [accepted]
+RB Leipzig coach Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu.
+
+Demichelis stated that Franco Mastantuono needs time to develop but believes he is built for Real Madrid despite his loan spell at Fiorentina.
+
+3 — narratives / narratives-player-37-NBA [accepted]
+Bradley Beal is ruled out for the game against Sacramento due to a knee injury, according to NBC Sports.
+
+NBC Sports reports that Bradley Beal remains unavailable for the upcoming game against the Lakers due to his knee injury.
+
+ABC30 Fresno reports that the Clippers have indicated Bradley Beal will wear Chris Paul's old No. 3 jersey.
+
+4 — transfer / transfer-player-83946-NFL [rejected]
+named claim is absent from cited reports: Philadelphia Eagles
+
+5 — transfer / transfer-team-37-FOOTBALL [rejected]
+named claim is absent from cited reports: Mirko Vučinić
+
+6 — vibe / vibe-person-23-FOOTBALL [accepted]
+De Zerbi expresses joy and pride over Spurs' resilience and style.
+
+Roberto De Zerbi is portrayed as deeply pleased with Tottenham's performance. He explicitly stated he is 'very happy' and 'delighted' by the team's resilience and ability to turn on the style following a vital win against Coventry. While other reports focus on his hope that the team's 'attitude' and 'mentality' remain intact, the prevailing tone across the coverage is one of satisfaction and celebration regarding the team's recent success.
+
+7 — vibe / vibe-person-959-NFL [accepted]
+Jerry Jones faces criticism from ex-Cowboys star and media reports of disappointment
+
+Coverage indicates Jerry Jones is described as 'disappointed' by The Athletic, while Yahoo Sports reports an ex-Cowboys star has criticized him amid team struggles. The sources express these sentiments separately without confirming a unified consensus or revealing the specific nature of the star's remarks beyond the headline.
+

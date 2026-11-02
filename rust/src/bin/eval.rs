@@ -727,8 +727,8 @@ async fn run_capture_assignments(
     cases: &[EvalCase],
     season: Option<i32>,
 ) -> Result<()> {
-    use scoracle_cognition::plugins::scout::prompt::{build_rating_request, RatingReq};
-    use scoracle_cognition::plugins::scout::prompt::{RatingBuild, RATING_TEMPERATURE};
+    use scoracle_cognition::plugins::scout::request::{build_rating_request, RatingReq};
+    use scoracle_cognition::plugins::scout::request::{RatingBuild, RATING_TEMPERATURE};
     use scoracle_cognition::tools::meta::lookup_entity_name;
     anyhow::ensure!(
         !cases.is_empty(),

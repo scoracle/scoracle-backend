@@ -1,5 +1,5 @@
 //! Claim-fenced product persistence, completion and diagnostic ledger.
-use super::prompt::{MomentumContext, MOMENTUM_NUM_PREDICT};
+use super::request::{MomentumContext, MOMENTUM_NUM_PREDICT};
 use super::{record_momentum_completed, MomentumOutput, MOMENTUM_STEADY_BAND};
 use crate::harness::ledger::{insert_generation_ledger_best_effort, LedgerEvent, LedgerSpec};
 use crate::harness::plugin::PluginOutcome;

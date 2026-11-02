@@ -1,0 +1,14 @@
+case 1: narratives / chelsea-target-preview
+  "rejected" (11.3s)
+case 2: narratives / narratives-person-86-FOOTBALL
+  "accepted" (10.1s)
+case 3: narratives / narratives-player-37-NBA
+  "accepted" (12.7s)
+case 4: transfer / transfer-player-83946-NFL
+  "rejected" (9.2s)
+case 5: transfer / transfer-team-37-FOOTBALL
+  "rejected" (9.7s)
+case 6: vibe / vibe-person-23-FOOTBALL
+  "accepted" (10.5s)
+case 7: vibe / vibe-person-959-NFL
+  "accepted" (6.5s)

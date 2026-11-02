@@ -1,0 +1,33 @@
+{
+  "case": 1,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_banned_phrases",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/relevant-guide-2026-11-02/cases/candidate/momentum-player-744-NFL.json",
+  "generation_wall_ms": 5308,
+  "input_tokens": 1089,
+  "name": "momentum-player-744-NFL",
+  "output_limit": 700,
+  "output_tokens": 75,
+  "parsed": true,
+  "prompt_version": "momentum-s47-relevant-guide",
+  "reading": "Sam LaPorta's 2026 performance metrics show elite percentile rankings despite a thin sample of five appearances, while coverage reflects his frustration over stalled extension talks and a lack of team support. These observations describe distinct current states—statistical standing versus reported sentiment—without a dated comparison to establish a trend or causal link between the two.",
+  "request_bytes": 2822,
+  "review": [
+    "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+  ],
+  "status": "accepted",
+  "task": "momentum",
+  "temperature": 0.0,
+  "wall_ms": 5322
+}

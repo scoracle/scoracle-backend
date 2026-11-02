@@ -1,0 +1,26 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / chelsea-live-live-journalist-preview [accepted]
+Chelsea FC Latest News .com reports that the club promoted Penders and Sharman-Lowe following Emi Martinez's injury. The headline states the promotion occurred after Martinez's injury.
+
+Talk Chelsea notes that Chelsea's £100m target could yet sign a new contract, claims his boss. The headline quotes the boss saying, 'We haven't given up'.
+
+London Evening Standard provides an injury update listing Martinez, Chavarria, and James with latest return dates. Flashscore.com adds that Chelsea are searching for new right-back options amid Gusto uncertainty.
+
+2 — narratives / dak-prescott-live-journalist-preview [rejected]
+named claim is absent from cited reports: Dak Prescott Reveals What Sucks Most
+
+3 — narratives / chelsea-target-preview [accepted]
+Football London reported that Estevao received brutally honest transfer advice from Chelsea despite Xabi Alonso's promise. The club is also being labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict.
+
+CaughtOffside urged a Chelsea player with 23 minutes of playing time this season to leave the club.
+
+Flashscore.com and FOX Sports provided match data for Bournemouth - Chelsea and Chelsea vs. Aston Villa - Final Score - December 21, 2026.
+
+4 — narratives / narratives-person-86-FOOTBALL [accepted]
+Yahoo, Yardbarker, and OneFootball report that RB Leipzig boss Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu.
+
+5 — narratives / narratives-player-37-NBA [rejected]
+named claim is absent from cited reports: Los Angeles Clippers
+

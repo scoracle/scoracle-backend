@@ -8,23 +8,23 @@ use crate::harness::models::Models;
 use crate::harness::route::RouteKey;
 use crate::harness::Parser;
 use crate::plugins::analyst::parser::MomentumParser;
-use crate::plugins::analyst::prompt::load_momentum_context;
-use crate::plugins::influencer::{prompt::VIBE_NUM_PREDICT, VibeParser};
+use crate::plugins::analyst::request::load_momentum_context;
+use crate::plugins::influencer::{request::VIBE_NUM_PREDICT, VibeParser};
 use crate::plugins::insider::fresh::preview as preview_insider;
-use crate::plugins::insider::prompt::{
+use crate::plugins::insider::request::{
     Parts as InsiderParts, PROMPT_VERSION as INSIDER_PROMPT_VERSION,
 };
 use crate::plugins::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
 #[cfg(test)]
-use crate::plugins::journalist::prompt::CorpusItem;
-use crate::plugins::oracle::prompt::load_pillars;
-use crate::plugins::oracle::prompt::{
+use crate::plugins::journalist::request::CorpusItem;
+use crate::plugins::oracle::request::load_pillars;
+use crate::plugins::oracle::request::{
     generation_options as oracle_generation_options, Subject as OracleSubject,
     ORACLE_PROMPT_VERSION,
 };
-use crate::plugins::scout::prompt::{build_rating_request, RatingBuild, RatingReq};
+use crate::plugins::scout::request::{build_rating_request, RatingBuild, RatingReq};
 use crate::tools::guards::count_sentences;
 use crate::tools::meta::lookup_entity_name;
 use crate::util::truncate;
@@ -445,7 +445,7 @@ pub fn all_task_names() -> &'static [&'static str] {
 // The window that deployed this plugin had no shared-harness coverage at all:
 // `fixtures/quality/narratives/` was empty and "narratives" was absent from
 // `all_task_names()`, so the only gate was a bespoke replay example. Fixtures
-// here store `journalist::prompt::Parts` and are rebuilt through the plugin's current
+// here store `journalist::request::Parts` and are rebuilt through the plugin's current
 // assembler, so a change to the package is a test failure rather than a stored
 // string that quietly stops matching production.
 // ---------------------------------------------------------------------------
@@ -460,7 +460,7 @@ impl LensTask for NarrativesTask {
         crate::plugins::journalist::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::journalist::prompt::NARRATIVES_PROMPT_VERSION
+        crate::plugins::journalist::request::NARRATIVES_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
         // The response schema depends on the prepared report count.
@@ -492,7 +492,7 @@ impl LensTask for NarrativesTask {
             return Ok(None);
         }
         Ok(Some(self.assemble(&serde_json::to_value(
-            crate::plugins::journalist::prompt::Parts {
+            crate::plugins::journalist::request::Parts {
                 subject: assignment.subject,
                 reports: assignment.selected,
                 database_record: assignment.database_record,
@@ -513,31 +513,30 @@ impl LensTask for NarrativesTask {
             return rejected("Journalist has no fresh assignment");
         }
         let Some(parts) = request.parts.as_ref().and_then(|parts| {
-            serde_json::from_value::<crate::plugins::journalist::prompt::Parts>(parts.clone()).ok()
+            serde_json::from_value::<crate::plugins::journalist::request::Parts>(parts.clone()).ok()
         }) else {
             return rejected("Journalist evaluation requires report parts");
         };
         match parts.parse(raw) {
             Ok(reply) => {
                 let bodies = reply
-                    .narratives
+                    .paragraphs
                     .iter()
                     .map(|report| report.body.as_str())
                     .collect::<Vec<_>>();
                 let joined = bodies.join("\n\n");
-                let summary = reply
-                    .narratives
-                    .iter()
-                    .map(|report| format!("{}\n{}", report.headline, report.body))
-                    .collect::<Vec<_>>()
-                    .join("\n\n");
+                let summary = format!(
+                    "{}\n{}",
+                    reply.headline.as_deref().unwrap_or_default(),
+                    joined
+                );
                 let mut checks = Vec::new();
                 if let Some(expect) = expect {
                     if let Some(empty) = expect.narratives_empty {
                         checks.push(PropertyCheck {
                             name: format!("narratives empty == {empty}"),
-                            pass: reply.narratives.is_empty() == empty,
-                            detail: format!("{} narratives", reply.narratives.len()),
+                            pass: reply.paragraphs.is_empty() == empty,
+                            detail: format!("{} narratives", reply.paragraphs.len()),
                         });
                     }
                     for needle in expect.body_includes.iter().flatten() {
@@ -585,13 +584,13 @@ impl LensTask for NarrativesTask {
         }
     }
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::journalist::prompt::Parts =
+        let parts: crate::plugins::journalist::request::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("narratives parts: {e}"))?;
         let subject = parts.subject.clone();
         let reports = parts.reports.clone();
         // Replay the production payload and the report-count-specific schema.
-        let assignment = crate::plugins::journalist::prompt::Assignment {
+        let assignment = crate::plugins::journalist::request::Assignment {
             database_record: parts.database_record,
             subject,
             selected: reports,
@@ -601,8 +600,8 @@ impl LensTask for NarrativesTask {
         Ok(Prepared {
             parts: Some(stored_parts.clone()),
             should_call: !assignment.selected.is_empty(),
-            user_prompt: crate::plugins::journalist::prompt::prompt(&assignment),
-            options: crate::plugins::journalist::prompt::generation_options(&assignment, 0),
+            user_prompt: crate::plugins::journalist::request::prompt(&assignment),
+            options: crate::plugins::journalist::request::generation_options(&assignment, 0),
         })
     }
     fn stores_parts(&self) -> bool {
@@ -623,10 +622,10 @@ impl LensTask for VibeTask {
         crate::plugins::influencer::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::influencer::prompt::VIBE_PROMPT_VERSION
+        crate::plugins::influencer::request::VIBE_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        Ok(crate::plugins::influencer::prompt::generation_options(
+        Ok(crate::plugins::influencer::request::generation_options(
             temperature,
             0,
             VIBE_NUM_PREDICT,
@@ -689,15 +688,15 @@ impl LensTask for VibeTask {
         }
     }
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::influencer::prompt::Parts =
+        let parts: crate::plugins::influencer::request::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("vibe parts: {e}"))?;
         Ok(Prepared {
             parts: Some(stored_parts.clone()),
             should_call: !parts.sources.is_empty() && parts.hold_reason().is_none(),
             user_prompt: parts.assemble(),
-            options: crate::plugins::influencer::prompt::generation_options(
-                crate::plugins::influencer::prompt::VIBE_TEMPERATURE,
+            options: crate::plugins::influencer::request::generation_options(
+                crate::plugins::influencer::request::VIBE_TEMPERATURE,
                 0,
                 VIBE_NUM_PREDICT,
             ),
@@ -733,12 +732,12 @@ impl LensTask for OracleTask {
         true
     }
     fn assemble(&self, stored: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::oracle::prompt::Parts = serde_json::from_value(stored.clone())?;
+        let parts: crate::plugins::oracle::request::Parts = serde_json::from_value(stored.clone())?;
         Ok(Prepared {
             user_prompt: parts.assemble(),
             options: self.gen_options(0.0)?,
             should_call: parts.cards.readiness()
-                != crate::plugins::oracle::prompt::Readiness::Empty,
+                != crate::plugins::oracle::request::Readiness::Empty,
             parts: Some(stored.clone()),
         })
     }
@@ -752,11 +751,11 @@ impl LensTask for OracleTask {
         let sport = e.sport.to_uppercase();
         let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
         // With no evidence, the stage persists a marker without a model call.
-        if cards.readiness() == crate::plugins::oracle::prompt::Readiness::Empty {
+        if cards.readiness() == crate::plugins::oracle::request::Readiness::Empty {
             return Ok(None);
         }
         self.assemble(&serde_json::to_value(
-            crate::plugins::oracle::prompt::Parts {
+            crate::plugins::oracle::request::Parts {
                 subject: OracleSubject {
                     entity_id: e.entity_id,
                     entity_type: e.entity_type.clone(),
@@ -868,7 +867,7 @@ impl LensTask for TransferTask {
         let user_prompt = selected.assemble();
         Ok(Prepared {
             user_prompt,
-            options: crate::plugins::insider::prompt::options_for_reports(
+            options: crate::plugins::insider::request::options_for_reports(
                 0,
                 &selected.subject,
                 &selected.reports,
@@ -985,7 +984,7 @@ impl LensTask for RatingTask {
         crate::plugins::scout::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::scout::prompt::RATING_PROMPT_VERSION
+        crate::plugins::scout::request::RATING_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
         // Scout acceptance needs the selected measurements, so callers must carry
@@ -1016,12 +1015,13 @@ impl LensTask for RatingTask {
     }
     /// Rebuild the production request and retain its measurement context for parsing.
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::scout::prompt::Parts =
+        let parts: crate::plugins::scout::request::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("rating parts: {e}"))?;
         Ok(Prepared {
             user_prompt: parts.render(),
-            options: parts.generation_options(0, crate::plugins::scout::prompt::RATING_TEMPERATURE),
+            options: parts
+                .generation_options(0, crate::plugins::scout::request::RATING_TEMPERATURE),
             parts: Some(stored_parts.clone()),
             should_call: parts.has_measured_profile(),
         })
@@ -1042,7 +1042,7 @@ impl LensTask for RatingTask {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Scout evaluation requires parts"))
             .and_then(|p| {
-                serde_json::from_value::<crate::plugins::scout::prompt::Parts>(p.clone())?
+                serde_json::from_value::<crate::plugins::scout::request::Parts>(p.clone())?
                     .parse(raw)
             });
         let mut verdict = self.evaluate(raw, label, expect);
@@ -1119,7 +1119,7 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-// Momentum preparation lives in `crate::plugins::analyst::prompt`, reading finished Scout
+// Momentum preparation lives in `crate::plugins::analyst::request`, reading finished Scout
 // and Influencer products plus the dated study. Eval reuses it and the local parser.
 // It USED to carry its own fork ("momentum-eval-v3",
 // a duplicate system prompt, its own parser): a relic from momentum's fixture-first era that
@@ -1135,10 +1135,10 @@ impl LensTask for MomentumTask {
         crate::plugins::analyst::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::analyst::prompt::MOMENTUM_PROMPT_VERSION
+        crate::plugins::analyst::request::MOMENTUM_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        let mut options = crate::plugins::analyst::prompt::generation_options(0);
+        let mut options = crate::plugins::analyst::request::generation_options(0);
         options.temperature = Some(temperature);
         Ok(options)
     }
@@ -1146,7 +1146,8 @@ impl LensTask for MomentumTask {
         true
     }
     fn assemble(&self, stored: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::analyst::prompt::Parts = serde_json::from_value(stored.clone())?;
+        let parts: crate::plugins::analyst::request::Parts =
+            serde_json::from_value(stored.clone())?;
         Ok(Prepared {
             user_prompt: parts.assemble(),
             options: self.gen_options(0.0)?,
@@ -1173,7 +1174,7 @@ impl LensTask for MomentumTask {
             sport: e.sport.clone(),
         };
         self.assemble(&serde_json::to_value(
-            crate::plugins::analyst::prompt::Parts {
+            crate::plugins::analyst::request::Parts {
                 subject,
                 database_record: context.database_record,
                 scout: context.rating,
@@ -1693,7 +1694,7 @@ mod tests {
             };
             let verdict = NarrativesTask.evaluate_prepared(
                 &request,
-                r#"{"narratives":[]}"#,
+                r#"{"paragraphs":[],"headline":null}"#,
                 None,
                 Some(&expect),
             );
@@ -1705,7 +1706,7 @@ mod tests {
     #[test]
     fn narratives_summary_checks_cover_headlines_as_well_as_bodies() {
         let request = one_report();
-        let raw = r#"{"narratives":[{"headline":"A confirmed surge","body":"Wire discusses the press.","report_keys":["report_1"]}]}"#;
+        let raw = r#"{"headline":"A confirmed surge","paragraphs":[{"body":"Wire discusses the press.","report_ids":[1]}]}"#;
         for excluded in ["confirmed surge", "Wire discusses"] {
             let expect = Expect {
                 summary_excludes: Some(vec![excluded.into()]),
@@ -1734,8 +1735,7 @@ mod tests {
     #[test]
     fn body_excludes_matches_across_typographic_apostrophes() {
         // Real ministral-3:14b output (curly U+2019).
-        let reply = serde_json::json!({
-            "narratives":[{"headline":"A brief flash","body":"The tape holds firm and the samples are thin. For now, this isn\u{2019}t a surge, just a brief flash of what might come.","report_keys":["report_1"]}],
+        let reply = serde_json::json!({"headline":"A brief flash","paragraphs":[{"body":"The tape holds firm and the samples are thin. For now, this isn\u{2019}t a surge, just a brief flash of what might come.","report_ids":[1]}],
         })
         .to_string();
         let x = Expect {
@@ -1753,8 +1753,7 @@ mod tests {
 
     #[test]
     fn body_includes_matches_across_typographic_apostrophes() {
-        let reply = serde_json::json!({
-            "narratives":[{"headline":"Press tightens","body":"Harbor City\u{2019}s press is tightening cleanly across the last six.","report_keys":["report_1"]}],
+        let reply = serde_json::json!({"headline":"Press tightens","paragraphs":[{"body":"Harbor City\u{2019}s press is tightening cleanly across the last six.","report_ids":[1]}],
         })
         .to_string();
         let x = Expect {
@@ -1889,6 +1888,85 @@ mod tests {
     }
 
     #[test]
+    fn headline_replay_uses_the_same_five_ranked_articles_and_no_tone() {
+        for (task_name, field, criterion, fixture) in [
+            (
+                "narratives",
+                "reports",
+                "subject",
+                include_str!("../../fixtures/quality/narratives/headline-corpus.json"),
+            ),
+            (
+                "transfer",
+                "reports",
+                "movement",
+                include_str!("../../fixtures/quality/transfer/fully-named-interest.json"),
+            ),
+            (
+                "vibe",
+                "sources",
+                "emotion",
+                include_str!("../../fixtures/quality/vibe/clearly-positive.json"),
+            ),
+        ] {
+            let fixture: Fixture = serde_json::from_str(fixture).unwrap();
+            let mut parts = fixture.parts.unwrap();
+            let first = parts[field][0].clone();
+            parts[field] = serde_json::json!([10,70,50,100,0,null,70]).as_array().unwrap().iter().enumerate().map(|(i, score)| {
+                let mut item = first.clone();
+                item["id"] = serde_json::json!(100+i);
+                for text_field in ["headline", "title", "context"] {
+                    item[text_field] = serde_json::json!(format!("Selected article {i}"));
+                }
+                item["article_id"] = serde_json::json!(100+i);
+                item["classifier_world"] = serde_json::json!({"article_id":100+i,"evidence_scope":"headline","spectrum":{(criterion):score}});
+                item
+            }).collect::<Vec<_>>().into();
+            let task = resolve_task(task_name).unwrap();
+            let request = task.assemble(&parts).unwrap();
+            let packet: serde_json::Value = serde_json::from_str(&request.user_prompt).unwrap();
+            let reports = if task_name == "narratives" {
+                &packet["new_content"]
+            } else {
+                &packet["new_content"]["reports"]
+            };
+            let headlines: Vec<_> = reports
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|r| r["headline"].as_str().unwrap())
+                .collect();
+            assert_eq!(
+                headlines,
+                vec![
+                    "Selected article 3",
+                    "Selected article 1",
+                    "Selected article 6",
+                    "Selected article 2",
+                    "Selected article 0"
+                ],
+                "{task_name}"
+            );
+            for field in ["article_id", "url", "published_at"] {
+                assert!(
+                    !request.user_prompt.contains(&format!("\"{field}\"")),
+                    "{task_name}: leaked {field}"
+                );
+            }
+            assert_eq!(parts[field].as_array().unwrap().len(), 7);
+            assert_eq!(parts[field][0]["article_id"], 100);
+            assert!(packet.get("tone").is_none());
+            assert!(packet["instructions"].get("tone").is_none());
+            assert!(!request.user_prompt.contains("\"spectrum\""));
+            if task_name == "narratives" {
+                let keys = &request.options.format_schema.as_ref().unwrap()["properties"]
+                    ["paragraphs"]["items"]["properties"]["report_ids"]["items"]["enum"];
+                assert_eq!(keys.as_array().unwrap().len(), 5);
+            }
+        }
+    }
+
+    #[test]
     fn current_quality_cases_use_current_contracts_and_explicit_review() {
         for &name in all_task_names() {
             let task = resolve_task(name).unwrap();
@@ -1925,24 +2003,17 @@ mod tests {
                         .system
                         .as_ref()
                         .is_some_and(|s| !s.is_empty()));
-                    assert_eq!(package.as_object().unwrap().len(), 5);
-                    assert_eq!(
-                        package["job"],
-                        request
-                            .options
-                            .system
-                            .as_ref()
-                            .unwrap()
-                            .trim()
-                            .split("\n\n")
-                            .next()
-                            .unwrap()
-                    );
-                    for field in ["job", "context_guide", "meta", "fresh", "tone"] {
+                    assert_eq!(package.as_object().unwrap().len(), 3);
+                    assert!(package.get("tone").is_none());
+                    assert!(package["instructions"].get("tone").is_none());
+                    let job = package["instructions"]["task"].as_str().unwrap();
+                    assert!(!job.is_empty());
+                    assert!(!request.options.system.as_ref().unwrap().contains(job));
+                    for field in ["instructions", "target", "new_content"] {
                         assert!(package.get(field).is_some(), "{name}: missing {field}");
                     }
-                    assert!(request.user_prompt.starts_with(r#"{"job":"#));
-                    assert!(package["meta"].get("task").is_none());
+                    assert!(request.user_prompt.starts_with("{\n  \"instructions\":"));
+                    assert!(package["target"].get("task").is_none());
                 }
                 assert!(!fx.review.is_empty());
                 assert!(fx
@@ -2164,10 +2235,10 @@ mod tests {
                 > 1
         );
         assert!(NarrativesTask.evaluate_prepared(&request,
-            r#"{"narratives":[{"headline":"A report","body":"A report.","report_keys":["report_1"]}]}"#,None,None).parsed);
+            r#"{"headline":"A report","paragraphs":[{"body":"A report.","report_ids":[1]}]}"#,None,None).parsed);
         assert!(
             NarrativesTask
-                .evaluate_prepared(&request, r#"{"narratives":[]}"#, None, None)
+                .evaluate_prepared(&request, r#"{"paragraphs":[],"headline":null}"#, None, None)
                 .parsed
         );
         assert!(
@@ -2184,7 +2255,7 @@ mod tests {
         assert!(!quiet.should_call);
         assert!(
             !NarrativesTask
-                .evaluate_prepared(&quiet, r#"{"narratives":[]}"#, None, None)
+                .evaluate_prepared(&quiet, r#"{"paragraphs":[],"headline":null}"#, None, None)
                 .parsed
         );
     }

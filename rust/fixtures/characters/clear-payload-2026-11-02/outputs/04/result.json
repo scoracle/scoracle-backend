@@ -1,0 +1,24 @@
+{
+  "case": 4,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/narratives-person-86-FOOTBALL.json",
+  "generation_wall_ms": 5955,
+  "input_tokens": 1322,
+  "name": "narratives-person-86-FOOTBALL",
+  "output_limit": 2100,
+  "output_tokens": 75,
+  "parsed": true,
+  "prompt_version": "n131-clear-payload",
+  "reading": "Martin Demichelis, RB Leipzig's coach, praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabeu.",
+  "request_bytes": 3479,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 5971
+}

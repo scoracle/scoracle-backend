@@ -1,0 +1,6 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — momentum / momentum-player-744-NFL [accepted]
+Sam LaPorta's 2026 performance metrics show elite-level distinctiveness despite a thin sample, while coverage reflects extreme frustration and a desire to leave the team. The strong performance profile and critical coverage tone differ; neither establishes that the other is wrong or explains a change over time.
+

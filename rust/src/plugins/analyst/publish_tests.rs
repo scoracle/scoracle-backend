@@ -5,7 +5,7 @@ use super::*;
 use crate::harness::model::{GenerateOptions, GenerateResult, Inference};
 use crate::harness::Parser;
 use crate::plugins::analyst::parser::*;
-use crate::plugins::analyst::prompt::*;
+use crate::plugins::analyst::request::*;
 use async_trait::async_trait;
 use std::sync::Mutex;
 use std::time::Duration;

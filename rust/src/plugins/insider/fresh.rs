@@ -1,5 +1,20 @@
 //! Load and bound fresh movement headlines and canonical candidate names.
-use super::prompt::Parts;
+
+const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
+    relationship: "new_content contains movement reporting. Source wording establishes whether the target moves, recruits, is a former affiliation, or discusses another entity's move. Do not substitute the target for a report's named actor. An injury absence is not a departure or appointment.",
+    fields: &[
+        ("reports.publisher", "supplying outlet, distinct from any speaker in its text."),
+        ("reports.headline", "supplied title."),
+        ("reports.publisher_excerpt", "supplied passage."),
+        ("reports.report_index", "zero-based citation for this exact report."),
+        ("reports.co_mentions", "candidate identities, not established relationships or movement roles."),
+        ("reports.classifier_world.target_identity_resolved", "upstream identity match, not claim verification."),
+        ("reports.classifier_world.evidence_scope", "available text only; headline supplies no unseen article contents."),
+        ("reports.classifier_world.qualified_claims", "selected claims with their qualifications."),
+    ],
+};
+
+use super::request::Parts;
 use crate::harness::queue::work::Item;
 use crate::plugins::classifier::delivery::{load_for_character, load_spectrum_sources_on};
 use crate::tools::{meta::EntityMeta, source::SourceContext};
@@ -24,6 +39,10 @@ pub struct Report {
     pub co_mentions: Vec<Mention>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub classifier_world: Option<serde_json::Value>,
+}
+
+pub(super) fn select(reports: &[Report]) -> Vec<Report> {
+    crate::tools::source::top_articles(reports, "movement", |r| r.classifier_world.as_ref())
 }
 
 #[derive(Clone)]
@@ -310,5 +329,37 @@ mod tests {
             material.sources[3].context,
             "Oversized report. ".repeat(2000)
         );
+    }
+}
+
+#[derive(Serialize)]
+struct IndexedReport {
+    report_index: usize,
+    #[serde(flatten)]
+    report: Report,
+}
+#[derive(Serialize)]
+pub(super) struct Fresh {
+    reports: Vec<IndexedReport>,
+}
+
+pub(super) fn context(reports: &[Report]) -> crate::tools::prompt::Context<Fresh> {
+    crate::tools::prompt::Context {
+        guide: GUIDE,
+        data: Fresh {
+            reports: select(reports)
+                .into_iter()
+                .enumerate()
+                .map(|(report_index, mut report)| {
+                    report.published_at = None;
+                    report.classifier_world =
+                        crate::tools::fresh::evidence_world(report.classifier_world.as_ref());
+                    IndexedReport {
+                        report_index,
+                        report,
+                    }
+                })
+                .collect(),
+        },
     }
 }

@@ -1,0 +1,13 @@
+//! Load, select and present Classifier headlines for the daily package.
+
+const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
+    relationship: "new_content contains the articles you may use as evidence. Their text identifies who acts, speaks or is discussed; the target is not automatically the actor or speaker. Keep names, actions, numbers, units, dates and qualifications with their original subjects. Preserve conditions, denials and corrections. Repeated claims are not independent confirmation. Target attributes are background, not evidence for a news story.",
+    fields: &[
+        ("id", "article number within this request; cite it in report_ids."),
+        ("publisher", "outlet supplying this article. Name it when citing the story; it is not necessarily the speaker or original source named in the text."),
+        ("headline", "article title, not the full article. Use only what it states; do not guess omitted details or identify unnamed people."),
+        ("publisher_excerpt", "supplied passage."),
+        ("evidence_scope", "available text only; headline supplies no unseen article contents."),
+    ],
+};
+

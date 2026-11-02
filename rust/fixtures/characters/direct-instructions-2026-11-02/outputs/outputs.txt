@@ -1,0 +1,34 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / chelsea-live-live-journalist-preview [accepted]
+Chelsea FC Latest News .com reports that the club has promoted Penders and Sharman-Lowe following an injury to Emi Martinez. FootballTransfers.com notes that Manu Kone is being viewed as a record signing. Talk Chelsea states that a £100m target could yet sign a new contract, a claim made by his boss. London Evening Standard provides an injury update regarding Martinez, Chavarria, and James. Flashscore.com indicates Chelsea are searching for new right-back options amid Gusto's uncertainty.
+
+2 — narratives / dak-prescott-live-journalist-preview [accepted]
+Dak Prescott announced personal news following the team's fourth loss, a development reported by Athlon Sports. Additionally, Prescott revealed what he finds most frustrating after another difficult game for the Cowboys, according to the New York Post.
+
+3 — narratives / chelsea-target-preview [rejected]
+named claim is absent from cited reports: Manchester City
+
+4 — narratives / narratives-person-86-FOOTBALL [accepted]
+RB Leipzig boss Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu, describing the French defender as exceptional despite the daunting nature of the upcoming fixture. The comments were reported by Yahoo, Yardbarker, and OneFootball, who all highlighted Demichelis's high regard for Diomande in the context of the European tie.
+
+5 — narratives / narratives-player-37-NBA [rejected]
+named claim is absent from cited reports: Sacramento Kings
+
+6 — transfer / transfer-player-83946-NFL [rejected]
+named claim is absent from cited reports: Philadelphia Eagles
+
+7 — transfer / transfer-team-37-FOOTBALL [rejected]
+cited reports do not connect La Gazzetta with numerical fact 6
+
+8 — vibe / vibe-person-23-FOOTBALL [accepted]
+De Zerbi expresses delight over Spurs' resilience and style after Coventry victory.
+
+Roberto De Zerbi is described as 'very happy' and 'delighted' by multiple outlets, including Flashscore.co.za, VAVEL.com, Yellow Advertiser, Vodacom Soccer, and TribalFootball. He praised Tottenham's 'attitude,' 'mentality,' and ability to 'turn on the style' following their crucial win against Coventry.
+
+9 — vibe / vibe-person-959-NFL [accepted]
+Jerry Jones faces criticism from ex-players and expresses disappointment
+
+The New York Times reports Jerry Jones is 'disappointed' and wants to improve the Cowboys roster before the trade deadline. Yahoo Sports notes an ex-Cowboys star took a swipe at Jones amid team struggles. These sources indicate mixed reactions: Jones feels let down, while a former player is critical of his leadership.
+

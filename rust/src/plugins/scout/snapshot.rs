@@ -1,5 +1,5 @@
 //! Freeze Scout's selected measurements in the edition-opening transaction.
-use super::prompt::{build_rating_request_on, RatingBuild, RatingReq, RATING_TEMPERATURE};
+use super::request::{build_rating_request_on, RatingBuild, RatingReq, RATING_TEMPERATURE};
 use crate::harness::queue::work::Item;
 use anyhow::{ensure, Context, Result};
 use sqlx::{PgConnection, PgPool};

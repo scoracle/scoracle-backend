@@ -1,0 +1,22 @@
+{
+  "case": 2,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/clear-payload-2026-11-02/cases/dak-prescott.fixture.json",
+  "generation_wall_ms": 9045,
+  "input_tokens": 1188,
+  "name": "dak-prescott-live-journalist-preview",
+  "output_limit": 2100,
+  "output_tokens": 168,
+  "parsed": false,
+  "prompt_version": "n131-clear-payload",
+  "reading": "named claim is absent from cited reports: Dak Prescott's Season Rankings Hit",
+  "request_bytes": 3019,
+  "review": [
+    "Read-only Archbox capture for inspecting current model inputs; no generation or publication."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 9058
+}

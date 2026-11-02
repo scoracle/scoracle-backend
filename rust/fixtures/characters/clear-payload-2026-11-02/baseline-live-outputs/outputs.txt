@@ -1,0 +1,13 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / chelsea-live-live-journalist-preview [accepted]
+Chelsea promoted Penders and Sharman-Lowe to the first team squad following an injury to Emi Martinez.
+
+Chelsea is actively searching for new right-back options as the club evaluates the future of current player Gusto.
+
+Chelsea's £100m target for a new right-back claims his boss has not given up on securing a new contract.
+
+2 — narratives / dak-prescott-live-journalist-preview [rejected]
+named claim is absent from cited reports: Dak Prescott Rankings Down
+

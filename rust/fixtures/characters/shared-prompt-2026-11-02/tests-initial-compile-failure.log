@@ -1,0 +1,27 @@
+   Compiling scoracle-cognition v0.0.0 (/Users/scotty/scoracle/scoracle-backend/rust)
+error[E0432]: unresolved import `crate::plugins::scout::prompt`
+   --> src/harness/queue/coverage_tests.rs:350:33
+    |
+350 |     use crate::plugins::scout::{prompt::RatingBuild, snapshot};
+    |                                 ^^^^^^ could not find `prompt` in `scout`
+
+error[E0433]: cannot find `character_instructions` in `super`
+   --> src/plugins/classifier/headline.rs:146:34
+    |
+146 |             let payload = super::character_instructions::request(
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^ could not find `character_instructions` in `super`
+    |
+help: consider importing this module
+    |
+102 +     use crate::plugins::classifier::character_instructions;
+    |
+help: if you import `character_instructions`, refer to it directly
+    |
+146 -             let payload = super::character_instructions::request(
+146 +             let payload = character_instructions::request(
+    |
+
+Some errors have detailed explanations: E0432, E0433.
+For more information about an error, try `rustc --explain E0432`.
+error: could not compile `scoracle-cognition` (lib test) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...

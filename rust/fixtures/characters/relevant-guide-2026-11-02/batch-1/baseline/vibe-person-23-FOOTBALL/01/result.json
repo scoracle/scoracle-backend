@@ -1,0 +1,24 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/context-guide-2026-11-02/cases/refined/vibe-person-23-FOOTBALL.json",
+  "generation_wall_ms": 12466,
+  "input_tokens": 3766,
+  "name": "vibe-person-23-FOOTBALL",
+  "output_limit": 600,
+  "output_tokens": 72,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v36-context-guide",
+  "reading": "De Zerbi expresses delight and hope over Spurs' resilience\n\nThe supplied coverage reports that Roberto De Zerbi feels delighted and hopeful regarding Tottenham's performance. Headlines indicate he praised the team's resilience, attitude, and mentality, while noting his own happiness and satisfaction with the players' display and bonding.",
+  "request_bytes": 8683,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 12483
+}

@@ -1,6 +1,6 @@
 //! Strict edition parsing and deterministic source metadata.
 use super::activity::EditionActivity;
-use super::prompt::{Assignment, CorpusItem};
+use super::request::{Assignment, CorpusItem};
 use super::{Narrative, NarrativesProduct};
 use crate::harness::Parser;
 use anyhow::Result;
@@ -34,41 +34,38 @@ pub struct EditionParser<'a> {
 }
 impl Parser<NarrativesProduct> for EditionParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
-        let reply = parse_reports(raw, &self.assignment.selected)?;
-        let narratives = reply
-            .narratives
-            .into_iter()
-            .map(|prose| {
-                let evidence: Vec<_> = prose
-                    .report_keys
+        let selected = super::fresh::select(&self.assignment.selected);
+        let reply = parse_reports(raw, &selected)?;
+        let headline = reply.headline;
+        let mut narratives = Vec::new();
+        if let Some(title) = &headline {
+            let mut seen = HashSet::new();
+            let evidence: Vec<_> = reply
+                .paragraphs
+                .iter()
+                .flat_map(|p| &p.report_ids)
+                .filter(|id| seen.insert(**id))
+                .map(|id| selected[*id - 1].clone())
+                .collect();
+            let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
+                source_metadata(&evidence);
+            narratives.push(Narrative {
+                title: title.clone(),
+                body: reply
+                    .paragraphs
                     .iter()
-                    .map(|key| {
-                        let index = key
-                            .strip_prefix("report_")
-                            .unwrap()
-                            .parse::<usize>()
-                            .unwrap()
-                            - 1;
-                        self.assignment.selected[index].clone()
-                    })
-                    .collect();
-                let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
-                    source_metadata(&evidence);
-                Ok(Narrative {
-                    title: prose.headline,
-                    body: prose.body,
-                    // Cited-source activity is measured after articulation, before publication.
-                    impact: 0,
-                    impact_components: json!({}),
-                    input_news_ids: evidence.iter().map(|r| r.id).collect(),
-                    source_count,
-                    source_names,
-                    source_latest_epoch,
-                    source_oldest_epoch,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let headline = narratives.first().map(|narrative| narrative.title.clone());
+                    .map(|p| p.body.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n\n"),
+                impact: 0,
+                impact_components: json!({}),
+                input_news_ids: evidence.iter().map(|r| r.id).collect(),
+                source_count,
+                source_names,
+                source_latest_epoch,
+                source_oldest_epoch,
+            });
+        }
         Ok(Some(NarrativesProduct {
             memory_provenance: json!({"receipt":null,"selected":[]}),
             narratives,
@@ -84,25 +81,28 @@ pub(super) fn parse_reports(
 ) -> Result<crate::tools::form::JournalistReply> {
     let reply = crate::tools::form::parse_journalist(raw, reports.len())?;
     let evidence = super::fresh::reports(reports);
-    for prose in &reply.narratives {
-        let sources: Vec<_> = prose
-            .report_keys
+    let mut cited = HashSet::new();
+    for paragraph in &reply.paragraphs {
+        let sources: Vec<_> = paragraph
+            .report_ids
             .iter()
-            .map(|key| {
-                let index = key
-                    .strip_prefix("report_")
-                    .unwrap()
-                    .parse::<usize>()
-                    .unwrap()
-                    - 1;
-                evidence[index].evidence()
+            .map(|id| {
+                cited.insert(*id);
+                evidence[*id - 1].evidence()
             })
             .collect();
-        crate::tools::fresh::validate_report_facts(
-            &format!("{}. {}", prose.headline, prose.body),
-            &sources,
-        )
-        .map_err(|error| crate::tools::form::SurfaceError(error.to_string()))?;
+        crate::tools::fresh::validate_report_facts(&paragraph.body, &sources)
+            .map_err(|error| crate::tools::form::SurfaceError(error.to_string()))?;
+    }
+    if let Some(headline) = &reply.headline {
+        let sources: Vec<_> = evidence
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| cited.contains(&(i + 1)))
+            .map(|(_, report)| report.evidence())
+            .collect();
+        crate::tools::fresh::validate_report_facts(headline, &sources)
+            .map_err(|error| crate::tools::form::SurfaceError(error.to_string()))?;
     }
     Ok(reply)
 }

@@ -1,0 +1,70 @@
+{
+  "narratives-person-86-FOOTBALL": {
+    "baseline": "Keeps the two distinct discussions separate and attributes each to its selected publishers. Repeats similar headlines, but no material actor error detected.",
+    "candidate": "Regression: merges Diomande praise and Mastantuono discussion into one entry. Adds 'to develop' to 'needs time'; the single headline also calls both discussions praise. Parser acceptance misses this grouping error.",
+    "final": "Restores two separate discussions. Attribution remains attached to the correct reports; 'to develop' still expands 'needs time'."
+  },
+  "narratives-player-37-NBA": {
+    "baseline": "Merges injury and jersey-number stories. Rejected by the unchanged numerical/source check involving Chris Paul and 3; the source does in fact mention his old No. 3, so that rejection alone is not a factual verdict.",
+    "candidate": "Still merges injury and jersey-number stories. Different phrasing passes the parser; this is not a quality improvement in topic separation.",
+    "final": "Still merges injury and jersey stories. Rejected by the unchanged numerical/source check; no parser relaxation."
+  },
+  "vibe-person-23-FOOTBALL": {
+    "baseline": "Keeps the expressed positive reactions attached to De Zerbi. Broadly summarizes several headlines; happiness about bonding is looser than the supplied attribution that he credited it.",
+    "candidate": "Keeps De Zerbi as the speaker of positive reactions and preserves the quoted family description. Remains scoped to the supplied coverage, without inventing a fan-wide mood.",
+    "final": "Same scoped positive reaction as the initial lean version; no material change detected.",
+    "followup": "Keeps the target as speaker of positive reactions, but again loosens the bonding attribution into happiness with bonding. No clear benefit over the shorter initial guide."
+  },
+  "vibe-person-959-NFL": {
+    "baseline": "Keeps criticism directed at Jones, but pluralizes one former player and treats two negative reports as conflicting/mixed. Neither headline establishes disagreement between these reactions.",
+    "candidate": "Regression: makes the swipe Jones's own comments, reversing the critic and target. Adds disagreement about leadership and direction; still mislabels the negative reports as mixed/conflicting.",
+    "final": "Same regression: makes the criticism Jones's own comments and calls the reports conflicting/mixed. Added reminder does not fix it.",
+    "followup": "Still assigns the swipe to Jones, now describing it as his swipe at the owner. Continues to call the negative reports opposing/mixed. The added relationship paragraph does not repair actor ownership."
+  },
+  "rating-team-2-NBA": {
+    "baseline": "Preserves 89 target games versus 30 peers, per-measure amounts, bands and comparison directions. Long but no reversed measurement detected.",
+    "candidate": "Regression: changes 46.4 total rebounds to '46.4 points'. Other supplied percentiles, bands and comparison directions survive. Adds an unnecessary no-availability statement; acceptance misses the wrong measurement unit.",
+    "final": "Further regression: labels rebounds, blocks, steals, free throws and assists all as points. Correct ranks do not make this faithful; parser accepts the wrong units.",
+    "followup": "Still labels every measurement as points, despite an explicit units reminder. Rejected as a useful refinement on source review, although the mechanical parser accepts it."
+  },
+  "rating-player-744-NFL": {
+    "baseline": "Preserves the supplied elite/strong bands, ranks, 828 peers and five-appearance limit.",
+    "candidate": "Preserves 316.0 yards and 18.0 points, their separate ranks/bands, 828 peers and the five-appearance limit. Does not relabel the player cohort as teams.",
+    "final": "Keeps the separate values and ranks, 828 omitted rather than misstated, and five appearances. Narrows the minimum threshold to cross-season comparison without that scope being explicit in limit.",
+    "followup": "Preserves the two distinct values and ranks plus five appearances, but again unnecessarily narrows the threshold to cross-season comparison. No established benefit from more wording."
+  },
+  "momentum-player-744-NFL": {
+    "baseline": "Strengthens preparedness to get paid elsewhere into a desire to leave the team. Current performance/coverage contrast is otherwise supported.",
+    "candidate": "Improvement: omits the unsupported desire to leave, preserves five appearances, contract frustration and the absence of a dated trend.",
+    "final": "Preserves the current contrast, five appearances, contract frustration and absence of dated change. Avoids the baseline's unsupported desire to leave.",
+    "followup": "Same supported contrast as the preceding refinement; no new benefit."
+  },
+  "oracle-team-2-NBA": {
+    "baseline": "Reverses elite turnovers into poor performance and invents structural/functional diagnoses.",
+    "candidate": "Still reverses elite turnovers into poor turnover rates. Broad defensive/offensive framing obscures the mixed measures and adds a capability diagnosis. Shorter is not more faithful here.",
+    "final": "Still reverses elite turnovers into poor turnover rates, despite the new measure-standing reminder.",
+    "followup": "Further regression: reverses both elite turnovers and elite three-point shooting into weaknesses, invents high turnover rates and a ceiling. This longer guide is not retained."
+  },
+  "oracle-player-744-NFL": {
+    "baseline": "Preserves the five-appearance limit and contract frustration, but embellishes the contrast into a complex disconnect and uncertain future stability.",
+    "candidate": "Preserves the measured/sentiment contrast and five appearances without claiming rising raw metrics. Adds unsupported speculation about the team's readiness to resolve the situation.",
+    "final": "Preserves five appearances, frustration and willingness to seek payment elsewhere. Broad trajectory/durability phrasing remains more expansive than necessary.",
+    "followup": "Keeps the thin sample and expressed frustration, but embellishes the relationship by implying contributions could resolve uncertainty about the future. No clear benefit from more wording."
+  },
+  "transfer-team-37-FOOTBALL": {
+    "baseline": "Turns injury absences into departures and attaches the package deal too loosely to Roma/El Aynaoui; the source names Leipzig as retaining two players.",
+    "candidate": "Regression: substitutes Roma for Leipzig as the retaining club and puts both players at Brighton. Also invents coach as Pellegrini's role and includes unrelated injury coverage.",
+    "final": "Avoids making Roma the retaining club and no longer invents coach as Pellegrini's role. Still includes unrelated injury coverage, extends injury to Svilar without explicit evidence, and omits Leipzig from the package story."
+  },
+  "transfer-player-83946-NFL": {
+    "baseline": "Preserves Raiders release before Eagles signing, but adopts the publisher's draft-bust characterization. Rejected by the unchanged source/alias checks; no finding meets the full-name quotation contract.",
+    "candidate": "Improvement: removes the draft-bust characterization while preserving release then practice-squad signing. Still rejected by the existing New York Giants source/alias check; parser unchanged.",
+    "final": "Same cleaner signing/release summary without adopting draft-bust language. Existing source/alias parser still rejects it."
+  },
+  "momentum-synthetic-dated-divergence": {
+    "baseline": "Incorrectly claims a shared window, although statistical distinctiveness starts October 20 and coverage tone starts October 19. Also conflates distinctiveness with performance/perception.",
+    "candidate": "Avoids explicitly saying the windows are identical, but omits both date ranges and exposes rating notability rather than its plain meaning. It does not establish faithful handling of separate windows.",
+    "final": "Regression: invents two-week windows. The supplied starts are October 20 and October 19, both ending October 22. The added date reminder is ineffective.",
+    "followup": "Correctly says two separate windows in late October and avoids the invented two-week duration, but omits both exact date ranges and uses notability instead of statistical distinctiveness. No evidence that the longer reminder reliably establishes window fidelity; the shorter initial variant is selected for both Analyst cases."
+  }
+}

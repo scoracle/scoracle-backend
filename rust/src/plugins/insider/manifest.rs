@@ -4,7 +4,7 @@ use crate::harness::plugin::{PluginId, PluginManifest, ResourceProfile, ToolGran
 use crate::harness::queue::work::{ClaimPolicy, TaskKey};
 
 pub const TASK: TaskKey = TaskKey::new("transfers");
-pub use super::prompt::MODEL as ROUTE;
+pub use super::request::MODEL as ROUTE;
 
 pub const MANIFEST: PluginManifest = PluginManifest {
     id: PluginId::new("scoracle.character.transfers"),

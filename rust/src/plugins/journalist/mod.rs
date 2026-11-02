@@ -1,11 +1,11 @@
 //! Journalist execution: articulate prepared reports and publish under the queue claim.
 mod activity;
+pub mod character_instructions;
 pub mod fresh;
 pub mod manifest;
 mod parser;
-pub mod prompt;
 mod publish;
-pub mod voice;
+pub mod request;
 
 use crate::harness::models::ExecutionCapabilities;
 use crate::harness::plugin::{PluginManifest, PluginOutcome, StudioPlugin};
@@ -16,12 +16,12 @@ use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 use async_trait::async_trait;
 use parser::EditionParser;
-use prompt::{Assignment, NARRATIVES_PROMPT_VERSION};
 pub(crate) use publish::NARRATIVES_COMPLETED;
 use publish::{commit_claimed, record_ledger, LedgerSubject, Prepared};
+use request::{Assignment, NARRATIVES_PROMPT_VERSION};
 use serde_json::json;
 
-/// One grounded storyline with deterministic impact and evidence provenance.
+/// One grounded recap with deterministic impact and evidence provenance.
 #[derive(Clone, Debug)]
 pub struct Narrative {
     pub title: String,
@@ -68,8 +68,8 @@ pub async fn create(
     let activity = activity::load(pool, &assignment.selected, now).await?;
     let output = studio
         .extract(
-            &prompt::prompt(assignment),
-            &prompt::generation_options(assignment, num_ctx),
+            &request::prompt(assignment),
+            &request::generation_options(assignment, num_ctx),
             &EditionParser {
                 assignment,
                 activity: &activity,
@@ -195,7 +195,7 @@ pub(crate) async fn execute_with_backend(
                         .assignment
                         .selected
                         .drain(..)
-                        .map(|report| prompt::Disposition {
+                        .map(|report| request::Disposition {
                             article_id: report.id,
                             reason: "daily_package_exceeds_token_budget",
                         }),
@@ -203,7 +203,7 @@ pub(crate) async fn execute_with_backend(
                 material.assignment.input_hash = crate::util::hash_components(&format!(
                     "{}:{}",
                     material.assignment.input_hash,
-                    prompt::prompt(&material.assignment)
+                    request::prompt(&material.assignment)
                 ));
             }
             result => break result?,
@@ -214,7 +214,7 @@ pub(crate) async fn execute_with_backend(
     let mut dispositions = material.assignment.dispositions.clone();
     if output.was_called() && output.narratives.is_empty() {
         dispositions.extend(material.assignment.selected.iter().map(|report| {
-            prompt::Disposition {
+            request::Disposition {
                 article_id: report.id,
                 reason: "no_target_reporting",
             }

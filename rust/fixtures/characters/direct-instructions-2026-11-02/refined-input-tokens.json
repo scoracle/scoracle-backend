@@ -1,0 +1,48 @@
+{
+  "baseline_total": 6016,
+  "initial_total": 5475,
+  "total": 5775,
+  "saved_tokens": 241,
+  "saved_percent": 4.01,
+  "range": [
+    1025,
+    1275
+  ],
+  "cases": [
+    {
+      "case": "chelsea-live-live-journalist-preview",
+      "baseline_input_tokens": 1224,
+      "initial_input_tokens": 1114,
+      "input_tokens": 1174,
+      "saved_tokens": 50
+    },
+    {
+      "case": "dak-prescott-live-journalist-preview",
+      "baseline_input_tokens": 1188,
+      "initial_input_tokens": 1078,
+      "input_tokens": 1138,
+      "saved_tokens": 50
+    },
+    {
+      "case": "chelsea-target-preview",
+      "baseline_input_tokens": 1213,
+      "initial_input_tokens": 1103,
+      "input_tokens": 1163,
+      "saved_tokens": 50
+    },
+    {
+      "case": "narratives-person-86-FOOTBALL",
+      "baseline_input_tokens": 1322,
+      "initial_input_tokens": 1215,
+      "input_tokens": 1275,
+      "saved_tokens": 47
+    },
+    {
+      "case": "narratives-player-37-NBA",
+      "baseline_input_tokens": 1069,
+      "initial_input_tokens": 965,
+      "input_tokens": 1025,
+      "saved_tokens": 44
+    }
+  ]
+}

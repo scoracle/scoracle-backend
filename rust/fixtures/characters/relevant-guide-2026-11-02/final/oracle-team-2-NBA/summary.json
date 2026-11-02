@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "reading_plain_text",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/relevant-guide-2026-11-02/cases/candidate/oracle-team-2-NBA.json",
+      "generation_wall_ms": 4344,
+      "input_tokens": 1025,
+      "name": "oracle-team-2-NBA",
+      "output_limit": 700,
+      "output_tokens": 49,
+      "parsed": true,
+      "prompt_version": "or36-relevant-guide",
+      "reading": "The Boston Celtics present a fractured profile where elite defensive metrics clash with poor offensive output and turnover rates. This internal tension suggests a team capable of containing opponents but struggling to generate its own scoring, leaving the overall trajectory uncertain.",
+      "request_bytes": 2726,
+      "review": [
+        "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+      ],
+      "status": "accepted",
+      "task": "oracle",
+      "temperature": 0.0,
+      "wall_ms": 4354
+    }
+  ],
+  "completed": 1
+}

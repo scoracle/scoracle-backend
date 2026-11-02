@@ -1,0 +1,6 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / narratives-player-37-NBA [accepted]
+NBC Sports reports that Bradley Beal remains out against the Lakers due to a knee injury. NBC Sports previously ruled him out for the game against Sacramento. ABC30 Fresno reports that the Clippers indicated Beal will wear Chris Paul's old No. 3 jersey.
+

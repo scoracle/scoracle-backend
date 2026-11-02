@@ -1,0 +1,8 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / vibe-person-959-NFL [accepted]
+Mixed reactions to Jerry Jones amid Cowboys struggles
+
+Coverage presents conflicting views on Jerry Jones. One headline frames his comments as a 'swipe' at the owner amidst team struggles, while another quotes him as 'disappointed' and eager to improve the roster before the trade deadline. These opposing angles create a mixed tone regarding his current standing and attitude.
+

@@ -1,0 +1,6 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — transfer / transfer-team-37-FOOTBALL [accepted]
+0 finding(s) | Roma are looking to make two signings in January, according to Yahoo Sports. The club has rejected three offers for Pisilli this summer and faces a crisis with Pellegrini and Svilar out due to injury. Reports also mention a €50m package involving Gruda and El Aynaoui, though no specific agreement with Roma is confirmed.
+

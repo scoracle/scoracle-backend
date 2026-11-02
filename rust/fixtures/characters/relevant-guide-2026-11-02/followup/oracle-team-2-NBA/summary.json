@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "reading_plain_text",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "/Users/scotty/scoracle/scoracle-backend/rust/fixtures/characters/relevant-guide-2026-11-02/cases/candidate/oracle-team-2-NBA.json",
+      "generation_wall_ms": 5027,
+      "input_tokens": 1071,
+      "name": "oracle-team-2-NBA",
+      "output_limit": 700,
+      "output_tokens": 67,
+      "parsed": true,
+      "prompt_version": "or37-relevant-guide",
+      "reading": "The Boston Celtics present a picture of elite defensive and rebounding strength contrasted by significant weaknesses in turnover management and shooting efficiency. While their ability to limit opponents and secure boards remains a dominant feature, the team's poor performance in three-point shooting and high turnover rates create a meaningful tension that limits their overall ceiling.",
+      "request_bytes": 2998,
+      "review": [
+        "Does this fulfill the character's purpose? Is its central reading supported? Record material errors separately from awkward wording and processing cost."
+      ],
+      "status": "accepted",
+      "task": "oracle",
+      "temperature": 0.0,
+      "wall_ms": 5038
+    }
+  ],
+  "completed": 1
+}

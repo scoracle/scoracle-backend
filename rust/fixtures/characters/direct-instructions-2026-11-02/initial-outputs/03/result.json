@@ -1,0 +1,22 @@
+{
+  "case": 3,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/narratives-chelsea-top-five.json",
+  "generation_wall_ms": 11843,
+  "input_tokens": 1103,
+  "name": "chelsea-target-preview",
+  "output_limit": 2100,
+  "output_tokens": 265,
+  "parsed": false,
+  "prompt_version": "n132-direct-instructions",
+  "reading": "named claim is absent from cited reports: Xabi Alonso",
+  "request_bytes": 3691,
+  "review": [
+    "Identity preview only; no model call and no claim this older source packet is current news."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 11856
+}

@@ -1,0 +1,61 @@
+# Character prompt ownership
+
+Plugins own meaning and behavior. Shared code owns assembly and field-presence rules. Every context provider returns its data together with a guide explaining how that data relates to the target.
+
+| Change | Owner |
+| --- | --- |
+| Role, voice, requested product, output instructions | Plugin `character_instructions.rs` |
+| Which evidence is selected and how it relates to the target | Plugin `fresh.rs` |
+| Canonical identity and stored attributes | Shared `tools/meta.rs` |
+| Connecting context providers, schema, generation settings, version | Plugin `request.rs` |
+| Ordering, conditional definitions, serialization | Shared `tools/prompt.rs` |
+| Output parsing and evidence checks | Plugin `parser.rs` and existing schema helpers |
+| Registration, execution, publication | Existing plugin manifest and runtime modules |
+
+There is no separate voice file or string substitution for voice. Role and expression are ordinary text in the task. Detailed output rules remain system instructions; the task appears once in the JSON. Request order is `instructions → target → new_content`. `instructions` contains the task followed by readable target and content guide lists. The JSON is indented in the actual model input, not only in previews.
+
+Read each payload as a work brief. A reader unfamiliar with the sport should be able to answer: What must I write? Who is it about? Which supplied text supports it? Put the requested output, length, tone, attribution and evidence limits in the task; put field meanings and their relationship to the subject in the context guides. A smaller token count alone does not establish clearer instructions or factual correctness.
+
+## Context contract
+
+`Context<T>` contains typed `data` and a `Guide`. A guide has two explicit parts:
+
+```rust
+Guide {
+    relationship: "Reports concern the target; their text identifies who speaks and acts.",
+    fields: &[
+        ("reports.publisher", "supplying outlet, distinct from the speaker."),
+        ("reports.headline", "publisher headline; not full article contents."),
+    ],
+}
+```
+
+Relationship guidance is always included. Each `(field_path, meaning)` pair is included only when that path has a supplied value. Paths use serialized field names, are relative to that component's data, and traverse arrays automatically. Zero and false count as values. Missing, null, blank strings and collections containing no supplied values do not trigger a field definition. Values are preserved in the data; filtering definitions does not discard or truncate evidence. The common metadata guide explains missing/null and empty-collection semantics.
+
+Keep the guide beside the evidence projection it describes. A renamed serialized field needs its guide path updated and a rendered fixture checked. Prose punctuation has no program semantics: the assembler no longer parses Markdown definitions.
+
+Use shared metadata when its identity semantics fit. A plugin can supply a different typed metadata component without changing the assembler. Both metadata and fresh components arrive prepared; the assembler has no database-record dependency and never loads or selects evidence. Keep the two component slots until an actual product needs another one.
+
+Share a component or definition when its meaning is identical across consumers. Target/related-entity roles, publisher/speaker roles, stored affiliation/fresh reporting, event dates and target sample/comparison cohort must remain explicit. Avoid instructions that assume every target is a team or player. Read canonical identity and optional attributes from the payload.
+
+The decision model uses the same context ownership convention but retains its native scoring questions and transport. It does not need a prose voice or a character output schema.
+
+## Add or tune a plugin
+
+Use an existing character as an example. Define its instructions, return `Context<T>` from its evidence provider, and connect the providers through `request.rs` to `tools::prompt::assemble`. Implement its output schema/parser and register it through the existing manifest/runtime and evaluation task registration. No new registry, inheritance layer or template language is required.
+
+Keep selection and interpretation in code/text owned by that plugin. Keep reusable ranking, identity and presence rules in the existing shared helpers. The current temporary five-article cap applies to Journalist, Insider and Influencer, ranked by decision `subject`, `movement` and `emotion` respectively. Schema, request and parser must all refer to that same selected order.
+
+Article IDs, URLs and publication timestamps stay in internal source records and replay receipts, but are omitted from the writing payload. Journalist articles use request-local integer `id` values (1–5); each output paragraph cites them in `report_ids`. Journalist returns `paragraphs` first and one `headline` last. The native schema preserves this generation order. Each paragraph is checked against its own sources; the hook is checked against the union of cited sources. The existing product stores one recap with blank lines between paragraphs, one hook, and deduplicated internal source IDs. These handles map back to the selected internal sources and are not persistent article identities. Insider keeps its existing report indexes. Old Journalist replies using `report_keys` belong to the archived contract; the current parser does not accept both forms. Dates within source wording are preserved, as are stored-attribute observation dates and measurement windows. This presentation rule does not change article selection or assert that all queued reporting was published today.
+
+Export a complete current request without a database or model call:
+
+```sh
+cargo run --offline --example character_package -- fixtures/quality/narratives/one-result.json --request
+```
+
+This displays the exact system and user inputs, schema, options and should-call decision. Structured fixture parts rebuild through production assembly. Inspect the selected evidence, included guide, complete request, raw output and validation result together. Saved input hashes, prompt versions and native token receipts identify what actually ran.
+
+For structural changes, compare complete requests byte-for-byte and run `cargo test --offline --lib --examples --bin eval`. For instruction changes, update every affected plugin version (including consumers of a changed shared guide), regenerate affected fixtures and compare identical evidence using complete native input tokens and manual source review. Keep failed outputs and receipts. Parser acceptance alone does not establish factual correctness.
+
+The [direct-instructions trial](../fixtures/characters/direct-instructions-2026-11-02/README.md) records the plain Journalist, Insider and Influencer briefs, numeric Journalist citations, and its single-hook recap contract. The [clear-payload trial](../fixtures/characters/clear-payload-2026-11-02/README.md) records the preceding formatting comparison and three-character replay. The [context-component trial](../fixtures/characters/context-components-2026-11-02/README.md) records the preceding structural comparison. Historical experiment folders preserve the code versions and prompts they tested.

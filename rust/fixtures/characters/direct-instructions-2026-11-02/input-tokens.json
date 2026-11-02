@@ -1,0 +1,102 @@
+{
+  "baseline_total": 11668,
+  "total": 11623,
+  "saved_tokens": 45,
+  "saved_percent": 0.39,
+  "range": [
+    1033,
+    1595
+  ],
+  "cases": [
+    {
+      "case": "chelsea-live-live-journalist-preview",
+      "task": "narratives",
+      "baseline_input_tokens": 1224,
+      "input_tokens": 1182,
+      "saved_tokens": 42,
+      "baseline_status": "accepted",
+      "status": "accepted",
+      "receipt": "outputs/01/result.json"
+    },
+    {
+      "case": "dak-prescott-live-journalist-preview",
+      "task": "narratives",
+      "baseline_input_tokens": 1188,
+      "input_tokens": 1146,
+      "saved_tokens": 42,
+      "baseline_status": "rejected",
+      "status": "accepted",
+      "receipt": "outputs/02/result.json"
+    },
+    {
+      "case": "chelsea-target-preview",
+      "task": "narratives",
+      "baseline_input_tokens": 1213,
+      "input_tokens": 1171,
+      "saved_tokens": 42,
+      "baseline_status": "accepted",
+      "status": "rejected",
+      "receipt": "outputs/03/result.json"
+    },
+    {
+      "case": "narratives-person-86-FOOTBALL",
+      "task": "narratives",
+      "baseline_input_tokens": 1322,
+      "input_tokens": 1283,
+      "saved_tokens": 39,
+      "baseline_status": "accepted",
+      "status": "accepted",
+      "receipt": "outputs/04/result.json"
+    },
+    {
+      "case": "narratives-player-37-NBA",
+      "task": "narratives",
+      "baseline_input_tokens": 1069,
+      "input_tokens": 1033,
+      "saved_tokens": 36,
+      "baseline_status": "rejected",
+      "status": "rejected",
+      "receipt": "outputs/05/result.json"
+    },
+    {
+      "case": "transfer-player-83946-NFL",
+      "task": "transfer",
+      "baseline_input_tokens": 1556,
+      "input_tokens": 1595,
+      "saved_tokens": -39,
+      "baseline_status": "rejected",
+      "status": "rejected",
+      "receipt": "outputs/06/result.json"
+    },
+    {
+      "case": "transfer-team-37-FOOTBALL",
+      "task": "transfer",
+      "baseline_input_tokens": 1451,
+      "input_tokens": 1490,
+      "saved_tokens": -39,
+      "baseline_status": "rejected",
+      "status": "rejected",
+      "receipt": "outputs/07/result.json"
+    },
+    {
+      "case": "vibe-person-23-FOOTBALL",
+      "task": "vibe",
+      "baseline_input_tokens": 1435,
+      "input_tokens": 1474,
+      "saved_tokens": -39,
+      "baseline_status": "accepted",
+      "status": "accepted",
+      "receipt": "outputs/08/result.json"
+    },
+    {
+      "case": "vibe-person-959-NFL",
+      "task": "vibe",
+      "baseline_input_tokens": 1210,
+      "input_tokens": 1249,
+      "saved_tokens": -39,
+      "baseline_status": "accepted",
+      "status": "accepted",
+      "receipt": "outputs/09/result.json"
+    }
+  ]
+}

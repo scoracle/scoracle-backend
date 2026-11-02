@@ -63,11 +63,11 @@ impl<'a> RatingRequestParser<'a> {
         let evidence = serde_json::from_str::<serde_json::Value>(prompt)
             .ok()
             .map(|p| {
-                let mut fresh = p["fresh"].clone();
+                let mut fresh = crate::tools::prompt::new_content(&p).clone();
                 let availability = fresh
                     .as_object_mut()
                     .and_then(|fields| fields.remove("availability"));
-                serde_json::json!({"fresh":fresh,"availability":availability}).to_string()
+                serde_json::json!({"new_content":fresh,"availability":availability}).to_string()
             });
         Self {
             prompt: evidence.unwrap_or_else(|| prompt.to_string()),
@@ -193,7 +193,7 @@ fn first_unsupported_number(body: &str, prompt: &str) -> Option<String> {
     let package = serde_json::from_str::<serde_json::Value>(prompt).ok();
     let evidence = package
         .as_ref()
-        .and_then(|p| p.get("fresh"))
+        .and_then(|p| p.get("new_content").or_else(|| p.get("fresh")))
         .map(serde_json::Value::to_string);
     let supplied = numeric_literals(evidence.as_deref().unwrap_or(prompt));
     numeric_literals(body)
@@ -382,7 +382,7 @@ fn first_source_shape_error(
     let body_folded = body.to_lowercase();
     let prompt_folded = prompt.to_lowercase();
     let world: serde_json::Value = serde_json::from_str(prompt).unwrap_or_default();
-    let profile = &world["fresh"];
+    let profile = crate::tools::prompt::new_content(&world);
     let has_profile = profile.is_object();
     let unsupported_comparison = profile["supports_cross_season"] == false;
     // A policy minimum and general compatibility are not observations or measured comparisons.

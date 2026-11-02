@@ -58,7 +58,7 @@ fn grouped_packet(packet: &Value, groups: &[Vec<usize>], selected_only: bool) ->
         .enumerate()
         .map(|(i, g)| json!({
             "topic_key":format!("topic_{}",i+1),
-            "anchor_report_key":reports[g[0]-1]["report_key"],
+            "anchor_id":reports[g[0]-1]["id"],
             "reports":g.iter().map(|id| reports[id-1].clone()).collect::<Vec<_>>()
         }))
         .collect::<Vec<_>>());
@@ -143,6 +143,8 @@ async fn main() -> Result<()> {
     for pass in 1..=2 {
         for case in &cases {
             let original = NarrativesTask.assemble(&case.parts)?;
+            ensure!(original.options.format_schema.as_ref().is_some_and(|s| s["properties"]["narratives"].is_object()),
+                "archived multi-story experiment; use character_outputs for the current one-hook recap contract");
             let packet: Value = serde_json::from_str(&original.user_prompt)?;
             let count = packet["fresh"].as_array().context("fresh")?.len();
             let reference = validate_groups(case.reference_groups.clone(), count)?;
@@ -215,13 +217,9 @@ async fn main() -> Result<()> {
                     prepared.user_prompt = grouped_packet(&packet, &groups, selected_only)?;
                     if selected_only {
                         groups.truncate(3);
-                        let keys: BTreeSet<_> = groups
-                            .iter()
-                            .flatten()
-                            .map(|id| format!("report_{id}"))
-                            .collect();
+                        let keys: BTreeSet<_> = groups.iter().flatten().copied().collect();
                         let references = &mut prepared.options.format_schema.as_mut().unwrap()
-                            ["properties"]["narratives"]["items"]["properties"]["report_keys"];
+                            ["properties"]["narratives"]["items"]["properties"]["report_ids"];
                         references["items"]["enum"] = json!(keys);
                         references["maxItems"] = json!(keys.len());
                         record["visible_reports"] = json!(keys.len());
@@ -244,12 +242,11 @@ async fn main() -> Result<()> {
                             .enumerate()
                             .all(|(i, n)| {
                                 groups.get(i).is_some_and(|g| {
-                                    n["report_keys"].as_array().is_some_and(|keys| {
+                                    n["report_ids"].as_array().is_some_and(|keys| {
                                         !keys.is_empty()
-                                            && keys.iter().all(|key| {
-                                                g.iter()
-                                                    .any(|id| key == &json!(format!("report_{id}")))
-                                            })
+                                            && keys
+                                                .iter()
+                                                .all(|key| g.iter().any(|id| key == &json!(*id)))
                                     })
                                 })
                             }));
@@ -274,9 +271,9 @@ mod tests {
     #[test]
     fn grouping_keeps_source_objects_and_rejects_missing_or_fabricated_ids() {
         let packet = json!({"meta":{"name":"A"},"tone":"Direct","fresh":[
-            {"report_key":"report_1","publisher":"Wire","headline":"Possible move; no agreement."},
-            {"report_key":"report_2","publisher":"Ledger","headline":"Club denies the agreement."},
-            {"report_key":"report_3","publisher":"Wire","headline":"Separate discussion."}]});
+            {"id":1,"publisher":"Wire","headline":"Possible move; no agreement."},
+            {"id":2,"publisher":"Ledger","headline":"Club denies the agreement."},
+            {"id":3,"publisher":"Wire","headline":"Separate discussion."}]});
         let grouped: Value =
             serde_json::from_str(&grouped_packet(&packet, &[vec![3], vec![1, 2]], false).unwrap())
                 .unwrap();
@@ -301,7 +298,7 @@ mod tests {
         four["fresh"]
             .as_array_mut()
             .unwrap()
-            .push(json!({"report_key":"report_4","publisher":"Other","headline":"Unrelated"}));
+            .push(json!({"id":4,"publisher":"Other","headline":"Unrelated"}));
         let selected: Value = serde_json::from_str(
             &grouped_packet(&four, &[vec![1, 2], vec![3], vec![4]], true).unwrap(),
         )

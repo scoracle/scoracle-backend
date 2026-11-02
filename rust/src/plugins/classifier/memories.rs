@@ -173,7 +173,7 @@ async fn select(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plugins::influencer::prompt::{Assignment, Day, Parts};
+    use crate::plugins::influencer::request::{Assignment, Day, Parts};
     use serde_json::json;
 
     #[test]
@@ -333,13 +333,14 @@ mod tests {
         assert_eq!(retained["article_id"], records[0]["article_id"]);
         assert_eq!(retained["url"], records[0]["url"]);
         assert_eq!(
-            packet["meta"],
+            packet["target"],
             json!({"name":"New York Knicks","entity_type":"team","sport":"basketball"})
         );
         assert!(packet.get("voice").is_none());
         assert!(packet.get("task").is_none());
-        assert_eq!(packet.as_object().unwrap().len(), 5);
-        assert!(packet["fresh"]["reports"][0]
+        assert_eq!(packet.as_object().unwrap().len(), 3);
+        assert!(packet.get("tone").is_none());
+        assert!(packet["new_content"]["reports"][0]
             .get("publisher_text")
             .is_none());
         let with_memories = Assignment::from_parts(parts.clone()).unwrap().input_hash;
@@ -446,10 +447,10 @@ mod tests {
             1792382460,
         )?;
         let packet: Value =
-            serde_json::from_str(&crate::plugins::journalist::prompt::prompt(&assignment))?;
-        assert_eq!(packet["fresh"].as_array().unwrap().len(), 2);
+            serde_json::from_str(&crate::plugins::journalist::request::prompt(&assignment))?;
+        assert_eq!(packet["new_content"].as_array().unwrap().len(), 2);
         assert!(packet.get("memories").is_none());
-        for report in packet["fresh"].as_array().unwrap() {
+        for report in packet["new_content"].as_array().unwrap() {
             assert!(report.get("publisher_excerpt").is_none());
             assert!(fresh.iter().any(|s| report["headline"] == s.headline));
         }

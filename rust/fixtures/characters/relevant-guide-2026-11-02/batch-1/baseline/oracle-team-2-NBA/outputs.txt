@@ -1,0 +1,6 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — oracle / oracle-team-2-NBA [accepted]
+The Boston Celtics present a fractured profile where elite defensive metrics and rebounding are overshadowed by poor performance in scoring, turnovers, and free throws. This internal dissonance creates a tension between defensive solidity and offensive inefficiency, suggesting a team that is structurally sound but functionally unbalanced. The available data, limited to a single season's aggregate, leaves the trajectory of this specific imbalance and the team's immediate future uncertain.
+

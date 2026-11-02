@@ -12,7 +12,7 @@ use crate::util::hash_components;
 
 use super::parser::*;
 use super::performance::*;
-use super::prompt::{Subject, RATING_NUM_PREDICT};
+use super::request::{Subject, RATING_NUM_PREDICT};
 use super::*;
 use crate::harness::model::GenerateOptions;
 use crate::harness::Parser;
@@ -220,7 +220,7 @@ fn rate_modes_do_not_clutter_the_selected_measurements() {
     // A rate mode measuring a different quantity cannot be presented as
     // corroboration of the selected measurement.
     let package: serde_json::Value = serde_json::from_str(&world).unwrap();
-    let values = package["fresh"]["values"].as_array().unwrap();
+    let values = package["new_content"]["values"].as_array().unwrap();
     assert_eq!(values.len(), 1);
     assert_eq!(values[0]["measure"], serde_json::json!("shots on target"));
     assert_eq!(values[0]["label"], serde_json::json!("Shooting"));
@@ -441,7 +441,7 @@ fn world(
 ) -> String {
     let supports_cross_season = supports_cross_season_comparison(profile);
     let selected = model_prompt_profile(profile, supports_cross_season, comparisons);
-    crate::plugins::scout::prompt::Parts {
+    crate::plugins::scout::request::Parts {
         database_record: None,
         availability: Default::default(),
         subject: crate::tools::meta::EntityMeta {
@@ -464,7 +464,8 @@ fn world(
 /// The `fresh` part as parsed JSON, for assertions about structure rather than
 /// about a rendered sentence.
 fn fresh(world: &str) -> serde_json::Value {
-    serde_json::from_str::<serde_json::Value>(world).expect("the world is a JSON package")["fresh"]
+    serde_json::from_str::<serde_json::Value>(world).expect("the world is a JSON package")
+        ["new_content"]
         .clone()
 }
 
@@ -513,15 +514,15 @@ fn serialized_request_is_one_self_contained_json_document() {
     let options = scout_parts().generation_options(32768, 0.0);
     assert_eq!(
         options.system.as_deref(),
-        Some(crate::plugins::scout::prompt::TASK.trim())
+        Some(crate::plugins::scout::character_instructions::INSTRUCTIONS.system())
     );
     let request = client.request_body(&prompt, &options);
     assert_eq!(request["messages"].as_array().unwrap().len(), 2);
     assert!(request.get("tools").is_none());
     let evidence = request["messages"][1]["content"].as_str().unwrap();
     let package: serde_json::Value = serde_json::from_str(evidence).unwrap();
-    assert_eq!(package.as_object().unwrap().len(), 5);
-    for part in ["meta", "fresh", "tone"] {
+    assert_eq!(package.as_object().unwrap().len(), 3);
+    for part in ["instructions", "target", "new_content"] {
         assert!(package.get(part).is_some(), "package is missing {part}");
     }
     assert!(package.get("task").is_none());
@@ -774,19 +775,21 @@ fn a_players_world_is_byte_stable() {
         &RatingExclusions::default(),
     );
     let expected = serde_json::json!({
-        "job": crate::plugins::scout::prompt::TASK.trim().split("\n\n").next().unwrap(),
-        "meta": {"name":"Test Player", "entity_type":"player", "sport":"basketball"},
-        "fresh": {"availability": [], "season":2025, "values":[
+        "target": {"name":"Test Player", "entity_type":"player", "sport":"basketball"},
+        "new_content": {"availability": [], "season":2025, "values":[
             {"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite"},
             {"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average"}],
-            "supports_cross_season":false, "limit":{"kind":"unknown_sample","minimum":10.0}},
-        "tone":crate::plugins::scout::voice::VOICE
+            "supports_cross_season":false, "limit":{"kind":"unknown_sample","minimum":10.0}}
     });
     let mut actual: serde_json::Value = serde_json::from_str(&world).unwrap();
-    assert!(actual["context_guide"]["fresh"]
-        .as_str()
+    assert!(actual["instructions"]["new_content"]
+        .as_array()
         .is_some_and(|s| !s.is_empty()));
-    actual.as_object_mut().unwrap().remove("context_guide");
+    assert_eq!(
+        actual["instructions"]["task"],
+        crate::plugins::scout::character_instructions::INSTRUCTIONS.job()
+    );
+    actual.as_object_mut().unwrap().remove("instructions");
     assert_eq!(actual, expected);
 }
 
@@ -819,7 +822,7 @@ fn a_teams_world_omits_a_composite_it_does_not_have() {
     assert_eq!(fresh["values"][0]["percentile"], serde_json::json!(78.0));
     // Position is a player concept; a team's world does not invent one.
     assert!(
-        serde_json::from_str::<serde_json::Value>(&world).unwrap()["meta"]
+        serde_json::from_str::<serde_json::Value>(&world).unwrap()["target"]
             .get("position")
             .is_none()
     );
@@ -1476,7 +1479,8 @@ fn a_thin_sample_states_its_boundary_instead_of_describing_it() {
     // The manual says what the boundary forbids, in the same terms the guard
     // enforces. A limit in the world that the manual does not describe is a
     // limit the model will talk past.
-    let manual = crate::plugins::scout::prompt::TASK
+    let manual = crate::plugins::scout::character_instructions::INSTRUCTIONS
+        .system()
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
@@ -1693,8 +1697,8 @@ fn assignment() -> Assignment {
 /// The world behind [`assignment`].
 ///
 /// A small world with an elite, source-selected measurement.
-fn scout_parts() -> crate::plugins::scout::prompt::Parts {
-    crate::plugins::scout::prompt::Parts {
+fn scout_parts() -> crate::plugins::scout::request::Parts {
+    crate::plugins::scout::request::Parts {
         database_record: None,
         availability: Default::default(),
         subject: crate::tools::meta::EntityMeta {
@@ -1923,7 +1927,7 @@ fn the_header_carries_the_curated_sport_display_name() {
         &RatingExclusions::default(),
     );
     assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&world).unwrap()["meta"]["sport"],
+        serde_json::from_str::<serde_json::Value>(&world).unwrap()["target"]["sport"],
         serde_json::json!("Football (Soccer)")
     );
 }
@@ -1970,7 +1974,7 @@ fn explicit_denials_of_stability_are_limits_not_positive_stability_claims() {
         "../../../fixtures/quality/rating/synthetic-sparse.json"
     ))
     .unwrap();
-    let parts: super::prompt::Parts = serde_json::from_value(fixture["parts"].clone()).unwrap();
+    let parts: super::request::Parts = serde_json::from_value(fixture["parts"].clone()).unwrap();
     let body="Cedar Comets' 2026 season data, based on 3.0 games played, shows 48.0 rebounds per game (90th percentile, elite band) and 23.0 assists per game (75th percentile, strong band). These thin-sample measurements do not establish cross-season comparisons, stability, or ability beyond relative standing within the cohort.";
     assert!(parts
         .parse(&serde_json::json!({"body":body}).to_string())

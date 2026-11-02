@@ -1,0 +1,22 @@
+{
+  "case": 3,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/direct-instructions-2026-11-02/cases/narratives-chelsea-top-five.json",
+  "generation_wall_ms": 9941,
+  "input_tokens": 1171,
+  "name": "chelsea-target-preview",
+  "output_limit": 3500,
+  "output_tokens": 185,
+  "parsed": false,
+  "prompt_version": "n134-recap-hook-last",
+  "reading": "named claim is absent from cited reports: Manchester City",
+  "request_bytes": 3670,
+  "review": [
+    "Identity preview only; no model call and no claim this older source packet is current news."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 9967
+}

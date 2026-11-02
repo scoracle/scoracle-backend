@@ -347,7 +347,7 @@ async fn only_current_edition_outbox_events_delay_completion() -> Result<()> {
 #[tokio::test]
 #[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
 async fn scout_retries_use_frozen_measurements_even_after_data_ingestion() -> Result<()> {
-    use crate::plugins::scout::{prompt::RatingBuild, snapshot};
+    use crate::plugins::scout::{request::RatingBuild, snapshot};
     let pool = setup().await?;
     sqlx::raw_sql("INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_COVERAGE','Coverage test',2026) ON CONFLICT DO NOTHING;
         INSERT INTO teams(id,sport,name) VALUES(101,'ZZ_COVERAGE','Cedar'),(102,'ZZ_COVERAGE','Maple') ON CONFLICT DO NOTHING;

@@ -1,0 +1,8 @@
+{
+  "character_requests": 59,
+  "quality_fixtures": 52,
+  "decision_requests": 24,
+  "all_requests_byte_identical": true,
+  "system_rules_schema_options_and_should_call_unchanged": true,
+  "candidate_parts_unchanged": true
+}

@@ -1,0 +1,22 @@
+{
+  "case": 2,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/payload-preview-2026-11-02/dak-prescott.fixture.json",
+  "generation_wall_ms": 12176,
+  "input_tokens": 2360,
+  "name": "dak-prescott-live-journalist-preview",
+  "output_limit": 2100,
+  "output_tokens": 177,
+  "parsed": false,
+  "prompt_version": "n130-context-components",
+  "reading": "named claim is absent from cited reports: Dak Prescott Rankings Down",
+  "request_bytes": 4749,
+  "review": [
+    "Read-only Archbox capture for inspecting current model inputs; no generation or publication."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 12203
+}

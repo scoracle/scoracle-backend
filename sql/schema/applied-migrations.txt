@@ -324,4 +324,5 @@
 322_qualified_product_statistics
 323_bounded_headline_inputs
 324_nonblocking_coverage_failures
+325_d3_headline_contract
 325_ten_article_character_packets

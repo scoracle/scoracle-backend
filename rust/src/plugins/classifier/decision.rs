@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 const ROUTING: &str = include_str!("../../../fixtures/classifier/headline-routing-v2.json");
 pub const ROUTING_VERSION: &str = "headline-routing-v2";
-pub const CRITERIA_VERSION: &str = "classification-criteria-v10-availability";
+pub const CRITERIA_VERSION: &str = "classification-criteria-v11-targeted";
 
 pub struct Measurement {
     pub spectrum: BTreeMap<String, f64>,
@@ -445,7 +445,11 @@ mod tests {
 
     #[test]
     fn model_identity_accepts_replaceable_fingerprinted_models() {
-        for name in ["ggml-org/Kev-0.8B-GGUF", "LiquidAI/d1-3B-GGUF"] {
+        for name in [
+            "ggml-org/Kev-0.8B-GGUF",
+            "LiquidAI/d1-3B-GGUF",
+            "vllm-sr/d3-2b-Q8_0",
+        ] {
             let model = format!("{name}@sha256:{}", "0".repeat(64));
             assert_eq!(model_identity(&json!({"model":model})).unwrap(), model);
         }

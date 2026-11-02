@@ -33,6 +33,7 @@ These are responsibilities, not a requirement for three services or repositories
 
 The architecture above is the migration direction. The checked-in implementation currently has these boundaries:
 
+- **Classifier:** the d3 Q8_0 rollout uses four native decision questions with v11 target-specific prompts, retaining existing routing thresholds and v9/v10 history. See [qualification and rollout](docs/progress_docs/2026-10-27-d3-classifier.md).
 - **Harness:** `rust/src/harness/` owns model/generation contracts, plugin manifests and registration, capability binding, routing, scheduling, claim-fenced publication and recovery. `fleet.rs` is the roster; `registration.rs` binds concrete dependencies; `queue/` retains durable work and outbox transport; `providers/` retains model transports.
 - **Plugins:** `rust/src/plugins/<name>/` owns preparation, model input, validation, product policy, publication effects and reactions. All six articulation plugins use local prompt, parser, voice and execution owners. Harvester owns source acquisition/classification and exact attributed delivery; Editor and its obsolete evals are retired.
 - **Shared tools:** `rust/src/tools/` owns acquisition, canonical metadata, bounded memory studies, form decoding and source/prose guards. Inference and external acquisition are limited by each plugin's manifest grants. `factsweep` explicitly refuses before database access; historical extraction evaluations remain offline.

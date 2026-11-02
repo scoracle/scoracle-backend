@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory(prefix="classifier-release-check-") as director
     root = Path(directory)
     for name in ("scripts/hosting", "scripts/systemd", "go", "rust/target/debug", "bins", "units", "mock"):
         (root / name).mkdir(parents=True)
-    for name in ("release.sh", "install.sh", "verify-classifier.sh", "run-classifier-model.sh"):
+    for name in ("release.sh", "install.sh", "verify-classifier.sh", "run-classifier-model.sh", "run-d3-classifier.sh"):
         shutil.copy2(SOURCE / "scripts/hosting" / name, root / "scripts/hosting" / name)
     for source in (SOURCE / "scripts/systemd").glob("*"):
         if source.is_file(): shutil.copy2(source, root / "scripts/systemd" / source.name)
@@ -89,4 +89,12 @@ esac''',
                             env=missing_model_env, capture_output=True, text=True)
     assert result.returncode != 0 and "verified d1 GGUF path" in result.stderr
     assert "EnvironmentFile=-%h/.config/scoracle/classifier-model.env" in (root / "units/scoracle-kev.service").read_text()
+    # A configured but unverified release must never start the model runtime.
+    launcher = root / "scripts/hosting/run-d3-classifier.sh"
+    clean_env = {k: v for k, v in env.items() if k != "D3_RELEASE_DIR"}
+    result = subprocess.run(["bash", str(launcher)], env=clean_env, capture_output=True, text=True)
+    assert result.returncode != 0 and "verified d3 release directory" in result.stderr
+    result = subprocess.run(["bash", str(launcher)], env={**clean_env, "D3_RELEASE_DIR": str(root)},
+                            capture_output=True, text=True)
+    assert result.returncode != 0 and "d3 model checksum mismatch" in result.stderr
 print("Model swap/default launcher, paused release, preflight/build failure, active restart and build-only checks pass.")

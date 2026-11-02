@@ -3,7 +3,7 @@ use anyhow::{ensure, Result};
 use serde_json::Value;
 
 pub(crate) const CRITERIA: &str =
-    include_str!("../../../fixtures/classifier/classification-criteria-v10-availability.json");
+    include_str!("../../../fixtures/classifier/classification-criteria-v11-targeted.json");
 
 pub fn request(headline: &str, publisher: &str, sport: &str, meta: &Value) -> Result<Value> {
     ensure!(

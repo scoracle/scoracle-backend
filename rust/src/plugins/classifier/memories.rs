@@ -44,7 +44,7 @@ pub async fn load_on(
                 (s.source->>'published_at')::timestamptz AS published
             FROM classifier_spectra x JOIN classifier_sources s ON s.id=x.source_id CROSS JOIN clock c
             WHERE x.sport=$3 AND x.target->>'entity_type'=$1 AND x.target->>'entity_id'=$2::text
-                AND x.criteria_version IN ($7,'classification-criteria-v9-headlines') AND s.source->>'evidence_scope'='headline'
+                AND x.criteria_version IN ($7,'classification-criteria-v10-availability','classification-criteria-v9-headlines') AND s.source->>'evidence_scope'='headline'
                 AND NOT (x.article_id=ANY($5)) AND x.created_at<=c.captured
             ORDER BY x.article_id,x.id DESC
         ), eligible AS (
@@ -386,7 +386,12 @@ mod tests {
             let spectrum_id:i64=sqlx::query_scalar("INSERT INTO classifier_spectra(source_id,article_id,sport,target,model,criteria_version,scrub_version,clean_text,clean_sha256,spectrum,gate,request_hash,receipt,created_at)
                 VALUES($1,$2,'NBA',$3,$4,$5,'rss-headline-spectrum-v1',$6,$7,$8,$9,$10,$11,to_timestamp(1792382459)) RETURNING id")
                 .bind(source_id).bind(id).bind(json!({"entity_type":"team","entity_id":20,"sport":"NBA"}))
-                .bind(native.model).bind(super::super::decision::CRITERIA_VERSION).bind(headline).bind(super::super::hash(headline))
+                // Mixed versions preserve pending deliveries and memories across model/prompt cutovers.
+                .bind(native.model).bind(match spectrum_ids.len() % 3 {
+                    0 => super::super::decision::CRITERIA_VERSION,
+                    1 => "classification-criteria-v10-availability",
+                    _ => "classification-criteria-v9-headlines",
+                }).bind(headline).bind(super::super::hash(headline))
                 .bind(json!(native.spectrum)).bind(gate).bind(native.request_hash).bind(native.receipt).fetch_one(&mut *tx).await?;
             sqlx::query("INSERT INTO classifier_source_heads(article_id,sport,source_id) VALUES($1,'NBA',$2)").bind(id).bind(source_id).execute(&mut *tx).await?;
             if spectrum_ids.len() >= 4 {

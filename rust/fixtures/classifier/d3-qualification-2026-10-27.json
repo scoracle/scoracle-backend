@@ -1,0 +1,153 @@
+{
+  "label_status": "assistant provisional; 82-case development set seen during prior trial; 40 fresh cases frozen before prediction; not independent human gold",
+  "selection": "v11a selected only from development routing error count, tie-break Brier; heldout not used for tuning",
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "ollama_manifest": "e1b3991aa4806936d30a6d624b234aca3f99ba89d61d6d3a17ee81739f94dafa",
+  "runtime": "Ollama 0.40.12 bundled native llama.cpp 0.7.0-dev CUDA 12; GTX 1070 Ti",
+  "metrics": {
+    "d3-dev-v10": {
+      "all": {
+        "requests": 82,
+        "raw_correct": 277,
+        "raw_labels": 289,
+        "routing_correct": 280,
+        "routing_labels": 293,
+        "brier": 0.03513434268237053,
+        "median_seconds": 0.4687278955243528,
+        "p95_seconds": 0.4756468338891864
+      },
+      "real": {
+        "requests": 42,
+        "raw_correct": 149,
+        "raw_labels": 157,
+        "routing_correct": 148,
+        "routing_labels": 157,
+        "brier": 0.04229401258516543,
+        "median_seconds": 0.4099492086097598,
+        "p95_seconds": 0.4723222078755498
+      }
+    },
+    "d3-dev-v11a": {
+      "all": {
+        "requests": 82,
+        "raw_correct": 277,
+        "raw_labels": 289,
+        "routing_correct": 283,
+        "routing_labels": 293,
+        "brier": 0.028232535340683408,
+        "median_seconds": 0.5023165629245341,
+        "p95_seconds": 0.5378322498872876
+      },
+      "real": {
+        "requests": 42,
+        "raw_correct": 149,
+        "raw_labels": 157,
+        "routing_correct": 151,
+        "routing_labels": 157,
+        "brier": 0.03282803088589791,
+        "median_seconds": 0.47484212508425117,
+        "p95_seconds": 0.5200765002518892
+      }
+    },
+    "d3-dev-v11b": {
+      "all": {
+        "requests": 82,
+        "raw_correct": 281,
+        "raw_labels": 289,
+        "routing_correct": 279,
+        "routing_labels": 293,
+        "brier": 0.02367675756831653,
+        "median_seconds": 0.507029770873487,
+        "p95_seconds": 0.5399919170886278
+      },
+      "real": {
+        "requests": 42,
+        "raw_correct": 151,
+        "raw_labels": 157,
+        "routing_correct": 150,
+        "routing_labels": 157,
+        "brier": 0.03374373060032168,
+        "median_seconds": 0.4813240417279303,
+        "p95_seconds": 0.5225688749924302
+      }
+    },
+    "d1-heldout-v10": {
+      "all": {
+        "requests": 40,
+        "raw_correct": 138,
+        "raw_labels": 153,
+        "routing_correct": 143,
+        "routing_labels": 150,
+        "brier": 0.06670919801469109,
+        "median_seconds": 0.3389739589765668,
+        "p95_seconds": 0.34965941682457924
+      },
+      "real": {
+        "requests": 24,
+        "raw_correct": 83,
+        "raw_labels": 89,
+        "routing_correct": 83,
+        "routing_labels": 86,
+        "brier": 0.04443406157168934,
+        "median_seconds": 0.3269505831412971,
+        "p95_seconds": 0.35694995801895857
+      }
+    },
+    "d3-heldout-v10": {
+      "all": {
+        "requests": 40,
+        "raw_correct": 147,
+        "raw_labels": 153,
+        "routing_correct": 131,
+        "routing_labels": 150,
+        "brier": 0.03505825107010756,
+        "median_seconds": 0.4349355208687484,
+        "p95_seconds": 0.47650204226374626
+      },
+      "real": {
+        "requests": 24,
+        "raw_correct": 87,
+        "raw_labels": 89,
+        "routing_correct": 79,
+        "routing_labels": 86,
+        "brier": 0.024981644398314413,
+        "median_seconds": 0.4142523123882711,
+        "p95_seconds": 0.4399407906457782
+      }
+    },
+    "d3-heldout-v11a": {
+      "all": {
+        "requests": 40,
+        "raw_correct": 149,
+        "raw_labels": 153,
+        "routing_correct": 144,
+        "routing_labels": 150,
+        "brier": 0.02360033456050248,
+        "median_seconds": 0.481244582682848,
+        "p95_seconds": 0.5037317089736462
+      },
+      "real": {
+        "requests": 24,
+        "raw_correct": 88,
+        "raw_labels": 89,
+        "routing_correct": 84,
+        "routing_labels": 86,
+        "brier": 0.017264610662324955,
+        "median_seconds": 0.47727624885737896,
+        "p95_seconds": 0.49635537527501583
+      }
+    }
+  },
+  "thresholds": {
+    "subject": 55,
+    "emotion": 15,
+    "movement": 80,
+    "availability": 85
+  },
+  "concurrency": {
+    "callers": 4,
+    "requests": 16,
+    "valid": 16,
+    "max_probability_delta": 0
+  }
+}

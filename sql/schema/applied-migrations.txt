@@ -326,3 +326,5 @@
 324_nonblocking_coverage_failures
 325_d3_headline_contract
 325_ten_article_character_packets
+326_progressive_character_publication
+327_required_character_stages

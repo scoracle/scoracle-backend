@@ -47,6 +47,8 @@ psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/319_nba_free_throw_
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/321_qualified_visibility.sql
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/323_headline_selection.sql
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/324_terminal_failures.sql
+psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/326_progressive_character_publication.sql
+psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/327_required_character_stages.sql
 
 python3 scripts/ops/test_headline_budget_recovery.py
 python3 scripts/ops/test_headline_budget_recovery.py --backlog

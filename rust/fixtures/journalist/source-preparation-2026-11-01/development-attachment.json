@@ -1,0 +1,222 @@
+{
+  "blocked": [
+    {
+      "name": "ac-milan-known",
+      "invalid_preparation_ids": [
+        1426503,
+        1425437
+      ],
+      "writer_called": false
+    },
+    {
+      "name": "ac-milan-reserved",
+      "invalid_preparation_ids": [
+        1189629,
+        1189646
+      ],
+      "writer_called": false
+    }
+  ],
+  "links": [
+    {
+      "packet": "ac-milan-known",
+      "report_key": "report_1",
+      "article_id": 1276620,
+      "url": "https://news.google.com/rss/articles/CBMizwFBVV95cUxNbXRlS2FvQm54V1AwRXhvejA4MXNtWnlqNkh6VEY2Rk9PalYzdTQtODk1b3RkYTQ1dHdRc003UFRleXNfZWV5ODF3QmJxWGhMNWhmYmZGMW9uTTVGQThISFJlbXZjTExBU0NUQmxaTzdqSTRCNWltdmRweUlDMWFpa1VFUXNmRjBjand0cGJza3hQOE82MC04QWI4eEMyc0hIYXdvM0w0NVF4YkVFcGNFalNTM0o4SW1ZLWRJcXlJT0w0MnlsenpPYkpSckNCODQ?oc=5",
+      "preparation_output": "development-preparation/1276620/output.json",
+      "source_fingerprint": "ac37675dc9ca3505ef5f2c99d86e0f46cd781896ab3c3fb5c210dd15a9f1cf39"
+    },
+    {
+      "packet": "ac-milan-known",
+      "report_key": "report_2",
+      "article_id": 1424030,
+      "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPYzdBSVFLSTh4S1AyalhNeHNWdktlVGtGYks5dnNWeFVPaGxzUGMtcG94M0NvUnlPaThIdHlpUm10YzV4dzZacEN0UzlwU3hvT1JCaWFJR3lpa2I4MXVGWGtHV3poaENIN01FN01RYjFDQ0VUZ2dYc3ZyZVdLMmxFcExpLXFnUQ?oc=5",
+      "preparation_output": "development-preparation/1424030/output.json",
+      "source_fingerprint": "d2727e622cfc3a66d8f0dadd65cef3f3e9a58f0825ce59d9baf0be11b34362be"
+    },
+    {
+      "packet": "ac-milan-known",
+      "report_key": "report_5",
+      "article_id": 1414585,
+      "url": "https://news.google.com/rss/articles/CBMinwJBVV95cUxPWGdOQTlpRE94a29QTHQ5ODVRdFNaX1VrQTlkbnE2TXM2RXpvXzk3TEpmTlpta0hLVHlENmZSNENjQm5UN29sMGw5VW1ZWU5BeTBtSU16MDFWeElkYW5QY29qT3dYVHVxdXlzNFZ0ZUtXQnNhc0pyLTBYTWdIbFpobVhMSmhMWHFvbk11RFlmbXg3UVZjc1NIeVVMMUtyQ2UtWXZ5cmxvWnhtekxCREJzZDU5TnpOaUNUaUUxVWd0NFBFSDJ6QzB2Qjl4MFBHVU9PWkc5WS1KWF9vT1JMd01fSGtMOHQ1QnR1aTNGTVdOWS1fd0xTVE9rdnowZnhsM2N2UDZpaTVZNEF4N1plWGY2T21sTWV5UjYyZEl0MG9qOA?oc=5",
+      "preparation_output": "development-preparation/1414585/output.json",
+      "source_fingerprint": "e617d8546cade1ba2750e26e94588300b96fdf53687d01eb9193a1cfb88d63eb"
+    },
+    {
+      "packet": "ac-milan-known",
+      "report_key": "report_7",
+      "article_id": 1415284,
+      "url": "https://news.google.com/rss/articles/CBMi4wFBVV95cUxNaGJzZDdxYXpUQ3JZbWhQai1fTmdzYlMyVmpCM0FKYXd0bk80aTNPd2JVa3RmT2xIeDZnRllNOVNJcXlsUnJ0MUVqbGt4cGNPSzF4c2tuVzBzNWZoeUdfbXFfbFBhd1JvanVSUThuR21IODd2T01VMW5RS0xaSldTYU5XbWR2aXZSVTlYLXZHbVg2N1RUdmsybDVwNERqTnlTYzBjVnZyeDc3dUpXWVJYWWZfUTE0X1B6a1F5TWRpVnREMlJJMVVac1lBU3p1ek8zQkVsRlFHd3Y1OWxlYkFLcmMtUQ?oc=5",
+      "preparation_output": "development-preparation/1415284/output.json",
+      "source_fingerprint": "a75035f50a302120ef356a3c780293e0b361db949d743127de23e757c64a89ec"
+    },
+    {
+      "packet": "ac-milan-known",
+      "report_key": "report_8",
+      "article_id": 1394917,
+      "url": "https://news.google.com/rss/articles/CBMirgJBVV95cUxOdHh4WTlIbkJNVExPTUJGRVgxbUg4NUxES1VCOHlrZWpzSzM4OFI4OWdrbnhZQS1qbkNubTM2UHRBRGZtSFY0c2tHWFdnU2Zma2JLejlhQjhvcExuQVZrTG1iOFVoczNGcmR5LVhNRHBNTTh3cTB2RWtheUdUSXR0NmdiRHdEU2o5cHM3cG5XYk52c20wTXR3VENvOWd5UFo2clc1ajhKbF9OSTlKVlExQlRBdi16VmFqVkFtY28tbmdoaG1ZUzRQeGVlSTFtSm8xbDhQSzRzZVQzaUJCMGFySnQ5WTFMaF9SQ2lESkxYZ0NMT1dCNnNlOGE1LXptMlhRLThGaFZ4X1VmbTJob21wS3hEZ1ZjQThCYWFSLW93OUYwRlA0eDh3WnYzVzFVUQ?oc=5",
+      "preparation_output": "development-preparation/1394917/output.json",
+      "source_fingerprint": "dfc540bfe44a38f7fbc74f17af91f277a955e50c8d90078d5399ce2780d9c4a2"
+    },
+    {
+      "packet": "ac-milan-known",
+      "report_key": "report_13",
+      "article_id": 1374081,
+      "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPYk9nZk52UEQwWlpkU0VZSFM0RlBDVlVYRERZbVhhYlNSZkFzRDhHUXJ1SGV3eDljek0xbnBEZk90TEUtQUtmWm9ROXc2QmV2R0ZBblU2WlRzWEl5SFdFRzVsUGdoeEFHeVBPdHY1ekJKTThicnM4VVV1M184SEpNQzJEa2QwVGRjSnc?oc=5",
+      "preparation_output": "development-preparation/1374081/output.json",
+      "source_fingerprint": "9967c9ff4e69ad408a92d8814d27d9b20bd139e2e03baa1d9a7ff6cc0113f562"
+    },
+    {
+      "packet": "ac-milan-known",
+      "report_key": "report_14",
+      "article_id": 1363845,
+      "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxOa1RuTTVrT3Z6OGRDSkhyc0IxdDJDLXFKUlpESXVKR2hjTDVRZUJsYXlEbDFjVmN3NXFPejNRdnhRN2twS1o5dzJSWWUzSWtJWnA1STc1SExDNUw5RXpEbUNYVjlidzlOXzM1ZHBLR2dCbHJUTEZ1aEV3eEJ0aWhQYzRRdDhCa05yT0gybkwxdXVHN0hJTWRDTVlQMWI3c1hZT1FRVGoybw?oc=5",
+      "preparation_output": "development-preparation/1363845/output.json",
+      "source_fingerprint": "ff8f8d4a1e69b5237569a269c0a4a21f3f42a4b1f2e45fa6a6d2619883e0ec9d"
+    },
+    {
+      "packet": "chicago-bears-known",
+      "report_key": "report_1",
+      "article_id": 1341401,
+      "url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxOYzZrbW4zQklYLUFtMUVsNXNrUU5DSGNoZUtnM1NtV1p4a01RbVNsMVpOaEdSdWxZclVCbWkyLUxGM1F4T1YyUHFGSzZXUUdqbm1rVXNfN3Q1QmZBQk5yNEJSTGxjdHdCaFJKM3hZV0VTU256ZjBJT0E5N0gzUDZxNkhRTDFib0VuN3d2eHJaWHhmYWt1ZXdqNnh0bkpEakpD?oc=5",
+      "preparation_output": "development-preparation/1341401/output.json",
+      "source_fingerprint": "221597d715c6c94e69a7a9287c945e4db5261f4b02d25501437107df033dc995"
+    },
+    {
+      "packet": "chicago-bears-known",
+      "report_key": "report_2",
+      "article_id": 1352005,
+      "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNMGtqeFYweURLa3U3RXU1X25sZDhGOGRlZkVuZWt6RGlGem1WN1dlamNaamlMeG9DenUyWDJVX1liUmhXSDV4eUYyWUtTbURCZ3d0b0hReXJIS1lBaEQzSHl4SFpCNHQzMEFtQjFaVzBHNVdrcjh5NjZtRkE0MUFqSEpycWtQZXM?oc=5",
+      "preparation_output": "development-preparation/1352005/output.json",
+      "source_fingerprint": "bc40e6876e9f442b1059ed00250ad98bfb905fc32861b0d10972f6005b3c7c2c"
+    },
+    {
+      "packet": "chicago-bears-known",
+      "report_key": "report_3",
+      "article_id": 1432888,
+      "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPcGNVUTYwS1hFd3E1N2xhRENpc1Y2MFVvYUc0QmFDRmVhcUZLTzNKZnRuWXp6SUpvZDVPMmlmWGUzZFdNaFA0VlNrYjlhODF3RG5hdHhIQy1LVGFPTHVTbnFTaUdwbEpzd0JEYW9YUGY5TEh5ZFNsdldXVUZhUGNRel92RlpzUQ?oc=5",
+      "preparation_output": "development-preparation/1432888/output.json",
+      "source_fingerprint": "b897d7e4bdca1278cb85a28c7fd2b536d7c49166a38510144a115de7b487ad25"
+    },
+    {
+      "packet": "chicago-bears-known",
+      "report_key": "report_12",
+      "article_id": 1412576,
+      "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPM21OUzBJUHNINHFhQUxzWm05b0ZBc2V1X3I0bU9qUWRsekUxaXM5X0pBcjYwaWpQbGk4aGZZQjVJa2x4ekZQTXNqOXNsNXRMWDJiRUVkYV9BUTZsbXF5SG1vazE4SGZwa1Jyb3Q2S3JwZzVrb0lJU1hQZTlOTFAzcWh6TWhWMkNtNkp3?oc=5",
+      "preparation_output": "development-preparation/1412576/output.json",
+      "source_fingerprint": "1599ff118404aaf2b7d39398fb27ec7b23bfda65b3793ec7ea7fa95cac9eace3"
+    },
+    {
+      "packet": "chicago-bears-known",
+      "report_key": "report_40",
+      "article_id": 1262232,
+      "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNQVJjSU5Ec2llY0YxMm1ZbmFIVlByYlk5NlExckNURDJYWXAtMlhDcVBGdHhqaW5TRFA2VmIyRXNObnBWZHJWX3pHWXNuSXZMdnVhUU41RDdEUWFRdlNUdFgwZVNOYTFNaXNvNEpUY0JQQ3FpTERiUTh5YVpFamRwSGh2WVkyQ3JfNnc?oc=5",
+      "preparation_output": "development-preparation/1262232/output.json",
+      "source_fingerprint": "9a671581d4238a67207a8befdc85b00504e54f97b08404004b58590f224c23c3"
+    },
+    {
+      "packet": "la-clippers-known",
+      "report_key": "report_1",
+      "article_id": 1289440,
+      "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQLV9rWGxpMVJTd1ptX20tc0twRjVJRzBIQkxPSVljRnMtQ0hpRmZtSjJxZ0hFMmpvT0xSZkVCMVpfaVFLMzdpZVdRQy1ubjR4QS02czNtZzdXMzdaNWZ4XzFKWWxyNVkwczZtRVdjSm1TZFg0dU82QUFUNWlKRnFqeWRNTzdrWFRjLUlmX0NGMjY4aHc?oc=5",
+      "preparation_output": "development-preparation/1289440/output.json",
+      "source_fingerprint": "98f227002aac1d79af68fb8bc17dcd0e370c433dea1e23aac9f53d391eb2e645"
+    },
+    {
+      "packet": "la-clippers-known",
+      "report_key": "report_2",
+      "article_id": 1429100,
+      "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE1lSUUzdzNXX0FZeFV4cmgtYVJOTkN2anN4WHptQkpvQ3hlRGN0blJqZ1Z3ZEV2eXludzJIM3Uzb09YZm5JNkhrYmVSVHIzbE0zcEdN?oc=5",
+      "preparation_output": "development-preparation/1429100/output.json",
+      "source_fingerprint": "b0f5c84052aed63bd95f17ab33a3e8a56132adcc1e3f6131225a51fb781dbb27"
+    },
+    {
+      "packet": "la-clippers-known",
+      "report_key": "report_3",
+      "article_id": 1398531,
+      "url": "https://news.google.com/rss/articles/CBMisgRBVV95cUxOanNBWVp3OXhJcW5zREVJWEJKUUtsWkZIdnNITjN5NExDcG1xM3M4M2tON3V2NUdWY21jRS1MMlNjWU9qOGd2ZFIxeXNGRThHSnczVGI0UzV5RDZZaldTMThBUkpDbC1mZTAycXBGdVhTYk9JWTF2VWR6ZmFLYkQ5d2ZVMThPZjk0d3U0YkN5aTU2UktqV1gyeUExcnJzdEoxRllpR2Roay1kMDU3WHgyNGk3b2R5U1NhbjdjRlFVa0NZTHl6WDY4UmhpYzRqb1dsNTJES3ViV3NSRUxnXzE0OFItZkVuNEU2T3ZDdGRkN205TF9VOW5Jd09wVkdYZTd4WFpPa2cyS2NYWkpOV0wydjVXWTBDdUJNeTl3SEhWOU03WXJPYVBsQTBZUEJuOWctODVYdHAxVzhtQTdOT2p1eWZGeVdXUHhNa1I3VzhSUlg5TzVmSTNWajdNckNDdksyLUlJSjFQTWdPOXdta2JjcTdCNXNKdWZUMjR2NWxqOTczRFVXdzgzb3drOWkxV0VVYjBWYnlQcmEzV1lvc0tSOFk3RS1KOXpPaWx5ZW1UekNTMV9Mb2VGczF2YmRuRzVqMkpncmg3blgwRDAwbTdRc25mWjhBUFNFN1pDek9EbWgzMDVyY2NmZ2JlZXpIaE9ITVNZSFY3dV9oSFpFQ2dzSkdzRmhqdnhLdUM2Mk1vYmtjQVNFcUpZSFdEbTBYR0pmYUJOdXRaNFphdHFnQjh4UGhR?oc=5",
+      "preparation_output": "development-preparation/1398531/output.json",
+      "source_fingerprint": "51f930f419c6d737d6a032974b243cec8139d97bccbe641892c5911f3bbc2278"
+    },
+    {
+      "packet": "ac-milan-reserved",
+      "report_key": "report_29",
+      "article_id": 1325124,
+      "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxOSlJtaTF1a0RvZVo5S3IxOEstS3dhNzV2VFdRMzdUMzhUUVEyWjFWVWFiMlV3b1hJTmZYOG5MSFpPOWJjZ0VTU0ZuWVlPUWtUdGRZV3FmU3REZm54Q1gtNThSbDBhUXNEeDlLUzBvR2RZdFBRVlNBdXozUWhtcGxLTUlkUkNnV3RuTUQyRXhjWklVTUQzNjh6VjBEM1VWaEh1Qm5vTnFJNVk?oc=5",
+      "preparation_output": "development-preparation/1325124/output.json",
+      "source_fingerprint": "4a6c466d2e1cd7143c653093db9ebd51cc9a19868c310cc6b2c0474844229124"
+    },
+    {
+      "packet": "ac-milan-reserved",
+      "report_key": "report_36",
+      "article_id": 1208973,
+      "url": "https://news.google.com/rss/articles/CBMiwAFBVV95cUxNRENiRGJkSU5lYllRYlF5QXdkeE01WFZyck1iSnF2dWFpUW4xYzUtS1o2dXkxTEFMN1ZaRUNZMnRzbHRYakxNMkMzOTNIOFJFVjVNRmd1bk00X2VWVnVGOUtYMkYtV0daSExfdHlzTjVqbXhLaHdpUkVGbmxVTS1GWjFLQl81UkwzODRvV0tEbEJwd0FtVFRWdGpqaDVVdVFXbFM3MTctRUpHbVp6dnZuQjlONU5XTDQzVXRzT2xNZVY?oc=5",
+      "preparation_output": "development-preparation/1208973/output.json",
+      "source_fingerprint": "f7b3fd501f90ecd00f73964baa6d1e1a5bcd1b2d11679f4d96d7ab56300d58ce"
+    },
+    {
+      "packet": "ac-milan-reserved",
+      "report_key": "report_39",
+      "article_id": 1115631,
+      "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxNbUFpYmVZOUVVeHlrWkdUR3lRNDNfTnlxTEFmUDg3YXZZYTRCVmZZTy0zSHZTb092R21NT1h0bmZfM2d2TkZWanU1cUhyRFlYUk1zTmhORjR0bXpIVW5xeVRDeXQwck0wak1yU0pZbHJtZ25DWDFzeENCeWVBY1YtR2JwNkNyV2tEQng5LTdpTG9ZVFc0SEduN3o0SFBnWEU1NUdScVUzd2h4TnM5Y09ILWRiZWp4R0t5T1hRdFU2cmpSNUhiTW5kNmxXN0QyVk5KYXJyZFYwOUl6WnE3QnNiSTRicUVkQQ?oc=5",
+      "preparation_output": "development-preparation/1115631/output.json",
+      "source_fingerprint": "dde0f05561069bf373461e624a92e8b91a84b5b230b6f3e28248cddac6d2be2b"
+    },
+    {
+      "packet": "chicago-bears-reserved",
+      "report_key": "report_16",
+      "article_id": 1410388,
+      "url": "https://news.google.com/rss/articles/CBMivwFBVV95cUxOVE1PUkNqNTZHOWdVTzlmU0hwb1J5b05RMkE1VUpHWHY4R0lzMmhmbDBKZ3dRQm5OQVIxWG5sanMwc0RTODF5MHZzdndwMnAzOXByRU1MSXpNcmJZOUZZWWd3QzhLNzh5Z0txdHJiVXlQeVdWVFBRcTdXU0VLU1NiRzVkSzVQYUVGWmowbHlJTjBtdFVfYlhwZ3BMOFJ5X0pMdTJ3aUtkSnVvR2pRZFdNQ2dYbTAyWW5pZy1tY0tzcw?oc=5",
+      "preparation_output": "development-preparation/1410388/output.json",
+      "source_fingerprint": "6f57b207683b7995b87005a4a2fd079933571118f49fe6ae1c979046e558bbee"
+    },
+    {
+      "packet": "chicago-bears-reserved",
+      "report_key": "report_20",
+      "article_id": 1410389,
+      "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxQTTJWRTBoYnVoMlN3dm1XeFI5b184b1pteTMyOWRjRS1ZSVZib3VrMklIMVdab3V5aTRubTdSZEtINzVlTW9FTWpyYmNRTGhlSlpuVXJBd2hXcWlVb1l0dkh3eWxhTHZCUXhSbmJ2RHI0VUdMUWdaYndyMVdwRENnQ2JQOXg?oc=5",
+      "preparation_output": "development-preparation/1410389/output.json",
+      "source_fingerprint": "f418867f1a53739e1903e4bca9983ef64e8d1066b008e5c1e6687cb011126467"
+    },
+    {
+      "packet": "chicago-bears-reserved",
+      "report_key": "report_31",
+      "article_id": 1330977,
+      "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxOUHA1MTdYMUtYVUtMVHhxQUhYeXhPTlkyOXZpN0MxUXB0TlprZFpzM2FOVTNZaFRjTkhLWjI3QWlXMTM2N25udDJxbmZZWTl3aTRuZUJiMTg1QkpxOFVrYk04enF4dUpMc0xUTDMyZlhzVWEtWWF2alNGZFVVRFN1ZENYRGJtcUNQZTlR?oc=5",
+      "preparation_output": "development-preparation/1330977/output.json",
+      "source_fingerprint": "45c67075dc866c0eb16e90b4aa98b9a5e916c057a5013975ce022eace0b4275e"
+    },
+    {
+      "packet": "la-clippers-reserved",
+      "report_key": "report_5",
+      "article_id": 1260557,
+      "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxOWHNGRHd6bm14YmJ3WkM3QjdyV1poTE9JMG5MZjM0TWk3Wmo3cGxveG9lV0pZYUpxNXB1ZURpbnctSjJ0TE9raHZFVDBkRFQtMUJ0a0hXSGdDTm9sb0tyNlFWSGpRQmR0VENlZjZleV80S1llZ0VxVDloNExXa25XS01SQ0ZQYlVTYjhjdF9tOEswbUN5M1RObDc2ZTBNWmFKM1FwUDdKanJaVlN0d2tHN096Q0Z3N2c?oc=5",
+      "preparation_output": "development-preparation/1260557/output.json",
+      "source_fingerprint": "e7cd82203ae6294f391255ea92c14ab91001dcb59248bcfe82dd64fe4f760273"
+    },
+    {
+      "packet": "la-clippers-reserved",
+      "report_key": "report_10",
+      "article_id": 1338223,
+      "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxOdTR3NGRGZUVZNDRTNGpwVEhSUzllekU0QVlQcGI3XzVhWDluWnViZ0N0OGx2X0hhZTB5VjNmQkVYNnVzNkxQM045SE54YmZhc1ZmcGJ0SlA0WlgweVRqQjFhVy1TMFZUWWRkMUJ1N0hKdGFGajhsUFFadjhqU1dlbDhtc2l6MXJpNjY0TzUwaGpzWFZHTHF5S05ib1pBZWpUS2xUMXRIVEhJc3B0T24yRGxn?oc=5",
+      "preparation_output": "development-preparation/1338223/output.json",
+      "source_fingerprint": "98e69ade032506da8331bc75a64b4e523ce33a7a1929fbbb5fcc8998649a198d"
+    },
+    {
+      "packet": "la-clippers-reserved",
+      "report_key": "report_29",
+      "article_id": 1221840,
+      "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPeGc3RnluVE9kd2JFNkViZGxfSEgyTlFoQWE1eDRTc3NXZU5vdUxobWltQ20zc3VORkwza1owcWRJUllyblRmaUpTWWNTNjdoeDhFa1p3QnN1V25kUHdDTm5CdFlQWklIMV9hVTQ2ZVVjTWdaLTRzcnV4Q1phYmV6N1pFRnhlWnVsbzEw?oc=5",
+      "preparation_output": "development-preparation/1221840/output.json",
+      "source_fingerprint": "ad299cfc301df74e761ec4aa6bd7a2e4f2880b69cd7b0c9f3d3326dab52b5710"
+    },
+    {
+      "packet": "la-clippers-reserved",
+      "report_key": "report_36",
+      "article_id": 1192912,
+      "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxONUFYOTZjb1kzUk1ZdmhqeTNkWDF2X1hnUDIxYWh3YXI5MEpadHJGRmZBekVXdUx0X3lqTHIxdmJlOHR2andrdkxJVTNZSFRxSS1ZWk1MSlY3aUxtVXNnc3JjQm9LWE5qUTEwVjNpRVB4UTZ4ZDZnOEFBYUkyenJBcWt5T0xDVFlOamVRaEg1WTRSYi1ibDFGbFdpNzR4ZXNBZHfSAacBQVVfeXFMUEU1NUJic05JNnczazVDWjh4S0YzZ0tJZzUwU1M0M2pPejY2Nk0wTlZJSUlucVV4Wm1PWHAtSnhqajNwd19wVkliNEp5eWFOM2d4bGlUbmhMelY5UDdlOXFVck9fQlJ2bUlEVDROZmFBbl8zWEFQQ1JhMzFjMGV0UDVQYXlGUEgwRXZORGlhV1VWWHpTcnBzb0RHNUZoMTFaeFo2dXY2N2c?oc=5",
+      "preparation_output": "development-preparation/1192912/output.json",
+      "source_fingerprint": "bed49f9ce420d9069f0c38d64e314e1f6a2b6fcb8eb894ae86c00edb3d03e186"
+    }
+  ]
+}

@@ -441,7 +441,7 @@ mod tests {
         assert!(load_on(&mut tx, &subject, &full_packet, "journalist")
             .await?
             .is_empty());
-        let mut assignment = crate::plugins::journalist::fresh::prepare(
+        let assignment = crate::plugins::journalist::fresh::prepare(
             subject.clone(),
             fresh
                 .iter()
@@ -450,11 +450,10 @@ mod tests {
             &[],
             1792382460,
         )?;
-        assignment.memories = memories.clone();
         let packet: Value =
             serde_json::from_str(&crate::plugins::journalist::prompt::prompt(&assignment))?;
         assert_eq!(packet["fresh"].as_array().unwrap().len(), 2);
-        assert_eq!(packet["memories"].as_array().unwrap().len(), 4);
+        assert!(packet.get("memories").is_none());
         for report in packet["fresh"].as_array().unwrap() {
             assert!(report.get("publisher_excerpt").is_none());
             assert!(fresh.iter().any(|s| report["headline"] == s.headline));

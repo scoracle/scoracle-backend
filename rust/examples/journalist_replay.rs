@@ -174,7 +174,7 @@ async fn main() -> Result<()> {
             .context(case.name.clone())?;
         let base_record = json!({"name":case.name, "input_hash":assignment.input_hash,
             "dispositions":assignment.dispositions.iter().map(|d|json!({"article_id":d.article_id,"reason":d.reason})).collect::<Vec<_>>(),
-            "system":prompt::TASK});
+            "system":prompt::instructions()});
         // Alternate which mode runs first to reduce a fixed cache/order advantage.
         let mut order = (0..modes.len()).collect::<Vec<_>>();
         if case_index % 2 == 1 {

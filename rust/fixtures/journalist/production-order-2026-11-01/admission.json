@@ -1,0 +1,38 @@
+[
+  {
+    "name": "ac-milan-known",
+    "input_tokens": 5335,
+    "total_with_reserve": 7435,
+    "fits": true
+  },
+  {
+    "name": "chicago-bears-known",
+    "input_tokens": 5032,
+    "total_with_reserve": 7132,
+    "fits": true
+  },
+  {
+    "name": "la-clippers-known",
+    "input_tokens": 4926,
+    "total_with_reserve": 7026,
+    "fits": true
+  },
+  {
+    "name": "ac-milan-reserved",
+    "input_tokens": 5062,
+    "total_with_reserve": 7162,
+    "fits": true
+  },
+  {
+    "name": "chicago-bears-reserved",
+    "input_tokens": 4941,
+    "total_with_reserve": 7041,
+    "fits": true
+  },
+  {
+    "name": "la-clippers-reserved",
+    "input_tokens": 4966,
+    "total_with_reserve": 7066,
+    "fits": true
+  }
+]

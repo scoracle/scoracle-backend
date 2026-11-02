@@ -1,0 +1,14 @@
+{
+  "qualifies_for_automatic": true,
+  "control": {
+    "clearly_faithful": 2,
+    "clarity_concern": 1,
+    "failed": 3
+  },
+  "reference": {
+    "clearly_faithful": 6,
+    "clarity_concern": 0,
+    "failed": 0
+  },
+  "reason": "All reference topics/anchors valid; actors and qualifications preserved, undefined number/streak remain undefined, source ownership retained. Both control successes preserved. This qualifies only automatic preparation testing; manual notes are not a production system or evidence of automated reliability."
+}

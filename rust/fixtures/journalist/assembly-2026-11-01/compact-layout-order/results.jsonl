@@ -1,0 +1,16 @@
+{"error":"llama.cpp template omitted or changed supplied input","name":"synthetic-meta-profile-only","production_writes":false,"variant":"json-body-first","wall_ms":7}
+{"error":"llama.cpp template omitted or changed supplied input","name":"synthetic-meta-profile-only","production_writes":false,"variant":"json-references-first","wall_ms":5}
+{"error":"llama.cpp template omitted or changed supplied input","name":"synthetic-meta-profile-only","production_writes":false,"variant":"blocks-body-first","wall_ms":5}
+{"error":"llama.cpp template omitted or changed supplied input","name":"synthetic-meta-profile-only","production_writes":false,"variant":"blocks-references-first","wall_ms":4}
+{"error":"llama.cpp template omitted or changed supplied input","name":"conflicting-sources-no-majority","production_writes":false,"variant":"json-references-first","wall_ms":4}
+{"error":"llama.cpp template omitted or changed supplied input","name":"conflicting-sources-no-majority","production_writes":false,"variant":"blocks-body-first","wall_ms":4}
+{"error":"llama.cpp template omitted or changed supplied input","name":"conflicting-sources-no-majority","production_writes":false,"variant":"blocks-references-first","wall_ms":5}
+{"error":"llama.cpp template omitted or changed supplied input","name":"conflicting-sources-no-majority","production_writes":false,"variant":"json-body-first","wall_ms":5}
+{"error":"llama.cpp template omitted or changed supplied input","name":"quoted-instruction-remains-data","production_writes":false,"variant":"blocks-body-first","wall_ms":5}
+{"error":"llama.cpp template omitted or changed supplied input","name":"quoted-instruction-remains-data","production_writes":false,"variant":"blocks-references-first","wall_ms":5}
+{"error":"llama.cpp template omitted or changed supplied input","name":"quoted-instruction-remains-data","production_writes":false,"variant":"json-body-first","wall_ms":5}
+{"error":"llama.cpp template omitted or changed supplied input","name":"quoted-instruction-remains-data","production_writes":false,"variant":"json-references-first","wall_ms":5}
+{"error":"llama.cpp template omitted or changed supplied input","name":"retained-chelsea-2026-10-20","production_writes":false,"variant":"blocks-references-first","wall_ms":6}
+{"error":"llama.cpp template omitted or changed supplied input","name":"retained-chelsea-2026-10-20","production_writes":false,"variant":"json-body-first","wall_ms":4}
+{"error":"llama.cpp template omitted or changed supplied input","name":"retained-chelsea-2026-10-20","production_writes":false,"variant":"json-references-first","wall_ms":4}
+{"error":"llama.cpp template omitted or changed supplied input","name":"retained-chelsea-2026-10-20","production_writes":false,"variant":"blocks-body-first","wall_ms":4}

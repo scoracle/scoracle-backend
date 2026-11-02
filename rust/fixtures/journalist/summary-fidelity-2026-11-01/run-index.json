@@ -1,0 +1,82 @@
+[
+  {
+    "run": "n114-regression",
+    "records": 16,
+    "mechanical_accepted": 11,
+    "errors": 0,
+    "reported_output_tokens": 871,
+    "factual_qualification": false
+  },
+  {
+    "run": "n115-heldout",
+    "records": 16,
+    "mechanical_accepted": 12,
+    "errors": 0,
+    "reported_output_tokens": 873,
+    "factual_qualification": false
+  },
+  {
+    "run": "n115-regression",
+    "records": 16,
+    "mechanical_accepted": 14,
+    "errors": 0,
+    "reported_output_tokens": 882,
+    "factual_qualification": false
+  },
+  {
+    "run": "n116-challenge",
+    "records": 16,
+    "mechanical_accepted": 14,
+    "errors": 0,
+    "reported_output_tokens": 908,
+    "factual_qualification": false
+  },
+  {
+    "run": "n116-coverage",
+    "records": 16,
+    "mechanical_accepted": 10,
+    "errors": 0,
+    "reported_output_tokens": 1020,
+    "factual_qualification": false
+  },
+  {
+    "run": "n116-regression",
+    "records": 16,
+    "mechanical_accepted": 14,
+    "errors": 0,
+    "reported_output_tokens": 902,
+    "factual_qualification": false
+  },
+  {
+    "run": "n116-retained",
+    "records": 4,
+    "mechanical_accepted": 0,
+    "errors": 0,
+    "reported_output_tokens": 2761,
+    "factual_qualification": false
+  },
+  {
+    "run": "n117-qwen4b",
+    "records": 16,
+    "mechanical_accepted": 8,
+    "errors": 0,
+    "reported_output_tokens": 1284,
+    "factual_qualification": false
+  },
+  {
+    "run": "n117-qwen9b",
+    "records": 1,
+    "mechanical_accepted": 1,
+    "errors": 0,
+    "reported_output_tokens": 38,
+    "factual_qualification": false
+  },
+  {
+    "run": "n117-qwen9b-cuda",
+    "records": 15,
+    "mechanical_accepted": 11,
+    "errors": 0,
+    "reported_output_tokens": 1489,
+    "factual_qualification": false
+  }
+]

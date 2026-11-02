@@ -1,0 +1,149 @@
+[
+  {
+    "file": "development-typed-context-first.jsonl",
+    "name": "ac-milan-known",
+    "input_tokens": 5348,
+    "total_with_reserve": 7448,
+    "fits": true
+  },
+  {
+    "file": "development-typed-context-first.jsonl",
+    "name": "chicago-bears-known",
+    "input_tokens": 5044,
+    "total_with_reserve": 7144,
+    "fits": true
+  },
+  {
+    "file": "development-typed-context-first.jsonl",
+    "name": "la-clippers-known",
+    "input_tokens": 4932,
+    "total_with_reserve": 7032,
+    "fits": true
+  },
+  {
+    "file": "development-typed-context-first.jsonl",
+    "name": "ac-milan-reserved",
+    "input_tokens": 5075,
+    "total_with_reserve": 7175,
+    "fits": true
+  },
+  {
+    "file": "development-typed-context-first.jsonl",
+    "name": "chicago-bears-reserved",
+    "input_tokens": 4953,
+    "total_with_reserve": 7053,
+    "fits": true
+  },
+  {
+    "file": "development-typed-context-first.jsonl",
+    "name": "la-clippers-reserved",
+    "input_tokens": 4972,
+    "total_with_reserve": 7072,
+    "fits": true
+  },
+  {
+    "file": "development-typed-source-first.jsonl",
+    "name": "ac-milan-known",
+    "input_tokens": 5349,
+    "total_with_reserve": 7449,
+    "fits": true
+  },
+  {
+    "file": "development-typed-source-first.jsonl",
+    "name": "chicago-bears-known",
+    "input_tokens": 5045,
+    "total_with_reserve": 7145,
+    "fits": true
+  },
+  {
+    "file": "development-typed-source-first.jsonl",
+    "name": "la-clippers-known",
+    "input_tokens": 4933,
+    "total_with_reserve": 7033,
+    "fits": true
+  },
+  {
+    "file": "development-typed-source-first.jsonl",
+    "name": "ac-milan-reserved",
+    "input_tokens": 5076,
+    "total_with_reserve": 7176,
+    "fits": true
+  },
+  {
+    "file": "development-typed-source-first.jsonl",
+    "name": "chicago-bears-reserved",
+    "input_tokens": 4954,
+    "total_with_reserve": 7054,
+    "fits": true
+  },
+  {
+    "file": "development-typed-source-first.jsonl",
+    "name": "la-clippers-reserved",
+    "input_tokens": 4973,
+    "total_with_reserve": 7073,
+    "fits": true
+  },
+  {
+    "file": "validation-typed-context-first.jsonl",
+    "name": "liverpool-validation",
+    "input_tokens": 4925,
+    "total_with_reserve": 7025,
+    "fits": true
+  },
+  {
+    "file": "validation-typed-context-first.jsonl",
+    "name": "boston-validation",
+    "input_tokens": 4935,
+    "total_with_reserve": 7035,
+    "fits": true
+  },
+  {
+    "file": "validation-typed-context-first.jsonl",
+    "name": "green-bay-validation",
+    "input_tokens": 5069,
+    "total_with_reserve": 7169,
+    "fits": true
+  },
+  {
+    "file": "validation-typed-source-first.jsonl",
+    "name": "liverpool-validation",
+    "input_tokens": 4926,
+    "total_with_reserve": 7026,
+    "fits": true
+  },
+  {
+    "file": "validation-typed-source-first.jsonl",
+    "name": "boston-validation",
+    "input_tokens": 4936,
+    "total_with_reserve": 7036,
+    "fits": true
+  },
+  {
+    "file": "validation-typed-source-first.jsonl",
+    "name": "green-bay-validation",
+    "input_tokens": 5070,
+    "total_with_reserve": 7170,
+    "fits": true
+  },
+  {
+    "file": "diagnostics.jsonl",
+    "name": "coach-a",
+    "input_tokens": 5335,
+    "total_with_reserve": 7435,
+    "fits": true
+  },
+  {
+    "file": "diagnostics.jsonl",
+    "name": "coach-b",
+    "input_tokens": 5334,
+    "total_with_reserve": 7434,
+    "fits": true
+  },
+  {
+    "file": "diagnostics.jsonl",
+    "name": "identity-only",
+    "input_tokens": 5312,
+    "total_with_reserve": 7412,
+    "fits": true
+  }
+]

@@ -1,0 +1,46 @@
+{
+  "name": "synthetic-meta-missing-after",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n112-three-contexts",
+  "user_prompt": "{\"meta\":{\"name\":\"Alex Stone\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\",\"database_record\":null},\"fresh\":[{\"report_key\":\"report_1\",\"headline\":\"Alex Stone says contract talks remain ongoing; no agreement has been reached\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "database_record": null,
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        },
+        "context": "Alex Stone says contract talks remain ongoing; no agreement has been reached",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "City Wire",
+        "title": "Alex Stone says contract talks remain ongoing; no agreement has been reached"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "player",
+      "name": "Alex Stone",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "narratives_empty": false,
+    "body_includes": [
+      "Alex Stone",
+      "City Wire"
+    ],
+    "body_excludes": [
+      "defender",
+      "Cedar",
+      "has signed"
+    ]
+  },
+  "review": [
+    "Report the ongoing talks and lack of agreement with attribution. Missing metadata is not a reason to invent a position, club, nationality or identity.",
+    "A substantive explicit report is enough; do not abstain just because the optional database record is missing."
+  ]
+}

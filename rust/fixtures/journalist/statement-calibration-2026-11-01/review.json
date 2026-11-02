@@ -1,0 +1,339 @@
+{
+  "reviewer": "Codex manual source-by-source review; not blinded or independently adjudicated",
+  "scope": "Headline entailment and preserved qualifications, source ownership, topic coverage, title fidelity and readable rendered prose. No independent verification that the underlying stored headlines or metadata describe real-world facts. Repeats do not count as new samples.",
+  "reviews": [
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "report_1 supplies 60 million but not valuation; output invents that interpretation.",
+        "report_2 retains its actual Korean publisher and match evidence.",
+        "Pavlovic remains the speaker, but the renderer produces the ungrammatical phrase discusses Pavlovic insists."
+      ],
+      "naturalness": "grammatical failure",
+      "output": "control-development/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "chicago-bears-known",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Conditional Donte Jackson trade and Ditka honor plan preserved.",
+        "Live Show becomes broadcast in body and title; this may imply coverage of the game rather than the listed show."
+      ],
+      "naturalness": "readable, ambiguous source format",
+      "output": "control-development/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Max Strus absence preserved; both NBA.com pages remain listings, with no completion or invented result.",
+        "Canonical LA Clippers identity is not a fabricated news claim despite parser rejection."
+      ],
+      "naturalness": "stiff absence phrasing",
+      "output": "control-development/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "ESPN support and FOX retaliation warning stay with their own publishers.",
+        "Recall remains possible and early exit unlikely, but explicit two-factors-needed condition is dropped.",
+        "Injury concerns title groups Athekame with Chukwueze, although only Chukwueze has the stated lay-off.",
+        "Rabiot interest preserved; contract discussions title is less precise than interest, without an explicit claim of negotiations."
+      ],
+      "naturalness": "readable, misleading title",
+      "output": "control-development/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Invents consecutive NFC North games for the unspecified 27-year streak; NFC NORTH exists only in metadata.",
+        "Adds head coach role absent from report_20.",
+        "Christian Gonzalez illness is mislabeled injury in title. Possible stadium move preserved."
+      ],
+      "naturalness": "readable, false detail",
+      "output": "control-development/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate NBC performance accounts retained.",
+        "Yahoo alone owns opening-night free parking and jerseys; KTLA does not inherit those details."
+      ],
+      "naturalness": "readable",
+      "output": "control-development/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "examples",
+      "phase": "development",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Still invents valuation for report_1.",
+        "Replaces Pavlovic from report_3 with Filippo Galli, whose name occurs only in metadata; both title and body assign the quote to the wrong person. This is a serious regression from control.",
+        "Match evidence and publisher remain faithful."
+      ],
+      "naturalness": "grammatical, factually wrong",
+      "output": "examples-development/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "examples",
+      "phase": "development",
+      "name": "chicago-bears-known",
+      "assessment": "faithful",
+      "findings": [
+        "Trade remains conditional; Live Show wording survives in body and title; Ditka honor remains a plan."
+      ],
+      "naturalness": "readable",
+      "output": "examples-development/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "examples",
+      "phase": "development",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and dated page listings remain source-bounded; no game completion inferred."
+      ],
+      "naturalness": "readable but road trip exclusion title is stiff",
+      "output": "examples-development/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "examples",
+      "phase": "development",
+      "name": "ac-milan-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "ESPN/FOX ownership preserved.",
+        "Both required factors and early-exit-unlikely caveat retained. Neutral situation title no longer implies Athekame is injured.",
+        "Rabiot eagerness remains interest. Contract discussion is a vague topic label, not an explicit negotiation claim."
+      ],
+      "naturalness": "readable, vague situation title",
+      "output": "examples-development/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "examples",
+      "phase": "development",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Correctly leaves the streak type unspecified and labels Gonzalez illness accurately.",
+        "Still adds coach role not supplied by cited report_20; in the TNF is awkward.",
+        "Possible stadium move preserved."
+      ],
+      "naturalness": "awkward in the TNF",
+      "output": "examples-development/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "examples",
+      "phase": "development",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and Yahoo-only opening-night details preserved."
+      ],
+      "naturalness": "readable",
+      "output": "examples-development/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "gaps",
+      "phase": "development",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Drops Pavlovic topic entirely; renderer rejects missing assigned topics.",
+        "Missing-detail annotations wrongly label Tresoldi, January and Maignan as unspecified.",
+        "Undefined number no longer becomes valuation, but report_2 gets goalkeeper role from other sources, and report_7 gets Europa League wording absent from that cited headline.",
+        "Raw output retained, not repaired or rendered."
+      ],
+      "naturalness": "no publishable render",
+      "output": "gaps-development/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "gaps",
+      "phase": "development",
+      "name": "chicago-bears-known",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Live Show survives in body, but title calls it game broadcast. Trade and Ditka plan preserved.",
+        "Empty unspecified arrays do not establish factual completeness."
+      ],
+      "naturalness": "readable, ambiguous title",
+      "output": "gaps-development/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "gaps",
+      "phase": "development",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and fixture-page listings preserved without completion claims."
+      ],
+      "naturalness": "readable",
+      "output": "gaps-development/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "gaps",
+      "phase": "development",
+      "name": "ac-milan-reserved",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Publisher ownership, both return factors and early-exit-unlikely caveat preserved.",
+        "Chukwueze and Athekame return questions title blurs the different situations; body distinguishes them. Contract discussions title is less precise than interest."
+      ],
+      "naturalness": "readable, imprecise title",
+      "output": "gaps-development/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "gaps",
+      "phase": "development",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Merges three assigned topics into one; renderer rejects.",
+        "Invents NFC North streak and coach role despite empty unspecified arrays."
+      ],
+      "naturalness": "no publishable render",
+      "output": "gaps-development/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "gaps",
+      "phase": "development",
+      "name": "la-clippers-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Merges Acuff and Murray into one topic; renderer rejects missing assigned topics.",
+        "Raw statements retain their actual report keys and supplied details; content fidelity does not rescue the coverage failure."
+      ],
+      "naturalness": "no publishable render",
+      "output": "gaps-development/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "validation",
+      "name": "arsenal-validation",
+      "assessment": "unfaithful",
+      "findings": [
+        "Bischof stays with Bayern Munich; the bill remains a bill with no invented liability detail.",
+        "Arsenal identifying a striker and confirming a timeline assigns the confirmation to Arsenal. report_27 says timeline confirmed without specifying who confirmed it; the Transfer Rumours qualification is also lost.",
+        "Parser accepts this unsupported assignment of agency."
+      ],
+      "naturalness": "readable, clumsy double possessive",
+      "output": "control-validation/arsenal-validation-statements-source-first/output.json"
+    },
+    {
+      "arm": "examples",
+      "phase": "validation",
+      "name": "arsenal-validation",
+      "assessment": "unfaithful",
+      "findings": [
+        "Bischof and the bill are preserved, but the same unsupported Arsenal confirming a timeline claim persists. Transfer Rumours framing is lost.",
+        "A valid source mapping and parser acceptance do not establish entailment."
+      ],
+      "naturalness": "readable, clumsy double possessive",
+      "output": "examples-validation/arsenal-validation-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "validation",
+      "name": "tampa-bay-validation",
+      "assessment": "unfaithful",
+      "findings": [
+        "Splits the two Vita Vea sources into separate entries rather than the assigned topic; renderer rejects a source outside its positional topic.",
+        "Drops the entire Mayfield topic.",
+        "The unnamed $100M star receives Vita Vea as its title, an identity not supplied by report_10.",
+        "The phrase $23 million 2027 bill point is a broken compression of bill point that way."
+      ],
+      "naturalness": "no publishable render",
+      "output": "control-validation/tampa-bay-validation-statements-source-first/output.json"
+    },
+    {
+      "arm": "examples",
+      "phase": "validation",
+      "name": "tampa-bay-validation",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Restores all three assigned topics and their anchors. The $100M star stays unnamed.",
+        "Keeps both the practice condition and separately attributed return wording, with no invented practice factor or claim that the condition was satisfied. Does not invent what the return means.",
+        "Retains trade speculation and supplied numbers, but $23 million 2027 bill point is malformed and confusing. No invented salary/contract/valuation type is added.",
+        "Repeated Yahoo Sports attribution is mechanical. This is a source-fidelity gain, not a clean reader-ready result."
+      ],
+      "naturalness": "malformed bill point phrase; repetitive attribution",
+      "output": "examples-validation/tampa-bay-validation-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "validation",
+      "name": "cleveland-validation",
+      "assessment": "readability_failure",
+      "findings": [
+        "All three topics and supplied facts survive. Page titles remain listings without asserting game completion.",
+        "The traded player remains unnamed and the Mobley decision unexplained; Brown remains the person with a debut.",
+        "Two clauses incorrectly follow discusses with a finite sentence: Cavaliers biggest trade regret might be ... and Cavaliers Evan Mobley decision faces ... ."
+      ],
+      "naturalness": "ungrammatical attribution-clause joins",
+      "output": "control-validation/cleveland-validation-statements-source-first/output.json"
+    },
+    {
+      "arm": "examples",
+      "phase": "validation",
+      "name": "cleveland-validation",
+      "assessment": "readability_failure",
+      "findings": [
+        "Preserves the same facts and source ownership as control; adding a determiner or canonical team name does not resolve the grammar.",
+        "Both discusses ... might be and discusses ... decision faces remain ungrammatical despite explicit examples."
+      ],
+      "naturalness": "ungrammatical attribution-clause joins",
+      "output": "examples-validation/cleveland-validation-statements-source-first/output.json"
+    }
+  ],
+  "development_counts": {
+    "control": {
+      "clearly_faithful": 2,
+      "clarity_concern": 1,
+      "failed": 3
+    },
+    "examples": {
+      "clearly_faithful": 4,
+      "failed": 2
+    },
+    "gaps": {
+      "clearly_faithful": 1,
+      "clarity_concern": 2,
+      "failed": 3,
+      "invalid_topic_coverage": 3
+    }
+  },
+  "validation_counts": {
+    "control": {
+      "unique_packets": 3,
+      "clearly_faithful_and_readable": 0,
+      "unfaithful": 2,
+      "readability_failure": 1
+    },
+    "examples": {
+      "unique_packets": 3,
+      "clearly_faithful_and_readable": 0,
+      "unfaithful": 1,
+      "clarity_concern": 1,
+      "readability_failure": 1
+    }
+  },
+  "repeats": "All six examples repeat outputs are identical; the corresponding development reviews apply unchanged.",
+  "decision": "Do not promote either candidate. Worked examples improve selected distinctions and Tampa coverage but do not generalize into reliably honest, readable output. Reject the unspecified-field contract."
+}

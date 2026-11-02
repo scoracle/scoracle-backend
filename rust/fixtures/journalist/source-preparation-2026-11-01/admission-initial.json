@@ -1,0 +1,497 @@
+[
+  {
+    "file": "development-sources.jsonl",
+    "name": "1276620",
+    "stage": "prepare",
+    "input_tokens": 1123,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1424030",
+    "stage": "prepare",
+    "input_tokens": 1120,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1426503",
+    "stage": "prepare",
+    "input_tokens": 1127,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1414585",
+    "stage": "prepare",
+    "input_tokens": 1125,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1415284",
+    "stage": "prepare",
+    "input_tokens": 1126,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1394917",
+    "stage": "prepare",
+    "input_tokens": 1120,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1374081",
+    "stage": "prepare",
+    "input_tokens": 1116,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1363845",
+    "stage": "prepare",
+    "input_tokens": 1122,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1425437",
+    "stage": "prepare",
+    "input_tokens": 1124,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1341401",
+    "stage": "prepare",
+    "input_tokens": 1120,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1352005",
+    "stage": "prepare",
+    "input_tokens": 1112,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1432888",
+    "stage": "prepare",
+    "input_tokens": 1116,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1412576",
+    "stage": "prepare",
+    "input_tokens": 1114,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1262232",
+    "stage": "prepare",
+    "input_tokens": 1113,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1289440",
+    "stage": "prepare",
+    "input_tokens": 1121,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1429100",
+    "stage": "prepare",
+    "input_tokens": 1126,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1398531",
+    "stage": "prepare",
+    "input_tokens": 1119,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1325124",
+    "stage": "prepare",
+    "input_tokens": 1114,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1208973",
+    "stage": "prepare",
+    "input_tokens": 1119,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1189629",
+    "stage": "prepare",
+    "input_tokens": 1128,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1189646",
+    "stage": "prepare",
+    "input_tokens": 1119,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1115631",
+    "stage": "prepare",
+    "input_tokens": 1116,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1410388",
+    "stage": "prepare",
+    "input_tokens": 1126,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1410389",
+    "stage": "prepare",
+    "input_tokens": 1125,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1330977",
+    "stage": "prepare",
+    "input_tokens": 1115,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1260557",
+    "stage": "prepare",
+    "input_tokens": 1115,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1338223",
+    "stage": "prepare",
+    "input_tokens": 1111,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1221840",
+    "stage": "prepare",
+    "input_tokens": 1115,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-sources.jsonl",
+    "name": "1192912",
+    "stage": "prepare",
+    "input_tokens": 1117,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1423862",
+    "stage": "prepare",
+    "input_tokens": 1119,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1266252",
+    "stage": "prepare",
+    "input_tokens": 1113,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1258945",
+    "stage": "prepare",
+    "input_tokens": 1116,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1417820",
+    "stage": "prepare",
+    "input_tokens": 1120,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1269260",
+    "stage": "prepare",
+    "input_tokens": 1116,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1337136",
+    "stage": "prepare",
+    "input_tokens": 1119,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1432737",
+    "stage": "prepare",
+    "input_tokens": 1120,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1331995",
+    "stage": "prepare",
+    "input_tokens": 1114,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1392057",
+    "stage": "prepare",
+    "input_tokens": 1119,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1341855",
+    "stage": "prepare",
+    "input_tokens": 1122,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "validation-sources.jsonl",
+    "name": "1281832",
+    "stage": "prepare",
+    "input_tokens": 1116,
+    "reserved_output": 800,
+    "num_ctx": 4096,
+    "fits": true
+  },
+  {
+    "file": "development-control.jsonl",
+    "name": "ac-milan-known",
+    "stage": "write",
+    "input_tokens": 2179,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-control.jsonl",
+    "name": "chicago-bears-known",
+    "stage": "write",
+    "input_tokens": 1876,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-control.jsonl",
+    "name": "la-clippers-known",
+    "stage": "write",
+    "input_tokens": 1770,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-control.jsonl",
+    "name": "ac-milan-reserved",
+    "stage": "write",
+    "input_tokens": 1906,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-control.jsonl",
+    "name": "chicago-bears-reserved",
+    "stage": "write",
+    "input_tokens": 1785,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-control.jsonl",
+    "name": "la-clippers-reserved",
+    "stage": "write",
+    "input_tokens": 1810,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-reference.jsonl",
+    "name": "ac-milan-known",
+    "stage": "write",
+    "input_tokens": 2753,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-reference.jsonl",
+    "name": "chicago-bears-known",
+    "stage": "write",
+    "input_tokens": 2119,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-reference.jsonl",
+    "name": "la-clippers-known",
+    "stage": "write",
+    "input_tokens": 1916,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-reference.jsonl",
+    "name": "ac-milan-reserved",
+    "stage": "write",
+    "input_tokens": 2183,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-reference.jsonl",
+    "name": "chicago-bears-reserved",
+    "stage": "write",
+    "input_tokens": 1936,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-reference.jsonl",
+    "name": "la-clippers-reserved",
+    "stage": "write",
+    "input_tokens": 1989,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "validation-control.jsonl",
+    "name": "liverpool-validation",
+    "stage": "write",
+    "input_tokens": 1761,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "validation-control.jsonl",
+    "name": "boston-validation",
+    "stage": "write",
+    "input_tokens": 1770,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "validation-control.jsonl",
+    "name": "green-bay-validation",
+    "stage": "write",
+    "input_tokens": 1901,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  }
+]

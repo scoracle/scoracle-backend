@@ -167,6 +167,9 @@ pub struct Expect {
     // `prose_includes_any`, `prose_excludes`, `prose_min_words`/`prose_max_words`,
     // Word floors/caps, sentence counts, score bands and style-vocabulary
     // any-of groups are owned by the form+prompt, not the gate.
+    /// Journalist: distinguish correct abstention from an invented narrative.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub narratives_empty: Option<bool>,
     /// Grounding: at least one returned body contains each string (names the who/what/where).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_includes: Option<Vec<String>>,
@@ -492,7 +495,7 @@ impl LensTask for NarrativesTask {
             crate::plugins::journalist::prompt::Parts {
                 subject: assignment.subject,
                 reports: assignment.selected,
-                memories: assignment.memories,
+                database_record: assignment.database_record,
             },
         )?)?))
     }
@@ -522,8 +525,21 @@ impl LensTask for NarrativesTask {
                     .map(|report| report.body.as_str())
                     .collect::<Vec<_>>();
                 let joined = bodies.join("\n\n");
+                let summary = reply
+                    .narratives
+                    .iter()
+                    .map(|report| format!("{}\n{}", report.headline, report.body))
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
                 let mut checks = Vec::new();
                 if let Some(expect) = expect {
+                    if let Some(empty) = expect.narratives_empty {
+                        checks.push(PropertyCheck {
+                            name: format!("narratives empty == {empty}"),
+                            pass: reply.narratives.is_empty() == empty,
+                            detail: format!("{} narratives", reply.narratives.len()),
+                        });
+                    }
                     for needle in expect.body_includes.iter().flatten() {
                         let pass = contains_ci(&joined, needle);
                         checks.push(PropertyCheck {
@@ -539,6 +555,18 @@ impl LensTask for NarrativesTask {
                             pass,
                             detail: String::new(),
                         });
+                    }
+                    for (needles, included) in [
+                        (&expect.summary_includes, true),
+                        (&expect.summary_excludes, false),
+                    ] {
+                        for needle in needles.iter().flatten() {
+                            checks.push(PropertyCheck {
+                                name: format!("summary contains {needle:?} == {included}"),
+                                pass: contains_ci(&summary, needle) == included,
+                                detail: String::new(),
+                            });
+                        }
                     }
                 }
                 CaseVerdict {
@@ -564,7 +592,7 @@ impl LensTask for NarrativesTask {
         let reports = parts.reports.clone();
         // Replay the production payload and the report-count-specific schema.
         let assignment = crate::plugins::journalist::prompt::Assignment {
-            memories: parts.memories,
+            database_record: parts.database_record,
             subject,
             selected: reports,
             dispositions: Vec::new(),
@@ -1634,6 +1662,47 @@ mod tests {
         })).unwrap()
     }
 
+    #[test]
+    fn narratives_evaluation_checks_abstention_in_both_directions() {
+        let request = one_report();
+        for empty in [true, false] {
+            let expect = Expect {
+                narratives_empty: Some(empty),
+                ..Default::default()
+            };
+            let verdict = NarrativesTask.evaluate_prepared(
+                &request,
+                r#"{"narratives":[]}"#,
+                None,
+                Some(&expect),
+            );
+            assert!(verdict.parsed);
+            assert_eq!(verdict.all_checks_pass(), empty);
+        }
+    }
+
+    #[test]
+    fn narratives_summary_checks_cover_headlines_as_well_as_bodies() {
+        let request = one_report();
+        let raw = r#"{"narratives":[{"headline":"A confirmed surge","body":"Wire discusses the press.","report_keys":["report_1"]}]}"#;
+        for excluded in ["confirmed surge", "Wire discusses"] {
+            let expect = Expect {
+                summary_excludes: Some(vec![excluded.into()]),
+                ..Default::default()
+            };
+            let verdict = NarrativesTask.evaluate_prepared(&request, raw, None, Some(&expect));
+            assert!(verdict.parsed);
+            assert!(!verdict.all_checks_pass());
+        }
+        let expect = Expect {
+            summary_includes: Some(vec!["confirmed surge".into(), "Wire discusses".into()]),
+            ..Default::default()
+        };
+        assert!(NarrativesTask
+            .evaluate_prepared(&request, raw, None, Some(&expect))
+            .all_checks_pass());
+    }
+
     /// The regression this exists to prevent: an exclusion written with an ASCII apostrophe must
     /// still fail on model output that uses U+2019. Before folding, the check passed on text
     /// containing the banned phrase verbatim — a check that cannot fail is worse than no check,
@@ -1839,6 +1908,15 @@ mod tests {
                         for field in ["meta", "fresh", "memories"] {
                             assert!(package.get(field).is_some(), "{name}: missing {field}");
                         }
+                    } else if name == "narratives" {
+                        assert_eq!(
+                            request.options.system,
+                            Some(crate::plugins::journalist::prompt::instructions())
+                        );
+                        assert_eq!(package.as_object().unwrap().len(), 3);
+                        for field in ["meta", "fresh", "tone"] {
+                            assert!(package.get(field).is_some(), "{name}: missing {field}");
+                        }
                     } else {
                         assert!(
                             request.options.system.is_none(),
@@ -2014,10 +2092,10 @@ mod tests {
         );
         assert_eq!(one.options.system, warm.options.system);
         assert_eq!(one.user_prompt, warm.user_prompt);
-        assert_eq!(
-            serde_json::from_str::<serde_json::Value>(&warm.user_prompt).unwrap()["memories"],
-            serde_json::json!([])
-        );
+        assert!(serde_json::from_str::<serde_json::Value>(&warm.user_prompt)
+            .unwrap()
+            .get("memories")
+            .is_none());
         assert!(!warm.user_prompt.contains(r#""form""#));
     }
 

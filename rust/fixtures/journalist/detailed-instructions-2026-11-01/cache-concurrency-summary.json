@@ -1,0 +1,13 @@
+{
+  "uncached_batch_ms": 74456,
+  "different_input_primer_ms": 32746,
+  "cached_batch_ms": 46192,
+  "complete_requests": 12,
+  "same_parsed_outputs": 4,
+  "slots_per_batch": [
+    4,
+    4,
+    4
+  ],
+  "limitations": "Single four-request comparison. Earlier library-test compilation may have overlapped the uncached batch. Known prose failures persist. No sustained throughput qualification."
+}

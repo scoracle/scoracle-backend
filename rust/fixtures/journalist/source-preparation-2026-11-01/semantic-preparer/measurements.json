@@ -1,0 +1,879 @@
+{
+  "calls": 35,
+  "complete_receipts_and_integrity": true,
+  "runs": {
+    "development-automatic": {
+      "calls": 6,
+      "valid_spans_or_mapping": 6,
+      "median_ms": 7469.5,
+      "total_ms": 53981,
+      "range_ms": [
+        6926,
+        13003
+      ],
+      "input_tokens": 33592,
+      "output_tokens": 1045,
+      "input_tokens_range": [
+        5303,
+        6445
+      ],
+      "output_tokens_range": [
+        134,
+        243
+      ],
+      "cache_tokens_range": [
+        4753,
+        4753
+      ]
+    },
+    "development-preparation": {
+      "calls": 29,
+      "valid_spans_or_mapping": 29,
+      "median_ms": 3952,
+      "total_ms": 124160,
+      "range_ms": [
+        2885,
+        8624
+      ],
+      "input_tokens": 60362,
+      "output_tokens": 2394,
+      "input_tokens_range": [
+        2073,
+        2090
+      ],
+      "output_tokens_range": [
+        45,
+        134
+      ],
+      "cache_tokens_range": [
+        520,
+        1574
+      ]
+    }
+  },
+  "combined_automatic": [
+    {
+      "cohort": "development",
+      "name": "ac-milan-known",
+      "source_calls": 9,
+      "preparation_ms": 47465,
+      "writer_called": true,
+      "writer_ms": 13003,
+      "total_ms": 60468,
+      "input_tokens": 25206,
+      "output_tokens": 1174
+    },
+    {
+      "cohort": "development",
+      "name": "chicago-bears-known",
+      "source_calls": 5,
+      "preparation_ms": 15531,
+      "writer_called": true,
+      "writer_ms": 7220,
+      "total_ms": 22751,
+      "input_tokens": 15830,
+      "output_tokens": 399
+    },
+    {
+      "cohort": "development",
+      "name": "la-clippers-known",
+      "source_calls": 3,
+      "preparation_ms": 11654,
+      "writer_called": true,
+      "writer_ms": 7226,
+      "total_ms": 18880,
+      "input_tokens": 11555,
+      "output_tokens": 368
+    },
+    {
+      "cohort": "development",
+      "name": "ac-milan-reserved",
+      "source_calls": 5,
+      "preparation_ms": 21682,
+      "writer_called": true,
+      "writer_ms": 11893,
+      "total_ms": 33575,
+      "input_tokens": 16058,
+      "output_tokens": 678
+    },
+    {
+      "cohort": "development",
+      "name": "chicago-bears-reserved",
+      "source_calls": 3,
+      "preparation_ms": 13464,
+      "writer_called": true,
+      "writer_ms": 7713,
+      "total_ms": 21177,
+      "input_tokens": 11625,
+      "output_tokens": 433
+    },
+    {
+      "cohort": "development",
+      "name": "la-clippers-reserved",
+      "source_calls": 4,
+      "preparation_ms": 14364,
+      "writer_called": true,
+      "writer_ms": 6926,
+      "total_ms": 21290,
+      "input_tokens": 13680,
+      "output_tokens": 387
+    }
+  ],
+  "repeats": [],
+  "records": [
+    {
+      "accepted": false,
+      "input_tokens": 6445,
+      "name": "ac-milan-known",
+      "output_tokens": 227,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Journalist violates served prose guard",
+      "wall_ms": 13003,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4753,
+        "prompt_n": 1692,
+        "prompt_ms": 4951.232,
+        "prompt_per_token_ms": 2.926260047281324,
+        "prompt_per_second": 341.73312823959776,
+        "predicted_n": 227,
+        "predicted_ms": 7998.226,
+        "predicted_per_token_ms": 35.39038053097345,
+        "predicted_per_second": 28.256265826947125
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5445,
+      "name": "chicago-bears-known",
+      "output_tokens": 143,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Da Windy City discusses a potential Donte Jackson trade that could transform the Bears' defense into a Super Bowl threat.\n\nEstablish The Run lists a Thursday Night Football Live Show featuring the Patriots at the Bears.\n\nYahoo Sports discusses the Bears' announcement of a move to honor Mike Ditka during a Thursday Night Game.",
+      "wall_ms": 7220,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4753,
+        "prompt_n": 692,
+        "prompt_ms": 2048.572,
+        "prompt_per_token_ms": 2.960364161849711,
+        "prompt_per_second": 337.7962795547337,
+        "predicted_n": 143,
+        "predicted_ms": 5138.02,
+        "predicted_per_token_ms": 36.18323943661972,
+        "predicted_per_second": 27.63710534408196
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5303,
+      "name": "la-clippers-known",
+      "output_tokens": 144,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "RotoBaller reports that Max Strus is ruled out for the Clippers' road trip.\n\nNBA.com lists an Orlando Magic vs LA Clippers game scheduled for Jan 15, 2027.\n\nNBA.com lists a Toronto Raptors vs LA Clippers game summary for Nov 2, 2026.",
+      "wall_ms": 7226,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4753,
+        "prompt_n": 550,
+        "prompt_ms": 1719.142,
+        "prompt_per_token_ms": 3.1257127272727274,
+        "prompt_per_second": 319.92703336897125,
+        "predicted_n": 144,
+        "predicted_ms": 5468.618,
+        "predicted_per_token_ms": 38.24208391608392,
+        "predicted_per_second": 26.149202595610078
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5652,
+      "name": "ac-milan-reserved",
+      "output_tokens": 243,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "ESPN discusses AC Milan's support for a fan boycott over 'excessive' away ticket prices. FOX Sports discusses AC Milan backing a fan boycott over 'excessive' away ticket prices and warning of retaliation.\n\nLiveScore discusses Milan's fear of a lengthy lay-off for Chukwueze and a question about Athekame's potential January return requiring two factors. OneFootball discusses a question regarding AC Milan's potential recall of Athekame in January, with an early exit for OL deemed unlikely.\n\nTribalFootball discusses AC Milan's eagerness to secure Rabiot's future with a fresh contract.",
+      "wall_ms": 11893,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4753,
+        "prompt_n": 899,
+        "prompt_ms": 2688.397,
+        "prompt_per_token_ms": 2.9904304783092326,
+        "prompt_per_second": 334.4000160690553,
+        "predicted_n": 243,
+        "predicted_ms": 9161.787,
+        "predicted_per_token_ms": 37.85862396694215,
+        "predicted_per_second": 26.414060925013864
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5373,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 154,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Pats Pulpit reports that Christian Gonzalez is good to go for the Patriots vs. Bears game despite a newly-announced illness.\n\nYahoo Sports reports that Patriots coach Mike Vrabel is set to end a 27-year streak in the Thanksgiving game against the Bears.\n\nChicago Tribune discusses the Chicago Bears' possible move from Soldier Field.",
+      "wall_ms": 7713,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4753,
+        "prompt_n": 620,
+        "prompt_ms": 1915.433,
+        "prompt_per_token_ms": 3.089408064516129,
+        "prompt_per_second": 323.68660245490184,
+        "predicted_n": 154,
+        "predicted_ms": 5767.126,
+        "predicted_per_token_ms": 37.693633986928106,
+        "predicted_per_second": 26.529678734260358
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5374,
+      "name": "la-clippers-reserved",
+      "output_tokens": 134,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "NBC Sports reports that Darius Acuff Jr. has a brutal NBA debut against the Clippers.\n\nNBC Sports reports that Keegan Murray struggles mightily against the Clippers.\n\nYahoo Sports lists how Clippers fans can get free parking and new jerseys on opening night.",
+      "wall_ms": 6926,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4753,
+        "prompt_n": 621,
+        "prompt_ms": 1927.435,
+        "prompt_per_token_ms": 3.103760064412238,
+        "prompt_per_second": 322.1898533543284,
+        "predicted_n": 134,
+        "predicted_ms": 4971.394,
+        "predicted_per_token_ms": 37.3789022556391,
+        "predicted_per_second": 26.75305960460989
+      }
+    },
+    {
+      "input_tokens": 2085,
+      "name": "1276620",
+      "output_tokens": 127,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 8624,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 1565,
+        "prompt_ms": 4370.804,
+        "prompt_per_token_ms": 2.792846006389776,
+        "prompt_per_second": 358.05769373323534,
+        "predicted_n": 127,
+        "predicted_ms": 4208.144,
+        "predicted_per_token_ms": 33.39796825396826,
+        "predicted_per_second": 29.94194115030284
+      }
+    },
+    {
+      "input_tokens": 2082,
+      "name": "1424030",
+      "output_tokens": 134,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 6047,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1569,
+        "prompt_n": 513,
+        "prompt_ms": 1407.286,
+        "prompt_per_token_ms": 2.743247563352827,
+        "prompt_per_second": 364.5314456336523,
+        "predicted_n": 134,
+        "predicted_ms": 4618.619,
+        "predicted_per_token_ms": 34.726458646616535,
+        "predicted_per_second": 28.79648656882068
+      }
+    },
+    {
+      "input_tokens": 2089,
+      "name": "1426503",
+      "output_tokens": 120,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 5429,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1569,
+        "prompt_n": 520,
+        "prompt_ms": 1444.346,
+        "prompt_per_token_ms": 2.7775884615384614,
+        "prompt_per_second": 360.0245370569102,
+        "predicted_n": 120,
+        "predicted_ms": 3962.471,
+        "predicted_per_token_ms": 33.2980756302521,
+        "predicted_per_second": 30.031765532164147
+      }
+    },
+    {
+      "input_tokens": 2087,
+      "name": "1414585",
+      "output_tokens": 76,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3952,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 514,
+        "prompt_ms": 1409.643,
+        "prompt_per_token_ms": 2.742496108949416,
+        "prompt_per_second": 364.6313286413652,
+        "predicted_n": 76,
+        "predicted_ms": 2513.435,
+        "predicted_per_token_ms": 33.51246666666667,
+        "predicted_per_second": 29.83964176515406
+      }
+    },
+    {
+      "input_tokens": 2088,
+      "name": "1415284",
+      "output_tokens": 108,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4991,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 515,
+        "prompt_ms": 1410.945,
+        "prompt_per_token_ms": 2.7396990291262133,
+        "prompt_per_second": 365.0035968801052,
+        "predicted_n": 108,
+        "predicted_ms": 3559.541,
+        "predicted_per_token_ms": 33.26673831775701,
+        "predicted_per_second": 30.060055495919276
+      }
+    },
+    {
+      "input_tokens": 2082,
+      "name": "1394917",
+      "output_tokens": 114,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 5243,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 509,
+        "prompt_ms": 1407.086,
+        "prompt_per_token_ms": 2.7644125736738703,
+        "prompt_per_second": 361.7405048447643,
+        "predicted_n": 114,
+        "predicted_ms": 3809.241,
+        "predicted_per_token_ms": 33.710097345132745,
+        "predicted_per_second": 29.664702233332047
+      }
+    },
+    {
+      "input_tokens": 2078,
+      "name": "1374081",
+      "output_tokens": 81,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4096,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 505,
+        "prompt_ms": 1406.624,
+        "prompt_per_token_ms": 2.7853940594059408,
+        "prompt_per_second": 359.0156289100712,
+        "predicted_n": 81,
+        "predicted_ms": 2667.877,
+        "predicted_per_token_ms": 33.3484625,
+        "predicted_per_second": 29.986389927271762
+      }
+    },
+    {
+      "input_tokens": 2084,
+      "name": "1363845",
+      "output_tokens": 132,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 5799,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 511,
+        "prompt_ms": 1407.037,
+        "prompt_per_token_ms": 2.7534970645792565,
+        "prompt_per_second": 363.17452917016396,
+        "predicted_n": 132,
+        "predicted_ms": 4368.257,
+        "predicted_per_token_ms": 33.34547328244275,
+        "predicted_per_second": 29.98907802356867
+      }
+    },
+    {
+      "input_tokens": 2086,
+      "name": "1425437",
+      "output_tokens": 55,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3284,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 513,
+        "prompt_ms": 1409.799,
+        "prompt_per_token_ms": 2.7481461988304092,
+        "prompt_per_second": 363.88165972596096,
+        "predicted_n": 55,
+        "predicted_ms": 1838.513,
+        "predicted_per_token_ms": 34.046537037037034,
+        "predicted_per_second": 29.371562779267812
+      }
+    },
+    {
+      "input_tokens": 2082,
+      "name": "1341401",
+      "output_tokens": 58,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3338,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 509,
+        "prompt_ms": 1406.764,
+        "prompt_per_token_ms": 2.763779960707269,
+        "prompt_per_second": 361.8233051172763,
+        "predicted_n": 58,
+        "predicted_ms": 1900.647,
+        "predicted_per_token_ms": 33.34468421052632,
+        "predicted_per_second": 29.989787688087265
+      }
+    },
+    {
+      "input_tokens": 2074,
+      "name": "1352005",
+      "output_tokens": 54,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3243,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 501,
+        "prompt_ms": 1406.921,
+        "prompt_per_token_ms": 2.808225548902196,
+        "prompt_per_second": 356.0967531225989,
+        "predicted_n": 54,
+        "predicted_ms": 1813.331,
+        "predicted_per_token_ms": 34.213792452830184,
+        "predicted_per_second": 29.227978786002115
+      }
+    },
+    {
+      "input_tokens": 2078,
+      "name": "1432888",
+      "output_tokens": 52,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3124,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 505,
+        "prompt_ms": 1405.916,
+        "prompt_per_token_ms": 2.7839920792079207,
+        "prompt_per_second": 359.19642425294256,
+        "predicted_n": 52,
+        "predicted_ms": 1689.91,
+        "predicted_per_token_ms": 33.135490196078436,
+        "predicted_per_second": 30.179121965075062
+      }
+    },
+    {
+      "input_tokens": 2076,
+      "name": "1412576",
+      "output_tokens": 47,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 2941,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 503,
+        "prompt_ms": 1405.111,
+        "prompt_per_token_ms": 2.793461232604374,
+        "prompt_per_second": 357.9788358357454,
+        "predicted_n": 47,
+        "predicted_ms": 1516.981,
+        "predicted_per_token_ms": 32.97784782608696,
+        "predicted_per_second": 30.323385724672885
+      }
+    },
+    {
+      "input_tokens": 2075,
+      "name": "1262232",
+      "output_tokens": 45,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 2885,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 502,
+        "prompt_ms": 1403.225,
+        "prompt_per_token_ms": 2.7952689243027886,
+        "prompt_per_second": 357.7473320386966,
+        "predicted_n": 45,
+        "predicted_ms": 1462.109,
+        "predicted_per_token_ms": 33.229749999999996,
+        "predicted_per_second": 30.093515599726153
+      }
+    },
+    {
+      "input_tokens": 2083,
+      "name": "1289440",
+      "output_tokens": 52,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3140,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 510,
+        "prompt_ms": 1408.278,
+        "prompt_per_token_ms": 2.761329411764706,
+        "prompt_per_second": 362.1444061470818,
+        "predicted_n": 52,
+        "predicted_ms": 1702.671,
+        "predicted_per_token_ms": 33.385705882352944,
+        "predicted_per_second": 29.95293864757196
+      }
+    },
+    {
+      "input_tokens": 2088,
+      "name": "1429100",
+      "output_tokens": 120,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 5378,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 515,
+        "prompt_ms": 1410.652,
+        "prompt_per_token_ms": 2.739130097087379,
+        "prompt_per_second": 365.0794100883847,
+        "predicted_n": 120,
+        "predicted_ms": 3937.547,
+        "predicted_per_token_ms": 33.08863025210084,
+        "predicted_per_second": 30.221861478732823
+      }
+    },
+    {
+      "input_tokens": 2081,
+      "name": "1398531",
+      "output_tokens": 52,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3136,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 508,
+        "prompt_ms": 1405.981,
+        "prompt_per_token_ms": 2.767679133858268,
+        "prompt_per_second": 361.3135597138226,
+        "predicted_n": 52,
+        "predicted_ms": 1705.153,
+        "predicted_per_token_ms": 33.434372549019606,
+        "predicted_per_second": 29.909339513814892
+      }
+    },
+    {
+      "input_tokens": 2076,
+      "name": "1325124",
+      "output_tokens": 125,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 5520,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 503,
+        "prompt_ms": 1404.511,
+        "prompt_per_token_ms": 2.792268389662028,
+        "prompt_per_second": 358.1317625849851,
+        "predicted_n": 125,
+        "predicted_ms": 4094.44,
+        "predicted_per_token_ms": 33.01967741935484,
+        "predicted_per_second": 30.28497181543752
+      }
+    },
+    {
+      "input_tokens": 2081,
+      "name": "1208973",
+      "output_tokens": 59,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3377,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 508,
+        "prompt_ms": 1405.295,
+        "prompt_per_token_ms": 2.7663287401574803,
+        "prompt_per_second": 361.48993627672485,
+        "predicted_n": 59,
+        "predicted_ms": 1948.325,
+        "predicted_per_token_ms": 33.591810344827586,
+        "predicted_per_second": 29.76916068931005
+      }
+    },
+    {
+      "input_tokens": 2090,
+      "name": "1189629",
+      "output_tokens": 104,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4920,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1573,
+        "prompt_n": 517,
+        "prompt_ms": 1436.601,
+        "prompt_per_token_ms": 2.778725338491296,
+        "prompt_per_second": 359.8772380083266,
+        "predicted_n": 104,
+        "predicted_ms": 3461.05,
+        "predicted_per_token_ms": 33.60242718446602,
+        "predicted_per_second": 29.759754987648257
+      }
+    },
+    {
+      "input_tokens": 2081,
+      "name": "1189646",
+      "output_tokens": 97,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4762,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1574,
+        "prompt_n": 507,
+        "prompt_ms": 1406.395,
+        "prompt_per_token_ms": 2.773954635108481,
+        "prompt_per_second": 360.4961621735003,
+        "predicted_n": 97,
+        "predicted_ms": 3331.045,
+        "predicted_per_token_ms": 34.69838541666667,
+        "predicted_per_second": 28.819784782253016
+      }
+    },
+    {
+      "input_tokens": 2078,
+      "name": "1115631",
+      "output_tokens": 50,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3103,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1574,
+        "prompt_n": 504,
+        "prompt_ms": 1406.731,
+        "prompt_per_token_ms": 2.7911329365079367,
+        "prompt_per_second": 358.27745318756746,
+        "predicted_n": 50,
+        "predicted_ms": 1656.653,
+        "predicted_per_token_ms": 33.80924489795918,
+        "predicted_per_second": 29.57770878995179
+      }
+    },
+    {
+      "input_tokens": 2088,
+      "name": "1410388",
+      "output_tokens": 117,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 5265,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1574,
+        "prompt_n": 514,
+        "prompt_ms": 1409.846,
+        "prompt_per_token_ms": 2.7428910505836575,
+        "prompt_per_second": 364.5788263398981,
+        "predicted_n": 117,
+        "predicted_ms": 3827.404,
+        "predicted_per_token_ms": 32.99486206896552,
+        "predicted_per_second": 30.307749064378882
+      }
+    },
+    {
+      "input_tokens": 2087,
+      "name": "1410389",
+      "output_tokens": 70,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3740,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1574,
+        "prompt_n": 513,
+        "prompt_ms": 1408.98,
+        "prompt_per_token_ms": 2.7465497076023393,
+        "prompt_per_second": 364.09317378529147,
+        "predicted_n": 70,
+        "predicted_ms": 2303.03,
+        "predicted_per_token_ms": 33.3772463768116,
+        "predicted_per_second": 29.960530257964507
+      }
+    },
+    {
+      "input_tokens": 2077,
+      "name": "1330977",
+      "output_tokens": 92,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4459,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1574,
+        "prompt_n": 503,
+        "prompt_ms": 1407.298,
+        "prompt_per_token_ms": 2.7978091451292246,
+        "prompt_per_second": 357.42252174024264,
+        "predicted_n": 92,
+        "predicted_ms": 3032.692,
+        "predicted_per_token_ms": 33.32628571428572,
+        "predicted_per_second": 30.006344198487678
+      }
+    },
+    {
+      "input_tokens": 2077,
+      "name": "1260557",
+      "output_tokens": 114,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 5291,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1574,
+        "prompt_n": 503,
+        "prompt_ms": 1404.488,
+        "prompt_per_token_ms": 2.7922226640159047,
+        "prompt_per_second": 358.1376273773788,
+        "predicted_n": 114,
+        "predicted_ms": 3865.117,
+        "predicted_per_token_ms": 34.20457522123894,
+        "predicted_per_second": 29.2358549560078
+      }
+    },
+    {
+      "input_tokens": 2073,
+      "name": "1338223",
+      "output_tokens": 45,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 2997,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1574,
+        "prompt_n": 499,
+        "prompt_ms": 1406.879,
+        "prompt_per_token_ms": 2.819396793587174,
+        "prompt_per_second": 354.6857974282081,
+        "predicted_n": 45,
+        "predicted_ms": 1568.25,
+        "predicted_per_token_ms": 35.64204545454545,
+        "predicted_per_second": 28.056751155746852
+      }
+    },
+    {
+      "input_tokens": 2077,
+      "name": "1221840",
+      "output_tokens": 45,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 2891,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1574,
+        "prompt_n": 503,
+        "prompt_ms": 1406.982,
+        "prompt_per_token_ms": 2.7971809145129223,
+        "prompt_per_second": 357.50279676641213,
+        "predicted_n": 45,
+        "predicted_ms": 1469.376,
+        "predicted_per_token_ms": 33.39490909090909,
+        "predicted_per_second": 29.94468400191646
+      }
+    },
+    {
+      "input_tokens": 2079,
+      "name": "1192912",
+      "output_tokens": 49,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3185,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 1574,
+        "prompt_n": 505,
+        "prompt_ms": 1422.441,
+        "prompt_per_token_ms": 2.8167148514851488,
+        "prompt_per_second": 355.0235123987568,
+        "predicted_n": 49,
+        "predicted_ms": 1736.676,
+        "predicted_per_token_ms": 36.180749999999996,
+        "predicted_per_second": 27.63900693048099
+      }
+    }
+  ],
+  "total_wall_seconds": 178.141
+}

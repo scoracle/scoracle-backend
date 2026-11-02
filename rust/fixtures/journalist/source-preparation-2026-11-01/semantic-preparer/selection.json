@@ -1,0 +1,9 @@
+{
+  "qualifies_for_followup": false,
+  "counts": {
+    "clearly_faithful": 3,
+    "clarity_concern": 1,
+    "failed": 2
+  },
+  "reason": "Fails five-clear/no-factual-failure gate and regresses original clear Bears-reserved packet. Extra instructions improve particular relations but do not make preparation or final writing reliable. No unseen validation or repeat calls."
+}

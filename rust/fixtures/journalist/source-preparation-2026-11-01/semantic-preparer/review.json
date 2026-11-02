@@ -1,0 +1,322 @@
+{
+  "reviewer": "Codex manual review against the supplied headlines, not blinded or independently adjudicated; source-format/field concerns separated from false claims.",
+  "source_reviews": [
+    {
+      "article_id": 1276620,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Undefined amount is now recorded rather than called a value, but one proposition is split into three and the already-reported move becomes a future possibility in a separate claim."
+      ],
+      "output": "development-preparation/1276620/output.json"
+    },
+    {
+      "article_id": 1424030,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Result, red card and competition are correct but repeated in three records. Unknown collapse meaning is unnecessary given the score; identity of Maignan is irrelevant to the reported event."
+      ],
+      "output": "development-preparation/1424030/output.json"
+    },
+    {
+      "article_id": 1426503,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Both result propositions are preserved. Adds a redundant KWKT listing and an irrelevant unknown referee identity."
+      ],
+      "output": "development-preparation/1426503/output.json"
+    },
+    {
+      "article_id": 1414585,
+      "assessment": "unfaithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Claims omit the competition and dismissal context; qualifications retain some of it, but unspecified incorrectly calls supplied Europa League context missing."
+      ],
+      "output": "development-preparation/1414585/output.json"
+    },
+    {
+      "article_id": 1415284,
+      "assessment": "faithful",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Result and red card preserved; separate collapse statement repeats the defeat. No unsupported goalkeeper role or competition added."
+      ],
+      "output": "development-preparation/1415284/output.json"
+    },
+    {
+      "article_id": 1394917,
+      "assessment": "unfaithful",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Broadens a reaction to forgetting a substitution into a judgment of the whole performance. Separate substitution and red-card statements do not repair the widened quote scope."
+      ],
+      "output": "development-preparation/1394917/output.json"
+    },
+    {
+      "article_id": 1374081,
+      "assessment": "unfaithful",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Early lead is preserved, but unspecified asks who stunned Milan even though Bournemouth is explicitly supplied. Repeats the competition as a listing."
+      ],
+      "output": "development-preparation/1374081/output.json"
+    },
+    {
+      "article_id": 1363845,
+      "assessment": "unfaithful",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Ten players remaining is ambiguously attached rather than bound to Milan; denied victory and an unknown winning-goal scorer interpret the less specific denied-at-the-death wording. Repeats the competition."
+      ],
+      "output": "development-preparation/1363845/output.json"
+    },
+    {
+      "article_id": 1425437,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Correct named speaker and track assessment; the mistakes qualification remains only in qualifications, not in the claim."
+      ],
+      "output": "development-preparation/1425437/output.json"
+    },
+    {
+      "article_id": 1341401,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Single conditional trade assessment with null speaker is faithful. Who the Bears are is not a consequential missing detail for this source claim."
+      ],
+      "output": "development-preparation/1341401/output.json"
+    },
+    {
+      "article_id": 1352005,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Live Show identity is explicit; no match completion or broadcast inference."
+      ],
+      "output": "development-preparation/1352005/output.json"
+    },
+    {
+      "article_id": 1432888,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Announcement and timing are correct in claim, but explicit announcing organization is lost in null speaker."
+      ],
+      "output": "development-preparation/1432888/output.json"
+    },
+    {
+      "article_id": 1412576,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Question retained; Thursday timing survives only in qualifications."
+      ],
+      "output": "development-preparation/1412576/output.json"
+    },
+    {
+      "article_id": 1262232,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "How-to content is preserved, but supplied TNF timing is dropped from the account."
+      ],
+      "output": "development-preparation/1262232/output.json"
+    },
+    {
+      "article_id": 1289440,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Absence retained without inventing injury; opponent unknown is unnecessary but does not assert a false cause."
+      ],
+      "output": "development-preparation/1289440/output.json"
+    },
+    {
+      "article_id": 1429100,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Listing and date retained without game completion; repeats scores/stats/highlights as a second listing."
+      ],
+      "output": "development-preparation/1429100/output.json"
+    },
+    {
+      "article_id": 1398531,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Game-summary listing retained; date exists only in qualifications."
+      ],
+      "output": "development-preparation/1398531/output.json"
+    },
+    {
+      "article_id": 1325124,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Support and quoted excessive prices are correct, then support is repeated and a generic boycott listing added; unknowns are incidental."
+      ],
+      "output": "development-preparation/1325124/output.json"
+    },
+    {
+      "article_id": 1208973,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Single account retains support, prices and retaliation warning with no imported publisher facts."
+      ],
+      "output": "development-preparation/1208973/output.json"
+    },
+    {
+      "article_id": 1189629,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Lay-off and return question are distinct; two required factors and January are now attached to the return in the claim."
+      ],
+      "output": "development-preparation/1189629/output.json"
+    },
+    {
+      "article_id": 1189646,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "The wording early exit for OL makes the exiting subject less clear than early OL exit in the recall context; splits the qualifying doubt away from the recall question."
+      ],
+      "output": "development-preparation/1189646/output.json"
+    },
+    {
+      "article_id": 1115631,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Contract interest retained and unsupported speaking attribution removed."
+      ],
+      "output": "development-preparation/1115631/output.json"
+    },
+    {
+      "article_id": 1410388,
+      "assessment": "unfaithful",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Changes newly-announced illness into newly-announced status in a separate claim. Availability loses the illness contrast from its claim, though qualifications retain it."
+      ],
+      "output": "development-preparation/1410388/output.json"
+    },
+    {
+      "article_id": 1410389,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Streak length, matchup and uncertainty retained; type explicitly unknown; no coach or Thanksgiving invention in preparation."
+      ],
+      "output": "development-preparation/1410389/output.json"
+    },
+    {
+      "article_id": 1330977,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Possible move preserved, but repeated as both information question and listing."
+      ],
+      "output": "development-preparation/1330977/output.json"
+    },
+    {
+      "article_id": 1260557,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Brutal debut preserved, then repeated as a listing; NBA context omitted and incidental unknowns introduced."
+      ],
+      "output": "development-preparation/1260557/output.json"
+    },
+    {
+      "article_id": 1338223,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Performance claim retained without invented speaker."
+      ],
+      "output": "development-preparation/1338223/output.json"
+    },
+    {
+      "article_id": 1221840,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "How-to content, opening night, parking and jerseys retained, but labeled listing rather than question under this prompt contract."
+      ],
+      "output": "development-preparation/1221840/output.json"
+    },
+    {
+      "article_id": 1192912,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "New-season swap and parking retained without importing opening night from another source."
+      ],
+      "output": "development-preparation/1192912/output.json"
+    }
+  ],
+  "writer_reviews": [
+    {
+      "arm": "automatic",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Amount remains an undefined figure, required match anchor is now present and cross-source goalkeeper/competition borrowing is gone. However TNT reaction to the missed substitution becomes a judgment of the whole performance, matching the erroneous prepared claim."
+      ],
+      "output": "development-automatic/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-known",
+      "assessment": "faithful",
+      "findings": [
+        "Conditional trade assessment retained, live-show title is now precise, and Bears announcement remains faithful."
+      ],
+      "output": "development-automatic/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence without invented cause and dated game-page listings without completion preserved."
+      ],
+      "output": "development-automatic/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "ac-milan-reserved",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Publisher ownership, two factors and unlikely exit retained. Early exit for OL is less clear about who exits than the source recall context; not counted as an unambiguous pass."
+      ],
+      "output": "development-automatic/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Adds coach role and turns TNF into Thanksgiving; neither appears in the cited headline or preparation. Other two topics are faithful."
+      ],
+      "output": "development-automatic/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Distinct performances and Yahoo-only opening-night perks retained. Not citing optional KTLA report is allowed; every required anchor is retained."
+      ],
+      "output": "development-automatic/la-clippers-reserved-statements-source-first/output.json"
+    }
+  ]
+}

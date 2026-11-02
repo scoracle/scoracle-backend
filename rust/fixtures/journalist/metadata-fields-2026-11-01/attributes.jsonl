@@ -1,0 +1,6 @@
+{"name" : "AC Milan", "record" : {"name":"AC Milan","league_name":"Serie A","league_country":"Italy","venue_name":"Giuseppe Meazza Stadium","city":"Milano","coach_name_on_record":"Filippo Galli"}}
+{"name" : "Liverpool", "record" : {"name":"Liverpool","league_name":"Premier League","league_country":"England","coach_name_on_record":"Andoni Iraola"}}
+{"name" : "Boston Celtics", "record" : {"name":"Boston Celtics","conference":"East","division":"Atlantic","venue_name":"TD Garden","city":"Boston","coach_name_on_record":"John Thompson"}}
+{"name" : "LA Clippers", "record" : {"name":"LA Clippers","conference":"West","division":"Pacific","coach_name_on_record":"Will Hardy"}}
+{"name" : "Chicago Bears", "record" : {"name":"Chicago Bears","conference":"NFC","division":"NORTH","venue_name":"Soldier Field","city":"Chicago","coach_name_on_record":"Richard Hightower"}}
+{"name" : "Green Bay Packers", "record" : {"name":"Green Bay Packers","conference":"NFC","division":"NORTH","venue_name":"Lambeau Field","city":"Green Bay","coach_name_on_record":"Adam Stenavich"}}

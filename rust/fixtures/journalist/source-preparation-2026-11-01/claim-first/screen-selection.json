@@ -1,0 +1,5 @@
+{
+  "qualifies_for_automatic": true,
+  "reused_screen": "../worked-writer/screen-selection.json",
+  "reason": "Identical writer, source schema, source inputs and writer settings; only preparer instructions change."
+}

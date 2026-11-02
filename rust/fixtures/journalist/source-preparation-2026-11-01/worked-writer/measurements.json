@@ -1,0 +1,1217 @@
+{
+  "calls": 47,
+  "complete_receipts_and_integrity": true,
+  "runs": {
+    "development-automatic": {
+      "calls": 6,
+      "valid_spans_or_mapping": 5,
+      "median_ms": 7402.0,
+      "total_ms": 49607,
+      "range_ms": [
+        6578,
+        11002
+      ],
+      "input_tokens": 33342,
+      "output_tokens": 1001,
+      "input_tokens_range": [
+        5262,
+        6366
+      ],
+      "output_tokens_range": [
+        140,
+        239
+      ],
+      "cache_tokens_range": [
+        4735,
+        4753
+      ]
+    },
+    "development-control": {
+      "calls": 6,
+      "valid_spans_or_mapping": 5,
+      "median_ms": 6719.0,
+      "total_ms": 44383,
+      "range_ms": [
+        5983,
+        9827
+      ],
+      "input_tokens": 31144,
+      "output_tokens": 968,
+      "input_tokens_range": [
+        5073,
+        5482
+      ],
+      "output_tokens_range": [
+        137,
+        237
+      ],
+      "cache_tokens_range": [
+        4421,
+        4693
+      ]
+    },
+    "development-preparation": {
+      "calls": 29,
+      "valid_spans_or_mapping": 29,
+      "median_ms": 3319,
+      "total_ms": 112602,
+      "range_ms": [
+        2849,
+        7699
+      ],
+      "input_tokens": 29796,
+      "output_tokens": 2152,
+      "input_tokens_range": [
+        1019,
+        1036
+      ],
+      "output_tokens_range": [
+        45,
+        156
+      ],
+      "cache_tokens_range": [
+        0,
+        520
+      ]
+    },
+    "development-reference": {
+      "calls": 6,
+      "valid_spans_or_mapping": 6,
+      "median_ms": 7370.5,
+      "total_ms": 51194,
+      "range_ms": [
+        6454,
+        12621
+      ],
+      "input_tokens": 32848,
+      "output_tokens": 1080,
+      "input_tokens_range": [
+        5229,
+        6107
+      ],
+      "output_tokens_range": [
+        140,
+        242
+      ],
+      "cache_tokens_range": [
+        4693,
+        4735
+      ]
+    }
+  },
+  "combined_automatic": [
+    {
+      "cohort": "development",
+      "name": "ac-milan-known",
+      "source_calls": 9,
+      "preparation_ms": 42845,
+      "writer_called": true,
+      "writer_ms": 10575,
+      "total_ms": 53420,
+      "input_tokens": 15641,
+      "output_tokens": 1036
+    },
+    {
+      "cohort": "development",
+      "name": "chicago-bears-known",
+      "source_calls": 5,
+      "preparation_ms": 16444,
+      "writer_called": true,
+      "writer_ms": 7121,
+      "total_ms": 23565,
+      "input_tokens": 10595,
+      "output_tokens": 431
+    },
+    {
+      "cohort": "development",
+      "name": "la-clippers-known",
+      "source_calls": 3,
+      "preparation_ms": 10172,
+      "writer_called": true,
+      "writer_ms": 6578,
+      "total_ms": 16750,
+      "input_tokens": 8352,
+      "output_tokens": 327
+    },
+    {
+      "cohort": "development",
+      "name": "ac-milan-reserved",
+      "source_calls": 5,
+      "preparation_ms": 20782,
+      "writer_called": true,
+      "writer_ms": 11002,
+      "total_ms": 31784,
+      "input_tokens": 10768,
+      "output_tokens": 655
+    },
+    {
+      "cohort": "development",
+      "name": "chicago-bears-reserved",
+      "source_calls": 3,
+      "preparation_ms": 9895,
+      "writer_called": true,
+      "writer_ms": 6648,
+      "total_ms": 16543,
+      "input_tokens": 8359,
+      "output_tokens": 321
+    },
+    {
+      "cohort": "development",
+      "name": "la-clippers-reserved",
+      "source_calls": 4,
+      "preparation_ms": 12464,
+      "writer_called": true,
+      "writer_ms": 7683,
+      "total_ms": 20147,
+      "input_tokens": 9423,
+      "output_tokens": 383
+    }
+  ],
+  "repeats": [],
+  "records": [
+    {
+      "accepted": false,
+      "input_tokens": 6366,
+      "name": "ac-milan-known",
+      "output_tokens": 161,
+      "production_writes": false,
+      "render_error": "missing topic anchor",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 10575,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4735,
+        "prompt_n": 1631,
+        "prompt_ms": 4823.537,
+        "prompt_per_token_ms": 2.9574107909258127,
+        "prompt_per_second": 338.1336143995578,
+        "predicted_n": 161,
+        "predicted_ms": 5694.106,
+        "predicted_per_token_ms": 35.588162499999996,
+        "predicted_per_second": 28.099231029418842
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5480,
+      "name": "chicago-bears-known",
+      "output_tokens": 140,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 7121,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4735,
+        "prompt_n": 745,
+        "prompt_ms": 2239.592,
+        "prompt_per_token_ms": 3.006163758389262,
+        "prompt_per_second": 332.6498755130399,
+        "predicted_n": 140,
+        "predicted_ms": 4846.376,
+        "predicted_per_token_ms": 34.86601438848921,
+        "predicted_per_second": 28.68122489876972
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5262,
+      "name": "la-clippers-known",
+      "output_tokens": 144,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "RotoBaller reports that Max Strus is ruled out for the Clippers' road trip.\n\nNBA.com lists an Orlando Magic vs LA Clippers game scheduled for Jan 15, 2027.\n\nNBA.com lists a Toronto Raptors vs LA Clippers game summary for Nov 2, 2026.",
+      "wall_ms": 6578,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4735,
+        "prompt_n": 527,
+        "prompt_ms": 1586.891,
+        "prompt_per_token_ms": 3.0111783681214424,
+        "prompt_per_second": 332.095903247293,
+        "predicted_n": 144,
+        "predicted_ms": 4958.341,
+        "predicted_per_token_ms": 34.67371328671329,
+        "predicted_per_second": 28.840291541061816
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5632,
+      "name": "ac-milan-reserved",
+      "output_tokens": 239,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "ESPN discusses AC Milan's support for a fan boycott over 'excessive' away ticket prices. FOX Sports discusses AC Milan backing a fan boycott over 'excessive' away ticket prices and warning of retaliation.\n\nLiveScore discusses Milan's fear of a lengthy lay-off for Chukwueze and a question about Athekame's potential January return requiring two factors. OneFootball discusses a question regarding AC Milan recalling Athekame in January, with an early exit deemed unlikely.\n\nTribalFootball discusses AC Milan's eagerness to secure Rabiot's future with a fresh contract.",
+      "wall_ms": 11002,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4746,
+        "prompt_n": 886,
+        "prompt_ms": 2644.156,
+        "prompt_per_token_ms": 2.984374717832957,
+        "prompt_per_second": 335.07856571246174,
+        "predicted_n": 239,
+        "predicted_ms": 8321.014,
+        "predicted_per_token_ms": 34.96224369747899,
+        "predicted_per_second": 28.602283327488696
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5269,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 146,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Pats Pulpit reports that Christian Gonzalez is good to go for the Patriots vs. Bears game despite a newly-announced illness.\n\nYahoo Sports reports that Patriots' Mike Vrabel is set to snap a 27-year streak.\n\nChicago Tribune lists topics to know about the Chicago Bears' possible move from Soldier Field.",
+      "wall_ms": 6648,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4746,
+        "prompt_n": 523,
+        "prompt_ms": 1564.723,
+        "prompt_per_token_ms": 2.9918221797323135,
+        "prompt_per_second": 334.24446371658115,
+        "predicted_n": 146,
+        "predicted_ms": 5048.315,
+        "predicted_per_token_ms": 34.815965517241374,
+        "predicted_per_second": 28.72245491812615
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5333,
+      "name": "la-clippers-reserved",
+      "output_tokens": 171,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "NBC Sports reports that Darius Acuff Jr. had a brutal NBA debut against the Clippers.\n\nNBC Sports reports that Keegan Murray struggles mightily against the Clippers.\n\nYahoo Sports lists how Clippers fans can get free parking and new jerseys on opening night. KTLA lists a jersey swap and free parking as part of the L.A. Clippers ushering in a new season.",
+      "wall_ms": 7683,
+      "run": "development-automatic",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4753,
+        "prompt_n": 580,
+        "prompt_ms": 1728.809,
+        "prompt_per_token_ms": 2.980705172413793,
+        "prompt_per_second": 335.49108085392896,
+        "predicted_n": 171,
+        "predicted_ms": 5918.627,
+        "predicted_per_token_ms": 34.815452941176474,
+        "predicted_per_second": 28.72287778905479
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5482,
+      "name": "ac-milan-known",
+      "output_tokens": 164,
+      "production_writes": false,
+      "render_error": "missing topic anchor",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 8906,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4421,
+        "prompt_n": 1061,
+        "prompt_ms": 3152.144,
+        "prompt_per_token_ms": 2.970918001885014,
+        "prompt_per_second": 336.59629763107273,
+        "predicted_n": 164,
+        "predicted_ms": 5698.985,
+        "predicted_per_token_ms": 34.9630981595092,
+        "predicted_per_second": 28.60158431720736
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5179,
+      "name": "chicago-bears-known",
+      "output_tokens": 141,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 7123,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4421,
+        "prompt_n": 758,
+        "prompt_ms": 2211.921,
+        "prompt_per_token_ms": 2.9181015831134562,
+        "prompt_per_second": 342.68854990752385,
+        "predicted_n": 141,
+        "predicted_ms": 4875.412,
+        "predicted_per_token_ms": 34.82437142857143,
+        "predicted_per_second": 28.715521888201444
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5073,
+      "name": "la-clippers-known",
+      "output_tokens": 145,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 6229,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4663,
+        "prompt_n": 410,
+        "prompt_ms": 1223.201,
+        "prompt_per_token_ms": 2.983417073170732,
+        "prompt_per_second": 335.18612231350363,
+        "predicted_n": 145,
+        "predicted_ms": 4971.982,
+        "predicted_per_token_ms": 34.527652777777774,
+        "predicted_per_second": 28.9622931056468
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5209,
+      "name": "ac-milan-reserved",
+      "output_tokens": 237,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "ESPN discusses AC Milan's support for a fan boycott over 'excessive' away ticket prices. FOX Sports discusses AC Milan backing a fan boycott over 'excessive' away ticket prices and warning of potential retaliation.\n\nLiveScore discusses AC Milan's fear of a lengthy lay-off for Chukwueze and the possibility of Athekame returning in January. OneFootball discusses AC Milan's potential recall of Athekame in January, with an early OL exit deemed unlikely.\n\nTribalFootball discusses AC Milan's eagerness to secure Rabiot's future with a fresh contract.",
+      "wall_ms": 9827,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4663,
+        "prompt_n": 546,
+        "prompt_ms": 1604.355,
+        "prompt_per_token_ms": 2.938379120879121,
+        "prompt_per_second": 340.32368147947307,
+        "predicted_n": 237,
+        "predicted_ms": 8190.797,
+        "predicted_per_token_ms": 34.70676694915254,
+        "predicted_per_second": 28.812824930223517
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5088,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 144,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Pats Pulpit reports that Christian Gonzalez is good to play despite a newly announced illness.\n\nYahoo Sports reports that Patriots coach Mike Vrabel is set to end a 27-year streak in the TNF against the Bears.\n\nChicago Tribune discusses the Chicago Bears' possible move from Soldier Field.",
+      "wall_ms": 6315,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4693,
+        "prompt_n": 395,
+        "prompt_ms": 1215.196,
+        "prompt_per_token_ms": 3.076445569620253,
+        "prompt_per_second": 325.0504445373422,
+        "predicted_n": 144,
+        "predicted_ms": 5065.21,
+        "predicted_per_token_ms": 35.42104895104895,
+        "predicted_per_second": 28.23180085327163
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5113,
+      "name": "la-clippers-reserved",
+      "output_tokens": 137,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 5983,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4693,
+        "prompt_n": 420,
+        "prompt_ms": 1226.879,
+        "prompt_per_token_ms": 2.921140476190476,
+        "prompt_per_second": 342.3320474146187,
+        "predicted_n": 137,
+        "predicted_ms": 4722.669,
+        "predicted_per_token_ms": 34.72550735294118,
+        "predicted_per_second": 28.797275438952003
+      }
+    },
+    {
+      "input_tokens": 1031,
+      "name": "1276620",
+      "output_tokens": 148,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 7699,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 0,
+        "prompt_n": 1031,
+        "prompt_ms": 2758.233,
+        "prompt_per_token_ms": 2.675298739088264,
+        "prompt_per_second": 373.7900315165542,
+        "predicted_n": 148,
+        "predicted_ms": 4912.519,
+        "predicted_per_token_ms": 33.41849659863946,
+        "predicted_per_second": 29.923548387293767
+      }
+    },
+    {
+      "input_tokens": 1028,
+      "name": "1424030",
+      "output_tokens": 156,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 6563,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 515,
+        "prompt_n": 513,
+        "prompt_ms": 1382.047,
+        "prompt_per_token_ms": 2.69404873294347,
+        "prompt_per_second": 371.18853410918734,
+        "predicted_n": 156,
+        "predicted_ms": 5158.266,
+        "predicted_per_token_ms": 33.27913548387097,
+        "predicted_per_second": 30.04885750366499
+      }
+    },
+    {
+      "input_tokens": 1035,
+      "name": "1426503",
+      "output_tokens": 98,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4652,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 515,
+        "prompt_n": 520,
+        "prompt_ms": 1415.056,
+        "prompt_per_token_ms": 2.7212615384615386,
+        "prompt_per_second": 367.4766228333013,
+        "predicted_n": 98,
+        "predicted_ms": 3205.394,
+        "predicted_per_token_ms": 33.045298969072164,
+        "predicted_per_second": 30.261490475117885
+      }
+    },
+    {
+      "input_tokens": 1033,
+      "name": "1414585",
+      "output_tokens": 98,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4605,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 514,
+        "prompt_ms": 1377.908,
+        "prompt_per_token_ms": 2.6807548638132292,
+        "prompt_per_second": 373.02925884747026,
+        "predicted_n": 98,
+        "predicted_ms": 3199.695,
+        "predicted_per_token_ms": 32.986546391752576,
+        "predicted_per_second": 30.315389435555577
+      }
+    },
+    {
+      "input_tokens": 1034,
+      "name": "1415284",
+      "output_tokens": 75,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3854,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 515,
+        "prompt_ms": 1379.941,
+        "prompt_per_token_ms": 2.679497087378641,
+        "prompt_per_second": 373.2043616357511,
+        "predicted_n": 75,
+        "predicted_ms": 2446.781,
+        "predicted_per_token_ms": 33.06460810810811,
+        "predicted_per_second": 30.243818306583222
+      }
+    },
+    {
+      "input_tokens": 1028,
+      "name": "1394917",
+      "output_tokens": 69,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3682,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 509,
+        "prompt_ms": 1376.783,
+        "prompt_per_token_ms": 2.7048781925343808,
+        "prompt_per_second": 369.70241497752374,
+        "predicted_n": 69,
+        "predicted_ms": 2282.031,
+        "predicted_per_token_ms": 33.559279411764706,
+        "predicted_per_second": 29.798017643055683
+      }
+    },
+    {
+      "input_tokens": 1024,
+      "name": "1374081",
+      "output_tokens": 51,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3047,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 505,
+        "prompt_ms": 1375.202,
+        "prompt_per_token_ms": 2.723172277227723,
+        "prompt_per_second": 367.2187794956668,
+        "predicted_n": 51,
+        "predicted_ms": 1648.773,
+        "predicted_per_token_ms": 32.97546,
+        "predicted_per_second": 30.32558150818821
+      }
+    },
+    {
+      "input_tokens": 1030,
+      "name": "1363845",
+      "output_tokens": 125,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 5523,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 511,
+        "prompt_ms": 1381.128,
+        "prompt_per_token_ms": 2.702794520547945,
+        "prompt_per_second": 369.98743056400275,
+        "predicted_n": 125,
+        "predicted_ms": 4113.961,
+        "predicted_per_token_ms": 33.17710483870968,
+        "predicted_per_second": 30.141267746582916
+      }
+    },
+    {
+      "input_tokens": 1032,
+      "name": "1425437",
+      "output_tokens": 55,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3220,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 513,
+        "prompt_ms": 1379.001,
+        "prompt_per_token_ms": 2.688111111111111,
+        "prompt_per_second": 372.00843219112966,
+        "predicted_n": 55,
+        "predicted_ms": 1813.922,
+        "predicted_per_token_ms": 33.59114814814815,
+        "predicted_per_second": 29.769747541515017
+      }
+    },
+    {
+      "input_tokens": 1028,
+      "name": "1341401",
+      "output_tokens": 89,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4313,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 509,
+        "prompt_ms": 1376.599,
+        "prompt_per_token_ms": 2.704516699410609,
+        "prompt_per_second": 369.7518304168462,
+        "predicted_n": 89,
+        "predicted_ms": 2909.452,
+        "predicted_per_token_ms": 33.06195454545455,
+        "predicted_per_second": 30.246245684754378
+      }
+    },
+    {
+      "input_tokens": 1020,
+      "name": "1352005",
+      "output_tokens": 50,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3034,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 501,
+        "prompt_ms": 1373.348,
+        "prompt_per_token_ms": 2.7412135728542912,
+        "prompt_per_second": 364.80192929978415,
+        "predicted_n": 50,
+        "predicted_ms": 1639.525,
+        "predicted_per_token_ms": 33.459693877551025,
+        "predicted_per_second": 29.886704990774767
+      }
+    },
+    {
+      "input_tokens": 1024,
+      "name": "1432888",
+      "output_tokens": 52,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3083,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 505,
+        "prompt_ms": 1374.61,
+        "prompt_per_token_ms": 2.722,
+        "prompt_per_second": 367.37692872887584,
+        "predicted_n": 52,
+        "predicted_ms": 1682.787,
+        "predicted_per_token_ms": 32.995823529411766,
+        "predicted_per_second": 30.306865931338905
+      }
+    },
+    {
+      "input_tokens": 1022,
+      "name": "1412576",
+      "output_tokens": 49,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 2963,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 503,
+        "prompt_ms": 1374.401,
+        "prompt_per_token_ms": 2.732407554671968,
+        "prompt_per_second": 365.97761497554205,
+        "predicted_n": 49,
+        "predicted_ms": 1566.941,
+        "predicted_per_token_ms": 32.64460416666667,
+        "predicted_per_second": 30.63293385009391
+      }
+    },
+    {
+      "input_tokens": 1021,
+      "name": "1262232",
+      "output_tokens": 51,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3051,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 502,
+        "prompt_ms": 1375.008,
+        "prompt_per_token_ms": 2.7390597609561755,
+        "prompt_per_second": 365.0887849379785,
+        "predicted_n": 51,
+        "predicted_ms": 1653.671,
+        "predicted_per_token_ms": 33.07342,
+        "predicted_per_second": 30.235760317499672
+      }
+    },
+    {
+      "input_tokens": 1029,
+      "name": "1289440",
+      "output_tokens": 63,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3454,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 510,
+        "prompt_ms": 1379.839,
+        "prompt_per_token_ms": 2.7055666666666665,
+        "prompt_per_second": 369.60833836411354,
+        "predicted_n": 63,
+        "predicted_ms": 2048.805,
+        "predicted_per_token_ms": 33.045241935483865,
+        "predicted_per_second": 30.261542704161695
+      }
+    },
+    {
+      "input_tokens": 1034,
+      "name": "1429100",
+      "output_tokens": 70,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3701,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 515,
+        "prompt_ms": 1383.409,
+        "prompt_per_token_ms": 2.6862310679611654,
+        "prompt_per_second": 372.26879397199235,
+        "predicted_n": 70,
+        "predicted_ms": 2290.654,
+        "predicted_per_token_ms": 33.19788405797102,
+        "predicted_per_second": 30.12240172457298
+      }
+    },
+    {
+      "input_tokens": 1027,
+      "name": "1398531",
+      "output_tokens": 50,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3017,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 508,
+        "prompt_ms": 1377.765,
+        "prompt_per_token_ms": 2.7121358267716538,
+        "prompt_per_second": 368.7130969359796,
+        "predicted_n": 50,
+        "predicted_ms": 1616.909,
+        "predicted_per_token_ms": 32.99814285714286,
+        "predicted_per_second": 30.304735764350372
+      }
+    },
+    {
+      "input_tokens": 1022,
+      "name": "1325124",
+      "output_tokens": 48,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 2954,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 503,
+        "prompt_ms": 1377.393,
+        "prompt_per_token_ms": 2.7383558648111332,
+        "prompt_per_second": 365.18263124612946,
+        "predicted_n": 48,
+        "predicted_ms": 1550.834,
+        "predicted_per_token_ms": 32.996468085106386,
+        "predicted_per_second": 30.30627391455178
+      }
+    },
+    {
+      "input_tokens": 1027,
+      "name": "1208973",
+      "output_tokens": 80,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4032,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 508,
+        "prompt_ms": 1376.698,
+        "prompt_per_token_ms": 2.7100354330708663,
+        "prompt_per_second": 368.9988654011264,
+        "predicted_n": 80,
+        "predicted_ms": 2628.697,
+        "predicted_per_token_ms": 33.274645569620255,
+        "predicted_per_second": 30.052912146207795
+      }
+    },
+    {
+      "input_tokens": 1036,
+      "name": "1189629",
+      "output_tokens": 136,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 5913,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 519,
+        "prompt_n": 517,
+        "prompt_ms": 1405.447,
+        "prompt_per_token_ms": 2.7184661508704058,
+        "prompt_per_second": 367.8544975370825,
+        "predicted_n": 136,
+        "predicted_ms": 4481.402,
+        "predicted_per_token_ms": 33.19557037037037,
+        "predicted_per_second": 30.124501216360418
+      }
+    },
+    {
+      "input_tokens": 1027,
+      "name": "1189646",
+      "output_tokens": 96,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 4650,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 507,
+        "prompt_ms": 1375.516,
+        "prompt_per_token_ms": 2.7130493096646946,
+        "prompt_per_second": 368.5889513462584,
+        "predicted_n": 96,
+        "predicted_ms": 3248.159,
+        "predicted_per_token_ms": 34.191147368421056,
+        "predicted_per_second": 29.247336722124746
+      }
+    },
+    {
+      "input_tokens": 1024,
+      "name": "1115631",
+      "output_tokens": 56,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3233,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 504,
+        "prompt_ms": 1374.047,
+        "prompt_per_token_ms": 2.7262837301587304,
+        "prompt_per_second": 366.7996800691679,
+        "predicted_n": 56,
+        "predicted_ms": 1835.279,
+        "predicted_per_token_ms": 33.36870909090909,
+        "predicted_per_second": 29.968195571354542
+      }
+    },
+    {
+      "input_tokens": 1034,
+      "name": "1410388",
+      "output_tokens": 63,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3455,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 514,
+        "prompt_ms": 1380.326,
+        "prompt_per_token_ms": 2.6854591439688718,
+        "prompt_per_second": 372.37580107887555,
+        "predicted_n": 63,
+        "predicted_ms": 2046.155,
+        "predicted_per_token_ms": 33.0025,
+        "predicted_per_second": 30.300734792818727
+      }
+    },
+    {
+      "input_tokens": 1033,
+      "name": "1410389",
+      "output_tokens": 59,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3319,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 513,
+        "prompt_ms": 1379.69,
+        "prompt_per_token_ms": 2.6894541910331387,
+        "prompt_per_second": 371.8226558139872,
+        "predicted_n": 59,
+        "predicted_ms": 1911.352,
+        "predicted_per_token_ms": 32.95434482758621,
+        "predicted_per_second": 30.345012326353284
+      }
+    },
+    {
+      "input_tokens": 1023,
+      "name": "1330977",
+      "output_tokens": 53,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3121,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 503,
+        "prompt_ms": 1373.629,
+        "prompt_per_token_ms": 2.730872763419483,
+        "prompt_per_second": 366.1832998575307,
+        "predicted_n": 53,
+        "predicted_ms": 1723.1,
+        "predicted_per_token_ms": 33.13653846153846,
+        "predicted_per_second": 30.17816725668853
+      }
+    },
+    {
+      "input_tokens": 1023,
+      "name": "1260557",
+      "output_tokens": 53,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3117,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 503,
+        "prompt_ms": 1374.952,
+        "prompt_per_token_ms": 2.733502982107356,
+        "prompt_per_second": 365.83095264416505,
+        "predicted_n": 53,
+        "predicted_ms": 1717.78,
+        "predicted_per_token_ms": 33.03423076923077,
+        "predicted_per_second": 30.271629661539897
+      }
+    },
+    {
+      "input_tokens": 1019,
+      "name": "1338223",
+      "output_tokens": 45,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 2849,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 499,
+        "prompt_ms": 1371.504,
+        "prompt_per_token_ms": 2.74850501002004,
+        "prompt_per_second": 363.8341557880983,
+        "predicted_n": 45,
+        "predicted_ms": 1454.861,
+        "predicted_per_token_ms": 33.065022727272726,
+        "predicted_per_second": 30.243439063938066
+      }
+    },
+    {
+      "input_tokens": 1023,
+      "name": "1221840",
+      "output_tokens": 55,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3184,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 503,
+        "prompt_ms": 1375.085,
+        "prompt_per_token_ms": 2.7337673956262427,
+        "prompt_per_second": 365.795569001189,
+        "predicted_n": 55,
+        "predicted_ms": 1783.737,
+        "predicted_per_token_ms": 33.03216666666667,
+        "predicted_per_second": 30.27352126462589
+      }
+    },
+    {
+      "input_tokens": 1025,
+      "name": "1192912",
+      "output_tokens": 59,
+      "production_writes": false,
+      "spans_valid": true,
+      "wall_ms": 3314,
+      "run": "development-preparation",
+      "stage": "prepare",
+      "native_timings": {
+        "cache_n": 520,
+        "prompt_n": 505,
+        "prompt_ms": 1375.724,
+        "prompt_per_token_ms": 2.724205940594059,
+        "prompt_per_second": 367.07944326042144,
+        "predicted_n": 59,
+        "predicted_ms": 1915.275,
+        "predicted_per_token_ms": 33.021982758620695,
+        "predicted_per_second": 30.282857553092896
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 6107,
+      "name": "ac-milan-known",
+      "output_tokens": 241,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Journalist violates served prose guard",
+      "wall_ms": 12621,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4693,
+        "prompt_n": 1414,
+        "prompt_ms": 4141.283,
+        "prompt_per_token_ms": 2.9287715700141446,
+        "prompt_per_second": 341.44008028429835,
+        "predicted_n": 241,
+        "predicted_ms": 8438.454,
+        "predicted_per_token_ms": 35.160225,
+        "predicted_per_second": 28.441228689520617
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5442,
+      "name": "chicago-bears-known",
+      "output_tokens": 142,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 7151,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4693,
+        "prompt_n": 749,
+        "prompt_ms": 2219.066,
+        "prompt_per_token_ms": 2.962704939919893,
+        "prompt_per_second": 337.52939299687347,
+        "predicted_n": 142,
+        "predicted_ms": 4895.479,
+        "predicted_per_token_ms": 34.71970921985816,
+        "predicted_per_second": 28.802084535548
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5229,
+      "name": "la-clippers-known",
+      "output_tokens": 145,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "RotoBaller reports that Max Strus is ruled out for the Clippers' road trip.\n\nNBA.com lists an Orlando Magic versus LA Clippers game page for Jan 15, 2027.\n\nNBA.com lists a Toronto Raptors versus LA Clippers game-summary page for Nov 2, 2026.",
+      "wall_ms": 6611,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4693,
+        "prompt_n": 536,
+        "prompt_ms": 1611.803,
+        "prompt_per_token_ms": 3.0070951492537317,
+        "prompt_per_second": 332.5468435038277,
+        "predicted_n": 145,
+        "predicted_ms": 4969.138,
+        "predicted_per_token_ms": 34.50790277777778,
+        "predicted_per_second": 28.978869172077733
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5510,
+      "name": "ac-milan-reserved",
+      "output_tokens": 242,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "ESPN discusses AC Milan backing a fan boycott over 'excessive' away ticket prices. FOX Sports discusses AC Milan backing a fan boycott over 'excessive' away ticket prices and warning of retaliation.\n\nLiveScore discusses Milan's fear of a lengthy lay-off for Chukwueze and a question about Athekame's potential January return requiring two factors. OneFootball discusses a question about AC Milan recalling Athekame in January, with an early OL exit deemed unlikely.\n\nTribalFootball discusses AC Milan's eagerness to secure Rabiot's future with a fresh contract.",
+      "wall_ms": 10767,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4713,
+        "prompt_n": 797,
+        "prompt_ms": 2323.283,
+        "prompt_per_token_ms": 2.91503513174404,
+        "prompt_per_second": 343.04903879553206,
+        "predicted_n": 242,
+        "predicted_ms": 8406.343,
+        "predicted_per_token_ms": 34.881091286307054,
+        "predicted_per_second": 28.668827812522043
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5251,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 140,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Pats Pulpit reports that Christian Gonzalez is good to go despite a newly-announced illness.\n\nYahoo Sports reports that Patriots' Mike Vrabel is set to snap a 27-year streak on TNF versus the Bears.\n\nChicago Tribune discusses the Chicago Bears' possible move from Soldier Field.",
+      "wall_ms": 6454,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4713,
+        "prompt_n": 538,
+        "prompt_ms": 1598.684,
+        "prompt_per_token_ms": 2.9715315985130113,
+        "prompt_per_second": 336.52679328747894,
+        "predicted_n": 140,
+        "predicted_ms": 4820.137,
+        "predicted_per_token_ms": 34.67724460431654,
+        "predicted_per_second": 28.837354622908023
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5309,
+      "name": "la-clippers-reserved",
+      "output_tokens": 170,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "NBC Sports reports that Darius Acuff Jr. had a brutal NBA debut against the Clippers.\n\nNBC Sports reports that Keegan Murray struggled mightily against the Clippers.\n\nYahoo Sports discusses how Clippers fans can obtain free parking and new jerseys on opening night. KTLA reports that the L.A. Clippers usher in a new season with a jersey swap and free parking.",
+      "wall_ms": 7590,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 4735,
+        "prompt_n": 574,
+        "prompt_ms": 1689.321,
+        "prompt_per_token_ms": 2.943067944250871,
+        "prompt_per_second": 339.7814861710711,
+        "predicted_n": 170,
+        "predicted_ms": 5865.111,
+        "predicted_per_token_ms": 34.704798816568044,
+        "predicted_per_second": 28.814458924988806
+      }
+    }
+  ],
+  "total_wall_seconds": 257.786
+}

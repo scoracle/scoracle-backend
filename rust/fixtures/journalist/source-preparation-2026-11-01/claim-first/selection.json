@@ -1,0 +1,9 @@
+{
+  "qualifies_for_followup": false,
+  "counts": {
+    "clearly_faithful": 2,
+    "clarity_concern": 1,
+    "failed": 3
+  },
+  "reason": "Field ordering reduces output volume but fails fidelity and anchor coverage, including regressions in two originally clear packets. No repeat or unseen validation calls; no production promotion."
+}

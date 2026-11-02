@@ -1,0 +1,17 @@
+{
+  "narratives": [
+    {
+      "evidence": [
+        {
+          "report_key": "report_1",
+          "text": "Alex Stone profile: career, nationality and position"
+        }
+      ],
+      "report_keys": [
+        "report_1"
+      ],
+      "body": "City Wire published a profile on Alex Stone, a Canadian defender currently on record at Cedar United. The report covers his career, nationality, and position.",
+      "headline": "City Wire publishes profile on Alex Stone, a Canadian defender at Cedar United"
+    }
+  ]
+}

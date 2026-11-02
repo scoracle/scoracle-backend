@@ -1,0 +1,196 @@
+{
+  "subjects": [
+    {
+      "subject": {
+        "entity_id": 19,
+        "entity_type": "team",
+        "name": "Arsenal",
+        "sport": "FOOTBALL"
+      },
+      "groups": [
+        [
+          1
+        ],
+        [
+          21
+        ],
+        [
+          27
+        ]
+      ],
+      "sources": [
+        {
+          "report_key": "report_1",
+          "article_id": 1434467,
+          "publisher": "Bavarian Football Works",
+          "headline": "After strong showing vs. Arsenal, Bayern Munich’s Tom Bischof just happy to get any minutes he can",
+          "url": "https://news.google.com/rss/articles/CBMigAJBVV95cUxONHE1dTdibjJiMkxwaEtRZkxRWGV1cUFraTZybFVxU2pCRzcxMXJmbElqVXVQSlVGcC1vYzNYMEdGdVVBbGhLb1ZsWFh0elpyd3g0V0R1UjNLTHkyTWZ3dGNSaGV6c1hSQXl6VDNqS0puQXhyUnZzSm9jQXpvZllVQlBaRlFjSlFzR19tUnBkakM2TkVuX2lnOGZFU1ZtRG5wbm1tSS1nLU1YaWpBLTZFU1hvUDMtNlNjQmM4SlA5ZTJhYy1nQTU0MV9yWTY5R04yRzhqaWpHVmVvOS1fTldqVEFGN3h5ZklRLV9yTTNSNjlvOE51NUtUY3BJekQ2MkJD?oc=5"
+        },
+        {
+          "report_key": "report_21",
+          "article_id": 1288136,
+          "publisher": "Daily Cannon",
+          "headline": "Arsenal dragged back into Super League row over £67m bill",
+          "url": "https://news.google.com/rss/articles/CBMibkFVX3lxTFBKbFlnUDdqRmdjUjBRLWQ5WHNWZWNYZnVzOVpyUkE0Ukg1M1BiNUlBV0hRQW9GWG0yZnRDYlY1TXgxcFNqZlJZMXBIa2dUY1lsRDJTZ3lGN2M0aTBmazdHckhydGFkek4tcS1HUGN3?oc=5"
+        },
+        {
+          "report_key": "report_27",
+          "article_id": 1285425,
+          "publisher": "LiveScore",
+          "headline": "Transfer Rumours: Arsenal identify €60m striker as timeline for record deal confirmed",
+          "url": "https://news.google.com/rss/articles/CBMi8gFBVV95cUxOUFZEYWxXSk9pbV9KQUhUVEh0YUxHM2d6YkFSZ3Y0Ym01ZXlnUTR0cVpyaVdPaWJzUVJhanBoOG1hVDhSbUgyYnRoTGE5aVY0UUYxN0pvTVJhd0JYVmhFNGsyWk9tajM4TDlmM195M3gzZmRvR2lXWFJ1S1YxY3NUa0lyOU1mWU12b3Z4MUQ1Mnl0dE0tdXdMOHBzVm96MEN5QndOeVBIaHo2Ums1SGJYUnJhYVN6S1B6UmU4cmdJWXlpcXpTR21KdU9MckxPY1ZLeXkxcENKTjY3bVB2SkJhcVdkMmlIVHBmeGlJblkyN09Cdw?oc=5"
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_id": 28,
+        "entity_type": "team",
+        "name": "Tampa Bay Buccaneers",
+        "sport": "NFL"
+      },
+      "groups": [
+        [
+          8,
+          28
+        ],
+        [
+          10
+        ],
+        [
+          38,
+          32,
+          35,
+          37
+        ]
+      ],
+      "sources": [
+        {
+          "report_key": "report_8",
+          "article_id": 1392527,
+          "publisher": "Yahoo Sports",
+          "headline": "Could the Buccaneers Actually Trade Away Vita Vea?",
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOWWwtejRvdFJGVGdRNmVCZFdQOUNpMmRSc1hpd3RQZW5wMkxKVENxRS1TYUptYTJ4cXdfOVp5R2NubGFBbjBXMERPeE5JclZ3NTlaeHNkXzFocVBzVGs4ZF9sWXpCQ1I4M3B0TDhKcW5IdFc5U3JGajBHWTR2elVXZkxsVFU4Yk1wVnVSLU5B?oc=5"
+        },
+        {
+          "report_key": "report_10",
+          "article_id": 1313091,
+          "publisher": "Yahoo Sports",
+          "headline": "Buccaneers $100M Star Drawing New Trade Speculation",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxOcHhIZ19uQUNNV21LWVNULTQ0bkc0RkY3ckdVaHJDaFJ1Y09EN0gzZU56a3lzZU9OOXJiQVhjaWdpa3RaOHpLbVMxb2w4SWN3VDJVVngtdV9XUnRVM1JmM29UMzdKTWpzX3ZUMk5hU1VMTzJwNG45NmY3VThwM2piT1ZFMDJnOTZDZlkw?oc=5"
+        },
+        {
+          "report_key": "report_28",
+          "article_id": 1206904,
+          "publisher": "Yahoo Sports",
+          "headline": "Will the Buccaneers Trade Vita Vea? A 1-5 Start and a $23 Million 2027 Bill Point That Way",
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxQWl9LNlZVRjRFZFFvaUxsWjl0QTYySDNtYmZXZGJudmtGUG42THpCeFYxbHc1TUwtQVFIdUwzMWdGc01uVm5mOEZLM0k5cElGeFdiRVVtN1NGUXcxSTdVSmVwNDBSbDg3di16LVN6a3RxbkFfZG81aV9IMFYyaC1ULV9n?oc=5"
+        },
+        {
+          "report_key": "report_32",
+          "article_id": 1197217,
+          "publisher": "Yahoo Sports",
+          "headline": "Buccaneers Week 7 injury report: Mayfield returns, Egbuka sidelined",
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxOQi00Q01YTVVuTGhVUk53V2dCVEdEMU1BMFg0STJrMVAyZkxNUlVvNTdpOUtpYTFXWFZLaTV5aHB1U01KQUZJbVBDNlNReFFmOGtYV2JOYnBuOWNyS1NDWF82aHpROUNiQW1Ed25SR1E5NkFsRUxaM1l4VElzV3FlekdSVUFGWTg?oc=5"
+        },
+        {
+          "report_key": "report_35",
+          "article_id": 1332548,
+          "publisher": "Bucs Report",
+          "headline": "Buccaneers’ Baker Mayfield Takes First Step Toward Returning",
+          "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxNNkNaa3U4NHdOT2JrOW9CWG1wa0Naeml0bFFXUTUxVGdfUGdUbnpEYnJHN2NmYlM5c3JhMkJFUWgwVTRVamtzVTZPUENxYXhKTElqQ196QVNNek1oNnZZY3NmWVUtTzc3VTNDOEtJMVhMeDZ2b1hoZlhBWTRvVkhmNUw4OERBV1ZlNEcydGhJY2xnSzlJNHI4Mk1xY3poUDjSAZ8BQVVfeXFMTTZDWmt1ODR3Tk9iazlvQlhtcGtDWnppdGxRV1E1MVRnX1BnVG56RGJyRzdjZmJTOXNyYTJCRVFoMFU0VWprc1U2T1BDcWF4SkxJakNfekFTTXpNaDZ2WWNzZllVLU83N1UzQzhLSTFYTHg2dm9YaGZYQVk0b1ZIZjVMODhEQVdWZTRHMnRoSWNsZ0s5STRyODJNcWN6aFA4?oc=5"
+        },
+        {
+          "report_key": "report_37",
+          "article_id": 1187488,
+          "publisher": "Sports Illustrated",
+          "headline": "Buccaneers' Wednesday Practice Brings Huge Update for Baker Mayfield",
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxQM3VKRmd3VnlqM2o5SlVXQmZ2VTZCQlE2akR0WUtSeE00UzJ2ZUVvMFRMSEZwYnJCSG4zSDNiNUVXNWJIR2EweUZ3WWx4OXpYa0ExSWI2MkNiY185M19mbTN0N1IyeF9OdC1oVFZ2ZzQ2QlJNRGp4aHVUNktydW9NaVJtai1Sby1EU3U2R0RmQUlqQ0RIcUNyV3lTZzZSWlREZ01odGZScHl4VW1KblZHLQ?oc=5"
+        },
+        {
+          "report_key": "report_38",
+          "article_id": 1187481,
+          "publisher": "Yahoo Sports",
+          "headline": "Buccaneers rumors: Baker Mayfield injury return will be determined by 1 thing at practice",
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxPRC1LTjY0TF9NLTdNZGc4T2Q4cXFqb1B2T3FoQ25wVF83dHVMbV80STByZG03T1ZrQm8wRFQyX01oVXRYb3hsQk8yOS1jVmdYejE1WWFkOUJST1FCRE1RR3FsQU1JMlU1dUNiaXJMM2VRNENVVlpxMjMwV1lKcWFENk5ra0dRbEFvUnY4bUx4U0g3QQ?oc=5"
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_id": 6,
+        "entity_type": "team",
+        "name": "Cleveland Cavaliers",
+        "sport": "NBA"
+      },
+      "groups": [
+        [
+          6,
+          9,
+          12,
+          15
+        ],
+        [
+          10
+        ],
+        [
+          33
+        ]
+      ],
+      "sources": [
+        {
+          "report_key": "report_6",
+          "article_id": 1357475,
+          "publisher": "NBA.com",
+          "headline": "Cleveland Cavaliers vs Philadelphia 76ers Oct 22, 2026 Box Scores",
+          "url": "https://news.google.com/rss/articles/CBMiWEFVX3lxTFBwVTk5SVkzQmpJNDBLd25YX2V6SVlWc0YzcGU2OFNvSmJSTFEzcThSRjVhLUV3NXdUM2ctTGhzUm5tdTlPSU9EQy1DWEJ1eTdJck5jZVo1Snk?oc=5"
+        },
+        {
+          "report_key": "report_9",
+          "article_id": 357922,
+          "publisher": "NBA.com",
+          "headline": "Cleveland Cavaliers vs Philadelphia 76ers Oct 22, 2026 Game Summary",
+          "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE4yVERKWXVuMDlYanJ6cUlQbnVZRW5heExkRTA2RkYzTk0xX0pLWXZsd0E2Ym5XMmRGbm9RbUlFdGZvVzc0SVBqZVZ0TlNVQ3JLMmRtcTdmN3MzZw?oc=5"
+        },
+        {
+          "report_key": "report_10",
+          "article_id": 1397927,
+          "publisher": "King James Gospel",
+          "headline": "Cavaliers' biggest trade regret might be the player they sent to Los Angeles",
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxNalFKMHNxNWZxVDZaUm9GbnRpOXlLcWJDZGRvYjNYS3E3dk9WT09vX0doY1VwcWhnTTJkeHB2aFlVLU9ITHNmSElDNTM3TEJkT0N5VW9TX2xoTHRpRTBZTXEyWVZOaGswZjV1cERla2tZbjNLOGotZ3poQ0l4Wm00ZUlTcTEyN19KUkpHNkFKUHY?oc=5"
+        },
+        {
+          "report_key": "report_12",
+          "article_id": 1327737,
+          "publisher": "USA Today",
+          "headline": "Cleveland Cavaliers at Philadelphia 76ers - NBA Game Summary - Oct 22, 2026",
+          "url": "https://news.google.com/rss/articles/CBMi7AFBVV95cUxQbmN3YzZ3SERBVE1MNmo2NFE5X0NUd3NEUFpzNnAtOG03ckIwc3RnUjRUMkJjVHNsb0NDNm50RGJVMWdKQXdSdDlpa0gyc1Y0R1dxV3JwSkp3YUpaZ1VLSDZxTUJxZDFRYk5LMENSc3JCRHAyeVYzeGFZOFJ5YjZTaWFEREVWclVXMkMwOENkdlh3bnZzVDVwbXpYWm9DV2VidTljZmw0RTE3RDEtZHhMNVV3V1dKMThjaGRPZm95czVqb0lyNGtwblZiaVBmNDduMHNBUUV5ampPMWZyT3E2OEdBRC1rRFE4UDRGMg?oc=5"
+        },
+        {
+          "report_key": "report_15",
+          "article_id": 1271125,
+          "publisher": "NBA.com",
+          "headline": "Cleveland Cavaliers vs Philadelphia 76ers Oct 22, 2026 Game Charts",
+          "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTE01ejd4aTZqMlhpSU81QWY3dFVTVjdTQzBsakdkUTFCWEEyQmRMV2c1UEdrV2hOWGRBUjdwLWp6YmRvbFF3aWJLNTN5NGVpTGFSOS0wbU5GaVdVUTlWN3ZYaC1RY0VYVGg3cHc?oc=5"
+        },
+        {
+          "report_key": "report_33",
+          "article_id": 1182610,
+          "publisher": "King James Gospel",
+          "headline": "Cavaliers' Evan Mobley decision faces fresh scrutiny after Jaylen Brown's debut",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxOUlRQRE16a0xwdHUzZklhNjZBN2FUVlJEaVEyZjYwU3ZXbU91aWNNeWpIV2Q5VU53V0dkVVY0R2hsN09LY3F0SEFoZGFrSGpUamRIMUZqZ2RGVTJjVUJ2QkdGUDlnVHU1LTFTUkFsc3NYZnZEWDJYRUZBbTIzcXFDMFh6VGY0ZzFKNFRZ?oc=5"
+        }
+      ]
+    }
+  ],
+  "selection_notes": [
+    "All40 headlines per subject were inspected before development inference. No source text rewritten.",
+    "Arsenal chosen topics test keeping an opponent player with the opponent, an unexplained bill and an unnamed striker/unsupplied timeline.",
+    "Tampa Vea trade questions preserve source opinion and numeric details without inferring what the bill represents. The adjacent unnamed star stays unnamed. Mayfield group includes both the conditional return headline and the later returns wording, without assuming the condition was satisfied or what return means.",
+    "Cleveland fixture-page headings do not establish results. The unspecified traded player must not become Mobley from the next topic; the Mobley decision remains unspecified."
+  ],
+  "sha256": {
+    "validation.jsonl": "6aad07aa55bc284539f3a741cb2e81a0efa67bb52fc1344c51fea90df8d33045",
+    "validation-gaps.jsonl": "0e845f634db3cf45a181270627e6f35a25f69fd9fe8d94551c094fc3b6ca5988"
+  }
+}

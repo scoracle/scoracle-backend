@@ -1,0 +1,376 @@
+{
+  "reviewer": "Codex manual review against supplied headlines, not blinded or independently adjudicated; semantic fidelity is separate from parser acceptance and exact copying.",
+  "writer_reviews": [
+    {
+      "arm": "verbatim",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Amount remains a figure and anchor is preserved, but report7 receives 10-man/Europa League details absent from its original source; TNT reaction becomes a match description. Exact copied context did not prevent cross-source borrowing."
+      ],
+      "output": "development-verbatim/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "verbatim",
+      "name": "chicago-bears-known",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Bodies preserve conditional trade, Live Show and announcement. Patriots game show title is less precise than live show; not counted as an unambiguous source-format pass."
+      ],
+      "output": "development-verbatim/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "verbatim",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence without invented cause and dated page listings without completion retained. Canonical LA Clippers expansion is not treated as a changed subject despite parser rejection."
+      ],
+      "output": "development-verbatim/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "verbatim",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Publisher ownership and unlikely exit preserved, but drops two required factors from the return question despite their presence in both original headline and copied note."
+      ],
+      "output": "development-verbatim/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "verbatim",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Adds coach role and consecutive NFC North games as the unknown streak type; also assigns Gonzalez an opponent from the ambiguous matchup heading. NFC North appears only in background, not the cited source or note."
+      ],
+      "output": "development-verbatim/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "verbatim",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance reports and how-to opening-night perks retained without invented speakers or cross-publisher facts; all anchors used."
+      ],
+      "output": "development-verbatim/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Required anchor, undefined figure, narrow substitution reaction and Pavlovic assessment preserved. However report7 receives Europa League and goalkeeper, absent from its raw headline and copied preparation. Neighboring reports supply those details, so the final writer still crosses source boundaries."
+      ],
+      "output": "development-automatic/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-known",
+      "assessment": "faithful",
+      "findings": [
+        "Conditional trade, precise live-show title/body and announcement preserved without invented speaker."
+      ],
+      "output": "development-automatic/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence without invented cause and dated page listings without completion preserved. Dates in titles depart from the label style instruction but add no unsupported facts."
+      ],
+      "output": "development-automatic/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "ac-milan-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Correct publisher ownership, separate lay-off/return statuses, two required factors, unlikely early exit and contract interest retained."
+      ],
+      "output": "development-automatic/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Availability/illness, unspecified streak and possible stadium move retained without invented coach role, opponent or streak type."
+      ],
+      "output": "development-automatic/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance reports and how-to opening-night perks retained; no invented speaker or borrowing from optional KTLA source."
+      ],
+      "output": "development-automatic/la-clippers-reserved-statements-source-first/output.json"
+    }
+  ],
+  "source_reviews": [
+    {
+      "article_id": 1276620,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Complete headline retained and undefined amount flagged verbatim. A second 60 million statement repeats an amount without a proposition."
+      ],
+      "output": "development-preparation/1276620/output.json"
+    },
+    {
+      "article_id": 1424030,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Complete score/competition/red-card account retained in one copied claim."
+      ],
+      "output": "development-preparation/1424030/output.json"
+    },
+    {
+      "article_id": 1426503,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Both result clauses copied intact. Adds a redundant Milan-only fragment, misuses KWKT as a qualification and unnecessarily flags the supplied competition as unspecified."
+      ],
+      "output": "development-preparation/1426503/output.json"
+    },
+    {
+      "article_id": 1414585,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Both result clauses retain player count and dismissal context. Supplied 10-man and sending-off expressions are flagged as unspecified without clarifying what is unresolved."
+      ],
+      "output": "development-preparation/1414585/output.json"
+    },
+    {
+      "article_id": 1415284,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Complete original result/red-card/south-coast wording retained; no added goalkeeper role or competition."
+      ],
+      "output": "development-preparation/1415284/output.json"
+    },
+    {
+      "article_id": 1394917,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Full source keeps the reaction tied to forgetting a substitution after the red card; no broadened performance judgment."
+      ],
+      "output": "development-preparation/1394917/output.json"
+    },
+    {
+      "article_id": 1374081,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Early lead remains an early lead, but the named competition is unnecessarily flagged as unspecified."
+      ],
+      "output": "development-preparation/1374081/output.json"
+    },
+    {
+      "article_id": 1363845,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Player count stays attached to Milan; Juventus denied at the death is copied without inventing a loss or victory."
+      ],
+      "output": "development-preparation/1363845/output.json"
+    },
+    {
+      "article_id": 1425437,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Correct explicit Pavlovic speaker and full track assessment with mistakes qualification in the copied claim."
+      ],
+      "output": "development-preparation/1425437/output.json"
+    },
+    {
+      "article_id": 1341401,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Conditional trade assessment retained with null speaker; no invented personal opinion."
+      ],
+      "output": "development-preparation/1341401/output.json"
+    },
+    {
+      "article_id": 1352005,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Complete Live Show wording and listing type retained."
+      ],
+      "output": "development-preparation/1352005/output.json"
+    },
+    {
+      "article_id": 1432888,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Full announcement identifies Bears, but explicit announcing organization is lost from speaker field."
+      ],
+      "output": "development-preparation/1432888/output.json"
+    },
+    {
+      "article_id": 1412576,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Complete how question and Thursday timing retained."
+      ],
+      "output": "development-preparation/1412576/output.json"
+    },
+    {
+      "article_id": 1262232,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Complete how-to source retained, but kind listing conflicts with the extraction instructions for how questions."
+      ],
+      "output": "development-preparation/1262232/output.json"
+    },
+    {
+      "article_id": 1289440,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Absence source copied without inventing injury. NBA News and Fantasy Basketball are unnecessary unresolved expressions."
+      ],
+      "output": "development-preparation/1289440/output.json"
+    },
+    {
+      "article_id": 1429100,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Complete dated page heading copied and labeled listing without asserting completion."
+      ],
+      "output": "development-preparation/1429100/output.json"
+    },
+    {
+      "article_id": 1398531,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Complete dated game-summary heading copied and labeled listing."
+      ],
+      "output": "development-preparation/1398531/output.json"
+    },
+    {
+      "article_id": 1325124,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Support and quoted excessive prices remain together, with no extra speaker or action."
+      ],
+      "output": "development-preparation/1325124/output.json"
+    },
+    {
+      "article_id": 1208973,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Support/warning preserved in one exact claim; broad unspecified span repeats price assessment and warning without identifying a particular unresolved expression."
+      ],
+      "output": "development-preparation/1208973/output.json"
+    },
+    {
+      "article_id": 1189629,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "All original facts, question and two-factor requirement retained, but whole-headline and component claims repeat the same propositions and the mixed full headline gets one question label."
+      ],
+      "output": "development-preparation/1189629/output.json"
+    },
+    {
+      "article_id": 1189646,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Recall remains a question with unlikely exit attached in qualifications and a separate copied claim. Limitation is not in the question claim itself; exit is redundantly flagged as unresolved."
+      ],
+      "output": "development-preparation/1189646/output.json"
+    },
+    {
+      "article_id": 1115631,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Original contract-interest wording copied; no agreement or speech invented."
+      ],
+      "output": "development-preparation/1115631/output.json"
+    },
+    {
+      "article_id": 1410388,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Availability and illness remain together without an invented opponent. Flagging the entire illness expression leaves the particular missing detail ambiguous."
+      ],
+      "output": "development-preparation/1410388/output.json"
+    },
+    {
+      "article_id": 1410389,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Original streak text and unspecified streak expression preserved, but identical full claim repeated three times with differing qualifications."
+      ],
+      "output": "development-preparation/1410389/output.json"
+    },
+    {
+      "article_id": 1330977,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Possible move and information-topic form preserved verbatim."
+      ],
+      "output": "development-preparation/1330977/output.json"
+    },
+    {
+      "article_id": 1260557,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Full debut claim including NBA and opponent copied with no result inference."
+      ],
+      "output": "development-preparation/1260557/output.json"
+    },
+    {
+      "article_id": 1338223,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Full performance wording retained; no invented speaker."
+      ],
+      "output": "development-preparation/1338223/output.json"
+    },
+    {
+      "article_id": 1221840,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "How-to wording, opening-night timing and perks preserved; listing label conflicts with prompt preference for a how question."
+      ],
+      "output": "development-preparation/1221840/output.json"
+    },
+    {
+      "article_id": 1192912,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "New-season swap/parking wording retained without opening-night import, but assertion is labeled listing."
+      ],
+      "output": "development-preparation/1192912/output.json"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "baseline": "../semantic-preparer",
+  "sha256": {
+    "writer.txt": "5e7d439088921cc4b3519c53b37458ca905e7962f8d567b1564726f7b17017d9",
+    "preparer.txt": "bfcabce73fc27e560da52faaf5a797e3648c24428ff63aebc1248838189ecbba",
+    "development-control.jsonl": "167b90f6b297ea5757c5973f9a52493530a5a563ff11e74374e8bb3255233279",
+    "validation-control.jsonl": "498e08c888bc44131308906105447708d02c51620eaaf451fdb0aa219a8fac84",
+    "run.py": "cf338d9241f71f6f9a3d7f4e3f25e7d83bc26984f4d9178812368d54bbe3207d",
+    "screen-selection.json": "aefcaec2988f4e080c1af93447a240abd96a92a261cf83d9e9e62437a1d14c0e",
+    "development-sources.jsonl": "42308f461f589fd915acaa008e488bc328613e860caece2608ffd8b4a92db472",
+    "validation-sources.jsonl": "cc07e082ebd6b26f17a744a592a6245ef592dc625c8bde703c0d7ec6242cff3a",
+    "protocol.txt": "23602219df04426dfeb201f4581a5cdd8e26a88c04706fef7d5f40275d4fa172",
+    "build_inputs.py": "1039d0fe64aae041257b3419d59629ff8e0606101e37735a6d4e2133de4ee33e"
+  }
+}

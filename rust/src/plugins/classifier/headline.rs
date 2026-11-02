@@ -15,10 +15,14 @@ pub(super) async fn subject_meta(pool: &PgPool, candidate: &Value) -> Result<Val
     )
     .await?
     .context("Classifier canonical subject record missing")?;
-    Ok(
-        json!({"identity":entity,"identity_record":record,"origin":"canonical_meta_rs",
-        "evidence_scope":"Subject identity only; not article evidence."}),
-    )
+    let mut meta = json!({"identity":entity,"identity_record":record,"origin":"canonical_meta_rs",
+        "evidence_scope":"Subject identity only; not article evidence."});
+    if entity.entity_type == "team" {
+        meta["team_gender"] = json!(
+            crate::tools::meta::load_team_gender(pool, entity.entity_id, &entity.sport,).await?
+        );
+    }
+    Ok(meta)
 }
 
 pub(super) async fn measure(
@@ -90,4 +94,69 @@ pub(super) async fn measure(
     }
     ensure!(!results.is_empty(), "Classifier requires RSS subjects");
     Ok(Some(results))
+}
+
+#[cfg(test)]
+mod gender_tests {
+    use super::*;
+
+    #[tokio::test]
+    #[ignore = "requires empty isolated classifier_test_gender database via TEST_DATABASE_URL"]
+    async fn canonical_team_gender_reaches_the_decision_target() -> Result<()> {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&std::env::var("TEST_DATABASE_URL")?)
+            .await?;
+        let database: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(&pool)
+            .await?;
+        ensure!(
+            database == "classifier_test_gender",
+            "requires isolated gender test database"
+        );
+        sqlx::raw_sql(r#"
+            CREATE TABLE teams(id int, sport text, name text, city text, country text,
+                venue_name text, conference text, division text, league_id int, meta jsonb);
+            CREATE TABLE leagues(id int, sport text, name text, country text);
+            CREATE TABLE persons(full_name text, sport text, team_id int, kind text, created_at timestamptz);
+            CREATE TABLE entity_facts(id int, entity_type text, entity_id int, sport text, state text,
+                fact_type text, value_text text, value_jsonb jsonb, source_document_id bigint,
+                valid_from timestamptz, valid_to timestamptz, created_at timestamptz);
+            INSERT INTO teams(id,sport,name,meta) VALUES
+                (1,'FOOTBALL','Cedar United','{"gender":"men"}'),
+                (2,'FOOTBALL','Cedar United','{"gender":"women"}'),
+                (3,'FOOTBALL','Cedar United','{}');
+        "#).execute(&pool).await?;
+        for (id, gender, target) in [
+            (1, Some("men"), "the men's football team named Cedar United"),
+            (
+                2,
+                Some("women"),
+                "the women's football team named Cedar United",
+            ),
+            (3, None, "Cedar United, the FOOTBALL team"),
+        ] {
+            let meta = subject_meta(
+                &pool,
+                &json!({"name":"Cedar United","entity_type":"team",
+                "entity_id":id,"sport":"FOOTBALL"}),
+            )
+            .await?;
+            let payload = decision::request(
+                "Cedar United Women appoint Jo Vale",
+                "Fixture Wire",
+                "FOOTBALL",
+                &meta,
+            )?;
+            assert_eq!(
+                payload["state"]["subject_meta"]["team_gender"],
+                json!(gender)
+            );
+            for question in payload["questions"].as_object().unwrap().values() {
+                assert!(question["instructions"].as_str().unwrap().contains(target));
+            }
+        }
+        pool.close().await;
+        Ok(())
+    }
 }

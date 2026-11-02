@@ -1,0 +1,287 @@
+{
+  "source_and_receipt_checks_passed": true,
+  "writer_calls": 6,
+  "manual_selection_cost_not_included": true,
+  "median_writer_total_ms": 7765.235417,
+  "writer_total_ms_range": [
+    6002.666041,
+    17539.758584000003
+  ],
+  "mechanically_accepted": 0,
+  "citations_within_assigned_topics": 6,
+  "repeat_comparisons": [
+    {
+      "name": "ac-milan",
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "name": "chicago-bears",
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "name": "la-clippers",
+      "identical_requests": true,
+      "identical_parsed_output": true
+    }
+  ],
+  "records": [
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": true,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2,
+          4,
+          5,
+          7,
+          8,
+          13,
+          14
+        ],
+        [
+          3
+        ]
+      ],
+      "mode": "selected",
+      "name": "ac-milan",
+      "pass": 1,
+      "production_writes": false,
+      "selection_is_reviewed_not_automatic": true,
+      "total_ms": 17539.758584000003,
+      "verdict": "cited reports do not connect Yahoo Sports with numerical fact 44",
+      "visible_reports": 9,
+      "writing": {
+        "input_tokens": 3860,
+        "output_tokens": 208,
+        "production_writes": false,
+        "wall_ms": 17534.778916
+      },
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 3859,
+        "prompt_ms": 10347.99,
+        "prompt_per_token_ms": 2.6815211194610002,
+        "prompt_per_second": 372.92266420821824,
+        "predicted_n": 208,
+        "predicted_ms": 7132.083,
+        "predicted_per_token_ms": 34.45450724637681,
+        "predicted_per_second": 29.023778887598475
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": true,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3,
+          12,
+          40
+        ]
+      ],
+      "mode": "selected",
+      "name": "chicago-bears",
+      "pass": 1,
+      "production_writes": false,
+      "selection_is_reviewed_not_automatic": true,
+      "total_ms": 14061.07725,
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "visible_reports": 5,
+      "writing": {
+        "input_tokens": 3557,
+        "output_tokens": 134,
+        "production_writes": false,
+        "wall_ms": 14056.061083999999
+      },
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 3556,
+        "prompt_ms": 9485.553,
+        "prompt_per_token_ms": 2.6674783464566927,
+        "prompt_per_second": 374.885892261632,
+        "predicted_n": 134,
+        "predicted_ms": 4546.536,
+        "predicted_per_token_ms": 34.18448120300752,
+        "predicted_per_second": 29.253040116695438
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": true,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ]
+      ],
+      "mode": "selected",
+      "name": "la-clippers",
+      "pass": 1,
+      "production_writes": false,
+      "selection_is_reviewed_not_automatic": true,
+      "total_ms": 6002.666041,
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "visible_reports": 3,
+      "writing": {
+        "input_tokens": 3451,
+        "output_tokens": 141,
+        "production_writes": false,
+        "wall_ms": 5997.5581250000005
+      },
+      "native_timings": {
+        "cache_n": 3041,
+        "prompt_n": 410,
+        "prompt_ms": 1185.029,
+        "prompt_per_token_ms": 2.8903146341463413,
+        "prompt_per_second": 345.98309408461733,
+        "predicted_n": 141,
+        "predicted_ms": 4788.575,
+        "predicted_per_token_ms": 34.20410714285714,
+        "predicted_per_second": 29.236255044559186
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": true,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2,
+          4,
+          5,
+          7,
+          8,
+          13,
+          14
+        ],
+        [
+          3
+        ]
+      ],
+      "mode": "selected",
+      "name": "ac-milan",
+      "pass": 2,
+      "production_writes": false,
+      "selection_is_reviewed_not_automatic": true,
+      "total_ms": 9494.82925,
+      "verdict": "cited reports do not connect Yahoo Sports with numerical fact 44",
+      "visible_reports": 9,
+      "writing": {
+        "input_tokens": 3860,
+        "output_tokens": 208,
+        "production_writes": false,
+        "wall_ms": 9488.335
+      },
+      "native_timings": {
+        "cache_n": 3041,
+        "prompt_n": 819,
+        "prompt_ms": 2344.684,
+        "prompt_per_token_ms": 2.862862026862027,
+        "prompt_per_second": 349.3008013020091,
+        "predicted_n": 208,
+        "predicted_ms": 7118.211,
+        "predicted_per_token_ms": 34.38749275362319,
+        "predicted_per_second": 29.08034055186057
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": true,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3,
+          12,
+          40
+        ]
+      ],
+      "mode": "selected",
+      "name": "chicago-bears",
+      "pass": 2,
+      "production_writes": false,
+      "selection_is_reviewed_not_automatic": true,
+      "total_ms": 6035.641584,
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "visible_reports": 5,
+      "writing": {
+        "input_tokens": 3557,
+        "output_tokens": 134,
+        "production_writes": false,
+        "wall_ms": 6031.246666
+      },
+      "native_timings": {
+        "cache_n": 3041,
+        "prompt_n": 516,
+        "prompt_ms": 1459.595,
+        "prompt_per_token_ms": 2.8286724806201553,
+        "prompt_per_second": 353.52272376926476,
+        "predicted_n": 134,
+        "predicted_ms": 4547.806,
+        "predicted_per_token_ms": 34.19403007518797,
+        "predicted_per_second": 29.244871043311875
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": true,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ]
+      ],
+      "mode": "selected",
+      "name": "la-clippers",
+      "pass": 2,
+      "production_writes": false,
+      "selection_is_reviewed_not_automatic": true,
+      "total_ms": 6028.055917,
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "visible_reports": 3,
+      "writing": {
+        "input_tokens": 3451,
+        "output_tokens": 141,
+        "production_writes": false,
+        "wall_ms": 6023.290916999999
+      },
+      "native_timings": {
+        "cache_n": 3041,
+        "prompt_n": 410,
+        "prompt_ms": 1196.837,
+        "prompt_per_token_ms": 2.9191146341463416,
+        "prompt_per_second": 342.5696230982164,
+        "predicted_n": 141,
+        "predicted_ms": 4802.466,
+        "predicted_per_token_ms": 34.30332857142857,
+        "predicted_per_second": 29.15168998593639
+      }
+    }
+  ]
+}

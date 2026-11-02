@@ -1,0 +1,39 @@
+{
+  "name": "correction-supersedes-initial-claim-before",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n116-source-statements",
+  "user_prompt": "{\"meta\":{\"name\":\"Morgan Hale\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":null},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Arena Desk\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Arena Desk initially reported that Morgan Hale had signed with Bay Owls. Correction: no contract was signed. Hale attended a meeting; no offer was made.\",\"evidence_scope\":\"publisher_excerpt\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "reports": [
+      {
+        "context": "Arena Desk initially reported that Morgan Hale had signed with Bay Owls. Correction: no contract was signed. Hale attended a meeting; no offer was made.",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "Arena Desk",
+        "title": "Arena Desk initially reported that Morgan Hale had signed with Bay Owls. Correction: no contract was signed. Hale attended a meeting; no offer was made."
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "player",
+      "name": "Morgan Hale",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "narratives_empty": false,
+    "body_includes": [
+      "Morgan Hale",
+      "Arena Desk",
+      "no"
+    ],
+    "summary_excludes": [
+      "guard"
+    ]
+  },
+  "review": [
+    "The signing claim was corrected. Both title and body must describe the meeting or correction, not a completed signing."
+  ]
+}

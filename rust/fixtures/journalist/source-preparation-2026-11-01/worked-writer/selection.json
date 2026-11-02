@@ -1,0 +1,21 @@
+{
+  "qualifies_for_followup": false,
+  "counts": {
+    "control": {
+      "clearly_faithful": 2,
+      "clarity_concern": 1,
+      "failed": 3
+    },
+    "reference": {
+      "clearly_faithful": 6,
+      "clarity_concern": 0,
+      "failed": 0
+    },
+    "automatic": {
+      "clearly_faithful": 4,
+      "clarity_concern": 1,
+      "failed": 1
+    }
+  },
+  "reason": "Automatic has four unambiguous complete passes, below the predeclared five. A fifth packet has faithful bodies but a source-format title concern; the sixth fails source ownership, amount interpretation and required anchor coverage. Source-only notes also contain semantic errors despite29/29 valid copied spans. No repeats or holdout generation warranted; no production promotion."
+}

@@ -1,0 +1,231 @@
+{
+  "reviewer": "Codex source-by-source manual review, not blinded or independently adjudicated",
+  "scope": "Stored headlines and cited visible evidence; no independent verification of article truth. Three subjects repeated, not independent holdout samples.",
+  "identity_policy": "Accept unambiguous canonical team aliases as identity rather than invented news; retain mechanical failures unchanged. Expanded person names absent from the cited headline are reported as citation/name completeness issues rather than new-person invention.",
+  "summary": {
+    "model_calls": 28,
+    "automatic_groups_semantically_adequate_unique": 0,
+    "automatic_groups_unique": 3,
+    "reference_all40_faithful_unique": 0,
+    "selected_three_groups_faithful_unique": 1,
+    "selected_three_groups_unique": 3
+  },
+  "reviews": [
+    {
+      "subject": "ac-milan",
+      "mode": "baseline",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "Identical to the previous 40-report baseline: invents valuation for unspecified 60 million; wrong/incomplete citations for Christie and Chukwueze coverage.",
+        "Full prior source review: ../packet-size-2026-11-01/review.json."
+      ],
+      "outputs": [
+        "runs/ac-milan-pass-1/baseline/output.json",
+        "runs/ac-milan-pass-2/baseline/output.json"
+      ]
+    },
+    {
+      "subject": "chicago-bears",
+      "mode": "baseline",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "citation_gap",
+      "findings": [
+        "Conditional Donte Jackson opinion survives. Ditka entry cites report_3 but adds the Patriots opponent from elsewhere. Skips the earlier live-show topic.",
+        "Chicago Bears/Bears identity rejection is separately a parser false positive."
+      ],
+      "outputs": [
+        "runs/chicago-bears-pass-1/baseline/output.json",
+        "runs/chicago-bears-pass-2/baseline/output.json"
+      ]
+    },
+    {
+      "subject": "la-clippers",
+      "mode": "baseline",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "Entry1 adds due to injuries to report_22, which only says notable players are out. The separate report_31 does not establish that the same people are meant.",
+        "Max Strus remains faithfully summarized but is second. Kawhi Leonard expands the cited report_31’s Kawhi using other input headlines."
+      ],
+      "outputs": [
+        "runs/la-clippers-pass-1/baseline/output.json",
+        "runs/la-clippers-pass-2/baseline/output.json"
+      ]
+    },
+    {
+      "subject": "ac-milan",
+      "mode": "reference",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "Entry1 adds both valuation and euros; report_1 does not specify amount type or currency.",
+        "Entry3 replaces Pavlovic from report_3 with Milan coach Filippo Galli from the DB meta record, assigning Galli the quoted assessment. Direct actor substitution and meta leakage.",
+        "Entry2 gives LiveScore facts absent from its cited headline, then attributes Milan collapsed following Maignan dismissal to a list of outlets. Yahoo report_13 says only early lead; TNT report_8 concerns a missed substitution; FOX44/Ottumwa are not cited. This is not faithful per-publisher ownership.",
+        "Citation keys stay inside the assigned groups; that structural success does not establish factual fidelity."
+      ],
+      "outputs": [
+        "runs/ac-milan-pass-1/reference/output.json",
+        "runs/ac-milan-pass-2/reference/output.json"
+      ]
+    },
+    {
+      "subject": "chicago-bears",
+      "mode": "reference",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "citation_gap_and_wrong_topics",
+      "findings": [
+        "Entry1 preserves trade uncertainty and Da Windy City.",
+        "Entry2 should cover group2/report_2 but instead cites report_3 and adds Patriots to the Ditka honor. Entry3 should cover group3/report_3,12,40 but instead cites report_23 injury news.",
+        "Explicit group headings alone do not control selection. Canonical team-name parser rejection is not the reason this path fails review."
+      ],
+      "outputs": [
+        "runs/chicago-bears-pass-1/reference/output.json",
+        "runs/chicago-bears-pass-2/reference/output.json"
+      ]
+    },
+    {
+      "subject": "la-clippers",
+      "mode": "reference",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful_and_wrong_topics",
+      "findings": [
+        "Max Strus entry is faithful. Entries2/3 ignore the Magic-Jan15 and Raptors-Nov2 groups, instead citing reports22/23 from later groups.",
+        "Entry2 calls notable players injured where cited report22 says out without a cause."
+      ],
+      "outputs": [
+        "runs/la-clippers-pass-1/reference/output.json",
+        "runs/la-clippers-pass-2/reference/output.json"
+      ]
+    },
+    {
+      "subject": "ac-milan",
+      "mode": "automatic",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "grouping_rejected_before_writing",
+      "findings": [
+        "Both runs omit reports29 and36 (fan-boycott coverage); the exact-coverage guard blocks writing. No fallback or hidden retry.",
+        "The remaining groups also merge unrelated topics: group anchored on Tresoldi includes match results, Pavlovic, Christie, streaming, previews and press conference. The other group mixes injuries, striker history, a recall question and Rabiot contract interest.",
+        "Time spent on this failed grouping is charged, not treated as a fast completed pipeline."
+      ],
+      "outputs": [
+        "runs/ac-milan-pass-1/grouper/output.json",
+        "runs/ac-milan-pass-2/grouper/output.json"
+      ]
+    },
+    {
+      "subject": "chicago-bears",
+      "mode": "automatic",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "grouping_and_source_scope_failures",
+      "findings": [
+        "All40 reports are covered, with report35 reused. Group1 combines Donte Jackson trade speculation with a possible Super Bowl preview (report33); sharing Super Bowl wording does not establish the same discussion.",
+        "Group2 merges live shows, Ditka honors, injuries, a Falcons matchup, stadium relocation and betting. IDs are structurally valid but semantic grouping is incorrect.",
+        "Writer combines independent topics as instructed by those bad groups; entry2 additionally attributes the Patriots opponent to Yahoo’s Ditka report. Entry3 cites report40 outside its assigned singleton report35 group.",
+        "Trade and Super Bowl-preview claims remain conditional; do not mislabel them completed events."
+      ],
+      "outputs": [
+        "runs/chicago-bears-pass-1/automatic/output.json",
+        "runs/chicago-bears-pass-2/automatic/output.json"
+      ]
+    },
+    {
+      "subject": "la-clippers",
+      "mode": "automatic",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "grouping_and_output_contract_failures",
+      "findings": [
+        "Grouper places all40 reports into one group, mixing different named players, dated fixtures, statistics and unrelated discussions.",
+        "Writer emits three entries despite only one group. It selects injury-related headlines and omits requested early fixture topics.",
+        "Bodies largely preserve the cited absence/injury headlines; no new injury cause is invented in this arm. Kawhi Leonard expands report31’s Kawhi from other supplied headlines. Distinguish that citation/name issue from fabricated events.",
+        "The automatic path fails because its grouping/selection contract is not delivered, not because every sentence is false."
+      ],
+      "outputs": [
+        "runs/la-clippers-pass-1/automatic/output.json",
+        "runs/la-clippers-pass-2/automatic/output.json"
+      ]
+    },
+    {
+      "subject": "ac-milan",
+      "mode": "selected",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful_despite_improved_scope",
+      "findings": [
+        "All three assigned topics are covered and cited within their groups; Pavlovic remains the speaker and euros is no longer invented.",
+        "Valuation still interprets unspecified 60 million in report1.",
+        "The match entry presents a combined account as reported by LiveScore, Yahoo, FOX44, Straits Times, TNT and Ottumwa. Yahoo supplies only an early lead and TNT a substitution problem; they do not each report the final combined result, red card and Juventus draw. Citing the whole group does not cure this blanket attribution.",
+        "The guard first rejects an association with numerical fact44 (from publisher FOX44), illustrating a separate noisy numerical guard. The substantive human finding is source ownership, not an invented score44."
+      ],
+      "outputs": [
+        "selected-runs/ac-milan-pass-1/selected/output.json",
+        "selected-runs/ac-milan-pass-2/selected/output.json"
+      ]
+    },
+    {
+      "subject": "chicago-bears",
+      "mode": "selected",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "factually_faithful",
+      "findings": [
+        "Three separate topics: Da Windy City conditional Donte Jackson trade opinion; Establish The Run live show; Yahoo’s announcement of a Ditka honor. Publishers, actors and uncertainty are preserved.",
+        "Related how-to-honor headlines12 and40 add no contrary qualification; omitting their questions adds no unsupported answer.",
+        "Mechanical rejection is Chicago Bears/Bears, accepted as an unambiguous identity alias in this human review."
+      ],
+      "outputs": [
+        "selected-runs/chicago-bears-pass-1/selected/output.json",
+        "selected-runs/chicago-bears-pass-2/selected/output.json"
+      ]
+    },
+    {
+      "subject": "la-clippers",
+      "mode": "selected",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unsupported_event_completion",
+      "findings": [
+        "Max Strus remains out for the road trip. Magic-Jan15 is described as a dated fixture without an invented result.",
+        "Raptors-Nov2 Game Summary becomes a game played on November2,2026. A fixture/page title does not establish that a game took place. The capture occurred November1 and the report was published in October, but even without the clock the supplied title alone does not support played.",
+        "All three assigned topics are cited correctly. The failure is claim strength/event completion, not lost report IDs. Canonical LA Clippers alias rejection is a separate mechanical issue."
+      ],
+      "outputs": [
+        "selected-runs/la-clippers-pass-1/selected/output.json",
+        "selected-runs/la-clippers-pass-2/selected/output.json"
+      ]
+    }
+  ]
+}

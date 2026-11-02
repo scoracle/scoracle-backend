@@ -1,0 +1,23 @@
+{
+  "baseline": "../worked-writer",
+  "sha256": {
+    "writer.txt": "5e7d439088921cc4b3519c53b37458ca905e7962f8d567b1564726f7b17017d9",
+    "development-control.jsonl": "167b90f6b297ea5757c5973f9a52493530a5a563ff11e74374e8bb3255233279",
+    "validation-control.jsonl": "498e08c888bc44131308906105447708d02c51620eaaf451fdb0aa219a8fac84",
+    "development-sources.jsonl": "3ff04cbac5ea3830e0c0ddd72229508c6b1b0bf7d69ec88c1147e74124cc560c",
+    "validation-sources.jsonl": "d15e80664bbe313c81f20dfc21eae32c2a18a518e1984de11948d421070af8ed",
+    "preparer.txt": "bfcabce73fc27e560da52faaf5a797e3648c24428ff63aebc1248838189ecbba",
+    "instruction-addition.txt": "6b3b51b7afbdb339636b7fdeef6cfd480f9e89f88433637a12df20a1c6941abe",
+    "protocol.txt": "d512ae5c016c54cd9551164c33b2a46356e804bcf43d9fba762dcd013424cb9f",
+    "run.py": "cf338d9241f71f6f9a3d7f4e3f25e7d83bc26984f4d9178812368d54bbe3207d",
+    "build_inputs.py": "826821d98c39b729c936e006321ca4c495ba3c41e101a8be0862235f20cf35e0",
+    "screen-selection.json": "aefcaec2988f4e080c1af93447a240abd96a92a261cf83d9e9e62437a1d14c0e"
+  },
+  "baseline_sha256": {
+    "writer.txt": "5e7d439088921cc4b3519c53b37458ca905e7962f8d567b1564726f7b17017d9",
+    "development-control.jsonl": "167b90f6b297ea5757c5973f9a52493530a5a563ff11e74374e8bb3255233279",
+    "validation-control.jsonl": "498e08c888bc44131308906105447708d02c51620eaaf451fdb0aa219a8fac84",
+    "development-sources.jsonl": "3ff04cbac5ea3830e0c0ddd72229508c6b1b0bf7d69ec88c1147e74124cc560c",
+    "validation-sources.jsonl": "d15e80664bbe313c81f20dfc21eae32c2a18a518e1984de11948d421070af8ed"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "name": "distinct-developments-three-independent-developments,-three-keyed-slots-before",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n117-specific-topics",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":null},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United said goalkeeper Kim Park will miss the next match with an ankle injury. No return date was given.\",\"evidence_scope\":\"publisher_excerpt\"},{\"report_key\":\"report_2\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United appointed Jo Vale as head coach on Monday. Her contract lasts two years.\",\"evidence_scope\":\"publisher_excerpt\"},{\"report_key\":\"report_3\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Cedar United won 2–1 against Vale City on Sunday.\",\"evidence_scope\":\"publisher_excerpt\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "reports": [
+      {
+        "context": "Cedar United said goalkeeper Kim Park will miss the next match with an ankle injury. No return date was given.",
+        "id": 3,
+        "published_at_epoch": 1790463600,
+        "source": "City Wire",
+        "title": "Cedar United update 3"
+      },
+      {
+        "context": "Cedar United appointed Jo Vale as head coach on Monday. Her contract lasts two years.",
+        "id": 2,
+        "published_at_epoch": 1790463600,
+        "source": "City Wire",
+        "title": "Cedar United update 2"
+      },
+      {
+        "context": "Cedar United won 2–1 against Vale City on Sunday.",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "City Wire",
+        "title": "Cedar United update 1"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "narratives_empty": false,
+    "body_includes": [
+      "Kim Park",
+      "Jo Vale",
+      "Vale City"
+    ],
+    "summary_excludes": [
+      "Birch Arena"
+    ]
+  },
+  "review": [
+    "Keep each development attached to its own supporting report_key; do not transfer claims between reports.",
+    "The ankle injury, the appointment and the result are three stories, not one narrative."
+  ]
+}

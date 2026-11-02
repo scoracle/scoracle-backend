@@ -1,0 +1,24 @@
+{
+  "selected": "examples",
+  "purpose": "repeatability and frozen new-subject validation only; not production promotion",
+  "development_assessment": {
+    "control": {
+      "clearly_faithful": 2,
+      "clarity_concern": 1,
+      "failed": 3
+    },
+    "examples": {
+      "clearly_faithful": 4,
+      "failed": 2
+    },
+    "gaps": {
+      "clearly_faithful": 1,
+      "clarity_concern": 2,
+      "failed": 3,
+      "invalid_topic_coverage": 3
+    }
+  },
+  "reason": "Worked examples preserve the live-show wording and two required return factors, remove the false shared injury title, and stop inventing the streak type. They still invent a valuation and replace Pavlovic with the coach from metadata. The smaller unsupported coach-role addition also persists. More promising than control on these packets, but not reliable. The gaps arm loses topic coverage in three cases and mislabels supplied facts as missing.",
+  "next_calls": 12,
+  "new_subjects_frozen_before_development": true
+}

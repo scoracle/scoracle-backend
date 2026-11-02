@@ -138,6 +138,27 @@ pub fn request(headline: &str, publisher: &str, sport: &str, meta: &Value) -> Re
         entity.sport == sport && entity.entity_id > 0 && !entity.name.trim().is_empty(),
         "invalid Classifier subject metadata"
     );
+    // Bind identifying attributes into the question; context-only gender did not separate teams.
+    let subject = match meta.get("team_gender").filter(|gender| !gender.is_null()) {
+        Some(gender) => {
+            ensure!(
+                entity.entity_type == "team",
+                "team_gender requires a team subject"
+            );
+            let category = match gender.as_str() {
+                Some("men") => "men's",
+                Some("women") => "women's",
+                Some("mixed") => "mixed-gender",
+                _ => anyhow::bail!("team_gender must be men, women, mixed, or null"),
+            };
+            format!(
+                "the {category} {} team named {}",
+                entity.sport.to_lowercase(),
+                entity.name
+            )
+        }
+        None => entity.reference(),
+    };
     let mut criteria: Value = serde_json::from_str(CRITERIA)?;
     for question in criteria["questions"]
         .as_object_mut()
@@ -145,7 +166,7 @@ pub fn request(headline: &str, publisher: &str, sport: &str, meta: &Value) -> Re
         .values_mut()
     {
         question["instructions"] = json!(format!("Use subject metadata only to identify the entity. Judge reporting from the RSS headline; use its publisher name only to disambiguate the subject. Publisher identity alone does not establish relevance, emotion or movement. {}",
-            question["instructions"].as_str().context("instructions")?.replace("{subject}", &entity.reference())));
+            question["instructions"].as_str().context("instructions")?.replace("{subject}", &subject)));
     }
     Ok(
         json!({"state":{"subject_meta":meta,"article":{"sport":sport,"headline":headline,"publisher":publisher}},"questions":criteria["questions"]}),
@@ -254,6 +275,64 @@ pub fn gate(spectrum: &BTreeMap<String, f64>, headline: &str, entity_type: &str)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn team_gender_is_bound_into_every_decision_question_without_defaulting() {
+        let mut meta = json!({"identity":{"name":"Cedar United","sport":"FOOTBALL","entity_id":7,"entity_type":"team"},"identity_record":"Cedar United — football club."});
+        let absent = request(
+            "Cedar United Women appoint Jo Vale",
+            "Wire",
+            "FOOTBALL",
+            &meta,
+        )
+        .unwrap();
+        meta["team_gender"] = Value::Null;
+        assert_eq!(
+            absent["questions"],
+            request(
+                "Cedar United Women appoint Jo Vale",
+                "Wire",
+                "FOOTBALL",
+                &meta
+            )
+            .unwrap()["questions"]
+        );
+        for (gender, target) in [
+            ("men", "the men's football team named Cedar United"),
+            ("women", "the women's football team named Cedar United"),
+            ("mixed", "the mixed-gender football team named Cedar United"),
+        ] {
+            meta["team_gender"] = json!(gender);
+            let payload = request(
+                "Cedar United Women appoint Jo Vale",
+                "Wire",
+                "FOOTBALL",
+                &meta,
+            )
+            .unwrap();
+            assert_eq!(payload["state"]["subject_meta"]["team_gender"], gender);
+            assert_eq!(payload["state"]["article"], absent["state"]["article"]);
+            for question in payload["questions"].as_object().unwrap().values() {
+                assert!(question["instructions"].as_str().unwrap().contains(target));
+            }
+            assert_ne!(
+                super::super::hash(&payload.to_string()),
+                super::super::hash(&absent.to_string())
+            );
+        }
+        for invalid in [
+            json!("male"),
+            json!(""),
+            json!(true),
+            json!({"gender":"men"}),
+        ] {
+            meta["team_gender"] = invalid;
+            assert!(request("Cedar United update", "Wire", "FOOTBALL", &meta).is_err());
+        }
+        meta["team_gender"] = json!("men");
+        meta["identity"]["entity_type"] = json!("player");
+        assert!(request("Cedar United update", "Wire", "FOOTBALL", &meta).is_err());
+    }
 
     #[test]
     fn admission_requires_only_relevance_and_keeps_publisher_as_evidence() {

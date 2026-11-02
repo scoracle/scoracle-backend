@@ -1,0 +1,29 @@
+{"input_tokens":1123,"name":"1276620","output_tokens":100,"production_writes":false,"spans_valid":true,"wall_ms":6296}
+{"input_tokens":1120,"name":"1424030","output_tokens":74,"production_writes":false,"spans_valid":true,"wall_ms":3881}
+{"input_tokens":1127,"name":"1426503","output_tokens":87,"production_writes":false,"spans_valid":false,"validation_error":"qualification is not an exact source span","wall_ms":4301}
+{"input_tokens":1125,"name":"1414585","output_tokens":109,"production_writes":false,"spans_valid":true,"wall_ms":4980}
+{"input_tokens":1126,"name":"1415284","output_tokens":128,"production_writes":false,"spans_valid":true,"wall_ms":5616}
+{"input_tokens":1120,"name":"1394917","output_tokens":64,"production_writes":false,"spans_valid":true,"wall_ms":3470}
+{"input_tokens":1116,"name":"1374081","output_tokens":61,"production_writes":false,"spans_valid":true,"wall_ms":3373}
+{"input_tokens":1122,"name":"1363845","output_tokens":116,"production_writes":false,"spans_valid":true,"wall_ms":5205}
+{"input_tokens":1124,"name":"1425437","output_tokens":127,"production_writes":false,"spans_valid":false,"validation_error":"qualification is not an exact source span","wall_ms":5570}
+{"input_tokens":1120,"name":"1341401","output_tokens":70,"production_writes":false,"spans_valid":true,"wall_ms":3682}
+{"input_tokens":1112,"name":"1352005","output_tokens":51,"production_writes":false,"spans_valid":true,"wall_ms":3055}
+{"input_tokens":1116,"name":"1432888","output_tokens":48,"production_writes":false,"spans_valid":true,"wall_ms":2956}
+{"input_tokens":1114,"name":"1412576","output_tokens":55,"production_writes":false,"spans_valid":true,"wall_ms":3186}
+{"input_tokens":1113,"name":"1262232","output_tokens":41,"production_writes":false,"spans_valid":true,"wall_ms":2728}
+{"input_tokens":1121,"name":"1289440","output_tokens":61,"production_writes":false,"spans_valid":true,"wall_ms":3387}
+{"input_tokens":1126,"name":"1429100","output_tokens":61,"production_writes":false,"spans_valid":true,"wall_ms":3416}
+{"input_tokens":1119,"name":"1398531","output_tokens":49,"production_writes":false,"spans_valid":true,"wall_ms":2986}
+{"input_tokens":1114,"name":"1325124","output_tokens":88,"production_writes":false,"spans_valid":true,"wall_ms":4270}
+{"input_tokens":1119,"name":"1208973","output_tokens":73,"production_writes":false,"spans_valid":true,"wall_ms":3783}
+{"input_tokens":1128,"name":"1189629","output_tokens":85,"production_writes":false,"spans_valid":false,"validation_error":"actor is not an exact source span","wall_ms":4231}
+{"input_tokens":1119,"name":"1189646","output_tokens":130,"production_writes":false,"spans_valid":false,"validation_error":"qualification is not an exact source span","wall_ms":5696}
+{"input_tokens":1116,"name":"1115631","output_tokens":48,"production_writes":false,"spans_valid":true,"wall_ms":2970}
+{"input_tokens":1126,"name":"1410388","output_tokens":43,"production_writes":false,"spans_valid":true,"wall_ms":2815}
+{"input_tokens":1125,"name":"1410389","output_tokens":123,"production_writes":false,"spans_valid":true,"wall_ms":5472}
+{"input_tokens":1115,"name":"1330977","output_tokens":58,"production_writes":false,"spans_valid":true,"wall_ms":3304}
+{"input_tokens":1115,"name":"1260557","output_tokens":61,"production_writes":false,"spans_valid":true,"wall_ms":3408}
+{"input_tokens":1111,"name":"1338223","output_tokens":42,"production_writes":false,"spans_valid":true,"wall_ms":2780}
+{"input_tokens":1115,"name":"1221840","output_tokens":56,"production_writes":false,"spans_valid":true,"wall_ms":3248}
+{"input_tokens":1117,"name":"1192912","output_tokens":64,"production_writes":false,"spans_valid":true,"wall_ms":3530}

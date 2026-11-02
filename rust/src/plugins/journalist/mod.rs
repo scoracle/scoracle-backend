@@ -179,39 +179,36 @@ pub(crate) async fn execute_with_backend(
         .await?
         .0);
     }
-    let output =
-        loop {
-            match create(
-                pool,
-                &Studio::new(backend),
-                &material.assignment,
-                now,
-                num_ctx,
-            )
-            .await
-            {
-                Err(error) if error.is::<crate::harness::model::ContextExceeded>() => {
-                    if material.assignment.memories.is_empty() {
-                        material.assignment.dispositions.extend(
-                            material.assignment.selected.drain(..).map(|report| {
-                                prompt::Disposition {
-                                    article_id: report.id,
-                                    reason: "daily_package_exceeds_token_budget",
-                                }
-                            }),
-                        );
-                    } else {
-                        material.assignment.memories.clear();
-                    }
-                    material.assignment.input_hash = crate::util::hash_components(&format!(
-                        "{}:{}",
-                        material.assignment.input_hash,
-                        prompt::prompt(&material.assignment)
-                    ));
-                }
-                result => break result?,
+    let output = loop {
+        match create(
+            pool,
+            &Studio::new(backend),
+            &material.assignment,
+            now,
+            num_ctx,
+        )
+        .await
+        {
+            Err(error) if error.is::<crate::harness::model::ContextExceeded>() => {
+                material.assignment.dispositions.extend(
+                    material
+                        .assignment
+                        .selected
+                        .drain(..)
+                        .map(|report| prompt::Disposition {
+                            article_id: report.id,
+                            reason: "daily_package_exceeds_token_budget",
+                        }),
+                );
+                material.assignment.input_hash = crate::util::hash_components(&format!(
+                    "{}:{}",
+                    material.assignment.input_hash,
+                    prompt::prompt(&material.assignment)
+                ));
             }
-        };
+            result => break result?,
+        }
+    };
     // No fresh reporting completes dispositions without overwriting the last
     // useful edition with an artificial quiet/zero product.
     let mut dispositions = material.assignment.dispositions.clone();

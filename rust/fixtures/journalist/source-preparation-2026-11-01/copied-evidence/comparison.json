@@ -1,0 +1,16 @@
+{
+  "new_calls": 41,
+  "new_call_wall_seconds": 203.086,
+  "automatic_preparation_plus_writing_seconds": 156.493,
+  "automatic_ratio_to_same_session_verbatim": 3.3587234133882773,
+  "automatic_ratio_to_historical_direct_writer": 3.5259671495843,
+  "automatic_input_tokens": 74859,
+  "automatic_output_tokens": 2957,
+  "statements": 39,
+  "whole_headline_claim_sources": 24,
+  "all_text_field_copy_valid_sources": 29,
+  "source_preparation_investigation_cumulative_calls": 215,
+  "source_preparation_investigation_cumulative_call_seconds": 1145.725,
+  "combined_packet_median_seconds": 20.776,
+  "timing_limit": "Sequential observed times with prefix caching; no interleaved repeats, full-workload throughput or independent semantic adjudication."
+}

@@ -1,0 +1,3 @@
+{"accepted":false,"input_tokens":5704,"name":"frozen-ac-milan-40","output_tokens":375,"production_writes":false,"variant":"json-body-first","verdict":"cited reports do not connect TNT Sports with numerical fact 0","wall_ms":28946}
+{"accepted":false,"input_tokens":5575,"name":"frozen-chicago-bears-40","output_tokens":246,"production_writes":false,"variant":"json-body-first","verdict":"named claim is absent from cited reports: Thursday Night Football","wall_ms":24698}
+{"accepted":false,"input_tokens":5582,"name":"frozen-la-clippers-40","output_tokens":134,"production_writes":false,"variant":"json-body-first","verdict":"named claim is absent from cited reports: LA Clippers","wall_ms":20826}

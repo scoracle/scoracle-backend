@@ -1,0 +1,9 @@
+{
+  "hw.model": "Mac16,10",
+  "hw.memsize": "17179869184",
+  "hw.physicalcpu": "10",
+  "hw.logicalcpu": "10",
+  "llama_processes": [
+    "47972 12-04:25:01 774960 /opt/homebrew/bin/llama-server --model /Users/scotty/models/Qwen3.5-4B-Q4_K_M.gguf --alias Qwen3.5-4B-Q4_K_M --host 127.0.0.1 --port 8081 --ctx-size 40960 --parallel 4 --n-gpu-layers 99 --flash-attn on --cache-ram 0 --slots --jinja --reasoning off --chat-template-kwargs {\"enable_thinking\":false} --cont-batching --no-context-shift"
+  ]
+}

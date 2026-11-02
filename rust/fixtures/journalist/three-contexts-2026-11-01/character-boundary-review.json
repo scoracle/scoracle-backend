@@ -1,0 +1,59 @@
+{
+  "prompt_version": "n113-character-summary",
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "reviewer": "assistant",
+  "human_factual_approval": false,
+  "status": "fidelity_issues_remain",
+  "scope": "Decision model owns report eligibility. Character owns faithful summary, preserving reported subjects and source attribution. Metadata is background for understanding, not additional publisher evidence.",
+  "responses": 16,
+  "mechanically_accepted": 7,
+  "note": "Mechanical acceptance is not factual approval; original eligibility-based scores are superseded for character assessment.",
+  "findings": [
+    {
+      "case": "gordon-derozan-preserve-reported-subject",
+      "variants": "both",
+      "finding": "Correctly preserves DeRozan as the speaker discussing a trade. Gordon remains the player listed on the roster; no trade claim is reassigned to him."
+    },
+    {
+      "case": "synthetic-routed-subject-preserved",
+      "variants": "both",
+      "finding": "Correctly preserves Cedar United Women as the reported team. With metadata, adds an unnecessary explanation contrasting the database men's team. This is summary-quality overhead, not an eligibility failure."
+    },
+    {
+      "case": "synthetic-meta-stale-affiliation",
+      "variants": "after",
+      "finding": "Adds defender from the database to the attributed report, although the headline does not state the position. Mechanical checks accept this response; evidence review does not."
+    },
+    {
+      "case": "synthetic-discussion-no-new-event",
+      "variants": "after",
+      "finding": "Adds Canadian defender from database metadata and an unsupported gendered pronoun to the publisher summary."
+    },
+    {
+      "case": "synthetic-meta-profile-only",
+      "variants": "after",
+      "finding": "Supplies nationality, position and club from metadata as profile contents. The profile headline only names topics."
+    },
+    {
+      "case": "synthetic-meta-missing",
+      "variants": "both",
+      "finding": "Preserves ongoing talks, lack of agreement, publisher and supplied publication time. Existing numeric source guards reject the date despite its presence in the prepared evidence."
+    },
+    {
+      "case": "conflicting-reports-two-sources-that-contradict-each-other",
+      "variants": "both",
+      "finding": "Headline falsely says Cedar United denies and confirms the fee. The evidence contains an explicit denial and an unconfirmed publisher claim. The body preserves uncertainty but omits Club Bulletin attribution. Mechanical checks accept the false headline."
+    },
+    {
+      "case": "one-result-single-result,-named-scorer",
+      "variants": "both",
+      "finding": "Result and scorer minute are supported, but publisher attribution is omitted. Existing scoped-numeric guard rejects the combined sentence, separately from its factual support."
+    }
+  ],
+  "validation": {
+    "library_passed": 384,
+    "library_ignored": 73,
+    "live_database_tested": false,
+    "production_writes": false
+  }
+}

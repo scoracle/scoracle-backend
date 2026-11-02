@@ -70,7 +70,7 @@ impl Parser<NarrativesProduct> for EditionParser<'_> {
             .collect::<Result<Vec<_>>>()?;
         let headline = narratives.first().map(|narrative| narrative.title.clone());
         Ok(Some(NarrativesProduct {
-            memory_provenance: json!({"version":"headline-archive-v1","selected":self.assignment.memories}),
+            memory_provenance: json!({"receipt":null,"selected":[]}),
             narratives,
             card_score: Some(self.activity.card_score),
             headline,
@@ -83,6 +83,7 @@ pub(super) fn parse_reports(
     reports: &[CorpusItem],
 ) -> Result<crate::tools::form::JournalistReply> {
     let reply = crate::tools::form::parse_journalist(raw, reports.len())?;
+    let evidence = super::fresh::reports(reports);
     for prose in &reply.narratives {
         let sources: Vec<_> = prose
             .report_keys
@@ -94,12 +95,7 @@ pub(super) fn parse_reports(
                     .parse::<usize>()
                     .unwrap()
                     - 1;
-                let report = &reports[index];
-                crate::tools::fresh::ReportEvidence {
-                    publisher: &report.source,
-                    text: format!("{}: {} {}", report.source, report.title, report.context),
-                    published_at: report.published_at_epoch.map(crate::util::utc_timestamp),
-                }
+                evidence[index].evidence()
             })
             .collect();
         crate::tools::fresh::validate_report_facts(

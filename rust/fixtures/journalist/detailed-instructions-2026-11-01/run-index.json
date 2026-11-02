@@ -1,0 +1,132 @@
+[
+  {
+    "run": "n113-qualification-control",
+    "records": 8,
+    "responses": 8,
+    "mechanical_accepted": 3,
+    "errors": 0,
+    "input_tokens": 4651,
+    "output_tokens": 569,
+    "factual_qualification": false
+  },
+  {
+    "run": "n113-workload-control",
+    "records": 3,
+    "responses": 3,
+    "mechanical_accepted": 0,
+    "errors": 0,
+    "input_tokens": 9217,
+    "output_tokens": 1610,
+    "factual_qualification": false
+  },
+  {
+    "run": "v1-development",
+    "records": 8,
+    "responses": 8,
+    "mechanical_accepted": 5,
+    "errors": 0,
+    "input_tokens": 17370,
+    "output_tokens": 814,
+    "factual_qualification": false
+  },
+  {
+    "run": "v2-development",
+    "records": 8,
+    "responses": 8,
+    "mechanical_accepted": 6,
+    "errors": 0,
+    "input_tokens": 21594,
+    "output_tokens": 604,
+    "factual_qualification": false
+  },
+  {
+    "run": "v3-layout",
+    "records": 4,
+    "responses": 4,
+    "mechanical_accepted": 2,
+    "errors": 0,
+    "input_tokens": 15834,
+    "output_tokens": 1173,
+    "factual_qualification": false
+  },
+  {
+    "run": "v4-development",
+    "records": 8,
+    "responses": 8,
+    "mechanical_accepted": 7,
+    "errors": 0,
+    "input_tokens": 25682,
+    "output_tokens": 640,
+    "factual_qualification": false
+  },
+  {
+    "run": "v5-cache-concurrency",
+    "records": 3,
+    "responses": 12,
+    "mechanical_accepted": null,
+    "errors": 0,
+    "input_tokens": null,
+    "output_tokens": null,
+    "factual_qualification": false
+  },
+  {
+    "run": "v5-cache-probe",
+    "records": 8,
+    "responses": 8,
+    "mechanical_accepted": null,
+    "errors": 0,
+    "input_tokens": null,
+    "output_tokens": 441,
+    "factual_qualification": false
+  },
+  {
+    "run": "v5-development",
+    "records": 8,
+    "responses": 8,
+    "mechanical_accepted": 7,
+    "errors": 0,
+    "input_tokens": 26394,
+    "output_tokens": 598,
+    "factual_qualification": false
+  },
+  {
+    "run": "v5-native-cache-smoke",
+    "records": 2,
+    "responses": 2,
+    "mechanical_accepted": 2,
+    "errors": 0,
+    "input_tokens": 6231,
+    "output_tokens": 106,
+    "factual_qualification": false
+  },
+  {
+    "run": "v5-qualification",
+    "records": 8,
+    "responses": 8,
+    "mechanical_accepted": 6,
+    "errors": 0,
+    "input_tokens": 25035,
+    "output_tokens": 441,
+    "factual_qualification": false
+  },
+  {
+    "run": "v5-workload",
+    "records": 3,
+    "responses": 3,
+    "mechanical_accepted": 0,
+    "errors": 0,
+    "input_tokens": 16861,
+    "output_tokens": 755,
+    "factual_qualification": false
+  },
+  {
+    "run": "v6-development",
+    "records": 8,
+    "responses": 8,
+    "mechanical_accepted": 6,
+    "errors": 0,
+    "input_tokens": 26514,
+    "output_tokens": 629,
+    "factual_qualification": false
+  }
+]

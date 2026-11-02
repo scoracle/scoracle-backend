@@ -1,0 +1,290 @@
+[
+  {
+    "cohort": "development",
+    "arm": "control",
+    "name": "ac-milan-known",
+    "input_tokens": 5334,
+    "total_with_reserve": 7434,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "control",
+    "name": "chicago-bears-known",
+    "input_tokens": 5031,
+    "total_with_reserve": 7131,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "control",
+    "name": "la-clippers-known",
+    "input_tokens": 4925,
+    "total_with_reserve": 7025,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "control",
+    "name": "ac-milan-reserved",
+    "input_tokens": 5061,
+    "total_with_reserve": 7161,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "control",
+    "name": "chicago-bears-reserved",
+    "input_tokens": 4940,
+    "total_with_reserve": 7040,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "control",
+    "name": "la-clippers-reserved",
+    "input_tokens": 4965,
+    "total_with_reserve": 7065,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "json-context-first",
+    "name": "ac-milan-known",
+    "input_tokens": 5333,
+    "total_with_reserve": 7433,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "json-context-first",
+    "name": "chicago-bears-known",
+    "input_tokens": 5030,
+    "total_with_reserve": 7130,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "json-context-first",
+    "name": "la-clippers-known",
+    "input_tokens": 4924,
+    "total_with_reserve": 7024,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "json-context-first",
+    "name": "ac-milan-reserved",
+    "input_tokens": 5060,
+    "total_with_reserve": 7160,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "json-context-first",
+    "name": "chicago-bears-reserved",
+    "input_tokens": 4939,
+    "total_with_reserve": 7039,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "json-context-first",
+    "name": "la-clippers-reserved",
+    "input_tokens": 4964,
+    "total_with_reserve": 7064,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-source-first",
+    "name": "ac-milan-known",
+    "input_tokens": 5357,
+    "total_with_reserve": 7457,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-source-first",
+    "name": "chicago-bears-known",
+    "input_tokens": 5054,
+    "total_with_reserve": 7154,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-source-first",
+    "name": "la-clippers-known",
+    "input_tokens": 4948,
+    "total_with_reserve": 7048,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-source-first",
+    "name": "ac-milan-reserved",
+    "input_tokens": 5084,
+    "total_with_reserve": 7184,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-source-first",
+    "name": "chicago-bears-reserved",
+    "input_tokens": 4963,
+    "total_with_reserve": 7063,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-source-first",
+    "name": "la-clippers-reserved",
+    "input_tokens": 4988,
+    "total_with_reserve": 7088,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-context-first",
+    "name": "ac-milan-known",
+    "input_tokens": 5357,
+    "total_with_reserve": 7457,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-context-first",
+    "name": "chicago-bears-known",
+    "input_tokens": 5054,
+    "total_with_reserve": 7154,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-context-first",
+    "name": "la-clippers-known",
+    "input_tokens": 4948,
+    "total_with_reserve": 7048,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-context-first",
+    "name": "ac-milan-reserved",
+    "input_tokens": 5084,
+    "total_with_reserve": 7184,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-context-first",
+    "name": "chicago-bears-reserved",
+    "input_tokens": 4963,
+    "total_with_reserve": 7063,
+    "fits": true
+  },
+  {
+    "cohort": "development",
+    "arm": "sections-context-first",
+    "name": "la-clippers-reserved",
+    "input_tokens": 4988,
+    "total_with_reserve": 7088,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "control",
+    "name": "liverpool-validation",
+    "input_tokens": 4916,
+    "total_with_reserve": 7016,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "control",
+    "name": "boston-validation",
+    "input_tokens": 4925,
+    "total_with_reserve": 7025,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "control",
+    "name": "green-bay-validation",
+    "input_tokens": 5056,
+    "total_with_reserve": 7156,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "json-context-first",
+    "name": "liverpool-validation",
+    "input_tokens": 4915,
+    "total_with_reserve": 7015,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "json-context-first",
+    "name": "boston-validation",
+    "input_tokens": 4924,
+    "total_with_reserve": 7024,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "json-context-first",
+    "name": "green-bay-validation",
+    "input_tokens": 5055,
+    "total_with_reserve": 7155,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "sections-source-first",
+    "name": "liverpool-validation",
+    "input_tokens": 4939,
+    "total_with_reserve": 7039,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "sections-source-first",
+    "name": "boston-validation",
+    "input_tokens": 4948,
+    "total_with_reserve": 7048,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "sections-source-first",
+    "name": "green-bay-validation",
+    "input_tokens": 5079,
+    "total_with_reserve": 7179,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "sections-context-first",
+    "name": "liverpool-validation",
+    "input_tokens": 4939,
+    "total_with_reserve": 7039,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "sections-context-first",
+    "name": "boston-validation",
+    "input_tokens": 4948,
+    "total_with_reserve": 7048,
+    "fits": true
+  },
+  {
+    "cohort": "validation",
+    "arm": "sections-context-first",
+    "name": "green-bay-validation",
+    "input_tokens": 5079,
+    "total_with_reserve": 7179,
+    "fits": true
+  }
+]

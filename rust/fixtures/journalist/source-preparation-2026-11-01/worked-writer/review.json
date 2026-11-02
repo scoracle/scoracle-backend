@@ -1,0 +1,437 @@
+{
+  "reviewer": "Codex manual source-by-source review; not blinded or independently adjudicated",
+  "writer_reviews": [
+    {
+      "arm": "control",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Misses match anchor; invents valuation, Dusan first name and coach role; imports competition/player-count/goalkeeper details into report7."
+      ],
+      "output": "development-control/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "chicago-bears-known",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Trade and Ditka facts faithful; live-show body retained but game show title remains imprecise."
+      ],
+      "output": "development-control/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and game-page listings preserved without completed-game claims."
+      ],
+      "output": "development-control/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Drops two required factors and assigns joint injury concerns; publisher ownership and unlikely early exit preserved."
+      ],
+      "output": "development-control/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Streak type remains unspecified but coach role added without cited evidence."
+      ],
+      "output": "development-control/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and Yahoo-only opening-night facts preserved."
+      ],
+      "output": "development-control/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "ac-milan-known",
+      "assessment": "faithful",
+      "findings": [
+        "Amount stays an uninterpreted figure. Match statements remain with their exact sources, including anchor. Pavlovic preserved with no added role/first name; quotes attribution is somewhat stiff but does not add unsupported quotation content."
+      ],
+      "output": "development-reference/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "chicago-bears-known",
+      "assessment": "faithful",
+      "findings": [
+        "Donte remains subject of trade assessment, not its speaker. Live Show and Bears announcement preserved."
+      ],
+      "output": "development-reference/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and both page listings preserved, with no game completion claims."
+      ],
+      "output": "development-reference/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "ac-milan-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "ESPN/FOX ownership preserved; Chukwueze lay-off distinct from Athekame question; both required factors and unlikely-exit qualification retained; Rabiot interest not upgraded."
+      ],
+      "output": "development-reference/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "chicago-bears-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Illness, unspecified streak and possible venue move retained without adding coach role or intentional plan."
+      ],
+      "output": "development-reference/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performances; Yahoo owns opening-night jerseys/parking and KTLA owns its new-season swap/parking, with no cross-publisher import."
+      ],
+      "output": "development-reference/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Misses the required match anchor and imports Europa League/goalkeeper into report7, whose raw and prepared text do not supply those details. Value interpretation persists in both preparation and final clause. Pavlovic is correctly retained."
+      ],
+      "output": "development-automatic/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-known",
+      "assessment": "clarity_concern",
+      "findings": [
+        "All three bodies preserve trade uncertainty, Live Show and Ditka announcement, with no invented Donte opinion. Title Patriots game listing is less precise than live-show listing and can suggest a fixture listing. This is conservatively a source-format clarity concern, not a proven fabricated event."
+      ],
+      "output": "development-automatic/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and both dated page listings retained without invented game completion or injury cause."
+      ],
+      "output": "development-automatic/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "ac-milan-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "ESPN/FOX ownership correct. Two required return factors and unlikely early exit survive; neutral situation title does not assign joint injury. Rabiot interest remains interest."
+      ],
+      "output": "development-automatic/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Illness availability and unspecified streak retained without invented role/type. Possible venue move remains possible; lists topics phrasing is mechanical but readable."
+      ],
+      "output": "development-automatic/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and publisher-local parking/jersey information retained. Lists phrasing is mechanical but grammatical and does not invent a result."
+      ],
+      "output": "development-automatic/la-clippers-reserved-statements-source-first/output.json"
+    }
+  ],
+  "screen_selection": {
+    "qualifies_for_automatic": true,
+    "control": {
+      "clearly_faithful": 2,
+      "clarity_concern": 1,
+      "failed": 3
+    },
+    "reference": {
+      "clearly_faithful": 6,
+      "clarity_concern": 0,
+      "failed": 0
+    },
+    "reason": "All reference topics/anchors valid; actors and qualifications preserved, undefined number/streak remain undefined, source ownership retained. Both control successes preserved. This qualifies only automatic preparation testing; manual notes are not a production system or evidence of automated reliability."
+  },
+  "scope": "Six reused stress packets; manual reference notes are not model-generated. Whole titles/bodies, exact-source ownership and material qualifications reviewed. No independent verification of underlying news or database records.",
+  "source_reviews": [
+    {
+      "article_id": 1276620,
+      "assessment": "unfaithful",
+      "findings": [
+        "Adds transfer value and a redundant listing statement; unspecified is empty despite the undefined meaning/unit. The writer also interprets the amount; control already had that error, so this is not proof the note caused it."
+      ],
+      "output": "development-preparation/1276620/output.json"
+    },
+    {
+      "article_id": 1424030,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Main facts retained but split into redundant statements; missing-details list asks for identity/cause beyond what is needed."
+      ],
+      "output": "development-preparation/1424030/output.json"
+    },
+    {
+      "article_id": 1426503,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Match and draw claims faithful; asks for source of result although publisher is supplied, leaving an unclear evidence-limit label."
+      ],
+      "output": "development-preparation/1426503/output.json"
+    },
+    {
+      "article_id": 1414585,
+      "assessment": "faithful",
+      "findings": [
+        "Two source result propositions preserved; no invented Juventus opponent or missing-outcome claim."
+      ],
+      "output": "development-preparation/1414585/output.json"
+    },
+    {
+      "article_id": 1415284,
+      "assessment": "faithful",
+      "findings": [
+        "Keeps score, red card and south-coast collapse without adding competition or goalkeeper role."
+      ],
+      "output": "development-preparation/1415284/output.json"
+    },
+    {
+      "article_id": 1394917,
+      "assessment": "unfaithful",
+      "findings": [
+        "Broadens the missed-substitution reaction into a judgment of Milan performance, and asks who made the substitution despite source saying it was forgotten. Exact copied qualification includes missed substitution but the main claim does not preserve its scope."
+      ],
+      "output": "development-preparation/1394917/output.json"
+    },
+    {
+      "article_id": 1374081,
+      "assessment": "faithful",
+      "findings": [
+        "Preserves early lead without a final result."
+      ],
+      "output": "development-preparation/1374081/output.json"
+    },
+    {
+      "article_id": 1363845,
+      "assessment": "clarity_concern",
+      "findings": [
+        "With ten players remaining leaves the team attachment ambiguous whereas original explicitly says10-man AC Milan. Repeats Bournemouth win and Juventus outcome in extra statements."
+      ],
+      "output": "development-preparation/1363845/output.json"
+    },
+    {
+      "article_id": 1425437,
+      "assessment": "faithful",
+      "findings": [
+        "Speaker explicitly Pavlovic; positive assessment and contrary mistake qualification retained across fields, though not combined in claim text."
+      ],
+      "output": "development-preparation/1425437/output.json"
+    },
+    {
+      "article_id": 1341401,
+      "assessment": "unfaithful",
+      "findings": [
+        "Primary conditional claim and null speaker correct. Secondary listing labels defense a potential threat while detaching the trade condition. The final writer retains the conditional primary claim."
+      ],
+      "output": "development-preparation/1341401/output.json"
+    },
+    {
+      "article_id": 1352005,
+      "assessment": "faithful",
+      "findings": [
+        "Live Show listing preserved; game result left unknown."
+      ],
+      "output": "development-preparation/1352005/output.json"
+    },
+    {
+      "article_id": 1432888,
+      "assessment": "faithful",
+      "findings": [
+        "Announcement and Bears speaker/actor preserved."
+      ],
+      "output": "development-preparation/1432888/output.json"
+    },
+    {
+      "article_id": 1412576,
+      "assessment": "faithful",
+      "findings": [
+        "Keeps how question without converting it to whether tribute happens."
+      ],
+      "output": "development-preparation/1412576/output.json"
+    },
+    {
+      "article_id": 1262232,
+      "assessment": "clarity_concern",
+      "findings": [
+        "How coverage is labelled listing; main topic meaning retained."
+      ],
+      "output": "development-preparation/1262232/output.json"
+    },
+    {
+      "article_id": 1289440,
+      "assessment": "faithful",
+      "findings": [
+        "Absence retained; unknown reason does not presuppose injury. Some irrelevant unknowns about other players remain."
+      ],
+      "output": "development-preparation/1289440/output.json"
+    },
+    {
+      "article_id": 1429100,
+      "assessment": "faithful",
+      "findings": [
+        "Dated game listing preserved; score/stat/highlight values absent from headline remain unknown."
+      ],
+      "output": "development-preparation/1429100/output.json"
+    },
+    {
+      "article_id": 1398531,
+      "assessment": "faithful",
+      "findings": [
+        "Retains literal game-summary listing and unknown result."
+      ],
+      "output": "development-preparation/1398531/output.json"
+    },
+    {
+      "article_id": 1325124,
+      "assessment": "faithful",
+      "findings": [
+        "Club support and excessive-price wording retained without assigning FOX warning to ESPN."
+      ],
+      "output": "development-preparation/1325124/output.json"
+    },
+    {
+      "article_id": 1208973,
+      "assessment": "faithful",
+      "findings": [
+        "Support and warning retained in source-local statements; club is the warning speaker."
+      ],
+      "output": "development-preparation/1208973/output.json"
+    },
+    {
+      "article_id": 1189629,
+      "assessment": "unfaithful",
+      "findings": [
+        "Question and two factors appear, but return qualifications are also attached to Chukwueze fear and an extra two-factors listing is about Milan/Chukwueze. This misbinds roles/conditions within preparation; the final writer reconstructs the return condition correctly."
+      ],
+      "output": "development-preparation/1189629/output.json"
+    },
+    {
+      "article_id": 1189646,
+      "assessment": "faithful",
+      "findings": [
+        "Recall remains a question and early exit unlikely; OL is retained in copied qualification without guessed expansion."
+      ],
+      "output": "development-preparation/1189646/output.json"
+    },
+    {
+      "article_id": 1115631,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Eagerness preserved, but speaker AC Milan is inferred from reported interest without an explicit quoted statement. Final writer does not manufacture a club quotation."
+      ],
+      "output": "development-preparation/1115631/output.json"
+    },
+    {
+      "article_id": 1410388,
+      "assessment": "faithful",
+      "findings": [
+        "Illness and good-to-go status retained."
+      ],
+      "output": "development-preparation/1410388/output.json"
+    },
+    {
+      "article_id": 1410389,
+      "assessment": "faithful",
+      "findings": [
+        "Streak type stays unknown and future status retained; matchup appears in about even though omitted from claim."
+      ],
+      "output": "development-preparation/1410389/output.json"
+    },
+    {
+      "article_id": 1330977,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Possible move remains possible; explanatory coverage labelled listing."
+      ],
+      "output": "development-preparation/1330977/output.json"
+    },
+    {
+      "article_id": 1260557,
+      "assessment": "faithful",
+      "findings": [
+        "Debut and attributed brutal assessment retained."
+      ],
+      "output": "development-preparation/1260557/output.json"
+    },
+    {
+      "article_id": 1338223,
+      "assessment": "faithful",
+      "findings": [
+        "Struggles retained; null speaker avoids assigning the assessment to Murray."
+      ],
+      "output": "development-preparation/1338223/output.json"
+    },
+    {
+      "article_id": 1221840,
+      "assessment": "clarity_concern",
+      "findings": [
+        "How-to content labelled listing; parking, jerseys and opening-night information preserved."
+      ],
+      "output": "development-preparation/1221840/output.json"
+    },
+    {
+      "article_id": 1192912,
+      "assessment": "clarity_concern",
+      "findings": [
+        "New-season report labelled listing; swap/parking facts preserved without adding opening night."
+      ],
+      "output": "development-preparation/1192912/output.json"
+    }
+  ],
+  "selection": {
+    "qualifies_for_followup": false,
+    "counts": {
+      "control": {
+        "clearly_faithful": 2,
+        "clarity_concern": 1,
+        "failed": 3
+      },
+      "reference": {
+        "clearly_faithful": 6,
+        "clarity_concern": 0,
+        "failed": 0
+      },
+      "automatic": {
+        "clearly_faithful": 4,
+        "clarity_concern": 1,
+        "failed": 1
+      }
+    },
+    "reason": "Automatic has four unambiguous complete passes, below the predeclared five. A fifth packet has faithful bodies but a source-format title concern; the sixth fails source ownership, amount interpretation and required anchor coverage. Source-only notes also contain semantic errors despite29/29 valid copied spans. No repeats or holdout generation warranted; no production promotion."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "sha256": {
+    "cases.jsonl": "101c2020d2042c252ca02cc7994d8d1e403cda173d3715017435965b80ded2b5",
+    "system.txt": "2a39746bd98a3768d5720d3b45eec8ab1aeb26909aca224343dcce67950f2cff"
+  },
+  "source": "../packet-size-2026-11-01/live-capture/results.jsonl",
+  "contract": "Production-captured top-level and nested meta/report field order; experimental group wrappers retain their prior order. Same grouped semantics, same statement schema/system; not a full production pipeline replay."
+}

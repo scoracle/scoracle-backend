@@ -1,0 +1,17 @@
+{
+  "qualifies_for_followup": false,
+  "selected": null,
+  "counts": {
+    "verbatim": {
+      "clearly_faithful": 2,
+      "clarity_concern": 1,
+      "failed": 3
+    },
+    "automatic": {
+      "clearly_faithful": 5,
+      "clarity_concern": 0,
+      "failed": 1
+    }
+  },
+  "reason": "Automatic improves to five clear packets and preserves the four previous clear packets, but the sixth has a factual source-ownership failure. Predeclared gate requires no factual/coverage failure in the sixth. Verbatim control also fails. No repeats, unseen validation or promotion."
+}

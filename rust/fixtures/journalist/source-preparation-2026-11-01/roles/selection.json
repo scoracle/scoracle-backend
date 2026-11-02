@@ -1,0 +1,8 @@
+{
+  "qualifies_for_followup": false,
+  "clearly_faithful_packets": {
+    "control": 0,
+    "reference": 0
+  },
+  "reason": "Exact count produces three slots but not assigned topics; duplicated roundups and missing qualifications persist. Role reference fixes Donte speaker assignment but not full-output reliability. Skip the29 planned role-extraction calls and automatic writers for this failed writer contract."
+}

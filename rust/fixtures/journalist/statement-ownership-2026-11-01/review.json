@@ -1,0 +1,360 @@
+{
+  "reviewer": "Codex manual source-by-source review, not blinded or independently adjudicated",
+  "scope": "Six topic packets from the same three previously inspected subjects, each repeated; not36 independent samples. All titles and rendered bodies reviewed against original cited headline evidence. Source-format ambiguities and readability issues are reported explicitly.",
+  "conservative_counts": {
+    "baseline": {
+      "unique_cases": 6,
+      "clearly_faithful": 1,
+      "source_format_needs_clarification": 0
+    },
+    "prose": {
+      "unique_cases": 6,
+      "clearly_faithful": 1,
+      "source_format_needs_clarification": 0
+    },
+    "structured": {
+      "unique_cases": 6,
+      "clearly_faithful": 2,
+      "source_format_needs_clarification": 1
+    }
+  },
+  "reviews": [
+    {
+      "arm": "baseline",
+      "name": "ac-milan-known",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "report_1 does not specify valuation; the output interprets the unspecified 60 million as a valuation.",
+        "Entry2 attributes one combined result/red-card account to LiveScore, Yahoo, FOX44, Straits Times, TNT and Ottumwa. Yahoo report13 supplies an early lead and TNT report8 a missed substitution, not the whole account. Listing the whole group as citations does not make each publisher support each statement.",
+        "Pavlovic remains the speaker in entry3."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "baseline-pass-1/ac-milan-known-json-body-first/output.json",
+        "baseline-pass-2/ac-milan-known-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "name": "chicago-bears-known",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "faithful",
+      "findings": [
+        "Da Windy City conditional trade opinion, Establish The Run live show, and Yahoo Ditka announcement remain separate and faithful.",
+        "Chicago Bears/Bears parser rejection is an identity-alias issue, not new news content."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "baseline-pass-1/chicago-bears-known-json-body-first/output.json",
+        "baseline-pass-2/chicago-bears-known-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "name": "la-clippers-known",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "RotoBaller absence and NBA.com dated Magic fixture are preserved.",
+        "Raptors Game Summary becomes a game played on November2 (baseline) or a past game summary (prose). The supplied page title establishes neither completion nor past status."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "baseline-pass-1/la-clippers-known-json-body-first/output.json",
+        "baseline-pass-2/la-clippers-known-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "name": "ac-milan-reserved",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "ESPN report29 is assigned a retaliation warning that occurs only in FOX Sports report36.",
+        "OneFootball report37 asks about a recall and says early OL exit is unlikely; output reports AC Milan are to recall Athekame. Quotation marks and the retained unlikely caveat do not fully preserve its question framing.",
+        "LiveScore two-factors-needed condition is retained. Rabiot contract eagerness remains interest; the prose title contract discussions is less precise and may suggest talks not supplied."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "baseline-pass-1/ac-milan-reserved-json-body-first/output.json",
+        "baseline-pass-2/ac-milan-reserved-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "name": "chicago-bears-reserved",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "report20 only says Mike Vrabel is set to snap a 27-year streak on TNF vs Bears. Output invents a streak of playing in the Thanksgiving game and a head-coach role absent from this source.",
+        "Three assigned groups collapse into one roundup. Gonzalez availability despite illness and the possible Soldier Field move remain supported.",
+        "The unchanged mechanical parser accepts this output despite the invented streak meaning."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "baseline-pass-1/chicago-bears-reserved-json-body-first/output.json",
+        "baseline-pass-2/chicago-bears-reserved-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "baseline",
+      "name": "la-clippers-reserved",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "source_attribution_overreach",
+      "findings": [
+        "Acuff and Murray remain separate; no same-match assertion is added.",
+        "One joint Yahoo/KTLA statement supplies how to obtain new jerseys for opening night. Yahoo report29 supplies those details; KTLA report36 says new season with jersey swap and free parking. The broad theme overlaps, but the full combined wording is not individually supplied by both publishers. This is attribution overreach, not a wholly invented offer."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "baseline-pass-1/la-clippers-reserved-json-body-first/output.json",
+        "baseline-pass-2/la-clippers-reserved-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "prose",
+      "name": "ac-milan-known",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "report_1 does not specify valuation; the output interprets the unspecified 60 million as a valuation.",
+        "Entry2 attributes one combined result/red-card account to LiveScore, Yahoo, FOX44, Straits Times, TNT and Ottumwa. Yahoo report13 supplies an early lead and TNT report8 a missed substitution, not the whole account. Listing the whole group as citations does not make each publisher support each statement.",
+        "Pavlovic remains the speaker in entry3. Prose arm also leaves an unattributed matches/collapse/Juventus sentence after the blanket attribution."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "prose-pass-1/ac-milan-known-json-body-first/output.json",
+        "prose-pass-2/ac-milan-known-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "prose",
+      "name": "chicago-bears-known",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "faithful",
+      "findings": [
+        "Da Windy City conditional trade opinion, Establish The Run live show, and Yahoo Ditka announcement remain separate and faithful.",
+        "Chicago Bears/Bears parser rejection is an identity-alias issue, not new news content."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "prose-pass-1/chicago-bears-known-json-body-first/output.json",
+        "prose-pass-2/chicago-bears-known-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "prose",
+      "name": "la-clippers-known",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "RotoBaller absence and NBA.com dated Magic fixture are preserved.",
+        "Raptors Game Summary becomes a game played on November2 (baseline) or a past game summary (prose). The supplied page title establishes neither completion nor past status."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "prose-pass-1/la-clippers-known-json-body-first/output.json",
+        "prose-pass-2/la-clippers-known-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "prose",
+      "name": "ac-milan-reserved",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "ESPN report29 is assigned a retaliation warning that occurs only in FOX Sports report36.",
+        "OneFootball report37 asks about a recall and says early OL exit is unlikely; output reports AC Milan are to recall Athekame. Quotation marks and the retained unlikely caveat do not fully preserve its question framing.",
+        "LiveScore two-factors-needed condition is retained. Rabiot contract eagerness remains interest; the prose title contract discussions is less precise and may suggest talks not supplied."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "prose-pass-1/ac-milan-reserved-json-body-first/output.json",
+        "prose-pass-2/ac-milan-reserved-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "prose",
+      "name": "chicago-bears-reserved",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "report20 only says Mike Vrabel is set to snap a 27-year streak on TNF vs Bears. Output invents a streak of playing in the Thanksgiving game and a head-coach role absent from this source.",
+        "Three assigned groups collapse into one roundup. Gonzalez availability despite illness and the possible Soldier Field move remain supported.",
+        "The unchanged mechanical parser accepts this output despite the invented streak meaning."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "prose-pass-1/chicago-bears-reserved-json-body-first/output.json",
+        "prose-pass-2/chicago-bears-reserved-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "prose",
+      "name": "la-clippers-reserved",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "source_attribution_overreach",
+      "findings": [
+        "Acuff and Murray remain separate; no same-match assertion is added.",
+        "One joint Yahoo/KTLA statement supplies how to obtain new jerseys for opening night. Yahoo report29 supplies those details; KTLA report36 says new season with jersey swap and free parking. The broad theme overlaps, but the full combined wording is not individually supplied by both publishers. This is attribution overreach, not a wholly invented offer."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "prose-pass-1/la-clippers-reserved-json-body-first/output.json",
+        "prose-pass-2/la-clippers-reserved-json-body-first/output.json"
+      ]
+    },
+    {
+      "arm": "structured",
+      "name": "ac-milan-known",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "The match sentence is correctly bound to Korean-named publisher 조선일보/report2, without assigning its score/red-card account to unrelated publishers. English prose retains the exact stored publisher name.",
+        "The unspecified amount in report1 still becomes a valuation.",
+        "LiveScore discusses Pavlovic insists... is grammatically defective: the generated clause does not fit the attribution form. Code faithfully joins the supplied components; no repair was applied.",
+        "The current served-prose guard rejects the non-Latin publisher name; that identity is supplied evidence, not fabricated content."
+      ],
+      "naturalness": "fails: attribution/clause grammatical mismatch",
+      "outputs": [
+        "structured-pass-1/ac-milan-known-statements-source-first/output.json",
+        "structured-pass-2/ac-milan-known-statements-source-first/output.json"
+      ]
+    },
+    {
+      "arm": "structured",
+      "name": "chicago-bears-known",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "source_format_needs_clarification",
+      "findings": [
+        "The conditional trade opinion and prospective Ditka honor remain attributed to their own sources.",
+        "Establish The Run report2 says Live Show; the output describes a Thursday Night Football broadcast featuring the teams. This could mean the show, but could be read as game-broadcast coverage. Conservative review does not certify that wording as an unequivocal faithful pass. No completed-trade or game-result invention is identified.",
+        "The publisher mapping and all three topic anchors are correct. Team-name parser rejection is separate."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "structured-pass-1/chicago-bears-known-statements-source-first/output.json",
+        "structured-pass-2/chicago-bears-known-statements-source-first/output.json"
+      ]
+    },
+    {
+      "arm": "structured",
+      "name": "la-clippers-known",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "faithful",
+      "findings": [
+        "RotoBaller absence is retained; NBA.com lists dated Magic fixture and Raptors summary page. Neither fixture is claimed to have been played.",
+        "All source mappings and anchor coverage are correct. The parser accepts it."
+      ],
+      "naturalness": "stiff but understandable: RotoBaller lists Max Strus ruled out",
+      "outputs": [
+        "structured-pass-1/la-clippers-known-statements-source-first/output.json",
+        "structured-pass-2/la-clippers-known-statements-source-first/output.json"
+      ]
+    },
+    {
+      "arm": "structured",
+      "name": "ac-milan-reserved",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "headline_and_qualification_failures",
+      "findings": [
+        "Boycott support stays with ESPN; the retaliation warning stays with FOX Sports. This fixes the original sentence-level source transfer.",
+        "The body preserves a possible Athekame recall and an early OL exit deemed unlikely. It omits LiveScore’s explicit two-factors-needed condition.",
+        "The title Chukwueze and Athekame injury concerns misleadingly places Athekame under injury concerns. The source identifies Chukwueze’s lay-off and Athekame’s possible recall, not an Athekame injury.",
+        "Rabiot body preserves contract eagerness; contract discussions label is less precise. The parser accepts the overall output, so acceptance still misses title/qualification concerns."
+      ],
+      "naturalness": "readable, but repetitive discusses framing",
+      "outputs": [
+        "structured-pass-1/ac-milan-reserved-statements-source-first/output.json",
+        "structured-pass-2/ac-milan-reserved-statements-source-first/output.json"
+      ]
+    },
+    {
+      "arm": "structured",
+      "name": "chicago-bears-reserved",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "unfaithful",
+      "findings": [
+        "The 27-year streak becomes consecutive NFC North games. The selected report gives no type of streak; NFC NORTH appears in team metadata and nowhere in this packet’s fresh reports. The head-coach role is also absent from the cited report.",
+        "Three topics are now separate and source IDs map correctly, but that structure does not make the invented streak meaning faithful.",
+        "Gonzalez availability despite illness and the possible Soldier Field move remain supported. Injury-status title is less precise than the supplied illness. The parser rejects the NFC North addition."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "structured-pass-1/chicago-bears-reserved-statements-source-first/output.json",
+        "structured-pass-2/chicago-bears-reserved-statements-source-first/output.json"
+      ]
+    },
+    {
+      "arm": "structured",
+      "name": "la-clippers-reserved",
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "assessment": "faithful",
+      "findings": [
+        "NBC Sports/report5 owns Acuff’s debut and NBC Sports/report10 owns Murray’s struggles; no claim of the same game is made.",
+        "Yahoo/report29 alone supports the parking/new-jersey/opening-night sentence. KTLA is no longer assigned details its headline does not state. Omitting KTLA introduces no missing denial or qualification.",
+        "Canonical LA Clippers title is rejected by the literal name guard; this is separate from content fidelity."
+      ],
+      "naturalness": "readable",
+      "outputs": [
+        "structured-pass-1/la-clippers-reserved-statements-source-first/output.json",
+        "structured-pass-2/la-clippers-reserved-statements-source-first/output.json"
+      ]
+    }
+  ]
+}

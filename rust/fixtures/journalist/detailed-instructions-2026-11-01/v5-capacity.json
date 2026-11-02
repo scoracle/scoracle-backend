@@ -1,0 +1,182 @@
+[
+  {
+    "subject": {
+      "entity_id": 113,
+      "entity_type": "team",
+      "name": "AC Milan",
+      "sport": "FOOTBALL"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5704,
+    "reserved_output": 2100,
+    "total": 7804,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 24,
+      "entity_type": "team",
+      "name": "Chicago Bears",
+      "sport": "NFL"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5575,
+    "reserved_output": 2100,
+    "total": 7675,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 1,
+      "entity_type": "team",
+      "name": "New England Patriots",
+      "sport": "NFL"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5621,
+    "reserved_output": 2100,
+    "total": 7721,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 52,
+      "entity_type": "team",
+      "name": "AFC Bournemouth",
+      "sport": "FOOTBALL"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5679,
+    "reserved_output": 2100,
+    "total": 7779,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 19,
+      "entity_type": "team",
+      "name": "Arsenal",
+      "sport": "FOOTBALL"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5683,
+    "reserved_output": 2100,
+    "total": 7783,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 8,
+      "entity_type": "team",
+      "name": "Cleveland Browns",
+      "sport": "NFL"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5520,
+    "reserved_output": 2100,
+    "total": 7620,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 13,
+      "entity_type": "team",
+      "name": "LA Clippers",
+      "sport": "NBA"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5582,
+    "reserved_output": 2100,
+    "total": 7682,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 28,
+      "entity_type": "team",
+      "name": "Tampa Bay Buccaneers",
+      "sport": "NFL"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5492,
+    "reserved_output": 2100,
+    "total": 7592,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 6,
+      "entity_type": "team",
+      "name": "Cleveland Cavaliers",
+      "sport": "NBA"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5588,
+    "reserved_output": 2100,
+    "total": 7688,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 10,
+      "entity_type": "team",
+      "name": "Golden State Warriors",
+      "sport": "NBA"
+    },
+    "selected_reports": 40,
+    "input_tokens": 5637,
+    "reserved_output": 2100,
+    "total": 7737,
+    "default_limit": 7900,
+    "configured_limit": 10000,
+    "physical_limit": 10240,
+    "fits_default": true,
+    "fits_configured": true,
+    "inference_calls": 0
+  }
+]

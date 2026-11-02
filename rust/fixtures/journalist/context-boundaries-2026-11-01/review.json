@@ -1,0 +1,315 @@
+{
+  "reviewer": "Codex manual source-by-source review, not blinded or independently adjudicated",
+  "scope": "Fidelity to supplied headlines, source ownership, title implications, qualification, topic coverage and readability. No independent verification of database or news truth.",
+  "reviews": [
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Still invents valuation for report_1.",
+        "Replaces Pavlovic from report_3 with Filippo Galli, whose name occurs only in metadata; both title and body assign the quote to the wrong person. This is a serious regression from control.",
+        "Match evidence and publisher remain faithful."
+      ],
+      "naturalness": "grammatical, factually wrong",
+      "output": "development--control/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "chicago-bears-known",
+      "assessment": "faithful",
+      "findings": [
+        "Trade remains conditional; Live Show wording survives in body and title; Ditka honor remains a plan."
+      ],
+      "naturalness": "readable",
+      "output": "development--control/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and dated page listings remain source-bounded; no game completion inferred."
+      ],
+      "naturalness": "readable but road trip exclusion title is stiff",
+      "output": "development--control/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "ac-milan-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "ESPN/FOX ownership preserved.",
+        "Both required factors and early-exit-unlikely caveat retained. Neutral situation title no longer implies Athekame is injured.",
+        "Rabiot eagerness remains interest. Contract discussion is a vague topic label, not an explicit negotiation claim."
+      ],
+      "naturalness": "readable, vague situation title",
+      "output": "development--control/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Correctly leaves the streak type unspecified and labels Gonzalez illness accurately.",
+        "Still adds coach role not supplied by cited report_20; in the TNF is awkward.",
+        "Possible stadium move preserved."
+      ],
+      "naturalness": "awkward in the TNF",
+      "output": "development--control/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "phase": "development",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and Yahoo-only opening-night details preserved."
+      ],
+      "naturalness": "readable",
+      "output": "development--control/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "json-context-first",
+      "phase": "development",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Pavlovic is preserved in title and body; the metadata coach substitution disappears.",
+        "Still interprets the unspecified amount as a value.",
+        "report_7 gets Europa League and goalkeeper details absent from that report, importing information from neighboring reports. A valid report_key does not authorize that cross-source attribution."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--json-context-first/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "json-context-first",
+      "phase": "development",
+      "name": "chicago-bears-known",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Trade uncertainty and Ditka tribute preserved; Live Show remains in body.",
+        "Title changes to Patriots game broadcast, an unsupported source-format implication."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--json-context-first/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "json-context-first",
+      "phase": "development",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and both dated fixture-page listings remain faithful; no completion inferred."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--json-context-first/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "json-context-first",
+      "phase": "development",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "ESPN support and FOX warning stay source-bound.",
+        "Drops the explicit two-factors-needed condition. Lay-off concerns title wrongly groups Athekame with Chukwueze.",
+        "Unlikely early exit and Rabiot interest survive."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--json-context-first/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "json-context-first",
+      "phase": "development",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Adds Thanksgiving game and coach role absent from report_20.",
+        "Illness label and possible stadium move remain accurate."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--json-context-first/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "json-context-first",
+      "phase": "development",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and Yahoo-only opening-night details preserved."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--json-context-first/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-source-first",
+      "phase": "development",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Still substitutes metadata coach Filippo Galli for Pavlovic; title calls it coach assessment.",
+        "Still invents valuation. report_7 also imports 10-man, Europa League and goalkeeper details absent from that report.",
+        "TNT quoted reaction remains attached to TNT."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-source-first/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-source-first",
+      "phase": "development",
+      "name": "chicago-bears-known",
+      "assessment": "faithful",
+      "findings": [
+        "Conditional trade, Live Show and announced Ditka tribute all retained."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-source-first/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-source-first",
+      "phase": "development",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and page listings retained without game completion."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-source-first/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-source-first",
+      "phase": "development",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Title distinguishes Chukwueze lay-off and Athekame recall question, but the explicit two required factors are lost.",
+        "Publisher ownership, unlikely early exit and Rabiot interest remain intact."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-source-first/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-source-first",
+      "phase": "development",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Streak type remains unspecified, but coach role is still added without cited support.",
+        "Illness availability and possible stadium move remain accurate."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-source-first/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-source-first",
+      "phase": "development",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and Yahoo-only opening-night details preserved."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-source-first/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-context-first",
+      "phase": "development",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Pavlovic is preserved and the amount stays an unspecified figure.",
+        "report_7 still receives Europa League and goalkeeper details from other sources; the output is not fully source-faithful."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-context-first/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-context-first",
+      "phase": "development",
+      "name": "chicago-bears-known",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Trade uncertainty, Live Show body and Ditka plan preserved.",
+        "Patriots game show title is an imprecise and potentially misleading replacement for the live-show listing."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-context-first/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-context-first",
+      "phase": "development",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and both fixture-page listings remain faithful."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-context-first/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-context-first",
+      "phase": "development",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Drops two-factors-needed condition and again groups both people under injury concerns.",
+        "Publisher ownership, unlikely early exit and Rabiot interest survive."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-context-first/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-context-first",
+      "phase": "development",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Invents that the 27-year streak is not playing in TNF against the Bears; report_20 leaves the streak unspecified.",
+        "Adds coach role. Illness availability and possible stadium move remain accurate."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-context-first/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "sections-context-first",
+      "phase": "development",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and Yahoo-only opening-night details preserved."
+      ],
+      "naturalness": "Readable clauses, sometimes stiff or imprecise titles; no improvement in complete-output fidelity.",
+      "output": "development--sections-context-first/la-clippers-reserved-statements-source-first/output.json"
+    }
+  ],
+  "selection": {
+    "selected": null,
+    "qualifies_for_followup": false,
+    "counts": {
+      "control": {
+        "faithful": 4,
+        "unfaithful": 2
+      },
+      "json-context-first": {
+        "faithful": 2,
+        "clarity_concern": 1,
+        "unfaithful": 3
+      },
+      "sections-source-first": {
+        "faithful": 3,
+        "unfaithful": 3
+      },
+      "sections-context-first": {
+        "faithful": 2,
+        "clarity_concern": 1,
+        "unfaithful": 3
+      }
+    },
+    "reason": "Both context-first layouts preserve Pavlovic but regress Milan qualifications and Bears titles/streak details. Neither reaches four clearly faithful packets. Source-first sections still substitute the metadata coach. No arm qualifies; stop initial matrix at24, leaving new-subject validation unused."
+  }
+}

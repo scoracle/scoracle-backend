@@ -1,0 +1,1631 @@
+{
+  "complete_source_and_receipt_checks": true,
+  "paths": 18,
+  "model_calls": 22,
+  "by_mode": {
+    "baseline": {
+      "paths": 6,
+      "completed_paths": 6,
+      "mechanically_accepted": 0,
+      "median_total_ms": 13036.632645999998,
+      "total_ms_range": [
+        4482.212708,
+        15439.085292
+      ]
+    },
+    "reference": {
+      "paths": 6,
+      "completed_paths": 6,
+      "mechanically_accepted": 0,
+      "median_total_ms": 23323.109771,
+      "total_ms_range": [
+        22389.40075,
+        26299.805083
+      ]
+    },
+    "automatic": {
+      "paths": 6,
+      "completed_paths": 4,
+      "mechanically_accepted": 0,
+      "median_total_ms": 33531.752646,
+      "total_ms_range": [
+        12007.6655,
+        37473.818
+      ]
+    }
+  },
+  "repeat_comparisons": [
+    {
+      "name": "ac-milan",
+      "mode": "baseline",
+      "both_have_output": true,
+      "same_parsed_output": true
+    },
+    {
+      "name": "chicago-bears",
+      "mode": "baseline",
+      "both_have_output": true,
+      "same_parsed_output": true
+    },
+    {
+      "name": "la-clippers",
+      "mode": "baseline",
+      "both_have_output": true,
+      "same_parsed_output": true
+    },
+    {
+      "name": "ac-milan",
+      "mode": "reference",
+      "both_have_output": true,
+      "same_parsed_output": true
+    },
+    {
+      "name": "chicago-bears",
+      "mode": "reference",
+      "both_have_output": true,
+      "same_parsed_output": true
+    },
+    {
+      "name": "la-clippers",
+      "mode": "reference",
+      "both_have_output": true,
+      "same_parsed_output": true
+    },
+    {
+      "name": "ac-milan",
+      "mode": "automatic",
+      "both_have_output": false,
+      "same_parsed_output": null
+    },
+    {
+      "name": "chicago-bears",
+      "mode": "automatic",
+      "both_have_output": true,
+      "same_parsed_output": true
+    },
+    {
+      "name": "la-clippers",
+      "mode": "automatic",
+      "both_have_output": true,
+      "same_parsed_output": true
+    }
+  ],
+  "records": [
+    {
+      "accepted": false,
+      "mode": "baseline",
+      "name": "ac-milan",
+      "pass": 1,
+      "production_writes": false,
+      "total_ms": 15011.999790999998,
+      "verdict": "named claim is absent from cited reports: Europa League",
+      "writing": {
+        "input_tokens": 5704,
+        "output_tokens": 188,
+        "production_writes": false,
+        "wall_ms": 15008.614709
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": true,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2,
+          4,
+          5,
+          7,
+          8,
+          13,
+          14
+        ],
+        [
+          3
+        ],
+        [
+          6
+        ],
+        [
+          9
+        ],
+        [
+          10
+        ],
+        [
+          11
+        ],
+        [
+          12
+        ],
+        [
+          15
+        ],
+        [
+          16
+        ],
+        [
+          17
+        ],
+        [
+          18
+        ],
+        [
+          19
+        ],
+        [
+          20
+        ],
+        [
+          21
+        ],
+        [
+          22
+        ],
+        [
+          23
+        ],
+        [
+          24,
+          25,
+          28
+        ],
+        [
+          26
+        ],
+        [
+          27
+        ],
+        [
+          29,
+          36
+        ],
+        [
+          30
+        ],
+        [
+          31
+        ],
+        [
+          32
+        ],
+        [
+          33
+        ],
+        [
+          34,
+          37
+        ],
+        [
+          35
+        ],
+        [
+          38
+        ],
+        [
+          39
+        ],
+        [
+          40
+        ]
+      ],
+      "mode": "reference",
+      "name": "ac-milan",
+      "pass": 1,
+      "production_writes": false,
+      "total_ms": 25154.740875000003,
+      "verdict": "cited reports do not connect Europa League with numerical fact 3",
+      "writing": {
+        "input_tokens": 6457,
+        "output_tokens": 204,
+        "production_writes": false,
+        "wall_ms": 25147.00775
+      }
+    },
+    {
+      "error": "grouping omitted reports",
+      "grouping": {
+        "input_tokens": 3097,
+        "output_tokens": 108,
+        "production_writes": false,
+        "wall_ms": 12004.178042
+      },
+      "mode": "automatic",
+      "name": "ac-milan",
+      "pass": 1,
+      "production_writes": false,
+      "total_ms": 12007.6655
+    },
+    {
+      "accepted": false,
+      "mode": "baseline",
+      "name": "chicago-bears",
+      "pass": 1,
+      "production_writes": false,
+      "total_ms": 12823.7125,
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "writing": {
+        "input_tokens": 5575,
+        "output_tokens": 140,
+        "production_writes": false,
+        "wall_ms": 12819.700375
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": false,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3,
+          12,
+          40
+        ],
+        [
+          4
+        ],
+        [
+          5
+        ],
+        [
+          6,
+          7,
+          8
+        ],
+        [
+          9
+        ],
+        [
+          10
+        ],
+        [
+          11
+        ],
+        [
+          13
+        ],
+        [
+          14,
+          17,
+          18,
+          19,
+          23
+        ],
+        [
+          15
+        ],
+        [
+          16
+        ],
+        [
+          20
+        ],
+        [
+          21
+        ],
+        [
+          22,
+          26,
+          38
+        ],
+        [
+          24
+        ],
+        [
+          25
+        ],
+        [
+          27
+        ],
+        [
+          28
+        ],
+        [
+          29
+        ],
+        [
+          30
+        ],
+        [
+          31
+        ],
+        [
+          32
+        ],
+        [
+          33
+        ],
+        [
+          34
+        ],
+        [
+          35
+        ],
+        [
+          36
+        ],
+        [
+          37
+        ],
+        [
+          39
+        ]
+      ],
+      "mode": "reference",
+      "name": "chicago-bears",
+      "pass": 1,
+      "production_writes": false,
+      "total_ms": 22389.40075,
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "writing": {
+        "input_tokens": 6326,
+        "output_tokens": 139,
+        "production_writes": false,
+        "wall_ms": 22382.081666000002
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": false,
+      "grouping": {
+        "input_tokens": 2968,
+        "output_tokens": 120,
+        "production_writes": false,
+        "wall_ms": 12091.077167
+      },
+      "groups": [
+        [
+          1,
+          33
+        ],
+        [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40
+        ],
+        [
+          35
+        ]
+      ],
+      "mode": "automatic",
+      "name": "chicago-bears",
+      "pass": 1,
+      "production_writes": false,
+      "total_ms": 36564.715375,
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "writing": {
+        "input_tokens": 5861,
+        "output_tokens": 219,
+        "production_writes": false,
+        "wall_ms": 24463.181458000003
+      }
+    },
+    {
+      "accepted": false,
+      "mode": "baseline",
+      "name": "la-clippers",
+      "pass": 1,
+      "production_writes": false,
+      "total_ms": 12762.700959,
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "writing": {
+        "input_tokens": 5582,
+        "output_tokens": 126,
+        "production_writes": false,
+        "wall_ms": 12758.712375
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": false,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ],
+        [
+          4
+        ],
+        [
+          5
+        ],
+        [
+          6
+        ],
+        [
+          7
+        ],
+        [
+          8
+        ],
+        [
+          9
+        ],
+        [
+          10
+        ],
+        [
+          11
+        ],
+        [
+          12,
+          15
+        ],
+        [
+          13,
+          14
+        ],
+        [
+          16
+        ],
+        [
+          17
+        ],
+        [
+          18
+        ],
+        [
+          19,
+          20,
+          21,
+          26,
+          32
+        ],
+        [
+          22
+        ],
+        [
+          23
+        ],
+        [
+          24
+        ],
+        [
+          25
+        ],
+        [
+          27
+        ],
+        [
+          28
+        ],
+        [
+          29,
+          36
+        ],
+        [
+          30
+        ],
+        [
+          31
+        ],
+        [
+          33
+        ],
+        [
+          34
+        ],
+        [
+          35
+        ],
+        [
+          37
+        ],
+        [
+          38
+        ],
+        [
+          39
+        ],
+        [
+          40
+        ]
+      ],
+      "mode": "reference",
+      "name": "la-clippers",
+      "pass": 1,
+      "production_writes": false,
+      "total_ms": 22958.587375,
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "writing": {
+        "input_tokens": 6391,
+        "output_tokens": 120,
+        "production_writes": false,
+        "wall_ms": 22951.842249999998
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": false,
+      "grouping": {
+        "input_tokens": 2975,
+        "output_tokens": 117,
+        "production_writes": false,
+        "wall_ms": 12419.039459
+      },
+      "groups": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40
+        ]
+      ],
+      "mode": "automatic",
+      "name": "la-clippers",
+      "pass": 1,
+      "production_writes": false,
+      "total_ms": 33602.552375,
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "writing": {
+        "input_tokens": 5767,
+        "output_tokens": 122,
+        "production_writes": false,
+        "wall_ms": 21174.353667
+      }
+    },
+    {
+      "error": "grouping omitted reports",
+      "grouping": {
+        "input_tokens": 3097,
+        "output_tokens": 108,
+        "production_writes": false,
+        "wall_ms": 12514.561
+      },
+      "mode": "automatic",
+      "name": "ac-milan",
+      "pass": 2,
+      "production_writes": false,
+      "total_ms": 12516.493
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": true,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2,
+          4,
+          5,
+          7,
+          8,
+          13,
+          14
+        ],
+        [
+          3
+        ],
+        [
+          6
+        ],
+        [
+          9
+        ],
+        [
+          10
+        ],
+        [
+          11
+        ],
+        [
+          12
+        ],
+        [
+          15
+        ],
+        [
+          16
+        ],
+        [
+          17
+        ],
+        [
+          18
+        ],
+        [
+          19
+        ],
+        [
+          20
+        ],
+        [
+          21
+        ],
+        [
+          22
+        ],
+        [
+          23
+        ],
+        [
+          24,
+          25,
+          28
+        ],
+        [
+          26
+        ],
+        [
+          27
+        ],
+        [
+          29,
+          36
+        ],
+        [
+          30
+        ],
+        [
+          31
+        ],
+        [
+          32
+        ],
+        [
+          33
+        ],
+        [
+          34,
+          37
+        ],
+        [
+          35
+        ],
+        [
+          38
+        ],
+        [
+          39
+        ],
+        [
+          40
+        ]
+      ],
+      "mode": "reference",
+      "name": "ac-milan",
+      "pass": 2,
+      "production_writes": false,
+      "total_ms": 26299.805083,
+      "verdict": "cited reports do not connect Europa League with numerical fact 3",
+      "writing": {
+        "input_tokens": 6457,
+        "output_tokens": 204,
+        "production_writes": false,
+        "wall_ms": 26292.428957999997
+      }
+    },
+    {
+      "accepted": false,
+      "mode": "baseline",
+      "name": "ac-milan",
+      "pass": 2,
+      "production_writes": false,
+      "total_ms": 15439.085292,
+      "verdict": "named claim is absent from cited reports: Europa League",
+      "writing": {
+        "input_tokens": 5704,
+        "output_tokens": 188,
+        "production_writes": false,
+        "wall_ms": 15435.421666
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": false,
+      "grouping": {
+        "input_tokens": 2968,
+        "output_tokens": 120,
+        "production_writes": false,
+        "wall_ms": 12544.626750000001
+      },
+      "groups": [
+        [
+          1,
+          33
+        ],
+        [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40
+        ],
+        [
+          35
+        ]
+      ],
+      "mode": "automatic",
+      "name": "chicago-bears",
+      "pass": 2,
+      "production_writes": false,
+      "total_ms": 37473.818,
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "writing": {
+        "input_tokens": 5861,
+        "output_tokens": 219,
+        "production_writes": false,
+        "wall_ms": 24920.632167
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": false,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3,
+          12,
+          40
+        ],
+        [
+          4
+        ],
+        [
+          5
+        ],
+        [
+          6,
+          7,
+          8
+        ],
+        [
+          9
+        ],
+        [
+          10
+        ],
+        [
+          11
+        ],
+        [
+          13
+        ],
+        [
+          14,
+          17,
+          18,
+          19,
+          23
+        ],
+        [
+          15
+        ],
+        [
+          16
+        ],
+        [
+          20
+        ],
+        [
+          21
+        ],
+        [
+          22,
+          26,
+          38
+        ],
+        [
+          24
+        ],
+        [
+          25
+        ],
+        [
+          27
+        ],
+        [
+          28
+        ],
+        [
+          29
+        ],
+        [
+          30
+        ],
+        [
+          31
+        ],
+        [
+          32
+        ],
+        [
+          33
+        ],
+        [
+          34
+        ],
+        [
+          35
+        ],
+        [
+          36
+        ],
+        [
+          37
+        ],
+        [
+          39
+        ]
+      ],
+      "mode": "reference",
+      "name": "chicago-bears",
+      "pass": 2,
+      "production_writes": false,
+      "total_ms": 23687.632167,
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "writing": {
+        "input_tokens": 6326,
+        "output_tokens": 139,
+        "production_writes": false,
+        "wall_ms": 23678.147208
+      }
+    },
+    {
+      "accepted": false,
+      "mode": "baseline",
+      "name": "chicago-bears",
+      "pass": 2,
+      "production_writes": false,
+      "total_ms": 13249.552791999999,
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "writing": {
+        "input_tokens": 5575,
+        "output_tokens": 140,
+        "production_writes": false,
+        "wall_ms": 13240.970333
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": false,
+      "grouping": {
+        "input_tokens": 2975,
+        "output_tokens": 117,
+        "production_writes": false,
+        "wall_ms": 12381.782625
+      },
+      "groups": [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40
+        ]
+      ],
+      "mode": "automatic",
+      "name": "la-clippers",
+      "pass": 2,
+      "production_writes": false,
+      "total_ms": 33460.952917,
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "writing": {
+        "input_tokens": 5767,
+        "output_tokens": 122,
+        "production_writes": false,
+        "wall_ms": 21065.233542
+      }
+    },
+    {
+      "accepted": false,
+      "citations_within_assigned_topics": false,
+      "groups": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ],
+        [
+          4
+        ],
+        [
+          5
+        ],
+        [
+          6
+        ],
+        [
+          7
+        ],
+        [
+          8
+        ],
+        [
+          9
+        ],
+        [
+          10
+        ],
+        [
+          11
+        ],
+        [
+          12,
+          15
+        ],
+        [
+          13,
+          14
+        ],
+        [
+          16
+        ],
+        [
+          17
+        ],
+        [
+          18
+        ],
+        [
+          19,
+          20,
+          21,
+          26,
+          32
+        ],
+        [
+          22
+        ],
+        [
+          23
+        ],
+        [
+          24
+        ],
+        [
+          25
+        ],
+        [
+          27
+        ],
+        [
+          28
+        ],
+        [
+          29,
+          36
+        ],
+        [
+          30
+        ],
+        [
+          31
+        ],
+        [
+          33
+        ],
+        [
+          34
+        ],
+        [
+          35
+        ],
+        [
+          37
+        ],
+        [
+          38
+        ],
+        [
+          39
+        ],
+        [
+          40
+        ]
+      ],
+      "mode": "reference",
+      "name": "la-clippers",
+      "pass": 2,
+      "production_writes": false,
+      "total_ms": 22952.164833000003,
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "writing": {
+        "input_tokens": 6391,
+        "output_tokens": 120,
+        "production_writes": false,
+        "wall_ms": 22945.794292
+      }
+    },
+    {
+      "accepted": false,
+      "mode": "baseline",
+      "name": "la-clippers",
+      "pass": 2,
+      "production_writes": false,
+      "total_ms": 4482.212708,
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "writing": {
+        "input_tokens": 5582,
+        "output_tokens": 126,
+        "production_writes": false,
+        "wall_ms": 4477.662916
+      }
+    }
+  ],
+  "calls": [
+    {
+      "name": "ac-milan",
+      "pass": 1,
+      "stage": "baseline",
+      "input_tokens": 5704,
+      "output_tokens": 188,
+      "timings": {
+        "cache_n": 2797,
+        "prompt_n": 2907,
+        "prompt_ms": 8262.175,
+        "prompt_per_token_ms": 2.842165462676298,
+        "prompt_per_second": 351.8443993258434,
+        "predicted_n": 188,
+        "predicted_ms": 6670.1,
+        "predicted_per_token_ms": 35.668983957219254,
+        "predicted_per_second": 28.03556168573185
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "ac-milan",
+      "pass": 1,
+      "stage": "reference",
+      "input_tokens": 6457,
+      "output_tokens": 204,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 6456,
+        "prompt_ms": 17785.585,
+        "prompt_per_token_ms": 2.7548923482032217,
+        "prompt_per_second": 362.9905904135287,
+        "predicted_n": 204,
+        "predicted_ms": 7325.517,
+        "predicted_per_token_ms": 36.08629064039409,
+        "predicted_per_second": 27.711354707114868
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "ac-milan",
+      "pass": 1,
+      "stage": "grouper",
+      "input_tokens": 3097,
+      "output_tokens": 108,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 3096,
+        "prompt_ms": 8280.216,
+        "prompt_per_token_ms": 2.6744883720930233,
+        "prompt_per_second": 373.90328947940486,
+        "predicted_n": 108,
+        "predicted_ms": 3702.489,
+        "predicted_per_token_ms": 34.60270093457944,
+        "predicted_per_second": 28.899478161852745
+      },
+      "reserved_output": 1200
+    },
+    {
+      "name": "chicago-bears",
+      "pass": 1,
+      "stage": "baseline",
+      "input_tokens": 5575,
+      "output_tokens": 140,
+      "timings": {
+        "cache_n": 2797,
+        "prompt_n": 2778,
+        "prompt_ms": 7830.51,
+        "prompt_per_token_ms": 2.818758099352052,
+        "prompt_per_second": 354.76616465594196,
+        "predicted_n": 140,
+        "predicted_ms": 4953.237,
+        "predicted_per_token_ms": 35.63479856115108,
+        "predicted_per_second": 28.062456934727734
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "chicago-bears",
+      "pass": 1,
+      "stage": "reference",
+      "input_tokens": 6326,
+      "output_tokens": 139,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 6325,
+        "prompt_ms": 17410.763,
+        "prompt_per_token_ms": 2.7526898023715414,
+        "prompt_per_second": 363.2810348403456,
+        "predicted_n": 139,
+        "predicted_ms": 4935.581,
+        "predicted_per_token_ms": 35.76507971014493,
+        "predicted_per_second": 27.960234063628985
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "chicago-bears",
+      "pass": 1,
+      "stage": "grouper",
+      "input_tokens": 2968,
+      "output_tokens": 120,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 2967,
+        "prompt_ms": 8002.585,
+        "prompt_per_token_ms": 2.6971975058982136,
+        "prompt_per_second": 370.7551997260885,
+        "predicted_n": 120,
+        "predicted_ms": 4067.343,
+        "predicted_per_token_ms": 34.17935294117647,
+        "predicted_per_second": 29.25742923574432
+      },
+      "reserved_output": 1200
+    },
+    {
+      "name": "chicago-bears",
+      "pass": 1,
+      "stage": "automatic",
+      "input_tokens": 5861,
+      "output_tokens": 219,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 5860,
+        "prompt_ms": 16644.623,
+        "prompt_per_token_ms": 2.840379351535836,
+        "prompt_per_second": 352.06564906877134,
+        "predicted_n": 219,
+        "predicted_ms": 7779.887,
+        "predicted_per_token_ms": 35.687555045871555,
+        "predicted_per_second": 28.020972541117885
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "la-clippers",
+      "pass": 1,
+      "stage": "baseline",
+      "input_tokens": 5582,
+      "output_tokens": 126,
+      "timings": {
+        "cache_n": 2774,
+        "prompt_n": 2808,
+        "prompt_ms": 8280.227,
+        "prompt_per_token_ms": 2.9487987891737895,
+        "prompt_per_second": 339.12113762098545,
+        "predicted_n": 126,
+        "predicted_ms": 4447.05,
+        "predicted_per_token_ms": 35.5764,
+        "predicted_per_second": 28.10852137934136
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "la-clippers",
+      "pass": 1,
+      "stage": "reference",
+      "input_tokens": 6391,
+      "output_tokens": 120,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 6390,
+        "prompt_ms": 18641.876,
+        "prompt_per_token_ms": 2.9173514866979655,
+        "prompt_per_second": 342.77666046056737,
+        "predicted_n": 120,
+        "predicted_ms": 4275.42,
+        "predicted_per_token_ms": 35.927899159663866,
+        "predicted_per_second": 27.833522788404416
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "la-clippers",
+      "pass": 1,
+      "stage": "grouper",
+      "input_tokens": 2975,
+      "output_tokens": 117,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 2974,
+        "prompt_ms": 8397.927,
+        "prompt_per_token_ms": 2.8237817753866845,
+        "prompt_per_second": 354.1350145101285,
+        "predicted_n": 117,
+        "predicted_ms": 4002.231,
+        "predicted_per_token_ms": 34.50199137931035,
+        "predicted_per_second": 28.983834266437896
+      },
+      "reserved_output": 1200
+    },
+    {
+      "name": "la-clippers",
+      "pass": 1,
+      "stage": "automatic",
+      "input_tokens": 5767,
+      "output_tokens": 122,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 5766,
+        "prompt_ms": 16822.88,
+        "prompt_per_token_ms": 2.917599722511273,
+        "prompt_per_second": 342.7474962669887,
+        "predicted_n": 122,
+        "predicted_ms": 4314.407,
+        "predicted_per_token_ms": 35.65625619834711,
+        "predicted_per_second": 28.045569182508743
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "ac-milan",
+      "pass": 2,
+      "stage": "grouper",
+      "input_tokens": 3097,
+      "output_tokens": 108,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 3096,
+        "prompt_ms": 8797.93,
+        "prompt_per_token_ms": 2.8417086563307494,
+        "prompt_per_second": 351.9009585209248,
+        "predicted_n": 108,
+        "predicted_ms": 3695.108,
+        "predicted_per_token_ms": 34.53371962616823,
+        "predicted_per_second": 28.957205039744437
+      },
+      "reserved_output": 1200
+    },
+    {
+      "name": "ac-milan",
+      "pass": 2,
+      "stage": "reference",
+      "input_tokens": 6457,
+      "output_tokens": 204,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 6456,
+        "prompt_ms": 18921.045,
+        "prompt_per_token_ms": 2.9307690520446092,
+        "prompt_per_second": 341.20736988892526,
+        "predicted_n": 204,
+        "predicted_ms": 7342.347,
+        "predicted_per_token_ms": 36.16919704433497,
+        "predicted_per_second": 27.647835222170787
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "ac-milan",
+      "pass": 2,
+      "stage": "baseline",
+      "input_tokens": 5704,
+      "output_tokens": 188,
+      "timings": {
+        "cache_n": 2797,
+        "prompt_n": 2907,
+        "prompt_ms": 8733.481,
+        "prompt_per_token_ms": 3.0042934296525625,
+        "prompt_per_second": 332.85696734211706,
+        "predicted_n": 188,
+        "predicted_ms": 6673.638,
+        "predicted_per_token_ms": 35.68790374331551,
+        "predicted_per_second": 28.02069875531157
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "chicago-bears",
+      "pass": 2,
+      "stage": "grouper",
+      "input_tokens": 2968,
+      "output_tokens": 120,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 2967,
+        "prompt_ms": 8418.464,
+        "prompt_per_token_ms": 2.837365689248399,
+        "prompt_per_second": 352.4395899299445,
+        "predicted_n": 120,
+        "predicted_ms": 4106.758,
+        "predicted_per_token_ms": 34.510571428571424,
+        "predicted_per_second": 28.976628279533394
+      },
+      "reserved_output": 1200
+    },
+    {
+      "name": "chicago-bears",
+      "pass": 2,
+      "stage": "automatic",
+      "input_tokens": 5861,
+      "output_tokens": 219,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 5860,
+        "prompt_ms": 17056.596,
+        "prompt_per_token_ms": 2.910681911262799,
+        "prompt_per_second": 343.5621034818436,
+        "predicted_n": 219,
+        "predicted_ms": 7824.878,
+        "predicted_per_token_ms": 35.89393577981651,
+        "predicted_per_second": 27.859859284707063
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "chicago-bears",
+      "pass": 2,
+      "stage": "reference",
+      "input_tokens": 6326,
+      "output_tokens": 139,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 6325,
+        "prompt_ms": 18529.815,
+        "prompt_per_token_ms": 2.9296150197628457,
+        "prompt_per_second": 341.34177810194006,
+        "predicted_n": 139,
+        "predicted_ms": 5100.141,
+        "predicted_per_token_ms": 36.95754347826087,
+        "predicted_per_second": 27.058075453208062
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "chicago-bears",
+      "pass": 2,
+      "stage": "baseline",
+      "input_tokens": 5575,
+      "output_tokens": 140,
+      "timings": {
+        "cache_n": 2797,
+        "prompt_n": 2778,
+        "prompt_ms": 8320.136,
+        "prompt_per_token_ms": 2.99500935925126,
+        "prompt_per_second": 333.88877297198025,
+        "predicted_n": 140,
+        "predicted_ms": 4881.759,
+        "predicted_per_token_ms": 35.12056834532374,
+        "predicted_per_second": 28.473343317439472
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "la-clippers",
+      "pass": 2,
+      "stage": "grouper",
+      "input_tokens": 2975,
+      "output_tokens": 117,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 2974,
+        "prompt_ms": 8397.082,
+        "prompt_per_token_ms": 2.8234976462676533,
+        "prompt_per_second": 354.17065118573333,
+        "predicted_n": 117,
+        "predicted_ms": 3957.333,
+        "predicted_per_token_ms": 34.114939655172414,
+        "predicted_per_second": 29.31267093267107
+      },
+      "reserved_output": 1200
+    },
+    {
+      "name": "la-clippers",
+      "pass": 2,
+      "stage": "automatic",
+      "input_tokens": 5767,
+      "output_tokens": 122,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 5766,
+        "prompt_ms": 16755.731,
+        "prompt_per_token_ms": 2.905954040929587,
+        "prompt_per_second": 344.12106520449635,
+        "predicted_n": 122,
+        "predicted_ms": 4269.052,
+        "predicted_per_token_ms": 35.2814214876033,
+        "predicted_per_second": 28.343529195709028
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "la-clippers",
+      "pass": 2,
+      "stage": "reference",
+      "input_tokens": 6391,
+      "output_tokens": 120,
+      "timings": {
+        "cache_n": 1,
+        "prompt_n": 6390,
+        "prompt_ms": 18655.538,
+        "prompt_per_token_ms": 2.9194895148669797,
+        "prompt_per_second": 342.5256350151896,
+        "predicted_n": 120,
+        "predicted_ms": 4257.406,
+        "predicted_per_token_ms": 35.776521008403364,
+        "predicted_per_second": 27.951292406690833
+      },
+      "reserved_output": 2100
+    },
+    {
+      "name": "la-clippers",
+      "pass": 2,
+      "stage": "baseline",
+      "input_tokens": 5582,
+      "output_tokens": 126,
+      "timings": {
+        "cache_n": 5578,
+        "prompt_n": 4,
+        "prompt_ms": 59.656,
+        "prompt_per_token_ms": 14.914,
+        "prompt_per_second": 67.05109293281481,
+        "predicted_n": 126,
+        "predicted_ms": 4384.706,
+        "predicted_per_token_ms": 35.077648,
+        "predicted_per_second": 28.50818276071417
+      },
+      "reserved_output": 2100
+    }
+  ],
+  "automatic_completed_median_ms": 35083.633875,
+  "automatic_grouping_median_ms": 12400.411042,
+  "automatic_total_ms_includes_failed_paths": true,
+  "manual_reference_cost_excludes_human_grouping": true
+}

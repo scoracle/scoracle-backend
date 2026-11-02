@@ -1,0 +1,855 @@
+{
+  "runs": 24,
+  "parser_and_expect_accepted": 4,
+  "all_receipts_complete": true,
+  "repeats": [
+    {
+      "subject": "ac-milan",
+      "report_count": 1,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "ac-milan",
+      "report_count": 4,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "ac-milan",
+      "report_count": 12,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "ac-milan",
+      "report_count": 40,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "chicago-bears",
+      "report_count": 40,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "chicago-bears",
+      "report_count": 12,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "chicago-bears",
+      "report_count": 4,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "chicago-bears",
+      "report_count": 1,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "la-clippers",
+      "report_count": 1,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "la-clippers",
+      "report_count": 4,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "la-clippers",
+      "report_count": 12,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    },
+    {
+      "subject": "la-clippers",
+      "report_count": 40,
+      "identical_requests": true,
+      "identical_parsed_output": true
+    }
+  ],
+  "by_size": [
+    {
+      "report_count": 1,
+      "runs": 6,
+      "parser_and_expect_accepted": 2,
+      "anchor_cited_first": 6,
+      "wall_ms_median": 2779.5,
+      "wall_ms_range": [
+        1790,
+        3342
+      ],
+      "input_tokens_range": [
+        3099,
+        3113
+      ],
+      "output_tokens_range": [
+        46,
+        56
+      ]
+    },
+    {
+      "report_count": 4,
+      "runs": 6,
+      "parser_and_expect_accepted": 2,
+      "anchor_cited_first": 6,
+      "wall_ms_median": 6377.5,
+      "wall_ms_range": [
+        5542,
+        7354
+      ],
+      "input_tokens_range": [
+        3281,
+        3313
+      ],
+      "output_tokens_range": [
+        131,
+        158
+      ]
+    },
+    {
+      "report_count": 12,
+      "runs": 6,
+      "parser_and_expect_accepted": 0,
+      "anchor_cited_first": 6,
+      "wall_ms_median": 8089.0,
+      "wall_ms_range": [
+        6558,
+        8458
+      ],
+      "input_tokens_range": [
+        3778,
+        3863
+      ],
+      "output_tokens_range": [
+        148,
+        151
+      ]
+    },
+    {
+      "report_count": 40,
+      "runs": 6,
+      "parser_and_expect_accepted": 0,
+      "anchor_cited_first": 4,
+      "wall_ms_median": 11190.0,
+      "wall_ms_range": [
+        4464,
+        13261
+      ],
+      "input_tokens_range": [
+        5575,
+        5704
+      ],
+      "output_tokens_range": [
+        126,
+        188
+      ]
+    }
+  ],
+  "records": [
+    {
+      "accepted": true,
+      "input_tokens": 3113,
+      "name": "ac-milan-01-pass-1",
+      "output_tokens": 56,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "LiveScore reports that AC Milan and Arsenal have made a move for Tresoldi, with a valuation of 60 million as early as January.",
+      "wall_ms": 3342,
+      "subject": "AC Milan",
+      "report_count": 1,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 1,
+      "reserved_output": 900,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2660,
+        "prompt_n": 453,
+        "prompt_ms": 1395.056,
+        "prompt_per_token_ms": 3.0795938189845478,
+        "prompt_per_second": 324.7181475152252,
+        "predicted_n": 56,
+        "predicted_ms": 1890.18,
+        "predicted_per_token_ms": 34.36690909090909,
+        "predicted_per_second": 29.097757885492385
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 3313,
+      "name": "ac-milan-04-pass-1",
+      "output_tokens": 149,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "LiveScore reports that AC Milan and Arsenal have made a move for Tresoldi, with a valuation of 60 million as early as January.\n\nLiveScore reports that Pavlovic insists Milan are on the right track even if too many mistakes were made.\n\nFOX 44 reports that Bournemouth beat 10-man Milan in the Europa League after the goalkeeper was sent off, while Juventus were held to a draw.",
+      "wall_ms": 6966,
+      "subject": "AC Milan",
+      "report_count": 4,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2660,
+        "prompt_n": 653,
+        "prompt_ms": 1866.536,
+        "prompt_per_token_ms": 2.8584012251148545,
+        "prompt_per_second": 349.8459177856736,
+        "predicted_n": 149,
+        "predicted_ms": 5067.501,
+        "predicted_per_token_ms": 34.239871621621624,
+        "predicted_per_second": 29.205716979631575
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3863,
+      "name": "ac-milan-12-pass-1",
+      "output_tokens": 148,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Europa League",
+      "wall_ms": 8136,
+      "subject": "AC Milan",
+      "report_count": 12,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2797,
+        "prompt_n": 1066,
+        "prompt_ms": 3020.327,
+        "prompt_per_token_ms": 2.8333273921200752,
+        "prompt_per_second": 352.9419165540684,
+        "predicted_n": 148,
+        "predicted_ms": 5081.596,
+        "predicted_per_token_ms": 34.56868027210884,
+        "predicted_per_second": 28.9279194961583
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5704,
+      "name": "ac-milan-40-pass-1",
+      "output_tokens": 188,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Europa League",
+      "wall_ms": 13261,
+      "subject": "AC Milan",
+      "report_count": 40,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 3347,
+        "prompt_n": 2357,
+        "prompt_ms": 6673.534,
+        "prompt_per_token_ms": 2.8313678404751803,
+        "prompt_per_second": 353.18618291298134,
+        "predicted_n": 188,
+        "predicted_ms": 6551.898,
+        "predicted_per_token_ms": 35.03688770053476,
+        "predicted_per_second": 28.541347865916105
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5704,
+      "name": "ac-milan-40-pass-2",
+      "output_tokens": 188,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Europa League",
+      "wall_ms": 6640,
+      "subject": "AC Milan",
+      "report_count": 40,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 5700,
+        "prompt_n": 4,
+        "prompt_ms": 50.526,
+        "prompt_per_token_ms": 12.6315,
+        "prompt_per_second": 79.16716146142579,
+        "predicted_n": 188,
+        "predicted_ms": 6553.041,
+        "predicted_per_token_ms": 35.043,
+        "predicted_per_second": 28.5363696030591
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3863,
+      "name": "ac-milan-12-pass-2",
+      "output_tokens": 148,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Europa League",
+      "wall_ms": 6558,
+      "subject": "AC Milan",
+      "report_count": 12,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 3347,
+        "prompt_n": 516,
+        "prompt_ms": 1456.935,
+        "prompt_per_token_ms": 2.823517441860465,
+        "prompt_per_second": 354.1681681063328,
+        "predicted_n": 148,
+        "predicted_ms": 5072.96,
+        "predicted_per_token_ms": 34.50993197278912,
+        "predicted_per_second": 28.977165205323914
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 3313,
+      "name": "ac-milan-04-pass-2",
+      "output_tokens": 149,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "LiveScore reports that AC Milan and Arsenal have made a move for Tresoldi, with a valuation of 60 million as early as January.\n\nLiveScore reports that Pavlovic insists Milan are on the right track even if too many mistakes were made.\n\nFOX 44 reports that Bournemouth beat 10-man Milan in the Europa League after the goalkeeper was sent off, while Juventus were held to a draw.",
+      "wall_ms": 6499,
+      "subject": "AC Milan",
+      "report_count": 4,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2797,
+        "prompt_n": 516,
+        "prompt_ms": 1439.969,
+        "prompt_per_token_ms": 2.790637596899225,
+        "prompt_per_second": 358.3410476197751,
+        "predicted_n": 149,
+        "predicted_ms": 5028.042,
+        "predicted_per_token_ms": 33.97325675675676,
+        "predicted_per_second": 29.43491721031765
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 3113,
+      "name": "ac-milan-01-pass-2",
+      "output_tokens": 56,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "LiveScore reports that AC Milan and Arsenal have made a move for Tresoldi, with a valuation of 60 million as early as January.",
+      "wall_ms": 2819,
+      "subject": "AC Milan",
+      "report_count": 1,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 1,
+      "reserved_output": 900,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2797,
+        "prompt_n": 316,
+        "prompt_ms": 918.14,
+        "prompt_per_token_ms": 2.905506329113924,
+        "prompt_per_second": 344.17409109721825,
+        "predicted_n": 56,
+        "predicted_ms": 1874.434,
+        "predicted_per_token_ms": 34.08061818181818,
+        "predicted_per_second": 29.342190762651555
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5575,
+      "name": "chicago-bears-40-pass-1",
+      "output_tokens": 140,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 13135,
+      "subject": "Chicago Bears",
+      "report_count": 40,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2658,
+        "prompt_n": 2917,
+        "prompt_ms": 8221.824,
+        "prompt_per_token_ms": 2.8185889612615704,
+        "prompt_per_second": 354.78745348963923,
+        "predicted_n": 140,
+        "predicted_ms": 4885.679,
+        "predicted_per_token_ms": 35.148769784172664,
+        "predicted_per_second": 28.450497873478795
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3815,
+      "name": "chicago-bears-12-pass-1",
+      "output_tokens": 150,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 8458,
+      "subject": "Chicago Bears",
+      "report_count": 12,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2658,
+        "prompt_n": 1157,
+        "prompt_ms": 3273.702,
+        "prompt_per_token_ms": 2.829474503025065,
+        "prompt_per_second": 353.4225167715326,
+        "predicted_n": 150,
+        "predicted_ms": 5164.425,
+        "predicted_per_token_ms": 34.66057046979866,
+        "predicted_per_second": 28.851227387366453
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3281,
+      "name": "chicago-bears-04-pass-1",
+      "output_tokens": 131,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 6256,
+      "subject": "Chicago Bears",
+      "report_count": 4,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2658,
+        "prompt_n": 623,
+        "prompt_ms": 1786.284,
+        "prompt_per_token_ms": 2.8672295345104337,
+        "prompt_per_second": 348.7687288247557,
+        "predicted_n": 131,
+        "predicted_ms": 4435.817,
+        "predicted_per_token_ms": 34.12166923076923,
+        "predicted_per_second": 29.306889801811028
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3107,
+      "name": "chicago-bears-01-pass-1",
+      "output_tokens": 51,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 2740,
+      "subject": "Chicago Bears",
+      "report_count": 1,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 1,
+      "reserved_output": 900,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2765,
+        "prompt_n": 342,
+        "prompt_ms": 1004.178,
+        "prompt_per_token_ms": 2.93619298245614,
+        "prompt_per_second": 340.5770690056942,
+        "predicted_n": 51,
+        "predicted_ms": 1706.557,
+        "predicted_per_token_ms": 34.13114,
+        "predicted_per_second": 29.298757674077102
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3107,
+      "name": "chicago-bears-01-pass-2",
+      "output_tokens": 51,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 1790,
+      "subject": "Chicago Bears",
+      "report_count": 1,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 1,
+      "reserved_output": 900,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 3103,
+        "prompt_n": 4,
+        "prompt_ms": 47.388,
+        "prompt_per_token_ms": 11.847,
+        "prompt_per_second": 84.4095551616443,
+        "predicted_n": 51,
+        "predicted_ms": 1713.466,
+        "predicted_per_token_ms": 34.26932,
+        "predicted_per_second": 29.180619866399454
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3281,
+      "name": "chicago-bears-04-pass-2",
+      "output_tokens": 131,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 5916,
+      "subject": "Chicago Bears",
+      "report_count": 4,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2765,
+        "prompt_n": 516,
+        "prompt_ms": 1438.392,
+        "prompt_per_token_ms": 2.7875813953488375,
+        "prompt_per_second": 358.73391954349023,
+        "predicted_n": 131,
+        "predicted_ms": 4447.128,
+        "predicted_per_token_ms": 34.20867692307692,
+        "predicted_per_second": 29.232349507367452
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3815,
+      "name": "chicago-bears-12-pass-2",
+      "output_tokens": 150,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 8123,
+      "subject": "Chicago Bears",
+      "report_count": 12,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2765,
+        "prompt_n": 1050,
+        "prompt_ms": 2942.523,
+        "prompt_per_token_ms": 2.8024028571428574,
+        "prompt_per_second": 356.83663305265577,
+        "predicted_n": 150,
+        "predicted_ms": 5150.28,
+        "predicted_per_token_ms": 34.56563758389262,
+        "predicted_per_second": 28.930465916416196
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5575,
+      "name": "chicago-bears-40-pass-2",
+      "output_tokens": 140,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 11307,
+      "subject": "Chicago Bears",
+      "report_count": 40,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 3299,
+        "prompt_n": 2276,
+        "prompt_ms": 6401.195,
+        "prompt_per_token_ms": 2.812475834797891,
+        "prompt_per_second": 355.5586105406881,
+        "predicted_n": 140,
+        "predicted_ms": 4872.128,
+        "predicted_per_token_ms": 35.051280575539565,
+        "predicted_per_second": 28.52962812142867
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3099,
+      "name": "la-clippers-01-pass-1",
+      "output_tokens": 46,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 3004,
+      "subject": "LA Clippers",
+      "report_count": 1,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 1,
+      "reserved_output": 900,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2604,
+        "prompt_n": 495,
+        "prompt_ms": 1441.779,
+        "prompt_per_token_ms": 2.9126848484848487,
+        "prompt_per_second": 343.3258495234013,
+        "predicted_n": 46,
+        "predicted_ms": 1537.163,
+        "predicted_per_token_ms": 34.15917777777778,
+        "predicted_per_second": 29.274709318400195
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3290,
+      "name": "la-clippers-04-pass-1",
+      "output_tokens": 158,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 7354,
+      "subject": "LA Clippers",
+      "report_count": 4,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2604,
+        "prompt_n": 686,
+        "prompt_ms": 1955.657,
+        "prompt_per_token_ms": 2.8508119533527694,
+        "prompt_per_second": 350.7772579751971,
+        "predicted_n": 158,
+        "predicted_ms": 5366.655,
+        "predicted_per_token_ms": 34.182515923566875,
+        "predicted_per_second": 29.25472198231487
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3778,
+      "name": "la-clippers-12-pass-1",
+      "output_tokens": 151,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 8055,
+      "subject": "LA Clippers",
+      "report_count": 12,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2774,
+        "prompt_n": 1004,
+        "prompt_ms": 2837.732,
+        "prompt_per_token_ms": 2.8264262948207173,
+        "prompt_per_second": 353.8036713826394,
+        "predicted_n": 151,
+        "predicted_ms": 5186.227,
+        "predicted_per_token_ms": 34.574846666666666,
+        "predicted_per_second": 28.922760226268537
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5582,
+      "name": "la-clippers-40-pass-1",
+      "output_tokens": 126,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 11073,
+      "subject": "LA Clippers",
+      "report_count": 40,
+      "anchor_cited_in_entries": [
+        1
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 3262,
+        "prompt_n": 2320,
+        "prompt_ms": 6654.394,
+        "prompt_per_token_ms": 2.868273275862069,
+        "prompt_per_second": 348.64181471671196,
+        "predicted_n": 126,
+        "predicted_ms": 4385.817,
+        "predicted_per_token_ms": 35.086536,
+        "predicted_per_second": 28.500961166414378
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5582,
+      "name": "la-clippers-40-pass-2",
+      "output_tokens": 126,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 4464,
+      "subject": "LA Clippers",
+      "report_count": 40,
+      "anchor_cited_in_entries": [
+        1
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 5578,
+        "prompt_n": 4,
+        "prompt_ms": 49.204,
+        "prompt_per_token_ms": 12.301,
+        "prompt_per_second": 81.29420372327453,
+        "predicted_n": 126,
+        "predicted_ms": 4382.142,
+        "predicted_per_token_ms": 35.057136,
+        "predicted_per_second": 28.52486295514842
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3778,
+      "name": "la-clippers-12-pass-2",
+      "output_tokens": 151,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 6658,
+      "subject": "LA Clippers",
+      "report_count": 12,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 3262,
+        "prompt_n": 516,
+        "prompt_ms": 1453.736,
+        "prompt_per_token_ms": 2.8173178294573646,
+        "prompt_per_second": 354.94752829949863,
+        "predicted_n": 151,
+        "predicted_ms": 5176.229,
+        "predicted_per_token_ms": 34.50819333333334,
+        "predicted_per_second": 28.978625172881646
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3290,
+      "name": "la-clippers-04-pass-2",
+      "output_tokens": 158,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 5542,
+      "subject": "LA Clippers",
+      "report_count": 4,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 3,
+      "reserved_output": 2100,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 3262,
+        "prompt_n": 28,
+        "prompt_ms": 146.722,
+        "prompt_per_token_ms": 5.2400714285714285,
+        "prompt_per_second": 190.83709327844494,
+        "predicted_n": 158,
+        "predicted_ms": 5363.363,
+        "predicted_per_token_ms": 34.161547770700636,
+        "predicted_per_second": 29.272678354979888
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3099,
+      "name": "la-clippers-01-pass-2",
+      "output_tokens": 46,
+      "production_writes": false,
+      "variant": "json-body-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 2574,
+      "subject": "LA Clippers",
+      "report_count": 1,
+      "anchor_cited_in_entries": [
+        0
+      ],
+      "entry_count": 1,
+      "reserved_output": 900,
+      "full_input_evaluated_and_eos": true,
+      "native_timings": {
+        "cache_n": 2774,
+        "prompt_n": 325,
+        "prompt_ms": 994.83,
+        "prompt_per_token_ms": 3.0610153846153847,
+        "prompt_per_second": 326.68898203713195,
+        "predicted_n": 46,
+        "predicted_ms": 1547.656,
+        "predicted_per_token_ms": 34.392355555555554,
+        "predicted_per_second": 29.076228826044034
+      }
+    }
+  ]
+}

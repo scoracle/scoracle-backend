@@ -1,0 +1,412 @@
+{
+  "reviewer": "Codex manual source-by-source review, not blinded or independently adjudicated",
+  "scope": "All29 preparations and16 actual writer responses; two automatic packets blocked before writing. Reference notes are manually reviewed diagnostics, not verified gold. Underlying news is not independently verified.",
+  "source_reviews": [
+    {
+      "article_id": 1276620,
+      "assessment": "faithful",
+      "findings": [
+        "Preserves both clubs, Tresoldi, an uninterpreted figure and January timing; no valuation or currency added."
+      ],
+      "output": "development-preparation/1276620/output.json"
+    },
+    {
+      "article_id": 1424030,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Main claim faithful. Unspecified list is verbose and partly redundant about identity/timing; source already supplies Maignan and after ordering."
+      ],
+      "output": "development-preparation/1424030/output.json"
+    },
+    {
+      "article_id": 1426503,
+      "assessment": "unfaithful",
+      "findings": [
+        "Invents by Milan as a qualification of Juventus being held to a draw. Exact-span validation rejects it."
+      ],
+      "output": "development-preparation/1426503/output.json"
+    },
+    {
+      "article_id": 1414585,
+      "assessment": "unfaithful",
+      "findings": [
+        "Main result claims preserved, but the unspecified list says Juventus outcome is unknown despite the explicit draw. Adds a redundant listing statement."
+      ],
+      "output": "development-preparation/1414585/output.json"
+    },
+    {
+      "article_id": 1415284,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Result/red-card claims stay within headline. Unspecified descriptions are verbose/redundant, and the claim is unnecessarily fragmented."
+      ],
+      "output": "development-preparation/1415284/output.json"
+    },
+    {
+      "article_id": 1394917,
+      "assessment": "unfaithful",
+      "findings": [
+        "Main missed-substitution claim correct. Unspecified fields ask who made the substitution and what substitution was made, presupposing an action the headline says was forgotten."
+      ],
+      "output": "development-preparation/1394917/output.json"
+    },
+    {
+      "article_id": 1374081,
+      "assessment": "faithful",
+      "findings": [
+        "Preserves early lead and leaves completion/final result unknown."
+      ],
+      "output": "development-preparation/1374081/output.json"
+    },
+    {
+      "article_id": 1363845,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Main supplied results preserved, but adds a spurious listing statement for an event-report headline."
+      ],
+      "output": "development-preparation/1363845/output.json"
+    },
+    {
+      "article_id": 1425437,
+      "assessment": "unfaithful",
+      "findings": [
+        "Splits Pavlovic opinion into separate Milan opinions, losing explicit speaker ownership in secondary statements; alters curly quotation marks in copied qualifications and is rejected."
+      ],
+      "output": "development-preparation/1425437/output.json"
+    },
+    {
+      "article_id": 1341401,
+      "assessment": "faithful",
+      "findings": [
+        "Conditional trade assessment is attributed to the headline, not Donte Jackson. Actor phrase is A Donte Jackson trade; no personal opinion invented here."
+      ],
+      "output": "development-preparation/1341401/output.json"
+    },
+    {
+      "article_id": 1352005,
+      "assessment": "faithful",
+      "findings": [
+        "Preserves live-show listing and does not assert game completion."
+      ],
+      "output": "development-preparation/1352005/output.json"
+    },
+    {
+      "article_id": 1432888,
+      "assessment": "faithful",
+      "findings": [
+        "Preserves Bears announcement and unspecified tribute details."
+      ],
+      "output": "development-preparation/1432888/output.json"
+    },
+    {
+      "article_id": 1412576,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Keeps how question; missing-details list includes irrelevant who the Bears are."
+      ],
+      "output": "development-preparation/1412576/output.json"
+    },
+    {
+      "article_id": 1262232,
+      "assessment": "clarity_concern",
+      "findings": [
+        "States the presupposed honoring but drops the how discussion framing and labels it assertion."
+      ],
+      "output": "development-preparation/1262232/output.json"
+    },
+    {
+      "article_id": 1289440,
+      "assessment": "unfaithful",
+      "findings": [
+        "Absence claim faithful, but unspecified list presupposes an injury absent from the headline."
+      ],
+      "output": "development-preparation/1289440/output.json"
+    },
+    {
+      "article_id": 1429100,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Keeps fixture/date and unknown result, but changes a game page into a game-summary page."
+      ],
+      "output": "development-preparation/1429100/output.json"
+    },
+    {
+      "article_id": 1398531,
+      "assessment": "faithful",
+      "findings": [
+        "Game-summary page remains a listing with unknown completion/result."
+      ],
+      "output": "development-preparation/1398531/output.json"
+    },
+    {
+      "article_id": 1325124,
+      "assessment": "unfaithful",
+      "findings": [
+        "Support claim faithful, but lists boycott reasons as unknown despite excessive prices being supplied; also invents an unnecessary listing entry."
+      ],
+      "output": "development-preparation/1325124/output.json"
+    },
+    {
+      "article_id": 1208973,
+      "assessment": "faithful",
+      "findings": [
+        "Boycott support and retaliation warning preserved in source-local statements."
+      ],
+      "output": "development-preparation/1208973/output.json"
+    },
+    {
+      "article_id": 1189629,
+      "assessment": "unfaithful",
+      "findings": [
+        "Claims retain possible January return and two factors, but actor field misspells Athekame as Athekeame. Span guard rejects it."
+      ],
+      "output": "development-preparation/1189629/output.json"
+    },
+    {
+      "article_id": 1189646,
+      "assessment": "unfaithful",
+      "findings": [
+        "One claim turns a recall question into affirmative is to recall, alongside another question claim. Copied quotation marks change and the span guard rejects it."
+      ],
+      "output": "development-preparation/1189646/output.json"
+    },
+    {
+      "article_id": 1115631,
+      "assessment": "faithful",
+      "findings": [
+        "Keeps eagerness for a contract without inventing negotiations or agreement."
+      ],
+      "output": "development-preparation/1115631/output.json"
+    },
+    {
+      "article_id": 1410388,
+      "assessment": "faithful",
+      "findings": [
+        "Good-to-go status and despite-illness qualification preserved."
+      ],
+      "output": "development-preparation/1410388/output.json"
+    },
+    {
+      "article_id": 1410389,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Main unspecified streak claim preserved. Adds spurious listings about a game and a streak being bonkers, and an unhelpful unknown-holder entry."
+      ],
+      "output": "development-preparation/1410389/output.json"
+    },
+    {
+      "article_id": 1330977,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Possible move preserved; explanatory headline is treated as a listing rather than a discussion."
+      ],
+      "output": "development-preparation/1330977/output.json"
+    },
+    {
+      "article_id": 1260557,
+      "assessment": "faithful",
+      "findings": [
+        "Debut and source judgment brutal preserved without extra performance detail."
+      ],
+      "output": "development-preparation/1260557/output.json"
+    },
+    {
+      "article_id": 1338223,
+      "assessment": "faithful",
+      "findings": [
+        "Struggles preserved; actor-plus-opinion structure is ambiguous about opinion ownership even though the claim itself does not assign a view to Murray."
+      ],
+      "output": "development-preparation/1338223/output.json"
+    },
+    {
+      "article_id": 1221840,
+      "assessment": "clarity_concern",
+      "findings": [
+        "Preserves parking, jerseys and opening night, but how-to coverage is classified as a listing."
+      ],
+      "output": "development-preparation/1221840/output.json"
+    },
+    {
+      "article_id": 1192912,
+      "assessment": "faithful",
+      "findings": [
+        "New-season jersey swap and free parking preserved without importing opening night."
+      ],
+      "output": "development-preparation/1192912/output.json"
+    }
+  ],
+  "writer_reviews": [
+    {
+      "arm": "control",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Drops match/Pavlovic topics and invents valuation."
+      ],
+      "output": "development-control/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "chicago-bears-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Drops live-show and Ditka topics; retained trade remains conditional."
+      ],
+      "output": "development-control/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "la-clippers-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges all topics into one; raw absence/listing claims largely faithful."
+      ],
+      "output": "development-control/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Drops two factors, changes unlikely early exit into likelihood of an early exit, and labels eagerness as seeks contract."
+      ],
+      "output": "development-control/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Changes set to snap a streak into Vrabel plan, adding intent. Other subjects retained."
+      ],
+      "output": "development-control/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "la-clippers-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges performance topics, drops parking; title reverses source perspective into challenges faced by Clippers."
+      ],
+      "output": "development-control/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges topics; fixes unexplained figure and speaker in clauses, but title adds tactical specificity."
+      ],
+      "output": "development-reference/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "chicago-bears-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges topics and invents Donte Jackson opinion: actor field conflates subject with opinion holder. Reference claim text did not say Jackson expressed it."
+      ],
+      "output": "development-reference/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "la-clippers-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges all three otherwise faithful source accounts."
+      ],
+      "output": "development-reference/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Preserves publishers and unlikely exit but drops two factors; body recall phrasing loses question while title is cautious."
+      ],
+      "output": "development-reference/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges all three topics; raw statements preserve unspecified streak and other facts."
+      ],
+      "output": "development-reference/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "la-clippers-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges all three topics; raw source claims mostly faithful."
+      ],
+      "output": "development-reference/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges topics; trade clause is also ungrammatical after discusses. No personal Donte opinion assigned."
+      ],
+      "output": "development-automatic/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges topics and inherits game-summary-page wording from prepared notes for the Magic page."
+      ],
+      "output": "development-automatic/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges topics and inherits the preparer spurious game-listing frame; streak itself remains unspecified."
+      ],
+      "output": "development-automatic/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges performance topics and fan topic; Keegan Murray struggles mightily noun phrase is ungrammatical, and title can imply both performances belong to Clippers players."
+      ],
+      "output": "development-automatic/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "ac-milan-known",
+      "assessment": "blocked_by_invalid_preparation",
+      "findings": [
+        "[1426503, 1425437]"
+      ],
+      "writer_called": false
+    },
+    {
+      "arm": "automatic",
+      "name": "ac-milan-reserved",
+      "assessment": "blocked_by_invalid_preparation",
+      "findings": [
+        "[1189629, 1189646]"
+      ],
+      "writer_called": false
+    }
+  ],
+  "selection": {
+    "qualifies_for_followup": false,
+    "clearly_faithful_packets": {
+      "control": 0,
+      "reference": 0,
+      "automatic": 0
+    },
+    "automatic_packets_blocked": 2,
+    "reason": "Raw/reference writers largely collapse topics; source-only preparation has four exact-span failures and semantic errors even when spans pass. No new-subject validation justified."
+  }
+}

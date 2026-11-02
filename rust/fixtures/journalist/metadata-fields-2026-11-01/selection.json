@@ -1,0 +1,19 @@
+{
+  "selected": null,
+  "qualifies_for_followup": false,
+  "counts": {
+    "reused_control": {
+      "faithful": 4,
+      "unfaithful": 2
+    },
+    "typed-source-first": {
+      "faithful": 3,
+      "unfaithful": 3
+    },
+    "typed-context-first": {
+      "faithful": 3,
+      "unfaithful": 3
+    }
+  },
+  "reason": "Typed source-first creates Filippo Pavlovic; typed context-first preserves Pavlovic but loses qualifications and invents a Thanksgiving streak. Both regress from four to three clearly faithful packets. No follow-up or new-subject inference justified. Diagnostic interventions are not candidate quality scores."
+}

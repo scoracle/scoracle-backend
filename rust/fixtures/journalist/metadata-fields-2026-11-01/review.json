@@ -1,0 +1,184 @@
+{
+  "reviewer": "Codex manual source-by-source review; not blinded or independently adjudicated",
+  "scope": "Twelve real-data typed-record outputs plus three deliberately altered metadata diagnostics. All original source evidence is unchanged. No claim of independent real-world news or metadata verification.",
+  "reviews": [
+    {
+      "arm": "typed-source-first",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Filippo Pavlovic combines an unsupported first name matching metadata with the source surname. The title alone preserves Pavlovic.",
+        "Still invents valuation; match statement stays with report_2."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-source-first/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-source-first",
+      "name": "chicago-bears-known",
+      "assessment": "faithful",
+      "findings": [
+        "Conditional trade, Live Show in body/title, and Ditka honor plan preserved."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-source-first/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-source-first",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and dated page listings preserved without inventing game completion."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-source-first/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-source-first",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Both required factors and unlikely early-exit qualification preserved.",
+        "Title injury questions falsely groups Athekame with Chukwueze.",
+        "ESPN/FOX statement ownership and Rabiot interest preserved."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-source-first/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-source-first",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Adds unsupported coach role; otherwise leaves streak type unspecified.",
+        "Illness availability and possible venue move preserved."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-source-first/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-source-first",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and Yahoo-only opening-night details preserved."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-source-first/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-context-first",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Pavlovic is preserved.",
+        "Still interprets 60 million as a value. report_7 imports 10-man, Europa League and goalkeeper details absent from that cited headline."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-context-first/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-context-first",
+      "name": "chicago-bears-known",
+      "assessment": "faithful",
+      "findings": [
+        "Conditional trade, Live Show in body/title, and Ditka honor plan preserved."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-context-first/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-context-first",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and dated page listings preserved without inventing game completion."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-context-first/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-context-first",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Two-factors-needed condition omitted; title lay-off questions falsely groups both people.",
+        "Unlikely early-exit qualification survives.",
+        "ESPN/FOX statement ownership and Rabiot interest preserved."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-context-first/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-context-first",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Invents a streak of playing in the Thanksgiving game; title repeats Thanksgiving. Adds unsupported coach role.",
+        "Illness availability and possible venue move preserved."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-context-first/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "typed-context-first",
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and Yahoo-only opening-night details preserved."
+      ],
+      "naturalness": "Readable but mechanical; title/role defects recorded separately.",
+      "output": "development--typed-context-first/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "counterfactual",
+      "name": "coach-a",
+      "assessment": "diagnostic_only",
+      "findings": [
+        "Maren Vale is not copied. Pavlovic is the speaker in the clause, but coach comments title still adds a role absent from the source.",
+        "Valuation remains invented. report_7 imports goalkeeper role from elsewhere."
+      ],
+      "output": "diagnostic--counterfactual/coach-a-statements-source-first/output.json"
+    },
+    {
+      "arm": "counterfactual",
+      "name": "coach-b",
+      "assessment": "diagnostic_only",
+      "findings": [
+        "Tomas Reed is not copied. Pavlovic is preserved in body and title.",
+        "Valuation remains invented. Match statement stays with report_2."
+      ],
+      "output": "diagnostic--counterfactual/coach-b-statements-source-first/output.json"
+    },
+    {
+      "arm": "counterfactual",
+      "name": "identity-only",
+      "assessment": "diagnostic_only",
+      "findings": [
+        "Removing database_record restores Pavlovic, but the title tactical assessment adds a specificity not supplied.",
+        "Valuation remains invented. report_7 imports Europa League and goalkeeper details despite no background record."
+      ],
+      "output": "diagnostic--counterfactual/identity-only-statements-source-first/output.json"
+    }
+  ],
+  "selection": {
+    "selected": null,
+    "qualifies_for_followup": false,
+    "counts": {
+      "reused_control": {
+        "faithful": 4,
+        "unfaithful": 2
+      },
+      "typed-source-first": {
+        "faithful": 3,
+        "unfaithful": 3
+      },
+      "typed-context-first": {
+        "faithful": 3,
+        "unfaithful": 3
+      }
+    },
+    "reason": "Typed source-first creates Filippo Pavlovic; typed context-first preserves Pavlovic but loses qualifications and invents a Thanksgiving streak. Both regress from four to three clearly faithful packets. No follow-up or new-subject inference justified. Diagnostic interventions are not candidate quality scores."
+  },
+  "causal_limit": "Changing only coach-name content changes the speaker outcome for this fixed prompt and evidence. Neither counterfactual name is copied, so the results do not support a general always-copy-the-coach rule. Removing the record does not resolve valuation or source-ownership failures."
+}

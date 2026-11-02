@@ -1,0 +1,47 @@
+{
+  "name": "conflicting-sources-no-majority-before",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n115-evidence-boundary",
+  "user_prompt": "{\"meta\":{\"name\":\"Morgan Hale\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":null},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Arena Desk\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Morgan Hale has agreed to join Bay Owls, an unnamed source told Arena Desk. The club has not commented.\",\"evidence_scope\":\"publisher_excerpt\"},{\"report_key\":\"report_2\",\"publisher\":\"Club Ledger\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Bay Owls deny an agreement with Morgan Hale.\",\"evidence_scope\":\"publisher_excerpt\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "reports": [
+      {
+        "context": "Morgan Hale has agreed to join Bay Owls, an unnamed source told Arena Desk. The club has not commented.",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "Arena Desk",
+        "title": "Morgan Hale has agreed to join Bay Owls, an unnamed source told Arena Desk. The club has not commented."
+      },
+      {
+        "context": "Bay Owls deny an agreement with Morgan Hale.",
+        "id": 2,
+        "published_at_epoch": 1790463600,
+        "source": "Club Ledger",
+        "title": "Bay Owls deny an agreement with Morgan Hale."
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "player",
+      "name": "Morgan Hale",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "narratives_empty": false,
+    "body_includes": [
+      "Morgan Hale",
+      "Arena Desk",
+      "Club Ledger"
+    ],
+    "summary_excludes": [
+      "guard",
+      "confirmed signing"
+    ]
+  },
+  "review": [
+    "Keep conflicting positions separate. The unnamed report is not a club announcement."
+  ]
+}

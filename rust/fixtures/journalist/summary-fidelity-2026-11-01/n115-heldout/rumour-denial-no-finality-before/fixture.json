@@ -1,0 +1,42 @@
+{
+  "name": "rumour-denial-no-finality-before",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n115-evidence-boundary",
+  "user_prompt": "{\"meta\":{\"name\":\"Morgan Hale\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":null},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Arena Desk\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"Bay Owls may offer Morgan Hale a contract, according to an unnamed source. The club denied making an offer. No agreement has been reached.\",\"evidence_scope\":\"publisher_excerpt\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "reports": [
+      {
+        "context": "Bay Owls may offer Morgan Hale a contract, according to an unnamed source. The club denied making an offer. No agreement has been reached.",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "Arena Desk",
+        "title": "Bay Owls may offer Morgan Hale a contract, according to an unnamed source. The club denied making an offer. No agreement has been reached."
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "player",
+      "name": "Morgan Hale",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "narratives_empty": false,
+    "body_includes": [
+      "Morgan Hale",
+      "Arena Desk",
+      "denied"
+    ],
+    "summary_excludes": [
+      "Pine Foxes",
+      "guard",
+      "has signed",
+      "deal completed"
+    ]
+  },
+  "review": [
+    "Retain possibility, unnamed sourcing, denial and no agreement in both title and body."
+  ]
+}

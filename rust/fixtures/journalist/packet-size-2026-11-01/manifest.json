@@ -1,0 +1,1009 @@
+{
+  "instructions_sha256": "765ccc9d6629624d1e3cbc1de104212198dfdc5c235b3e2107b31ba55788b225",
+  "ordering": "Anchor first, followed by all remaining reports in the production-loader order.",
+  "passes": "Ascending sizes then descending for Milan/Clippers; descending then ascending for Bears.",
+  "subjects": [
+    {
+      "subject": {
+        "entity_id": 113,
+        "entity_type": "team",
+        "name": "AC Milan",
+        "sport": "FOOTBALL"
+      },
+      "anchor_id": 1276620,
+      "anchor_original_position": 23,
+      "anchor_rubric": "Preserve LiveScore, both clubs and possibility/timing. No invented currency, agreed fee or completed move.",
+      "related_qualification_review": "All 40 headlines inspected before inference; no separate denial or qualification of this named anchor found. Broad team availability or match headlines do not establish extra anchor details.",
+      "reports": [
+        {
+          "report_key": "report_1",
+          "article_id": 1276620,
+          "original_position": 23,
+          "url": "https://news.google.com/rss/articles/CBMizwFBVV95cUxNbXRlS2FvQm54V1AwRXhvejA4MXNtWnlqNkh6VEY2Rk9PalYzdTQtODk1b3RkYTQ1dHdRc003UFRleXNfZWV5ODF3QmJxWGhMNWhmYmZGMW9uTTVGQThISFJlbXZjTExBU0NUQmxaTzdqSTRCNWltdmRweUlDMWFpa1VFUXNmRjBjand0cGJza3hQOE82MC04QWI4eEMyc0hIYXdvM0w0NVF4YkVFcGNFalNTM0o4SW1ZLWRJcXlJT0w0MnlsenpPYkpSckNCODQ?oc=5",
+          "publisher": "LiveScore",
+          "headline": "AC Milan, Arsenal have made a move for Tresoldi: 60 million as early as January"
+        },
+        {
+          "report_key": "report_2",
+          "article_id": 1424030,
+          "original_position": 1,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPYzdBSVFLSTh4S1AyalhNeHNWdktlVGtGYks5dnNWeFVPaGxzUGMtcG94M0NvUnlPaThIdHlpUm10YzV4dzZacEN0UzlwU3hvT1JCaWFJR3lpa2I4MXVGWGtHV3poaENIN01FN01RYjFDQ0VUZ2dYc3ZyZVdLMmxFcExpLXFnUQ?oc=5",
+          "publisher": "조선일보",
+          "headline": "AC Milan Collapses 0-3 in Europa League After Maignan's Red Card"
+        },
+        {
+          "report_key": "report_3",
+          "article_id": 1425437,
+          "original_position": 2,
+          "url": "https://news.google.com/rss/articles/CBMi3gFBVV95cUxPQVZKTVVHWmdfQklnMDB1amJGczNvNnI3S1NaX2xEcXpzM2x6TjF6WGdDM3hoZUc3REt0Rmd6MERZUm41enRaMkJFcGZ5c1QzRGxlQ1VKZ2t4SjJCdmRXdEhscnFsQXJNRldWaXctZ3F2c2tRUzI0TE9JUjRQbFNSLTlLb0hNLUg5bXhDaFZoSk1jbzM1TEtwbFZXaFFqUGRBU0pma1NsVzFsN1dORHd4a0N1SlRjUklmemdlTHB3dkhfUjBuWlAxem4yaGdsTC1rM2czaEFSclZWYkY0Z1E?oc=5",
+          "publisher": "LiveScore",
+          "headline": "Pavlovic insists Milan ‘are on the right track’ even if ‘too many mistakes’ were made"
+        },
+        {
+          "report_key": "report_4",
+          "article_id": 1426503,
+          "original_position": 3,
+          "url": "https://news.google.com/rss/articles/CBMizAFBVV95cUxNc3ZpY1REQnJSUkJzZHRubDVfdExqakt6dmFIbGRmbkpDY3lfQTY4Ukx5SVRTc29pT3RqLW1YWjB5XzYzTHQxNHFzMWREX0hOTkpOd3E0MTdLenlMckxoMWQxNVdUUUFlUFVxVWE2R3BNSzNReXpsYTRyYTB4MXNTZVFYTGQ2QWxhZ01VbnFXTHBZZHl6UmlxWjhfWFZDN2lSWlNnRkpCVFRJYzY1TkRhaWwzdzc3OEgyOE5SU3N3MGd2Y1R1Um5Ca3doYlDSAdIBQVVfeXFMTktTUHljWWRBZjd6SFVMYl9fY2ttR1R0cDRNMC10cEtYcjE4MGlDSmc4a2NUWEc0UVhkMkVObElsYjdVOVJ5WU9oSmtkUHQ4ZFFrTkMxWUtlVkNOdG5Cc1hvVGpyLXVaZlFGVUZmdnZSNUtJU2hvQlN3MmVrZWE3RC1JYUFOMWZjZzRrU2NGX1Zyb2FlX2tvZm95Um9yTGJtLXQyLXhFWExVTlpsbnN6MGhhcm8zeXFmVE14Y0tkdHctbmQ4QUp5bXVWR0IxNE0xM2Nn?oc=5",
+          "publisher": "FOX 44",
+          "headline": "Bournemouth beats 10-man Milan in Europa League after goalkeeper sent off. Juventus held to draw - KWKT"
+        },
+        {
+          "report_key": "report_5",
+          "article_id": 1414585,
+          "original_position": 4,
+          "url": "https://news.google.com/rss/articles/CBMinwJBVV95cUxPWGdOQTlpRE94a29QTHQ5ODVRdFNaX1VrQTlkbnE2TXM2RXpvXzk3TEpmTlpta0hLVHlENmZSNENjQm5UN29sMGw5VW1ZWU5BeTBtSU16MDFWeElkYW5QY29qT3dYVHVxdXlzNFZ0ZUtXQnNhc0pyLTBYTWdIbFpobVhMSmhMWHFvbk11RFlmbXg3UVZjc1NIeVVMMUtyQ2UtWXZ5cmxvWnhtekxCREJzZDU5TnpOaUNUaUUxVWd0NFBFSDJ6QzB2Qjl4MFBHVU9PWkc5WS1KWF9vT1JMd01fSGtMOHQ1QnR1aTNGTVdOWS1fd0xTVE9rdnowZnhsM2N2UDZpaTVZNEF4N1plWGY2T21sTWV5UjYyZEl0MG9qOA?oc=5",
+          "publisher": "Ottumwa Courier",
+          "headline": "Bournemouth beats 10-man Milan in Europa League after goalkeeper sent off. Juventus held to draw"
+        },
+        {
+          "report_key": "report_6",
+          "article_id": 1394908,
+          "original_position": 5,
+          "url": "https://news.google.com/rss/articles/CBMi6wFBVV95cUxOOEVzY09wSDkyYVpWOUF2ZE03Y3l0b2x3YUtLbW1UVVAxSVpBOUlTYlZBdEhuUGRjelBkOUVJOVNxOXhRcXZUeEF0M0JVRTRPNnN1bC1FT1pYUzlDTFBNaVh0UG1ZVFJZaUZYRFRyMlVfcVBIVlJFcWgzMDZ2VVBKSmNwWlNwa2lybF9fVTJaSGw4WTJqTEtmWWpFeDVNakh0WWdSazBuZmYyYzFiZngtYTNTNG5MelFOV0xnbXRLQ3BKQnhtdGhlZXRmcXdkWVpVdGpLMG81b2NnRGdGRC1vMGdxY3U5T0VCR3dz?oc=5",
+          "publisher": "TNT Sports",
+          "headline": "Christie reflects on 'ridiculous' night against AC Milan"
+        },
+        {
+          "report_key": "report_7",
+          "article_id": 1415284,
+          "original_position": 6,
+          "url": "https://news.google.com/rss/articles/CBMi4wFBVV95cUxNaGJzZDdxYXpUQ3JZbWhQai1fTmdzYlMyVmpCM0FKYXd0bk80aTNPd2JVa3RmT2xIeDZnRllNOVNJcXlsUnJ0MUVqbGt4cGNPSzF4c2tuVzBzNWZoeUdfbXFfbFBhd1JvanVSUThuR21IODd2T01VMW5RS0xaSldTYU5XbWR2aXZSVTlYLXZHbVg2N1RUdmsybDVwNERqTnlTYzBjVnZyeDc3dUpXWVJYWWZfUTE0X1B6a1F5TWRpVnREMlJJMVVac1lBU3p1ek8zQkVsRlFHd3Y1OWxlYkFLcmMtUQ?oc=5",
+          "publisher": "LiveScore",
+          "headline": "Bournemouth 3-0 AC Milan: Maignan sees red as the Rossoneri implode on the south coast"
+        },
+        {
+          "report_key": "report_8",
+          "article_id": 1394917,
+          "original_position": 7,
+          "url": "https://news.google.com/rss/articles/CBMirgJBVV95cUxOdHh4WTlIbkJNVExPTUJGRVgxbUg4NUxES1VCOHlrZWpzSzM4OFI4OWdrbnhZQS1qbkNubTM2UHRBRGZtSFY0c2tHWFdnU2Zma2JLejlhQjhvcExuQVZrTG1iOFVoczNGcmR5LVhNRHBNTTh3cTB2RWtheUdUSXR0NmdiRHdEU2o5cHM3cG5XYk52c20wTXR3VENvOWd5UFo2clc1ajhKbF9OSTlKVlExQlRBdi16VmFqVkFtY28tbmdoaG1ZUzRQeGVlSTFtSm8xbDhQSzRzZVQzaUJCMGFySnQ5WTFMaF9SQ2lESkxYZ0NMT1dCNnNlOGE1LXptMlhRLThGaFZ4X1VmbTJob21wS3hEZ1ZjQThCYWFSLW93OUYwRlA0eDh3WnYzVzFVUQ?oc=5",
+          "publisher": "TNT Sports",
+          "headline": "'Absolutely farcical!' - Milan forget to make substitution after Maignan sees red"
+        },
+        {
+          "report_key": "report_9",
+          "article_id": 1374753,
+          "original_position": 8,
+          "url": "https://news.google.com/rss/articles/CBMiowJBVV95cUxNSzBDOTZ6T2dlSUVrUXgyaXFGbjRuOWh3RGV5cjUzQXlJVDJRbl9BSzlnQ3ZTVHpnQ0lmN2UtODRYUlk0XzlHR3ZZTlozUnZHRXdOODVybnduNXlXbmt0eE5YZ2RfQlM0UmNKbjdMVVRISkFwalJ6QmtYVnI5MjlfV3dPTGxzQm9haW1MR200dnY4eTN4SmwxVkJoVndxNi14M1dnWXM3NFN5SlJiSC1YVXNVcHNaNTlyd0t6Y1dnOVZWY29aQnlUN21VdXVEMkd4RkFvd0VNU1h2YmdLVmR1dks1UEpzcVIwU1FBZG5jOTdmSWtodjhzRU5TdGFLeFYxaWxFYzJuZWplRFA2dHVzQzZkYmpITm93VFBNWFVLZHZQY3c?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "!$+?(-TOTAL_SPORTEK-) Bournemouth vs AC Milan Live Covarage ON TV Channel 22 october 2026"
+        },
+        {
+          "report_key": "report_10",
+          "article_id": 1394270,
+          "original_position": 9,
+          "url": "https://news.google.com/rss/articles/CBMi-gFBVV95cUxQZWI5SXl6SlJ3clVyV0MzSDJEUENlY08tVzRVU1g3cW83S3dxbmctaEw4NDBoaFdvQXF3eGFzM19RNXg2QU9MeV9DeXJCOEEtdTRkWldubDR2SmJNX3pJdlRxLTFlNEdDQ1gxVDRSSGMwNUFldkpxOTVVVmFyV0J2LUpBam5kTGNaWGNtdWRHQVItakVmS3RPbHZqb29jWE4xMHlKbzhxVFhSUW9hQk1OSHhKMzBrbXB5d3FxOG1kT1llQU5DV2MyUjVKb2pWX0UyTTlBazBnTTF5Q01jcVV3VU9pcjZJVUJnNFVJRTRvN0tmNG9xc3QwNTJR?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "[!WATCHLIVE]4K!] AFC Bournemouth v AC Milan football Match Live free stream 22 october 2026"
+        },
+        {
+          "report_key": "report_11",
+          "article_id": 1374749,
+          "original_position": 10,
+          "url": "https://news.google.com/rss/articles/CBMiowJBVV95cUxNUlpmY1BQX3RQVjFZWTdmN0NUOGhXSkpzS1lKV2ZSM3k0ZHZmeGpwR29hbkxmQTJ2T1Q1bFM2Vlk5ejhIZWY2bERuZVI1OHg5ajBBYm5adE5mT2V5ZHUxVnlsQTI2eHJWblRVSDB0TG1tbE41ZTh5ZDNPWEVYZ1JTVEExNl9TWUxUYWcwUGIxeTQtMkxZUVk0U1RlTUcyWFF0WHpYbDZ2c05pcVpsSzVLT0NCYVcyblpvdzV0Xy10WEphSFJaYTRrbzduYVQxal95NVcwV2M0LVhsbm80RWhLampfbExWbUh6c19meEVDbVMwV1JiWDVqclkzSk1CZ1FhenJmTmtPUEVUa1pPQmNZZVA2SDhMRl8tVkVRTHpzNHVxcUU?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "(LIVESTREAMs!)tv* Bournemouth v AC Milan Live Broadcast today game"
+        },
+        {
+          "report_key": "report_12",
+          "article_id": 1374771,
+          "original_position": 11,
+          "url": "https://news.google.com/rss/articles/CBMirwJBVV95cUxNYXNZdTIzTVdweC1SbUtzZTNja1J0WjlFaWIzMnRVbThQMkg4STJsMGJQSDBPZFNmYmxEb0IyS2hYc0VYT3VJS0VVdXBmQ3NLR2R5SGZoVnM5QjgwRFFHSTdLZDl0NXhQOEE5RDg4eWMwOUlJTHZKWDVIeDIzWm5yVExaWkgzbm93TldLVFBaTThvUzlsRUFxYU51bkxfMVA4MFQzNlVuS1djTWkwZ2hiQ1dkUEpSbi04Ml9YbTRuSHdpcF9aUEVaR3hJZ2cwVE81alc2aFM0MHZkSHlkQUpvSFFOcXJpd0YxSW9ONm92MHRpejcycHVyVGpVLTU5MzZnMUtYRTZCM3h4dE14V2pCNUdjZlpVVy16NW9WdHVKSVk5RERIS1JXNHo5OTFQSkU?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "[YouTube/LIVE] Watch AFC Bournemouth v AC Milan Live Broadcast today game"
+        },
+        {
+          "report_key": "report_13",
+          "article_id": 1374081,
+          "original_position": 12,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPYk9nZk52UEQwWlpkU0VZSFM0RlBDVlVYRERZbVhhYlNSZkFzRDhHUXJ1SGV3eDljek0xbnBEZk90TEUtQUtmWm9ROXc2QmV2R0ZBblU2WlRzWEl5SFdFRzVsUGdoeEFHeVBPdHY1ekJKTThicnM4VVV1M184SEpNQzJEa2QwVGRjSnc?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "📸 Bournemouth stun Milan with early lead in Europa League clash"
+        },
+        {
+          "report_key": "report_14",
+          "article_id": 1363845,
+          "original_position": 13,
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxOa1RuTTVrT3Z6OGRDSkhyc0IxdDJDLXFKUlpESXVKR2hjTDVRZUJsYXlEbDFjVmN3NXFPejNRdnhRN2twS1o5dzJSWWUzSWtJWnA1STc1SExDNUw5RXpEbUNYVjlidzlOXzM1ZHBLR2dCbHJUTEZ1aEV3eEJ0aWhQYzRRdDhCa05yT0gybkwxdXVHN0hJTWRDTVlQMWI3c1hZT1FRVGoybw?oc=5",
+          "publisher": "The Straits Times",
+          "headline": "Bournemouth hammer 10-man AC Milan in Europa League, Juventus denied at the death"
+        },
+        {
+          "report_key": "report_15",
+          "article_id": 1227782,
+          "original_position": 14,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxNMW9wRGF4UUtHNUhyRTJLMmRtN2JzeEtoSWNEVlRGQ19nVWxLRGpmb1Q5aEJVblBhRUxjZWx6Ui1oVUFnVzlSR3VDRWllQU9tMEtVZjh5eXVNQVRIY1hodmtJUUhqdEd2ckM2Sm5uam9YaFhTTWt6cXkxTmNfZ2l3VndRS3FUNTAxREVZ?oc=5",
+          "publisher": "Flashscore UK",
+          "headline": "AFC Bournemouth v AC Milan (22/10/2026)"
+        },
+        {
+          "report_key": "report_16",
+          "article_id": 1374124,
+          "original_position": 15,
+          "url": "https://news.google.com/rss/articles/CBMilgJBVV95cUxPWHJkN0NyNkR5NVNBLUYwUWliTlBjcVRDX0VMZmlaRkY0TE8yUVhrVzJ0Um5ORW96N1R0Z3pWWmx0d04wN1RSZnFzNTAyNExwNUkxODNwMHNWclRkUUZybExDZDE3clhVbDZxVGpjUF9HcTExNTdReHAtZldoRWxfZHdQUDJBODJQQjM3VkVmaUlSM0tESHZQYkRuczI4UjFqVldCc0JiT1dZaXJTN2EySDE3dXRfTFNWLTRXaW43MURJa2RKei1xQTcwR1dPcXYydHV2NTJ4aHBWNDY3RU5LOVY5YzN1RTRvYVdSYUZWS3lzWFlFT0pfWlVFYXpYTGFWR2k5MklRUjF0UlBKQ2kxSVRSeWtkUQ?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "[[LIVESTREAMs] Bournemouth vs Milan Live Update HS Football 2026"
+        },
+        {
+          "report_key": "report_17",
+          "article_id": 1364043,
+          "original_position": 16,
+          "url": "https://news.google.com/rss/articles/CBMijgJBVV95cUxQcmxRaWlVTG51TkoyaU1CSkUzTXVIMDV4TUJmQkNaR01sV0pwbUNnTUhVS1o5SVZYR19QR1FwUG9pUWxVb0hHb1RhMkdvLXlrNFBSMnFBMVVsbTlvZUVYRkk3Sklmb1lQdjFaMm1DcFNFOUZlU2FHWFg5ZG9ESGZ5U3d2enBHaThtaTBfMnloSmtEWlJrZW9FNHVKdURqMDQ2V1c1N1JCN3lWLTl2d2duanR5RUJKb3ZwMDU3QW1SWkVOWkFtYllRZDIzYnJsUGJUZE5tVkpYTkF5Q05IbmgwNTZyOHA2WS1OUnQxOTlFV2o1b3ppQlZRM09TRkp5V3BzQng3cnVleVNTOGtPYkE?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "‍‍‍[WATCH FOOTBALL]Bournemouth vs Milan Ｌｉｖｅ Ｍａｔｃｈ"
+        },
+        {
+          "report_key": "report_18",
+          "article_id": 1364048,
+          "original_position": 17,
+          "url": "https://news.google.com/rss/articles/CBMihgJBVV95cUxNMURfNFNDM1N3MDExQ1E2M2t1TXQyUk5GOXpVeXJsRXhycVNoZXdxbDFXRnlWRjB6Skx2ZkI0THBKNUdUS1A3d2lPeUVFYmxUSTMyZTNkbjNLc3RVbUgtYWRMdngyQWZ2MjRGb0czSVUzeG5RQ0RTbHhGOHZWYUtIdEhINm5zMHk1TER1QUJNYTRHTU85MDVhajYxUWRNM3B4RDNuSHJRSFZjV3RYWVNoa2tRSk5ybmYySnFVUjkwTjJKT1RURU92Wks2NWVzeHpvMEpkOUhlNHpNZFhBOGNkM0RKdzFsMWQwdFNzbU1oQUhSZVMxcXhfTmpzdnJQRUJWTkRmb2F3?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "‍‍‍[EURO FOOTBALL]Bournemouth vs Milan Ｌｉｖｅ Ｍａｔｃｈ Ｔｏｄａｙ"
+        },
+        {
+          "report_key": "report_19",
+          "article_id": 1364009,
+          "original_position": 18,
+          "url": "https://news.google.com/rss/articles/CBMipAJBVV95cUxORG5Cd05GRk1nc1laakNxY3FfLVBNQXlMbnIzYWRYd2hsRmo0NUlBQVlpSkxnZXBUTHNkRXVTbFJOS0hSVnVRLVRBamFsSC1BVFlRSWdyVk9paWpvMGhWLWVXekR1a3RkclhLQVkwal8yRWJqekg1UUpFYkpYZm0tRzd1TFlwOXh2dlpSb05OZGhPMHJFZUNMa3cyb3dCWTdPamN0Q2lKX3cya050alVySTlkVDVsazluN0xIT0pjZ0Y4MVNzWXp0SXN2Q01MQWhpbndVeVREYkt6SXNVcl9KLVlsdnZveHI5TmxRZGFaLTlXd3FwcVdsSUZxckJabUpGOUc5eEk2dDl3NE5wdGNNRUhmSWp1bmdmcVJIYi1EYXpNd1l5?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "(LIVESTREAMs!) Bournemouth vs Milan Live Free On Tv Channel HS Football 2026"
+        },
+        {
+          "report_key": "report_20",
+          "article_id": 1364031,
+          "original_position": 19,
+          "url": "https://news.google.com/rss/articles/CBMieEFVX3lxTE14S1hsZ29fUHZqTlE2SFl1aFBhSWo1SWQwR3E1dFNQWXloMWFXdUp1WjNvVHlqRDJmamN3MHg0blJmMk0xWGZaV3A3N2J0UjI5bktFZFN5cEpTY0lZTWZVNU9kaXk4SXdDTElwNm50OWJiUVBFTkEwQw?oc=5",
+          "publisher": "BeSoccer Livescore",
+          "headline": "AFC Bournemouth vs Milan compositions - Ligue Europa 2026/27"
+        },
+        {
+          "report_key": "report_21",
+          "article_id": 1344764,
+          "original_position": 20,
+          "url": "https://news.google.com/rss/articles/CBMi8wFBVV95cUxQV09wSDJEYUFYWkNPUGotaUxmMWhNNUtGeEdyVHo0VEFHZmEyeEpyanJvNW5RX3JpeUJIdkkyN0I4TktuazhXakpISTdEUTdsNUdZcUNCeFFleWhMUHZXSlhlQjhwbnlHTmFFZlRSM1JKRmVPbXlsWnBlcnNXWmYyY0dCcjAydjN5OXJ3WHY1a1RNY0hNMUhXZUFVV3FCZGQxcjM0TEEtVmxQQzAtMEkyUndXUE1ra3pCeE1FNHRQMVRPLVhhWFJqZzE3aENwMV9WQW92VzdYcmd3MjF3SnpkTkhCWHNPRk5YQXBycDgtS2ZaRDA?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "‍‍‍‍‍‍‍‍‍[EURO FOOTBALL LIVE] AFC Bournemouth vs AC Milan Today , The UEFA Europa League!!"
+        },
+        {
+          "report_key": "report_22",
+          "article_id": 1325038,
+          "original_position": 21,
+          "url": "https://news.google.com/rss/articles/CBMifEFVX3lxTE1ibEY5blhod0x6UURLeHhqT2xPT2lYYXVXUjN0SEM2cDVPVG5zUmNUUWFJS1lsbGRzY3dmNDg2TU1LR0F2QnNZYUVkTkh2OHNMdWdNLXU5amswN1MxTHVXTnVLNEhWa0RZU3Yxbk1xX3dSdTk4RVljSDVzbzXSAYIBQVVfeXFMTUhPNUJyRHJ6cXEyVVdQb1ljWHhKUi1zY3c1VUpfYUpsWkZ1ODBJdndpNzhkZnEzeFpCb2RtQlJsMWZKc3I4cEI1UnNJYzIxWUpmeklOMnlpXy1HVlFja0tHblU2azlmQ3IzaHByWS01eENRSmR6WGxXUW5DZkhWck8ydw?oc=5",
+          "publisher": "Football Italia",
+          "headline": "Milan get mixed news on Goncalo Ramos and Chukwueze injuries"
+        },
+        {
+          "report_key": "report_23",
+          "article_id": 1286209,
+          "original_position": 22,
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE44RHdjdnNHSU9xS3UzMzlZNlhDVzdsTmhRUTYwQmZkRk81dTMwQ0JNaUlwOXQzM3E3clIyTXVDNlBmcklBUTBrX25iM3FKdlQ4VXdlMXdOWC1mM2NZRDJBSHJTMDJsNEhaVmRPOG1yXzEwQmtDM3UtZHR2QWVBUQ?oc=5",
+          "publisher": "Football Italia",
+          "headline": "Gonçalo Ramos’ injury opens the door for Italian youngsters at Milan"
+        },
+        {
+          "report_key": "report_24",
+          "article_id": 1266341,
+          "original_position": 24,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxNRFJPUXlPVzZPMHAwZm1iOGFfalNsWHAxWVF3T3FacXQyNlBISlIxdm9TSmR4R3lkXzJURk9xVUJkQmxSN3hkdkxVQ1Z0czdCNW9KNDA4bDJseHByRWY4UWJOWjdlWi1fUjltdmVTXzduangydVdVZXpuZlJGdEdkV2Z3WlVBbGRSSEZR?oc=5",
+          "publisher": "Star Sports",
+          "headline": "STAR FOOTBALL PREVIEW Thurs: Bournemouth v AC Milan"
+        },
+        {
+          "report_key": "report_25",
+          "article_id": 1266383,
+          "original_position": 25,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOU093dGFfZGoxWmlPTGplRUxuQm1RaGFoaTlNS0R6cWgyMEtGNnhJdm5Rd01ZMXJucE1jWTRLei1NSWI3TFBYOWl4UlBPZkNYam52d3FMWjJjUUxRYy1hNXI4TmVwR1F4SXZid1FnODQ0cFA4R1ExcGdjMG1UQUYzWDR1RzRpT0pTNFR6TzZB?oc=5",
+          "publisher": "Seattle Post-Intelligencer",
+          "headline": "Bournemouth’s perfect European debut faces biggest test against AC Milan in Europa League"
+        },
+        {
+          "report_key": "report_26",
+          "article_id": 1266999,
+          "original_position": 26,
+          "url": "https://news.google.com/rss/articles/CBMi4wFBVV95cUxNQU5lRk92ZlRQNkZuLVVacjBWcUg4Y2ZZUDl6Q2pNSUZGYmFJMFdxTlBHTlFhSUxrLThCcEdfYWVUS250LUFXZGliQWo2RGV2Rlo4MXdwTHFRWWVrVkxzd3NWR1FFTnBCeHlScHdBMjVSSFc4TlNURTZwQk1qUVlGUkdvbnZhTVg1dVNlQnotMExfT1NSa09CdXhXeUFnTzNaT1ZtSjdjblM0dFh5OHYtd1o4UmRONVZhaHdiRkZRbHlsVkJUTHlQZ1lxNUkybm5peUVSQ3dTZUZVajY4MDQ3c0hKQdIB4wFBVV95cUxNQU5lRk92ZlRQNkZuLVVacjBWcUg4Y2ZZUDl6Q2pNSUZGYmFJMFdxTlBHTlFhSUxrLThCcEdfYWVUS250LUFXZGliQWo2RGV2Rlo4MXdwTHFRWWVrVkxzd3NWR1FFTnBCeHlScHdBMjVSSFc4TlNURTZwQk1qUVlGUkdvbnZhTVg1dVNlQnotMExfT1NSa09CdXhXeUFnTzNaT1ZtSjdjblM0dFh5OHYtd1o4UmRONVZhaHdiRkZRbHlsVkJUTHlQZ1lxNUkybm5peUVSQ3dTZUZVajY4MDQ3c0hKQQ?oc=5",
+          "publisher": "La Gazzetta dello Sport",
+          "headline": "Bournemouth vs Milan: Sky, Prime or Dazn? Where to watch on TV and live stream"
+        },
+        {
+          "report_key": "report_27",
+          "article_id": 631972,
+          "original_position": 27,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPbjNvcjcyTy1aYmJkRVltWDFnQV9ZTzZtcDJSd0h2RkNYb0lnaWNUYWYtSzYyZHZ1VjBBWmVkSWpueE5TYVQtVUVMQzB5ckpqYzltZ2hPa0hfNF9zaWI2dG12eEpuZVN5SVJlaVA4OTVpekZ5amtiYXBwY3d3Zi1mYmhRUU1PZw?oc=5",
+          "publisher": "Flashscore.com",
+          "headline": "FC Koln - AC Milan 1-2"
+        },
+        {
+          "report_key": "report_28",
+          "article_id": 1267025,
+          "original_position": 28,
+          "url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxPQUt6c3pNeGJ2cHBmR2NObzZ1OFpiQ0paVzJUOVVUckxfOE45Z0NiTlpVaTBZS2NtUTVzZ1RaTmI1VllfaWdzd2xZNkV2RmdmRWx1Wm9FOGtWQlJleTd5ZjA5Um9wN1VSUXVLekI2UnFPQlZlM3VJYVBBRnJCdFM3Um9URzVBU2gwVW1sbTlCaXIzSFJmaWY0REdYOU9UZnly?oc=5",
+          "publisher": "FootBoom",
+          "headline": "Bournemouth vs AC Milan: Europa League preview"
+        },
+        {
+          "report_key": "report_29",
+          "article_id": 1325124,
+          "original_position": 29,
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxOSlJtaTF1a0RvZVo5S3IxOEstS3dhNzV2VFdRMzdUMzhUUVEyWjFWVWFiMlV3b1hJTmZYOG5MSFpPOWJjZ0VTU0ZuWVlPUWtUdGRZV3FmU3REZm54Q1gtNThSbDBhUXNEeDlLUzBvR2RZdFBRVlNBdXozUWhtcGxLTUlkUkNnV3RuTUQyRXhjWklVTUQzNjh6VjBEM1VWaEh1Qm5vTnFJNVk?oc=5",
+          "publisher": "ESPN",
+          "headline": "AC Milan back fan boycott over 'excessive' away ticket prices"
+        },
+        {
+          "report_key": "report_30",
+          "article_id": 1218605,
+          "original_position": 30,
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxOOXQxVHpUQzlQV0kxM0l4SWFlc2stMnBKTFZoSVF3QldDa01aQ1VLNnRVLVNYNFpvWjdqYUdManpuOFVoME1vV0FMb0tGTGkwU1J1OEtIMVlmbW1obFpVdDlMcU14UmNpUkUtUWRJcEptU2t5S3ZoU0JyMVhacHFLQmp5OA?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Why Bournemouth vs Milan is not the biggest game in their history"
+        },
+        {
+          "report_key": "report_31",
+          "article_id": 1189650,
+          "original_position": 31,
+          "url": "https://news.google.com/rss/articles/CBMizgFBVV95cUxPOU5GUWRILXB1OVpFWVJ2OU9VMlR4Sm9HV3RyaFZRT09HSExvSFk4OGgwX0dRbXBzYloyMXQtN1BpMjBKLWZkYmZhMlZnZU5yM0kwR2wzTzFNZWNDN3BfSGxPbzFtZXdtUnZfWGNwTTZtbnA1MWlCelNIWmdxV3VBa2hPYkprZE94bDgtVWxWTlQ1RkxxSWJnSEktcmFwVUxYZVZTZjExNldvN3NwNnZFRTUxTlhYM2FvaHpwTUFBdnlZYjRNdmJ3NlVLZVlld9IBzgFBVV95cUxPOU5GUWRILXB1OVpFWVJ2OU9VMlR4Sm9HV3RyaFZRT09HSExvSFk4OGgwX0dRbXBzYloyMXQtN1BpMjBKLWZkYmZhMlZnZU5yM0kwR2wzTzFNZWNDN3BfSGxPbzFtZXdtUnZfWGNwTTZtbnA1MWlCelNIWmdxV3VBa2hPYkprZE94bDgtVWxWTlQ1RkxxSWJnSEktcmFwVUxYZVZTZjExNldvN3NwNnZFRTUxTlhYM2FvaHpwTUFBdnlZYjRNdmJ3NlVLZVlldw?oc=5",
+          "publisher": "La Gazzetta dello Sport",
+          "headline": "Milan: no Ramos? It's Cisse's turn, Camarda stays on the bench, and Amorim rests the stars"
+        },
+        {
+          "report_key": "report_32",
+          "article_id": 1189673,
+          "original_position": 32,
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE5QeDN5bzlKamdCTE9YVFpjUm5iRVZMb0Fxa2tMMzZlU3AtNHZaLTFNbElTSU9URld1dF82VUxCZ3FRM0t6Vmd3LUY5RGtwZWRpVkVFT3o3QWZpTk0tM3VCMWV0MmEwRFFhQWwteWR6MGozTldfVmU4VC0ybF9mcmM?oc=5",
+          "publisher": "Milanreports.com",
+          "headline": "AC Milan Number 9 Curse: Every Striker Since Pippo Inzaghi"
+        },
+        {
+          "report_key": "report_33",
+          "article_id": 1247174,
+          "original_position": 33,
+          "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTFBmWVlFTmU5bHAwRnBDX3pSQ0d6SHpEbEVyOGJuRVk4WjV3ZTJCb0N0V3pYLUhDQ2VRaHFORVhSaVdXc29teEhyR2tRVm5YbGEwMFgzN3o4Q2dJcHd5Zmx5TFJLNXhfZw?oc=5",
+          "publisher": "BBC",
+          "headline": "Bournemouth vs AC Milan: UEFA Europa League stats & head-to-head"
+        },
+        {
+          "report_key": "report_34",
+          "article_id": 1189629,
+          "original_position": 34,
+          "url": "https://news.google.com/rss/articles/CBMi5wFBVV95cUxNdFB0VUoxRE54b29ycXh5RVpuNXFoTjdfVjZJNzI1NE1BbTF5b1VaNXlMOVFaMk9RemQ5MU5mb21xWDdZS3RPNlZ2UTViVDhudDYwUEo1UjZ2d25ZQTJZNjJYNEVScXJ5czk4Yzdta0ZEclBmN1h3UFZRNjZhY1VfSXo3RFJub1F1VEpBaVlVMTFqZVkxTlpCS1l6NnBBZWVjNS04U3oydHl6Q2FqaC1oS3kzQVcxdWNSN3RpaHFsMlExLWl6WUZvMEhuTDZNN0N0UjdxU1pWMGxvR1BRemFHbzhuT0NHWDA?oc=5",
+          "publisher": "LiveScore",
+          "headline": "Milan fear a lengthy lay-off for Chukwueze: could Athekame return in January? Two factors are needed"
+        },
+        {
+          "report_key": "report_35",
+          "article_id": 1238024,
+          "original_position": 35,
+          "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFBPZmN3a2daaWJjLVZiVnk0NTgxcGI1UktVUlRZVXNkNnNRS1g5S2pEYjYxSE9MYzVYQUV1VWNqamhYVWFxRHB5TnlTUHVsLWVnREJlT2xZSzIybVByNjNiajdNTExIM0VM?oc=5",
+          "publisher": "BBC",
+          "headline": "Marco Rose press conference: Bournemouth vs AC Milan"
+        },
+        {
+          "report_key": "report_36",
+          "article_id": 1208973,
+          "original_position": 36,
+          "url": "https://news.google.com/rss/articles/CBMiwAFBVV95cUxNRENiRGJkSU5lYllRYlF5QXdkeE01WFZyck1iSnF2dWFpUW4xYzUtS1o2dXkxTEFMN1ZaRUNZMnRzbHRYakxNMkMzOTNIOFJFVjVNRmd1bk00X2VWVnVGOUtYMkYtV0daSExfdHlzTjVqbXhLaHdpUkVGbmxVTS1GWjFLQl81UkwzODRvV0tEbEJwd0FtVFRWdGpqaDVVdVFXbFM3MTctRUpHbVp6dnZuQjlONU5XTDQzVXRzT2xNZVY?oc=5",
+          "publisher": "FOX Sports",
+          "headline": "AC Milan backs fan boycott over 'excessive' away ticket prices, warns of retaliation"
+        },
+        {
+          "report_key": "report_37",
+          "article_id": 1189646,
+          "original_position": 37,
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxOV3ZvQXNxejQwaUtYZHMySGszUUY2V3lkTHFyZmxWeW5OVE80VjFYRE1DdjlJcXBCTzhDYUVQUVF2Z1ZQVW1xZngxWU9MZVBBWGUtTEhPVENyQmJnWEh5cXEtUFhOdUVldDUtWnl3VmoyQnJ2RHl1TUY4YkdBTndFejltSjRtWVVDTUxBTy1KMXR5QUMxYW1sWDc5VUJCTnpkZmYyZWdxWDRlcUNHR3c?oc=5",
+          "publisher": "OneFootball",
+          "headline": "AC Milan ‘to recall’ Athekame in January? Early OL exit deemed unlikely"
+        },
+        {
+          "report_key": "report_38",
+          "article_id": 1267009,
+          "original_position": 38,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxPckh3ZWpWLUZMRVhUanI3Q2JXWW8ydG1wTTFSN0F5Q2xPbVhTTC1rLXVBOXVBTDlTRmJySkJuby1wWkhQVl93OXZiZDVyZE5nRWF3dE10NzRfSVZmQldsanFJRGdzRFR1TURwdlhYa3daMWlPdlF0MWYyZ2NXRE9zZw?oc=5",
+          "publisher": "Football Italia",
+          "headline": "Chukwueze injury blow for Milan as Amorim faces selection crisis"
+        },
+        {
+          "report_key": "report_39",
+          "article_id": 1115631,
+          "original_position": 39,
+          "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxNbUFpYmVZOUVVeHlrWkdUR3lRNDNfTnlxTEFmUDg3YXZZYTRCVmZZTy0zSHZTb092R21NT1h0bmZfM2d2TkZWanU1cUhyRFlYUk1zTmhORjR0bXpIVW5xeVRDeXQwck0wak1yU0pZbHJtZ25DWDFzeENCeWVBY1YtR2JwNkNyV2tEQng5LTdpTG9ZVFc0SEduN3o0SFBnWEU1NUdScVUzd2h4TnM5Y09ILWRiZWp4R0t5T1hRdFU2cmpSNUhiTW5kNmxXN0QyVk5KYXJyZFYwOUl6WnE3QnNiSTRicUVkQQ?oc=5",
+          "publisher": "TribalFootball",
+          "headline": "AC Milan eager to secure Rabiot's future with fresh contract"
+        },
+        {
+          "report_key": "report_40",
+          "article_id": 1190018,
+          "original_position": 40,
+          "url": "https://news.google.com/rss/articles/CBMivgFBVV95cUxNaktKUjZQM28yakE2SGh5bHh4QWs5YWtWN0hVb1Q1dHhaT2hwRzBGaFJQalYzU0xhYllmbG52RVppc25KTXJDeXRJdGF2WmFHUVJmLWoyV2g4WU9yUTU1WWRid2JvZGFDTVhRYVluMUFSUnBscWVOLXBWNC1xQlVpZFB5ZEc3c1paa3pFMUlPOTAxQlZjOUkxWG80bGVQbzhJM3dPQVJRaVFEMTk1UlVNMkhtTUNHbGtUZzRRSFV3?oc=5",
+          "publisher": "Doc's Sports",
+          "headline": "Udinese vs AC Milan Prediction, 10/25/2026 Soccer Pick, Tips and Odds"
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_id": 24,
+        "entity_type": "team",
+        "name": "Chicago Bears",
+        "sport": "NFL"
+      },
+      "anchor_id": 1341401,
+      "anchor_original_position": 34,
+      "anchor_rubric": "Preserve Da Windy City and the conditional trade opinion. Do not report a completed trade.",
+      "related_qualification_review": "All 40 headlines inspected before inference; no separate denial or qualification of this named anchor found. Broad team availability or match headlines do not establish extra anchor details.",
+      "reports": [
+        {
+          "report_key": "report_1",
+          "article_id": 1341401,
+          "original_position": 34,
+          "url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxOYzZrbW4zQklYLUFtMUVsNXNrUU5DSGNoZUtnM1NtV1p4a01RbVNsMVpOaEdSdWxZclVCbWkyLUxGM1F4T1YyUHFGSzZXUUdqbm1rVXNfN3Q1QmZBQk5yNEJSTGxjdHdCaFJKM3hZV0VTU256ZjBJT0E5N0gzUDZxNkhRTDFib0VuN3d2eHJaWHhmYWt1ZXdqNnh0bkpEakpD?oc=5",
+          "publisher": "Da Windy City",
+          "headline": "A Donte Jackson trade might turn the Bears' defense into a Super Bowl threat"
+        },
+        {
+          "report_key": "report_2",
+          "article_id": 1352005,
+          "original_position": 1,
+          "url": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNMGtqeFYweURLa3U3RXU1X25sZDhGOGRlZkVuZWt6RGlGem1WN1dlamNaamlMeG9DenUyWDJVX1liUmhXSDV4eUYyWUtTbURCZ3d0b0hReXJIS1lBaEQzSHl4SFpCNHQzMEFtQjFaVzBHNVdrcjh5NjZtRkE0MUFqSEpycWtQZXM?oc=5",
+          "publisher": "Establish The Run",
+          "headline": "Thursday Night Football Live Show: Patriots at Bears"
+        },
+        {
+          "report_key": "report_3",
+          "article_id": 1432888,
+          "original_position": 2,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPcGNVUTYwS1hFd3E1N2xhRENpc1Y2MFVvYUc0QmFDRmVhcUZLTzNKZnRuWXp6SUpvZDVPMmlmWGUzZFdNaFA0VlNrYjlhODF3RG5hdHhIQy1LVGFPTHVTbnFTaUdwbEpzd0JEYW9YUGY5TEh5ZFNsdldXVUZhUGNRel92RlpzUQ?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Bears Announce Move to Honor Mike Ditka During Thursday Night Game"
+        },
+        {
+          "report_key": "report_4",
+          "article_id": 1422737,
+          "original_position": 3,
+          "url": "https://news.google.com/rss/articles/CBMivwJBVV95cUxNVHNtblFobGxMTDNlVjQ0MVR1ZExGZ2ZBb2xwYWNPR3RjRFBvRkFycy02QVlVTWZNZkpvdjkzYy1wRXI3U19FRS1HZkZYOUplOUpzVW1MUHZzSmlYcUY0V1RJaG9lN1JXRHg4d1d4blVKbG02VEphdTdRQjNuMGlFR29pT0g4WW5jVUF1Qy01UVYzb0F4MzhKT19HVTB6c0dSYVNldUNIY3hrVkdhX05DMFNvcXZYdFBTYVN6SElzcWdFUVJ2MzBtNndMTVJ2V19VMGgzZmk0dC1JMTFiS3RfdDJxNXJNRHVlTFdTdzdlVkw1aHYyTXFaLUJyTnV0dXphZnp2OTZtQ0FFXy1rb21lcTh3UUttRndCLXNQeWY1ZmJyT253ZXlsYWE1TVFCa3VrZFMzeUtYWlR0S2N0ZXJn?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "WATCH TODAY New England Patriots vs Chicago Bears NFL Football Live Online"
+        },
+        {
+          "report_key": "report_5",
+          "article_id": 1422726,
+          "original_position": 4,
+          "url": "https://news.google.com/rss/articles/CBMiuwJBVV95cUxNWnl1bFExeEFZZnBGVm0wV05fbWxtejNBbS1nampwaFBUT0pZd2VZOVlOeXdNaGtZajVxT3dYaW9QMGFoVTNDUlBWZk9YU0dWdjBIclJibU14VUpGbnRVMXpTbmRvd2Q3cFVRcWtNMk5VNHZ0WDBnd0NrMVRWUWwxQ1VaVnJjcXZDY24taFVrb1lYTVIzLUl4eVBjTDNycFlMdnlpWW5jVnNLVXJTYmU3cjZnZGRGNWlOaDJxQ3lTS2IwSmVza3BFUy1qNDJ3T2tSUFlzU3Z0NEhacjlUd3BBcUtCT3RvVDZtcGI3MjlmN1I0OUNmTm02X1dsRzdJbTEzUVNEVlBhMGlpZTM5clBDZmhPODYwR1UxaWNId0s2WHJZYjNlZ2h1ZEFqYnhXMGR5c0R0WGlHWnBYZ28?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": ")+ω#*[WATCHLIvE]HQ*!] New England Patriots vs Chicago Bears NFL Football Live Broadcast"
+        },
+        {
+          "report_key": "report_6",
+          "article_id": 1420539,
+          "original_position": 5,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxOUExwWGp3VW5nUlREQWNMQ1VkSFhxalN3b3hERXNpMWhaSGNvVDJxNU94clpGdXZ0S3pnbmNFWjVLZWNOV0pxaGdneGRZRjNPZS1lRDE0VHNkRTlHZkJCcjlybF9keFF3RG5mSV8tV3FLTS1fakVFck8tZ1M5ZmJqUF8zTmxlLWNDZ3VDVzQ0alhtZw?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Thursday Night Football live discussion: Patriots at Bears"
+        },
+        {
+          "report_key": "report_7",
+          "article_id": 1420531,
+          "original_position": 6,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxNb1ZqN0t2ZWlXclBud0VpUktwS1RTNzlwVXRRR0Q0ZXBBSXdKQ196bXdSYThEeG9FUmQzWk9Fd3M4S3I2WFpfNzQza1ZJOTFIY1cyTEIxVElYQkxSdjRhYmxxZ1pmRHJhQUpOOWJkbzlZaWZ1Y0ctejkwcDd4bnEtTFlmcEp1NnB2VnBSag?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Thursday Night Football: Patriots vs. Bears discussion"
+        },
+        {
+          "report_key": "report_8",
+          "article_id": 1420506,
+          "original_position": 7,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxOcHNhYzVUOEhVamFCakdwdU96WFQ4S1dlTW9Ba1lOeGRZNVlfeXBDUDFFQzBQb00taGdURTg1UC1DMy04eDlBVGtTSmFpSUlxWFkzTkJuazNCSVdMSml2SnpMMW5fNEZmc01XRUViOEVycUhWS1dwZXlxS1AxUTdOUUJZdWNaYWVlVzBZaw?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "New England Patriots at Chicago Bears, Week 7 ‘TNF’ live chat"
+        },
+        {
+          "report_key": "report_9",
+          "article_id": 1412600,
+          "original_position": 8,
+          "url": "https://news.google.com/rss/articles/CBMivAJBVV95cUxNRFkxaFpiQ253UDJnajhXRmxkU3lZeWhxWTZvYUFsakhwaFNEdDhVdjhBYVVVOWs2SmlQdDdiWFo1azRreHIzSVRmTGdZSlgtUWRiV3Z3Z2RyaWNhYmx5U29aZV9zSmNMQWtrc1lBdElkQ1dtUWd2b01NczFZV1J2TGZnUTZMOU96d0lJSWM0UW51ajlEV01OaXNwTkYtS0c3S0UtdTRSTWxPcXlTRkk2T0JkMlFraDZESkNwTTRNTDNTbTVIaXZ1VzU4dGhqMUttcXI1dE5nQkVlcU5lMGg0dnNKMm1ybElVQzh1SGtkR0FxUzV5Q3JzWTM3QzhGUmVMdHBPNi1Nb3FoU3MwTjlLWmVGVG1jZHFzQ0lGblNoY2pQeHBnRy1UcE8zRENuNWpWU0JPci11bDNvNDhv?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "!+【【4K】】 New England Patriots vs Chicago Bears NFL Football Live Coverage October 15, 2026"
+        },
+        {
+          "report_key": "report_10",
+          "article_id": 1412577,
+          "original_position": 9,
+          "url": "https://news.google.com/rss/articles/CBMivwJBVV95cUxOODlpSVZKa1ZFc1hSUnlRQ2NlbXVIZ0hEdG5LMjcwS0ZYdExSNUVRb2NoT0RUSi1iM1MyZFBFckw5WFBuZENHTTFRWFdTT0lYRnMzV2ZhM2JOaXZIYVFieUFXNWVlMlBmaXRuMVhCWlRtOF9UMFktYS1yVVJRX1FIVkRQU2FtczVMcW5SdUtOOVVTd1ZuUzN4X05uVU5remppeVVWcWJ4VzRZaFpGeU11ZldDbEg1OUFOQjgxTTJxZHhFbWQtTlFTT2pVS2hGTHkzSEhRVm5qaUxJNzMzQ3BOdHZCU05DZUNrdENIeHQ3WktHMTdZaXo4OTI1TGNHV1ZMSEJWZ0FHUzZWY1ZJMUJDLW9yb0w3WXJLNmVEbTlXei1nTGNUVWs4ZEQzSnJ2SERyZUlOWkkyeks0MnEwNHBn?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "(fReE>>))) New England Patriots vs Chicago Bears NFL Football 𝐋𝐈𝐕𝐄 World Cup 2526 Ｔｖ Ｃｈａｎｎｅｌ 29 July 26"
+        },
+        {
+          "report_key": "report_11",
+          "article_id": 1412548,
+          "original_position": 10,
+          "url": "https://news.google.com/rss/articles/CBMinAJBVV95cUxOM0xTTjFRMkhaQ092SWx1TlNaS0NVYlRoaGthem1aSTRXQTRpYkpUSTZkQWhJTWRTblNJUXhBM3hRajRDbjktNXFnNm9nNk5jOGNMbXFENWo4SldVS25SMktUeXd4ekRFQkhEME80TFRDZTQ3S2RmbGlPVHBoTHR5UE1QOXZpcnhUdk1QcDl6eUlreHBleU9kM19fUmlyMFhadWY0Si1JZFI5amNHRk9RVUpDTDUtbmdhamFENzd2R1ZTVUQxdUxMeXg5YnNQYnVyanJMa3V0QW5KblBKdU9wU0dzdFNJbzlBa0ZIWkhkbkdSZGlzR1M2RUY5Y0xvYVJjNGtDWjV4SzR2MWlVaWx1RzlpSzJ4RTRWc2xhUA?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "Watch Chicago Bears NFL Football LIVE online"
+        },
+        {
+          "report_key": "report_12",
+          "article_id": 1412576,
+          "original_position": 11,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPM21OUzBJUHNINHFhQUxzWm05b0ZBc2V1X3I0bU9qUWRsekUxaXM5X0pBcjYwaWpQbGk4aGZZQjVJa2x4ekZQTXNqOXNsNXRMWDJiRUVkYV9BUTZsbXF5SG1vazE4SGZwa1Jyb3Q2S3JwZzVrb0lJU1hQZTlOTFAzcWh6TWhWMkNtNkp3?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "How are the Bears honoring Mike Ditka on Thursday night?"
+        },
+        {
+          "report_key": "report_13",
+          "article_id": 1412601,
+          "original_position": 12,
+          "url": "https://news.google.com/rss/articles/CBMivAJBVV95cUxPOU42aVNoUEF1bGJaR095TkZ1aDZBRnNzZXg0bVUxR2k1YUdzUXV6VGFtSnpHVHBodkRZbUR3YmRZb2JVX0RDQy0zTmdTWXppcVZybXdBUDY5OFpFelBwMmxpYXIyUVdmTmw3aTA5dlZEU2lYOE5lWFhVdXp4cXp4ZmZmMGMwQlFHMW5qVTFuUEF2NnpEOWZxOXMwVlVVUE1zaDdfR005SFczeTExa19lc292TWVoOHJnbGpTSEMtT1k1UDVmTzhQbS0wQzZkTUhkMk5FU29tRHdRYXMyaXJTOHczcHF5TklRZExLUy1OZzNtSjdYNWNCOVVCTHFoQ2hsY2tKc3hqQXFDbDhGd0NRY1laSXp0LU1VN29FVm1JNE80aFNiSWVCSnVpR2FFd3ZrY05QbkJsYnY5Ulhf?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "~⚡ New England Patriots vs Chicago Bears NFL Football LIVE STreams"
+        },
+        {
+          "report_key": "report_14",
+          "article_id": 1420542,
+          "original_position": 13,
+          "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTE9hY09IdkdnM1hNYjAwUldCc25zZjdTUmtTNm9lNGpUUHZsMG9SWHFPV240Q3c2SWpfRUJSR2FFZC1xa1o2cDdIWEU0d0NPb3RkZWFTd2NFeUtNSmVuSC14Y3Y2cFNxdEdTbEhKZ05XZkNWZk9tUkQ0QWdRV1VpZw?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Patriots vs. Bears Week 7 inactives: Who's in, who's out?"
+        },
+        {
+          "report_key": "report_15",
+          "article_id": 1420602,
+          "original_position": 14,
+          "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxONUdHVWFmV2d4LTFmYjlaNzVDbi01VUZSVnVCekIyRnZjMjJ3Wl96TWVJVVlwa1JSU1hFQkJhV1hmXzJrcTlUTlVLYXZoV2ZWRy1KT3JMRjhhLXBKWVdMd0pVdWIwRFgtVDdPZzVXRm55dmRLRkpSRzg5dWtpVHZlWUFpWmtFOFpKdUZjbGhLTWoxdkgzTWJLa3cyVE9wTy1YRGZvQTdTRElrYmJwV05SeHRVQ2VaTEREUW9z?oc=5",
+          "publisher": "Asbury Park Press",
+          "headline": "Who's playing on Thursday Night Football tonight? Patriots vs Bears"
+        },
+        {
+          "report_key": "report_16",
+          "article_id": 1410388,
+          "original_position": 15,
+          "url": "https://news.google.com/rss/articles/CBMivwFBVV95cUxOVE1PUkNqNTZHOWdVTzlmU0hwb1J5b05RMkE1VUpHWHY4R0lzMmhmbDBKZ3dRQm5OQVIxWG5sanMwc0RTODF5MHZzdndwMnAzOXByRU1MSXpNcmJZOUZZWWd3QzhLNzh5Z0txdHJiVXlQeVdWVFBRcTdXU0VLU1NiRzVkSzVQYUVGWmowbHlJTjBtdFVfYlhwZ3BMOFJ5X0pMdTJ3aUtkSnVvR2pRZFdNQ2dYbTAyWW5pZy1tY0tzcw?oc=5",
+          "publisher": "Pats Pulpit",
+          "headline": "Patriots vs. Bears inactives: Christian Gonzalez good to go despite newly-announced illness"
+        },
+        {
+          "report_key": "report_17",
+          "article_id": 1410339,
+          "original_position": 16,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxOMUx4SlE0cjNZNkI3UGtoYUdhWFBQdUx0Z1F0YzJqNm1VMUV4TGQwa1pBcFQtTXFmbHdQOWtuVTVTMGlGeTFxM0VJeUxPaXJDcFF5OGhtM1hfOG1TSXp2cS1rZXJxaU1nX0ROS1QwbXoybm5iRVhpM0VkRF9RX3NoUVNsbFJhREVYSWc?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "New England Patriots vs. Chicago Bears inactives: Who’s in & out for Thursday Night Football?"
+        },
+        {
+          "report_key": "report_18",
+          "article_id": 1410334,
+          "original_position": 17,
+          "url": "https://news.google.com/rss/articles/CBMiekFVX3lxTFB3dnFXdm16WTFHSFE5UVFGQldRS09HdFRBNjFNaW1FMl9jNXVUWFNsNVFjOGo4ejhzdXZYRzAwWGd6RmYzNi1WTnlNQ2tPZUtBU1Z1RE1ZZGNhOFdnWjdHM2RmRHZXYk5SOVN6cmdrVjhqREplaFhYUFdn?oc=5",
+          "publisher": "New England Patriots",
+          "headline": "Week 7 Inactives: Patriots at Bears"
+        },
+        {
+          "report_key": "report_19",
+          "article_id": 1410323,
+          "original_position": 18,
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxNVEU1Sk05a29COHJtbjdsVVItb2JKSG0tN2FUVWwxRnZteFhpS0p1aUhhbUJrbmNXeF93bXhBVWdIZmFjMlBEMlFwZ2ZSbHhnY1RqYVBBUm1VQTFvZEVzZ3NweVJWS3A0VC02WVlJRUoyaHFNeWxXWTY1bnowMVFzU3c4UnpoY2RfanlhZFFfa2dJTW1VWnltX2h3?oc=5",
+          "publisher": "NFL.com",
+          "headline": "Week 7 Thursday night inactives: New England Patriots at Chicago Bears"
+        },
+        {
+          "report_key": "report_20",
+          "article_id": 1410389,
+          "original_position": 19,
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxQTTJWRTBoYnVoMlN3dm1XeFI5b184b1pteTMyOWRjRS1ZSVZib3VrMklIMVdab3V5aTRubTdSZEtINzVlTW9FTWpyYmNRTGhlSlpuVXJBd2hXcWlVb1l0dkh3eWxhTHZCUXhSbmJ2RHI0VUdMUWdaYndyMVdwRENnQ2JQOXg?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Patriots’ Mike Vrabel set to snap bonkers 27-year streak on TNF vs. Bears"
+        },
+        {
+          "report_key": "report_21",
+          "article_id": 1422973,
+          "original_position": 20,
+          "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE5PYnVCSllCOUNrNllrYkRuVjFzeUlUa0N0U2FCVVJrdlNGeE5rWUh0bkVuejM1ZnFsaURxRk1uWUd1NEJVYWFPZE1yM3FmMVhFMDlj?oc=5",
+          "publisher": "theScore",
+          "headline": "Chicago Bears vs Atlanta Falcons | October 18, 2026 | NFL Matchup"
+        },
+        {
+          "report_key": "report_22",
+          "article_id": 1400207,
+          "original_position": 21,
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxPVjFmenZ1THU0Nk1SRk5BR0lMaHJ6MXBnX2ZULWgxdnB2SDFmN09UT1IxTUNjTWlKdkpVMEE1eXFURDVucGFFbWhibVF5bDFCOEtxNEFhOHQxd0NUbHhYX3lyUDhsSHI4MERxV1h0NFlHbkh3M01yVW95VEtVMWhveFJ1bDhXTjFKeVFxb2EwUEQ?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Patriots Get Unexpected Weather News Ahead of Thursday Night Football vs. Bears"
+        },
+        {
+          "report_key": "report_23",
+          "article_id": 1359815,
+          "original_position": 22,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxNZmV5eGlPbmxwQjR3S09rd3pUTzdUSU5Vbk1WWEtHNGR4VE53UnBwbmU3N0FPZzZJRDBveFFVay1fUEczd2RjS1VuSXg3NGNRcWtfWFZ5ZWVWRGNyZFBNRzlyT05kbTlLNFZsbDNSTW53ZUlseGx4WFIzZzJpMUk4Zw?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Patriots Rule Out 5 Players vs. Bears: Full Thursday Night Football Injury Report"
+        },
+        {
+          "report_key": "report_24",
+          "article_id": 1339877,
+          "original_position": 23,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQTXpneGRFa3YzMkFZN0liaTNjWWpPbE42Rm9WUTExU0ppdW04aVhJUnhyUXVHbzE2VHpMLTRmM1ZGUDNvR3FnTW5jWmI1Wk03NGd6RzNjUzRGZmRQNk0zcWFMQzNQdkJpSWpkaDJPWHpPa2hHZnpxTkV1UEoxTWs2SVB0b0IwcnNPX2k1S2lZRHFMWHM?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Patriots Wire staff predictions for Patriots-Bears Week 7 game"
+        },
+        {
+          "report_key": "report_25",
+          "article_id": 1329984,
+          "original_position": 24,
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNTHRMTmhCYm1LUkxKbklOUkpGOGJ5UXJGS1RxT3FWVEotUER2SGc3aTB0dDljYlJ0OUZtRlFjZUdoaktoMlJmZ1lhYnNyNmlZdnFCVzdpX1lHeEtFd3F6em5yZjR3WmtpNHJDdENja1JWdEQ5dkNnMnRJdWxtUXMzUjR3?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Patriots vs. Bears on TNF: How to Watch, Odds and Prediction"
+        },
+        {
+          "report_key": "report_26",
+          "article_id": 1330017,
+          "original_position": 25,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPQnAzVWt5eTBPLTVleWdYZlNHTHQ1WVpHbGRtRGpRY3hVU0pfRUExalRhYm5rS05RQ2c5bnE4TXVuX1pYT2pyVkU4WkhWZXdWNGFOOC1TUDB2RVYzQURXRlJUbUlncXNWdFkzUnJhU0gzRDZ4UVdoSHdyODYxcmhsOF9rVjRWX0k5bHlF?oc=5",
+          "publisher": "DraftKings Network",
+          "headline": "New England Patriots vs. Chicago Bears Weather Forecast: Thursday Night Football Conditions"
+        },
+        {
+          "report_key": "report_27",
+          "article_id": 1320251,
+          "original_position": 26,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxPVGtMN0NnVms1LWRlMXliTzdOMlRaVVZQc1NMX3pGdGJjZldYVHdad0hIVU9DbGg4c2x3WVdVQ3kwVnh1bWVsaVBibEUtVGpLRjRrNDFNT0dvWUplenhkUEVMaV93ZDk5UzU4RDA2NXlxZG5zcjJCZEtmZmRsbmFRUXM2UndTbnBub2c?oc=5",
+          "publisher": "Audacy",
+          "headline": "3 things to watch in Patriots vs. Bears"
+        },
+        {
+          "report_key": "report_28",
+          "article_id": 1349832,
+          "original_position": 27,
+          "url": "https://news.google.com/rss/articles/CBMizAFBVV95cUxNNVBTQWJremFOeXUtcVREejMyR1JENmNaeUExZnFiY2NlVnRKWmR6S0U1WGU3TkJZOE95ZVVyc04taGtkN1laUTFWeUpvamVvRkt6NUxlSVh5bFVIY0dBRDVnQlFjNzdWWGRXQVdWRWtBY2xHdFptUHRENjJYSTI4ZmZhaFVRY2Vqaml5cmg3OEk2VHlNN1huVUF5blpHS29HZVdhajN1Skk3azVCTWI2X0ZnSE9DaGJDODdZQm95X09XLVhNVlJuZThZcGo?oc=5",
+          "publisher": "Pats Pulpit",
+          "headline": "3 things the Patriots have to do to beat the Bears"
+        },
+        {
+          "report_key": "report_29",
+          "article_id": 1322490,
+          "original_position": 28,
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxNTU11eE96WmxmYlZCRzk4Y1RXOWJOLXJZaWg0ZEtUQTBCb2F1NWJEMi1vSzcxdmg0ak5rcHcxQmhsbi00eDFZeE9rWXpFX2dvam5SVURqR1NzNTdIQUhiRnh2cDJKVm8ydm1IMlUyZWZudzh4YzgtbzhXZFEwbHp6SG1PQWZqcFhKR25TTFg3UktmWFczZmdVNjR5MXA2Z1A2WDFvaDJmd2V0Qm15bmZR?oc=5",
+          "publisher": "RotoGrinders",
+          "headline": "NFL DFS Picks for Patriots vs. Bears: The Grind Down with Notorious"
+        },
+        {
+          "report_key": "report_30",
+          "article_id": 1321245,
+          "original_position": 29,
+          "url": "https://news.google.com/rss/articles/CBMivgFBVV95cUxPcElCUG83aVAyejBkQ2VQbDlhdTNYdFJGUVk4UXVrZXZCX1RXYVFPX2RYX3phM2J3cllGaGFwandNd1FaX2ZiSDJDTXA3a1lnMDdlbUgyLW1wbzdacDJMUDV2VFh3UmJpY29FTVFlUHhlQU9PdU9PRjNEazJldVhINDBHQmFSYUdjV1U3Y2hXQ0NrY1h6NjI1QXVHZkwyZlJfeGJUckF6YUVxdTBpeFFuWTVCdGtIQXUxeVZBZG1R?oc=5",
+          "publisher": "Sports Cappers Picks",
+          "headline": "New England Patriots vs. Chicago Bears Free Pick & NFL Betting Prediction, 10/22/26"
+        },
+        {
+          "report_key": "report_31",
+          "article_id": 1330977,
+          "original_position": 30,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxOUHA1MTdYMUtYVUtMVHhxQUhYeXhPTlkyOXZpN0MxUXB0TlprZFpzM2FOVTNZaFRjTkhLWjI3QWlXMTM2N25udDJxbmZZWTl3aTRuZUJiMTg1QkpxOFVrYk04enF4dUpMc0xUTDMyZlhzVWEtWWF2alNGZFVVRFN1ZENYRGJtcUNQZTlR?oc=5",
+          "publisher": "Chicago Tribune",
+          "headline": "What to know about the Chicago Bears’ possible move from Soldier Field"
+        },
+        {
+          "report_key": "report_32",
+          "article_id": 1312730,
+          "original_position": 31,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOVkt6anZLcWZDVDFyY0dYX1ZTOGRVNlVSS09sXzR6Z2NJWTBrOVZDZnNsa2FGamFvNHc1WnA1M0M0T2gtb0NXUlI1dndPT0o1dHFUcU9NYVNsSllLUGRHT3AzTlp5UFZ4emRYdlpVUmY5MVV6c1lUQVM3cWhWWnM0OVFvMXA4dw?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Best Chicago Bears player prop bets for Week 7"
+        },
+        {
+          "report_key": "report_33",
+          "article_id": 1300894,
+          "original_position": 32,
+          "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxPRzcxNkxtTE9renN4dnA0Vi1VMkVxSkhHbkFuZF9LSllIdEx1bU45ODNDLTFERk1pMkRtb0tVLU54Rm1HTHlobG1kYmItQjVSQmYxNlYtLXBUb3ktUkZVY3FscE1CT3pMS3NvdTh6UllwQmFPa1ZZQnJ0OE1zMFFkZ19OdnV1WXBVQk0zLXViRDJzbTJtZkx0TXFFNzZyaC12dUI5UDhYS2tzN2dzeUw1eUx2cTlqRzhGYXQw?oc=5",
+          "publisher": "BVM Sports",
+          "headline": "New England Patriots vs. Chicago Bears could be a ‘Super Bowl preview’ | Pro Football Talk"
+        },
+        {
+          "report_key": "report_34",
+          "article_id": 1342889,
+          "original_position": 33,
+          "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxNb3FuNFEySldxNC1tT3g2VTRBaUZld193OE5sR2ZnekNJSjJTaGpFSHFxVnJXRTc1dkVveVE2UDJQaVY4aEo5eW42alN1cDZwZHNKbm9hWTNXaFM3d0dUNFJIYVZqZjk4OS1vMjZXdmI3QWh1eXdiU1RyVU9qeXBRdHdoUm9TcjVfcFRIRUx3ODB2OVNacVJNTmJoLUc?oc=5",
+          "publisher": "AmericanTV.com",
+          "headline": "How to Watch Patriots vs. Bears Thursday Night Football on DIRECTV (Oct 2026)"
+        },
+        {
+          "report_key": "report_35",
+          "article_id": 1303006,
+          "original_position": 35,
+          "url": "https://news.google.com/rss/articles/CBMivgFBVV95cUxOYmVVQWVHNVZGZ29pSzByRTdJbXBGQ1g0OHNUbGI0ZzFZZ0gtWDZfTldmQU5BeENNdFBpdXg2TW85a1pnWG5VV2RZMzdNTTFTdDhxVnlXVXZWVlhPLVo1UXdXSDUwVmNYR2xfckI3QTlWLVVnWU03S25OWEE4bDRHTUx4bnUtVk1lRU1CMGdDbWVzRWVTSVhWN3pLek9tbHh6YVB1bXlaMDA0azctbjNWTms5dU5RVUxXaXAyOEtn0gHGAUFVX3lxTE0ySU1JOXoyQVFJTGhmNHN2VXRLcUFISnpWY1VCUE5zUXFHTzJLVnFWdDF3ZGo1dUpNM25EbGZYSVFTLWt5Y3JaTFczcnB6dThId0cyQWRTQlhISURlTWNkbk9Ield6YkhwdnJJdnVDcUdaOVFrTzFIMHU1OXRzWWJSNXRkaFlsTlVZdHdTY3Jna1E0U18wLVhLeFZ0dnZJdDR2VUVNLXB1UXdkRzctS2lWMkhYeHJZY2U1MmlWejlMMy03X1RHQQ?oc=5",
+          "publisher": "NBC 5 Chicago",
+          "headline": "Chicago Bears game tonight: Time, channel, injury report and Ditka mustaches"
+        },
+        {
+          "report_key": "report_36",
+          "article_id": 1291114,
+          "original_position": 36,
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxORkZWUUxKUG1MWWRVcDRYa2RMN3FOTHJxQkNpeUYzbk50MGhmOVVCdWxZM04xc1N6SkxDbUF3OVd6TkpvS3pwZzZCX1FYZ2Z3RVNwUTZwMFQ0eXBYS2d4LXE5NmR4LWY3cGpfWWp2TjdVNUxoMEIzSzBybWYzcFFrSXdPNmdqbWozWXQ2Nw?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Patriots vs Bears Anytime Touchdown Scorer Props for NFL Thursday Night Football"
+        },
+        {
+          "report_key": "report_37",
+          "article_id": 1271894,
+          "original_position": 37,
+          "url": "https://news.google.com/rss/articles/CBMifEFVX3lxTE9hUUtmbUFmSHZQWi0yMDA3bmdWMjAtWkJlRmV6d0otbmMwdkVzZDhvSUJwbUJTUXBFMzk4OU9jYy04bEFNclZmMm5JTF9tbVZiRFZkM2NmQXZycS1IQ01wQVZWRTJOX2xRaTRIR1ZONmh3VjYwRTJXbkh0OUU?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "5 Things to watch: Will run game be impactful for Patriots vs. Bears?"
+        },
+        {
+          "report_key": "report_38",
+          "article_id": 1262219,
+          "original_position": 38,
+          "url": "https://news.google.com/rss/articles/CBMi2AFBVV95cUxPakFSZEhNajhUMGNCMmtkVDA1YjZBWVo2ejBDZWVfUmplN3gwc2FvNW90LWEtZ0F4NmMzYTQ2cXBrMUFBU3RodG5aVUNxRVhXN3RiMm1wLW82LTZBakRqOExmYUJKODVuNk1MUVZFOU5TdGo4UnZ4bUMtbHQ5eFlaT3ZGWmgzN0EzekdGWnFKcVpSellkZVZMTHZGaTNLUmIwMTVpeHpZbWNselZrRy1BS2tldERqalFVd1F6Z1Zubl9qMUVqMElaTVpEVFluM211dUpoVWdyX1k?oc=5",
+          "publisher": "Pats Pulpit",
+          "headline": "Patriots vs. Bears weather forecast for Thursday Night Football"
+        },
+        {
+          "report_key": "report_39",
+          "article_id": 1262245,
+          "original_position": 39,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxNTmI5X1prTENOYmRJY09Oc0RzZ1BHd25oSmtuSS1OSVYyMF9rYVU5WV9OTDQxSFZzRUdLdlhhWWNmemFLVVdDOGoxVUtMYi1ueDBJeER0c3VIWXQ5UUdTYnJ3bWxxeGVsVWtzQVY0b0JYbmpGcG56RkFvWE9qeVB4Z1pWNlR2b3pqd1RYY2g3Q0xPOUhXNUUwZThtcnU0TkxVVEk1Vk1lNjl5Zw?oc=5",
+          "publisher": "Discover Dade",
+          "headline": "Patriots and Bears Meet in Thursday Night Football Showdown on WFLI"
+        },
+        {
+          "report_key": "report_40",
+          "article_id": 1262232,
+          "original_position": 40,
+          "url": "https://news.google.com/rss/articles/CBMiigFBVV95cUxNQVJjSU5Ec2llY0YxMm1ZbmFIVlByYlk5NlExckNURDJYWXAtMlhDcVBGdHhqaW5TRFA2VmIyRXNObnBWZHJWX3pHWXNuSXZMdnVhUU41RDdEUWFRdlNUdFgwZVNOYTFNaXNvNEpUY0JQQ3FpTERiUTh5YVpFamRwSGh2WVkyQ3JfNnc?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "How Chicago Bears are honoring Mike Ditka on TNF"
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_id": 13,
+        "entity_type": "team",
+        "name": "LA Clippers",
+        "sport": "NBA"
+      },
+      "anchor_id": 1289440,
+      "anchor_original_position": 12,
+      "anchor_rubric": "Preserve RotoBaller and road-trip unavailability. Do not add injury cause, duration or missed-game count.",
+      "related_qualification_review": "All 40 headlines inspected before inference; no separate denial or qualification of this named anchor found. Broad team availability or match headlines do not establish extra anchor details.",
+      "reports": [
+        {
+          "report_key": "report_1",
+          "article_id": 1289440,
+          "original_position": 12,
+          "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxQLV9rWGxpMVJTd1ptX20tc0twRjVJRzBIQkxPSVljRnMtQ0hpRmZtSjJxZ0hFMmpvT0xSZkVCMVpfaVFLMzdpZVdRQy1ubjR4QS02czNtZzdXMzdaNWZ4XzFKWWxyNVkwczZtRVdjSm1TZFg0dU82QUFUNWlKRnFqeWRNTzdrWFRjLUlmX0NGMjY4aHc?oc=5",
+          "publisher": "RotoBaller",
+          "headline": "Max Strus Ruled Out for Clippers’ Road Trip - NBA News | Fantasy Basketball"
+        },
+        {
+          "report_key": "report_2",
+          "article_id": 1429100,
+          "original_position": 1,
+          "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTE1lSUUzdzNXX0FZeFV4cmgtYVJOTkN2anN4WHptQkpvQ3hlRGN0blJqZ1Z3ZEV2eXludzJIM3Uzb09YZm5JNkhrYmVSVHIzbE0zcEdN?oc=5",
+          "publisher": "NBA.com",
+          "headline": "Orlando Magic vs LA Clippers Jan 15, 2027 Game - Scores, Stats & Highlights"
+        },
+        {
+          "report_key": "report_3",
+          "article_id": 1398531,
+          "original_position": 2,
+          "url": "https://news.google.com/rss/articles/CBMisgRBVV95cUxOanNBWVp3OXhJcW5zREVJWEJKUUtsWkZIdnNITjN5NExDcG1xM3M4M2tON3V2NUdWY21jRS1MMlNjWU9qOGd2ZFIxeXNGRThHSnczVGI0UzV5RDZZaldTMThBUkpDbC1mZTAycXBGdVhTYk9JWTF2VWR6ZmFLYkQ5d2ZVMThPZjk0d3U0YkN5aTU2UktqV1gyeUExcnJzdEoxRllpR2Roay1kMDU3WHgyNGk3b2R5U1NhbjdjRlFVa0NZTHl6WDY4UmhpYzRqb1dsNTJES3ViV3NSRUxnXzE0OFItZkVuNEU2T3ZDdGRkN205TF9VOW5Jd09wVkdYZTd4WFpPa2cyS2NYWkpOV0wydjVXWTBDdUJNeTl3SEhWOU03WXJPYVBsQTBZUEJuOWctODVYdHAxVzhtQTdOT2p1eWZGeVdXUHhNa1I3VzhSUlg5TzVmSTNWajdNckNDdksyLUlJSjFQTWdPOXdta2JjcTdCNXNKdWZUMjR2NWxqOTczRFVXdzgzb3drOWkxV0VVYjBWYnlQcmEzV1lvc0tSOFk3RS1KOXpPaWx5ZW1UekNTMV9Mb2VGczF2YmRuRzVqMkpncmg3blgwRDAwbTdRc25mWjhBUFNFN1pDek9EbWgzMDVyY2NmZ2JlZXpIaE9ITVNZSFY3dV9oSFpFQ2dzSkdzRmhqdnhLdUM2Mk1vYmtjQVNFcUpZSFdEbTBYR0pmYUJOdXRaNFphdHFnQjh4UGhR?oc=5",
+          "publisher": "NBA.com",
+          "headline": "Toronto Raptors vs LA Clippers Nov 2, 2026 Game Summary"
+        },
+        {
+          "report_key": "report_4",
+          "article_id": 1378271,
+          "original_position": 3,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQenZNSXdseWU4Yk1CeXRVN19iR3UzV2s2OFRtaXpxTDZhWWcwaFhUTUFLTWFhcnRrRXRnNjdHZzNZaWlycV8wRTZnU1pWdURlT25TT016WWsyQzBGSXRCcVh5Z3duQzhGTkpNWms4LXp6Q240Vk1BZDRaNTlOOEdzSXo2NllvOV9zdmgwTW41YlZ6SXVmSlJqTjB6WmlqM2hxRUpPSmd6TmZsUQ?oc=5",
+          "publisher": "Annenberg Media",
+          "headline": "Fans share hope, loyalty for new-look Clippers at home opener"
+        },
+        {
+          "report_key": "report_5",
+          "article_id": 1260557,
+          "original_position": 4,
+          "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxOWHNGRHd6bm14YmJ3WkM3QjdyV1poTE9JMG5MZjM0TWk3Wmo3cGxveG9lV0pZYUpxNXB1ZURpbnctSjJ0TE9raHZFVDBkRFQtMUJ0a0hXSGdDTm9sb0tyNlFWSGpRQmR0VENlZjZleV80S1llZ0VxVDloNExXa25XS01SQ0ZQYlVTYjhjdF9tOEswbUN5M1RObDc2ZTBNWmFKM1FwUDdKanJaVlN0d2tHN096Q0Z3N2c?oc=5",
+          "publisher": "NBC Sports",
+          "headline": "Darius Acuff Jr. has brutal NBA debut vs. Clippers"
+        },
+        {
+          "report_key": "report_6",
+          "article_id": 1348190,
+          "original_position": 5,
+          "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxONVdIZzdJYm5Wc1R3cWdMTlIzaWhGakxPVEdlM00yVC1PRFRhTTl2YXFuSnhmRHdqd203RXNCTkVPcnYxeVo3cnNfcTY2LVUxR0duUHF6ZU1WaHMwOEZ2cTVOcGlFZXhjb284bEVJSHFCVmVNdno3YWZ2V3JpR09VajBtZFdGUHdxUHBBTW1TNG51TURrQ1l3Y1c4WDk1cHNZMzcwQ3h1UFF0blhMSEtIUUZrUS0yLTIzQTNpV3dKcXg5YW9QTlZ1em81SHh2VFBPYkc5X0Fyaw?oc=5",
+          "publisher": "FOX Sports",
+          "headline": "2026 LA Clippers Rebounds Per Game Stats & Leaders - NBA Rebounding Stats"
+        },
+        {
+          "report_key": "report_7",
+          "article_id": 1338200,
+          "original_position": 6,
+          "url": "https://news.google.com/rss/articles/CBMi0wFBVV95cUxQWGdqRzdvRWtCeXJKWkFYb3hxZExxRXpkMy1mV1lCbGxYT3NVcENaRmdhTzVKbHlfcXF0WVlxdFQ2UlZETnJhUUtCakpTWGp0M1BZbjlKNTEyTl90cHNmeWlVb0FFYlA5NzlOVklhd3hhN1FWbnZuZG1Ua3VqZlM3ZkNadmNrazJzbUtzSVBWLU1jYjkyTFhfU2tsU29EMGxSTjBGQ1dfbmN2ZllrUHFwcTRXVHJiRGRfUlI1V3UzUGY2MVBqbDVOdlBwRVQzMjFzNjNV?oc=5",
+          "publisher": "FOX Sports",
+          "headline": "2026 LA Clippers Assists Per Game Stats & Leaders - NBA Assists Stats"
+        },
+        {
+          "report_key": "report_8",
+          "article_id": 1348168,
+          "original_position": 7,
+          "url": "https://news.google.com/rss/articles/CBMi2AFBVV95cUxQU1pCb21jS1M0akF5aHdLVWN1R1htVGk0d285cUw0eUd1YU5uMXJuSnNxQkVTcUdsclZTRlpvRUdHOUpEY3FLNXFiU29PanBaUFprWm1odUNLUlUtWllYT2tkQVVZa0hyMG5kN2pMYlpZSW93VTBxRGoxNFV3UmUwbEZiYmt2c1EzQi1yYVI4OUxJQmNDTkJDbDlGWkpWMmtYVFBNMUFQZGM1bHp2aUVwTGZDRUV2NHpsdnREekxCaDlKVFF0MDVuUTRhbm0yVWh4a3RkMGNLaU4?oc=5",
+          "publisher": "FOX Sports",
+          "headline": "2026 LA Clippers Net Rating Stats & Leaders - NBA Advanced Stats"
+        },
+        {
+          "report_key": "report_9",
+          "article_id": 1348179,
+          "original_position": 8,
+          "url": "https://news.google.com/rss/articles/CBMi0wFBVV95cUxOUUFhU0FoWkxkc0lJS0JDaUs3N1RlbTA4R01sYmxRclR1RE9TcE4xV3kzbUhldHJQaUVWNnZRZUtKbVhncDNyR0oyRjZwRTVXbGwyekszQml5UDZVQVdyYVFKclNYTWpCVVFZV2w5eHBHYXI0VS1CZlJwbHpjZ0NnZll4dmsyQkJRNHNRcGE0TnNjZTNaTlBEZ2g1UWY1ZXZfNUpnTlFPbUxRTlVFdTZqVUVpUGxOLVFsaVhJMXJVVVF2Vmgxc1ROdEh1NWh3bFRaT3Ew?oc=5",
+          "publisher": "FOX Sports",
+          "headline": "2026 LA Clippers Double Doubles Stats & Leaders - NBA Misc Stats"
+        },
+        {
+          "report_key": "report_10",
+          "article_id": 1338223,
+          "original_position": 9,
+          "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxOdTR3NGRGZUVZNDRTNGpwVEhSUzllekU0QVlQcGI3XzVhWDluWnViZ0N0OGx2X0hhZTB5VjNmQkVYNnVzNkxQM045SE54YmZhc1ZmcGJ0SlA0WlgweVRqQjFhVy1TMFZUWWRkMUJ1N0hKdGFGajhsUFFadjhqU1dlbDhtc2l6MXJpNjY0TzUwaGpzWFZHTHF5S05ib1pBZWpUS2xUMXRIVEhJc3B0T24yRGxn?oc=5",
+          "publisher": "NBC Sports",
+          "headline": "Keegan Murray struggles mightily vs. Clippers"
+        },
+        {
+          "report_key": "report_11",
+          "article_id": 1328316,
+          "original_position": 10,
+          "url": "https://news.google.com/rss/articles/CBMi0wFBVV95cUxNcUlfTl9EODdrMkVTS1hjc1p3NmVxanZoc2xtSGVYTm5BN1FuYW5nTkRMaWtCYld1eTVkZEpLbmFYckZsTktWYmdXeTV6TlA3UlZicFI0bGdSNHFheUtSUWZSdTdqZXVFbDdSX0VWbmZZR1pGUl9INTREUHFuN1BEcDBBNVVvTUk1d3Eyck0zZXpWMmI5WldjT2lLY1pOcnhQLVJxZWNTcFItMDBVS1VISnkyQUw0SWRWcHNFOUlCOFFFQ2c5bE5HWHdpMjNWZnJvRVNZ?oc=5",
+          "publisher": "FOX Sports",
+          "headline": "2026 LA Clippers Steals Stats & Leaders - NBA Defense Stats"
+        },
+        {
+          "report_key": "report_12",
+          "article_id": 1308859,
+          "original_position": 11,
+          "url": "https://news.google.com/rss/articles/CBMi4gFBVV95cUxNSWRpNkdXdVlha3BYZ0F5WFo4OHJVSXViXzNwZlZjR3k4NlVnM2hEYVJhRHRLaERFbHd4QjRUYnEtOVNSemozOVMyUGJka25sMmg0QkpkYWdGSzR1Z21jbjM0clBFQjZVZTM4aHJuWVQ2WTBkOC1SdUZiZ0dLdWtFUzdyU1hwSllZOVAtdXhEY3c3X2EtUDZzNGlqazdCTHhXNXQ2QzNvcHNNcFpibHZPakdWWm5RT094Ny1BUUZieGpnR1VjbmE2dHB4bWdsNEdwZGpMX2t0bGg4WDY5SkJBYVNB?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Clippers dedicate opening-night win to suspended owner Steve Ballmer: 'We're still fighting for him'"
+        },
+        {
+          "report_key": "report_13",
+          "article_id": 1289452,
+          "original_position": 13,
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOZHB3RkdtSGhJa29hd3dGOHlXQWpPWTAtT3pGb2pfVUNMQTZYR2RMalZOXzJadmhxdnlsdFE0Wm5OREhuWkRCMjBDTDJhTlowVlM5QzFudGZ5eWRMMGVUbElYdlFyQTd3dkJNSFI2QmplcWNrNm5Qb0xkelVpZ3FPNDZZNkxldw?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Swanson: As the post-Kawhi Leonard era begins, the Clippers owe more to their fans"
+        },
+        {
+          "report_key": "report_14",
+          "article_id": 1289417,
+          "original_position": 14,
+          "url": "https://news.google.com/rss/articles/CBMivgFBVV95cUxNTkI2U0Q5enpFYi1jcGdFSGZTUjhfTXIyX1hfS19ydDFYdlc5SWxKWXRONVlpTTR1aFlsQkVJS2U1aGJFV1MwaFdWbVlIZ2FMY3liVmhiRFlJWC1PZVVoZG5GOURtZENWd2g4UXRBMGpQOWp2N1QxcWxHanFoTFh4c2JBWjJGczZyV2xRWHhybGh0am1UbzFVVGxWNnZGNWM2QWxtRXpUMnJnT3lhdi1yV2l5U3lkdk1jVVVsSzZ3?oc=5",
+          "publisher": "Los Angeles Times",
+          "headline": "Commentary: As the post-Kawhi Leonard era begins, the Clippers owe more to their fans"
+        },
+        {
+          "report_key": "report_15",
+          "article_id": 1317777,
+          "original_position": 15,
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQbGlOMWxzTU9XQXQteXA3eG9YY3N3ZmxxZS1vTmdKS3M2enBfTm9lOUQzeV9jdFprMkM5R3NSQWM5eTA2LTFrQjBVN0dFUHlXajIxanFsWGdhR1RtMGowTHFFVnlVQVdVUXVzY05zUVBNeGREVThZUVhKTW16SkJVVk43S0FNUUpBYnhQSmhsUmluS2hoRmZjSkVoTG9DcFFPeFNnOTRkTFJoZw?oc=5",
+          "publisher": "theScore",
+          "headline": "Clippers dedicate win to banned owner Ballmer: 'We felt his energy'"
+        },
+        {
+          "report_key": "report_16",
+          "article_id": 1261124,
+          "original_position": 16,
+          "url": "https://news.google.com/rss/articles/CBMickFVX3lxTE91cWdZdGZCY3ZRaGFocDQ1UnlGS01kYkl6cE50eVd3T1Y0WEx4elpJeU5HSTA5c1YyUUtia0paYnVOWVotNXB1MV9NOExXT2RHTnJMb3JfTm9aN0tQUFUtTHM5Z0VrMldtdFQtZmF1SDg4UQ?oc=5",
+          "publisher": "NBA.com",
+          "headline": "New York Knicks vs LA Clippers Mar 10, 2027 Game Summary"
+        },
+        {
+          "report_key": "report_17",
+          "article_id": 1260525,
+          "original_position": 17,
+          "url": "https://news.google.com/rss/articles/CBMi_AFBVV95cUxPRURUWkE1NTd0VVNFbG04Z1pNWmgxRTRiZ0ZkNzBHd2dJQkNYajJ5OU1wNzRWSm1Bc1JSN0pLcjU0TnZDUXFYb2d2R2FWZC1sRUJxaUhXQkVCWGVXb25GTUVleTM0dlg4eFBlSUlDNUV6Y01sQl96TlZYai1EREJTQXBtTEhneUxnRm5LU0F2VE1MOGJJanJTZGxYWkpJLWc3RGRabGpxaVAwQzRzclNvTC1UN2lHelVEYUhYS241UlBZU2FwSWprOGF3MXhJYkRzM1k5Ui14NllLT2dDMWJRSE90T0x3YXpPWG1NeDZUMmZUTElfaE5ISmVDeWs?oc=5",
+          "publisher": "The Killeen Daily Herald",
+          "headline": "No Ballmer courtside at Intuit Dome as the Clippers begin a season without their banned owner"
+        },
+        {
+          "report_key": "report_18",
+          "article_id": 1289504,
+          "original_position": 18,
+          "url": "https://news.google.com/rss/articles/CBMi1wFBVV95cUxPVGtkUENHWmhOZ1dIbDZnWGlJNUtZZzYzUjd2LTExY2hrTi1ZWXlJTTI5a3B0cDNEdGtTSHlFeFFhZDViUXRmYXRzM0pMdWtwU092RU1qcld3NDB3UEhCSXljMnhjMVA3WTNWYW01Z3ZLN094NF9sUFJZczNYNWRUSk9rOEN5S3ZuZjRWRTZkYlVYeG5Mb3Z6UkdDdHktc1o0eDI5OWotQU5fMXR4cVhIQTFmdFRvZEpCc1pEWjNhcHlZWlBnRDl3bmZfakhYUncwUy1VUC15SQ?oc=5",
+          "publisher": "Corsicana Daily Sun",
+          "headline": "Clippers Without Ballmer Basketball"
+        },
+        {
+          "report_key": "report_19",
+          "article_id": 1260572,
+          "original_position": 19,
+          "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxPZGxhR3dpLXFCSk5LN09BUWlqYzYwSVRTX2VWYU5qdjdBcXJKT0R4ZXY4TmNtYVdFbzh3aVJWMmZRbjFMY0JQSUVramF4bzNqRnRjb2ZOU1lUYmgwX29XR3VCbzl6Q3JZNXVpX1RVSDAxQkx2SzF3el81ZGdScHktbQ?oc=5",
+          "publisher": "CBS Sports",
+          "headline": "Highlights: Kings at Clippers (10/21) Stream of National Basketball Association"
+        },
+        {
+          "report_key": "report_20",
+          "article_id": 1260551,
+          "original_position": 20,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxQSUU4SldsMjZrN3dOcklTSEFwWEJZdkpwdVVTRUtSdEU4ZUpPSkZIcmx2QWV1NXA5ZzBTcmpsajVRdTMzT2twTTM5NDZ1dVpIT01PbTQtRmlnSTlybkgySDBraVhFQ294aFBKc2JyRkxCeDcweS1ndEJOY2UyREpYcmZBU0lrWkoxT3Bz?oc=5",
+          "publisher": "NBA.com",
+          "headline": "Sacramento Kings vs LA Clippers Oct 21, 2026 Game - Scores, Stats & Highlights"
+        },
+        {
+          "report_key": "report_21",
+          "article_id": 1260610,
+          "original_position": 21,
+          "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE1FSkJmWW42UVJvOGZZYkFSZE15Vk5XTEpqbmpEdDVETXVzbUFQTThKNEM0emhKYUREMTJEcHZvUHhOai1adnVjaDgzaDJra3h5RUdPdlJPWTRIZS04YlZFSjhxUHdSMmJEQTRKdg?oc=5",
+          "publisher": "ESPN India",
+          "headline": "Sacramento Kings vs. LA Clippers: Game Highlights"
+        },
+        {
+          "report_key": "report_22",
+          "article_id": 1250964,
+          "original_position": 22,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNcEVyVnRFQlNDbDlsc0R4aWczUS1ZODE2X1ZvVGhyRjhrUkg1T0pfRU1kSmc5OEFWcy1rVHpxX3BRbmVISDZXVFdOZVcwdFFSVzFxYXh1V3dfb0tocW9lWDU4RFVuMVIxZzcySktqX2dRdXFQYVhKY1BvNGQtN1MxdnZwQ0NqZndSaWNhNUR0bw?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Clippers to start season with several notable players out"
+        },
+        {
+          "report_key": "report_23",
+          "article_id": 1261755,
+          "original_position": 23,
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNQ0hFb0xlYjNRd09ISWJ0eHBxU3hMeUVidVh2c05mSGFndjBQMUdkczFKQzZjZDRyT1pBQmlSS0pmTExYUU9IamV5WXpDRUlfZEt4Rm5UT05Pc0gxQ09TUk1udkxRZWpNc3pvaWFaaHdlUF9sM1RzSGgtXzlWbG1ub2IwdzBrelVlOG5oM3RfWQ?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Kings Announce New Opening Night Starting Lineup vs. Clippers"
+        },
+        {
+          "report_key": "report_24",
+          "article_id": 1260584,
+          "original_position": 24,
+          "url": "https://news.google.com/rss/articles/CBMiqAJBVV95cUxQZXpCQ0FUakhmcDRGQk0tYnE0Z1dETUk1eU9KVmFxQmNwbUV1b1FvN1JuWmlYZ3l3ZmZkZWJIblZ5RXRJc2RhT0Z6ZWEzUElIVXdiMVNmNjZLVGF1cnBBV210YnhQRWZiMnZOWm5lOFEzSW9uXzJTR1FueTNnZHlkUlUtNmtBb0JaVHA3S0FKcTRkaFhwYTF3QzJFVngydU9aNEI3OExRcm92cGUzOXFUQmJPZlhFT1dHR0dsOUZPQzB0NnduRzhTWjdneWZnNWIxZ3NmczVQeHdNUzF0MUQ2U2hXWGpDRklQeXY2aXd3MDhsWXF1czRPRklMYzFhTlY4UUdaV3JWaGlCb0FvZ0pHRF9EVmticzV6aUVNbXRQMWF4a211cG1lZQ?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "(LIVESTREAMs!FREE)! Sacramento Kings VS LA Clippers Live Free NBA Basketball ESPN Coverage"
+        },
+        {
+          "report_key": "report_25",
+          "article_id": 1260593,
+          "original_position": 25,
+          "url": "https://news.google.com/rss/articles/CBMinAJBVV95cUxQWmkxX3hTYU1xT05aclVKbTRUZUNPSG9NX05JYmlDRlhkckxlWjA5TWlXQXdscWdld2piN3o5V3JJX3N0WG5jZGJKM0NXTERrMm5wbDY1eHF1X0JpR0RnZlhVVzZxZEJDQ1lhd0hVYWFCTGlWVTg0MjE2NEtWdmxBeUE3bXM4eFdTbjZvYnNuR0RPRFdGR3hZRUtsQ2d4UUFHMW14QTF5TXgzSE05Vm9Hamg5dm9hVDJIR0l3dnZRcTBjQTNndUNUT24wRmJETXJaTkVtUWtIQWIyeHBYeV9od3hxWlluZnlyN2sySkplWS00WVZZc25lWXdOblk0TTNFRWxZQVllWGVHMkxtMEloeGNMZWZnRnF2OEhWNg?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "(LIVESTREAMs!FREE)! Kings VS Clippers Live Free NBA Basketball ESPN Coverage"
+        },
+        {
+          "report_key": "report_26",
+          "article_id": 1099840,
+          "original_position": 26,
+          "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE5MRVpGeVdJTVdaRW5jZkdlTTQ1QzRGc1JTQ2VMQmVWTndZRDV1QUFOckZlSnNnRXQ5QkkweDBucXFXX3dVV2g2dzMzZ0wyTFgxYmgxSWh0UlZqUQ?oc=5",
+          "publisher": "NBA.com",
+          "headline": "Sacramento Kings vs LA Clippers Oct 21, 2026 Game Summary"
+        },
+        {
+          "report_key": "report_27",
+          "article_id": 1260604,
+          "original_position": 27,
+          "url": "https://news.google.com/rss/articles/CBMi7wFBVV95cUxQOElaS0MtSXVUeFJpeVk0SUJ5ZGNIVi1mU0xOR0l6RmFDVXZueWNnd25ncmlVcXlla3N0QTlUOHhRU0NocldtUkhvRTMxaGZBV2hBRjRQVWt3dllsMkF5SHpteFVfUmhkZ1ktd1lmdVJhdEZqVmxweGFuMGdhU1A2c1ZOOVdtRWpza1FGZlhsZUtNbXZzOEJvVS12N0taNUh6bFo4TVNuSzN2ajkzWU4yRVUtYjd1RGV4cDR1TkEzNEc2ZnJQbklkb3NhVDloZFltYV9Rd1NNQ2FwdFlTNEs4OHNjQ1ZfNHlmaEhvdXRPbw?oc=5",
+          "publisher": "北陸地方整備局",
+          "headline": "[CRACKSTREAMS] Kings vs Clippers Live Free NBA Basketball Week 1 On TV October, 21, 2026"
+        },
+        {
+          "report_key": "report_28",
+          "article_id": 1241292,
+          "original_position": 28,
+          "url": "https://news.google.com/rss/articles/CBMitgRBVV95cUxNRnFrMHpBeDdySEdMd2hmeHZHaV9Kbmh1WkJzS2QxbU15c053YnVJcWNLcWZNUVYwdE40VmhFakRUbXBHb19JX0hCbFVxY0dsWnAzZFJvd2kxOGFIalZialoyWjl1X2xNN3BvVEo3WEVaUlNNWUdvSE9ZanhCYTlOSTVRZUJzVHhrUDVBc2VyU25nbDlMeGNZWk1aUHo1NFpFOVkzZ1pMWng1dUpQWHNXWkNBYlRNY0wyeTJ2YUc5V1hXOEtydzZsaUZYZlhpc2FZb1NxS0c2WUdfQWN0YS0tNFRZMUlMeXgtZjRoOFVoaHJSOE9nWFJHYzFSUm1hd2xENlRWallxTm83SU1UWEZrZnNTZGI0em5qcDI4cUI2RU90Mjlzc1lpOGptZWd2TThsS2d4UTlXSTRCcmxnOExtZ1ZjUG5VazdKSjJSRHpxV0dQdFFOVzRCckFxS2FHWXR3bkRLRHgtUGlHQWhPeTl1bFROQnJPUGpiRW50SWR4WWxGNmtxUm1FT0pkcE8wSEJiaDVrc08tYmhBbmNreXFHRE9xajRRTzl1ay0weWdhV1VPT2o4MjRRZG5jM0RybWpkNGdMOHhQaHBCckNVd21HSnl1enZDTFdEdTZaS1ZvSEF6WUQxZVgxMS0za1lfQUFpYzJDTzVQU1V2NWFpQTZSdHB4S2tnUEtnSmw4Z2lqZjJra3ZJUWlmYjdWdG1ZQXZRdmtOblZkUVlzVjhjbnBiX0IyWnBuZw?oc=5",
+          "publisher": "NBA.com",
+          "headline": "Los Angeles Lakers vs LA Clippers Oct 28, 2026 Game Summary"
+        },
+        {
+          "report_key": "report_29",
+          "article_id": 1221840,
+          "original_position": 29,
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxPeGc3RnluVE9kd2JFNkViZGxfSEgyTlFoQWE1eDRTc3NXZU5vdUxobWltQ20zc3VORkwza1owcWRJUllyblRmaUpTWWNTNjdoeDhFa1p3QnN1V25kUHdDTm5CdFlQWklIMV9hVTQ2ZVVjTWdaLTRzcnV4Q1phYmV6N1pFRnhlWnVsbzEw?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "How Clippers fans can get free parking and new jerseys on opening night"
+        },
+        {
+          "report_key": "report_30",
+          "article_id": 1221846,
+          "original_position": 30,
+          "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTFBTZ3VOMEpWeURwblkxcjdLbGp5T1RyMnFveTdpTlBOXzVNdGJadDFSU19zNmJIdFhJTElmRTIwdEU3VUdLeFdoWGVyV3ZlcGl1Y2Yw?oc=5",
+          "publisher": "NBA.com",
+          "headline": "Philadelphia 76ers vs LA Clippers Dec 27, 2026 Game - Scores, Stats & Highlights"
+        },
+        {
+          "report_key": "report_31",
+          "article_id": 1212192,
+          "original_position": 31,
+          "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTE1xZDFmTnBqLV80WDIwclZnT2tobVJiQ3pmcDRHSTg2bDRNNi1STjZYZU1mN3FfLWcyMi1iaEFDLW9tTWZRLVl5UlI1UWNSbnRPNGxPVFN0S0pad3hwSlBRUG1MdTd1WmcyTE12ak1fVWRkTWQ1YTR1ZV9XUQ?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Bad News For LA Clippers As 5 Players Are Injured To Open Post-Kawhi Era"
+        },
+        {
+          "report_key": "report_32",
+          "article_id": 1212194,
+          "original_position": 32,
+          "url": "https://news.google.com/rss/articles/CBMiWEFVX3lxTE1VRG9Yb24zNjQ4aWFUM0prN3dzTGV6amhqbTUybzk5ZG03WmRRa2lxQXQ3bkd3OUFXNElrMkRfdGFndUJqTURwRVh3d0J1YS03ZV9DV3JEeTA?oc=5",
+          "publisher": "NBA.com",
+          "headline": "Sacramento Kings vs LA Clippers Oct 21, 2026 Box Scores"
+        },
+        {
+          "report_key": "report_33",
+          "article_id": 1192966,
+          "original_position": 33,
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxQOEhWZGlMbFZFQ3RlSEhsOElvUzZoRi05TEJiaWM4OEFDVnJOYkZsTHhla3lqQ2lYOF9TZkRqQ3pyNFhHZkRFVEJkR2R5Sl9PMjNKN3k4UWdCb3RQYWtsZjIwaGhTeGdtWXZEUFpaQjhwZ1VfRDUyeWs3anRuZjg2eGpwdmM0cktXYnVUaG5NNDdtQ3BwRElPT2hoVW9tMUtNQm0wLWxwaGRSRkMtSXhTamkwb0gzdw?oc=5",
+          "publisher": "DraftKings Network",
+          "headline": "Sacramento Kings vs. LA Clippers Prediction, Pick for Wednesday 10/21/26"
+        },
+        {
+          "report_key": "report_34",
+          "article_id": 1270254,
+          "original_position": 34,
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxPUlpGcGotcnY1S3FxcXI1TmRCbmJLY29KY040bUg3T2V0OVUwRW95c2c0bUQ5S1VWdzQ0Rlk5ZEFLbE91ajI0bURPeVBBT3NpbkZyOF9qMURMVGNfNzhPNjhGT1F2TDlYRG4zTVlYUFBCcVlOSnoxcVl3N1Y1QUtNakJUWjlYSGNxSEVCMC1fT0tRRUN1ZDJjZGVxbXpvWlRvLWdvcA?oc=5",
+          "publisher": "Fubo",
+          "headline": "Sacramento Kings vs LA Clippers Live Stream: How to Watch NBA (Oct. 21, 2026)"
+        },
+        {
+          "report_key": "report_35",
+          "article_id": 1183215,
+          "original_position": 35,
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxQNVJjdWhCTG5GLWpYYXRXTHl6eXRtUTNyaVM1YVotQk1pbnFvZmVHY3JXMzU3WEUtMC1nbWhTR3dHeE9jRzAzWkk0MjRlR3pMOTdubjdUYThNTldxVEN6QUJSWmt1VGxMQVRUSTRrWVpWQ3VCd0Q1Q3M0MDZ3ai1DOTVFVE9MMkJlTFZYQTY5bFdmUQ?oc=5",
+          "publisher": "Sports Illustrated",
+          "headline": "3 Clippers Who Are Entering Their Final Season in LA"
+        },
+        {
+          "report_key": "report_36",
+          "article_id": 1192912,
+          "original_position": 36,
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxONUFYOTZjb1kzUk1ZdmhqeTNkWDF2X1hnUDIxYWh3YXI5MEpadHJGRmZBekVXdUx0X3lqTHIxdmJlOHR2andrdkxJVTNZSFRxSS1ZWk1MSlY3aUxtVXNnc3JjQm9LWE5qUTEwVjNpRVB4UTZ4ZDZnOEFBYUkyenJBcWt5T0xDVFlOamVRaEg1WTRSYi1ibDFGbFdpNzR4ZXNBZHfSAacBQVVfeXFMUEU1NUJic05JNnczazVDWjh4S0YzZ0tJZzUwU1M0M2pPejY2Nk0wTlZJSUlucVV4Wm1PWHAtSnhqajNwd19wVkliNEp5eWFOM2d4bGlUbmhMelY5UDdlOXFVck9fQlJ2bUlEVDROZmFBbl8zWEFQQ1JhMzFjMGV0UDVQYXlGUEgwRXZORGlhV1VWWHpTcnBzb0RHNUZoMTFaeFo2dXY2N2c?oc=5",
+          "publisher": "KTLA",
+          "headline": "L.A. Clippers usher in new season with jersey swap and free parking"
+        },
+        {
+          "report_key": "report_37",
+          "article_id": 1157185,
+          "original_position": 37,
+          "url": "https://news.google.com/rss/articles/CBMizAFBVV95cUxQaUplYWZTNTF4WnN0aFdNbGI2bnoxd2J6V0tfUjRyalVWZ0dSakJqaGZUNzJGdnUwRVBaM2YzamstUDFGam5tVUZpd0ItMXViRkJkZWJmSEVIRWhrQ1FrUE8ya0xnY0p4VDdXVG5qdUFkYXJNeWRpQ2hSa3MwSGw1SktxMi1QOHE2djd3WTRJVFZiT2dyYmFtckxYMDRjVDRpYXYwVWdkY0ZxUFhrWTJ2bVk0eWk1OU5uU18xNEVwS0xfQlV0TjB6amJoM1U?oc=5",
+          "publisher": "Fubo",
+          "headline": "Sacramento Kings at LA Clippers - Where to Watch, Stream Info, TV Channel, and Live Updates (October 21, 2026)"
+        },
+        {
+          "report_key": "report_38",
+          "article_id": 1157205,
+          "original_position": 38,
+          "url": "https://news.google.com/rss/articles/CBMirwFBVV95cUxNWjJwY1pjRjBZWlVUTFVPN21nS1JwOTJMS1ZLc1JwSFhIc3Y2bHRZYkFnS05ZRHdoVERjNnF5bUlnS3NUNEdrbWNaMTJvZ0NzUkstM0t1azdMVkk3NFlERVBib1FmdDRBT2syZEhvSDNqdHgwWkw3WFBVNm1mTm9SdG8wVmxSWTRrY2FmaUY3aEpMMjQzN3pKMmRheDJuTGxVdHIxUldkQnNBVWtUbUpZ?oc=5",
+          "publisher": "Sportsgambler",
+          "headline": "Sacramento Kings vs LA Clippers Prediction, Picks & Odds | NBA Wednesday"
+        },
+        {
+          "report_key": "report_39",
+          "article_id": 1221826,
+          "original_position": 39,
+          "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTFAxVmozcjd2YmhVSnAyN21zOUJGemJXcUFtQk9qODZvS0Yxd0lvMzIycmExOGFxUFZfMTFvSmZiRHhMNTZkcThtQ3k2RUhHTWhLOGpNbl9vRk1TVmVwNEc5WlF5NFFKUQ?oc=5",
+          "publisher": "FOX Sports",
+          "headline": "LA Clippers News and Rumors - NBA"
+        },
+        {
+          "report_key": "report_40",
+          "article_id": 1211778,
+          "original_position": 40,
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNTVlXbktjZXUzQUpOZFdwd3hQS0Q1MUVmYXVuV0pPQ25kZXFwb2VrT0hKRWhscnlZZG9XQTk0YlhocEJrRmswQTY0NzRHN01vY1VBZm1XbnFoRThVNDZKR3h2NHBuek82TzVTcXBfd3J0azY3Z0pzVUhRRFNyM0VnVWVSZERHMzlVN2VIMnRB?oc=5",
+          "publisher": "Yahoo Sports",
+          "headline": "Clippers season predictions: A play-in run and a Kawhi Leonard twist"
+        }
+      ]
+    }
+  ]
+}

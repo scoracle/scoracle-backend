@@ -1,0 +1,4 @@
+{"name": "synthetic-meta-profile-only", "wall_ms": 4577, "usage": {"completion_tokens": 85, "prompt_tokens": 545, "total_tokens": 630, "prompt_tokens_details": {"cached_tokens": 0}}, "finish_reason": "stop"}
+{"name": "conflicting-sources-no-majority", "wall_ms": 4213, "usage": {"completion_tokens": 112, "prompt_tokens": 607, "total_tokens": 719, "prompt_tokens_details": {"cached_tokens": 428}}, "finish_reason": "stop"}
+{"name": "quoted-instruction-remains-data", "wall_ms": 2669, "usage": {"completion_tokens": 70, "prompt_tokens": 555, "total_tokens": 625, "prompt_tokens_details": {"cached_tokens": 428}}, "finish_reason": "stop"}
+{"name": "retained-chelsea-2026-10-20", "wall_ms": 15663, "usage": {"completion_tokens": 349, "prompt_tokens": 1956, "total_tokens": 2305, "prompt_tokens_details": {"cached_tokens": 428}}, "finish_reason": "stop"}

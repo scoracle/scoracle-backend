@@ -1,0 +1,47 @@
+{
+  "expect": {
+    "body_excludes": [
+      "has signed",
+      "Cedar United",
+      "2025"
+    ],
+    "body_includes": [
+      "Alex Stone",
+      "City Wire"
+    ],
+    "narratives_empty": false
+  },
+  "name": "synthetic-meta-stale-affiliation",
+  "parts": {
+    "database_record": "Alex Stone — defender, on record at Cedar United. Record: roster; observed 2025-01-01.",
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        },
+        "context": "Vale City deny making an offer for Alex Stone",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "City Wire",
+        "title": "Vale City deny making an offer for Alex Stone"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "player",
+      "name": "Alex Stone",
+      "sport": "FOOTBALL"
+    }
+  },
+  "prompt_version": "n119-detailed-summary",
+  "review": [
+    "Attribute the denial of an offer to City Wire. Do not invent a transfer or negotiation.",
+    "Do not add database affiliation or position to the summary; the report does not state them. In particular, do not present the 2025 roster entry as current reporting."
+  ],
+  "sport": "FOOTBALL",
+  "system": "",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "{\"meta\":{\"name\":\"Alex Stone\",\"entity_type\":\"player\",\"sport\":\"FOOTBALL\",\"database_record\":\"Alex Stone — defender, on record at Cedar United. Record: roster; observed 2025-01-01.\"},\"fresh\":[{\"report_key\":\"report_1\",\"headline\":\"Vale City deny making an offer for Alex Stone\",\"publisher\":\"City Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}"
+}

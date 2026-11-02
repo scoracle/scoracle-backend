@@ -3,7 +3,10 @@
 use anyhow::{ensure, Context, Result};
 use scoracle_cognition::{
     evaluation::tasks::{resolve_task, Expect, Fixture},
-    harness::{model::Inference, providers::llama::LlamaClient},
+    harness::{
+        model::{Inference, ResponseFailure},
+        providers::llama::LlamaClient,
+    },
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -116,8 +119,16 @@ async fn main() -> Result<()> {
             if let Some(model) = &model {
                 if prepared.should_call {
                     let mut options = prepared.options.clone();
-                    options.num_ctx = 10000;
                     options.temperature = Some(0.0);
+                    std::fs::write(
+                        path.join("input.json"),
+                        serde_json::to_vec_pretty(&json!({
+                            "system":options.system,"user_prompt":prepared.user_prompt,
+                            "prompt_version":task.prompt_version(),"temperature":options.temperature,
+                            "num_ctx":options.num_ctx,"num_predict":options.num_predict,
+                            "schema":options.format_schema,"thinking":false,"model":model.model()
+                        }))?,
+                    )?;
                     record["reserved_output"] = json!(options.num_predict);
                     let started = std::time::Instant::now();
                     match model.generate(&prepared.user_prompt, &options).await {
@@ -145,7 +156,15 @@ async fn main() -> Result<()> {
                                 )?,
                             )?;
                         }
-                        Err(error) => record["error"] = json!(format!("{error:#}")),
+                        Err(error) => {
+                            record["error"] = json!(format!("{error:#}"));
+                            if let Some(failure) = error.downcast_ref::<ResponseFailure>() {
+                                std::fs::write(
+                                    path.join("failed-response.txt"),
+                                    &failure.raw_response_body,
+                                )?;
+                            }
+                        }
                     }
                     record["wall_ms"] = json!(started.elapsed().as_millis());
                 }

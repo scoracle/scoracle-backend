@@ -1,0 +1,30 @@
+MEANING CHECK BEFORE EMITTING THE OBJECT
+Read the entire headline before choosing fields. Work out who is doing what, who (if anyone) is speaking, what each condition modifies, and what remains unstated. Then emit the smallest complete account. Do not output your reasoning or a second rewritten version of the same fact.
+
+1. A statement is a proposition, not a bag of words. Keep an action, its subject, object and essential restrictions together in one claim. Do not create extra statements for the same proposition's amount, timing, quoted reaction or headline format. Two independent results may be separate statements. A result and the same result retold as a listing are duplicates. A conditional opinion and an unconditional restatement are both redundant and misleading. The allowed three statements are a ceiling, not a target.
+
+2. Verify each relationship against the source, not merely the presence of its words. In “ten-player Harbor lose to Vale,” Harbor has ten players; Vale does not. In “Vale forget a substitution; ‘astonishing’ reaction,” the reaction concerns the missed substitution, not Vale's overall performance. Preserve that narrow object. “Forget to do” is not “do”; a missing action must stay missing. Do not call an unknown participant in an unperformed action the person who performed it.
+
+3. Attach conditions to the proposition they constrain. In a headline about one person's lay-off and another person's possible return, a requirement for the return does not qualify the first person's lay-off. Retain the stated number of requirements and any doubt about the return in the return claim itself. The qualifications array is a second copy of essential source spans, not a substitute for expressing those restrictions in claim. Do not let a short claim state something more certain than its qualifications allow.
+
+4. speaker is about speech, not agency. An organization can want a transfer, win a game or support someone without the headline saying it spoke. Those actions belong in claim; speaker remains null. Use a named speaker only when the headline actually assigns that person or organization a statement, announcement or quoted assessment. A publisher's judgment about someone is not that person's judgment. Preserve the actual speaker's name exactly and never infer an office or first name.
+
+5. Treat every number as having only its supplied meaning. A nearby transfer topic does not define an amount as a fee or value. If an amount has no stated meaning, either omit the amount or say explicitly that the headline mentions an undefined figure; put its missing meaning in unspecified. Do not infer currency. If the headline explicitly labels a fee, retain that label. Similarly, the duration of a streak does not identify the type of streak. Unknowns must identify a consequential missing detail without presupposing an unsupported event, role, injury or transaction. Do not list incidental missing information such as all other players or the source of a result already reported.
+
+6. Preserve what kind of content this is. An explicit live show remains a live show; do not rename it a match or match broadcast. A score/statistics/game-summary page heading is a listing and does not report completion or an outcome by itself. A headline reporting an outcome is an assertion. A how-to question remains a question about how; it does not supply instructions. For mixed headlines use the distinct source propositions, not an added generic “the headline lists these topics” statement.
+
+WORKED MEANING EXAMPLES
+Example: Harbor, Seabrook move for Ellis: 42 million and talks after the break
+{"statements":[{"about":["Harbor","Seabrook","Ellis"],"speaker":null,"kind":"assertion","claim":"The headline reports Harbor and Seabrook moving for Ellis, mentions an undefined 42 million figure, and says talks are after the break.","qualifications":["after the break"]}],"unspecified":["what the 42 million figure represents"]}
+
+Example: Harbor agree a 42 million fee for Ellis
+{"statements":[{"about":["Harbor","Ellis"],"speaker":null,"kind":"assertion","claim":"Harbor agree a 42 million fee for Ellis.","qualifications":[]}],"unspecified":[]}
+
+Example: 'Astonishing' - Harbor forget substitution in loss to Vale
+{"statements":[{"about":["Harbor"],"speaker":null,"kind":"assertion","claim":"The headline describes Harbor forgetting a substitution in the loss to Vale as 'Astonishing'.","qualifications":["forget substitution"]}],"unspecified":[]}
+
+Example: Vale beat ten-player Harbor; Seabrook draw
+{"statements":[{"about":["Vale","Harbor"],"speaker":null,"kind":"assertion","claim":"Vale beat ten-player Harbor.","qualifications":["ten-player Harbor"]},{"about":["Seabrook"],"speaker":null,"kind":"assertion","claim":"Seabrook draw.","qualifications":[]}],"unspecified":[]}
+
+Example: Harbor eager to sign Ellis
+{"statements":[{"about":["Harbor","Ellis"],"speaker":null,"kind":"assertion","claim":"Harbor are eager to sign Ellis.","qualifications":[]}],"unspecified":[]}

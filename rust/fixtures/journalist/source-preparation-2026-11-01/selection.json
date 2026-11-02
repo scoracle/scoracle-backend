@@ -1,0 +1,10 @@
+{
+  "qualifies_for_followup": false,
+  "clearly_faithful_packets": {
+    "control": 0,
+    "reference": 0,
+    "automatic": 0
+  },
+  "automatic_packets_blocked": 2,
+  "reason": "Raw/reference writers largely collapse topics; source-only preparation has four exact-span failures and semantic errors even when spans pass. No new-subject validation justified."
+}

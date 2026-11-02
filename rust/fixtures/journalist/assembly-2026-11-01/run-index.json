@@ -1,0 +1,98 @@
+[
+  {
+    "run": "attributed-input",
+    "records": 8,
+    "mechanical_accepted": 3,
+    "errors": 0,
+    "reported_output_tokens": 1427,
+    "factual_qualification": false
+  },
+  {
+    "run": "chat-endpoint",
+    "records": 4,
+    "mechanical_accepted": null,
+    "errors": 0,
+    "reported_output_tokens": 616,
+    "factual_qualification": false
+  },
+  {
+    "run": "compact-layout-order",
+    "records": 16,
+    "mechanical_accepted": null,
+    "errors": 16,
+    "reported_output_tokens": null,
+    "factual_qualification": false
+  },
+  {
+    "run": "compact-layout-order-complete",
+    "records": 16,
+    "mechanical_accepted": 10,
+    "errors": 0,
+    "reported_output_tokens": 1241,
+    "factual_qualification": false
+  },
+  {
+    "run": "evidence-first",
+    "records": 4,
+    "mechanical_accepted": 1,
+    "errors": 0,
+    "reported_output_tokens": 1142,
+    "factual_qualification": false
+  },
+  {
+    "run": "layout-order",
+    "records": 16,
+    "mechanical_accepted": 2,
+    "errors": 8,
+    "reported_output_tokens": 1069,
+    "factual_qualification": false
+  },
+  {
+    "run": "layout-order-complete",
+    "records": 16,
+    "mechanical_accepted": 4,
+    "errors": 0,
+    "reported_output_tokens": 2244,
+    "factual_qualification": false
+  },
+  {
+    "run": "live-capacity",
+    "records": 10,
+    "mechanical_accepted": null,
+    "errors": 0,
+    "reported_output_tokens": null,
+    "factual_qualification": false
+  },
+  {
+    "run": "metadata-role",
+    "records": 8,
+    "mechanical_accepted": 2,
+    "errors": 0,
+    "reported_output_tokens": 876,
+    "factual_qualification": false
+  },
+  {
+    "run": "n118-baseline",
+    "records": 4,
+    "mechanical_accepted": 3,
+    "errors": 0,
+    "reported_output_tokens": 494,
+    "factual_qualification": false
+  },
+  {
+    "run": "summary-contract",
+    "records": 4,
+    "mechanical_accepted": 4,
+    "errors": 0,
+    "reported_output_tokens": 472,
+    "factual_qualification": false
+  },
+  {
+    "run": "unconstrained",
+    "records": 4,
+    "mechanical_accepted": 0,
+    "errors": 0,
+    "reported_output_tokens": 751,
+    "factual_qualification": false
+  }
+]

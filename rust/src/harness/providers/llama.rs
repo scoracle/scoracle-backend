@@ -100,7 +100,8 @@ impl LlamaClient {
         )
     }
     fn completion(&self, tokens: &[i32], opts: &GenerateOptions) -> Result<Value> {
-        let mut payload = json!({"model":self.model,"prompt":tokens,"stream":false,"cache_prompt":false,
+        // Reuse matching prefix computation while sending and verifying the complete input.
+        let mut payload = json!({"model":self.model,"prompt":tokens,"stream":false,"cache_prompt":true,
             "n_predict":opts.num_predict,"n_keep":-1});
         if let Some(temperature) = opts.temperature {
             payload["temperature"] = json!(temperature);
@@ -398,5 +399,41 @@ mod tests {
             crate::harness::config::Backend::from_env_str("llama.cpp"),
             crate::harness::config::Backend::LlamaCpp
         );
+    }
+
+    #[tokio::test]
+    async fn prefix_reuse_preserves_complete_request_and_token_accounting() {
+        let client = LlamaClient::new(
+            "http://127.0.0.1:1",
+            "model",
+            Duration::from_secs(1),
+            Some(false),
+        )
+        .unwrap();
+        let tokens = [10, 20, 30, 40, 50, 60];
+        let request = client
+            .completion(
+                &tokens,
+                &GenerateOptions {
+                    num_predict: 2,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(request["cache_prompt"], true);
+        assert_eq!(request["prompt"], json!(tokens));
+        assert_eq!(request["n_predict"], 2);
+
+        let mut response = json!({"stop":true,"stop_type":"eos","truncated":false,
+            "tokens_evaluated":6,"tokens_predicted":2,"content":"{}",
+            "timings":{"cache_n":4,"prompt_n":2}});
+        assert_eq!(
+            decode("model", &response, &response.to_string(), 6, Duration::ZERO)
+                .unwrap()
+                .prompt_eval_count,
+            6
+        );
+        response["tokens_evaluated"] = json!(2);
+        assert!(decode("model", &response, &response.to_string(), 6, Duration::ZERO).is_err());
     }
 }

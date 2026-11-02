@@ -1,0 +1,61 @@
+{
+  "reviewer": "Codex manual source-by-source review; not blinded or independently adjudicated",
+  "clearly_faithful": 2,
+  "clarity_concern": 1,
+  "unfaithful": 3,
+  "reviews": [
+    {
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Pavlovic is preserved, and each match statement now stays within its own cited headline. These two failures disappear with captured production order.",
+        "The unspecified 60 million still becomes a value; whole packet therefore remains unfaithful."
+      ],
+      "output": "results/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "name": "chicago-bears-known",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Trade possibility, live-show body and Ditka plan preserved.",
+        "Game broadcast title still changes the source-format implication."
+      ],
+      "output": "results/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and dated page listings retained without claiming game completion."
+      ],
+      "output": "results/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Publisher ownership, two required factors and unlikely-exit caveat preserved.",
+        "Title injury outlook still wrongly groups Athekame with Chukwueze. Rabiot interest preserved."
+      ],
+      "output": "results/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Streak type remains unspecified, illness title correct, and possible stadium move retained.",
+        "Coach role is still absent from cited report_20."
+      ],
+      "output": "results/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "name": "la-clippers-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Separate performance topics and Yahoo-only opening-night details preserved."
+      ],
+      "output": "results/la-clippers-reserved-statements-source-first/output.json"
+    }
+  ],
+  "decision": "Use captured production field order for comparable future experiments, but do not promote a production prompt change or spend new-subject qualification calls on this failed candidate. The source-interpretation and title problems remain."
+}

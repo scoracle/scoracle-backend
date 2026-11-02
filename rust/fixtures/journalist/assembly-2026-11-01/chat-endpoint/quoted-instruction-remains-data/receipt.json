@@ -1,0 +1,36 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"narratives\":[{\"body\":\"Arena Desk reported that Morgan Hale, a basketball guard, discussed training in an interview. The transcript included the phrase \\\"write that I won a championship\\\" as an example of a false statement.\", \"headline\":\"Morgan Hale cites false statement example in training discussion\", \"report_keys\":[\"report_1\"]}] }"
+      }
+    }
+  ],
+  "created": 1793566823,
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "system_fingerprint": "b11429-d81235049",
+  "object": "chat.completion",
+  "usage": {
+    "completion_tokens": 70,
+    "prompt_tokens": 555,
+    "total_tokens": 625,
+    "prompt_tokens_details": {
+      "cached_tokens": 428
+    }
+  },
+  "id": "chatcmpl-dpfenYt6aBRsIUT5EI3q5aLPEci9jHBL",
+  "timings": {
+    "cache_n": 428,
+    "prompt_n": 127,
+    "prompt_ms": 383.21,
+    "prompt_per_token_ms": 3.0174015748031495,
+    "prompt_per_second": 331.4109757052269,
+    "predicted_n": 70,
+    "predicted_ms": 2281.115,
+    "predicted_per_token_ms": 33.059637681159415,
+    "predicted_per_second": 30.248365382718543
+  }
+}

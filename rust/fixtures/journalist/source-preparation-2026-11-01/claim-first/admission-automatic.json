@@ -1,0 +1,56 @@
+[
+  {
+    "file": "development-automatic.jsonl",
+    "name": "ac-milan-known",
+    "stage": "write",
+    "input_tokens": 6190,
+    "reserved_output": 1200,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-automatic.jsonl",
+    "name": "chicago-bears-known",
+    "stage": "write",
+    "input_tokens": 5457,
+    "reserved_output": 1200,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-automatic.jsonl",
+    "name": "la-clippers-known",
+    "stage": "write",
+    "input_tokens": 5277,
+    "reserved_output": 1200,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-automatic.jsonl",
+    "name": "ac-milan-reserved",
+    "stage": "write",
+    "input_tokens": 5538,
+    "reserved_output": 1200,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-automatic.jsonl",
+    "name": "chicago-bears-reserved",
+    "stage": "write",
+    "input_tokens": 5376,
+    "reserved_output": 1200,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-automatic.jsonl",
+    "name": "la-clippers-reserved",
+    "stage": "write",
+    "input_tokens": 5331,
+    "reserved_output": 1200,
+    "num_ctx": 7900,
+    "fits": true
+  }
+]

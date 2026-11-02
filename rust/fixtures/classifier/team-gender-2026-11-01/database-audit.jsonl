@@ -1,0 +1,14 @@
+{"table" : "leagues", "columns" : ["id", "sport", "name", "country", "logo_url", "sportmonks_id", "is_benchmark", "is_active", "handicap", "meta", "created_at", "updated_at"]}
+{"table" : "meta", "columns" : ["key", "value", "updated_at"]}
+{"table" : "teams", "columns" : ["id", "sport", "name", "short_code", "country", "city", "logo_url", "league_id", "founded", "venue_name", "venue_capacity", "conference", "division", "search_aliases", "meta", "raw_response", "created_at", "updated_at", "tier", "primary_color", "secondary_color", "color_source"]}
+{"sport" : "FOOTBALL", "teams" : 144, "gender_key" : 0, "team_gender_key" : 0, "raw_gender_key" : 0}
+{"sport" : "NBA", "teams" : 30, "gender_key" : 0, "team_gender_key" : 0, "raw_gender_key" : 0}
+{"sport" : "NFL", "teams" : 32, "gender_key" : 0, "team_gender_key" : 0, "raw_gender_key" : 0}
+{"id" : 18, "sport" : "FOOTBALL", "name" : "Chelsea", "gender" : null, "team_gender" : null}
+{"created_at" : "2026-10-22T21:49:06.141963-04:00", "model" : "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402", "subject_meta" : {"origin": "canonical_meta_rs", "identity": {"name": "Coventry City", "sport": "FOOTBALL", "entity_id": 20000000, "entity_type": "team"}, "evidence_scope": "Subject identity only; not article evidence.", "identity_record": "Coventry City — Premier League (England)."}}
+{"created_at" : "2026-10-22T21:49:05.747098-04:00", "model" : "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402", "subject_meta" : {"origin": "canonical_meta_rs", "identity": {"name": "Fulham", "sport": "FOOTBALL", "entity_id": 11, "entity_type": "team"}, "evidence_scope": "Subject identity only; not article evidence.", "identity_record": "Fulham — Premier League (England)."}}
+{"created_at" : "2026-10-22T21:49:05.377735-04:00", "model" : "LiquidAI/d1-3B-GGUF@sha256:16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402", "subject_meta" : {"origin": "canonical_meta_rs", "identity": {"name": "Hull City", "sport": "FOOTBALL", "entity_id": 20000001, "entity_type": "team"}, "evidence_scope": "Subject identity only; not article evidence.", "identity_record": "Hull City — Premier League (England)."}}
+{"headline" : "Chelsea Women appoint Jo Vale as head coach", "candidates" : []}
+{"headline" : "Chelsea's women's team appoint Jo Vale as head coach", "candidates" : [{"name": "Chelsea", "sport": "FOOTBALL", "entity_id": 18, "entity_type": "team", "identity_method": "unique_name_surface_v2"}]}
+{"headline" : "Chelsea men's team appoint Jo Vale as head coach", "candidates" : [{"name": "Chelsea", "sport": "FOOTBALL", "entity_id": 18, "entity_type": "team", "identity_method": "unique_name_surface_v2"}]}
+{"league_gender_key" : 0, "league_team_gender_key" : 0, "leagues" : 5}

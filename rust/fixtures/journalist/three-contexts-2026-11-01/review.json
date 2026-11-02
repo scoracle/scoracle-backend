@@ -1,0 +1,66 @@
+{
+  "status": "not_ready_for_rollout",
+  "reviewer": "assistant",
+  "human_factual_approval": false,
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "scope": "Journalist only; synthetic frozen inputs; no database reads or publication in model trials",
+  "comparison": "Both variants use the same instructions. before omits optional database_record; after retains it. They are not old-prompt/new-prompt comparisons. Pairs without database metadata are identical-input repeats.",
+  "rounds": {
+    "qwen": {
+      "responses": 16,
+      "mechanically_accepted": 7
+    },
+    "qwen-source-only": {
+      "responses": 16,
+      "mechanically_accepted": 6
+    }
+  },
+  "latest_review": [
+    {
+      "case": "one-result",
+      "finding": "The result and scorer minute are supported by the source. The existing scoped-numeric parser rejects the combined sentence by associating minute 84 with Cedar United. The body also omits the required publisher attribution."
+    },
+    {
+      "case": "conflicting-reports",
+      "finding": "The body retains the denial and competing report, but omits Club Bulletin attribution. The headline ambiguously attributes both the denial and reporting to Cedar United. Mechanical acceptance is insufficient."
+    },
+    {
+      "case": "headline-corpus",
+      "finding": "The denial is faithful, and legacy history is absent. The body omits the instructed publisher name, despite mechanical acceptance."
+    },
+    {
+      "case": "synthetic-discussion-no-new-event",
+      "finding": "Without metadata, Qwen summarizes a preference without inventing a new development but omits attribution. With metadata, it inserts Canadian defender and an unsupported gendered pronoun into reporting. A correctly supplied publication date also triggers the scoped-numeric guard."
+    },
+    {
+      "case": "synthetic-meta-stale-affiliation",
+      "finding": "With metadata, Qwen inserts the database club and position into reporting and drops the 2025 observation date. Without metadata, the denial is faithful but lacks publisher attribution."
+    },
+    {
+      "case": "synthetic-meta-name-collision",
+      "finding": "Both variants summarize the women's team for the intended men's-team target instead of abstaining. Explicit metadata and removal of classifier identity assertions do not solve this case."
+    },
+    {
+      "case": "synthetic-meta-profile-only",
+      "finding": "Qwen does not follow the bare-profile abstention instruction. With metadata, it supplies nationality, position and affiliation absent from the headline. Without metadata, it adds an unsupported claim about headline information in the database record."
+    },
+    {
+      "case": "synthetic-meta-missing",
+      "finding": "Both variants preserve ongoing talks and lack of agreement with City Wire attribution, without inventing missing subject attributes."
+    }
+  ],
+  "limitations": [
+    "No live database integration verification: database credentials were not configured.",
+    "The existing identity loader is reused; richer structured metadata was not introduced.",
+    "The model failure cases remain unresolved. No parser relaxation, regex patch, model change or deployment was performed.",
+    "Six of sixteen latest responses pass mechanical checks; this is not a factual accuracy rate."
+  ],
+  "checks": {
+    "library_passed": 384,
+    "library_ignored": 73,
+    "eval_cli_passed": 14,
+    "all_targets_compile": true,
+    "format_and_diff_check": true
+  },
+  "scope_amendment": "User clarified that entity eligibility, including men versus women, belongs to the decision model. The earlier wrong-target abstention criterion is superseded. A faithful summary preserving the supplied report subject is not a character failure; rewriting that subject remains a fidelity failure. Original run results are retained under their original rubric."
+}

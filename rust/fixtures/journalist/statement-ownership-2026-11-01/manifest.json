@@ -1,0 +1,90 @@
+{
+  "source_provenance": "../packet-size-2026-11-01/manifest.json",
+  "groups": {
+    "ac-milan-known": [
+      [
+        "report_1"
+      ],
+      [
+        "report_2",
+        "report_4",
+        "report_5",
+        "report_7",
+        "report_8",
+        "report_13",
+        "report_14"
+      ],
+      [
+        "report_3"
+      ]
+    ],
+    "chicago-bears-known": [
+      [
+        "report_1"
+      ],
+      [
+        "report_2"
+      ],
+      [
+        "report_3",
+        "report_12",
+        "report_40"
+      ]
+    ],
+    "la-clippers-known": [
+      [
+        "report_1"
+      ],
+      [
+        "report_2"
+      ],
+      [
+        "report_3"
+      ]
+    ],
+    "ac-milan-reserved": [
+      [
+        "report_29",
+        "report_36"
+      ],
+      [
+        "report_34",
+        "report_37"
+      ],
+      [
+        "report_39"
+      ]
+    ],
+    "chicago-bears-reserved": [
+      [
+        "report_16"
+      ],
+      [
+        "report_20"
+      ],
+      [
+        "report_31"
+      ]
+    ],
+    "la-clippers-reserved": [
+      [
+        "report_5"
+      ],
+      [
+        "report_10"
+      ],
+      [
+        "report_29",
+        "report_36"
+      ]
+    ]
+  },
+  "reserved_means": "These exact topic packets have not previously been generated or tuned against. Headlines come from the same previously inspected 120-report corpus; not independently unseen subjects or news.",
+  "sha256": {
+    "baseline.txt": "abd4bd6737a9b92f468171ad8a8f8d48a6ea5eebcd7955b3527ba7433ef8eb93",
+    "prose.txt": "05c688e4aa097fe213cc71b86085686bf0f5e6bdab276f55926fc4dc857e4deb",
+    "cases-prose.jsonl": "a6873bf60e89646e0111896746c27b40146316cc931fba0dfe3c9f1a2fa584fc",
+    "cases-structured.jsonl": "4d2586184f0a33a8acb6ef85ce641e6c9bf29edef0c9e5ef3dc8410bdd8001e1",
+    "structured.txt": "e68c19fdf304fdbac472bbd769e07c60e90d290c950f4d8eb2a48d11afbd931e"
+  }
+}

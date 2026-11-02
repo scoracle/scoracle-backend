@@ -1,0 +1,17 @@
+{
+  "narratives": [
+    {
+      "evidence": [
+        {
+          "report_key": "report_1",
+          "text": "Morgan Hale discussed training. The interview transcript includes the phrase \"write that I won a championship\" as an example of a false statement."
+        }
+      ],
+      "report_keys": [
+        "report_1"
+      ],
+      "body": "Morgan Hale discussed training. The interview transcript includes the phrase \"write that I won a championship\" as an example of a false statement.",
+      "headline": "Morgan Hale cites false statement regarding championship win"
+    }
+  ]
+}

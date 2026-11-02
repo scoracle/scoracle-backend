@@ -1,0 +1,13 @@
+{
+  "sha256": {
+    "development-control.jsonl": "101c2020d2042c252ca02cc7994d8d1e403cda173d3715017435965b80ded2b5",
+    "development-reference.jsonl": "84806c596346451a0a8d70616dfadb34c873c315c754cc123c3786f331c363f6",
+    "validation-control.jsonl": "a5c554bb72b3f545b6d115029b86bed0fbe39686137f8bde585e8a206a1e63db",
+    "development-sources.jsonl": "ea91e3bc9124322d76098654b9082229f097583d4db4defb2c970b0d924d28b9",
+    "validation-sources.jsonl": "dcaabcb18027b933084eb7e6d2374b24d72f399b8a2307d37cc143def03e6abb",
+    "reference.json": "8ec145b07f49b3851c2fe6580f59c3689511f7867610b597cb4da530b565ae93",
+    "sources.json": "549c38ce74e5207954925155e0c89a4b0e5ef47ab96f429e86d6a1d9d617f8d8",
+    "preparer.txt": "a71dbd071c2767ebd14f4c4a70e07642faacf84511290a058c9e19f0db4fe0fe",
+    "writer.txt": "9f425709d20410e2c4adc577fae08f318fa4c5d9730b75aa936c284a5d46f387"
+  }
+}

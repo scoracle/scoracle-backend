@@ -1,0 +1,355 @@
+{
+  "calls": 12,
+  "complete_receipts_and_integrity": true,
+  "runs": {
+    "development-control": {
+      "calls": 6,
+      "valid_spans_or_mapping": 3,
+      "median_ms": 9709.0,
+      "total_ms": 59093,
+      "range_ms": [
+        6209,
+        13368
+      ],
+      "input_tokens": 11950,
+      "output_tokens": 1500,
+      "input_tokens_range": [
+        1874,
+        2283
+      ],
+      "output_tokens_range": [
+        139,
+        366
+      ],
+      "cache_tokens_range": [
+        1431,
+        1494
+      ]
+    },
+    "development-reference": {
+      "calls": 6,
+      "valid_spans_or_mapping": 1,
+      "median_ms": 11208.5,
+      "total_ms": 72773,
+      "range_ms": [
+        9624,
+        17577
+      ],
+      "input_tokens": 13654,
+      "output_tokens": 1785,
+      "input_tokens_range": [
+        2030,
+        2908
+      ],
+      "output_tokens_range": [
+        222,
+        403
+      ],
+      "cache_tokens_range": [
+        1494,
+        1536
+      ]
+    }
+  },
+  "combined_automatic": [],
+  "repeats": [],
+  "records": [
+    {
+      "accepted": false,
+      "input_tokens": 2283,
+      "name": "ac-milan-known",
+      "output_tokens": 244,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Journalist violates served prose guard",
+      "wall_ms": 10585,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1431,
+        "prompt_n": 852,
+        "prompt_ms": 2352.256,
+        "prompt_per_token_ms": 2.7608638497652582,
+        "prompt_per_second": 362.20547423409704,
+        "predicted_n": 244,
+        "predicted_ms": 8208.356,
+        "predicted_per_token_ms": 33.779242798353906,
+        "predicted_per_second": 29.60397916464637
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 1980,
+      "name": "chicago-bears-known",
+      "output_tokens": 139,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 6209,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1431,
+        "prompt_n": 549,
+        "prompt_ms": 1568.363,
+        "prompt_per_token_ms": 2.8567632058287797,
+        "prompt_per_second": 350.04651346658903,
+        "predicted_n": 139,
+        "predicted_ms": 4620.705,
+        "predicted_per_token_ms": 33.48336956521739,
+        "predicted_per_second": 29.865572461345188
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 1874,
+      "name": "la-clippers-known",
+      "output_tokens": 342,
+      "production_writes": false,
+      "render_error": "statement cites outside its topic",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 12575,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1464,
+        "prompt_n": 410,
+        "prompt_ms": 1149.038,
+        "prompt_per_token_ms": 2.802531707317073,
+        "prompt_per_second": 356.8202270072878,
+        "predicted_n": 342,
+        "predicted_ms": 11406.482,
+        "predicted_per_token_ms": 33.45009384164223,
+        "predicted_per_second": 29.895282349106413
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 2010,
+      "name": "ac-milan-reserved",
+      "output_tokens": 219,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Athekame's January",
+      "wall_ms": 8833,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1464,
+        "prompt_n": 546,
+        "prompt_ms": 1501.201,
+        "prompt_per_token_ms": 2.749452380952381,
+        "prompt_per_second": 363.7087904950769,
+        "predicted_n": 219,
+        "predicted_ms": 7307.463,
+        "predicted_per_token_ms": 33.52047247706422,
+        "predicted_per_second": 29.832515060288365
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 1889,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 366,
+      "production_writes": false,
+      "render_error": "statement cites outside its topic",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 13368,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1494,
+        "prompt_n": 395,
+        "prompt_ms": 1141.959,
+        "prompt_per_token_ms": 2.8910354430379748,
+        "prompt_per_second": 345.8968316725907,
+        "predicted_n": 366,
+        "predicted_ms": 12206.232,
+        "predicted_per_token_ms": 33.441731506849315,
+        "predicted_per_second": 29.90275786991432
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 1914,
+      "name": "la-clippers-reserved",
+      "output_tokens": 190,
+      "production_writes": false,
+      "render_error": "statement cites outside its topic",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 7523,
+      "run": "development-control",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1494,
+        "prompt_n": 420,
+        "prompt_ms": 1148.991,
+        "prompt_per_token_ms": 2.735692857142857,
+        "prompt_per_second": 365.53811126457913,
+        "predicted_n": 190,
+        "predicted_ms": 6354.925,
+        "predicted_per_token_ms": 33.6239417989418,
+        "predicted_per_second": 29.740712911639395
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 2908,
+      "name": "ac-milan-known",
+      "output_tokens": 403,
+      "production_writes": false,
+      "render_error": "statement cites outside its topic",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 17577,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1494,
+        "prompt_n": 1414,
+        "prompt_ms": 3883.994,
+        "prompt_per_token_ms": 2.7468132956152758,
+        "prompt_per_second": 364.05823489943594,
+        "predicted_n": 403,
+        "predicted_ms": 13669.267,
+        "predicted_per_token_ms": 34.00315174129353,
+        "predicted_per_second": 29.409038538789243
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 2243,
+      "name": "chicago-bears-known",
+      "output_tokens": 241,
+      "production_writes": false,
+      "render_error": "statement cites outside its topic",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 10177,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1494,
+        "prompt_n": 749,
+        "prompt_ms": 2082.927,
+        "prompt_per_token_ms": 2.780943925233645,
+        "prompt_per_second": 359.59013445982504,
+        "predicted_n": 241,
+        "predicted_ms": 8072.882,
+        "predicted_per_token_ms": 33.637008333333334,
+        "predicted_per_second": 29.729159920831247
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 2030,
+      "name": "la-clippers-known",
+      "output_tokens": 345,
+      "production_writes": false,
+      "render_error": "statement cites outside its topic",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 13079,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1494,
+        "prompt_n": 536,
+        "prompt_ms": 1498.906,
+        "prompt_per_token_ms": 2.7964664179104477,
+        "prompt_per_second": 357.5941386584616,
+        "predicted_n": 345,
+        "predicted_ms": 11561.925,
+        "predicted_per_token_ms": 33.610247093023254,
+        "predicted_per_second": 29.752830951593268
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 2311,
+      "name": "ac-milan-reserved",
+      "output_tokens": 222,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "ESPN discusses AC Milan backing a fan boycott over away ticket prices described as excessive. FOX Sports discusses AC Milan backing a fan boycott over away ticket prices described as excessive and warning of retaliation.\n\nLiveScore discusses Milan fearing a lengthy lay-off for Chukwueze. OneFootball discusses AC Milan potentially recalling Athekame in January, while an early OL exit is deemed unlikely.\n\nTribalFootball discusses AC Milan being eager to secure Rabiot's future with a fresh contract.",
+      "wall_ms": 9624,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1514,
+        "prompt_n": 797,
+        "prompt_ms": 2182.01,
+        "prompt_per_token_ms": 2.737779171894605,
+        "prompt_per_second": 365.2595542641876,
+        "predicted_n": 222,
+        "predicted_ms": 7412.667,
+        "predicted_per_token_ms": 33.54147963800905,
+        "predicted_per_second": 29.81383083848229
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 2052,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 321,
+      "production_writes": false,
+      "render_error": "statement cites outside its topic",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 12240,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1514,
+        "prompt_n": 538,
+        "prompt_ms": 1497.401,
+        "prompt_per_token_ms": 2.7832732342007436,
+        "prompt_per_second": 359.289195078673,
+        "predicted_n": 321,
+        "predicted_ms": 10720.965,
+        "predicted_per_token_ms": 33.503015625,
+        "predicted_per_second": 29.848059386445158
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 2110,
+      "name": "la-clippers-reserved",
+      "output_tokens": 253,
+      "production_writes": false,
+      "render_error": "statement cites outside its topic",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 10076,
+      "run": "development-reference",
+      "stage": "write",
+      "native_timings": {
+        "cache_n": 1536,
+        "prompt_n": 574,
+        "prompt_ms": 1585.304,
+        "prompt_per_token_ms": 2.7618536585365856,
+        "prompt_per_second": 362.07566498286764,
+        "predicted_n": 253,
+        "predicted_ms": 8465.081,
+        "predicted_per_token_ms": 33.59159126984127,
+        "predicted_per_second": 29.769354835470565
+      }
+    }
+  ],
+  "total_wall_seconds": 131.866
+}

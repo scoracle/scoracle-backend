@@ -1,0 +1,74 @@
+{
+  "scope": "Three frozen production-loader packets, 40 reports each; sequential single attempts, no corrections or publication. No daily throughput forecast. Evaluation CLI compilation may have overlapped the first v5 workload call; order was not randomized.",
+  "cases": [
+    {
+      "name": "frozen-ac-milan-40",
+      "baseline_n113": {
+        "accepted": false,
+        "input_tokens": 3156,
+        "name": "frozen-ac-milan-40",
+        "output_tokens": 556,
+        "production_writes": false,
+        "variant": "json-body-first",
+        "verdict": "Journalist violates served prose guard",
+        "wall_ms": 27390
+      },
+      "detailed_n119": {
+        "accepted": false,
+        "input_tokens": 5704,
+        "name": "frozen-ac-milan-40",
+        "output_tokens": 375,
+        "production_writes": false,
+        "variant": "json-body-first",
+        "verdict": "cited reports do not connect TNT Sports with numerical fact 0",
+        "wall_ms": 28946
+      }
+    },
+    {
+      "name": "frozen-chicago-bears-40",
+      "baseline_n113": {
+        "accepted": false,
+        "input_tokens": 3027,
+        "name": "frozen-chicago-bears-40",
+        "output_tokens": 353,
+        "production_writes": false,
+        "variant": "json-body-first",
+        "verdict": "cited reports do not connect Thursday Night Football with numerical fact 23",
+        "wall_ms": 20391
+      },
+      "detailed_n119": {
+        "accepted": false,
+        "input_tokens": 5575,
+        "name": "frozen-chicago-bears-40",
+        "output_tokens": 246,
+        "production_writes": false,
+        "variant": "json-body-first",
+        "verdict": "named claim is absent from cited reports: Thursday Night Football",
+        "wall_ms": 24698
+      }
+    },
+    {
+      "name": "frozen-la-clippers-40",
+      "baseline_n113": {
+        "accepted": false,
+        "input_tokens": 3034,
+        "name": "frozen-la-clippers-40",
+        "output_tokens": 701,
+        "production_writes": false,
+        "variant": "json-body-first",
+        "verdict": "named claim is absent from cited reports: Clippers Open",
+        "wall_ms": 32416
+      },
+      "detailed_n119": {
+        "accepted": false,
+        "input_tokens": 5582,
+        "name": "frozen-la-clippers-40",
+        "output_tokens": 134,
+        "production_writes": false,
+        "variant": "json-body-first",
+        "verdict": "named claim is absent from cited reports: LA Clippers",
+        "wall_ms": 20826
+      }
+    }
+  ]
+}

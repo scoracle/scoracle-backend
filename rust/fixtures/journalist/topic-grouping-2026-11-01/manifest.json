@@ -1,0 +1,33 @@
+{
+  "baseline": "../packet-size-2026-11-01/manifest.json",
+  "reference_groups_are": "Manually reviewed diagnostic groups, not a measured automated production method or a claim that all topic boundaries have one correct answer.",
+  "selected_reference_topics": {
+    "ac-milan": [
+      "Tresoldi report",
+      "Maignan red card and match result coverage",
+      "Pavlovic assessment"
+    ],
+    "chicago-bears": [
+      "Donte Jackson conditional trade opinion",
+      "Establish The Run live show",
+      "Ditka honor announcement/questions"
+    ],
+    "la-clippers": [
+      "Max Strus road trip absence",
+      "Magic-Clippers January 15 fixture page",
+      "Raptors-Clippers November 2 fixture page"
+    ]
+  },
+  "manual_boundary_notes": [
+    "Specific match-result coverage may be grouped while individual player reflections and previews remain separate. Stream advertisements remain singleton records.",
+    "The Milan recall question and early-exit-unlikely report stay together as potentially qualifying positions.",
+    "Bears inactives coverage does not name the same missing players as the Gonzalez availability report; that named-player report remains separate.",
+    "Clippers unnamed missing/injured player groups remain separate from Max Strus. Acuff and Murray remain separate. Different dated fixtures remain separate."
+  ],
+  "sha256": {
+    "cases.jsonl": "e39bd70860bd554977d152dc1a1264464e01fb2e2802ba8380c23de65c4f7cf0",
+    "baseline.txt": "765ccc9d6629624d1e3cbc1de104212198dfdc5c235b3e2107b31ba55788b225",
+    "grouped.txt": "abd4bd6737a9b92f468171ad8a8f8d48a6ea5eebcd7955b3527ba7433ef8eb93",
+    "grouper.txt": "36071649739c93f1e88d1a7c213c5cdb5e3431c4a8c262ebb8488c28dfda580a"
+  }
+}

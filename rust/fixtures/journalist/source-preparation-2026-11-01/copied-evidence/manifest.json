@@ -1,0 +1,17 @@
+{
+  "baseline": "../worked-writer",
+  "sha256": {
+    "writer.txt": "5e7d439088921cc4b3519c53b37458ca905e7962f8d567b1564726f7b17017d9",
+    "preparer.txt": "6dc2b50fe49e2230edbe95d15e67df4978c11c9147b94e7ee442e4b9a48e51a2",
+    "protocol.txt": "4e9b1de055d9ff58d20b5246dfab9cfdebe94f8d4959093b1e0e0f433223047a",
+    "build_inputs.py": "7364c36672210c497957641dbcbe496b630afe2811e4d37e745b48d86c782a6b",
+    "contract.py": "3816298d0c256fbf863f5006ca1117771ca7da5c1647360b624a314bdd3c7190",
+    "run.py": "9208048f6526f74d8b90306a2877c09b4e521c24938d1f9e237fa5d951c6dde3",
+    "development-control.jsonl": "167b90f6b297ea5757c5973f9a52493530a5a563ff11e74374e8bb3255233279",
+    "development-verbatim.jsonl": "00914f531d8a9bec8281751a8835ffaf5e97e7ca76d3440aec902c9287ac3415",
+    "development-sources.jsonl": "595d9682c62870665c080373d33692eedbaab8f1b3035e8b5e8cc603221648cc",
+    "validation-control.jsonl": "498e08c888bc44131308906105447708d02c51620eaaf451fdb0aa219a8fac84",
+    "validation-verbatim.jsonl": "b06acb24459854849ec48ceee920a7030bb480b4b683b35bc6c9a2cd6a642d89",
+    "validation-sources.jsonl": "32398778de37a206c89188556c33a56cc59f56f559dc69390906fe1c14fd0736"
+  }
+}

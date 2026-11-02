@@ -1,0 +1,50 @@
+[
+  {
+    "arm": "control",
+    "name": "arsenal-validation",
+    "input_tokens": 3924,
+    "reserved_output": 2100,
+    "total": 6024,
+    "fits": true
+  },
+  {
+    "arm": "control",
+    "name": "tampa-bay-validation",
+    "input_tokens": 4168,
+    "reserved_output": 2100,
+    "total": 6268,
+    "fits": true
+  },
+  {
+    "arm": "control",
+    "name": "cleveland-validation",
+    "input_tokens": 4113,
+    "reserved_output": 2100,
+    "total": 6213,
+    "fits": true
+  },
+  {
+    "arm": "examples",
+    "name": "arsenal-validation",
+    "input_tokens": 4937,
+    "reserved_output": 2100,
+    "total": 7037,
+    "fits": true
+  },
+  {
+    "arm": "examples",
+    "name": "tampa-bay-validation",
+    "input_tokens": 5181,
+    "reserved_output": 2100,
+    "total": 7281,
+    "fits": true
+  },
+  {
+    "arm": "examples",
+    "name": "cleveland-validation",
+    "input_tokens": 5126,
+    "reserved_output": 2100,
+    "total": 7226,
+    "fits": true
+  }
+]

@@ -1,0 +1,506 @@
+{
+  "1276620": {
+    "statements": [
+      {
+        "about": [
+          "AC Milan, Arsenal"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "The headline reports a move for Tresoldi involving AC Milan and Arsenal, mentioning an unexplained 60 million figure and timing as early as January.",
+        "qualifications": [
+          "as early as January"
+        ]
+      }
+    ],
+    "unspecified": [
+      "meaning and unit of 60 million"
+    ]
+  },
+  "1424030": {
+    "statements": [
+      {
+        "about": [
+          "AC Milan"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "AC Milan collapsed 0-3 in the Europa League after Maignan's red card.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": []
+  },
+  "1426503": {
+    "statements": [
+      {
+        "about": [
+          "Bournemouth"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Bournemouth beat 10-man Milan in the Europa League after a goalkeeper was sent off.",
+        "qualifications": []
+      },
+      {
+        "about": [
+          "Juventus"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Juventus were held to a draw.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "identity of the goalkeeper",
+      "Milan match score"
+    ]
+  },
+  "1414585": {
+    "statements": [
+      {
+        "about": [
+          "Bournemouth"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Bournemouth beat 10-man Milan in the Europa League after a goalkeeper was sent off.",
+        "qualifications": []
+      },
+      {
+        "about": [
+          "Juventus"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Juventus were held to a draw.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "identity of the goalkeeper",
+      "Milan match score"
+    ]
+  },
+  "1415284": {
+    "statements": [
+      {
+        "about": [
+          "Bournemouth"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Bournemouth beat AC Milan 3-0, with Maignan seeing red as the Rossoneri imploded on the south coast.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "competition",
+      "Maignan role"
+    ]
+  },
+  "1394917": {
+    "statements": [
+      {
+        "about": [
+          "Milan"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Milan forgot to make a substitution after Maignan saw red; the headline includes the reaction 'Absolutely farcical!'.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "speaker of the quoted reaction"
+    ]
+  },
+  "1374081": {
+    "statements": [
+      {
+        "about": [
+          "Bournemouth"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Bournemouth took an early lead against Milan in a Europa League clash.",
+        "qualifications": [
+          "early lead"
+        ]
+      }
+    ],
+    "unspecified": [
+      "final result"
+    ]
+  },
+  "1363845": {
+    "statements": [
+      {
+        "about": [
+          "Bournemouth"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Bournemouth hammered 10-man AC Milan in the Europa League.",
+        "qualifications": []
+      },
+      {
+        "about": [
+          "Juventus"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Juventus were denied at the death.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "match scores"
+    ]
+  },
+  "1425437": {
+    "statements": [
+      {
+        "about": [
+          "Pavlovic"
+        ],
+        "speaker": "Pavlovic",
+        "kind": "opinion",
+        "claim": "Pavlovic insists Milan are on the right track despite too many mistakes being made.",
+        "qualifications": [
+          "even if",
+          "‘too many mistakes’"
+        ]
+      }
+    ],
+    "unspecified": [
+      "Pavlovic first name and role"
+    ]
+  },
+  "1341401": {
+    "statements": [
+      {
+        "about": [
+          "Donte Jackson"
+        ],
+        "speaker": null,
+        "kind": "opinion",
+        "claim": "A possible Donte Jackson trade might turn the Bears' defense into a Super Bowl threat.",
+        "qualifications": [
+          "might"
+        ]
+      }
+    ],
+    "unspecified": []
+  },
+  "1352005": {
+    "statements": [
+      {
+        "about": [],
+        "speaker": null,
+        "kind": "listing",
+        "claim": "A Thursday Night Football Live Show is listed for Patriots at Bears.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "whether the listing is a game broadcast"
+    ]
+  },
+  "1432888": {
+    "statements": [
+      {
+        "about": [
+          "Bears"
+        ],
+        "speaker": "Bears",
+        "kind": "assertion",
+        "claim": "The Bears announced a move to honor Mike Ditka during the Thursday Night game.",
+        "qualifications": [
+          "Announce Move to Honor"
+        ]
+      }
+    ],
+    "unspecified": [
+      "details of the tribute"
+    ]
+  },
+  "1412576": {
+    "statements": [
+      {
+        "about": [
+          "Bears"
+        ],
+        "speaker": null,
+        "kind": "question",
+        "claim": "The headline asks how the Bears are honoring Mike Ditka on Thursday night.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "details of how they are honoring Ditka"
+    ]
+  },
+  "1262232": {
+    "statements": [
+      {
+        "about": [
+          "Chicago Bears"
+        ],
+        "speaker": null,
+        "kind": "question",
+        "claim": "The headline concerns how the Chicago Bears are honoring Mike Ditka on TNF.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "details of how they are honoring Ditka"
+    ]
+  },
+  "1289440": {
+    "statements": [
+      {
+        "about": [
+          "Max Strus"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Max Strus is ruled out for the Clippers' road trip.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "reason for absence"
+    ]
+  },
+  "1429100": {
+    "statements": [
+      {
+        "about": [],
+        "speaker": null,
+        "kind": "listing",
+        "claim": "An Orlando Magic versus LA Clippers game page is listed for Jan 15, 2027.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "game completion and result"
+    ]
+  },
+  "1398531": {
+    "statements": [
+      {
+        "about": [],
+        "speaker": null,
+        "kind": "listing",
+        "claim": "A Toronto Raptors versus LA Clippers game-summary page is listed for Nov 2, 2026.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "game completion and result"
+    ]
+  },
+  "1325124": {
+    "statements": [
+      {
+        "about": [
+          "AC Milan"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "AC Milan back a fan boycott over away ticket prices described as excessive.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": []
+  },
+  "1208973": {
+    "statements": [
+      {
+        "about": [
+          "AC Milan"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "AC Milan back a fan boycott over away ticket prices described as excessive, and warn of retaliation.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": []
+  },
+  "1189629": {
+    "statements": [
+      {
+        "about": [
+          "Milan"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Milan fear a lengthy lay-off for Chukwueze.",
+        "qualifications": [
+          "fear"
+        ]
+      },
+      {
+        "about": [
+          "Athekame"
+        ],
+        "speaker": null,
+        "kind": "question",
+        "claim": "The headline asks whether Athekame could return in January; two factors are needed.",
+        "qualifications": [
+          "could",
+          "Two factors are needed"
+        ]
+      }
+    ],
+    "unspecified": [
+      "what the two factors are"
+    ]
+  },
+  "1189646": {
+    "statements": [
+      {
+        "about": [
+          "AC Milan"
+        ],
+        "speaker": null,
+        "kind": "question",
+        "claim": "The headline asks about AC Milan recalling Athekame in January, while an early OL exit is deemed unlikely.",
+        "qualifications": [
+          "Early OL exit deemed unlikely"
+        ]
+      }
+    ],
+    "unspecified": []
+  },
+  "1115631": {
+    "statements": [
+      {
+        "about": [
+          "AC Milan"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "AC Milan are eager to secure Rabiot's future with a fresh contract.",
+        "qualifications": [
+          "eager"
+        ]
+      }
+    ],
+    "unspecified": [
+      "whether negotiations or agreement exist"
+    ]
+  },
+  "1410388": {
+    "statements": [
+      {
+        "about": [
+          "Christian Gonzalez"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Christian Gonzalez is good to go despite a newly-announced illness.",
+        "qualifications": [
+          "despite newly-announced illness"
+        ]
+      }
+    ],
+    "unspecified": []
+  },
+  "1410389": {
+    "statements": [
+      {
+        "about": [
+          "Mike Vrabel"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Patriots' Mike Vrabel is set to snap a 27-year streak on TNF versus the Bears.",
+        "qualifications": [
+          "set to"
+        ]
+      }
+    ],
+    "unspecified": [
+      "type of streak",
+      "Mike Vrabel role"
+    ]
+  },
+  "1330977": {
+    "statements": [
+      {
+        "about": [
+          "Chicago Bears"
+        ],
+        "speaker": null,
+        "kind": "question",
+        "claim": "The headline concerns the Chicago Bears' possible move from Soldier Field.",
+        "qualifications": [
+          "possible move"
+        ]
+      }
+    ],
+    "unspecified": []
+  },
+  "1260557": {
+    "statements": [
+      {
+        "about": [
+          "Darius Acuff Jr."
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Darius Acuff Jr. had a debut against the Clippers described as brutal.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": []
+  },
+  "1338223": {
+    "statements": [
+      {
+        "about": [
+          "Keegan Murray"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "Keegan Murray struggled mightily against the Clippers.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": []
+  },
+  "1221840": {
+    "statements": [
+      {
+        "about": [
+          "Clippers fans"
+        ],
+        "speaker": null,
+        "kind": "question",
+        "claim": "The headline concerns how Clippers fans can get free parking and new jerseys on opening night.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": [
+      "how fans obtain them"
+    ]
+  },
+  "1192912": {
+    "statements": [
+      {
+        "about": [
+          "L.A. Clippers"
+        ],
+        "speaker": null,
+        "kind": "assertion",
+        "claim": "The L.A. Clippers usher in a new season with a jersey swap and free parking.",
+        "qualifications": []
+      }
+    ],
+    "unspecified": []
+  }
+}

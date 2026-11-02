@@ -26,6 +26,22 @@ pub struct WritingIdentity<'a> {
     entity_type: &'a str,
     sport: &'a str,
 }
+/// Explicit team category from canonical metadata; absence never defaults to men.
+pub async fn load_team_gender(
+    pool: &sqlx::PgPool,
+    entity_id: i32,
+    sport: &str,
+) -> anyhow::Result<Option<String>> {
+    Ok(sqlx::query_scalar::<_, Option<String>>(
+        "SELECT meta->>'gender' FROM public.teams WHERE id=$1 AND sport=$2",
+    )
+    .bind(entity_id)
+    .bind(sport.to_uppercase())
+    .fetch_optional(pool)
+    .await?
+    .flatten())
+}
+
 /// Compact identity for candidate lists. Framing belongs once above the list.
 pub async fn load_identity_record(
     pool: &sqlx::PgPool,

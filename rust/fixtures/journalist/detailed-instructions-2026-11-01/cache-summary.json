@@ -1,0 +1,9 @@
+{
+  "scope": "Eight sequential full native requests; first cold, subsequent shared prefixes. Native endpoint timing versus original full runner timing; not a sustained throughput estimate.",
+  "requests": 8,
+  "same_parsed_outputs": 8,
+  "complete_input_and_output": 8,
+  "uncached_full_runner_ms": 86299,
+  "cached_native_ms": 32910,
+  "cache_reused_requests": 7
+}

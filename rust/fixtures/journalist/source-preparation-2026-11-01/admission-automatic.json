@@ -1,0 +1,38 @@
+[
+  {
+    "file": "development-automatic.jsonl",
+    "name": "chicago-bears-known",
+    "stage": "write",
+    "input_tokens": 2151,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-automatic.jsonl",
+    "name": "la-clippers-known",
+    "stage": "write",
+    "input_tokens": 1947,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-automatic.jsonl",
+    "name": "chicago-bears-reserved",
+    "stage": "write",
+    "input_tokens": 2014,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  },
+  {
+    "file": "development-automatic.jsonl",
+    "name": "la-clippers-reserved",
+    "stage": "write",
+    "input_tokens": 2041,
+    "reserved_output": 2100,
+    "num_ctx": 7900,
+    "fits": true
+  }
+]

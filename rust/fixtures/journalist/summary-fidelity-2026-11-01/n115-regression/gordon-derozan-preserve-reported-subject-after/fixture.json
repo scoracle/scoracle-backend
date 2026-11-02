@@ -1,0 +1,47 @@
+{
+  "name": "gordon-derozan-preserve-reported-subject-after",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n115-evidence-boundary",
+  "user_prompt": "{\"meta\":{\"name\":\"Aaron Gordon\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":null},\"fresh\":[{\"report_key\":\"report_1\",\"publisher\":\"Synthetic Wire\",\"published_at\":\"2026-09-26T23:00:00Z\",\"publisher_excerpt\":\"DeMar DeRozan said he was discussing a trade to Denver Nuggets. The report lists Aaron Gordon as a current Nuggets player but reports no new development concerning him.\",\"evidence_scope\":\"publisher_excerpt\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "reports": [
+      {
+        "context": "DeMar DeRozan said he was discussing a trade to Denver Nuggets. The report lists Aaron Gordon as a current Nuggets player but reports no new development concerning him.",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "Synthetic Wire",
+        "title": "DeMar DeRozan discusses trade talks"
+      }
+    ],
+    "subject": {
+      "entity_id": 177,
+      "entity_type": "player",
+      "name": "Aaron Gordon",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "narratives_empty": false,
+    "body_includes": [
+      "DeMar DeRozan",
+      "Synthetic Wire"
+    ],
+    "body_excludes": [
+      "Gordon said",
+      "Gordon is discussing",
+      "Gordon scored"
+    ],
+    "summary_excludes": [
+      "Gordon said",
+      "Gordon is discussing",
+      "Gordon scored",
+      "status unchanged"
+    ]
+  },
+  "review": [
+    "The report has already been selected upstream. Preserve DeRozan as the speaker discussing a trade; never transfer his claim to Gordon.",
+    "Gordon is only listed as a current Nuggets player. Do not infer that Gordon is moving, speaking, or involved in the talks."
+  ]
+}

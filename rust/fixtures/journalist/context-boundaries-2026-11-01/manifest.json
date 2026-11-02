@@ -1,0 +1,14 @@
+{
+  "sha256": {
+    "development-control.jsonl": "4d2586184f0a33a8acb6ef85ce641e6c9bf29edef0c9e5ef3dc8410bdd8001e1",
+    "development-json-context-first.jsonl": "24df18892cefd706fde9f41040db020fe944729f1a1a35b0b0116b6e1e52ef5d",
+    "development-sections-context-first.jsonl": "a7afd5e1f3d352364849c824b6cb315d2b961216ece3f274748cb02152189228",
+    "development-sections-source-first.jsonl": "100ee85795b4b82f9d2c1f2de8d083ba04c79d27982da86f9af81429db139835",
+    "system.txt": "2a39746bd98a3768d5720d3b45eec8ab1aeb26909aca224343dcce67950f2cff",
+    "validation-control.jsonl": "ae5f83a17b07590041727d9cb99ec4bf1f62a5eb3e1e0dba2334b206c4b22496",
+    "validation-json-context-first.jsonl": "7c7382132e8a0d85ac79925b9226ff2ec996e9636bcf8751f951765353f86921",
+    "validation-sections-context-first.jsonl": "91d22cd0e9718100da6028e22bbcb74e8d05ae8a6035b916f48b540c099035b6",
+    "validation-sections-source-first.jsonl": "b428829744a795eecfacbfeea61a551ea9ea6164c16fd73132e13af8ad7ad9b7",
+    "validation-sources.json": "c36ceee78b1ba5e07af1a39b66788d1af06895222b2557a34f15b6774dbb9ec8"
+  }
+}

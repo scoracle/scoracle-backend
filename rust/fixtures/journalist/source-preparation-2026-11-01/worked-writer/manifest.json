@@ -1,0 +1,12 @@
+{
+  "sha256": {
+    "writer.txt": "5e7d439088921cc4b3519c53b37458ca905e7962f8d567b1564726f7b17017d9",
+    "development-control.jsonl": "167b90f6b297ea5757c5973f9a52493530a5a563ff11e74374e8bb3255233279",
+    "development-reference.jsonl": "038c4295dd5c2e7acac1f96ca40741f8c89cf186b695f31f8caa6fcf4c2fbc75",
+    "validation-control.jsonl": "498e08c888bc44131308906105447708d02c51620eaaf451fdb0aa219a8fac84",
+    "development-sources.jsonl": "3ff04cbac5ea3830e0c0ddd72229508c6b1b0bf7d69ec88c1147e74124cc560c",
+    "validation-sources.jsonl": "d15e80664bbe313c81f20dfc21eae32c2a18a518e1984de11948d421070af8ed",
+    "reference.json": "0ed3f61e86bf12663a07f29ab40c901b49d46a19a59d32c7c70e179399dbdcd4",
+    "preparer.txt": "850a3b065d5766e6fa098351d547065560d8d0ad3e3e65424ab89da18fd02e6a"
+  }
+}

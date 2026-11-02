@@ -1,0 +1,44 @@
+{
+  "name": "question-is-not-an-answer-before",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n116-source-statements",
+  "user_prompt": "{\"meta\":{\"name\":\"Morgan Hale\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":null},\"fresh\":[{\"report_key\":\"report_1\",\"headline\":\"Will Morgan Hale return for the next game?\",\"publisher\":\"Arena Desk\",\"published_at\":\"2026-09-26T23:00:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline"
+        },
+        "context": "Will Morgan Hale return for the next game?",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "Arena Desk",
+        "title": "Will Morgan Hale return for the next game?"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "player",
+      "name": "Morgan Hale",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "narratives_empty": false,
+    "body_includes": [
+      "Morgan Hale",
+      "Arena Desk"
+    ],
+    "summary_excludes": [
+      "forward",
+      "Bay Owls",
+      "cleared"
+    ]
+  },
+  "review": [
+    "Keep this a question about possible return. Do not answer it, infer an injury, or imply a decision.",
+    "Do not reject the literal words \"will return\" inside a faithfully preserved question. The original n115 automatic exclusion was too broad; review semantics."
+  ]
+}

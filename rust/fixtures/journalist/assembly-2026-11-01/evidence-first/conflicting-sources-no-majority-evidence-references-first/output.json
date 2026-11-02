@@ -1,0 +1,22 @@
+{
+  "narratives": [
+    {
+      "evidence": [
+        {
+          "report_key": "report_1",
+          "text": "Morgan Hale has agreed to join Bay Owls, an unnamed source told Arena Desk. The club has not commented."
+        },
+        {
+          "report_key": "report_2",
+          "text": "Bay Owls deny an agreement with Morgan Hale."
+        }
+      ],
+      "report_keys": [
+        "report_1",
+        "report_2"
+      ],
+      "body": "An unnamed source told Arena Desk that Morgan Hale has agreed to join the Bay Owls, though the club has not commented on the matter. Conversely, the Club Ledger reports that the Bay Owls have denied any agreement with Morgan Hale. These conflicting positions remain unresolved.",
+      "headline": "Bay Owls dispute Morgan Hale signing"
+    }
+  ]
+}

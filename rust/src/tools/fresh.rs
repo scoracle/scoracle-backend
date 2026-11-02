@@ -210,7 +210,16 @@ pub struct ReportEvidence<'a> {
 /// A reporting date is provenance, not a score or a date of the reported event.
 // shortcut: recognizes explicit "Publisher dated" dates; extend only for a reproduced alternative.
 pub fn validate_report_facts(text: &str, reports: &[ReportEvidence<'_>]) -> anyhow::Result<()> {
-    let sources: Vec<_> = reports.iter().map(|report| report.text.as_str()).collect();
+    // A publisher is provenance for every sentence of its report, not only the opening.
+    let attributed: Vec<_> = reports
+        .iter()
+        .flat_map(|report| {
+            fact_clauses(&report.text)
+                .into_iter()
+                .map(|clause| format!("{}: {clause}", report.publisher))
+        })
+        .collect();
+    let sources: Vec<_> = attributed.iter().map(String::as_str).collect();
     for clause in fact_clauses(text) {
         let mut claim = clause.to_owned();
         for report in reports {
@@ -308,6 +317,25 @@ pub fn validate_peer_reading(text: &str, prompt: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod scoped_fact_tests {
     use super::*;
+    #[test]
+    fn publisher_attribution_covers_later_sentences_without_swapping_subject_numbers() {
+        let reports = [ReportEvidence {
+            publisher: "Court Wire",
+            text: "Court Wire: Kai Rowan scored 21 points. Noah Vale recorded 8 rebounds.".into(),
+            published_at: None,
+        }];
+        assert!(validate_report_facts(
+            "Court Wire reports Kai Rowan scored 21 points. Court Wire reports Noah Vale recorded 8 rebounds.",
+            &reports
+        ).is_ok());
+        for claim in [
+            "Court Wire reports Kai Rowan scored 8 points.",
+            "Court Wire reports Noah Vale recorded 21 rebounds.",
+            "Court Wire reports Noah Vale recorded 99 rebounds.",
+        ] {
+            assert!(validate_report_facts(claim, &reports).is_err(), "{claim}");
+        }
+    }
     #[test]
     fn contrast_clauses_keep_each_subjects_numbers_and_denials_separate() {
         let sources = [

@@ -1,0 +1,1 @@
+{"brier":0.00012750574304804953,"completed":24,"concurrency":1,"criteria_version":"classification-criteria-v10-availability","failed":0,"labels":18,"mistakes_at_50_percent":0,"p95_seconds":0.490543625,"requests_per_second":2.070269504508821,"seconds":11.592693582999999}

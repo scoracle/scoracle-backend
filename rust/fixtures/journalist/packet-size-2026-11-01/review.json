@@ -1,0 +1,360 @@
+{
+  "reviewer": "Codex manual source-by-source review; not blinded or independently adjudicated",
+  "scope": "Fidelity to the stored headline text and cited sources, not external truth of the articles. Identical repeats share one review. These are 12 unique subject/size cases, not 24 independent examples.",
+  "identity_policy": "Human factual review accepts unambiguous Chicago Bears/Bears and LA Clippers/Clippers identity expansions. Mechanical results retain the existing stricter guard. Other source gaps, added opponent details and event/cause links remain failures.",
+  "counts": {
+    "unique_cases": 12,
+    "runs": 24,
+    "anchor_faithful_unique": 8,
+    "whole_output_faithful_unique": 4,
+    "mechanically_accepted_runs": 4
+  },
+  "reviews": [
+    {
+      "subject": "ac-milan",
+      "report_count": 1,
+      "anchor_factually_faithful": false,
+      "whole_output_faithful_to_cited_evidence": false,
+      "findings": [
+        {
+          "category": "unsupported_specificity",
+          "entry": 1,
+          "text": "with a valuation of 60 million",
+          "evidence": "report_1 says only \"60 million as early as January\". It does not identify the amount as a valuation, asking price, bid or agreed fee. No currency was invented.",
+          "severity_note": "A conservative fidelity finding about resolving ambiguity, not proof that a valuation of this amount is false."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "ac-milan-runs/ac-milan-01-pass-1-json-body-first/output.json",
+        "ac-milan-runs/ac-milan-01-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "ac-milan",
+      "report_count": 4,
+      "anchor_factually_faithful": false,
+      "whole_output_faithful_to_cited_evidence": false,
+      "findings": [
+        {
+          "category": "unsupported_specificity",
+          "entry": 1,
+          "text": "with a valuation of 60 million",
+          "evidence": "report_1 says only \"60 million as early as January\". It does not identify the amount as a valuation, asking price, bid or agreed fee. No currency was invented.",
+          "severity_note": "A conservative fidelity finding about resolving ambiguity, not proof that a valuation of this amount is false."
+        },
+        {
+          "category": "topic_order",
+          "entry": 2,
+          "evidence": "Pavlovic/report_3 precedes the match topic represented by report_2. The FOX 44 summary in entry 3 is faithful to report_4; it omits the earlier report’s score rather than inventing a different one."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "ac-milan-runs/ac-milan-04-pass-1-json-body-first/output.json",
+        "ac-milan-runs/ac-milan-04-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "ac-milan",
+      "report_count": 12,
+      "anchor_factually_faithful": false,
+      "whole_output_faithful_to_cited_evidence": false,
+      "findings": [
+        {
+          "category": "unsupported_specificity",
+          "entry": 1,
+          "text": "with a valuation of 60 million",
+          "evidence": "report_1 says only \"60 million as early as January\". It does not identify the amount as a valuation, asking price, bid or agreed fee. No currency was invented.",
+          "severity_note": "A conservative fidelity finding about resolving ambiguity, not proof that a valuation of this amount is false."
+        },
+        {
+          "category": "citation_and_attribution",
+          "entry": 2,
+          "text": "LiveScore reports ... in the Europa League ... goalkeeper Maignan",
+          "evidence": "Cites only report_7 (LiveScore: Bournemouth 3-0 AC Milan: Maignan sees red...). Europa League is in uncited report_2; goalkeeper is in uncited report_4 but is unnamed there. These details may fit the same event, but the cited LiveScore headline does not supply them."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "ac-milan-runs/ac-milan-12-pass-1-json-body-first/output.json",
+        "ac-milan-runs/ac-milan-12-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "ac-milan",
+      "report_count": 40,
+      "anchor_factually_faithful": false,
+      "whole_output_faithful_to_cited_evidence": false,
+      "findings": [
+        {
+          "category": "unsupported_specificity",
+          "entry": 1,
+          "text": "with a valuation of 60 million",
+          "evidence": "report_1 says only \"60 million as early as January\". It does not identify the amount as a valuation, asking price, bid or agreed fee. No currency was invented.",
+          "severity_note": "A conservative fidelity finding about resolving ambiguity, not proof that a valuation of this amount is false."
+        },
+        {
+          "category": "citation_and_attribution",
+          "entry": 2,
+          "evidence": "Cites report_7 (LiveScore match result) and report_8 (TNT substitution headline). The Christie reflection belongs to uncited report_6. The 10-man and Europa League details come from other headlines. Publishers are real, but the claim-to-report links are wrong/incomplete."
+        },
+        {
+          "category": "citation_and_attribution",
+          "entry": 3,
+          "evidence": "Cites report_22 (Football Italia mixed injury news) and report_23 (Football Italia Ramos injury). LiveScore fears of a lengthy Chukwueze lay-off belong to uncited report_34."
+        },
+        {
+          "category": "topic_order",
+          "entry": 3,
+          "evidence": "Skips the earlier Pavlovic topic and selects injury coverage."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "ac-milan-runs/ac-milan-40-pass-1-json-body-first/output.json",
+        "ac-milan-runs/ac-milan-40-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "chicago-bears",
+      "report_count": 1,
+      "anchor_factually_faithful": true,
+      "whole_output_faithful_to_cited_evidence": true,
+      "findings": [
+        {
+          "category": "parser_false_positive_identity",
+          "evidence": "Parser rejects Chicago Bears where the headline says Bears. In this controlled subject packet, the city prefix identifies the same team; it adds no event, outcome, date or venue. The current literal source-name rule still rejects it."
+        },
+        {
+          "category": "faithful",
+          "evidence": "Da Windy City, Donte Jackson and the conditional \"might\" survive. A noun-phrase trade label does not assert a completed transaction."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "chicago-bears-runs/chicago-bears-01-pass-1-json-body-first/output.json",
+        "chicago-bears-runs/chicago-bears-01-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "chicago-bears",
+      "report_count": 4,
+      "anchor_factually_faithful": true,
+      "whole_output_faithful_to_cited_evidence": true,
+      "findings": [
+        {
+          "category": "parser_false_positive_identity",
+          "evidence": "Parser rejects Chicago Bears where the headline says Bears. In this controlled subject packet, the city prefix identifies the same team; it adds no event, outcome, date or venue. The current literal source-name rule still rejects it."
+        },
+        {
+          "category": "faithful",
+          "evidence": "All three topics preserve publisher and headline content: conditional Donte Jackson trade opinion, Establish The Run live show, Yahoo Sports announcement of a Ditka honor."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "chicago-bears-runs/chicago-bears-04-pass-1-json-body-first/output.json",
+        "chicago-bears-runs/chicago-bears-04-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "chicago-bears",
+      "report_count": 12,
+      "anchor_factually_faithful": true,
+      "whole_output_faithful_to_cited_evidence": false,
+      "findings": [
+        {
+          "category": "parser_false_positive_identity",
+          "evidence": "Parser rejects Chicago Bears where the headline says Bears. In this controlled subject packet, the city prefix identifies the same team; it adds no event, outcome, date or venue. The current literal source-name rule still rejects it."
+        },
+        {
+          "category": "citation_gap",
+          "entry": 2,
+          "evidence": "Cites report_12, which asks how the Bears are honoring Mike Ditka on Thursday night. The output adds \"against the Patriots\" from elsewhere in the packet. It is not supplied by that cited report."
+        },
+        {
+          "category": "topic_order",
+          "evidence": "Ditka is placed before report_2’s live-show topic. The final entry groups live show and live discussions; no fabricated game result is present."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "chicago-bears-runs/chicago-bears-12-pass-1-json-body-first/output.json",
+        "chicago-bears-runs/chicago-bears-12-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "chicago-bears",
+      "report_count": 40,
+      "anchor_factually_faithful": true,
+      "whole_output_faithful_to_cited_evidence": false,
+      "findings": [
+        {
+          "category": "parser_false_positive_identity",
+          "evidence": "Parser rejects Chicago Bears where the headline says Bears. In this controlled subject packet, the city prefix identifies the same team; it adds no event, outcome, date or venue. The current literal source-name rule still rejects it."
+        },
+        {
+          "category": "citation_gap",
+          "entry": 2,
+          "evidence": "Cites report_3, the Yahoo Sports announcement of a Ditka honor during the Thursday Night game. Adds New England Patriots as the opponent without citing a report that supplies it."
+        },
+        {
+          "category": "topic_order",
+          "evidence": "Skips report_2’s live-show anchor in favor of the Ditka honor and injury report. The five players ruled out is supported by report_23."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "chicago-bears-runs/chicago-bears-40-pass-1-json-body-first/output.json",
+        "chicago-bears-runs/chicago-bears-40-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "la-clippers",
+      "report_count": 1,
+      "anchor_factually_faithful": true,
+      "whole_output_faithful_to_cited_evidence": true,
+      "findings": [
+        {
+          "category": "parser_false_positive_identity",
+          "evidence": "Parser rejects LA Clippers where a cited headline says Clippers. The geographic prefix identifies the same team in this packet; it is not an invented event fact."
+        },
+        {
+          "category": "faithful",
+          "evidence": "RotoBaller, Max Strus and road-trip unavailability survive. No injury cause, missed-game count or return date is added."
+        },
+        {
+          "category": "label_style",
+          "evidence": "\"Max Strus: ruled out\" repeats the reported status instead of the requested topic noun phrase; factual fidelity and title style are scored separately."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "la-clippers-runs/la-clippers-01-pass-1-json-body-first/output.json",
+        "la-clippers-runs/la-clippers-01-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "la-clippers",
+      "report_count": 4,
+      "anchor_factually_faithful": true,
+      "whole_output_faithful_to_cited_evidence": true,
+      "findings": [
+        {
+          "category": "parser_false_positive_identity",
+          "evidence": "Parser rejects LA Clippers where a cited headline says Clippers. The geographic prefix identifies the same team in this packet; it is not an invented event fact."
+        },
+        {
+          "category": "faithful",
+          "evidence": "RotoBaller absence report, NBA.com fixture-page dates, and Annenberg Media fan reaction stay within their cited headline content. No match result is invented."
+        },
+        {
+          "category": "topic_grouping",
+          "entry": 2,
+          "evidence": "Two different dated NBA fixtures are grouped as schedules, contrary to the separate-development instruction. This is a grouping violation, not a false date or result."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "la-clippers-runs/la-clippers-04-pass-1-json-body-first/output.json",
+        "la-clippers-runs/la-clippers-04-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "la-clippers",
+      "report_count": 12,
+      "anchor_factually_faithful": true,
+      "whole_output_faithful_to_cited_evidence": false,
+      "findings": [
+        {
+          "category": "parser_false_positive_identity",
+          "evidence": "Parser rejects LA Clippers where a cited headline says Clippers. The geographic prefix identifies the same team in this packet; it is not an invented event fact."
+        },
+        {
+          "category": "unsupported_relationship",
+          "entry": 3,
+          "text": "while Keegan Murray struggled in the same matchup",
+          "evidence": "report_5 says Darius Acuff Jr. had a brutal NBA debut vs. Clippers; report_10 says Keegan Murray struggled vs. Clippers. Neither supplied headline establishes that these happened in the same game."
+        },
+        {
+          "category": "topic_order",
+          "evidence": "Skips the earlier NBA.com fixture topics and selects Ballmer and player performances."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "la-clippers-runs/la-clippers-12-pass-1-json-body-first/output.json",
+        "la-clippers-runs/la-clippers-12-pass-2-json-body-first/output.json"
+      ]
+    },
+    {
+      "subject": "la-clippers",
+      "report_count": 40,
+      "anchor_factually_faithful": true,
+      "whole_output_faithful_to_cited_evidence": false,
+      "findings": [
+        {
+          "category": "parser_false_positive_identity",
+          "evidence": "Parser rejects LA Clippers where a cited headline says Clippers. The geographic prefix identifies the same team in this packet; it is not an invented event fact."
+        },
+        {
+          "category": "unsupported_cause_in_cited_report",
+          "entry": 1,
+          "text": "ruled out due to injuries",
+          "evidence": "report_22 says only several notable players are out to start the season. report_31 separately says five players are injured; it is not cited for entry 1 and does not name the players or explicitly connect the groups."
+        },
+        {
+          "category": "citation_gap_identity",
+          "entry": 3,
+          "evidence": "The cited report_31 says post-Kawhi era. The expanded Kawhi Leonard name appears in other uncited reports. This is name/citation completeness, not invention of a new person."
+        },
+        {
+          "category": "topic_order",
+          "evidence": "Max Strus/report_1 remains covered, but moves to entry 2. The requested first-anchor order is not followed."
+        }
+      ],
+      "applies_to_passes": [
+        1,
+        2
+      ],
+      "outputs": [
+        "la-clippers-runs/la-clippers-40-pass-1-json-body-first/output.json",
+        "la-clippers-runs/la-clippers-40-pass-2-json-body-first/output.json"
+      ]
+    }
+  ]
+}

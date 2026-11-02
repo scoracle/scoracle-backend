@@ -1,0 +1,122 @@
+{
+  "reviewer": "Codex manual source-by-source review, not blinded or independently adjudicated",
+  "writer_reviews": [
+    {
+      "arm": "control",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Three topics retained but valuation invented; report2 gains goalkeeper role and report7 imports competition/goalkeeper details."
+      ],
+      "output": "development-control/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "chicago-bears-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Live Show becomes broadcast; other topic facts retained. Clarity concern, not counted as fully faithful."
+      ],
+      "output": "development-control/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "la-clippers-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Duplicates same cross-topic roundup three times; source-to-topic guard rejects."
+      ],
+      "output": "development-control/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Drops two factors and unlikely-exit qualification; frames likelihood of recall instead."
+      ],
+      "output": "development-control/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Duplicates cross-topic roundup three times and invents Thanksgiving streak/intent."
+      ],
+      "output": "development-control/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "control",
+      "name": "la-clippers-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Merges two performance topics, shifts fan topic and duplicates Acuff in final slot; guard rejects."
+      ],
+      "output": "development-control/la-clippers-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Does not obey assigned topic membership: first entry combines all anchor topics and later entries are extra match roundups. Adds coaching title without source support."
+      ],
+      "output": "development-reference/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "chicago-bears-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Correctly keeps Donte assessment as a topic, not his opinion. Still violates groups; how questions become whether questions about the tribute happening."
+      ],
+      "output": "development-reference/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "la-clippers-known",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Repeats the same cross-topic roundup three times."
+      ],
+      "output": "development-reference/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Original publishers preserved and recall remains potential/unlikely, but required two factors omitted."
+      ],
+      "output": "development-reference/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "chicago-bears-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Repeats cross-topic roundup three times; discusses followed by finite clauses is ungrammatical."
+      ],
+      "output": "development-reference/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "reference",
+      "name": "la-clippers-reserved",
+      "assessment": "unfaithful_or_unusable",
+      "findings": [
+        "Wrong group membership and duplicated performance group; title can imply Murray also debuted, and how fans can get benefits becomes whether they can."
+      ],
+      "output": "development-reference/la-clippers-reserved-statements-source-first/output.json"
+    }
+  ],
+  "selection": {
+    "qualifies_for_followup": false,
+    "clearly_faithful_packets": {
+      "control": 0,
+      "reference": 0
+    },
+    "reason": "Exact count produces three slots but not assigned topics; duplicated roundups and missing qualifications persist. Role reference fixes Donte speaker assignment but not full-output reliability. Skip the29 planned role-extraction calls and automatic writers for this failed writer contract."
+  },
+  "interpretation": "Exact count constrains cardinality, not topic membership or semantic fidelity. Explicit roles fix the observed Donte attribution in this reference run but do not qualify the writer."
+}

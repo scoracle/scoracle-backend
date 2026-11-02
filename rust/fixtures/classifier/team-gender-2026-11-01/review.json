@@ -1,0 +1,87 @@
+{
+  "status": "local_support_prepared_not_deployed",
+  "database": {
+    "teams": 206,
+    "teams_with_gender": 0,
+    "teams_with_team_gender": 0,
+    "leagues_with_gender": 0,
+    "writes": false
+  },
+  "storage_contract": {
+    "field": "public.teams.meta.gender",
+    "values": [
+      "men",
+      "women",
+      "mixed"
+    ],
+    "unknown": "missing key or JSON null; never inferred from team name or defaulted to men",
+    "population": "requires verified source data; no real records changed"
+  },
+  "request_path": "teams.meta.gender -> subject_meta.team_gender -> gender-qualified target in each decision question",
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "threshold": 55,
+  "experiments": [
+    {
+      "variant": "gender in identity prose only",
+      "responses": 18,
+      "labelled": 12,
+      "same_subject_accepted": 6,
+      "same_subject_total": 6,
+      "other_subject_rejected": 0,
+      "other_subject_total": 6,
+      "file": "results.jsonl"
+    },
+    {
+      "variant": "structured gender with existing target description",
+      "responses": 18,
+      "labelled": 12,
+      "same_subject_accepted": 6,
+      "same_subject_total": 6,
+      "other_subject_rejected": 1,
+      "other_subject_total": 6,
+      "file": "structured-results.jsonl"
+    },
+    {
+      "variant": "structured gender with extra identity instruction",
+      "responses": 18,
+      "labelled": 12,
+      "same_subject_accepted": 6,
+      "same_subject_total": 6,
+      "other_subject_rejected": 0,
+      "other_subject_total": 6,
+      "file": "explicit-identity-results.jsonl"
+    },
+    {
+      "variant": "gender bound into target description",
+      "responses": 18,
+      "labelled": 12,
+      "same_subject_accepted": 6,
+      "same_subject_total": 6,
+      "other_subject_rejected": 6,
+      "other_subject_total": 6,
+      "file": "gender-bound-reference-results.jsonl"
+    },
+    {
+      "variant": "actual updated builder; gender field only; possessive and unrelated-club holdouts",
+      "responses": 24,
+      "labelled": 18,
+      "same_subject_accepted": 8,
+      "same_subject_total": 8,
+      "other_subject_rejected": 10,
+      "other_subject_total": 10,
+      "file": "production-builder-results.jsonl"
+    }
+  ],
+  "integration": {
+    "library_passed": 385,
+    "library_ignored": 74,
+    "database_to_request_test": "prepared but not run: disposable local initdb failed because the macOS System V shared-memory segment limit is exhausted",
+    "production_database_audit": "read-only, completed"
+  },
+  "remaining": [
+    "Populate gender from verified canonical sources; all 206 teams currently lack it.",
+    "Replace or revise the pre-model name-suffix filter after coverage tests; it blocks Chelsea Women but passes Chelsea's women's team.",
+    "Run the prepared isolated database integration test once a disposable PostgreSQL instance is available.",
+    "Qualify on reviewed real headlines before deployment; synthetic separation is not a population accuracy guarantee."
+  ]
+}

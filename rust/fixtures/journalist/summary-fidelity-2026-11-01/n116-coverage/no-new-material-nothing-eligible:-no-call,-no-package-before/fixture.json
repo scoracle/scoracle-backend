@@ -1,0 +1,26 @@
+{
+  "name": "no-new-material-nothing-eligible:-no-call,-no-package-before",
+  "task": "narratives",
+  "sport": "FOOTBALL",
+  "prompt_version": "n116-source-statements",
+  "user_prompt": "{\"meta\":{\"name\":\"Cedar United\",\"entity_type\":\"team\",\"sport\":\"FOOTBALL\",\"database_record\":null},\"fresh\":[],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "reports": [],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "team",
+      "name": "Cedar United",
+      "sport": "FOOTBALL"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "narratives_empty": true,
+    "summary_excludes": [
+      "Birch Arena"
+    ]
+  },
+  "review": [
+    "An empty world produces no report. A body here would be an invented story."
+  ]
+}

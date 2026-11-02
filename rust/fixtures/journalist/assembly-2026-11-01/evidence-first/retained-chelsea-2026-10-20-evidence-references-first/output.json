@@ -1,0 +1,63 @@
+{
+  "narratives": [
+    {
+      "evidence": [
+        {
+          "report_key": "report_1",
+          "text": "Confirmed: French-born Super Falcons-eligible forward joins Chelsea on professional deal"
+        },
+        {
+          "report_key": "report_2",
+          "text": "Chelsea plans future move for Strasbourg winger Gessime Yassine"
+        }
+      ],
+      "report_keys": [
+        "report_1",
+        "report_2"
+      ],
+      "body": "AllNigeriaSoccer reports that a French-born forward eligible for the Super Falcons has joined Chelsea on a professional deal. Separately, Soccer News indicates that Chelsea is planning a future move for Strasbourg winger Gessime Yassine.",
+      "headline": "Chelsea signs French forward; plans future move for Yassine"
+    },
+    {
+      "evidence": [
+        {
+          "report_key": "report_9",
+          "text": "Estevao given brutally honest Chelsea transfer advice despite Xabi Alonso promise"
+        },
+        {
+          "report_key": "report_11",
+          "text": "Emi Martinez confirms new Chelsea aim after surgery"
+        },
+        {
+          "report_key": "report_8",
+          "text": "Chelsea: What games Emi Martinez will miss after injury timeline is 'revealed'"
+        }
+      ],
+      "report_keys": [
+        "report_9",
+        "report_11",
+        "report_8"
+      ],
+      "body": "Football London reports that Estevao received brutally honest transfer advice from Chelsea despite a promise from Xabi Alonso. Meanwhile, London Evening Standard notes that Emi Martinez has confirmed a new aim for the club following her surgery, while also revealing the timeline of games she will miss due to the injury.",
+      "headline": "Estevao receives blunt transfer advice; Martinez sets new aim post-surgery"
+    },
+    {
+      "evidence": [
+        {
+          "report_key": "report_13",
+          "text": "Simon Jordan claims Chelsea 'bigger and worse offenders' than Man City"
+        },
+        {
+          "report_key": "report_19",
+          "text": "Chelsea labelled 'bigger and worse offenders' than Man City despite 114 charges guilty verdict"
+        }
+      ],
+      "report_keys": [
+        "report_13",
+        "report_19"
+      ],
+      "body": "Simon Jordan claims Chelsea are 'bigger and worse offenders' than Manchester City. Football London reports that Chelsea has been labelled 'bigger and worse offenders' than Man City despite a guilty verdict on 114 charges.",
+      "headline": "Chelsea accused of being 'bigger and worse offenders' than Man City"
+    }
+  ]
+}

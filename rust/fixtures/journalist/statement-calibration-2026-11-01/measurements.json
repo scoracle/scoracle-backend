@@ -1,0 +1,933 @@
+{
+  "complete_receipts_and_integrity": true,
+  "calls": 30,
+  "runs": {
+    "control-development": {
+      "calls": 6,
+      "valid_source_mapping": 6,
+      "mechanically_accepted": 2,
+      "median_ms": 7884.0,
+      "range_ms": [
+        5793,
+        17158
+      ],
+      "input_tokens_range": [
+        3912,
+        4321
+      ],
+      "output_tokens_range": [
+        133,
+        236
+      ],
+      "cache_tokens_range": [
+        1,
+        3532
+      ]
+    },
+    "control-validation": {
+      "calls": 3,
+      "valid_source_mapping": 2,
+      "mechanically_accepted": 1,
+      "median_ms": 10703,
+      "range_ms": [
+        7331,
+        15929
+      ],
+      "input_tokens_range": [
+        3924,
+        4168
+      ],
+      "output_tokens_range": [
+        148,
+        251
+      ],
+      "cache_tokens_range": [
+        1,
+        3408
+      ]
+    },
+    "examples-development": {
+      "calls": 6,
+      "valid_source_mapping": 6,
+      "mechanically_accepted": 3,
+      "median_ms": 8123.0,
+      "range_ms": [
+        5870,
+        20243
+      ],
+      "input_tokens_range": [
+        4925,
+        5334
+      ],
+      "output_tokens_range": [
+        133,
+        237
+      ],
+      "cache_tokens_range": [
+        1,
+        4545
+      ]
+    },
+    "examples-repeat": {
+      "calls": 6,
+      "valid_source_mapping": 6,
+      "mechanically_accepted": 3,
+      "median_ms": 8085.0,
+      "range_ms": [
+        5907,
+        19973
+      ],
+      "input_tokens_range": [
+        4925,
+        5334
+      ],
+      "output_tokens_range": [
+        133,
+        237
+      ],
+      "cache_tokens_range": [
+        1,
+        4545
+      ]
+    },
+    "examples-validation": {
+      "calls": 3,
+      "valid_source_mapping": 3,
+      "mechanically_accepted": 1,
+      "median_ms": 10975,
+      "range_ms": [
+        9717,
+        11128
+      ],
+      "input_tokens_range": [
+        4937,
+        5181
+      ],
+      "output_tokens_range": [
+        152,
+        254
+      ],
+      "cache_tokens_range": [
+        3408,
+        4421
+      ]
+    },
+    "gaps-development": {
+      "calls": 6,
+      "valid_source_mapping": 3,
+      "mechanically_accepted": 1,
+      "median_ms": 8956.0,
+      "range_ms": [
+        5714,
+        25351
+      ],
+      "input_tokens_range": [
+        5152,
+        5561
+      ],
+      "output_tokens_range": [
+        127,
+        278
+      ],
+      "cache_tokens_range": [
+        1,
+        4772
+      ]
+    }
+  },
+  "repeats": [
+    {
+      "arm": "examples",
+      "name": "ac-milan-known",
+      "same_requests": true,
+      "same_parsed_output": true
+    },
+    {
+      "arm": "examples",
+      "name": "chicago-bears-known",
+      "same_requests": true,
+      "same_parsed_output": true
+    },
+    {
+      "arm": "examples",
+      "name": "la-clippers-known",
+      "same_requests": true,
+      "same_parsed_output": true
+    },
+    {
+      "arm": "examples",
+      "name": "ac-milan-reserved",
+      "same_requests": true,
+      "same_parsed_output": true
+    },
+    {
+      "arm": "examples",
+      "name": "chicago-bears-reserved",
+      "same_requests": true,
+      "same_parsed_output": true
+    },
+    {
+      "arm": "examples",
+      "name": "la-clippers-reserved",
+      "same_requests": true,
+      "same_parsed_output": true
+    }
+  ],
+  "records": [
+    {
+      "accepted": false,
+      "input_tokens": 4321,
+      "name": "ac-milan-known",
+      "output_tokens": 161,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Journalist violates served prose guard",
+      "wall_ms": 17158,
+      "run": "control-development",
+      "arm": "control",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 4320,
+        "prompt_ms": 11584.737,
+        "prompt_per_token_ms": 2.6816520833333333,
+        "prompt_per_second": 372.90445177995844,
+        "predicted_n": 161,
+        "predicted_ms": 5508.147,
+        "predicted_per_token_ms": 34.42591875,
+        "predicted_per_second": 29.047881256618602
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 4018,
+      "name": "chicago-bears-known",
+      "output_tokens": 144,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 15679,
+      "run": "control-development",
+      "arm": "control",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 4017,
+        "prompt_ms": 10751.259,
+        "prompt_per_token_ms": 2.6764398805078415,
+        "prompt_per_second": 373.630660371962,
+        "predicted_n": 144,
+        "predicted_ms": 4896.738,
+        "predicted_per_token_ms": 34.24292307692308,
+        "predicted_per_second": 29.20311439983107
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 3912,
+      "name": "la-clippers-known",
+      "output_tokens": 144,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "RotoBaller lists Max Strus ruled out for the Clippers' road trip.\n\nNBA.com lists an Orlando Magic vs LA Clippers game scheduled for Jan 15, 2027.\n\nNBA.com lists a Toronto Raptors vs LA Clippers game summary for Nov 2, 2026.",
+      "wall_ms": 6153,
+      "run": "control-development",
+      "arm": "control",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 3502,
+        "prompt_n": 410,
+        "prompt_ms": 1195.831,
+        "prompt_per_token_ms": 2.916660975609756,
+        "prompt_per_second": 342.85781184799526,
+        "predicted_n": 144,
+        "predicted_ms": 4926.881,
+        "predicted_per_token_ms": 34.45371328671329,
+        "predicted_per_second": 29.024447718546476
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 4048,
+      "name": "ac-milan-reserved",
+      "output_tokens": 236,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "ESPN discusses AC Milan's support for a fan boycott over 'excessive' away ticket prices. FOX Sports discusses AC Milan backing a fan boycott over 'excessive' away ticket prices and warning of retaliation.\n\nLiveScore discusses AC Milan's fear of a lengthy lay-off for Chukwueze and the possibility of Athekame returning in January. OneFootball discusses AC Milan's potential recall of Athekame in January, with an early OL exit deemed unlikely.\n\nTribalFootball discusses AC Milan's eagerness to secure Rabiot's future with a fresh contract.",
+      "wall_ms": 9615,
+      "run": "control-development",
+      "arm": "control",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 3502,
+        "prompt_n": 546,
+        "prompt_ms": 1564.671,
+        "prompt_per_token_ms": 2.8656978021978023,
+        "prompt_per_second": 348.955147759497,
+        "predicted_n": 236,
+        "predicted_ms": 8023.101,
+        "predicted_per_token_ms": 34.14085531914893,
+        "predicted_per_second": 29.290420250224944
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3927,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 140,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: NFC North",
+      "wall_ms": 6002,
+      "run": "control-development",
+      "arm": "control",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 3532,
+        "prompt_n": 395,
+        "prompt_ms": 1188.381,
+        "prompt_per_token_ms": 3.0085594936708864,
+        "prompt_per_second": 332.384984276928,
+        "predicted_n": 140,
+        "predicted_ms": 4784.653,
+        "predicted_per_token_ms": 34.42196402877698,
+        "predicted_per_second": 29.051218552317167
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 3952,
+      "name": "la-clippers-reserved",
+      "output_tokens": 133,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 5793,
+      "run": "control-development",
+      "arm": "control",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 3532,
+        "prompt_n": 420,
+        "prompt_ms": 1198.764,
+        "prompt_per_token_ms": 2.8541999999999996,
+        "prompt_per_second": 350.36087169784884,
+        "predicted_n": 133,
+        "predicted_ms": 4563.976,
+        "predicted_per_token_ms": 34.575575757575756,
+        "predicted_per_second": 28.92215033558459
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 3924,
+      "name": "arsenal-validation",
+      "output_tokens": 154,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Bavarian Football Works discusses Bayern Munich's Tom Bischof's desire for playing time following a strong performance against Arsenal.\n\nDaily Cannon discusses Arsenal being drawn back into a Super League dispute over a \u00a367m bill.\n\nLiveScore discusses Arsenal identifying a \u20ac60m striker and confirming a timeline for a record deal.",
+      "wall_ms": 15929,
+      "run": "control-validation",
+      "arm": "control",
+      "phase": "validation",
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 3923,
+        "prompt_ms": 10566.18,
+        "prompt_per_token_ms": 2.6933928116237573,
+        "prompt_per_second": 371.2789295658412,
+        "predicted_n": 154,
+        "predicted_ms": 5331.998,
+        "predicted_per_token_ms": 34.84966013071895,
+        "predicted_per_second": 28.69468443161457
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 4168,
+      "name": "tampa-bay-validation",
+      "output_tokens": 148,
+      "production_writes": false,
+      "render_error": "statement cites outside its topic",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 7331,
+      "run": "control-validation",
+      "arm": "control",
+      "phase": "validation",
+      "native_timings": {
+        "cache_n": 3408,
+        "prompt_n": 760,
+        "prompt_ms": 2179.817,
+        "prompt_per_token_ms": 2.8681802631578948,
+        "prompt_per_second": 348.6531208812483,
+        "predicted_n": 148,
+        "predicted_ms": 5122.043,
+        "predicted_per_token_ms": 34.843829931972785,
+        "predicted_per_second": 28.699485732548517
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 4113,
+      "name": "cleveland-validation",
+      "output_tokens": 251,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "wall_ms": 10703,
+      "run": "control-validation",
+      "arm": "control",
+      "phase": "validation",
+      "native_timings": {
+        "cache_n": 3408,
+        "prompt_n": 705,
+        "prompt_ms": 2008.583,
+        "prompt_per_token_ms": 2.84905390070922,
+        "prompt_per_second": 350.99371049142604,
+        "predicted_n": 251,
+        "predicted_ms": 8662.353,
+        "predicted_per_token_ms": 34.649412,
+        "predicted_per_second": 28.860518614284135
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5334,
+      "name": "ac-milan-known",
+      "output_tokens": 154,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Journalist violates served prose guard",
+      "wall_ms": 20243,
+      "run": "examples-development",
+      "arm": "examples",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 5333,
+        "prompt_ms": 14768.661,
+        "prompt_per_token_ms": 2.7692970185636603,
+        "prompt_per_second": 361.1024723229817,
+        "predicted_n": 154,
+        "predicted_ms": 5437.783,
+        "predicted_per_token_ms": 35.54106535947712,
+        "predicted_per_second": 28.13646664458659
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5031,
+      "name": "chicago-bears-known",
+      "output_tokens": 146,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 18839,
+      "run": "examples-development",
+      "arm": "examples",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 5030,
+        "prompt_ms": 13684.883,
+        "prompt_per_token_ms": 2.72065268389662,
+        "prompt_per_second": 367.5588603863109,
+        "predicted_n": 146,
+        "predicted_ms": 5115.743,
+        "predicted_per_token_ms": 35.28098620689656,
+        "predicted_per_second": 28.343878885237196
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 4925,
+      "name": "la-clippers-known",
+      "output_tokens": 144,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "RotoBaller discusses Max Strus being ruled out for the Clippers' road trip.\n\nNBA.com lists the Orlando Magic versus LA Clippers game scheduled for January 15, 2027.\n\nNBA.com lists the Toronto Raptors versus LA Clippers game summary for November 2, 2026.",
+      "wall_ms": 6266,
+      "run": "examples-development",
+      "arm": "examples",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 4515,
+        "prompt_n": 410,
+        "prompt_ms": 1224.092,
+        "prompt_per_token_ms": 2.9855902439024393,
+        "prompt_per_second": 334.9421448714639,
+        "predicted_n": 144,
+        "predicted_ms": 5008.509,
+        "predicted_per_token_ms": 35.02453846153846,
+        "predicted_per_second": 28.551411208405536
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5061,
+      "name": "ac-milan-reserved",
+      "output_tokens": 237,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "ESPN discusses AC Milan's support for a fan boycott over 'excessive' away ticket prices. FOX Sports discusses AC Milan backing a fan boycott over 'excessive' away ticket prices and warning of retaliation.\n\nLiveScore discusses AC Milan's fear of a lengthy lay-off for Chukwueze and a possible Athekame return in January requiring two factors. OneFootball discusses AC Milan's potential recall of Athekame in January, with an early OL exit deemed unlikely.\n\nTribalFootball discusses AC Milan's eagerness to secure Rabiot's future with a fresh contract.",
+      "wall_ms": 9980,
+      "run": "examples-development",
+      "arm": "examples",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 4515,
+        "prompt_n": 546,
+        "prompt_ms": 1603.27,
+        "prompt_per_token_ms": 2.9363919413919413,
+        "prompt_per_second": 340.55399277726144,
+        "predicted_n": 237,
+        "predicted_ms": 8342.609,
+        "predicted_per_token_ms": 35.35003813559322,
+        "predicted_per_second": 28.28851262237029
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 4940,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 140,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Pats Pulpit reports that Christian Gonzalez is good to play despite a newly announced illness.\n\nYahoo Sports reports that Patriots coach Mike Vrabel is set to end a 27-year streak in the TNF against the Bears.\n\nChicago Tribune discusses the Chicago Bears' possible move from Soldier Field.",
+      "wall_ms": 6115,
+      "run": "examples-development",
+      "arm": "examples",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 4545,
+        "prompt_n": 395,
+        "prompt_ms": 1218.089,
+        "prompt_per_token_ms": 3.0837696202531646,
+        "prompt_per_second": 324.27843942437704,
+        "predicted_n": 140,
+        "predicted_ms": 4862.875,
+        "predicted_per_token_ms": 34.98471223021583,
+        "predicted_per_second": 28.583913836979153
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 4965,
+      "name": "la-clippers-reserved",
+      "output_tokens": 133,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 5870,
+      "run": "examples-development",
+      "arm": "examples",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 4545,
+        "prompt_n": 420,
+        "prompt_ms": 1227.618,
+        "prompt_per_token_ms": 2.9229,
+        "prompt_per_second": 342.12597078244215,
+        "predicted_n": 133,
+        "predicted_ms": 4609.323,
+        "predicted_per_token_ms": 34.91911363636364,
+        "predicted_per_second": 28.63761120667829
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5334,
+      "name": "ac-milan-known",
+      "output_tokens": 154,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Journalist violates served prose guard",
+      "wall_ms": 19973,
+      "run": "examples-repeat",
+      "arm": "examples",
+      "phase": "repeat",
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 5333,
+        "prompt_ms": 14531.859,
+        "prompt_per_token_ms": 2.724893868366773,
+        "prompt_per_second": 366.98677024047646,
+        "predicted_n": 154,
+        "predicted_ms": 5399.533,
+        "predicted_per_token_ms": 35.29106535947712,
+        "predicted_per_second": 28.335783853899958
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5031,
+      "name": "chicago-bears-known",
+      "output_tokens": 146,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 18775,
+      "run": "examples-repeat",
+      "arm": "examples",
+      "phase": "repeat",
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 5030,
+        "prompt_ms": 13666.933,
+        "prompt_per_token_ms": 2.7170840954274356,
+        "prompt_per_second": 368.0416081647579,
+        "predicted_n": 146,
+        "predicted_ms": 5075.29,
+        "predicted_per_token_ms": 35.002,
+        "predicted_per_second": 28.56979601165648
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 4925,
+      "name": "la-clippers-known",
+      "output_tokens": 144,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "RotoBaller discusses Max Strus being ruled out for the Clippers' road trip.\n\nNBA.com lists the Orlando Magic versus LA Clippers game scheduled for January 15, 2027.\n\nNBA.com lists the Toronto Raptors versus LA Clippers game summary for November 2, 2026.",
+      "wall_ms": 6256,
+      "run": "examples-repeat",
+      "arm": "examples",
+      "phase": "repeat",
+      "native_timings": {
+        "cache_n": 4515,
+        "prompt_n": 410,
+        "prompt_ms": 1224.41,
+        "prompt_per_token_ms": 2.986365853658537,
+        "prompt_per_second": 334.85515472758306,
+        "predicted_n": 144,
+        "predicted_ms": 4997.028,
+        "predicted_per_token_ms": 34.94425174825175,
+        "predicted_per_second": 28.617009950714706
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5061,
+      "name": "ac-milan-reserved",
+      "output_tokens": 237,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "ESPN discusses AC Milan's support for a fan boycott over 'excessive' away ticket prices. FOX Sports discusses AC Milan backing a fan boycott over 'excessive' away ticket prices and warning of retaliation.\n\nLiveScore discusses AC Milan's fear of a lengthy lay-off for Chukwueze and a possible Athekame return in January requiring two factors. OneFootball discusses AC Milan's potential recall of Athekame in January, with an early OL exit deemed unlikely.\n\nTribalFootball discusses AC Milan's eagerness to secure Rabiot's future with a fresh contract.",
+      "wall_ms": 9914,
+      "run": "examples-repeat",
+      "arm": "examples",
+      "phase": "repeat",
+      "native_timings": {
+        "cache_n": 4515,
+        "prompt_n": 546,
+        "prompt_ms": 1605.279,
+        "prompt_per_token_ms": 2.9400714285714287,
+        "prompt_per_second": 340.1277908699983,
+        "predicted_n": 237,
+        "predicted_ms": 8273.876,
+        "predicted_per_token_ms": 35.058796610169495,
+        "predicted_per_second": 28.52351183411499
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 4940,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 140,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Pats Pulpit reports that Christian Gonzalez is good to play despite a newly announced illness.\n\nYahoo Sports reports that Patriots coach Mike Vrabel is set to end a 27-year streak in the TNF against the Bears.\n\nChicago Tribune discusses the Chicago Bears' possible move from Soldier Field.",
+      "wall_ms": 6161,
+      "run": "examples-repeat",
+      "arm": "examples",
+      "phase": "repeat",
+      "native_timings": {
+        "cache_n": 4545,
+        "prompt_n": 395,
+        "prompt_ms": 1214.423,
+        "prompt_per_token_ms": 3.0744886075949367,
+        "prompt_per_second": 325.2573444343528,
+        "predicted_n": 140,
+        "predicted_ms": 4911.916,
+        "predicted_per_token_ms": 35.337525179856115,
+        "predicted_per_second": 28.2985295351142
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 4965,
+      "name": "la-clippers-reserved",
+      "output_tokens": 133,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 5907,
+      "run": "examples-repeat",
+      "arm": "examples",
+      "phase": "repeat",
+      "native_timings": {
+        "cache_n": 4545,
+        "prompt_n": 420,
+        "prompt_ms": 1231.092,
+        "prompt_per_token_ms": 2.931171428571429,
+        "prompt_per_second": 341.1605306508368,
+        "predicted_n": 133,
+        "predicted_ms": 4628.691,
+        "predicted_per_token_ms": 35.06584090909091,
+        "predicted_per_second": 28.517781809155114
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 4937,
+      "name": "arsenal-validation",
+      "output_tokens": 152,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "Bavarian Football Works discusses Bayern Munich's Tom Bischof's desire for playing time following a strong performance against Arsenal.\n\nDaily Cannon discusses Arsenal's involvement in a Super League dispute regarding a \u00a367m bill.\n\nLiveScore discusses Arsenal identifying a \u20ac60m striker and confirming a timeline for a record deal.",
+      "wall_ms": 9717,
+      "run": "examples-validation",
+      "arm": "examples",
+      "phase": "validation",
+      "native_timings": {
+        "cache_n": 3408,
+        "prompt_n": 1529,
+        "prompt_ms": 4412.394,
+        "prompt_per_token_ms": 2.8858037933289733,
+        "prompt_per_second": 346.5239051635008,
+        "predicted_n": 152,
+        "predicted_ms": 5269.655,
+        "predicted_per_token_ms": 34.89837748344371,
+        "predicted_per_second": 28.654627295335278
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5181,
+      "name": "tampa-bay-validation",
+      "output_tokens": 247,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Tampa Bay Buccaneers",
+      "wall_ms": 10975,
+      "run": "examples-validation",
+      "arm": "examples",
+      "phase": "validation",
+      "native_timings": {
+        "cache_n": 4421,
+        "prompt_n": 760,
+        "prompt_ms": 2267.76,
+        "prompt_per_token_ms": 2.9838947368421054,
+        "prompt_per_second": 335.13246551663315,
+        "predicted_n": 247,
+        "predicted_ms": 8674.856,
+        "predicted_per_token_ms": 35.263642276422765,
+        "predicted_per_second": 28.357819426627948
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5126,
+      "name": "cleveland-validation",
+      "output_tokens": 254,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Cleveland Cavaliers",
+      "wall_ms": 11128,
+      "run": "examples-validation",
+      "arm": "examples",
+      "phase": "validation",
+      "native_timings": {
+        "cache_n": 4421,
+        "prompt_n": 705,
+        "prompt_ms": 2095.816,
+        "prompt_per_token_ms": 2.972788652482269,
+        "prompt_per_second": 336.3844917683614,
+        "predicted_n": 254,
+        "predicted_ms": 8996.478,
+        "predicted_per_token_ms": 35.559201581027665,
+        "predicted_per_second": 28.122116232596802
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5561,
+      "name": "ac-milan-known",
+      "output_tokens": 278,
+      "production_writes": false,
+      "render_error": "missing assigned topics",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 25351,
+      "run": "gaps-development",
+      "arm": "gaps",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 5560,
+        "prompt_ms": 15502.903,
+        "prompt_per_token_ms": 2.78829190647482,
+        "prompt_per_second": 358.6425071484998,
+        "predicted_n": 278,
+        "predicted_ms": 9811.249,
+        "predicted_per_token_ms": 35.4196714801444,
+        "predicted_per_second": 28.23289878791171
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5258,
+      "name": "chicago-bears-known",
+      "output_tokens": 153,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: Chicago Bears",
+      "wall_ms": 20353,
+      "run": "gaps-development",
+      "arm": "gaps",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 1,
+        "prompt_n": 5257,
+        "prompt_ms": 14963.991,
+        "prompt_per_token_ms": 2.8464886817576565,
+        "prompt_per_second": 351.3100215042899,
+        "predicted_n": 153,
+        "predicted_ms": 5352.658,
+        "predicted_per_token_ms": 35.214855263157894,
+        "predicted_per_second": 28.39710663375093
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5152,
+      "name": "la-clippers-known",
+      "output_tokens": 159,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "named claim is absent from cited reports: LA Clippers",
+      "wall_ms": 6828,
+      "run": "gaps-development",
+      "arm": "gaps",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 4742,
+        "prompt_n": 410,
+        "prompt_ms": 1249.56,
+        "prompt_per_token_ms": 3.0477073170731708,
+        "prompt_per_second": 328.1154966548225,
+        "predicted_n": 159,
+        "predicted_ms": 5543.222,
+        "predicted_per_token_ms": 35.083683544303796,
+        "predicted_per_second": 28.503278418219583
+      }
+    },
+    {
+      "accepted": true,
+      "input_tokens": 5288,
+      "name": "ac-milan-reserved",
+      "output_tokens": 258,
+      "production_writes": false,
+      "source_mapping_valid": true,
+      "variant": "statements-source-first",
+      "verdict": "ESPN discusses AC Milan's support for a fan boycott over 'excessive' away ticket prices. FOX Sports discusses AC Milan backing a fan boycott over 'excessive' away ticket prices and warning of retaliation.\n\nLiveScore discusses AC Milan's fear of a lengthy lay-off for Chukwueze and a possible Athekame return in January requiring two factors. OneFootball discusses AC Milan's potential recall of Athekame in January, with an early OL exit deemed unlikely.\n\nTribalFootball discusses AC Milan's eagerness to secure Rabiot's future with a fresh contract.",
+      "wall_ms": 10737,
+      "run": "gaps-development",
+      "arm": "gaps",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 4742,
+        "prompt_n": 546,
+        "prompt_ms": 1650.728,
+        "prompt_per_token_ms": 3.0233113553113555,
+        "prompt_per_second": 330.7631541962092,
+        "predicted_n": 258,
+        "predicted_ms": 9048.217,
+        "predicted_per_token_ms": 35.20707003891051,
+        "predicted_per_second": 28.403385993063605
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5167,
+      "name": "chicago-bears-reserved",
+      "output_tokens": 127,
+      "production_writes": false,
+      "render_error": "missing assigned topics",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 5714,
+      "run": "gaps-development",
+      "arm": "gaps",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 4772,
+        "prompt_n": 395,
+        "prompt_ms": 1244.061,
+        "prompt_per_token_ms": 3.1495215189873416,
+        "prompt_per_second": 317.5085466066375,
+        "predicted_n": 127,
+        "predicted_ms": 4435.791,
+        "predicted_per_token_ms": 35.20469047619048,
+        "predicted_per_second": 28.4053058406043
+      }
+    },
+    {
+      "accepted": false,
+      "input_tokens": 5192,
+      "name": "la-clippers-reserved",
+      "output_tokens": 168,
+      "production_writes": false,
+      "render_error": "missing assigned topics",
+      "source_mapping_valid": false,
+      "variant": "statements-source-first",
+      "verdict": "unknown field `statements`, expected one of `headline`, `body`, `report_keys` at line 1 column 28",
+      "wall_ms": 7175,
+      "run": "gaps-development",
+      "arm": "gaps",
+      "phase": "development",
+      "native_timings": {
+        "cache_n": 4772,
+        "prompt_n": 420,
+        "prompt_ms": 1256.971,
+        "prompt_per_token_ms": 2.992788095238095,
+        "prompt_per_second": 334.13658708116577,
+        "predicted_n": 168,
+        "predicted_ms": 5883.199,
+        "predicted_per_token_ms": 35.22873652694611,
+        "predicted_per_second": 28.385917253521427
+      }
+    }
+  ],
+  "total_wall_seconds": 336.64
+}

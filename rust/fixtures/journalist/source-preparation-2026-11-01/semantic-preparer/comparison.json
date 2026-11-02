@@ -1,0 +1,61 @@
+{
+  "comparisons": {
+    "worked-writer": {
+      "writer_assessments": {
+        "unfaithful": 1,
+        "clarity_concern": 1,
+        "faithful": 4
+      },
+      "statements": 42,
+      "sources_with_multiple_statements": 9,
+      "preparation_seconds": 112.602,
+      "writer_seconds": 49.607,
+      "combined_seconds": 162.209,
+      "ratio_to_historical_direct_writer": 3.6547551990627043,
+      "input_tokens": 63138,
+      "output_tokens": 3153,
+      "preparation_output_tokens": 2152,
+      "actual_schema_order_verified": true
+    },
+    "semantic-preparer": {
+      "writer_assessments": {
+        "unfaithful": 2,
+        "faithful": 3,
+        "clarity_concern": 1
+      },
+      "statements": 52,
+      "sources_with_multiple_statements": 15,
+      "preparation_seconds": 124.16,
+      "writer_seconds": 53.981,
+      "combined_seconds": 178.141,
+      "ratio_to_historical_direct_writer": 4.0137214699321815,
+      "input_tokens": 93954,
+      "output_tokens": 3439,
+      "preparation_output_tokens": 2394,
+      "actual_schema_order_verified": true
+    },
+    "claim-first": {
+      "writer_assessments": {
+        "unfaithful": 3,
+        "clarity_concern": 1,
+        "faithful": 2
+      },
+      "statements": 41,
+      "sources_with_multiple_statements": 10,
+      "preparation_seconds": 108.417,
+      "writer_seconds": 49.189,
+      "combined_seconds": 157.606,
+      "ratio_to_historical_direct_writer": 3.5510443187707006,
+      "input_tokens": 93531,
+      "output_tokens": 2974,
+      "preparation_output_tokens": 1985,
+      "actual_schema_order_verified": true
+    }
+  },
+  "historical_direct_writer_seconds": 44.383,
+  "timing_limit": "Sequential observed call times with prefix caching; historical controls were not rerun or interleaved. Not a daily-capacity benchmark.",
+  "new_calls": 70,
+  "new_call_wall_seconds": 335.747,
+  "cumulative_source_preparation_calls": 174,
+  "cumulative_source_preparation_call_wall_seconds": 942.639
+}

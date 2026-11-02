@@ -1,0 +1,36 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"narratives\":[{\"body\":\"City Wire published a profile on Alex Stone, a Canadian defender on record at Cedar United, covering his career, nationality, and position. The report was published on 2026-09-26T23:00:00Z.\", \"headline\":\"Alex Stone profile: career, nationality and position\", \"report_keys\":[\"report_1\"]}] }"
+      }
+    }
+  ],
+  "created": 1793566816,
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "system_fingerprint": "b11429-d81235049",
+  "object": "chat.completion",
+  "usage": {
+    "completion_tokens": 85,
+    "prompt_tokens": 545,
+    "total_tokens": 630,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    }
+  },
+  "id": "chatcmpl-DTuVH5QVTZhD8ZOgX20xOYc7lJfgmnfW",
+  "timings": {
+    "cache_n": 0,
+    "prompt_n": 545,
+    "prompt_ms": 1565.834,
+    "prompt_per_token_ms": 2.873089908256881,
+    "prompt_per_second": 348.0573291932606,
+    "predicted_n": 85,
+    "predicted_ms": 2833.51,
+    "predicted_per_token_ms": 33.732261904761906,
+    "predicted_per_second": 29.645210357471825
+  }
+}

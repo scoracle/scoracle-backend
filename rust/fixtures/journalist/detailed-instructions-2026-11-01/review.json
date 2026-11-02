@@ -1,0 +1,203 @@
+{
+  "candidate": "n119-detailed-summary",
+  "instructions": "instructions-v5.txt",
+  "reviewer": "assistant",
+  "human_factual_approval": false,
+  "scope": "Entailment against supplied reporting, not independent verification of real-world news. One response per case; no accuracy guarantee.",
+  "cases": [
+    {
+      "run": "v5-development",
+      "name": "synthetic-meta-profile-only",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "Topics only; no database nationality, position or affiliation enters the summary.",
+      "output": "v5-development/synthetic-meta-profile-only-json-body-first/output.json"
+    },
+    {
+      "run": "v5-development",
+      "name": "conflicting-sources-no-majority",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "Both publishers keep their own positions; the club remains the denier.",
+      "output": "v5-development/conflicting-sources-no-majority-json-body-first/output.json"
+    },
+    {
+      "run": "v5-development",
+      "name": "quoted-instruction-remains-data",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "The transcript contains the example; the output does not make Hale its speaker.",
+      "output": "v5-development/quoted-instruction-remains-data-json-body-first/output.json"
+    },
+    {
+      "run": "v5-development",
+      "name": "retained-chelsea-2026-10-20",
+      "mechanical_accepted": true,
+      "fidelity_review": "unsupported",
+      "notes": "The title changes French-born into French. The body says transfer advice came from Chelsea, which the cited headline does not establish. It also skips earlier discussion topics despite the specified anchor procedure.",
+      "output": "v5-development/retained-chelsea-2026-10-20-json-body-first/output.json"
+    },
+    {
+      "run": "v5-development",
+      "name": "distinct-developments-three-independent-developments,-three-keyed-slots",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "Three independent developments remain in separate entries with their sources. Announced is a stronger stylistic paraphrase of said, but the source explicitly attributes the statement to the club.",
+      "output": "v5-development/distinct-developments-three-independent-developments,-three-keyed-slots-json-body-first/output.json"
+    },
+    {
+      "run": "v5-development",
+      "name": "one-result-single-result,-named-scorer",
+      "mechanical_accepted": false,
+      "fidelity_review": "supported",
+      "notes": "Result and scorer/minute match the source. The numeric guard rejects their combination into one sentence; this is not an observed swapped-number error.",
+      "output": "v5-development/one-result-single-result,-named-scorer-json-body-first/output.json"
+    },
+    {
+      "run": "v5-development",
+      "name": "rumour-and-denial-rumour-with-its-denial-intact",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "Unnamed sourcing, lack of agreement and declined comment survive.",
+      "output": "v5-development/rumour-and-denial-rumour-with-its-denial-intact-json-body-first/output.json"
+    },
+    {
+      "run": "v5-development",
+      "name": "late-qualification-late-correction-in-the-same-source",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "City Wire remains the outlet that corrected its report; no offer or deal is invented.",
+      "output": "v5-development/late-qualification-late-correction-in-the-same-source-json-body-first/output.json"
+    },
+    {
+      "run": "v5-qualification",
+      "name": "unidentified-player-stays-unidentified",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "No name or completed retirement is supplied.",
+      "output": "v5-qualification/unidentified-player-stays-unidentified-json-body-first/output.json"
+    },
+    {
+      "run": "v5-qualification",
+      "name": "scheduled-talks-not-completed-talks",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "Talks remain planned and not yet held.",
+      "output": "v5-qualification/scheduled-talks-not-completed-talks-json-body-first/output.json"
+    },
+    {
+      "run": "v5-qualification",
+      "name": "same-source-repeated-not-confirmation",
+      "mechanical_accepted": true,
+      "fidelity_review": "source_chain_lost",
+      "notes": "Valley Press repeats Hill Journal in the source, but the output omits that intermediary and presents each as citing an unnamed source. It does not explicitly claim independent confirmation, but loses the shared origin.",
+      "output": "v5-qualification/same-source-repeated-not-confirmation-json-body-first/output.json"
+    },
+    {
+      "run": "v5-qualification",
+      "name": "disagreement-order-reversed",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "Order reversal does not cause a completed move, invented reversal or switched denier.",
+      "output": "v5-qualification/disagreement-order-reversed-json-body-first/output.json"
+    },
+    {
+      "run": "v5-qualification",
+      "name": "future-possibility-not-an-announcement",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "A question remains a question; the database venue is not supplied as its answer.",
+      "output": "v5-qualification/future-possibility-not-an-announcement-json-body-first/output.json"
+    },
+    {
+      "run": "v5-qualification",
+      "name": "numeric-facts-with-separate-subjects",
+      "mechanical_accepted": false,
+      "fidelity_review": "supported",
+      "notes": "3–0, two goals and five saves remain attached to the correct subjects. Mechanical rejection comes from combined-clause number/name checks.",
+      "output": "v5-qualification/numeric-facts-with-separate-subjects-json-body-first/output.json"
+    },
+    {
+      "run": "v5-qualification",
+      "name": "source-corrects-venue-not-time",
+      "mechanical_accepted": false,
+      "fidelity_review": "supported",
+      "notes": "Corrected venue and unchanged time survive. The guard rejects the combined venue/time sentence.",
+      "output": "v5-qualification/source-corrects-venue-not-time-json-body-first/output.json"
+    },
+    {
+      "run": "v5-qualification",
+      "name": "profile-topic-without-database-answer",
+      "mechanical_accepted": true,
+      "fidelity_review": "supported",
+      "notes": "Profile topics are summarized without the database answers.",
+      "output": "v5-qualification/profile-topic-without-database-answer-json-body-first/output.json"
+    },
+    {
+      "run": "v5-workload",
+      "name": "frozen-ac-milan-40",
+      "mechanical_accepted": false,
+      "fidelity_review": "unsupported",
+      "notes": "The 0–3/red-card report belongs to 조선일보, not TNT Sports. Early lead and a euro currency are added without the cited text. Multiple unrelated topics are grouped together.",
+      "output": "v5-workload/frozen-ac-milan-40-json-body-first/output.json"
+    },
+    {
+      "run": "v5-workload",
+      "name": "frozen-chicago-bears-40",
+      "mechanical_accepted": false,
+      "fidelity_review": "unsupported",
+      "notes": "The final entry attributes a live-show topic to Yahoo Sports although report_1 is Establish The Run. Its cited reports do not supply October 22 or Soldier Field. Several topics are merged.",
+      "output": "v5-workload/frozen-chicago-bears-40-json-body-first/output.json"
+    },
+    {
+      "run": "v5-workload",
+      "name": "frozen-la-clippers-40",
+      "mechanical_accepted": false,
+      "fidelity_review": "citation_incomplete",
+      "notes": "Bodies largely follow the three selected Yahoo Sports headlines; no new event invention was identified. Kawhi Leonard is spelled out in other packet reports (13, 14, 40) but not cited report_31. The parser first rejects canonical LA Clippers where report_11 says Clippers. Distinguish citation/alias issues from invented events.",
+      "output": "v5-workload/frozen-la-clippers-40-json-body-first/output.json"
+    }
+  ],
+  "short_prompt_control": [
+    {
+      "name": "unidentified-player-stays-unidentified",
+      "mechanical_accepted": false,
+      "notes": "Preserves the unnamed player and uncertainty; adds a publication-date aside that the guard rejects."
+    },
+    {
+      "name": "scheduled-talks-not-completed-talks",
+      "mechanical_accepted": true,
+      "notes": "Preserves the planned meeting and that talks have not occurred."
+    },
+    {
+      "name": "same-source-repeated-not-confirmation",
+      "mechanical_accepted": false,
+      "notes": "Also loses the shared Hill Journal origin; adds publication dates that trigger validation."
+    },
+    {
+      "name": "disagreement-order-reversed",
+      "mechanical_accepted": false,
+      "notes": "Preserves the two positions but drops the publisher names required for attribution."
+    },
+    {
+      "name": "future-possibility-not-an-announcement",
+      "mechanical_accepted": true,
+      "notes": "Turns the question into a report of a possibility; candidate more directly preserves it as a question."
+    },
+    {
+      "name": "numeric-facts-with-separate-subjects",
+      "mechanical_accepted": true,
+      "notes": "Facts are supported and the guard accepts the separate result sentence."
+    },
+    {
+      "name": "source-corrects-venue-not-time",
+      "mechanical_accepted": false,
+      "notes": "Facts are supported; the existing guard rejects venue/time association."
+    },
+    {
+      "name": "profile-topic-without-database-answer",
+      "mechanical_accepted": false,
+      "notes": "Imports founding year, venue and manager from meta and falsely says the headline provides them."
+    }
+  ]
+}

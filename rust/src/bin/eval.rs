@@ -694,6 +694,7 @@ impl JudgeAgg {
 /// Count authored assertions when generation/parsing fails. Parsing is counted separately.
 fn expected_property_count(x: &Expect) -> usize {
     let mut n = 0usize;
+    n += x.narratives_empty.is_some() as usize;
     n += x.body_includes.as_ref().map_or(0, Vec::len);
     n += x.body_excludes.as_ref().map_or(0, Vec::len);
     n += x.transfer_is_rumor.is_some() as usize;

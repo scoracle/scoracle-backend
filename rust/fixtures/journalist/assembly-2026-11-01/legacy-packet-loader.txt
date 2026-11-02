@@ -1,0 +1,121 @@
+Source: 95e98430^:rust/src/junctions/journalist/mod.rs, lines 252–370
+
+// Packet corpus loader.
+// ---------------------------------------------------------------------------
+
+/// Storyline corpus lookback.
+pub const PACKET_LOOKBACK_HOURS: i64 = 72;
+/// Packets read per entity per run. An entity in more than this many live storylines at once is
+/// having an extraordinary week; the newest-compiled win and the rest are named as exclusions.
+pub const MAX_PACKETS_PER_ENTITY: usize = 5;
+
+/// Load compiled storylines as a `Vec<CorpusItem>` — one item per
+/// MEMBER ARTICLE, carrying that article's claims as its text — plus the same `CorpusExclusions`.
+/// Everything downstream (the debounce hash, the SIGNALS line, citation grounding, impact scoring,
+/// the marker path) therefore works on the packet rail with no change at all, and the model still
+/// cites real `news_articles.id`s it can be grounded against. What changes is the material: read
+/// FACTS, attributed and contested-marked, in place of headlines and body excerpts.
+///
+/// The storyline framing (the story, this entity's part in it, what the prior packet said) rides
+/// separately, as the returned string — `build_narratives_prompt` renders it above the numbered
+/// evidence.
+pub async fn load_packet_corpus(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    entity_name: &str,
+) -> Result<(Vec<CorpusItem>, CorpusExclusions, String)> {
+    use crate::junctions::editor::render;
+
+    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+        pool,
+        entity_type,
+        entity_id,
+        sport,
+        PACKET_LOOKBACK_HOURS,
+        // One over the cap, so "there were more" is a fact this function KNOWS rather than
+        // infers — the extra packet is never rendered, only counted and named.
+        MAX_PACKETS_PER_ENTITY as i64 + 1,
+    )
+    .await?;
+
+    let mut exclusions = CorpusExclusions::default();
+    let mut framing = String::new();
+    // Article id → its claims, in the order the packets presented them (newest packet first,
+    // newest claim first). One entity can appear in several storylines and one article can be a
+    // member of only one, so collisions here are rare — but the map keeps the item list unique by
+    // article id either way, which is what grounding requires.
+    let mut by_article: Vec<(i64, PacketArticle)> = Vec::new();
+
+    for (i, (view, mut part)) in loaded.into_iter().enumerate() {
+        if i >= MAX_PACKETS_PER_ENTITY {
+            // A5: the packet we did not read is NAMED. Its members are the evidence being
+            // excluded, and the exclusions band is where an ungrounded story gets explained.
+            exclusions
+                .budget_truncated_ids
+                .extend(view.claims.iter().map(|c| c.article_id));
+            continue;
+        }
+        // The loader leaves the name blank — it knows the id, the caller knows the name.
+        part.name = entity_name.to_string();
+
+        if !framing.is_empty() {
+            framing.push('\n');
+        }
+        framing.push_str(&render::framing(
+            &view,
+            Some(&part),
+            render::Voice::Journalist,
+        ));
+
+        for marked in render::mark_contested(&view.claims) {
+            let fact = if marked.marked {
+                // The contradiction survives INTO the prompt, marked, so the Journalist can write
+                // "reports differ" instead of picking a side by accident (T3/D6).
+                format!("⇄ {}", marked.claim.fact)
+            } else {
+                marked.claim.fact.clone()
+            };
+            match by_article
+                .iter_mut()
+                .find(|(id, _)| *id == marked.claim.article_id)
+            {
+                Some((_, art)) => art.facts.push(fact),
+                None => by_article.push((
+                    marked.claim.article_id,
+                    PacketArticle {
+                        source: marked.claim.source.clone(),
+                        published_at_epoch: marked.claim.published_at,
+                        facts: vec![fact],
+                    },
+                )),
+            }
+        }
+    }
+
+    let corpus: Vec<CorpusItem> = by_article
+        .into_iter()
+        .map(|(id, art)| {
+            // The first fact is the headline and the rest form the body.
+            let mut facts = art.facts.into_iter();
+            let title = facts.next().unwrap_or_default();
+            // The packet rail carries NO bodies. That is the diet: the Editor already read the
+            // article, and re-sending its prose is the redundancy this whole rail removes.
+            CorpusItem {
+                id,
+                title,
+                description: facts.collect::<Vec<_>>().join(" · "),
+                source: art.source,
+                published_at_epoch: art.published_at_epoch,
+            }
+        })
+        .collect();
+
+    // A storyline can contain many articles, so cap rendered bytes as well as storyline count.
+    // Newest evidence wins and all dropped article IDs remain explicit.
+    let (corpus, over_budget) = apply_news_budget(corpus, PACKET_NEWS_BUDGET_CHARS);
+    exclusions.budget_truncated_ids.extend(over_budget);
+
+    exclusions.budget_truncated_ids.sort_unstable();
+    exclusions.budget_truncated_ids.dedup();

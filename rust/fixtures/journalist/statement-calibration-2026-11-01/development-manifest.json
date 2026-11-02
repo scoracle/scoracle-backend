@@ -1,0 +1,10 @@
+{
+  "sha256": {
+    "control.txt": "e68c19fdf304fdbac472bbd769e07c60e90d290c950f4d8eb2a48d11afbd931e",
+    "examples.txt": "2a39746bd98a3768d5720d3b45eec8ab1aeb26909aca224343dcce67950f2cff",
+    "gaps.txt": "0eb475d3ffa55cd7ed05546fa48a3611d181da1e1cbb59180401c972d87f21ea",
+    "cases.jsonl": "4d2586184f0a33a8acb6ef85ce641e6c9bf29edef0c9e5ef3dc8410bdd8001e1",
+    "cases-gaps.jsonl": "533675e788fc11cad28833d3d30e5f4cad39f2df88b4350be391f8abf008bd99"
+  },
+  "source_provenance": "../packet-size-2026-11-01/manifest.json"
+}

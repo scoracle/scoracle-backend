@@ -1,7 +1,5 @@
 //! Load, select and present Classifier headlines for the daily package.
-use super::prompt::{
-    assemble, prompt, Assignment, Disposition, NARRATIVES_PROMPT_VERSION, SOURCE_BUDGET_BYTES, TASK,
-};
+use super::prompt::{assemble, prompt, Assignment, Disposition, NARRATIVES_PROMPT_VERSION};
 use crate::tools::meta::EntityMeta;
 use crate::tools::source::SourceContext;
 use anyhow::{ensure, Result};
@@ -44,8 +42,24 @@ pub(super) struct Report<'a> {
     published_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     publisher_excerpt: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    classifier_world: Option<serde_json::Value>,
+    evidence_scope: &'static str,
+}
+
+impl Report<'_> {
+    pub(super) fn evidence(&self) -> crate::tools::fresh::ReportEvidence<'_> {
+        crate::tools::fresh::ReportEvidence {
+            publisher: self.publisher,
+            text: format!(
+                "{}: {}",
+                self.publisher,
+                self.headline
+                    .as_deref()
+                    .or(self.publisher_excerpt.as_deref())
+                    .unwrap_or_default()
+            ),
+            published_at: self.published_at.clone(),
+        }
+    }
 }
 
 /// Preserve selected order and the declared source scope. Headline-only reports
@@ -69,7 +83,15 @@ pub(super) fn reports(reports: &[CorpusItem]) -> Vec<Report<'_>> {
                 .as_ref()
                 .is_none_or(|w| w["evidence_scope"] != "headline")
                 .then(|| crate::tools::fetch::decode_entities(&report.context)),
-            classifier_world: crate::tools::fresh::evidence_world(report.classifier_world.as_ref()),
+            evidence_scope: if report
+                .classifier_world
+                .as_ref()
+                .is_some_and(|world| world["evidence_scope"] == "headline")
+            {
+                "headline"
+            } else {
+                "publisher_excerpt"
+            },
         })
         .collect()
 }
@@ -139,17 +161,17 @@ pub fn prepare(
         selected.push(item);
     }
     // The provider admits the complete request using exact tokens plus reserved output.
-    let rendered = assemble(&subject, &selected);
+    let rendered = assemble(&subject, &selected, None);
     let input_hash = crate::util::hash_components(
         &json!({
             "subject": subject, "reports": selected, "version": NARRATIVES_PROMPT_VERSION,
             "fresh_contract": FRESH_VERSION, "world": crate::util::hash_components(&rendered),
-            "instruction": TASK,
+            "instruction": super::prompt::instructions(),
         })
         .to_string(),
     );
     Ok(Assignment {
-        memories: vec![],
+        database_record: None,
         subject,
         selected,
         dispositions,
@@ -180,16 +202,13 @@ pub async fn load_narratives_material(
     let fresh = sources.iter().map(CorpusItem::from).collect::<Vec<_>>();
     let mut assignment = prepare(subject, fresh, &[], now)?;
     if !assignment.selected.is_empty() {
-        assignment.memories = crate::plugins::classifier::memories::load_on(
-            &mut *pool.acquire().await?,
-            &assignment.subject,
-            &sources,
-            "journalist",
+        assignment.database_record = crate::tools::meta::load_identity_record(
+            pool,
+            &assignment.subject.entity_type,
+            assignment.subject.entity_id,
+            &assignment.subject.sport,
         )
         .await?;
-    }
-    while !assignment.memories.is_empty() && prompt(&assignment).len() > SOURCE_BUDGET_BYTES {
-        assignment.memories.pop();
     }
     assignment.input_hash = crate::util::hash_components(&serde_json::to_string(&(
         &assignment.input_hash,

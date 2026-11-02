@@ -1,0 +1,29 @@
+commit 7a6b62157875d80baf5bc2b26436d24669583745
+Author:     Scott Heneveld <scotty@Scotts-Mac-mini.attlocal.net>
+AuthorDate: Mon Sep 28 10:34:23 2026 -0400
+Commit:     Scott Heneveld <scotty@Scotts-Mac-mini.attlocal.net>
+CommitDate: Mon Sep 28 10:34:23 2026 -0400
+
+    Align Journalist context and add shared DuckDB memory studies
+    
+    Replace the Journalist palette and Editor packet path with one natural
+    articulation call over plugin-prepared identity, fresh reporting, studied
+    memories, descriptive voice and structural form. Keep instructions solely
+    in the Journalist prompt and retain source fencing and atomic publication.
+    
+    Add bounded request-time reporting and team-stat studies over read-only
+    Postgres snapshots using the existing Go DuckDB engine. Preserve scope,
+    missingness, frequency semantics and source provenance outside writing.
+    Move legacy shared writing directions out of form without changing the
+    other characters' generated prompts and described schemas.
+    
+    Record n47 replay evidence, the shared memory contract, current plugin-plan
+    status and a fresh-window handoff. Harvester v7 calibration remains accepted.
+    Journalist fidelity is still open: added details, headline qualifications,
+    source-order drift and source-instruction handling need further work.
+    
+    Validation: 551 Rust tests passed, 77 environment-dependent tests ignored;
+    all targets compile. Go study and isolated memory/publication checks passed
+    during implementation. Final no-thinking replay: 9/9 structurally accepted
+    calls and 3/3 correct no-call decisions; this is not a fidelity pass.
+    No deployment or production routing change.

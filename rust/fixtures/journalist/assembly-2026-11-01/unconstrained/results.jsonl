@@ -1,0 +1,4 @@
+{"accepted":false,"input_tokens":545,"name":"synthetic-meta-profile-only","output_tokens":118,"production_writes":false,"variant":"unconstrained-body-first","verdict":"trailing characters at line 1 column 270","wall_ms":5364}
+{"accepted":false,"input_tokens":607,"name":"conflicting-sources-no-majority","output_tokens":160,"production_writes":false,"variant":"unconstrained-body-first","verdict":"trailing characters at line 1 column 344","wall_ms":6954}
+{"accepted":false,"input_tokens":555,"name":"quoted-instruction-remains-data","output_tokens":124,"production_writes":false,"variant":"unconstrained-body-first","verdict":"trailing characters at line 1 column 300","wall_ms":5619}
+{"accepted":false,"input_tokens":1956,"name":"retained-chelsea-2026-10-20","output_tokens":349,"production_writes":false,"variant":"unconstrained-body-first","verdict":"cited reports do not connect Super Falcons with numerical fact 1","wall_ms":16691}

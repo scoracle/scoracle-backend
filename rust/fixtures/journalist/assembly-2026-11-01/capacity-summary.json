@@ -1,0 +1,162 @@
+[
+  {
+    "subject": {
+      "entity_id": 113,
+      "entity_type": "team",
+      "name": "AC Milan",
+      "sport": "FOOTBALL"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 3156,
+    "reserved_output": 2100,
+    "total": 5256,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 24,
+      "entity_type": "team",
+      "name": "Chicago Bears",
+      "sport": "NFL"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 3027,
+    "reserved_output": 2100,
+    "total": 5127,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 1,
+      "entity_type": "team",
+      "name": "New England Patriots",
+      "sport": "NFL"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 3073,
+    "reserved_output": 2100,
+    "total": 5173,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 52,
+      "entity_type": "team",
+      "name": "AFC Bournemouth",
+      "sport": "FOOTBALL"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 3131,
+    "reserved_output": 2100,
+    "total": 5231,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 19,
+      "entity_type": "team",
+      "name": "Arsenal",
+      "sport": "FOOTBALL"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 3135,
+    "reserved_output": 2100,
+    "total": 5235,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 8,
+      "entity_type": "team",
+      "name": "Cleveland Browns",
+      "sport": "NFL"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 2972,
+    "reserved_output": 2100,
+    "total": 5072,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 13,
+      "entity_type": "team",
+      "name": "LA Clippers",
+      "sport": "NBA"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 3034,
+    "reserved_output": 2100,
+    "total": 5134,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 28,
+      "entity_type": "team",
+      "name": "Tampa Bay Buccaneers",
+      "sport": "NFL"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 2944,
+    "reserved_output": 2100,
+    "total": 5044,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 6,
+      "entity_type": "team",
+      "name": "Cleveland Cavaliers",
+      "sport": "NBA"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 3040,
+    "reserved_output": 2100,
+    "total": 5140,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  },
+  {
+    "subject": {
+      "entity_id": 10,
+      "entity_type": "team",
+      "name": "Golden State Warriors",
+      "sport": "NBA"
+    },
+    "sources": 40,
+    "selected": 40,
+    "input_tokens": 3089,
+    "reserved_output": 2100,
+    "total": 5189,
+    "logical_limit": 10000,
+    "physical_limit": 10240,
+    "inference_calls": 0
+  }
+]

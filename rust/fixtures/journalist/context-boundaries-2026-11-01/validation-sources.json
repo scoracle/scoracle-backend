@@ -1,0 +1,153 @@
+{
+  "subjects": [
+    {
+      "subject": {
+        "entity_id": 8,
+        "entity_type": "team",
+        "name": "Liverpool",
+        "sport": "FOOTBALL"
+      },
+      "groups": [
+        [
+          21
+        ],
+        [
+          22
+        ],
+        [
+          39
+        ]
+      ],
+      "sources": [
+        {
+          "report_key": "report_21",
+          "article_id": 1423862,
+          "publisher": "This Is Anfield",
+          "headline": "Liverpool striker scores first-ever club goal: “I needed to show people”",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxNN1c0U0ZyWGpJQ3hReU94dnhkNlVpZFpLQUgxNDRIcXphRm52UW1meXlsU1haUHM3d001WktFbTJJMUpLS3Y2OGdqeGczNzRZTHFBQU1GQ3UtbTJvWVNfZzU4dUxxVmdwTWRBRFBic3gxQ0hjUTRLeHFhMTZBX1NLLUlfNWRSLU1FNGl2TEZKZWlGS3F0UFZHWEpXbnRWcHRGSWc?oc=5"
+        },
+        {
+          "report_key": "report_22",
+          "article_id": 1266252,
+          "publisher": "TribalFootball",
+          "headline": "Liverpool unmoved on Mac Allister contract stance",
+          "url": "https://news.google.com/rss/articles/CBMi4AFBVV95cUxOQ0JzR1JWdXJYMzY1YUNwZXRsbktIUkg5Yzl1NnMzZl9MY2pZWFBZem9xMk8zdGtFREVISU5qc2ZXRFZ6OWN5WU1DM2lUWEJWX1dNbl9qd184VFN1ZlRqcUNhRWkyNU5pcUtnOGZHLWNQVjRJMzdZX0lNelFZYzdmWGpKbjdKekNqX3VFMlpZd2pxQUN5N3RKSTdlWms4RkZQdkhnaHdBMHZMUGVDdUhweXRFd0pEaUxrSE1laDhhLVBha2hOcXk3TEM5ZVVFZW5nd2xCc210SmYwSHpJVzlSWQ?oc=5"
+        },
+        {
+          "report_key": "report_39",
+          "article_id": 1258945,
+          "publisher": "TribalFootball",
+          "headline": "Liverpool captain Van Dijk hails teen star Ngumoha",
+          "url": "https://news.google.com/rss/articles/CBMi5AFBVV95cUxOWlR0TGpUWDl3YjcyS3NLNVdDeU1kMUJncjIwd2Q2dmlXQUdMRE1PWEZjd0cxLTVKZS11NEt1dXBCUkFNMTdrM29xOERYUWhfSTdQQmdlMktFd0ZpQlp5bFFlb3AyS2NWQ3kwN1Y5eDRxU19ERy1ZSVdNSnZFNEowRV9ZTnZnQXY3Y3lpZlctT0FzdzV2US1wem9MQjF5S1NkSUJpRUxXdDg4aGlGaWR1ZnUxWVVDcmlpSWdRa1BuSld2MGhEakYzNmJzeFpzOWZTcVVNQ2RzSnR4Rl9jVUE2RUE4b3Q?oc=5"
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_id": 2,
+        "entity_type": "team",
+        "name": "Boston Celtics",
+        "sport": "NBA"
+      },
+      "groups": [
+        [
+          5
+        ],
+        [
+          24
+        ],
+        [
+          27
+        ]
+      ],
+      "sources": [
+        {
+          "report_key": "report_5",
+          "article_id": 1417820,
+          "publisher": "Boston.com",
+          "headline": "​​’I played like a–:’ Mitchell Robinson wasn’t happy with his Celtics debut",
+          "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxNSjlzb2dnWmZxbHVqWDNJb3otUE9HX3hMcWRHUEVBSGdJODhOc0dreXBod1F0S2NSTkY2c2E5d0N3VmxPOWVSeFJtQUZsWm9xdjNYTEFnczdYOVVlc3JDeG1MaW82ZWhUQ3p5RmdQejZrdWxkRldyNVExOTN0Z1p1VjB3Y0xIY2E5TkVuclh5TkNLVW12b0drRGYzS1dNTWQzdThmaWlHbVBLUGsxeE5nVjhaWEpRcXZn?oc=5"
+        },
+        {
+          "report_key": "report_24",
+          "article_id": 1269260,
+          "publisher": "Heavy.com",
+          "headline": "Celtics’ Paul George Makes Revealing Admission After Boston Debut",
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxPTkhJcTFFQkVNU1JHZFFvZUQta0V1WGNqOFJDVldBLWcxT2tZV25STEhrQ19tbWhpVFZrcXpJcmRLbFhfREdfMEhkNzU1RmJvMEZ1anJmWEJtTTQ0TnhZYUJtT09fQmxoaXd2VGpvNWR2ZS1YNGdlSWVNV2xlOXduOVRzNHJjYS1Pc19GeDRUSkU?oc=5"
+        },
+        {
+          "report_key": "report_27",
+          "article_id": 1337136,
+          "publisher": "NBA.com",
+          "headline": "Boston Celtics vs Chicago Bulls Mar 9, 2027 Game Summary",
+          "url": "https://news.google.com/rss/articles/CBMiqwRBVV95cUxQaldqbjZnUF9BTENHMmFISmJCWTJkVVJycUhxOG9xNWFpa3hBZEFZZGh3RGwtMFZxRG1tT3ZUSlYxNmRmWDRLZ3gwb2xBMEc5VjNKVnJJeE1qUmZZY1RGT0RMaHBubzk4S0o2ZE5XMkZxNS1GT0ZoY25JT2Rkd3djcU80cXBld192MmRFY2EzWXozRElvVTh3UzFrVmdVdXRjeUFJYzRQWThxLWkwQ0lodVpXTDJvRFZJelNsZjY4Q1lCM0tBd2t0cXB4YUJJQkQzN2lXUy1DN2NlLTZmRUFWeXdGNXlyWkc4cm5zMWFoRmVoS1VVdGhlcDdSaVVGRHNNbnVMU0x6U0V6cWotbGxXY3JUZUowRWk5RnJQLWpnLUYtVmFIaGZnX2pLUGlJMXFfam1oZG1qeE1tcUVGT2dkU3NJd3ZsVVVrd0E1c2g5S0NvdzVvMVRIYml4bEdhbGxpbWFfbWpheTN3UFVsMzVvVGswNGdBbk9FeHFTc1l1VklnbXZkOVZoYmJMX0J4NVFKZmVYTURJZGJGVjdBTW9acTNkcEY3OTFMS3dZendyQTBydFctTXdOOVA2TktzUkRvSUh0UjhXWHRwRkFuZTVBajhyM01CSlNhaDZKam5XUkJqU3FLckctSG82NmZfQjlyaFRCUDNfNmpaU0w0aUc3cjlKakpmTmRsRTV4VVdmUklwNTFxU1NsMTc1ZW1CLWN3bG9OeUpkazk2Vkk?oc=5"
+        }
+      ]
+    },
+    {
+      "subject": {
+        "entity_id": 22,
+        "entity_type": "team",
+        "name": "Green Bay Packers",
+        "sport": "NFL"
+      },
+      "groups": [
+        [
+          1,
+          24
+        ],
+        [
+          10,
+          16
+        ],
+        [
+          32
+        ]
+      ],
+      "sources": [
+        {
+          "report_key": "report_1",
+          "article_id": 1432737,
+          "publisher": "Yahoo Sports",
+          "headline": "Packers’ Matt LaFleur eases concerns about Christian Watson, Matthew Golden despite injuries",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPOGwwVkxxRGJpNFpCTC1acjItbmJNdjdycGJPeTdtQWdERzVnVGxzbmhIUUs2Z0FwZE1Dc2NPelBzUEhPNWdJQzJfWWRHTE5kb2ktQkNsLUc3cHE3RWs4SlJVMnp1S0JoVi1aWk10MlQxZmJ3MUR3aUFNclJsTFlfemJuc2I3QWExSTk1Sw?oc=5"
+        },
+        {
+          "report_key": "report_10",
+          "article_id": 1392057,
+          "publisher": "Yahoo Sports",
+          "headline": "Packers Injury Report: Luke Musgrave’s 2026 return is uncertain",
+          "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxPRWlNaS1lRE1nNk5oZDlHNzZUV210NmsxaW4weExWRXRlRFgxMlV0WjFMUGx4X1BXMWVUVDhhVWxRZTVKNEw0T3V4WDNfLUwwbWtIZXJtbXJfUHhZMWZpZktUSHl4cFhQNUZZOWRWYWVIcFY4XzgwelJMZDZveWpzVTZRWkxXMVdPRHpqbQ?oc=5"
+        },
+        {
+          "report_key": "report_16",
+          "article_id": 1341855,
+          "publisher": "Yahoo Sports",
+          "headline": "Packers uncertain if TE Luke Musgrave (neck) will play during 2026 season",
+          "url": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxQRWtIQlZsTUtLaEFlM1pDQXhnNXFtSWRaOUVRZEl2aUhydEM2aUxBMUlZMVVNOUZLaXdGQlFiTGVvSlZQbUR5Yl9Pa0x2MFN3S0tMV29nc19Ra01tVTZXM0Q0RW96eklvaWRNR3RKdnlBNEtFWWM4Z3dXNFJvYzBCc25QbGFaZTMwa240?oc=5"
+        },
+        {
+          "report_key": "report_24",
+          "article_id": 1331995,
+          "publisher": "CBS Sports",
+          "headline": "Packers' Christian Watson: Coach confident he'll play Sunday",
+          "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxOZ0cyUWJWRjM2bE9fZUUyM21jMWJlRFplWHBaR3NuYkRzbE84VmJmZ3lOOG1oS0hOZFZ1QmhfVVc3WTl3Q0trTkVucnBLbFZTTWVndFNvZGRwelBPdXlURzV5LWdkZ3VhQ2lFNTI3SVFGMmVyWmZkMlppTllwTG9ncGhjVGlPVWx3bG9KTnJqR3kxTDhUbU5qTGlvaXJ2UFg1RVQzSlF3dmJoQQ?oc=5"
+        },
+        {
+          "report_key": "report_32",
+          "article_id": 1281832,
+          "publisher": "Heavy.com",
+          "headline": "Packers Urged to Trade for $64M Veteran Before Deadline",
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE5iWkVhaXlIQkhHU3FhZ0JSTDlLNmhLc2g2RzN5cjN4NmpUTTFVTGZTRi1HRi1icEc1SXA4WFpxMlc0eGdYSE4tSkY0YS00VnpaUlBMQ2tpTGZtNjBEd2pPN1VNNldnY3B6Z3dpT3Zibi11SkxYWmdhOVBCZ09ZcjQ?oc=5"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "All40 headlines per new subject inspected before any development inference. Sources themselves are not independently verified.",
+    "Liverpool: unnamed striker quote, unspecified Mac Allister contract stance, Van Dijk praise; do not import coach Iraola.",
+    "Boston: Robinson and George statements belong to the named players, not database coach Thompson; future game summary page does not establish completion.",
+    "Green Bay: preserve LaFleur despite database coach Stenavich; CBS unnamed coach may not inherit that identity; Musgrave season uncertainty survives; $64M veteran stays unnamed.",
+    "Manual groups are experiment preparation; their cost and correctness are not qualified for production."
+  ]
+}

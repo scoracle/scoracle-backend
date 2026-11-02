@@ -1,0 +1,322 @@
+{
+  "reviewer": "Codex manual review against supplied headlines, not blinded or independently adjudicated; semantic validity is separate from copied spans.",
+  "source_reviews": [
+    {
+      "article_id": 1276620,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Amount is retained only as a qualification with no explicit unknown meaning; already-reported move is split from a future move possibility."
+      ],
+      "output": "development-preparation/1276620/output.json"
+    },
+    {
+      "article_id": 1424030,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Single complete result account preserves score, competition and red card; removes prior redundant statements and false unknowns."
+      ],
+      "output": "development-preparation/1424030/output.json"
+    },
+    {
+      "article_id": 1426503,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Both results preserved; competition, player count and sending off are only in qualifications, and KWKT is incorrectly treated as a qualification."
+      ],
+      "output": "development-preparation/1426503/output.json"
+    },
+    {
+      "article_id": 1414585,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Both results preserved with contextual qualifications separated from the claim. No longer labels supplied Europa League context unknown."
+      ],
+      "output": "development-preparation/1414585/output.json"
+    },
+    {
+      "article_id": 1415284,
+      "assessment": "faithful",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Result and red card correct; separate collapse sentence largely repeats the defeat."
+      ],
+      "output": "development-preparation/1415284/output.json"
+    },
+    {
+      "article_id": 1394917,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Missed substitution and red-card sequence retained; reaction describes that situation rather than the whole performance. Two related statements, but no duplicated proposition."
+      ],
+      "output": "development-preparation/1394917/output.json"
+    },
+    {
+      "article_id": 1374081,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Early lead and competition retained; scorer is not supplied, although noting this is unnecessary."
+      ],
+      "output": "development-preparation/1374081/output.json"
+    },
+    {
+      "article_id": 1363845,
+      "assessment": "unfaithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Invents that Juventus lost from denied-at-the-death wording. Ten players remaining is still ambiguously attached rather than explicitly bound to Milan."
+      ],
+      "output": "development-preparation/1363845/output.json"
+    },
+    {
+      "article_id": 1425437,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Correct speaker; mistakes contrast remains only in qualifications, not in claim."
+      ],
+      "output": "development-preparation/1425437/output.json"
+    },
+    {
+      "article_id": 1341401,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Single conditional trade assessment with no invented speaker or unnecessary unknowns."
+      ],
+      "output": "development-preparation/1341401/output.json"
+    },
+    {
+      "article_id": 1352005,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Live-show content preserved, with no invented broadcast/completion."
+      ],
+      "output": "development-preparation/1352005/output.json"
+    },
+    {
+      "article_id": 1432888,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Announcement and timing retained in claim but explicit announcing organization not retained in speaker."
+      ],
+      "output": "development-preparation/1432888/output.json"
+    },
+    {
+      "article_id": 1412576,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "How question and Thursday timing retained."
+      ],
+      "output": "development-preparation/1412576/output.json"
+    },
+    {
+      "article_id": 1262232,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "How content and TNF timing retained without an invented method of honoring."
+      ],
+      "output": "development-preparation/1262232/output.json"
+    },
+    {
+      "article_id": 1289440,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Absence preserved without injury cause; opponent unknown is unnecessary but harmless."
+      ],
+      "output": "development-preparation/1289440/output.json"
+    },
+    {
+      "article_id": 1429100,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Single dated page listing, no completed-game or outcome assertion."
+      ],
+      "output": "development-preparation/1429100/output.json"
+    },
+    {
+      "article_id": 1398531,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Dated game-summary content retained and labeled listing, without a result."
+      ],
+      "output": "development-preparation/1398531/output.json"
+    },
+    {
+      "article_id": 1325124,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Support and price assessment preserved, though quote marks around excessive survive only in the qualifications field."
+      ],
+      "output": "development-preparation/1325124/output.json"
+    },
+    {
+      "article_id": 1208973,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Support and warning remain source-bound; excessive is unquoted in claim but quoted in qualifications."
+      ],
+      "output": "development-preparation/1208973/output.json"
+    },
+    {
+      "article_id": 1189629,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Correct separate lay-off and return question; two factors now reside only in qualifications rather than the return claim."
+      ],
+      "output": "development-preparation/1189629/output.json"
+    },
+    {
+      "article_id": 1189646,
+      "assessment": "unfaithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Turns a recall question into AC Milan are to recall Athekame. Separate early-exit sentence also uses ambiguous for OL rather than the source relation."
+      ],
+      "output": "development-preparation/1189646/output.json"
+    },
+    {
+      "article_id": 1115631,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Interest in a fresh contract preserved, no unsupported speaker."
+      ],
+      "output": "development-preparation/1115631/output.json"
+    },
+    {
+      "article_id": 1410388,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Availability and newly-announced illness remain together; inactives context retained separately without changing what was announced."
+      ],
+      "output": "development-preparation/1410388/output.json"
+    },
+    {
+      "article_id": 1410389,
+      "assessment": "unfaithful",
+      "redundant_or_fragmented": true,
+      "findings": [
+        "Retains length but fragments the streak into three records and calls its subject unknown despite naming Mike Vrabel. The streak is on TNF phrasing misbinds event timing."
+      ],
+      "output": "development-preparation/1410389/output.json"
+    },
+    {
+      "article_id": 1330977,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Single possible-move information question, no certain move."
+      ],
+      "output": "development-preparation/1330977/output.json"
+    },
+    {
+      "article_id": 1260557,
+      "assessment": "fidelity_concern",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Single brutal debut account with no invented outcome; NBA qualification omitted."
+      ],
+      "output": "development-preparation/1260557/output.json"
+    },
+    {
+      "article_id": 1338223,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "Single performance claim, no invented speaker."
+      ],
+      "output": "development-preparation/1338223/output.json"
+    },
+    {
+      "article_id": 1221840,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "How question, parking, jerseys and opening night retained."
+      ],
+      "output": "development-preparation/1221840/output.json"
+    },
+    {
+      "article_id": 1192912,
+      "assessment": "faithful",
+      "redundant_or_fragmented": false,
+      "findings": [
+        "New-season swap and parking retained without importing opening night."
+      ],
+      "output": "development-preparation/1192912/output.json"
+    }
+  ],
+  "writer_reviews": [
+    {
+      "arm": "automatic",
+      "name": "ac-milan-known",
+      "assessment": "unfaithful",
+      "findings": [
+        "Invents valuation, omits required match anchor, and attaches Europa League/goalkeeper to report7 although neither its headline nor preparation supplies them. Pavlovic retained correctly."
+      ],
+      "output": "development-automatic/ac-milan-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-known",
+      "assessment": "clarity_concern",
+      "findings": [
+        "Bodies preserve conditional trade, live show and announcement. Title calls the live-show item a Thursday Night Football match; not counted as clearly faithful source-format presentation."
+      ],
+      "output": "development-automatic/chicago-bears-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-known",
+      "assessment": "faithful",
+      "findings": [
+        "Absence and dated game-page listings retained without injury cause or completed-game inference."
+      ],
+      "output": "development-automatic/la-clippers-known-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "ac-milan-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Transforms recall question into a reported plan, following the incorrect preparer assertion. Also uses an injury title for a headline that states only feared lay-off and retains ambiguous early exit for OL wording. Publisher ownership and two factors survive."
+      ],
+      "output": "development-automatic/ac-milan-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "chicago-bears-reserved",
+      "assessment": "faithful",
+      "findings": [
+        "Availability/illness, unspecified streak and possible stadium move retained without coach role or Thanksgiving invention."
+      ],
+      "output": "development-automatic/chicago-bears-reserved-statements-source-first/output.json"
+    },
+    {
+      "arm": "automatic",
+      "name": "la-clippers-reserved",
+      "assessment": "unfaithful",
+      "findings": [
+        "Changes how fans can obtain perks into whether they can obtain them, losing the source question meaning. KTLA body keeps new-season wording; opening-night umbrella title risks implying both sources specify that timing."
+      ],
+      "output": "development-automatic/la-clippers-reserved-statements-source-first/output.json"
+    }
+  ]
+}

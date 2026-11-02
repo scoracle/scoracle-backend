@@ -1,0 +1,43 @@
+{
+  "name": "opinion-remains-opinion-before",
+  "task": "narratives",
+  "sport": "NBA",
+  "prompt_version": "n115-evidence-boundary",
+  "user_prompt": "{\"meta\":{\"name\":\"Morgan Hale\",\"entity_type\":\"player\",\"sport\":\"basketball\",\"database_record\":null},\"fresh\":[{\"report_key\":\"report_1\",\"headline\":\"Column: why Morgan Hale could thrive in a slower offense\",\"publisher\":\"Arena Desk\",\"published_at\":\"2026-09-26T23:00:00Z\",\"evidence_scope\":\"headline\"}],\"tone\":\"Clear, restrained and direct.\"}",
+  "parts": {
+    "reports": [
+      {
+        "classifier_world": {
+          "evidence_scope": "headline"
+        },
+        "context": "Column: why Morgan Hale could thrive in a slower offense",
+        "id": 1,
+        "published_at_epoch": 1790463600,
+        "source": "Arena Desk",
+        "title": "Column: why Morgan Hale could thrive in a slower offense"
+      }
+    ],
+    "subject": {
+      "entity_id": 7,
+      "entity_type": "player",
+      "name": "Morgan Hale",
+      "sport": "NBA"
+    }
+  },
+  "temperature": 0.0,
+  "expect": {
+    "narratives_empty": false,
+    "body_includes": [
+      "Morgan Hale",
+      "Arena Desk"
+    ],
+    "summary_excludes": [
+      "guard",
+      "24",
+      "has thrived"
+    ]
+  },
+  "review": [
+    "Summarize the column argument as opinion or possibility, not demonstrated performance or a tactical change."
+  ]
+}

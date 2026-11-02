@@ -1,0 +1,23 @@
+{
+  "narratives": {
+    "calls": 60,
+    "native_input_min": 874,
+    "native_input_max": 1568,
+    "native_input_total": 77807,
+    "output_tokens_total": 7899
+  },
+  "vibe": {
+    "calls": 1,
+    "native_input_min": 1799,
+    "native_input_max": 1799,
+    "native_input_total": 1799,
+    "output_tokens_total": 210
+  },
+  "transfers": {
+    "calls": 30,
+    "native_input_min": 1013,
+    "native_input_max": 2260,
+    "native_input_total": 42340,
+    "output_tokens_total": 3409
+  }
+}

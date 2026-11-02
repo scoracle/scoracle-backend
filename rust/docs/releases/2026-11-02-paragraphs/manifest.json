@@ -1,0 +1,36 @@
+{
+  "source_commit": "ce42ce2b",
+  "binary_commit": "9a00d628ceab",
+  "rust_source_identical_between_source_and_binary": true,
+  "archbox_binary_sha256": "ee0807ac8e78573416f240633a13acccf40fe46cac7cd50f64e43e40d95909de",
+  "mac_binary_sha256": "f4fc220a528dfa46423f0c7694a5567857d9f2846b9d810d5e2011512a9c1da6",
+  "archbox_backup": "/mnt/data/backup/scoracle/releases/paragraphs-20261102-93e3aa7d",
+  "mac_release": "/Users/scotty/scoracle-worker/releases/paragraphs-20261102-9a00d628",
+  "required_stages": [
+    "narratives",
+    "vibe",
+    "transfers"
+  ],
+  "article_cap": 10,
+  "production_model": "Qwen3.5-4B-Q4_K_M",
+  "thinking": false,
+  "temperature": 0,
+  "writer_concurrency": 4,
+  "migrations": [
+    "325_ten_article_character_packets",
+    "326_progressive_character_publication",
+    "327_required_character_stages",
+    "328_progressive_insider_findings"
+  ],
+  "journalist_recovery": {
+    "scoped": 1719,
+    "changed_packets": 385
+  },
+  "prompt_retry": {
+    "narratives": 8,
+    "transfers": 199,
+    "vibe": 1,
+    "routing_corrected_before_inference": 197
+  },
+  "preserved_planning_document_sha256": "ba141c9396f2ccca03ea198a5b5a858f9a7727b5414ef00732e39d9ceb7df086"
+}

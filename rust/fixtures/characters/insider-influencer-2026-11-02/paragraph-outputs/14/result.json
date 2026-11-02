@@ -1,0 +1,22 @@
+{
+  "case": 14,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/paragraph-cases/14-transfer-transfer-player-83946-NFL.json",
+  "generation_wall_ms": 9238,
+  "input_tokens": 1925,
+  "name": "transfer-player-83946-NFL",
+  "output_limit": 3500,
+  "output_tokens": 158,
+  "parsed": false,
+  "prompt_version": "insider-source-v36-paragraphs",
+  "reading": "named claim is absent from cited reports: Las Vegas Raiders",
+  "request_bytes": 6188,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9272
+}

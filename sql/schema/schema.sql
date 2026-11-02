@@ -2805,7 +2805,7 @@ BEGIN
             jsonb_build_object('rank',priority,'criterion',criterion,'scores',spectrum)
         FROM ranked WHERE priority>public.headline_entity_cap()
     ) UPDATE classifier_spectrum_deliveries d SET status=p.status,reason=p.reason,
-        product_ref=jsonb_build_object('selection_policy','headline-selection-v2','entity_cap',public.headline_entity_cap(),
+        product_ref=jsonb_build_object('selection_policy','headline-selection-v3','entity_cap',public.headline_entity_cap(),
             'model_called',false,'selection',p.detail),updated_at=clock_timestamp()
         FROM dispositions p WHERE d.spectrum_id=p.spectrum_id AND d.character=p.character AND d.status='pending';
     GET DIAGNOSTICS changed=ROW_COUNT;
@@ -3632,7 +3632,7 @@ $$;
 
 CREATE FUNCTION public.headline_entity_cap() RETURNS integer
     LANGUAGE sql IMMUTABLE PARALLEL SAFE
-    AS $$ SELECT 40 $$;
+    AS $$ SELECT 10 $$;
 
 
 --

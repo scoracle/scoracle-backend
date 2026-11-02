@@ -1,0 +1,186 @@
+{
+  "batch": "five-article instruction comparison",
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "temperature": 0,
+  "thinking": false,
+  "concurrency": 1,
+  "retries": 0,
+  "underlying_parts_and_selected_evidence_identical": true,
+  "before_input_tokens": 17211,
+  "after_input_tokens": 17364,
+  "before_accepted": 10,
+  "after_accepted": 13,
+  "qualification": "Development cases; parser acceptance is not factual correctness. No held-out or isolated causal claim.",
+  "cases": [
+    {
+      "case": 1,
+      "name": "explicit-denial-clears-prior-rumor",
+      "task": "transfer",
+      "before_status": "rejected",
+      "after_status": "accepted",
+      "before_input": 878,
+      "after_input": 894,
+      "manual_review": "Improved: explicit denial is now status denied with null stage; concise attributed body starts with the target."
+    },
+    {
+      "case": 2,
+      "name": "fizzled-prior-lowrel-skeptic",
+      "task": "transfer",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 882,
+      "after_input": 898,
+      "manual_review": "Shorter, but still adds an unnecessary identity sentence. Monitoring/no-bid qualification is preserved."
+    },
+    {
+      "case": 3,
+      "name": "fully-named-advanced-talks",
+      "task": "transfer",
+      "before_status": "rejected",
+      "after_status": "rejected",
+      "before_input": 1043,
+      "after_input": 1059,
+      "manual_review": "Still rejected: quotes omit the full target and personal terms are classified as a completed agreement. Body newly attributes priority to both clubs although only Bayern is described that way."
+    },
+    {
+      "case": 4,
+      "name": "fully-named-interest",
+      "task": "transfer",
+      "before_status": "rejected",
+      "after_status": "rejected",
+      "before_input": 881,
+      "after_input": 897,
+      "manual_review": "Still rejected: body starts with Chelsea rather than the target and finding quote omits the target. Baseline also turned no reported talks into no talks existing."
+    },
+    {
+      "case": 5,
+      "name": "gordon-derozan-wrong-subject",
+      "task": "transfer",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 920,
+      "after_input": 936,
+      "manual_review": "Target boundary preserved: the supplied excerpt explicitly says Gordon remains on the roster and reports no move for him. New body narrows that limit to this report."
+    },
+    {
+      "case": 6,
+      "name": "headline-unnamed-signing",
+      "task": "transfer",
+      "before_status": "rejected",
+      "after_status": "accepted",
+      "before_input": 916,
+      "after_input": 932,
+      "manual_review": "Now accepted after starting with the target; does not identify the unnamed player. Redundant confirmed/completed wording adds little and is stronger than needed."
+    },
+    {
+      "case": 7,
+      "name": "reliable-source-heating-steam",
+      "task": "transfer",
+      "before_status": "rejected",
+      "after_status": "rejected",
+      "before_input": 1035,
+      "after_input": 1051,
+      "manual_review": "Still rejected: expands Bayern to Bayern Munich from co_mentions rather than article wording. Confirming language overstates the source relationship."
+    },
+    {
+      "case": 8,
+      "name": "unnamed-signing-no-identity-join",
+      "task": "transfer",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 871,
+      "after_input": 887,
+      "manual_review": "No false identity join, but loses the baseline explicit warning that Gordon is not named in the signing and combines his unrelated community appearance with it."
+    },
+    {
+      "case": 9,
+      "name": "clearly-negative",
+      "task": "vibe",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 795,
+      "after_input": 794,
+      "manual_review": "Supported negative score remains 25. Body is shorter and names the outlet."
+    },
+    {
+      "case": 10,
+      "name": "clearly-positive",
+      "task": "vibe",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 792,
+      "after_input": 791,
+      "manual_review": "Supported positive score remains 75, but replaces the actual publisher name with one outlet, losing requested attribution."
+    },
+    {
+      "case": 11,
+      "name": "gordon-derozan-wrong-subject",
+      "task": "vibe",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 808,
+      "after_input": 807,
+      "manual_review": "Correct all-null abstention: reactions concern DeRozan, not Gordon."
+    },
+    {
+      "case": 12,
+      "name": "quiet-mixed",
+      "task": "vibe",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 795,
+      "after_input": 794,
+      "manual_review": "Correct all-null abstention: schedule information supplies no emotional evidence."
+    },
+    {
+      "case": 13,
+      "name": "warm-memory-cold-coverage",
+      "task": "vibe",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 787,
+      "after_input": 786,
+      "manual_review": "Correct all-null abstention: historical warmth does not turn current schedule coverage into positive emotion."
+    },
+    {
+      "case": 14,
+      "name": "transfer-player-83946-NFL",
+      "task": "transfer",
+      "before_status": "rejected",
+      "after_status": "rejected",
+      "before_input": 1595,
+      "after_input": 1611,
+      "manual_review": "Still rejected: expands team names from co_mentions. Yahoo/NBC attribution is compressed into confirmed language; the New York Post source supports practice squad after Raiders release."
+    },
+    {
+      "case": 15,
+      "name": "transfer-team-37-FOOTBALL",
+      "task": "transfer",
+      "before_status": "rejected",
+      "after_status": "accepted",
+      "before_input": 1490,
+      "after_input": 1506,
+      "manual_review": "Accepted but factually wrong: invents a coaching crisis and assigns the two-player €50m package solely to El Aynaoui. Acceptance is not a quality gain."
+    },
+    {
+      "case": 16,
+      "name": "vibe-person-23-FOOTBALL",
+      "task": "vibe",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 1474,
+      "after_input": 1473,
+      "manual_review": "Still misstates a hope as an assertion that mentality remains intact and omits publisher names. Positive mood is supported, but the reporting is not fully faithful."
+    },
+    {
+      "case": 17,
+      "name": "vibe-person-959-NFL",
+      "task": "vibe",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_input": 1249,
+      "after_input": 1248,
+      "manual_review": "Improved: score 25 correctly treats disappointment and criticism as negative, preserves separate speakers and publishers, and uses one concise sentence."
+    }
+  ]
+}

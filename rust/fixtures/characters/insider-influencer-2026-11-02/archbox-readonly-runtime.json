@@ -1,0 +1,21 @@
+{
+  "commit": "20a9e25fedd5565c5deb99be7bdb71a5101ec26c",
+  "services": {
+    "scoracle-api": {
+      "ActiveState": "inactive",
+      "MainPID": "0"
+    },
+    "scoracle-coverage": {
+      "ActiveState": "inactive",
+      "MainPID": "0"
+    },
+    "scoracle-cognition": {
+      "ActiveState": "inactive",
+      "MainPID": "0"
+    },
+    "scoracle-kev": {
+      "ActiveState": "inactive",
+      "MainPID": "0"
+    }
+  }
+}

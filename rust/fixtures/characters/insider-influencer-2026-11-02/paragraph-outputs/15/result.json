@@ -1,0 +1,28 @@
+{
+  "case": 15,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/paragraph-cases/15-transfer-transfer-team-37-FOOTBALL.json",
+  "generation_wall_ms": 8737,
+  "input_tokens": 1954,
+  "name": "transfer-team-37-FOOTBALL",
+  "output_limit": 3500,
+  "output_tokens": 145,
+  "parsed": true,
+  "prompt_version": "insider-source-v36-paragraphs",
+  "reading": "0 finding(s) | Roma is looking to make two signings in January, according to Yahoo Sports.\n\nRoma rejected three offers for Pisilli this summer, as reported by Yahoo Sports.\n\nRoma faces a crisis ahead of Napoli, with both Pellegrini and Svilar out, per La Gazzetta dello Sport.\n\nRoma will lose Pellegrini for at least 6-8 weeks with a serious injury, confirmed by LiveScore, Bulinews, and Football Italia.\n\nThuram deal, 3 Milan names, Roma-Bakola, ADL won't sell: today's news, as noted by OneFootball and Yahoo Sports.",
+  "request_bytes": 6153,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 8756
+}

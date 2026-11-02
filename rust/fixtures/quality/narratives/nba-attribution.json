@@ -24,7 +24,7 @@
       "sport": "NBA"
     }
   },
-  "prompt_version": "n134-recap-hook-last",
+  "prompt_version": "n135-ten-articles",
   "review": [
     "The identity part says basketball, not NBA: the sport, not the competition namespace.",
     "Keep the question mark on Reed's availability; the source says questionable, not ruled out."

@@ -41,7 +41,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n134-recap-hook-last",
+  "prompt_version": "n135-ten-articles",
   "review": [
     "This fixture deliberately supplies an upstream routing mismatch. Eligibility belongs to the decision model and is not scored here.",
     "Faithfully summarize City Wire's appointment report, retaining Cedar United Women as the reported subject. Do not rewrite it as an appointment by the men's team or infer a link to the target from metadata."

@@ -1,0 +1,24 @@
+{
+  "case": 22,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/ten-cases/22-narratives-narratives-player-37-NBA.json",
+  "generation_wall_ms": 6784,
+  "input_tokens": 1033,
+  "name": "narratives-player-37-NBA",
+  "output_limit": 2100,
+  "output_tokens": 112,
+  "parsed": false,
+  "prompt_version": "n135-ten-articles",
+  "reading": "named claim is absent from cited reports: Sacramento Kings",
+  "request_bytes": 3144,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 6846
+}

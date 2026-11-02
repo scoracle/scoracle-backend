@@ -1,0 +1,83 @@
+ edition_date | kind | stage | entity_type | entity_id | sport | input_version | attempts | error | receipt | failed_at 
+--------------+------+-------+-------------+-----------+-------+---------------+----------+-------+---------+-----------
+(0 rows)
+
+ entity_type | entity_id | sport | fetched_through | recheck_after 
+-------------+-----------+-------+-----------------+---------------
+(0 rows)
+
+ headline_entity_cap 
+---------------------
+                  10
+(1 row)
+
+ classifier_source_id 
+----------------------
+(0 rows)
+
+ source_id 
+-----------
+(0 rows)
+
+ request_hash | receipt 
+--------------+---------
+(0 rows)
+
+ stage | completed_at 
+-------+--------------
+(0 rows)
+
+ enabled |  phase   | collection_cutoff |    timezone     | last_tick_at 
+---------+----------+-------------------+-----------------+--------------
+ f       | coverage | 22:00:00          | America/Detroit | 
+(1 row)
+
+ edition_date | revision 
+--------------+----------
+              |        0
+(1 row)
+
+ candidate_edition 
+-------------------
+(0 rows)
+
+ resolution 
+------------
+(0 rows)
+
+ coverage_collection_open | coverage_collection_deadline 
+--------------------------+------------------------------
+ t                        | 
+(1 row)
+
+ character_reporting_date 
+--------------------------
+ 2026-11-02
+(1 row)
+
+ reporting_date | stage 
+----------------+-------
+(0 rows)
+
+ prepared_input 
+----------------
+(0 rows)
+
+ edition_date 
+--------------
+(0 rows)
+
+ coverage_claimable | coverage_publishable 
+--------------------+----------------------
+ t                  | t
+(1 row)
+
+ status | deliveries 
+--------+------------
+(0 rows)
+
+ stage | status | work 
+-------+--------+------
+(0 rows)
+
+Classifier schema ready; model qualification and policy release are separate.

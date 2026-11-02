@@ -7,7 +7,7 @@ use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use serde::{Deserialize, Serialize};
 
-pub const NARRATIVES_PROMPT_VERSION: &str = "n134-recap-hook-last";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n135-ten-articles";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v18-recap-hook-last";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
@@ -72,7 +72,7 @@ pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOpti
     GenerateOptions {
         system: Some(INSTRUCTIONS.system().to_owned()),
         temperature: Some(0.0),
-        num_predict: (count as i32 * 700).max(NUM_PREDICT),
+        num_predict: (count as i32 * 700).clamp(NUM_PREDICT, 3500),
         num_ctx: if num_ctx > 0 {
             num_ctx
         } else {

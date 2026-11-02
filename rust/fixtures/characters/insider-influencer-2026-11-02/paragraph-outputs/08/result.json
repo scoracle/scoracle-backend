@@ -1,0 +1,53 @@
+{
+  "case": 8,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "findings=0",
+      "name": "has_source_linked_move",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_includes:Aaron Gordon",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:Gordon is linked",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:Gordon is moving",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:Gordon will join",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/paragraph-cases/08-transfer-unnamed-signing-no-identity-join.json",
+  "generation_wall_ms": 2402,
+  "input_tokens": 923,
+  "name": "unnamed-signing-no-identity-join",
+  "output_limit": 3500,
+  "output_tokens": 43,
+  "parsed": true,
+  "prompt_version": "insider-source-v36-paragraphs",
+  "reading": "0 finding(s) | Aaron Gordon attended a community event, while the Denver Nuggets announced the signing of an unnamed forward. (Synthetic Wire)",
+  "request_bytes": 2274,
+  "review": [
+    "An unnamed signing cannot acquire the co-mentioned target identity. No linked finding."
+  ],
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 2417
+}

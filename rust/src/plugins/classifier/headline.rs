@@ -106,7 +106,7 @@ mod gender_tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore = "requires empty isolated classifier_test_gender database via TEST_DATABASE_URL"]
+    #[ignore = "requires migrated disposable classifier_test_coverage database; run serially"]
     async fn canonical_team_gender_reaches_the_decision_target() -> Result<()> {
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(1)
@@ -116,30 +116,31 @@ mod gender_tests {
             .fetch_one(&pool)
             .await?;
         ensure!(
-            database == "classifier_test_gender",
-            "requires isolated gender test database"
+            database.starts_with("classifier_test_coverage"),
+            "requires migrated disposable coverage test database"
         );
-        sqlx::raw_sql(r#"
-            CREATE TABLE teams(id int, sport text, name text, city text, country text,
-                venue_name text, conference text, division text, league_id int, meta jsonb);
-            CREATE TABLE leagues(id int, sport text, name text, country text);
-            CREATE TABLE persons(full_name text, sport text, team_id int, kind text, created_at timestamptz);
-            CREATE TABLE entity_facts(id int, entity_type text, entity_id int, sport text, state text,
-                fact_type text, value_text text, value_jsonb jsonb, source_document_id bigint,
-                valid_from timestamptz, valid_to timestamptz, created_at timestamptz);
-            INSERT INTO teams(id,sport,name,meta) VALUES
-                (1,'FOOTBALL','Cedar United','{"gender":"men"}'),
-                (2,'FOOTBALL','Cedar United','{"gender":"women"}'),
-                (3,'FOOTBALL','Cedar United','{}');
-        "#).execute(&pool).await?;
+        sqlx::raw_sql(
+            r#"
+            INSERT INTO public.teams(id,sport,name,meta) VALUES
+                (991801,'FOOTBALL','Cedar United','{"gender":"men"}'),
+                (991802,'FOOTBALL','Cedar United','{"gender":"women"}'),
+                (991803,'FOOTBALL','Cedar United','{}');
+        "#,
+        )
+        .execute(&pool)
+        .await?;
         for (id, gender, target) in [
-            (1, Some("men"), "the men's football team named Cedar United"),
             (
-                2,
+                991801,
+                Some("men"),
+                "the men's football team named Cedar United",
+            ),
+            (
+                991802,
                 Some("women"),
                 "the women's football team named Cedar United",
             ),
-            (3, None, "Cedar United, the FOOTBALL team"),
+            (991803, None, "Cedar United, the FOOTBALL team"),
         ] {
             let meta = subject_meta(
                 &pool,
@@ -161,6 +162,11 @@ mod gender_tests {
                 assert!(question["instructions"].as_str().unwrap().contains(target));
             }
         }
+        sqlx::query(
+            "DELETE FROM public.teams WHERE sport='FOOTBALL' AND id BETWEEN 991801 AND 991803",
+        )
+        .execute(&pool)
+        .await?;
         pool.close().await;
         Ok(())
     }

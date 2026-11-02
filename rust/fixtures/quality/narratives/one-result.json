@@ -24,7 +24,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n134-recap-hook-last",
+  "prompt_version": "n135-ten-articles",
   "review": [
     "Articulate the supplied result and its scorer; add no significance the source does not carry.",
     "Keep the source's attribution and keep the result factual."

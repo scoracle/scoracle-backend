@@ -1,0 +1,189 @@
+{
+  "captured_at": "2026-11-02T17:38:57.429915-05:00",
+  "read_only": "on",
+  "schedule": {
+    "enabled": true,
+    "phase": "characters",
+    "edition_date": "2026-10-23",
+    "timezone": "America/Detroit",
+    "last_tick_at": "2026-11-02T17:38:52.368319-05:00",
+    "collection_open": false
+  },
+  "editions": [
+    {
+      "edition_date": "2026-10-23",
+      "status": "characters",
+      "finished_at": null,
+      "reason": null
+    },
+    {
+      "edition_date": "2026-10-22",
+      "status": "partial",
+      "finished_at": "2026-10-22T06:00:22.415037-04:00",
+      "reason": "character_deadline"
+    },
+    {
+      "edition_date": "2026-10-21",
+      "status": "partial",
+      "finished_at": "2026-10-21T15:59:07.415498-04:00",
+      "reason": "character_deadline"
+    }
+  ],
+  "publication": {
+    "singleton": true,
+    "edition_date": null,
+    "revision": 533
+  },
+  "assignments": [
+    {
+      "stage": "momentum",
+      "outcome": "completed",
+      "resolution": "candidate",
+      "count": 1424
+    },
+    {
+      "stage": "momentum",
+      "outcome": "completed",
+      "resolution": "no_new_evidence",
+      "count": 1531
+    },
+    {
+      "stage": "momentum",
+      "outcome": "failed",
+      "resolution": "blocked",
+      "count": 287
+    },
+    {
+      "stage": "narratives",
+      "outcome": "completed",
+      "resolution": "abstained",
+      "count": 42
+    },
+    {
+      "stage": "narratives",
+      "outcome": "completed",
+      "resolution": "candidate",
+      "count": 242
+    },
+    {
+      "stage": "narratives",
+      "outcome": "completed",
+      "resolution": "no_new_evidence",
+      "count": 1486
+    },
+    {
+      "stage": "narratives",
+      "outcome": "failed",
+      "resolution": "blocked",
+      "count": 156
+    },
+    {
+      "stage": "narratives",
+      "outcome": "pending",
+      "resolution": "unresolved",
+      "count": 1589
+    },
+    {
+      "stage": "rating",
+      "outcome": "completed",
+      "resolution": "abstained",
+      "count": 1602
+    },
+    {
+      "stage": "rating",
+      "outcome": "completed",
+      "resolution": "candidate",
+      "count": 1383
+    },
+    {
+      "stage": "rating",
+      "outcome": "failed",
+      "resolution": "blocked",
+      "count": 257
+    },
+    {
+      "stage": "sigil",
+      "outcome": "completed",
+      "resolution": "abstained",
+      "count": 823
+    },
+    {
+      "stage": "sigil",
+      "outcome": "completed",
+      "resolution": "candidate",
+      "count": 860
+    },
+    {
+      "stage": "sigil",
+      "outcome": "completed",
+      "resolution": "no_new_evidence",
+      "count": 1
+    },
+    {
+      "stage": "sigil",
+      "outcome": "failed",
+      "resolution": "blocked",
+      "count": 524
+    },
+    {
+      "stage": "sigil",
+      "outcome": "pending",
+      "resolution": "unresolved",
+      "count": 1034
+    },
+    {
+      "stage": "transfers",
+      "outcome": "completed",
+      "resolution": "candidate",
+      "count": 44
+    },
+    {
+      "stage": "transfers",
+      "outcome": "completed",
+      "resolution": "no_new_evidence",
+      "count": 3200
+    },
+    {
+      "stage": "transfers",
+      "outcome": "failed",
+      "resolution": "blocked",
+      "count": 271
+    },
+    {
+      "stage": "vibe",
+      "outcome": "completed",
+      "resolution": "abstained",
+      "count": 282
+    },
+    {
+      "stage": "vibe",
+      "outcome": "completed",
+      "resolution": "candidate",
+      "count": 148
+    },
+    {
+      "stage": "vibe",
+      "outcome": "completed",
+      "resolution": "no_new_evidence",
+      "count": 3017
+    },
+    {
+      "stage": "vibe",
+      "outcome": "failed",
+      "resolution": "blocked",
+      "count": 68
+    }
+  ],
+  "work": [
+    {
+      "stage": "narratives",
+      "status": "failed",
+      "count": 830
+    },
+    {
+      "stage": "narratives",
+      "status": "pending",
+      "count": 767
+    }
+  ]
+}

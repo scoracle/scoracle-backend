@@ -6,17 +6,17 @@ use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 
-pub const PROMPT_VERSION: &str = "insider-source-v33-plain-brief";
-pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v6-scoped-report-facts";
-pub const NUM_PREDICT: i32 = 1400;
-pub const BODY_MAX_CHARS: usize = 1200;
+pub const PROMPT_VERSION: &str = "insider-source-v36-paragraphs";
+pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v7-paragraphs";
+pub const NUM_PREDICT: i32 = 3500;
+pub const BODY_MAX_CHARS: usize = 12000;
 pub const MAX_FINDINGS: usize = 2;
 pub const EVIDENCE_QUOTE_MAX_CHARS: usize = 500;
 
 pub fn options(num_ctx: i32) -> GenerateOptions {
     let mut options = GenerateOptions {
         system: Some(INSTRUCTIONS.system().to_owned()),
-        temperature: Some(0.3),
+        temperature: Some(0.0),
         num_predict: NUM_PREDICT,
         num_ctx: if num_ctx > 0 {
             num_ctx
@@ -217,6 +217,7 @@ mod tests {
         };
         let options = options_for_reports(7900, &subject, std::slice::from_ref(&report));
         assert_eq!(options.num_ctx, 7900);
+        assert_eq!(options.temperature, Some(0.0));
         let findings = &options.format_schema.as_ref().unwrap()["properties"]["findings"];
         for item in findings["items"]["oneOf"].as_array().unwrap() {
             assert_eq!(

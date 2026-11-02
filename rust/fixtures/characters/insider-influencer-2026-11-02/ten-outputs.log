@@ -1,0 +1,44 @@
+case 1: transfer / explicit-denial-clears-prior-rumor
+  "accepted" (5.2s)
+case 2: transfer / fizzled-prior-lowrel-skeptic
+  "accepted" (2.9s)
+case 3: transfer / fully-named-advanced-talks
+  "rejected" (9.0s)
+case 4: transfer / fully-named-interest
+  "rejected" (5.2s)
+case 5: transfer / gordon-derozan-wrong-subject
+  "accepted" (3.4s)
+case 6: transfer / headline-unnamed-signing
+  "accepted" (3.8s)
+case 7: transfer / reliable-source-heating-steam
+  "rejected" (4.9s)
+case 8: transfer / unnamed-signing-no-identity-join
+  "accepted" (2.3s)
+case 9: vibe / clearly-negative
+  "accepted" (3.2s)
+case 10: vibe / clearly-positive
+  "accepted" (3.3s)
+case 11: vibe / gordon-derozan-wrong-subject
+  "accepted" (2.1s)
+case 12: vibe / quiet-mixed
+  "accepted" (2.2s)
+case 13: vibe / warm-memory-cold-coverage
+  "accepted" (2.1s)
+case 14: transfer / transfer-player-83946-NFL
+  "rejected" (7.6s)
+case 15: transfer / transfer-team-37-FOOTBALL
+  "rejected" (6.2s)
+case 16: vibe / vibe-person-23-FOOTBALL
+  "accepted" (7.3s)
+case 17: vibe / vibe-person-959-NFL
+  "accepted" (5.1s)
+case 18: narratives / chelsea-live-live-journalist-preview
+  "accepted" (7.9s)
+case 19: narratives / dak-prescott-live-journalist-preview
+  "accepted" (5.7s)
+case 20: narratives / chelsea-target-preview
+  "accepted" (4.4s)
+case 21: narratives / narratives-person-86-FOOTBALL
+  "accepted" (8.2s)
+case 22: narratives / narratives-player-37-NBA
+  "rejected" (6.8s)

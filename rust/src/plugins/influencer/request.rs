@@ -10,15 +10,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const MODEL: RouteKey = RouteKey::new("vibe-logic", "VIBE_LOGIC");
-pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v45-plain-brief";
+pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v48-paragraphs";
 pub const SCORE_VERSION: &str = "emotional-valence-v1";
 pub const VIBE_TEMPERATURE: f64 = 0.0;
-pub const VIBE_NUM_PREDICT: i32 = 600;
-pub const BODY_MAX_CHARS: usize = 1200;
+pub const VIBE_NUM_PREDICT: i32 = 3500;
+pub const BODY_MAX_CHARS: usize = 12000;
 // Legacy byte-size reference for tests; the provider admits complete input in tokens.
 pub const SOURCE_BUDGET_BYTES: usize = 24000;
 
-pub const SCHEMA_RAW: &str = r#"{"oneOf":[{"type":"object","additionalProperties":false,"required":["score","headline","body"],"properties":{"score":{"type":"integer","minimum":0,"maximum":100},"headline":{"type":"string","minLength":1,"maxLength":140},"body":{"type":"string","minLength":1,"maxLength":1200}}},{"type":"object","additionalProperties":false,"required":["score","headline","body"],"properties":{"score":{"type":"null"},"headline":{"type":"null"},"body":{"type":"null"}}}]}"#;
+pub const SCHEMA_RAW: &str = r#"{"oneOf":[{"type":"object","additionalProperties":false,"required":["body","score","headline"],"properties":{"body":{"type":"string","minLength":1,"maxLength":12000},"score":{"type":"integer","minimum":0,"maximum":100},"headline":{"type":"string","minLength":1,"maxLength":140}}},{"type":"object","additionalProperties":false,"required":["body","score","headline"],"properties":{"body":{"type":"null"},"score":{"type":"null"},"headline":{"type":"null"}}}]}"#;
 
 pub fn schema() -> Value {
     serde_json::from_str(SCHEMA_RAW).expect("static Influencer schema")
@@ -136,12 +136,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn production_preserves_compact_system_and_score_first_schema() {
+    fn production_preserves_compact_system_and_body_score_hook_order() {
         let options = generation_options(VIBE_TEMPERATURE, 4096, VIBE_NUM_PREDICT);
         assert_eq!(options.system.as_deref(), Some(INSTRUCTIONS.system()));
         assert_eq!(options.format_schema, Some(schema()));
+        assert_eq!(options.format_schema_raw.as_deref(), Some(SCHEMA_RAW));
+        for variant in SCHEMA_RAW.split("\"required\":").skip(1) {
+            assert!(variant.starts_with("[\"body\",\"score\",\"headline\"]"));
+            let properties = variant.split_once("\"properties\":").unwrap().1;
+            assert!(properties.find("\"body\"").unwrap() < properties.find("\"score\"").unwrap());
+            assert!(
+                properties.find("\"score\"").unwrap() < properties.find("\"headline\"").unwrap()
+            );
+        }
         assert_eq!(options.temperature, Some(0.0));
-        assert_eq!(options.num_predict, 600);
+        assert_eq!(options.num_predict, 3500);
         assert_eq!(options.num_ctx, 4096);
         assert_eq!(
             generation_options(VIBE_TEMPERATURE, 0, VIBE_NUM_PREDICT).num_ctx,

@@ -1,0 +1,53 @@
+{
+  "case": 5,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "findings=0",
+      "name": "has_source_linked_move",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_includes:Aaron Gordon",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:Gordon is linked",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:Gordon is moving",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:Gordon will join",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/baseline-cases/05-transfer-gordon-derozan-wrong-subject.json",
+  "generation_wall_ms": 3664,
+  "input_tokens": 920,
+  "name": "gordon-derozan-wrong-subject",
+  "output_limit": 1400,
+  "output_tokens": 74,
+  "parsed": true,
+  "prompt_version": "insider-source-v33-plain-brief",
+  "reading": "0 finding(s) | Aaron Gordon remains on the Denver Nuggets roster with no reported move, as Synthetic Wire explicitly states the report concerns DeMar DeRozan and contains nothing about Gordon. The outlet clarifies that while DeRozan is linked to a trade, this information does not extend to Gordon.",
+  "request_bytes": 2202,
+  "review": [
+    "Synthetic regression for the Gordon incident: DeRozan is the moving subject; Gordon is incidental. Subject-first body, no finding, no retelling the DeRozan move under Gordon."
+  ],
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 3683
+}

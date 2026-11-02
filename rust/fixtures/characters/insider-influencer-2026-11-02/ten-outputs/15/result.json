@@ -1,0 +1,22 @@
+{
+  "case": 15,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/ten-cases/15-transfer-transfer-team-37-FOOTBALL.json",
+  "generation_wall_ms": 6187,
+  "input_tokens": 1918,
+  "name": "transfer-team-37-FOOTBALL",
+  "output_limit": 1400,
+  "output_tokens": 71,
+  "parsed": false,
+  "prompt_version": "insider-source-v35-ten-articles",
+  "reading": "named claim is absent from cited reports: AC Milan",
+  "request_bytes": 6086,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 6212
+}

@@ -1,0 +1,23 @@
+{
+  "case": 6,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/baseline-cases/06-transfer-headline-unnamed-signing.json",
+  "generation_wall_ms": 4182,
+  "input_tokens": 916,
+  "name": "headline-unnamed-signing",
+  "output_limit": 1400,
+  "output_tokens": 84,
+  "parsed": false,
+  "prompt_version": "insider-source-v33-plain-brief",
+  "reading": "Insider reading must begin with the full subject name",
+  "request_bytes": 2237,
+  "review": [
+    "An unnamed signing is reported; preserve it without inventing a player.",
+    "Empty findings reflect the unresolved counterparty, not an absence of reported transactions."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 4201
+}

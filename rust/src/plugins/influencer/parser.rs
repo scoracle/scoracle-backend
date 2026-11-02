@@ -55,3 +55,28 @@ impl Parser<VibeReply> for VibeParser {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reading_preserves_multiple_paragraphs_with_one_score_and_hook() {
+        let paragraph = "Example Wire reports that supporters welcomed the news. ".repeat(12);
+        let body = [paragraph.trim(); 3].join("\n\n");
+        assert!(body.chars().count() > 1200);
+        let raw =
+            serde_json::json!({"body":body,"score":75,"headline":"Supporters welcome the news"});
+        let reply = VibeParser.parse(&raw.to_string()).unwrap().unwrap();
+        assert_eq!(reply.body, body);
+        assert_eq!(reply.score, 75);
+        assert_eq!(reply.headline, "Supporters welcome the news");
+        let mut oversized = raw;
+        oversized["body"] = "x".repeat(super::super::request::BODY_MAX_CHARS + 1).into();
+        assert!(VibeParser.parse(&oversized.to_string()).is_err());
+        assert_eq!(
+            super::super::request::schema()["oneOf"][0]["properties"]["body"]["maxLength"],
+            super::super::request::BODY_MAX_CHARS
+        );
+    }
+}

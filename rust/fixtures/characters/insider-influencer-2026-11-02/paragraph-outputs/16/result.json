@@ -1,0 +1,24 @@
+{
+  "case": 16,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/paragraph-cases/16-vibe-vibe-person-23-FOOTBALL.json",
+  "generation_wall_ms": 13811,
+  "input_tokens": 1785,
+  "name": "vibe-person-23-FOOTBALL",
+  "output_limit": 3500,
+  "output_tokens": 288,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v48-paragraphs",
+  "reading": "De Zerbi expresses delight and satisfaction with Tottenham's resilience, style, and team bonding following a vital win over Coventry.\n\nRoberto De Zerbi expressed strong satisfaction with his team's performance, stating he was 'very happy' and praising Tottenham's resilience following a crucial victory over Coventry, as reported by Flashscore.co.za. He emphasized that the squad's 'attitude' and 'mentality' remained intact during the match, a sentiment echoed by VAVEL.com which highlighted his hope for these qualities to persist. De Zerbi also voiced delight at the team's ability to play with style, according to the Yellow Advertiser, while calling the return of player Kulusevski 'great news' for the upcoming fixture against Coventry, per Vodacom Soccer.\n\nThe manager specifically commended individual player contributions, noting he liked Mohammed Kudus' display against Coventry City, as quoted by GhanaSoccernet. Beyond the match result, De Zerbi credited the players' communication and a bonding trip for fostering a sense of family within the squad, a point made by The Guardian. However, Football London noted an ironic element to De Zerbi's post-match comments, suggesting a contrast between his expressed sentiments and the reality of the situation, though the specific irony remains unexplained in the headlines.",
+  "request_bytes": 5703,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 13830
+}

@@ -1,0 +1,30 @@
+{
+  "journalist_commit": "9d30f4677c231f1ab0a1cae1fb619642e7d60fdd",
+  "journalist_pushed": true,
+  "followup_uncommitted": true,
+  "full_check": {
+    "command": "scripts/check.sh postgresql://127.0.0.1:55439/classifier_test_coverage_paragraphs_final",
+    "exit_code": 0,
+    "rust_default_passed": 418,
+    "rust_explicit_ignored_passed": 73,
+    "sql_build_and_migration_replay": true,
+    "ranked_cap_and_recovery": true,
+    "go_vet_build_statement_validation_and_race_tests": true,
+    "receipt": "full-check-paragraphs-final.log"
+  },
+  "rust_examples": {
+    "command": "cargo test --offline --lib --examples --bin eval",
+    "passed": 424,
+    "failed": 0,
+    "ignored": 74,
+    "receipt": "tests-paragraphs-final.log"
+  },
+  "format_check": true,
+  "source_diff_check": true,
+  "model_calls": 75,
+  "final_paragraph_calls": 19,
+  "production_mutations": false,
+  "production_deployments": false,
+  "temporary_test_server_stopped": true,
+  "unrelated_recovery_plan_sha256": "ba141c9396f2ccca03ea198a5b5a858f9a7727b5414ef00732e39d9ceb7df086"
+}

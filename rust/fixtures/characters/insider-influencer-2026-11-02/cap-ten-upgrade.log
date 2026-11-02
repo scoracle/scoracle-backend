@@ -1,0 +1,27 @@
+BEGIN
+CREATE FUNCTION
+CREATE FUNCTION
+INSERT 0 1
+COMMIT
+BEGIN
+SET
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+SELECT 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 224
+INSERT 0 1
+UPDATE 1
+INSERT 0 4
+DO
+ coverage_select_headlines 
+---------------------------
+                       176
+(1 row)
+
+DO
+DO
+ROLLBACK

@@ -1,0 +1,21 @@
+BEGIN
+SET
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+SELECT 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 224
+INSERT 0 1
+UPDATE 1
+INSERT 0 4
+DO
+ coverage_select_headlines 
+---------------------------
+                        56
+(1 row)
+
+psql:/private/tmp/scoracle-five-article-regression.sql:80: ERROR:  Expected exactly 5 eligible inputs for journalist
+CONTEXT:  PL/pgSQL function inline_code_block line 9 at RAISE

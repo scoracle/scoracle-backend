@@ -1,0 +1,22 @@
+{
+  "case": 11,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/11-vibe-gordon-derozan-wrong-subject.json",
+  "generation_wall_ms": 4185,
+  "input_tokens": 807,
+  "name": "gordon-derozan-wrong-subject",
+  "output_limit": 600,
+  "output_tokens": 24,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v46-reading-first",
+  "reading": "empty reading",
+  "request_bytes": 1984,
+  "review": [
+    "Synthetic wrong-subject regression. Positive reactions concern DeRozan alone; Gordon feelings remain unknown. Paired null headline/body and neutral score are warranted."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 4199
+}

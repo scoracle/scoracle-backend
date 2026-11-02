@@ -13,8 +13,8 @@ pub struct SourceContext {
     pub classifier_world: Option<serde_json::Value>,
 }
 
-// shortcut: five articles per call during character tuning; revisit after output review.
-pub const CHARACTER_ARTICLE_LIMIT: usize = 5;
+// shortcut: ten articles per call while debugging the backlog; revisit after output review.
+pub const CHARACTER_ARTICLE_LIMIT: usize = 10;
 
 /// Rank by the character's decision criterion. Stable ties retain incoming order;
 /// missing/invalid scores rank below every supplied score, including zero.
@@ -127,7 +127,7 @@ pub fn is_headline_spam(headline: &str) -> bool {
 mod tests {
     use super::*;
     #[test]
-    fn top_five_use_the_requested_score_with_stable_ties_and_zero_before_unknown() {
+    fn top_ten_use_the_requested_score_with_stable_ties_and_zero_before_unknown() {
         let articles = serde_json::json!([
             {"id":0,"spectrum":{"subject":10,"emotion":100}},
             {"id":1,"spectrum":{"subject":70}},
@@ -136,7 +136,8 @@ mod tests {
             {"id":4,"spectrum":{"subject":0}},
             {"id":5,"spectrum":{"subject":null}},
             {"id":6,"spectrum":{"subject":70}},
-            {"id":7,"spectrum":{"subject":101}}
+            {"id":7,"spectrum":{"subject":101}},
+            {"id":8},{"id":9},{"id":10},{"id":11}
         ]);
         let articles = articles.as_array().unwrap();
         let ids = |items: Vec<serde_json::Value>| {
@@ -147,15 +148,15 @@ mod tests {
         };
         assert_eq!(
             ids(top_articles(articles, "subject", |v| Some(v))),
-            vec![3, 1, 6, 2, 0]
+            vec![3, 1, 6, 2, 0, 4, 5, 7, 8, 9]
         );
         assert_eq!(
             ids(top_articles(articles, "emotion", |v| Some(v))),
-            vec![0, 1, 2, 3, 4]
+            vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         );
         assert_eq!(
             ids(top_articles(&articles[4..], "subject", |v| Some(v))),
-            vec![6, 4, 5, 7]
+            vec![6, 4, 5, 7, 8, 9, 10, 11]
         );
         assert!(top_articles::<serde_json::Value>(&[], "subject", |v| Some(v)).is_empty());
     }

@@ -1,0 +1,62 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — transfer / explicit-denial-clears-prior-rumor [rejected]
+Insider reading must begin with the full subject name
+
+2 — transfer / fizzled-prior-lowrel-skeptic [accepted]
+0 finding(s) | Kai Sorensen is a football player currently under monitoring by Chelsea, according to a report from TransferTavern. The outlet states that Chelsea are among clubs keeping tabs on the forward, but explicitly notes that no bid or talks have been mentioned.
+
+3 — transfer / fully-named-advanced-talks [rejected]
+Insider reading must begin with the full subject name
+
+4 — transfer / fully-named-interest [rejected]
+Insider reading must begin with the full subject name
+
+5 — transfer / gordon-derozan-wrong-subject [accepted]
+0 finding(s) | Aaron Gordon remains on the Denver Nuggets roster with no reported move, as Synthetic Wire explicitly states the report concerns DeMar DeRozan and contains nothing about Gordon. The outlet clarifies that while DeRozan is linked to a trade, this information does not extend to Gordon.
+
+6 — transfer / headline-unnamed-signing [rejected]
+Insider reading must begin with the full subject name
+
+7 — transfer / reliable-source-heating-steam [rejected]
+named claim is absent from cited reports: Bayern Munich
+
+8 — transfer / unnamed-signing-no-identity-join [accepted]
+0 finding(s) | Aaron Gordon attended a community event, which does not establish a move or appointment. Synthetic Wire reported that the Denver Nuggets signed an unnamed forward, but Gordon is not named in that deal.
+
+9 — vibe / clearly-negative [accepted]
+Fans booed Cedar Comets over poor performance
+
+Example Wire reports that Cedar Comets fans expressed fury and booed the team regarding its performance. This coverage indicates strong negative reactions from the supporters.
+
+10 — vibe / clearly-positive [accepted]
+Fans delight over Cedar Comets victory
+
+Example Wire reports that Cedar Comets supporters were delighted and cheered the win. The coverage reflects a joyful mood from the fans themselves.
+
+11 — vibe / gordon-derozan-wrong-subject [accepted]
+empty reading
+
+12 — vibe / quiet-mixed [accepted]
+empty reading
+
+13 — vibe / warm-memory-cold-coverage [accepted]
+empty reading
+
+14 — transfer / transfer-player-83946-NFL [rejected]
+named claim is absent from cited reports: Philadelphia Eagles
+
+15 — transfer / transfer-team-37-FOOTBALL [rejected]
+cited reports do not connect La Gazzetta with numerical fact 6
+
+16 — vibe / vibe-person-23-FOOTBALL [accepted]
+De Zerbi expresses delight over Spurs' resilience and style after Coventry victory.
+
+Roberto De Zerbi is described as 'very happy' and 'delighted' by multiple outlets, including Flashscore.co.za, VAVEL.com, Yellow Advertiser, Vodacom Soccer, and TribalFootball. He praised Tottenham's 'attitude,' 'mentality,' and ability to 'turn on the style' following their crucial win against Coventry.
+
+17 — vibe / vibe-person-959-NFL [accepted]
+Jerry Jones faces criticism from ex-players and expresses disappointment
+
+The New York Times reports Jerry Jones is 'disappointed' and wants to improve the Cowboys roster before the trade deadline. Yahoo Sports notes an ex-Cowboys star took a swipe at Jones amid team struggles. These sources indicate mixed reactions: Jones feels let down, while a former player is critical of his leadership.
+

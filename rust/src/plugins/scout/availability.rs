@@ -46,13 +46,16 @@ impl Availability {
         result
     }
     pub fn for_writing(&self) -> serde_json::Value {
-        serde_json::json!(self
-            .sources
+        serde_json::json!(
+            crate::tools::source::top_articles(&self.sources, "availability", |s| s
+                .classifier_world
+                .as_ref())
             .iter()
             .map(|s| serde_json::json!({
                 "headline":s.headline,"publisher":s.source,"evidence_scope":"headline"
             }))
-            .collect::<Vec<_>>())
+            .collect::<Vec<_>>()
+        )
     }
     pub async fn settle(
         &self,
@@ -156,6 +159,34 @@ mod tests {
         );
         assert_eq!(a.sources[0].classifier_world, sources[0].classifier_world);
         assert!(writing[0].get("gate").is_none());
+    }
+
+    #[test]
+    fn writing_uses_the_ten_highest_availability_scores() {
+        let sources = (0..12)
+            .map(|id| SourceContext {
+                classification_id: id,
+                article_id: id,
+                headline: format!("Availability report {id}"),
+                context: format!("Availability report {id}"),
+                source: "Wire".into(),
+                published_at_epoch: Some(100),
+                classifier_world: Some(serde_json::json!({
+                    "spectrum":{"availability":id},
+                    "target_identity_resolved":true,"gate":{"characters":{"scout":true}}
+                })),
+            })
+            .collect();
+        let packet = Availability::pack(sources, 200).for_writing();
+        let headlines: Vec<_> = packet
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["headline"].as_str().unwrap())
+            .collect();
+        assert_eq!(headlines.len(), 10);
+        assert_eq!(headlines.first(), Some(&"Availability report 11"));
+        assert_eq!(headlines.last(), Some(&"Availability report 2"));
     }
 
     #[test]

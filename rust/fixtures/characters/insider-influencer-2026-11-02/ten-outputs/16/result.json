@@ -1,0 +1,24 @@
+{
+  "case": 16,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/ten-cases/16-vibe-vibe-person-23-FOOTBALL.json",
+  "generation_wall_ms": 7239,
+  "input_tokens": 1712,
+  "name": "vibe-person-23-FOOTBALL",
+  "output_limit": 600,
+  "output_tokens": 99,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v47-ten-articles",
+  "reading": "De Zerbi delighted as Tottenham turn on the style\n\nRoberto De Zerbi expressed strong satisfaction with Tottenham's performance, stating he was 'very happy' and 'delighted' after a crucial victory over Coventry. He praised the team's resilience, attitude, and bonding, while also highlighting the positive impact of player Mohammed Kudus's return and Mohammed Kudus's display.",
+  "request_bytes": 5526,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 7251
+}

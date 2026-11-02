@@ -87,7 +87,7 @@ try:
         assert len([r for r in rows if r['table'] == 'classifier_spectrum_deliveries']) == 55
         assert sql("SELECT status||'|'||attempts||'|'||input_version FROM pipeline_work WHERE sport='ZZ_SELECTION' AND stage='narratives'") == 'pending|0|headline-policy-v2:coverage:2098-01-02'
         assert sql("SELECT outcome||'|'||cardinality(spectrum_ids) FROM coverage_assignments WHERE sport='ZZ_SELECTION' AND stage='narratives'") == 'pending|55'
-        assert sql("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport='ZZ_SELECTION' AND d.character='journalist' AND d.status='pending'") == '40'
+        assert sql("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport='ZZ_SELECTION' AND d.character='journalist' AND d.status='pending'") == '10'
         assert sql("SELECT count(*) FROM classifier_spectrum_deliveries WHERE spectrum_id=" + spam_id + " AND character='journalist' AND reason='livestream_spam'") == '1'
         assert sql("SELECT jsonb_agg(to_jsonb(d) ORDER BY spectrum_id,character) FROM classifier_spectrum_deliveries d WHERE character<>'journalist'") == untouched, 'recovery modified another character'
         assert sql("SELECT deferred_versions::text FROM coverage_assignments WHERE sport='ZZ_SELECTION' AND stage='narratives'") == deferred
@@ -99,7 +99,7 @@ try:
         sql("UPDATE pipeline_work SET attempts=2 WHERE sport='ZZ_SELECTION' AND stage='narratives'")
         run('-v', 'apply=true', '-v', 'backup_file=' + str(Path(directory) / 'repeat.jsonl'))
         assert sql("SELECT attempts FROM pipeline_work WHERE sport='ZZ_SELECTION' AND stage='narratives'") == '2', 'repeated recovery reset attempts'
-    print(('Backlog' if BACKLOG else 'Scoped')+' recovery: preview rollback, backups, strongest-40 selection, spam, unchanged other characters, stale/identity/claim fencing and repeat no-op passed')
+    print(('Backlog' if BACKLOG else 'Scoped')+' recovery: preview rollback, backups, strongest-10 selection, spam, unchanged other characters, stale/identity/claim fencing and repeat no-op passed')
 finally:
     sql("""
     SET session_replication_role=replica;

@@ -1,0 +1,22 @@
+{
+  "case": 19,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/ten-cases/19-narratives-dak-prescott.fixture.json",
+  "generation_wall_ms": 5647,
+  "input_tokens": 1146,
+  "name": "dak-prescott-live-journalist-preview",
+  "output_limit": 3500,
+  "output_tokens": 77,
+  "parsed": true,
+  "prompt_version": "n135-ten-articles",
+  "reading": "Dak Prescott announced personal news following the team's fourth loss, a development reported by Athlon Sports. Additionally, Prescott revealed what he finds most frustrating after another difficult game for the Cowboys, according to the New York Post.",
+  "request_bytes": 3567,
+  "review": [
+    "Read-only Archbox capture for inspecting current model inputs; no generation or publication."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 5658
+}

@@ -864,8 +864,7 @@ async fn embedded_unknown_names_remain_unresolved_and_batch_checks_are_identical
 
 #[tokio::test]
 #[ignore = "requires disposable migrated TEST_DATABASE_URL and SCORACLE_MEMORY_STUDY_BIN"]
-async fn exact_token_overflow_drops_history_then_holds_each_complete_character_packet() -> Result<()>
-{
+async fn exact_token_overflow_holds_each_fresh_only_packet_without_retry() -> Result<()> {
     use crate::harness::model::{ContextExceeded, GenerateOptions, GenerateResult, Inference};
     struct Budget(std::sync::Mutex<Vec<String>>);
     #[async_trait::async_trait]
@@ -972,18 +971,15 @@ async fn exact_token_overflow_drops_history_then_holds_each_complete_character_p
         let prompts = backend.0.lock().unwrap();
         assert_eq!(
             prompts.len(),
-            2,
-            "{} must attempt admission once with history and once without",
+            1,
+            "{} must admit the fresh-only packet once without retry",
             stage
         );
-        let first: Value = serde_json::from_str(&prompts[0])?;
-        let second: Value = serde_json::from_str(&prompts[1])?;
-        assert_eq!(first["memories"].as_array().unwrap().len(), 1);
-        assert!(second["memories"].as_array().unwrap().is_empty());
-        assert_eq!(
-            first["new_content"], second["new_content"],
-            "complete fresh evidence changed"
-        );
+        let packet: Value = serde_json::from_str(&prompts[0])?;
+        assert!(packet.get("memories").is_none());
+        assert!(prompts[0].contains("Budget Club celebrate a new transfer report"));
+        assert!(!prompts[0].contains("Budget Club deny talks"));
+        assert!(packet.get("new_content").is_some());
     }
     let held:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='held'").bind(sport).fetch_one(&pool).await?;
     assert_eq!(held, 3);

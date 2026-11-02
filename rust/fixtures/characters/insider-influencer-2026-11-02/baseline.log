@@ -1,0 +1,34 @@
+case 1: transfer / explicit-denial-clears-prior-rumor
+  "rejected" (7.1s)
+case 2: transfer / fizzled-prior-lowrel-skeptic
+  "accepted" (4.7s)
+case 3: transfer / fully-named-advanced-talks
+  "rejected" (9.1s)
+case 4: transfer / fully-named-interest
+  "rejected" (5.5s)
+case 5: transfer / gordon-derozan-wrong-subject
+  "accepted" (3.7s)
+case 6: transfer / headline-unnamed-signing
+  "rejected" (4.2s)
+case 7: transfer / reliable-source-heating-steam
+  "rejected" (4.6s)
+case 8: transfer / unnamed-signing-no-identity-join
+  "accepted" (2.8s)
+case 9: vibe / clearly-negative
+  "accepted" (3.8s)
+case 10: vibe / clearly-positive
+  "accepted" (2.9s)
+case 11: vibe / gordon-derozan-wrong-subject
+  "accepted" (1.9s)
+case 12: vibe / quiet-mixed
+  "accepted" (1.9s)
+case 13: vibe / warm-memory-cold-coverage
+  "accepted" (1.9s)
+case 14: transfer / transfer-player-83946-NFL
+  "rejected" (6.4s)
+case 15: transfer / transfer-team-37-FOOTBALL
+  "rejected" (5.5s)
+case 16: vibe / vibe-person-23-FOOTBALL
+  "accepted" (7.1s)
+case 17: vibe / vibe-person-959-NFL
+  "accepted" (5.5s)

@@ -1,0 +1,19 @@
+{
+  "body": "Cedar United have agreed a deal to sign Alex Reed, according to Example Wire.\n\nCedar United deny talks to sign Rowan Vale, according to Cedar Daily.",
+  "findings": [
+    {
+      "counterparty": "Alex Reed",
+      "evidence_quote": "Cedar United agree deal to sign Alex Reed",
+      "report_index": 0,
+      "stage": "here_we_go",
+      "status": "reported"
+    },
+    {
+      "counterparty": "Rowan Vale",
+      "evidence_quote": "Cedar United deny talks to sign Rowan Vale",
+      "report_index": 1,
+      "stage": null,
+      "status": "denied"
+    }
+  ]
+}

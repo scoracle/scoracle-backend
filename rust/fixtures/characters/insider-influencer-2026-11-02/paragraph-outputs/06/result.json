@@ -1,0 +1,64 @@
+{
+  "case": 6,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    },
+    {
+      "detail": "findings=0",
+      "name": "has_source_linked_move",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_includes:sign",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:no confirmed signings",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:no confirmed trades or signings",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:not executed",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:no confirmed deals",
+      "pass": true
+    },
+    {
+      "detail": "",
+      "name": "body_excludes:no confirmed transactions",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/paragraph-cases/06-transfer-headline-unnamed-signing.json",
+  "generation_wall_ms": 3368,
+  "input_tokens": 968,
+  "name": "headline-unnamed-signing",
+  "output_limit": 3500,
+  "output_tokens": 60,
+  "parsed": true,
+  "prompt_version": "insider-source-v36-paragraphs",
+  "reading": "0 finding(s) | Cedar Bears have announced the signing of a former Maple Foxes player, according to Example Wire.",
+  "request_bytes": 2464,
+  "review": [
+    "An unnamed signing is reported; preserve it without inventing a player.",
+    "Empty findings reflect the unresolved counterparty, not an absence of reported transactions."
+  ],
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 3381
+}

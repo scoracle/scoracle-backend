@@ -1,0 +1,24 @@
+{
+  "case": 17,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/paragraph-cases/17-vibe-vibe-person-959-NFL.json",
+  "generation_wall_ms": 5317,
+  "input_tokens": 1321,
+  "name": "vibe-person-959-NFL",
+  "output_limit": 3500,
+  "output_tokens": 82,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v48-paragraphs",
+  "reading": "Jerry Jones expresses disappointment over Cowboys roster, seeking improvements before trade deadline\n\nThe New York Times headline indicates that Jerry Jones expressed disappointment regarding the Cowboys' roster, a sentiment he hopes to address before the trade deadline. This reaction is attributed directly to Jones himself, as reported by The Athletic.",
+  "request_bytes": 3833,
+  "review": [
+    "Does the card fulfill its character purpose and help explain the entity?",
+    "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+    "Record material errors separately from awkward wording; parser acceptance is not truth."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 5337
+}

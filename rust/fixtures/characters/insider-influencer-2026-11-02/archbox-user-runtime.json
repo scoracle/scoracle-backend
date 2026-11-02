@@ -1,0 +1,37 @@
+{
+  "commit": "20a9e25fedd5565c5deb99be7bdb71a5101ec26c",
+  "scope": "systemd user units",
+  "services": {
+    "scoracle-api": {
+      "ActiveState": "active",
+      "MainPID": "85673",
+      "executable": "/home/sheneveld/scoracle/scoracle-backend/go/bin/scoracle-api",
+      "sha256": "c66608d48a0ac81d6988e00b0b322fb6c06f74b61995806a64bb8a7aec59d165",
+      "stage_settings": {
+        "COGNITION_STAGES": "classifier",
+        "VOICE_NUM_CTX": "32768"
+      }
+    },
+    "scoracle-coverage": {
+      "ActiveState": "inactive",
+      "MainPID": "0"
+    },
+    "scoracle-cognition": {
+      "ActiveState": "active",
+      "MainPID": "113348",
+      "executable": "/home/sheneveld/scoracle/scoracle-backend/rust/bin/scoracle-cognition",
+      "sha256": "425cdd590a316dbfafdb9ee39e7b1519e733dd4343d06c705f1dc4b3658d2e14",
+      "stage_settings": {
+        "COGNITION_STAGES": "classifier",
+        "VOICE_NUM_CTX": "32768"
+      }
+    },
+    "scoracle-kev": {
+      "ActiveState": "active",
+      "MainPID": "113289",
+      "executable": "/mnt/data/backup/scoracle/d3-rollout-20261027/runtime/lib/ollama/llama-server",
+      "sha256": "234b05b2138264f8fb263c3205e85f4c290e8afe5067e280a4f6f90cdac5696b",
+      "stage_settings": {}
+    }
+  }
+}

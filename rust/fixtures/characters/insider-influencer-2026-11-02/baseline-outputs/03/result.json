@@ -1,0 +1,22 @@
+{
+  "case": 3,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/baseline-cases/03-transfer-fully-named-advanced-talks.json",
+  "generation_wall_ms": 9033,
+  "input_tokens": 1043,
+  "name": "fully-named-advanced-talks",
+  "output_limit": 1400,
+  "output_tokens": 212,
+  "parsed": false,
+  "prompt_version": "insider-source-v33-plain-brief",
+  "reading": "Insider reading must begin with the full subject name",
+  "request_bytes": 2723,
+  "review": [
+    "Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9050
+}

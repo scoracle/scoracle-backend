@@ -21,7 +21,7 @@ BEGIN
         '304_classifier_article_spectrum','305_classifier_identity_prefill',
         '306_pipeline_stage_progress','307_classifier_bounded_acquisition','308_retire_graph','309_continuous_coverage','310_daily_character_scope','311_daily_pipeline_recovery','312_classifier_subject_reader','313_classifier_headline_first','314_classifier_headline_corpus','315_headline_entity_pipeline',
         '318_coverage_freeze_set_based','319_nba_free_throw_measure',
-        '320_scout_availability_and_bounded_reconciliation','321_durable_qualified_editions','323_bounded_headline_inputs','324_nonblocking_coverage_failures'] LOOP
+        '320_scout_availability_and_bounded_reconciliation','321_durable_qualified_editions','323_bounded_headline_inputs','324_nonblocking_coverage_failures','325_ten_article_character_packets'] LOOP
         IF NOT EXISTS(SELECT 1 FROM public.schema_migrations m WHERE m.version=migration_version) THEN
             RAISE EXCEPTION 'Missing migration %; migrate before placing binaries',migration_version;
         END IF;
@@ -57,6 +57,11 @@ DO $$ BEGIN
 END $$;
 SELECT edition_date,kind,stage,entity_type,entity_id,sport,input_version,attempts,error,receipt,failed_at FROM coverage_failures LIMIT 0;
 SELECT entity_type,entity_id,sport,fetched_through,recheck_after FROM public.headline_fetch_watermarks LIMIT 0;
+DO $$ BEGIN
+    IF public.headline_entity_cap()<>10 THEN
+        RAISE EXCEPTION 'Headline cap does not match the ten-article writing packets';
+    END IF;
+END $$;
 SELECT public.headline_entity_cap();
 SELECT classifier_source_id FROM public.news_article_entities LIMIT 0;
 SELECT source_id FROM public.classifier_source_heads LIMIT 0;

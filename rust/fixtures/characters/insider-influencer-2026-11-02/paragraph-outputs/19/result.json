@@ -1,0 +1,22 @@
+{
+  "case": 19,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/paragraph-cases/24-vibe-distinct-positive-and-negative-reactions.json",
+  "generation_wall_ms": 6058,
+  "input_tokens": 931,
+  "name": "distinct-positive-and-negative-reactions",
+  "output_limit": 3500,
+  "output_tokens": 135,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v48-paragraphs",
+  "reading": "Cedar Comets fans celebrate stadium opening but criticize ticket price hikes\n\nExample Wire reports that Cedar Comets supporters expressed delight regarding the stadium opening, highlighting a positive reaction from the fanbase to the venue's inauguration.\n\nIn contrast, Cedar Daily notes that fans have voiced anger and criticism specifically concerning a recent increase in ticket prices, indicating a negative sentiment focused on financial costs.\n\nThe coverage presents two distinct emotional threads: one celebrating the physical infrastructure of the team's home, and another expressing frustration over the affordability of access to that venue.",
+  "request_bytes": 2375,
+  "review": [
+    "Authored development control, not held out: separate delight at the stadium opening from anger at ticket prices. Both emotional directions support a mixed score. Preserve distinct publishers and do not invent crowd counts or wider consensus."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 6077
+}

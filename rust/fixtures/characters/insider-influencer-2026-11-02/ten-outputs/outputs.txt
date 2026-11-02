@@ -1,0 +1,77 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — transfer / explicit-denial-clears-prior-rumor [accepted]
+1 finding(s) | Lina Foss has been linked to Everton, but the club has denied any talks to sign her, according to TV2.
+
+2 — transfer / fizzled-prior-lowrel-skeptic [accepted]
+0 finding(s) | Kai Sorensen is a football player. TransferTavern reports that Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.
+
+3 — transfer / fully-named-advanced-talks [rejected]
+finding quote must name both the target and counterparty in full
+
+4 — transfer / fully-named-interest [rejected]
+Insider reading must begin with the full subject name
+
+5 — transfer / gordon-derozan-wrong-subject [accepted]
+0 finding(s) | Aaron Gordon remains on the Denver Nuggets roster with no reported movement in this report. Synthetic Wire notes that while DeMar DeRozan is linked with a trade to Denver, the report explicitly states nothing about a move for Gordon.
+
+6 — transfer / headline-unnamed-signing [accepted]
+0 finding(s) | Cedar Bears have announced the signing of a former Maple Foxes player, per Example Wire. The move is confirmed as a completed agreement.
+
+7 — transfer / reliable-source-heating-steam [rejected]
+named claim is absent from cited reports: Bayern Munich
+
+8 — transfer / unnamed-signing-no-identity-join [accepted]
+0 finding(s) | Aaron Gordon attended a community event while the Denver Nuggets announced the signing of an unnamed forward, per Synthetic Wire.
+
+9 — vibe / clearly-negative [accepted]
+Cedar Comets fans criticize the performance
+
+Fans of the Cedar Comets expressed fury and booed the team's performance, according to Example Wire.
+
+10 — vibe / clearly-positive [accepted]
+Fans delight as Cedar Comets secure win
+
+Supporters of the Cedar Comets expressed delight following their victory, with one outlet noting the fans' enthusiastic reaction to the result.
+
+11 — vibe / gordon-derozan-wrong-subject [accepted]
+empty reading
+
+12 — vibe / quiet-mixed [accepted]
+empty reading
+
+13 — vibe / warm-memory-cold-coverage [accepted]
+empty reading
+
+14 — transfer / transfer-player-83946-NFL [rejected]
+named claim is absent from cited reports: Las Vegas Raiders
+
+15 — transfer / transfer-team-37-FOOTBALL [rejected]
+named claim is absent from cited reports: AC Milan
+
+16 — vibe / vibe-person-23-FOOTBALL [accepted]
+De Zerbi delighted as Tottenham turn on the style
+
+Roberto De Zerbi expressed strong satisfaction with Tottenham's performance, stating he was 'very happy' and 'delighted' after a crucial victory over Coventry. He praised the team's resilience, attitude, and bonding, while also highlighting the positive impact of player Mohammed Kudus's return and Mohammed Kudus's display.
+
+17 — vibe / vibe-person-959-NFL [accepted]
+Jerry Jones faces criticism and disappointment over Cowboys roster struggles ahead of trade deadline.
+
+The New York Times reports Jerry Jones expressed disappointment regarding the Cowboys' roster before the trade deadline, while Yahoo Sports notes an ex-Cowboys star criticized Jones amid team struggles.
+
+18 — narratives / chelsea-live-live-journalist-preview [accepted]
+Chelsea FC Latest News .com reports that the club has promoted Penders and Sharman-Lowe following an injury to Emi Martinez. FootballTransfers.com notes that Manu Kone is being viewed as a record signing. Talk Chelsea states that a £100m target could yet sign a new contract, a claim made by his boss. London Evening Standard provides an injury update regarding Martinez, Chavarria, and James. Flashscore.com indicates Chelsea are searching for new right-back options amid Gusto's uncertainty.
+
+19 — narratives / dak-prescott-live-journalist-preview [accepted]
+Dak Prescott announced personal news following the team's fourth loss, a development reported by Athlon Sports. Additionally, Prescott revealed what he finds most frustrating after another difficult game for the Cowboys, according to the New York Post.
+
+20 — narratives / chelsea-target-preview [accepted]
+
+
+21 — narratives / narratives-person-86-FOOTBALL [accepted]
+RB Leipzig boss Martín Demichelis praised Yan Diomande ahead of the Champions League clash against Real Madrid at the Bernabéu, describing the French defender as exceptional despite the daunting nature of the upcoming fixture. The comments were reported by Yahoo, Yardbarker, and OneFootball, who all highlighted Demichelis's high regard for Diomande in the context of the European tie.
+
+22 — narratives / narratives-player-37-NBA [rejected]
+named claim is absent from cited reports: Sacramento Kings
+

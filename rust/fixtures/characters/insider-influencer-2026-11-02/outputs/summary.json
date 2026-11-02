@@ -1,0 +1,582 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "findings=1",
+          "name": "has_source_linked_move",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_includes:Lina Foss",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_includes:Everton",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_includes:denied",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/01-transfer-explicit-denial-clears-prior-rumor.json",
+      "generation_wall_ms": 11656,
+      "input_tokens": 894,
+      "name": "explicit-denial-clears-prior-rumor",
+      "output_limit": 1400,
+      "output_tokens": 115,
+      "parsed": true,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "1 finding(s) | Lina Foss has been linked to Everton, but the club has denied any talks to sign her, according to TV2.",
+      "request_bytes": 2180,
+      "review": [
+        "A source-grounded denied finding has stage null and clears the earlier reported move. Silence alone does not.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "accepted",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 11726
+    },
+    {
+      "case": 2,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "findings=0",
+          "name": "has_source_linked_move",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_includes:Sorensen",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:$",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:£",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:€",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:million",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/02-transfer-fizzled-prior-lowrel-skeptic.json",
+      "generation_wall_ms": 6353,
+      "input_tokens": 898,
+      "name": "fizzled-prior-lowrel-skeptic",
+      "output_limit": 1400,
+      "output_tokens": 56,
+      "parsed": true,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "0 finding(s) | Kai Sorensen is a football player. TransferTavern reports that Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.",
+      "request_bytes": 2215,
+      "review": [
+        "Evidence-limit case: the source lacks full party names. Preserve the packet and return no linked finding; this is not positive transfer coverage."
+      ],
+      "status": "accepted",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 6363
+    },
+    {
+      "case": 3,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/03-transfer-fully-named-advanced-talks.json",
+      "generation_wall_ms": 17282,
+      "input_tokens": 1059,
+      "name": "fully-named-advanced-talks",
+      "output_limit": 1400,
+      "output_tokens": 211,
+      "parsed": false,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "finding quote must name both the target and counterparty in full",
+      "request_bytes": 2883,
+      "review": [
+        "Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 17292
+    },
+    {
+      "case": 4,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/04-transfer-fully-named-interest.json",
+      "generation_wall_ms": 11488,
+      "input_tokens": 897,
+      "name": "fully-named-interest",
+      "output_limit": 1400,
+      "output_tokens": 125,
+      "parsed": false,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "Insider reading must begin with the full subject name",
+      "request_bytes": 2223,
+      "review": [
+        "Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 11511
+    },
+    {
+      "case": 5,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "findings=0",
+          "name": "has_source_linked_move",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_includes:Aaron Gordon",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:Gordon is linked",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:Gordon is moving",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:Gordon will join",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/05-transfer-gordon-derozan-wrong-subject.json",
+      "generation_wall_ms": 7052,
+      "input_tokens": 936,
+      "name": "gordon-derozan-wrong-subject",
+      "output_limit": 1400,
+      "output_tokens": 63,
+      "parsed": true,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "0 finding(s) | Aaron Gordon remains on the Denver Nuggets roster with no reported movement in this report. Synthetic Wire notes that while DeMar DeRozan is linked with a trade to Denver, the report explicitly states nothing about a move for Gordon.",
+      "request_bytes": 2362,
+      "review": [
+        "Synthetic regression for the Gordon incident: DeRozan is the moving subject; Gordon is incidental. Subject-first body, no finding, no retelling the DeRozan move under Gordon."
+      ],
+      "status": "accepted",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 7072
+    },
+    {
+      "case": 6,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "findings=0",
+          "name": "has_source_linked_move",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_includes:sign",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:no confirmed signings",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:no confirmed trades or signings",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:not executed",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:no confirmed deals",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:no confirmed transactions",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/06-transfer-headline-unnamed-signing.json",
+      "generation_wall_ms": 6056,
+      "input_tokens": 932,
+      "name": "headline-unnamed-signing",
+      "output_limit": 1400,
+      "output_tokens": 66,
+      "parsed": true,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "0 finding(s) | Cedar Bears have announced the signing of a former Maple Foxes player, per Example Wire. The move is confirmed as a completed agreement.",
+      "request_bytes": 2397,
+      "review": [
+        "An unnamed signing is reported; preserve it without inventing a player.",
+        "Empty findings reflect the unresolved counterparty, not an absence of reported transactions."
+      ],
+      "status": "accepted",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 6072
+    },
+    {
+      "case": 7,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/07-transfer-reliable-source-heating-steam.json",
+      "generation_wall_ms": 5732,
+      "input_tokens": 1051,
+      "name": "reliable-source-heating-steam",
+      "output_limit": 1400,
+      "output_tokens": 93,
+      "parsed": false,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "named claim is absent from cited reports: Bayern Munich",
+      "request_bytes": 2841,
+      "review": [
+        "Evidence-limit case: the source lacks full party names. Preserve the packet and return no linked finding; this is not positive transfer coverage."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 5744
+    },
+    {
+      "case": 8,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        },
+        {
+          "detail": "findings=0",
+          "name": "has_source_linked_move",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_includes:Aaron Gordon",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:Gordon is linked",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:Gordon is moving",
+          "pass": true
+        },
+        {
+          "detail": "",
+          "name": "body_excludes:Gordon will join",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/08-transfer-unnamed-signing-no-identity-join.json",
+      "generation_wall_ms": 2277,
+      "input_tokens": 887,
+      "name": "unnamed-signing-no-identity-join",
+      "output_limit": 1400,
+      "output_tokens": 39,
+      "parsed": true,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "0 finding(s) | Aaron Gordon attended a community event while the Denver Nuggets announced the signing of an unnamed forward, per Synthetic Wire.",
+      "request_bytes": 2207,
+      "review": [
+        "An unnamed signing cannot acquire the co-mentioned target identity. No linked finding."
+      ],
+      "status": "accepted",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 2296
+    },
+    {
+      "case": 9,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/09-vibe-clearly-negative.json",
+      "generation_wall_ms": 6024,
+      "input_tokens": 794,
+      "name": "clearly-negative",
+      "output_limit": 600,
+      "output_tokens": 55,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v46-reading-first",
+      "reading": "Cedar Comets fans criticize the performance\n\nFans of the Cedar Comets expressed fury and booed the team's performance, according to Example Wire.",
+      "request_bytes": 1917,
+      "review": [
+        "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+        "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+        "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+        "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 6041
+    },
+    {
+      "case": 10,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/10-vibe-clearly-positive.json",
+      "generation_wall_ms": 5559,
+      "input_tokens": 791,
+      "name": "clearly-positive",
+      "output_limit": 600,
+      "output_tokens": 60,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v46-reading-first",
+      "reading": "Fans delight as Cedar Comets secure win\n\nSupporters of the Cedar Comets expressed delight following their victory, with one outlet noting the fans' enthusiastic reaction to the result.",
+      "request_bytes": 1902,
+      "review": [
+        "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+        "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+        "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+        "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 5579
+    },
+    {
+      "case": 11,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/11-vibe-gordon-derozan-wrong-subject.json",
+      "generation_wall_ms": 4185,
+      "input_tokens": 807,
+      "name": "gordon-derozan-wrong-subject",
+      "output_limit": 600,
+      "output_tokens": 24,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v46-reading-first",
+      "reading": "empty reading",
+      "request_bytes": 1984,
+      "review": [
+        "Synthetic wrong-subject regression. Positive reactions concern DeRozan alone; Gordon feelings remain unknown. Paired null headline/body and neutral score are warranted."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 4199
+    },
+    {
+      "case": 12,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/12-vibe-quiet-mixed.json",
+      "generation_wall_ms": 2994,
+      "input_tokens": 794,
+      "name": "quiet-mixed",
+      "output_limit": 600,
+      "output_tokens": 24,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v46-reading-first",
+      "reading": "empty reading",
+      "request_bytes": 1927,
+      "review": [
+        "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+        "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+        "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+        "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 3002
+    },
+    {
+      "case": 13,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/13-vibe-warm-memory-cold-coverage.json",
+      "generation_wall_ms": 3130,
+      "input_tokens": 786,
+      "name": "warm-memory-cold-coverage",
+      "output_limit": 600,
+      "output_tokens": 24,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v46-reading-first",
+      "reading": "empty reading",
+      "request_bytes": 1887,
+      "review": [
+        "Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.",
+        "Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.",
+        "Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.",
+        "Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.",
+        "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+        "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+        "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 3140
+    },
+    {
+      "case": 14,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/14-transfer-transfer-player-83946-NFL.json",
+      "generation_wall_ms": 10116,
+      "input_tokens": 1611,
+      "name": "transfer-player-83946-NFL",
+      "output_limit": 1400,
+      "output_tokens": 84,
+      "parsed": false,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "named claim is absent from cited reports: Philadelphia Eagles",
+      "request_bytes": 5055,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "rejected",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 10171
+    },
+    {
+      "case": 15,
+      "checks": [
+        {
+          "detail": "",
+          "name": "no_product_names",
+          "pass": true
+        }
+      ],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/15-transfer-transfer-team-37-FOOTBALL.json",
+      "generation_wall_ms": 9625,
+      "input_tokens": 1506,
+      "name": "transfer-team-37-FOOTBALL",
+      "output_limit": 1400,
+      "output_tokens": 89,
+      "parsed": true,
+      "prompt_version": "insider-source-v34-evidence-brief",
+      "reading": "0 finding(s) | Roma is seeking two January signings, as reported by Yahoo Sports. The club also faces a coaching crisis with Pellegrini and Svilar out due to injury, according to La Gazzetta dello Sport. Meanwhile, reports suggest Leipzig may retain Roma's El Aynaoui for a €50m package, per Bulinews.",
+      "request_bytes": 4580,
+      "review": [
+        "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+      ],
+      "status": "accepted",
+      "task": "transfer",
+      "temperature": 0.0,
+      "wall_ms": 9655
+    },
+    {
+      "case": 16,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/16-vibe-vibe-person-23-FOOTBALL.json",
+      "generation_wall_ms": 9518,
+      "input_tokens": 1473,
+      "name": "vibe-person-23-FOOTBALL",
+      "output_limit": 600,
+      "output_tokens": 85,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v46-reading-first",
+      "reading": "De Zerbi delighted as Tottenham turn on the style\n\nRoberto De Zerbi expressed strong satisfaction with Tottenham's performance, stating he was 'very happy' and 'delighted' after their victory over Coventry. He emphasized that the team's resilience and positive mentality remain intact following the crucial win.",
+      "request_bytes": 4518,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 9535
+    },
+    {
+      "case": 17,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/17-vibe-vibe-person-959-NFL.json",
+      "generation_wall_ms": 5275,
+      "input_tokens": 1248,
+      "name": "vibe-person-959-NFL",
+      "output_limit": 600,
+      "output_tokens": 75,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v46-reading-first",
+      "reading": "Jerry Jones faces criticism and disappointment over Cowboys roster struggles ahead of trade deadline.\n\nThe New York Times reports Jerry Jones expressed disappointment regarding the Cowboys' roster before the trade deadline, while Yahoo Sports notes an ex-Cowboys star criticized Jones amid team struggles.",
+      "request_bytes": 3656,
+      "review": [
+        "Does the card fulfill its character purpose and help explain the entity?",
+        "Is the central reading supported, with subject, speaker, measurements and reported status preserved?",
+        "Record material errors separately from awkward wording; parser acceptance is not truth."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 5292
+    }
+  ],
+  "completed": 17
+}

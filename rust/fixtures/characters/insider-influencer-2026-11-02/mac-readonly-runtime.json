@@ -1,0 +1,11 @@
+{
+  "launchctl_exit": 113,
+  "launch_state": [],
+  "configured_stage_settings": {
+    "COGNITION_STAGES": "narratives,vibe,rating,transfers,momentum,sigil",
+    "VOICE_NUM_CTX": "10000"
+  },
+  "worker_files": [
+    "run-worker.sh"
+  ]
+}

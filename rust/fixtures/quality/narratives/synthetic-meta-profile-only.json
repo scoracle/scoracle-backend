@@ -29,7 +29,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n134-recap-hook-last",
+  "prompt_version": "n135-ten-articles",
   "review": [
     "A limited summary of the profile topics or an empty response is acceptable. Do not invent article contents from the title.",
     "Do not supply database nationality, position or affiliation as article contents. Meta supports understanding, not additional reporting."

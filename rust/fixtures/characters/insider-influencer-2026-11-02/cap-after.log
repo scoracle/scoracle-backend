@@ -1,0 +1,22 @@
+BEGIN
+SET
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+SELECT 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 224
+INSERT 0 1
+UPDATE 1
+INSERT 0 4
+DO
+ coverage_select_headlines 
+---------------------------
+                       161
+(1 row)
+
+DO
+DO
+ROLLBACK

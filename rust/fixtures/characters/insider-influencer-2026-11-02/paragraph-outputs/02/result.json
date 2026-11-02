@@ -1,0 +1,22 @@
+{
+  "case": 2,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/paragraph-cases/02-transfer-fizzled-prior-lowrel-skeptic.json",
+  "generation_wall_ms": 3076,
+  "input_tokens": 934,
+  "name": "fizzled-prior-lowrel-skeptic",
+  "output_limit": 3500,
+  "output_tokens": 43,
+  "parsed": false,
+  "prompt_version": "insider-source-v36-paragraphs",
+  "reading": "Insider reading must begin with the full subject name",
+  "request_bytes": 2282,
+  "review": [
+    "Evidence-limit case: the source lacks full party names. Preserve the packet and return no linked finding; this is not positive transfer coverage."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 3084
+}

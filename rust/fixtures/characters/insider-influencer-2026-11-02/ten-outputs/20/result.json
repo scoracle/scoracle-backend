@@ -1,0 +1,22 @@
+{
+  "case": 20,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/ten-cases/20-narratives-narratives-chelsea-top-five.json",
+  "generation_wall_ms": 4396,
+  "input_tokens": 1467,
+  "name": "chelsea-target-preview",
+  "output_limit": 3500,
+  "output_tokens": 10,
+  "parsed": true,
+  "prompt_version": "n135-ten-articles",
+  "reading": "",
+  "request_bytes": 4717,
+  "review": [
+    "Identity preview only; no model call and no claim this older source packet is current news."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 4405
+}

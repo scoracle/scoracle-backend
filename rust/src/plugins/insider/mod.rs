@@ -519,6 +519,14 @@ mod tests {
             subject: &subject,
             reports: &reports,
         };
+        let paragraph = "Jordan Sample is considering a move, according to Wire. ".repeat(12);
+        let body = [paragraph.trim(); 3].join("\n\n");
+        assert!(body.chars().count() > 1200);
+        let reading = serde_json::json!({"body":body,"findings":[]});
+        assert_eq!(
+            parser.parse(&reading.to_string()).unwrap().unwrap().body,
+            body
+        );
         let too_long = serde_json::json!({"body":format!("Jordan Sample {}","x".repeat(request::BODY_MAX_CHARS)),"findings":[]});
         assert!(parser
             .parse(&too_long.to_string())

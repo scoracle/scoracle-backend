@@ -1,4 +1,3 @@
-//! Tone lives in local `voice.rs`. Measurements come from `performance.rs`.
 //! Scout preparation, instructions and the selected world the model reads.
 use super::character_instructions::INSTRUCTIONS;
 use crate::harness::route::RouteKey;
@@ -13,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s89-clear-payload";
+pub const RATING_PROMPT_VERSION: &str = "s90-ten-articles";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;

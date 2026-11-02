@@ -1,0 +1,10 @@
+{
+  "requests": 17,
+  "source_parts_unchanged": true,
+  "target_unchanged": true,
+  "evidence_unchanged": true,
+  "parser_unchanged": true,
+  "schema_fields_and_bounds_unchanged": true,
+  "influencer_generation_order": "body, score, headline",
+  "insider_production_temperature": 0
+}

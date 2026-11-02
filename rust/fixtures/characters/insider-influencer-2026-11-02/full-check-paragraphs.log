@@ -1,0 +1,2049 @@
+schema.sql: OK
+reference-data.sql: OK
+applied-migrations.txt: OK
+DO
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE SCHEMA
+CREATE EXTENSION
+COMMENT
+CREATE EXTENSION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+SET
+SET
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE FUNCTION
+COMMENT
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE TABLE
+CREATE MATERIALIZED VIEW
+CREATE VIEW
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE VIEW
+CREATE TABLE
+COMMENT
+CREATE MATERIALIZED VIEW
+CREATE VIEW
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE VIEW
+CREATE MATERIALIZED VIEW
+CREATE VIEW
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE VIEW
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE TABLE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+CREATE TABLE
+COMMENT
+ALTER TABLE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+COMMENT
+ALTER TABLE
+CREATE TABLE
+COMMENT
+ALTER TABLE
+CREATE TABLE
+COMMENT
+ALTER TABLE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE VIEW
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE MATERIALIZED VIEW
+COMMENT
+CREATE TABLE
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE VIEW
+CREATE TABLE
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE VIEW
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE VIEW
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE VIEW
+CREATE VIEW
+CREATE VIEW
+CREATE VIEW
+CREATE TABLE
+COMMENT
+CREATE VIEW
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE VIEW
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE VIEW
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE VIEW
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE VIEW
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+CREATE TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+CREATE VIEW
+COMMENT
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+CREATE TABLE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE SEQUENCE
+ALTER SEQUENCE
+CREATE TABLE
+COMMENT
+COMMENT
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 3
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 5
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 40
+ setval 
+--------
+     40
+(1 row)
+
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 100
+INSERT 0 100
+INSERT 0 100
+INSERT 0 100
+INSERT 0 100
+INSERT 0 52
+ setval 
+--------
+   1358
+(1 row)
+
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 5
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 4
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 100
+INSERT 0 67
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 10
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 3
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+INSERT 0 7
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+ setval 
+--------
+      7
+(1 row)
+
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+SET
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE POLICY
+ALTER TABLE
+CREATE POLICY
+ALTER TABLE
+CREATE POLICY
+COPY 327
+DO
+Baseline restored. Apply later changes with sql/migrate.sh.
+DO
+done — 0 migration(s) applied; schema up to date.
+done — 0 migration(s) applied; schema up to date.
+BEGIN
+SET
+CREATE TABLE AS
+CREATE TABLE AS
+INSERT 0 5
+ compute_rating 
+----------------
+              5
+(1 row)
+
+DO
+INSERT 0 4
+psql:sql/tests/253_rating_evidence_contract.sql:55: NOTICE:  table "_team_dp" does not exist, skipping
+ compute_team_rating 
+---------------------
+                   4
+(1 row)
+
+DO
+DO
+ROLLBACK
+BEGIN
+SET
+CREATE TABLE AS
+CREATE TABLE AS
+INSERT 0 5
+ compute_rating 
+----------------
+              3
+(1 row)
+
+ compute_rating 
+----------------
+              2
+(1 row)
+
+DO
+DO
+INSERT 0 3
+psql:sql/tests/264_rating_source_identity.sql:98: NOTICE:  table "_team_dp" does not exist, skipping
+ compute_team_rating 
+---------------------
+                   2
+(1 row)
+
+ compute_team_rating 
+---------------------
+                   1
+(1 row)
+
+DO
+ROLLBACK
+BEGIN
+DO
+SET
+UPDATE 1
+TRUNCATE TABLE
+INSERT 0 2
+INSERT 0 1
+INSERT 0 2
+INSERT 0 2000
+INSERT 0 6000
+INSERT 0 2000
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+ coverage_tick 
+---------------
+ characters
+(1 row)
+
+DO
+ROLLBACK
+BEGIN
+DO
+ROLLBACK
+BEGIN
+DO
+SET
+UPDATE 1
+TRUNCATE TABLE
+INSERT 0 1
+INSERT 0 3
+INSERT 0 3
+UPDATE 3
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+DO
+DO
+UPDATE 1
+DO
+INSERT 0 1
+UPDATE 1
+UPDATE 1
+DO
+UPDATE 1
+DO
+ set_config 
+------------
+ 2026-10-19
+(1 row)
+
+DO
+ set_config 
+------------
+ 
+(1 row)
+
+DO
+ROLLBACK
+BEGIN
+SET
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+SELECT 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 224
+INSERT 0 1
+UPDATE 1
+INSERT 0 4
+DO
+ coverage_select_headlines 
+---------------------------
+                       176
+(1 row)
+
+DO
+DO
+ROLLBACK
+BEGIN
+SET
+TRUNCATE TABLE
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+SELECT 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 56
+INSERT 0 224
+INSERT 0 1
+UPDATE 1
+INSERT 0 4
+UPDATE 4
+UPDATE 1
+UPDATE 1
+DELETE 1
+ coverage_tick 
+---------------
+ coverage
+(1 row)
+
+DO
+ROLLBACK
+Scoped recovery: preview rollback, backups, strongest-10 selection, spam, unchanged other characters, stale/identity/claim fencing and repeat no-op passed
+Backlog recovery: preview rollback, backups, strongest-10 selection, spam, unchanged other characters, stale/identity/claim fencing and repeat no-op passed
+/Users/scotty/scoracle/scoracle-backend/go
+   Compiling scoracle-cognition v0.0.0 (/Users/scotty/scoracle/scoracle-backend/rust)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.82s
+     Running unittests src/lib.rs (rust/target/debug/deps/scoracle_cognition-a65f1645456a79d7)
+
+running 475 tests
+test evaluation::judge::tests::system_prompt_carries_the_voice_axis_only_when_specified ... ok
+test evaluation::judge::tests::voice_fidelity_parses_and_is_range_checked ... ok
+test evaluation::judge::tests::parses_valid_verdict_and_rejects_out_of_range ... ok
+test evaluation::tasks::tests::all_task_names_are_unique_and_resolvable ... ok
+test evaluation::tasks::scout_abstention_tests::a_valid_pass_is_visible_without_being_a_vacuous_quality_pass ... ok
+test evaluation::tasks::tests::entity_key_renders_transfer_pair_when_present ... ok
+test evaluation::tasks::tests::every_resolvable_task_is_listed ... ok
+test evaluation::tasks::tests::crown_eval_unparseable_reply_is_not_parsed ... ok
+test evaluation::tasks::tests::fixture_round_trips_and_defaults_expect ... ok
+test evaluation::tasks::tests::crown_eval_reading_excludes_catches_pundit_register ... ok
+test evaluation::tasks::tests::crown_eval_parses_reading_without_a_model_score ... ok
+test evaluation::tasks::tests::an_unresolved_signing_fixture_preserves_the_reported_transaction ... ok
+test evaluation::tasks::tests::lens_parameters_capture_the_locked_cast ... ok
+test evaluation::tasks::tests::body_includes_matches_across_typographic_apostrophes ... ok
+test evaluation::tasks::tests::momentum_compliant_read_passes_the_invariants ... ok
+test evaluation::tasks::tests::body_excludes_matches_across_typographic_apostrophes ... ok
+test evaluation::tasks::tests::insider_evaluation_rejects_fabricated_evidence_and_requires_parts ... ok
+test evaluation::tasks::tests::momentum_parser_extracts_the_read ... ok
+test evaluation::tasks::tests::momentum_unparseable_reply_is_not_parsed ... ok
+test evaluation::tasks::tests::momentum_product_names_trip_the_invariant ... ok
+test evaluation::tasks::tests::momentum_fixture_skips_inference_when_production_uses_the_unavailable_card ... ok
+test evaluation::tasks::tests::narratives_evaluation_checks_abstention_in_both_directions ... ok
+test evaluation::tasks::tests::rating_lens_gates_on_its_global_invariants_only ... ok
+test evaluation::tasks::tests::narratives_summary_checks_cover_headlines_as_well_as_bodies ... ok
+test evaluation::tasks::tests::rating_product_name_ban_is_case_sensitive_and_body_scoped ... ok
+test evaluation::tasks::tests::a_parts_fixture_has_exactly_one_path_and_it_runs_the_assembler ... ok
+test evaluation::tasks::tests::headline_replay_uses_the_same_ten_ranked_articles_and_no_tone ... ok
+test evaluation::tasks::tests::transfer_denial_finding_is_not_a_live_rumor ... ok
+test evaluation::tasks::tests::transfer_malformed_reply_is_unparseable ... ok
+test evaluation::tasks::tests::transfer_empty_findings_clear_the_move_expectation ... ok
+test evaluation::tasks::tests::vibe_evaluation_uses_scored_production_parser ... ok
+test evaluation::tasks::tests::the_narratives_contract_follows_the_world_it_was_assembled_from ... ok
+test harness::config::tests::backend_concurrency_is_empty_when_unset ... ok
+test evaluation::tasks::tests::transfer_invented_fee_is_caught_by_body_excludes ... ok
+test evaluation::tasks::tests::transfer_options_declare_one_body_and_findings_reply ... ok
+test harness::config::tests::backend_concurrency_key_matches_the_normalized_base_url ... ok
+test harness::config::tests::backend_concurrency_skips_malformed_entries_without_failing_boot ... ok
+test harness::config::tests::backend_concurrency_parses_a_two_host_split ... ok
+test harness::config::tests::backend_concurrency_clamps_zero_to_one ... ok
+test evaluation::tasks::tests::transfer_new_denial_supersedes_older_report_in_evaluation ... ok
+test harness::config::tests::env_u32_rejects_invalid_numeric_value ... ok
+test harness::config::tests::env_u64_rejects_negative_value ... ok
+test harness::config::tests::normalize_base_url_collapses_trailing_slashes_and_padding ... ok
+test harness::fleet::tests::durable_task_identifiers_remain_compatible ... ok
+test harness::fleet::tests::acquisition_web_grants_are_scoped_to_each_plugins_sources ... ok
+test harness::fleet::tests::production_resource_policy_matches_the_deployment_contract ... ok
+test harness::ledger::postgres_tests::generation_diagnostics_retain_the_owning_plugin_identity ... ignored, requires isolated migrated TEST_DATABASE_URL
+test harness::fleet::tests::classifier_replaces_retired_intake_in_the_deployable_fleet ... ok
+test evaluation::tasks::tests::transfer_true_positive_has_one_source_linked_finding ... ok
+test harness::fleet::tests::full_and_partial_production_fleets_register ... ok
+test evaluation::tasks::tests::transfer_fixtures_on_disk_parse_and_current_carry_a_steam_fizzle_axis ... FAILED
+test harness::plugin::tests::registry_accepts_an_empty_fleet_as_the_idle_scaffold ... ok
+test harness::plugin::tests::registry_keeps_registration_order ... ok
+test harness::model::context_tests::exact_token_overflow_is_a_distinct_permanent_admission_result ... ok
+test harness::plugin::tests::registry_rejects_an_empty_open_task_key ... ok
+test harness::plugin::tests::registry_rejects_duplicate_plugin_ids ... ok
+test harness::plugin::tests::registry_rejects_duplicate_task_ownership ... ok
+test harness::plugin::tests::registry_rejects_inconsistent_inference_declarations ... ok
+test harness::providers::llama::tests::local_real_model_preserves_input_and_completes_a_character_request ... ignored, local_real_model: requires TEST_LLAMA_URL and a native SmolLM3 server
+test harness::model::tests::incomplete_answers_never_reach_product_parsers ... ok
+test harness::providers::llama::tests::ordered_schema_preserves_wire_bytes_and_rejects_drift ... ok
+test harness::providers::llama::tests::token_admission_and_completion_guards ... ok
+test harness::plugin::tests::unrelated_task_key_registers_and_executes_without_kernel_changes ... ok
+test harness::providers::openai::tests::base_url_trailing_slash_is_trimmed ... ok
+test harness::models::tests::insider_receives_only_its_single_route ... ok
+test harness::models::tests::production_capability_scope_refuses_another_plugins_route ... ok
+test harness::providers::openai::tests::absent_system_prompt_sends_only_the_user_turn ... ok
+test harness::queue::coverage_tests::daily_output_requires_the_lease_and_cannot_publish_from_two_transactions ... ignored, requires dedicated migrated classifier_test_coverage database; run serially
+test harness::queue::coverage_tests::exhausted_decisions_are_reported_and_release_the_drain_without_retry_reset ... ignored, requires dedicated migrated classifier_test_coverage database; run serially
+test harness::providers::llama::tests::prefix_reuse_preserves_complete_request_and_token_accounting ... ok
+test harness::providers::openai::tests::num_ctx_is_dropped_not_invented ... ok
+test harness::providers::openai::tests::schema_options_are_not_forwarded ... ok
+test harness::queue::coverage_tests::exhausted_handoffs_stay_reportable_without_stalling_collection ... ignored, requires dedicated migrated classifier_test_coverage database; run serially
+test harness::queue::coverage_tests::failed_characters_skip_dependents_finish_other_work_and_reopen_without_publication ... ignored, requires dedicated migrated classifier_test_coverage database; run serially
+test harness::queue::coverage_tests::fresh_package_uses_local_days_without_a_reporting_week_or_memory_study ... ignored, requires dedicated migrated classifier_test_coverage database; run serially
+test harness::queue::coverage_tests::local_midnight_handles_dst_and_missed_windows_without_duplicate_dates ... ignored, requires dedicated migrated classifier_test_coverage database; run serially
+test harness::queue::coverage_tests::only_current_edition_outbox_events_delay_completion ... ignored, requires dedicated migrated classifier_test_coverage database; run serially
+test harness::queue::coverage_tests::people_receive_explicit_empty_reporting_outcomes_without_statistical_jobs ... ignored, requires dedicated migrated classifier_test_coverage database; run serially
+test harness::providers::openai::tests::system_prompt_leads_the_message_list ... ok
+test harness::queue::coverage_tests::scout_retries_use_frozen_measurements_even_after_data_ingestion ... ignored, requires dedicated migrated classifier_test_coverage database; run serially
+test harness::queue::outbox::postgres_recovery_tests::applied_identity_rating_fanout_is_atomic_and_dispatchable ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test harness::queue::outbox::postgres_recovery_tests::postgres_dispatch_failure_backs_off_and_recovers_the_durable_event ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test harness::queue::outbox::postgres_recovery_tests::postgres_dispatch_replays_after_dispatch_before_ack_without_a_model_runtime ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test harness::queue::outbox::postgres_recovery_tests::process_crash_dispatch_rehearsal ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test harness::queue::work::postgres_claim_fencing_tests::character_budget_is_four_across_hosts_and_roles ... ignored, requires isolated migrated TEST_DATABASE_URL
+test harness::queue::work::postgres_claim_fencing_tests::competing_workers_receive_notify_and_claim_disjoint_jobs ... ignored, requires isolated migrated TEST_DATABASE_URL
+test harness::queue::work::claim_order_tests::the_product_stages_all_drain_teams_first ... ok
+test harness::queue::work::postgres_claim_fencing_tests::crashed_claims_consume_retries_and_duplicate_offers_cannot_reset_them ... ignored, requires isolated migrated TEST_DATABASE_URL
+test harness::queue::work::postgres_claim_fencing_tests::downstream_claims_wait_for_entity_dependencies_and_durable_handoffs ... ignored, requires isolated migrated TEST_DATABASE_URL
+test harness::queue::work::postgres_claim_fencing_tests::newer_revision_survives_older_execution_and_becomes_next_claim ... ignored, requires isolated migrated TEST_DATABASE_URL
+test harness::queue::work::postgres_claim_fencing_tests::reclaimed_lease_fences_every_older_acknowledgement ... ignored, requires isolated migrated TEST_DATABASE_URL
+test harness::queue::worker::postgres_recovery_rehearsal::a_single_ready_stage_fills_its_capacity_without_exceeding_it ... ignored, requires isolated migrated TEST_DATABASE_URL; run serially
+test harness::queue::worker::postgres_recovery_rehearsal::coverage_transition_cannot_stop_polling_an_inflight_publication ... ignored, requires isolated migrated TEST_DATABASE_URL; run serially
+test harness::queue::work::tests::retry_backoff_ramps_then_caps ... ok
+test harness::queue::worker::postgres_recovery_rehearsal::handoffs_dispatch_while_a_claimed_handler_cannot_finish ... ignored, requires isolated migrated TEST_DATABASE_URL; run serially
+test harness::queue::work::tests::claim_sensitive_operations_require_a_claimed_item ... ok
+test harness::queue::worker::postgres_recovery_rehearsal::outbox_poll_recovers_obligation_without_listen_or_models ... ignored, requires isolated migrated TEST_DATABASE_URL; run serially
+test harness::queue::worker::postgres_recovery_rehearsal::sustained_inflow_cannot_starve_later_stages_at_global_or_shared_capacity ... ignored, requires isolated migrated TEST_DATABASE_URL; run serially
+test harness::queue::worker::postgres_recovery_rehearsal::unrelated_task_registers_claims_executes_and_completes_without_kernel_edits ... ignored, requires isolated migrated TEST_DATABASE_URL; run serially
+test harness::queue::worker::tests::a_shared_group_lends_idle_slots_and_takes_them_back ... ok
+test harness::queue::worker::tests::an_explicit_ceiling_overrides_the_caps_and_can_throttle ... ok
+test harness::model::context_tests::complete_input_and_output_reservation_share_the_effective_token_window ... ok
+test harness::queue::worker::tests::stage_room_stops_one_stage_owning_the_budget ... ok
+test harness::queue::worker::tests::no_handlers_still_yields_a_usable_ceiling ... ok
+test harness::queue::worker::tests::pulse_tracks_busy_beat_and_activity ... ok
+test harness::queue::worker::tests::stalled_zero_threshold_disables_watchdog ... ok
+test harness::queue::worker::tests::stalled_requires_busy_and_age_past_threshold ... ok
+test harness::queue::worker::tests::the_derived_ceiling_never_binds_before_the_stage_caps_do ... ok
+test harness::queue::worker::tests::unset_drain_concurrency_counts_a_shared_group_once ... ok
+test harness::registration::tests::composition_registers_consumers_after_their_producers ... ok
+test harness::registration::tests::configured_stages_normalize_and_dedupe ... ok
+test harness::registration::tests::configured_stages_reject_unknown_values ... ok
+test harness::registration::tests::explicit_empty_configuration_is_an_idle_fleet ... ok
+test harness::registration::tests::unset_configuration_keeps_classifier_opt_in ... ok
+test harness::route::tests::a_zero_budget_cannot_deadlock_a_host ... ok
+test harness::route::tests::candidate_for_is_none_without_a_challenger ... ok
+test harness::route::tests::character_roles_have_stable_config_and_telemetry_identities ... ok
+test harness::route::tests::candidate_for_resolves_a_configured_challenger ... ok
+test harness::route::tests::one_governor_per_host_shared_within_a_host ... ok
+test harness::route::tests::per_host_budget_overrides_the_global_default ... ok
+test evaluation::tasks::tests::prepared_requests_carry_acceptance_context_and_no_call_dispositions ... ok
+test harness::route::tests::shares_one_backend_per_distinct_model ... ok
+test harness::route::tests::single_host_deploys_build_exactly_one_governor ... ok
+test harness::route::tests::small_window_is_a_property_of_the_window ... ok
+test harness::route::tests::voice_window_override_beats_the_default_and_junk_falls_back ... ok
+test harness::registration::tests::reactions_register_complete_chains_independently_of_task_handlers ... ok
+test harness::queue::worker::tests::bound_handlers_preserve_exact_claim_and_all_durable_receipts_without_services ... ok
+test harness::queue::worker::tests::bound_handler_timeout_remains_a_retryable_error ... ok
+test harness::session::surface_tests::a_rejected_complete_reply_retains_its_attempt_and_original_error_type ... ok
+test evaluation::tasks::tests::a_parts_fixture_reassembles_to_its_stored_prompt ... ok
+test harness::session::surface_tests::a_rewrite_can_end_in_an_explicit_pass ... ok
+test evaluation::tasks::tests::current_quality_cases_use_current_contracts_and_explicit_review ... ok
+test harness::session::surface_tests::archive_failure_stops_before_another_generation ... ok
+test harness::session::surface_tests::structured_policy_retries_truncation_without_card_instructions ... ok
+test harness::tools::tests::granted_class_passes_the_grant_check ... ok
+test harness::session::surface_tests::character_rewrites_remain_one_json_document_with_unchanged_evidence ... ok
+test harness::tools::tests::headline_character_cannot_fetch_sources ... ok
+test harness::route::tests::two_hosts_run_concurrently_rather_than_taking_turns ... ok
+test harness::route::tests::governor_allows_exactly_the_budget ... ok
+test harness::tools::tests::non_wikimedia_urls_are_not_sniffed_into_a_class ... ok
+test harness::session::surface_tests::every_correction_is_archived_with_claim_and_useful_error_feedback ... ok
+test harness::tools::tests::refusals_display_the_fix_not_the_failure ... ok
+test harness::tools::tests::the_run_budget_stops_further_calls ... ok
+test harness::session::surface_tests::a_second_surface_failure_gets_one_final_bounded_rewrite ... ok
+test harness::tools::tests::undeclared_domain_is_refused_before_any_reach ... ok
+test harness::route::tests::governor_serializes_with_one_permit ... ok
+test harness::tools::tests::wikimedia_urls_route_to_the_wikimedia_class ... ok
+test harness::tools::tests::wikimedia_grant_cannot_be_spent_on_other_hosts ... ok
+test harness::tools::tests::zero_budget_means_unbounded ... ok
+test plugins::analyst::fresh::tests::comparison_requires_measurement_sample_and_dates ... ok
+test harness::session::surface_tests::repeated_rejection_stops_after_the_existing_three_attempt_limit ... ok
+test plugins::analyst::publish::tests::claim_paragraphs_survive_the_production_parser ... ok
+test plugins::analyst::publish::tests::conviction_is_computed_not_asked_of_the_model ... ok
+test plugins::analyst::publish::tests::direction_is_decided_by_band_not_model ... ok
+test plugins::analyst::publish::tests::conviction_sign_always_agrees_with_the_decided_direction ... ok
+test plugins::analyst::publish::tests::foreign_script_leak_fails_closed_the_3b_delegation_glitch ... ok
+test plugins::analyst::publish::tests::momentum_allows_digits_in_prose_but_never_a_bookkeeping_citation ... ok
+test plugins::analyst::publish::tests::only_readings_or_measured_rails_are_material ... ok
+test harness::session::surface_tests::rewrite_is_bounded_and_preserves_evidence_and_capacity ... ok
+test plugins::analyst::publish::tests::postgres_publication_fencing_tests::current_claim_commits_product_provenance_event_and_completion ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::analyst::publish::tests::postgres_publication_fencing_tests::no_material_claim_completes_with_followup_and_without_product ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::analyst::publish::tests::parses_momentum_reply ... ok
+test plugins::analyst::publish::tests::postgres_publication_fencing_tests::process_crash_publication_rehearsal ... ignored, requires isolated migrated TEST_DATABASE_URL; run serially
+test plugins::analyst::publish::tests::postgres_publication_fencing_tests::reclaimed_same_revision_fences_the_old_worker ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::analyst::publish::tests::postgres_publication_fencing_tests::revision_arriving_during_execution_fences_publication ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::analyst::publish::tests::prose_form_rejects_extra_headline ... ok
+test plugins::analyst::publish::tests::rejects_non_current_momentum_shapes ... ok
+test plugins::analyst::request::tests::complete_readings_and_study_without_scores_or_hashes ... ok
+test plugins::analyst::tests::complete_assignment_creates_validated_product_with_actual_provenance ... ok
+test plugins::analyst::tests::blank_prose_produces_no_product ... ok
+test plugins::analyst::tests::empty_material_finishes_without_model_call ... ok
+test plugins::analyst::tests::parser_abstention_remains_explicit_at_the_shared_session_boundary ... ok
+test plugins::analyst::tests::sql_metrics_match_legacy_thresholds_and_creation ... ignored, requires TEST_DATABASE_URL; pure read-only SQL, no schema needed
+test plugins::classifier::decision::tests::availability_routing_preserves_named_denial_and_irrelevant_calibration ... ok
+test plugins::analyst::tests::model_failure_propagates_without_retry ... ok
+test plugins::analyst::tests::missing_peer_is_explicit_without_a_model_call ... ok
+test plugins::classifier::decision::tests::admission_requires_only_relevance_and_keeps_publisher_as_evidence ... ok
+test plugins::classifier::decision::tests::character_lenses_select_relevant_narrative_material ... ok
+test plugins::classifier::decision::tests::decisions_require_every_headline_score ... ok
+test plugins::classifier::decision::tests::model_identity_accepts_replaceable_fingerprinted_models ... ok
+test harness::rejections::tests::concurrent_records_are_complete_private_and_append_only ... ok
+test plugins::classifier::decision::tests::routing_holds_spam_and_opens_scout_at_eighty_five_without_changing_scores ... ok
+test plugins::classifier::decision::tests::team_gender_is_bound_into_every_decision_question_without_defaulting ... ok
+test plugins::classifier::headline::gender_tests::canonical_team_gender_reaches_the_decision_target ... ignored, requires migrated disposable classifier_test_coverage database; run serially
+test plugins::classifier::memories::tests::rust_sort_matches_existing_duckdb_for_ties_and_window_edges ... ignored, requires SCORACLE_MEMORY_STUDY_BIN
+test plugins::classifier::memories::tests::stored_headline_archive_respects_character_day_and_freeze ... ignored, requires a disposable classifier_test database via TEST_DATABASE_URL
+test plugins::analyst::tests::malformed_or_guard_rejected_prose_cannot_become_a_product ... ok
+test plugins::classifier::tests::already_queued_spam_settles_without_inference_or_edition_blockers ... ignored, requires disposable migrated TEST_DATABASE_URL; run serially
+test plugins::classifier::tests::embedded_unknown_names_remain_unresolved_and_batch_checks_are_identical ... ignored, requires disposable migrated TEST_DATABASE_URL
+test plugins::classifier::tests::exact_reviewed_requests_reuse_decisions_across_reposted_article_ids ... ignored, requires disposable migrated TEST_DATABASE_URL; run serially
+test plugins::classifier::memories::tests::writing_memory_preserves_dated_evidence_without_ranking_metadata ... ok
+test plugins::classifier::tests::exact_token_overflow_holds_each_fresh_only_packet_without_retry ... ignored, requires disposable migrated TEST_DATABASE_URL and SCORACLE_MEMORY_STUDY_BIN
+test plugins::classifier::tests::headlines_archive_and_dispatch_without_publisher_io ... ignored, requires a disposable classifier_test database via TEST_DATABASE_URL
+test plugins::classifier::tests::team_rss_extracts_known_roles_and_recovers_reverted_headlines ... ignored, requires a disposable classifier_test database via TEST_DATABASE_URL
+test plugins::fixture_boxscore::adapter::publication_tests::terminal_acquisition_and_ledger_commit_only_with_exact_claim ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test plugins::fixture_boxscore::adapter::tests::a_held_domain_is_blocked_rather_than_retried ... ok
+test plugins::fixture_boxscore::adapter::tests::content_hash_changes_with_payload ... ok
+test plugins::fixture_boxscore::adapter::tests::an_unfillable_or_unknown_placeholder_refuses_to_render ... ok
+test plugins::classifier::tests::headline_replay_requires_explicit_opt_in ... ok
+test plugins::fixture_boxscore::adapter::tests::fetch_policy_defaults_are_polite_and_the_floor_is_unbuyable ... ok
+test plugins::fixture_boxscore::adapter::tests::input_version_mirrors_the_sql_fingerprint ... ok
+test plugins::fixture_boxscore::adapter::tests::slugs_fold_the_accents_the_european_leagues_actually_carry ... ok
+test plugins::fixture_boxscore::adapter::tests::terminal_status_helpers_are_closed ... ok
+test plugins::fixture_boxscore::adapter::tests::the_empty_plan_is_what_no_eligible_source_looks_like ... ok
+test plugins::fixture_boxscore::adapter::tests::templates_render_from_the_fixtures_own_facts ... ok
+test plugins::fixture_boxscore::adapter::tests::unsupported_parser_keeps_receipt_without_measurements ... ok
+test plugins::influencer::fresh::tests::duplicate_headlines_do_not_consume_the_daily_budget ... ok
+test plugins::influencer::fresh::tests::already_queued_spam_is_dispositioned ... ok
+test plugins::influencer::tests::publication_retry_reuses_generation_and_fences_stale_claims ... ignored, requires disposable migrated classifier_test_coverage database; run serially
+test plugins::influencer::request::tests::production_preserves_compact_system_and_body_score_hook_order ... ok
+test plugins::influencer::tests::an_incomplete_day_never_calls_the_model ... ok
+test plugins::classifier::memories::tests::stored_memories_keep_provenance_while_writing_only_receives_dated_evidence ... ok
+test plugins::influencer::parser::tests::reading_preserves_multiple_paragraphs_with_one_score_and_hook ... ok
+test plugins::insider::fresh::tests::duplicate_headlines_preserve_one_report_and_both_obligations ... ok
+test plugins::insider::parser::source_fact_tests::a_snub_is_not_a_denial_and_partial_names_are_not_counterparties ... ok
+test plugins::insider::parser::source_fact_tests::derozan_report_cannot_be_published_as_a_gordon_move ... ok
+test plugins::influencer::tests::output_prose_cannot_exceed_the_native_budget_contract ... ok
+test plugins::insider::publish::tests::counterparties_require_one_matching_identity_in_the_delivered_report ... ok
+test plugins::insider::parser::source_fact_tests::full_subject_prefix_accepts_possessives_accents_and_initials ... ok
+test plugins::insider::publish::tests::sql_activity_matches_legacy_runs_stages_publishers_and_caps ... ignored, requires TEST_DATABASE_URL; pure read-only SQL, no schema needed
+test plugins::insider::publish::tests::newest_denial_retires_older_reports_without_reusing_stale_corroboration ... ok
+test plugins::insider::tests::known_owner_headline_publishes_a_person_card_and_fenced_source_outcome ... ignored, requires a disposable classifier_test database via TEST_DATABASE_URL
+test plugins::insider::request::tests::native_findings_are_bounded_to_the_supplied_counterparties_and_reports ... ok
+test plugins::insider::request::tests::one_source_world_contains_only_the_approved_parts ... ok
+test plugins::insider::request::tests::quote_eligibility_cannot_borrow_names_between_reports_or_source_fields ... ok
+test plugins::insider::tests::rejects_a_finding_without_an_exact_publisher_quote ... ok
+test plugins::insider::tests::explicit_denial_requires_null_stage_and_exact_source_text ... ok
+test plugins::investigator::adapter::discover::tests::parses_the_claims_this_rail_consumes ... ok
+test plugins::investigator::adapter::discover::tests::ended_coaching_tenures_are_dropped_from_coach_of ... ok
+test plugins::investigator::adapter::discover::tests::urlencode_covers_names_and_qids ... ok
+test plugins::investigator::adapter::publish::sport_boundary_tests::metadata_updates_only_the_requested_sport_for_a_shared_id ... ignored, requires isolated TEST_DATABASE_URL
+test plugins::investigator::adapter::factsweep::tests::refuses_without_database_or_inference ... ok
+test plugins::investigator::adapter::tests::candidate_publication_is_atomic_and_stale_claim_has_no_effects ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test plugins::investigator::adapter::tests::failed_source_write_rolls_back_person_mapping_audit_and_completion ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test plugins::investigator::adapter::discover::tests::unknown_units_are_dropped_never_guessed ... ok
+test plugins::investigator::adapter::tests::player_reclaim_fences_facts_ids_and_cooldown ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test plugins::investigator::adapter::tests::refusal_records_audit_and_completes_without_creating_identity ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test plugins::investigator::adapter::tests::same_named_person_with_conflicting_team_is_not_merged ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test plugins::investigator::adapter::tests::team_facts_keep_distinct_sources_and_stale_attempt_does_not_stamp ... ignored, requires isolated TEST_DATABASE_URL; run serially
+test plugins::classifier::memories::tests::rust_ranking_preserves_duckdb_order_and_complete_headlines ... ok
+test plugins::investigator::cognition::gate::tests::accept_requires_exactly_one_discriminated_survivor ... ok
+test plugins::investigator::cognition::gate::tests::commons_image_url_renders_p18_files ... ok
+test plugins::investigator::cognition::gate::tests::derived_display_fields_are_deterministic ... ok
+test plugins::investigator::cognition::gate::tests::containment_survives_markup_residue_but_never_a_paraphrase ... ok
+test plugins::investigator::cognition::gate::tests::descriptor_and_page_are_two_observations_and_a_conflict_refuses ... ok
+test plugins::investigator::cognition::gate::tests::not_sport_and_no_name_reject_with_their_reasons ... ok
+test plugins::investigator::cognition::gate::tests::ownership_outranks_occupation_history_on_the_wikidata_arm ... ok
+test plugins::investigator::cognition::gate::tests::paren_titles_reduce_to_display_names ... ok
+test plugins::investigator::cognition::gate::tests::prose_role_class_is_sport_gated_like_the_description_screen ... ok
+test plugins::investigator::cognition::gate::tests::discovery_prescreen_is_token_presence_not_contiguity ... ok
+test plugins::investigator::cognition::gate::tests::role_classification_is_occupation_first_description_second ... ok
+test plugins::investigator::cognition::gate::tests::team_anchor_unlocks_the_owner_class_but_never_invents_a_role ... ok
+test plugins::investigator::cognition::gate::tests::the_pep_guardiola_rule_name_alone_never_accepts ... ok
+test plugins::investigator::cognition::prompt::tests::json_object_slice_skips_surrounding_prose ... ok
+test plugins::investigator::cognition::prompt::tests::json_object_slice_survives_braces_inside_strings ... ok
+test plugins::investigator::cognition::prompt::tests::parser_normalizes_and_drops_empty_teams ... ok
+test plugins::investigator::cognition::prompt::tests::prompt_carries_the_descriptor_only_when_present ... ok
+test plugins::investigator::cognition::prompt::tests::schema_is_valid_json_and_order_true_in_the_raw_literal ... ok
+test plugins::investigator::cognition::tests::studio_distinguishes_abstention_from_transport_failure ... ok
+test plugins::investigator::cognition::tests::adversarial_fixture_gate_is_one_hundred_percent ... ok
+test plugins::insider::tests::oversized_prose_and_findings_are_rejected_even_without_native_schema_enforcement ... ok
+test plugins::investigator::cognition::tests::studio_validates_only_the_page_text_actually_shown ... ok
+test plugins::influencer::tests::day_card_contract ... ok
+test plugins::journalist::activity::tests::sql_activity_matches_legacy_formula_and_served_product ... ignored, requires TEST_DATABASE_URL; pure read-only query, no schema needed
+test plugins::journalist::publish::tests::postgres_publication_fencing_tests::current_claim_commits_every_row_event_and_completion ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::journalist::publish::tests::postgres_publication_fencing_tests::debounce_commits_only_the_durable_oracle_obligation ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::journalist::publish::tests::postgres_publication_fencing_tests::reclaimed_same_revision_fences_the_old_worker ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::journalist::publish::tests::postgres_publication_fencing_tests::revision_arriving_during_execution_fences_every_product_row ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::journalist::tests::an_rss_target_without_canonical_source_identity_is_held_before_generation ... ok
+test plugins::journalist::tests::articulation_cannot_supply_scores_ids_or_change_report_count ... ok
+test plugins::journalist::tests::classifier_identity_decisions_are_not_publisher_evidence ... ok
+test plugins::journalist::tests::database_context_is_preserved_in_production_and_replay_without_becoming_reporting ... ok
+test plugins::insider::tests::one_call_returns_reading_and_exact_source_finding ... ok
+test plugins::journalist::tests::duplicate_headlines_ignore_urls_and_routing_metadata_but_keep_publishers ... ok
+test plugins::journalist::tests::exact_duplicates_do_not_inflate_activity_and_source_ids_are_plugin_owned ... ok
+test plugins::journalist::tests::complete_conflicting_reports_are_prepared_separately_without_truncation ... ok
+test plugins::journalist::tests::budget_counts_the_actual_frame_including_metadata_and_json_escaping ... ok
+test plugins::journalist::tests::explicit_instruction_overrides_are_dispositioned_before_articulation ... ok
+test plugins::journalist::tests::fresh_frame_separates_reported_evidence_from_headlines_and_identity ... ok
+test plugins::analyst::tests::empty_context_and_sql_failure_never_call_the_model ... ok
+test plugins::journalist::tests::livestream_spam_is_dispositioned_before_articulation ... ok
+test plugins::journalist::tests::named_facts_cannot_move_between_cited_headlines ... ok
+test plugins::journalist::tests::natural_paraphrase_preserves_native_output_contract_and_plugin_metadata ... ok
+test plugins::journalist::tests::narratives_group_headlines_and_keep_their_exact_source_provenance ... ok
+test plugins::journalist::tests::prior_sourced_text_prevents_republication_without_becoming_new_evidence ... ok
+test plugins::journalist::tests::chelsea_top_ten_packet_preserves_sources_without_routing_metadata ... ok
+test plugins::journalist::tests::identity_content_attribution_and_date_are_fingerprinted ... ok
+test plugins::journalist::tests::recap_binds_each_paragraph_to_its_sources_and_the_hook_to_cited_sources ... ok
+test plugins::journalist::tests::source_and_database_text_cannot_replace_the_instruction_channel ... ok
+test plugins::influencer::fresh::tests::large_daily_packages_keep_the_denial_for_exact_token_admission ... ok
+test plugins::oracle::parser::tests::replay_enforces_the_same_subject_guard_as_publication ... ok
+test plugins::oracle::publish::tests::postgres_oracle_tests::current_claim_commits_crown_and_exact_completion ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::journalist::tests::source_delimiters_and_instructions_remain_inside_the_exact_excerpt_value ... ok
+test plugins::oracle::publish::tests::postgres_oracle_tests::missing_cards_commit_one_marker_without_a_model_voice ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::oracle::publish::tests::postgres_oracle_tests::readiness_preserves_pending_retryable_and_terminal_missing_policy ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::oracle::publish::tests::postgres_oracle_tests::revision_supersession_publishes_nothing_from_stale_oracle ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::oracle::publish::tests::postgres_oracle_tests::same_revision_reclaim_gives_only_new_lease_publication_rights ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::oracle::publish::tests::postgres_oracle_tests::unchanged_crown_completes_without_another_product_or_followup ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::oracle::publish::tests::readiness_waits_on_five_pillars_and_never_on_sigil_itself ... ok
+test plugins::oracle::tests::convergence_and_omen_follow_directional_cards ... ok
+test plugins::oracle::request::tests::oracle_receives_five_cards_and_no_memory ... ok
+test plugins::journalist::tests::stored_history_is_ignored_and_replay_matches_production ... ok
+test plugins::journalist::tests::validation_uses_only_the_evidence_served_to_the_writer ... ok
+test plugins::oracle::tests::five_cards_are_complete_and_each_changes_the_hash ... ok
+test plugins::oracle::tests::empty_cards_skip_the_model_but_model_failure_does_not ... ok
+test plugins::oracle::tests::score_is_computed_without_a_model_score ... ok
+test plugins::oracle::tests::sql_metrics_match_legacy_scores_convergence_omens_and_requests ... ignored, requires TEST_DATABASE_URL; pure read-only SQL, no schema needed
+test plugins::scout::availability::availability_routes_freezes_and_settles_without_inventing_a_profile ... ignored, requires disposable classifier_test_coverage database; run serially
+test plugins::scout::availability::tests::only_current_resolved_availability_enters_a_bounded_profile ... ok
+test plugins::oracle::tests::finished_cards_get_one_model_call_and_no_memory ... ok
+test plugins::scout::availability::tests::writing_uses_the_ten_highest_availability_scores ... ok
+test plugins::scout::parser::package_tests::task_numbers_cannot_substitute_for_measured_evidence ... ok
+test plugins::scout::publish::tests::an_abstained_card_publishes_a_marker_instead_of_being_debounced ... ok
+test plugins::scout::publish::tests::postgres_publication_fencing_tests::current_claim_commits_product_provenance_event_and_completion ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::scout::publish::tests::postgres_publication_fencing_tests::debounced_claim_commits_oracle_only_followup_without_product ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::scout::publish::tests::postgres_publication_fencing_tests::no_stats_marker_commits_provenance_and_product_followup ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::scout::publish::tests::postgres_publication_fencing_tests::reclaimed_same_revision_fences_the_old_worker ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::scout::publish::tests::postgres_publication_fencing_tests::revision_arriving_during_execution_fences_publication ... ignored, requires isolated migrated TEST_DATABASE_URL
+test plugins::scout::reports::tests::agreeing_claims_are_not_marked ... ok
+test plugins::scout::reports::tests::contested_pair_preserves_order_attribution_and_both_claims ... ok
+test plugins::scout::availability::tests::nine_complete_headlines_are_budgeted_as_model_input_instead_of_receipts ... ok
+test plugins::scout::reports::tests::hedging_is_not_contradiction ... ok
+test plugins::scout::parser::package_tests::a_current_season_sentence_does_not_reject_a_supported_sample_limit ... ok
+test plugins::scout::tests::a_called_pass_is_a_product_rather_than_an_error ... ok
+test plugins::scout::tests::a_declined_body_is_a_pass_and_a_dropped_slot_is_not ... ok
+test plugins::scout::tests::a_packet_tagged_rating_row_bypasses_the_debounce_and_records_its_trigger ... ok
+test plugins::scout::tests::a_players_world_is_byte_stable ... ok
+test plugins::scout::request::tests::rendered_directions_match_acceptance_without_borrowing_missing_comparisons ... ok
+test plugins::scout::tests::a_teams_world_omits_a_composite_it_does_not_have ... ok
+test plugins::scout::tests::a_transfer_triggered_rating_token_is_distinguishable_and_still_parses_season ... ok
+test plugins::scout::tests::a_thin_sample_states_its_boundary_instead_of_describing_it ... ok
+test plugins::scout::tests::absent_measurements_and_withheld_unidentified_measurements_have_distinct_context ... ok
+test plugins::scout::tests::averaging_a_measure_does_not_call_its_percentile_average ... ok
+test plugins::scout::tests::availability_is_attributed_without_changing_measurements ... ok
+test plugins::scout::tests::clean_commentary_strips_fences ... ok
+test plugins::scout::tests::claim_paragraphs_survive_the_production_parser ... ok
+test plugins::scout::tests::comparative_model_profile_keeps_changes_and_strongest_held_anchors ... ok
+test plugins::scout::tests::comparison_block_orders_compatible_movements_by_magnitude ... ok
+test plugins::scout::tests::compute_notability_known_case ... ok
+test plugins::scout::tests::datapoints_span_the_range_rather_than_taking_the_top ... ok
+test plugins::scout::tests::degenerate_zero_datapoints_drop_but_real_absences_stay ... ok
+test plugins::scout::tests::comparison_block_foregrounds_held_anchors_beyond_the_change_limit ... ok
+test plugins::scout::tests::display_tier_filter_drops_retired_metrics_from_breakdown_and_modes ... ok
+test plugins::scout::tests::every_availability_event_on_one_day_collapses_to_a_single_work_row ... ok
+test plugins::scout::request::tests::completed_world_and_provenance_determine_the_fingerprint ... ok
+test plugins::scout::tests::held_assists_cannot_fall_when_the_reply_uses_the_singular_label ... ok
+test plugins::scout::tests::incompatible_history_does_not_erase_current_measurements ... ok
+test plugins::scout::tests::input_components_omits_absent_optional_keys ... ok
+test plugins::scout::tests::input_components_is_canonical_json ... ok
+test plugins::scout::tests::no_stats_and_unchanged_are_explicit_uncalled_results ... ok
+test plugins::scout::tests::model_failure_cannot_become_a_scout_product ... ok
+test plugins::scout::tests::off_facet_filter_drops_offense_for_cornerback_spelled_out ... ok
+test plugins::scout::tests::off_facet_filter_drops_other_side_for_qb ... ok
+test plugins::scout::tests::observed_zero_and_missing_measurement_stay_distinct_without_extra_trend ... ok
+test plugins::scout::tests::off_facet_filter_fails_open_for_special_teams_and_unknown ... ok
+test plugins::scout::tests::off_facet_filter_noops_without_nfl_facets ... ok
+test plugins::scout::tests::ordered_facts_sorts_desc_and_truncates ... ok
+test plugins::scout::tests::pct_band_boundaries ... ok
+test plugins::scout::tests::polarity_and_z_changes_invalidate_the_material_hash ... ok
+test plugins::scout::tests::prepared_assignment_creates_without_application_services ... ok
+test plugins::scout::tests::rate_modes_do_not_clutter_the_selected_measurements ... ok
+test plugins::scout::tests::rating_datapoint_tolerates_null_values ... ok
+test plugins::scout::tests::quality_z_does_not_duplicate_percentile_in_context ... ok
+test plugins::scout::tests::rating_parser_rejects_empty_cards ... ok
+test plugins::scout::tests::rating_work_token_carries_contract_and_still_parses_season ... ok
+test plugins::journalist::tests::dates_and_missing_material_are_held_without_discarding_large_complete_reports ... ok
+test plugins::scout::tests::request_parser_does_not_turn_percentile_movement_into_development ... ok
+test plugins::scout::tests::request_parser_keeps_quality_words_in_the_supplied_percentile_band ... ok
+test plugins::scout::tests::explicit_denials_of_stability_are_limits_not_positive_stability_claims ... ok
+test plugins::journalist::tests::retained_chelsea_identity_merge_is_rejected_by_production_parser ... ok
+test plugins::scout::tests::request_parser_keeps_xg_and_xa_attached_to_their_measures ... ok
+test plugins::scout::tests::request_parser_rewrites_an_unsourced_height ... ok
+test plugins::scout::tests::request_parser_keeps_separate_comparison_clauses_separate ... ok
+test plugins::scout::tests::request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form ... ok
+test plugins::scout::tests::request_parser_rewrites_numeric_values_absent_from_the_assignment ... ok
+test plugins::scout::tests::request_parser_rewrites_reversed_comparison_direction ... ok
+test plugins::scout::tests::sample_preserves_units_without_an_update_date ... ok
+test plugins::scout::tests::retired_metric_never_reaches_prompt_or_preimage ... ok
+test plugins::scout::tests::recorded_decimal_counts_and_declared_minimum_are_not_participation_claims ... ok
+test plugins::scout::tests::season_changes_require_the_same_underlying_measurement ... ok
+test plugins::scout::tests::sample_value_and_rank_missingness_participate_in_input_identity ... ok
+test plugins::scout::tests::season_changes_stay_with_their_own_skill ... ok
+test plugins::scout::tests::the_two_non_statistical_triggers_are_distinguishable_from_each_other_and_from_stats ... ok
+test plugins::scout::tests::serialized_request_is_one_self_contained_json_document ... ok
+test plugins::scout::tests::thin_current_sample_shows_only_its_two_highest_ranked_measures ... ok
+test plugins::scout::tests::thin_sample_selection_omits_discipline_in_code ... ok
+test plugins::scout::tests::the_header_carries_the_curated_sport_display_name ... ok
+test plugins::scout::tests::unselected_measures_do_not_clutter_context ... ok
+test plugins::scout::tests::unranked_one_appearance_is_not_an_elite_or_declining_profile ... ok
+test tools::fetch::compact_reading_tests::a_marker_in_the_body_never_truncates_the_story ... ok
+test plugins::scout::tests::sample_policy_never_becomes_an_observation_or_comparison ... ok
+test tools::fetch::compact_reading_tests::a_repeated_promo_block_is_kept_once ... ok
+test tools::fetch::compact_reading_tests::a_trim_that_would_gut_the_body_is_abandoned ... ok
+test tools::fetch::compact_reading_tests::tail_markers_carry_no_non_ascii_letters ... ok
+test tools::fetch::compact_reading_tests::a_related_feed_is_cut_off_the_tail ... ok
+test plugins::scout::tests::thin_sample_stability_is_claim_shaped_not_word_shaped ... ok
+test tools::fetch::compact_reading_tests::a_multibyte_midpoint_never_panics_and_the_tail_still_trims ... ok
+test tools::fetch::http::tests::dns_rejects_localhost_before_connecting ... ok
+test plugins::insider::fresh::tests::large_reports_reach_exact_token_admission_without_losing_identity_holds ... ok
+test tools::fetch::http::tests::rejects_local_and_special_addresses_including_obfuscated_literals ... ok
+test tools::fetch::tests::cached_publisher_excerpt_must_match_the_complete_document ... ignored, requires a disposable classifier_test database via TEST_DATABASE_URL
+test tools::fetch::tests::circuit_opens_after_repeated_failures_and_success_resets ... ok
+test tools::fetch::tests::clean_html_strips_uppercase_tags ... ok
+test tools::fetch::tests::domain_state_enforces_spacing ... ok
+test tools::fetch::tests::clean_html_survives_text_whose_lowercase_is_longer ... ok
+test tools::fetch::http::tests::rejects_a_redirect_to_a_private_destination ... ok
+test tools::fetch::tests::article_extraction_preserves_three_publisher_paragraphs ... ok
+test tools::fetch::tests::fetch_policy_floors_spacing_at_two_seconds ... ok
+test tools::fetch::tests::google_news_article_id_extracts_rss_token ... ok
+test tools::fetch::tests::google_news_resolver_preserves_the_publisher_url ... ok
+test tools::fetch::tests::google_news_resolver_response_extracts_publisher_url ... ok
+test tools::fetch::tests::extract_article_text_drops_site_furniture_and_keeps_the_prose ... ok
+test tools::fetch::tests::html_title_and_excerpt_are_bounded_and_boundary_safe ... ok
+test tools::fetch::tests::html_attr_extracts_google_news_tokens ... ok
+test tools::fetch::tests::live_google_news_fetch_retains_publisher_prose ... ignored, local_real_model: requires disposable TEST_DATABASE_URL and TEST_PUBLISHER_URL
+test tools::fetch::tests::publisher_cleanup_decodes_language_without_inventing_it ... ok
+test tools::fetch::tests::retry_after_arms_a_hold_and_is_capped ... ok
+test tools::fetch::tests::retry_after_header_parses_seconds_and_defaults_dates ... ok
+test tools::fetch::tests::extract_article_text_falls_back_to_the_whole_page_when_it_cannot_parse ... ok
+test tools::fetch::tests::extract_article_text_ignores_an_article_element_below_the_word_floor ... ok
+test tools::fetch::tests::layout_divs_do_not_consume_publisher_paragraph_slots ... ok
+test tools::fetch::tests::unavailable_blog_status_is_not_article_evidence ... ok
+test tools::fetch::http::tests::bounds_declared_chunked_and_unknown_length_bodies ... ok
+test tools::form::prose_tests::a_response_may_not_carry_a_field_the_plugin_did_not_declare ... ok
+test tools::form::prose_tests::output_keys_belong_to_the_plugins ... ok
+test tools::form::tests::a_declined_slot_and_a_missing_slot_stay_distinct ... ok
+test tools::form::tests::body_validation_preserves_prose_and_refuses_blank_content ... ok
+test tools::form::tests::emphasis_cleanup_preserves_the_reading ... ok
+test tools::form::tests::journalist_rejects_product_names_and_internal_score_citations ... ok
+test tools::form::tests::every_character_parser_preserves_paragraphs_and_refuses_what_it_did_not_declare ... ok
+test tools::form::tests::observations_preserve_long_paragraphs_and_header_limit ... ok
+test tools::form::tests::narratives_require_fresh_unique_source_ids_and_bounded_prose ... ok
+test tools::form::tests::recap_has_one_hook_after_supported_paragraphs_and_coherent_abstention ... ok
+test tools::fresh::scoped_fact_tests::peer_guard_excludes_instructions_and_unrelated_names ... ok
+test tools::fetch::tests::strict_extraction_preserves_prose_and_late_corrections_without_page_fallback ... ok
+test plugins::journalist::tests::headline_length_cannot_displace_the_supported_opening ... ok
+test tools::fresh::tests::writing_metadata_keeps_qualifications_without_routing_payload ... ok
+test tools::fresh::scoped_fact_tests::contrast_clauses_keep_each_subjects_numbers_and_denials_separate ... ok
+test tools::fresh::scoped_fact_tests::separate_subjects_keep_separate_numbers_and_decimal_values ... ok
+test tools::guards::served_prose_tests::a_shipped_title_always_satisfies_the_contract ... ok
+test tools::guards::served_prose_tests::emphasis_is_stripped_across_lines_and_prose_survives ... ok
+test tools::guards::served_prose_tests::normalization_preserves_every_sentence_and_paragraph ... ok
+test tools::guards::served_prose_tests::placeholder_title_settles_to_none ... ok
+test tools::guards::served_prose_tests::a_title_never_costs_the_card ... ok
+test tools::guards::served_prose_tests::template_spans_are_stripped_and_clean_prose_is_untouched ... ok
+test tools::guards::tests::banned_phrases_fold_case_and_quotes ... ok
+test tools::fresh::scoped_fact_tests::publication_dates_bind_to_their_publisher_and_subject_without_becoming_statistics ... ok
+test tools::guards::tests::bookkeeping_citations_are_precise_about_the_defect ... ok
+test tools::guards::served_prose_tests::title_naming_floor ... ok
+test tools::fetch::tests::strict_extraction_reads_json_ld_articles_and_ignores_other_structured_text ... ok
+test tools::guards::tests::fold_for_match_folds_diacritics_both_directions ... ok
+test tools::guards::tests::fold_for_match_leaves_dashes_and_ordinary_text_alone ... ok
+test tools::guards::tests::hook_rules ... ok
+test tools::guards::tests::product_names_are_case_sensitive ... ok
+test tools::memories::tests::installed_helper_handles_nonempty_startup_history ... ignored, requires SCORACLE_MEMORY_STUDY_BIN
+test tools::guards::tests::the_hook_ceiling_is_140_characters_not_twelve_words ... ok
+test tools::meta::tests::writing_identity_describes_the_sport_not_the_competition_namespace ... ok
+test tools::meta::tests::missing_attributes_are_omitted_without_guessing ... ok
+test tools::prompt::tests::assembly_accepts_prepared_context_shapes_and_orders_task_guide_target_evidence ... ok
+test tools::prompt::tests::explicit_fields_preserve_presence_and_prose_without_parsing_punctuation ... ok
+test tools::fresh::scoped_fact_tests::publisher_attribution_covers_later_sentences_without_swapping_subject_numbers ... ok
+test tools::source::tests::instruction_guard_folds_case_punctuation_and_line_wrapping ... ok
+test tools::source::tests::top_ten_use_the_requested_score_with_stable_ties_and_zero_before_unknown ... ok
+test util::tests::a_hyphenated_read_line_is_not_eaten_as_a_bullet ... ok
+test util::tests::hash_components_is_deterministic_and_128_bit ... ok
+test util::tests::leaves_undecorated_lines_byte_identical ... ok
+test util::tests::preserves_apostrophes_underscores_in_words_and_non_ascii ... ok
+test util::tests::strips_bullet_heading_and_quote_decoration ... ok
+test util::tests::strips_the_exact_line_that_broke_momentum_in_production ... ok
+test tools::prompt::tests::metadata_keeps_target_and_stored_relationships_separate ... ok
+test tools::source::tests::livestream_spam_preserves_broadcast_reporting_and_availability ... ok
+test plugins::scout::tests::request_parser_preserves_weighted_measures_and_thin_sample_coverage ... ok
+test plugins::journalist::activity::tests::empty_selection_and_activity_failure_never_call_the_model ... ok
+test plugins::journalist::tests::large_daily_packages_reach_exact_token_admission_without_clipping ... ok
+test plugins::oracle::tests::empty_cards_and_sql_failure_never_call_the_model ... ok
+
+failures:
+
+---- evaluation::tasks::tests::transfer_fixtures_on_disk_parse_and_current_carry_a_steam_fizzle_axis stdout ----
+
+thread 'evaluation::tasks::tests::transfer_fixtures_on_disk_parse_and_current_carry_a_steam_fizzle_axis' (83253685) panicked at src/evaluation/tasks.rs:2283:13:
+current fixture /Users/scotty/scoracle/scoracle-backend/rust/fixtures/quality/transfer/two-distinct-movement-stories.json carries no steam/fizzle axis (field-name drop?)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    evaluation::tasks::tests::transfer_fixtures_on_disk_parse_and_current_carry_a_steam_fizzle_axis
+
+test result: FAILED. 400 passed; 1 failed; 74 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+error: test failed, to rerun pass `--lib`

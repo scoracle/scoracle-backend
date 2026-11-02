@@ -1888,7 +1888,7 @@ mod tests {
     }
 
     #[test]
-    fn headline_replay_uses_the_same_five_ranked_articles_and_no_tone() {
+    fn headline_replay_uses_the_same_ten_ranked_articles_and_no_tone() {
         for (task_name, field, criterion, fixture) in [
             (
                 "narratives",
@@ -1912,7 +1912,7 @@ mod tests {
             let fixture: Fixture = serde_json::from_str(fixture).unwrap();
             let mut parts = fixture.parts.unwrap();
             let first = parts[field][0].clone();
-            parts[field] = serde_json::json!([10,70,50,100,0,null,70]).as_array().unwrap().iter().enumerate().map(|(i, score)| {
+            parts[field] = serde_json::json!([10,70,50,100,0,null,70,null,null,null,null,null]).as_array().unwrap().iter().enumerate().map(|(i, score)| {
                 let mut item = first.clone();
                 item["id"] = serde_json::json!(100+i);
                 for text_field in ["headline", "title", "context"] {
@@ -1943,7 +1943,12 @@ mod tests {
                     "Selected article 1",
                     "Selected article 6",
                     "Selected article 2",
-                    "Selected article 0"
+                    "Selected article 0",
+                    "Selected article 4",
+                    "Selected article 5",
+                    "Selected article 7",
+                    "Selected article 8",
+                    "Selected article 9"
                 ],
                 "{task_name}"
             );
@@ -1953,7 +1958,7 @@ mod tests {
                     "{task_name}: leaked {field}"
                 );
             }
-            assert_eq!(parts[field].as_array().unwrap().len(), 7);
+            assert_eq!(parts[field].as_array().unwrap().len(), 12);
             assert_eq!(parts[field][0]["article_id"], 100);
             assert!(packet.get("tone").is_none());
             assert!(packet["instructions"].get("tone").is_none());
@@ -1961,7 +1966,7 @@ mod tests {
             if task_name == "narratives" {
                 let keys = &request.options.format_schema.as_ref().unwrap()["properties"]
                     ["paragraphs"]["items"]["properties"]["report_ids"]["items"]["enum"];
-                assert_eq!(keys.as_array().unwrap().len(), 5);
+                assert_eq!(keys.as_array().unwrap().len(), 10);
             }
         }
     }

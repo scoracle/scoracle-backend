@@ -1,0 +1,25 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/baseline-cases/01-transfer-explicit-denial-clears-prior-rumor.json",
+  "generation_wall_ms": 6985,
+  "input_tokens": 878,
+  "name": "explicit-denial-clears-prior-rumor",
+  "output_limit": 1400,
+  "output_tokens": 135,
+  "parsed": false,
+  "prompt_version": "insider-source-v33-plain-brief",
+  "reading": "Insider reading must begin with the full subject name",
+  "request_bytes": 2020,
+  "review": [
+    "A source-grounded denied finding has stage null and clears the earlier reported move. Silence alone does not.",
+    "Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.",
+    "Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.",
+    "Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 7116
+}

@@ -34,7 +34,7 @@
       "sport": "FOOTBALL"
     }
   },
-  "prompt_version": "n134-recap-hook-last",
+  "prompt_version": "n135-ten-articles",
   "review": [
     "Report the ongoing talks and lack of agreement with attribution. Missing metadata is not a reason to invent a position, club, nationality or identity.",
     "A substantive explicit report is enough; do not abstain just because the optional database record is missing."

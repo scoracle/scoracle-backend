@@ -1,0 +1,15 @@
+{
+  "case_count": 24,
+  "quality_count": 42,
+  "source_parts_unchanged": true,
+  "article_cap": 10,
+  "selection_unchanged_from_ten_article_batch": true,
+  "factual_guards_unchanged": true,
+  "body_max_chars": 12000,
+  "output_limit": 3500,
+  "tested_generation_roles": [
+    "Journalist",
+    "Insider",
+    "Influencer"
+  ]
+}

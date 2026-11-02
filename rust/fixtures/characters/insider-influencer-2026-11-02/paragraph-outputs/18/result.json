@@ -1,0 +1,28 @@
+{
+  "case": 18,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/paragraph-cases/23-transfer-two-distinct-movement-stories.json",
+  "generation_wall_ms": 7097,
+  "input_tokens": 969,
+  "name": "two-distinct-movement-stories",
+  "output_limit": 3500,
+  "output_tokens": 177,
+  "parsed": true,
+  "prompt_version": "insider-source-v36-paragraphs",
+  "reading": "2 finding(s) | Cedar United have agreed a deal to sign Alex Reed, according to Example Wire.\n\nCedar United deny talks to sign Rowan Vale, according to Cedar Daily.",
+  "request_bytes": 2365,
+  "review": [
+    "Authored development control, not held out: separate the reported Alex Reed agreement from the Rowan Vale denial in concise paragraphs. Keep the sources and counterparties separate; findings must quote each exact headline."
+  ],
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 7119
+}

@@ -7,7 +7,7 @@ const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
         ("reports.headline", "supplied title."),
         ("reports.publisher_excerpt", "supplied passage."),
         ("reports.report_index", "zero-based citation for this exact report."),
-        ("reports.co_mentions", "candidate identities, not established relationships or movement roles."),
+        ("reports.co_mentions", "names for checking structured findings. These are not evidence of a relationship or role; do not use them to expand the article's names in prose."),
         ("reports.classifier_world.target_identity_resolved", "upstream identity match, not claim verification."),
         ("reports.classifier_world.evidence_scope", "available text only; headline supplies no unseen article contents."),
         ("reports.classifier_world.qualified_claims", "selected claims with their qualifications."),

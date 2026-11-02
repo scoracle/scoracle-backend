@@ -426,7 +426,7 @@ mod tests {
             .execute(&mut *tx)
             .await?;
         let mut full_packet = fresh.clone();
-        full_packet.resize(39, fresh[0].clone());
+        full_packet.resize(9, fresh[0].clone());
         assert_eq!(
             load_on(&mut tx, &subject, &full_packet, "journalist")
                 .await?

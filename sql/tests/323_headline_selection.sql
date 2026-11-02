@@ -48,13 +48,13 @@ DO $$ BEGIN
 END $$;
 SELECT public.coverage_select_headlines(ARRAY(SELECT x.id FROM classifier_spectra x JOIN policy_sources p USING(article_id) WHERE p.i=55));
 DO $$ DECLARE role text; criterion text; BEGIN
-    IF public.headline_entity_cap()<>40 THEN RAISE EXCEPTION 'Unexpected headline ceiling'; END IF;
+    IF public.headline_entity_cap()<>10 THEN RAISE EXCEPTION 'Unexpected headline ceiling'; END IF;
     FOREACH role IN ARRAY ARRAY['journalist','influencer','insider','scout'] LOOP
         criterion:=CASE role WHEN 'journalist' THEN 'subject' WHEN 'influencer' THEN 'emotion'
             WHEN 'insider' THEN 'movement' ELSE 'availability' END;
         IF (SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
-            JOIN policy_sources p USING(article_id) WHERE d.character=role AND d.status='pending' AND p.i<>54)<>40 THEN
-            RAISE EXCEPTION 'Expected exactly 40 eligible inputs for %',role; END IF;
+            JOIN policy_sources p USING(article_id) WHERE d.character=role AND d.status='pending' AND p.i<>54)<>10 THEN
+            RAISE EXCEPTION 'Expected exactly 10 eligible inputs for %',role; END IF;
         IF (SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
             JOIN policy_sources p USING(article_id) WHERE d.character=role AND d.reason='already_reviewed_headline')<>2 THEN
             RAISE EXCEPTION 'Previously reviewed reposts were not excluded for %',role; END IF;
@@ -64,6 +64,12 @@ DO $$ DECLARE role text; criterion text; BEGIN
         IF EXISTS(SELECT 1 FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
             JOIN policy_sources p USING(article_id) WHERE d.character=role AND p.i IN (53,54) AND d.status<>'pending') THEN
             RAISE EXCEPTION 'Denial or unresolved identity was incorrectly disposed for %',role; END IF;
+        IF EXISTS(SELECT 1 FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
+            JOIN policy_sources p USING(article_id) WHERE d.character=role AND d.reason='ranked_below_entity_cap'
+            AND (d.status<>'abstained' OR d.product_ref->>'selection_policy' IS DISTINCT FROM 'headline-selection-v3'
+                OR d.product_ref->>'model_called' IS DISTINCT FROM 'false'
+                OR d.product_ref->>'entity_cap' IS DISTINCT FROM '10')) THEN
+            RAISE EXCEPTION 'Ranked exclusion lost its policy receipt for %',role; END IF;
         IF EXISTS(SELECT 1 FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id
             WHERE d.character=role AND d.reason='ranked_below_entity_cap' AND (x.spectrum->>criterion)::numeric>
                 (SELECT min((y.spectrum->>criterion)::numeric) FROM classifier_spectrum_deliveries kept

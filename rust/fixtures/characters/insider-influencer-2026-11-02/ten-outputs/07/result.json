@@ -1,0 +1,22 @@
+{
+  "case": 7,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/ten-cases/07-transfer-reliable-source-heating-steam.json",
+  "generation_wall_ms": 4935,
+  "input_tokens": 1051,
+  "name": "reliable-source-heating-steam",
+  "output_limit": 1400,
+  "output_tokens": 93,
+  "parsed": false,
+  "prompt_version": "insider-source-v35-ten-articles",
+  "reading": "named claim is absent from cited reports: Bayern Munich",
+  "request_bytes": 2841,
+  "review": [
+    "Evidence-limit case: the source lacks full party names. Preserve the packet and return no linked finding; this is not positive transfer coverage."
+  ],
+  "status": "rejected",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 4945
+}

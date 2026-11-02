@@ -1,0 +1,88 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — transfer / explicit-denial-clears-prior-rumor [rejected]
+served reading adds unsupported chronology or causality
+
+2 — transfer / fizzled-prior-lowrel-skeptic [rejected]
+Insider reading must begin with the full subject name
+
+3 — transfer / fully-named-advanced-talks [rejected]
+finding quote must name both the target and counterparty in full
+
+4 — transfer / fully-named-interest [rejected]
+Insider reading must begin with the full subject name
+
+5 — transfer / gordon-derozan-wrong-subject [accepted]
+0 finding(s) | Aaron Gordon remains on the Denver Nuggets roster, with no reported movement or trade interest involving him in the current reporting cycle.
+
+Synthetic Wire reported that DeMar DeRozan is linked with a trade to the Denver Nuggets, but explicitly stated that this report says nothing about a move for Gordon.
+
+6 — transfer / headline-unnamed-signing [accepted]
+0 finding(s) | Cedar Bears have announced the signing of a former Maple Foxes player, according to Example Wire.
+
+7 — transfer / reliable-source-heating-steam [rejected]
+named claim is absent from cited reports: Bayern Munich
+
+8 — transfer / unnamed-signing-no-identity-join [accepted]
+0 finding(s) | Aaron Gordon attended a community event, while the Denver Nuggets announced the signing of an unnamed forward. (Synthetic Wire)
+
+9 — vibe / clearly-negative [accepted]
+Fans boo and voice fury over Cedar Comets performance
+
+Fans of the Cedar Comets expressed intense anger and disappointment, booing the team and stating they were furious with its performance, according to Example Wire.
+
+10 — vibe / clearly-positive [accepted]
+Fans cheer delight as Cedar Comets secure victory
+
+Supporters of the Cedar Comets expressed delight following their victory, with one outlet reporting that fans cheered the win and voiced their happiness about the result.
+
+11 — vibe / gordon-derozan-wrong-subject [accepted]
+empty reading
+
+12 — vibe / quiet-mixed [accepted]
+empty reading
+
+13 — vibe / warm-memory-cold-coverage [accepted]
+empty reading
+
+14 — transfer / transfer-player-83946-NFL [rejected]
+named claim is absent from cited reports: Las Vegas Raiders
+
+15 — transfer / transfer-team-37-FOOTBALL [accepted]
+0 finding(s) | Roma is looking to make two signings in January, according to Yahoo Sports.
+
+Roma rejected three offers for Pisilli this summer, as reported by Yahoo Sports.
+
+Roma faces a crisis ahead of Napoli, with both Pellegrini and Svilar out, per La Gazzetta dello Sport.
+
+Roma will lose Pellegrini for at least 6-8 weeks with a serious injury, confirmed by LiveScore, Bulinews, and Football Italia.
+
+Thuram deal, 3 Milan names, Roma-Bakola, ADL won't sell: today's news, as noted by OneFootball and Yahoo Sports.
+
+16 — vibe / vibe-person-23-FOOTBALL [accepted]
+De Zerbi expresses delight and satisfaction with Tottenham's resilience, style, and team bonding following a vital win over Coventry.
+
+Roberto De Zerbi expressed strong satisfaction with his team's performance, stating he was 'very happy' and praising Tottenham's resilience following a crucial victory over Coventry, as reported by Flashscore.co.za. He emphasized that the squad's 'attitude' and 'mentality' remained intact during the match, a sentiment echoed by VAVEL.com which highlighted his hope for these qualities to persist. De Zerbi also voiced delight at the team's ability to play with style, according to the Yellow Advertiser, while calling the return of player Kulusevski 'great news' for the upcoming fixture against Coventry, per Vodacom Soccer.
+
+The manager specifically commended individual player contributions, noting he liked Mohammed Kudus' display against Coventry City, as quoted by GhanaSoccernet. Beyond the match result, De Zerbi credited the players' communication and a bonding trip for fostering a sense of family within the squad, a point made by The Guardian. However, Football London noted an ironic element to De Zerbi's post-match comments, suggesting a contrast between his expressed sentiments and the reality of the situation, though the specific irony remains unexplained in the headlines.
+
+17 — vibe / vibe-person-959-NFL [accepted]
+Jerry Jones expresses disappointment over Cowboys roster, seeking improvements before trade deadline
+
+The New York Times headline indicates that Jerry Jones expressed disappointment regarding the Cowboys' roster, a sentiment he hopes to address before the trade deadline. This reaction is attributed directly to Jones himself, as reported by The Athletic.
+
+18 — transfer / two-distinct-movement-stories [accepted]
+2 finding(s) | Cedar United have agreed a deal to sign Alex Reed, according to Example Wire.
+
+Cedar United deny talks to sign Rowan Vale, according to Cedar Daily.
+
+19 — vibe / distinct-positive-and-negative-reactions [accepted]
+Cedar Comets fans celebrate stadium opening but criticize ticket price hikes
+
+Example Wire reports that Cedar Comets supporters expressed delight regarding the stadium opening, highlighting a positive reaction from the fanbase to the venue's inauguration.
+
+In contrast, Cedar Daily notes that fans have voiced anger and criticism specifically concerning a recent increase in ticket prices, indicating a negative sentiment focused on financial costs.
+
+The coverage presents two distinct emotional threads: one celebrating the physical infrastructure of the team's home, and another expressing frustration over the affordability of access to that venue.
+

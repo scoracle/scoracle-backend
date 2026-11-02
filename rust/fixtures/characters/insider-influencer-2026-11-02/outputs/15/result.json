@@ -1,0 +1,28 @@
+{
+  "case": 15,
+  "checks": [
+    {
+      "detail": "",
+      "name": "no_product_names",
+      "pass": true
+    }
+  ],
+  "completion_reason": "eos",
+  "fixture": "fixtures/characters/insider-influencer-2026-11-02/cases/15-transfer-transfer-team-37-FOOTBALL.json",
+  "generation_wall_ms": 9625,
+  "input_tokens": 1506,
+  "name": "transfer-team-37-FOOTBALL",
+  "output_limit": 1400,
+  "output_tokens": 89,
+  "parsed": true,
+  "prompt_version": "insider-source-v34-evidence-brief",
+  "reading": "0 finding(s) | Roma is seeking two January signings, as reported by Yahoo Sports. The club also faces a coaching crisis with Pellegrini and Svilar out due to injury, according to La Gazzetta dello Sport. Meanwhile, reports suggest Leipzig may retain Roma's El Aynaoui for a €50m package, per Bulinews.",
+  "request_bytes": 4580,
+  "review": [
+    "Check source-reference correctness independently of prose meaning, reported status and movement ownership."
+  ],
+  "status": "accepted",
+  "task": "transfer",
+  "temperature": 0.0,
+  "wall_ms": 9655
+}

@@ -166,11 +166,12 @@ pub(crate) async fn load_for_character_on(
     }
     // Unselected obligations remain pending; never acknowledge unseen articles as used.
     Ok(match character {
-        "journalist" | "insider" | "influencer" => {
+        "journalist" | "insider" | "influencer" | "scout" => {
             let criterion = match character {
                 "journalist" => "subject",
                 "insider" => "movement",
-                _ => "emotion",
+                "influencer" => "emotion",
+                _ => "availability",
             };
             crate::tools::source::top_articles(&sources, criterion, |s| s.classifier_world.as_ref())
         }

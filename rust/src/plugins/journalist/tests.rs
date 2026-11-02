@@ -476,7 +476,7 @@ fn stored_history_is_ignored_and_replay_matches_production() {
 }
 
 #[test]
-fn chelsea_top_five_packet_preserves_sources_without_routing_metadata() {
+fn chelsea_top_ten_packet_preserves_sources_without_routing_metadata() {
     let captured: serde_json::Value = serde_json::from_str(include_str!(
         "../../../fixtures/character-runs/chelsea-2026-10-20/journalist-baseline.json"
     ))
@@ -503,7 +503,7 @@ fn chelsea_top_five_packet_preserves_sources_without_routing_metadata() {
         now,
     )
     .unwrap();
-    assert_eq!(a.selected.len(), 5);
+    assert_eq!(a.selected.len(), 10);
     assert_eq!(a.dispositions.len(), 1);
     assert_eq!(a.dispositions[0].reason, "already_reported_exact_text");
     let packet = prompt(&a);
@@ -521,6 +521,7 @@ fn chelsea_top_five_packet_preserves_sources_without_routing_metadata() {
             .is_some());
     }
     assert_eq!(generation_options(&a, 7900).num_ctx, 7900);
+    assert_eq!(generation_options(&a, 7900).num_predict, 3500);
 }
 
 #[test]

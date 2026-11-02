@@ -1,0 +1,15 @@
+BEGIN;
+DO $$ BEGIN IF current_database() NOT LIKE 'classifier_test_coverage%' THEN RAISE EXCEPTION 'disposable database required'; END IF; END $$;
+UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
+TRUNCATE coverage_failures,pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations;
+INSERT INTO coverage_editions(edition_date,cutoff_at,drain_deadline,status) VALUES('2099-01-02','2099-01-02Z','2099-01-02T00:01Z','partial');
+INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_FINDING','Finding test',2099);
+INSERT INTO transfer_rumors(team_id,player_id,sport,trigger_type,reporting_date) VALUES(1,2,'ZZ_FINDING','manual','2099-01-01');
+UPDATE transfer_rumors SET candidate_edition='2099-01-02',candidate_entity_type='team',candidate_entity_id=1 WHERE sport='ZZ_FINDING';
+INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport,outcome,resolution) VALUES('2099-01-02','transfers','player',2,'ZZ_FINDING','completed','candidate');
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING') THEN RAISE EXCEPTION 'related player completion leaked team claim finding'; END IF; END $$;
+INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport,outcome,resolution) VALUES('2099-01-02','transfers','team',1,'ZZ_FINDING','failed','blocked');
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING') THEN RAISE EXCEPTION 'failed team claim leaked finding'; END IF; END $$;
+UPDATE coverage_assignments SET outcome='completed',resolution='candidate' WHERE entity_type='team' AND sport='ZZ_FINDING';
+DO $$ BEGIN IF (SELECT count(*) FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING')<>1 THEN RAISE EXCEPTION 'completed team claim finding hidden'; END IF; END $$;
+ROLLBACK;

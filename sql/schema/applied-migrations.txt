@@ -328,3 +328,4 @@
 325_ten_article_character_packets
 326_progressive_character_publication
 327_required_character_stages
+328_progressive_insider_findings

@@ -48,7 +48,7 @@ Do not derive a factual accuracy rate from any of these counts. Archive/log time
 
 ## Final follow-up and later comparisons
 
-On the scheduled run at or after **02:45 UTC**, capture the final snapshot, give the three-hour report and pause this automation through the automation tool. Do not schedule further checks or continue beyond 03:00 UTC. The six-run schedule is also finite. Keep the user-facing report concise and link to this record; call out substantial failures and any gap in monitoring.
+On the scheduled run at or after **02:45 UTC**, capture the final snapshot, give the three-hour report and delete this automation through the automation tool. Do not schedule further checks or continue beyond 03:00 UTC. The six-run schedule is also finite. Keep the user-facing report concise and link to this record; call out substantial failures and any gap in monitoring.
 
 Build the next comparison from these saved requests and outputs, with successes, abstentions and failures included. Stratify by character, sport, entity type, evidence count and failure category. Keep the same target and evidence in each paired prompt comparison, preserving dates and source wording. Record prompt/model/runtime/host and input/output token counts; differences between hosts or changing news packets are not prompt effects. Split development cases from later untouched cases. Compare attribution, actor relationships, uncertainty, factual support, coverage of distinct stories, hook/body usefulness and Influencer score meaning separately from parser acceptance.
 

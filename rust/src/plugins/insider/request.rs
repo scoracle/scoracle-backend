@@ -6,7 +6,7 @@ use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 
-pub const PROMPT_VERSION: &str = "insider-source-v36-paragraphs";
+pub const PROMPT_VERSION: &str = "insider-source-v41-specific-news";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v7-paragraphs";
 pub const NUM_PREDICT: i32 = 3500;
 pub const BODY_MAX_CHARS: usize = 12000;

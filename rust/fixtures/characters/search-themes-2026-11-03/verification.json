@@ -1,0 +1,21 @@
+{
+  "source_base": "73a9882f62f4",
+  "isolated_from_concurrent_classifier_work": true,
+  "test_command": "cargo test --offline --lib --examples --bin eval",
+  "passed": 429,
+  "ignored": 74,
+  "initial_test_limitation": "Two existing local HTTP-server tests were blocked by sandbox socket permissions; passed unchanged with loopback access. Initial log retained.",
+  "baseline_payloads_byte_identical": 18,
+  "paired_evidence_unchanged": 18,
+  "affected_quality_fixtures_regenerated": 31,
+  "other_quality_fixtures_byte_identical": 26,
+  "model_generations": 48,
+  "source_hashes": {
+    "src/plugins/journalist/fresh.rs": "3d09292eb34452fd004e185d48ce32b3e7fd4420abc9dc4001205d2bb8dbb43c",
+    "src/plugins/journalist/request.rs": "1a11ebe7c725aaeae5f98867da1a1cd5c4bf009f765029f5c7cfe1a9bfc65c2d",
+    "src/plugins/insider/fresh.rs": "e6348a6724a5e66f17c5dc8120862127b3138fdedce3df52a405e30d1d899ea0",
+    "src/plugins/insider/request.rs": "60fcc1e4b5098c56fa405d7b8f904e1304b2b3cc228f328e076ab765f5fe3e65",
+    "src/plugins/influencer/fresh.rs": "e0d8003644e22a841c23476374e51e949a2357362be909f1a0ea29c6abc07266",
+    "src/plugins/influencer/request.rs": "04e4ceff4ee036781c7a5510e26a9e2b01951f81811f5d2f153c39f64f6dc405"
+  }
+}

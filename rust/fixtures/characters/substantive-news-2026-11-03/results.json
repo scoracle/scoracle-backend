@@ -1,0 +1,255 @@
+{
+  "comparison": "Eight fixed development cases; prior combined candidate reused as baseline. Three new variants, eight Mac-only calls each.",
+  "baseline": {
+    "calls": 8,
+    "accepted": 4,
+    "native_input_total": 10575
+  },
+  "variants": {
+    "substantive-news": {
+      "calls": 8,
+      "accepted": 5,
+      "errors": 0,
+      "native_input_total": 11047,
+      "native_input_range": [
+        1175,
+        1617
+      ],
+      "case_metrics": [
+        {
+          "case": 1,
+          "task": "narratives",
+          "status": "accepted",
+          "native_input_tokens": 1617,
+          "output_tokens": 279,
+          "empty_recap": false
+        },
+        {
+          "case": 2,
+          "task": "narratives",
+          "status": "accepted",
+          "native_input_tokens": 1580,
+          "output_tokens": 10,
+          "empty_recap": true
+        },
+        {
+          "case": 4,
+          "task": "narratives",
+          "status": "rejected",
+          "native_input_tokens": 1175,
+          "output_tokens": 108,
+          "empty_recap": false
+        },
+        {
+          "case": 5,
+          "task": "narratives",
+          "status": "accepted",
+          "native_input_tokens": 1246,
+          "output_tokens": 10,
+          "empty_recap": true
+        },
+        {
+          "case": 10,
+          "task": "transfer",
+          "status": "rejected",
+          "native_input_tokens": 1419,
+          "output_tokens": 201,
+          "empty_recap": null
+        },
+        {
+          "case": 11,
+          "task": "transfer",
+          "status": "rejected",
+          "native_input_tokens": 1205,
+          "output_tokens": 77,
+          "empty_recap": null
+        },
+        {
+          "case": 15,
+          "task": "vibe",
+          "status": "accepted",
+          "native_input_tokens": 1401,
+          "output_tokens": 187,
+          "empty_recap": null
+        },
+        {
+          "case": 18,
+          "task": "vibe",
+          "status": "accepted",
+          "native_input_tokens": 1404,
+          "output_tokens": 71,
+          "empty_recap": null
+        }
+      ]
+    },
+    "item-newsworthiness": {
+      "calls": 8,
+      "accepted": 6,
+      "errors": 0,
+      "native_input_total": 11175,
+      "native_input_range": [
+        1191,
+        1633
+      ],
+      "case_metrics": [
+        {
+          "case": 1,
+          "task": "narratives",
+          "status": "accepted",
+          "native_input_tokens": 1633,
+          "output_tokens": 10,
+          "empty_recap": true
+        },
+        {
+          "case": 2,
+          "task": "narratives",
+          "status": "accepted",
+          "native_input_tokens": 1596,
+          "output_tokens": 10,
+          "empty_recap": true
+        },
+        {
+          "case": 4,
+          "task": "narratives",
+          "status": "rejected",
+          "native_input_tokens": 1191,
+          "output_tokens": 108,
+          "empty_recap": false
+        },
+        {
+          "case": 5,
+          "task": "narratives",
+          "status": "accepted",
+          "native_input_tokens": 1262,
+          "output_tokens": 10,
+          "empty_recap": true
+        },
+        {
+          "case": 10,
+          "task": "transfer",
+          "status": "rejected",
+          "native_input_tokens": 1435,
+          "output_tokens": 201,
+          "empty_recap": null
+        },
+        {
+          "case": 11,
+          "task": "transfer",
+          "status": "accepted",
+          "native_input_tokens": 1221,
+          "output_tokens": 34,
+          "empty_recap": null
+        },
+        {
+          "case": 15,
+          "task": "vibe",
+          "status": "accepted",
+          "native_input_tokens": 1417,
+          "output_tokens": 194,
+          "empty_recap": null
+        },
+        {
+          "case": 18,
+          "task": "vibe",
+          "status": "accepted",
+          "native_input_tokens": 1420,
+          "output_tokens": 71,
+          "empty_recap": null
+        }
+      ]
+    },
+    "skip-empty-teasers": {
+      "calls": 8,
+      "accepted": 5,
+      "errors": 0,
+      "native_input_total": 10983,
+      "native_input_range": [
+        1167,
+        1609
+      ],
+      "case_metrics": [
+        {
+          "case": 1,
+          "task": "narratives",
+          "status": "accepted",
+          "native_input_tokens": 1609,
+          "output_tokens": 265,
+          "empty_recap": false
+        },
+        {
+          "case": 2,
+          "task": "narratives",
+          "status": "accepted",
+          "native_input_tokens": 1572,
+          "output_tokens": 10,
+          "empty_recap": true
+        },
+        {
+          "case": 4,
+          "task": "narratives",
+          "status": "rejected",
+          "native_input_tokens": 1167,
+          "output_tokens": 128,
+          "empty_recap": false
+        },
+        {
+          "case": 5,
+          "task": "narratives",
+          "status": "accepted",
+          "native_input_tokens": 1238,
+          "output_tokens": 10,
+          "empty_recap": true
+        },
+        {
+          "case": 10,
+          "task": "transfer",
+          "status": "rejected",
+          "native_input_tokens": 1411,
+          "output_tokens": 201,
+          "empty_recap": null
+        },
+        {
+          "case": 11,
+          "task": "transfer",
+          "status": "rejected",
+          "native_input_tokens": 1197,
+          "output_tokens": 80,
+          "empty_recap": null
+        },
+        {
+          "case": 15,
+          "task": "vibe",
+          "status": "accepted",
+          "native_input_tokens": 1393,
+          "output_tokens": 154,
+          "empty_recap": null
+        },
+        {
+          "case": 18,
+          "task": "vibe",
+          "status": "accepted",
+          "native_input_tokens": 1396,
+          "output_tokens": 72,
+          "empty_recap": null
+        }
+      ]
+    }
+  },
+  "verification": {
+    "passed": 429,
+    "ignored": 74,
+    "fixtures_updated": 31,
+    "unrelated_unchanged": 26,
+    "target_evidence_system_schema_unchanged": true,
+    "production_paused": true,
+    "archbox_used": false,
+    "source_hashes": {
+      "src/plugins/journalist/fresh.rs": "6021cb1174a6b412d4fa67ea5c2c9b77736ffd9646125cf47ff2f8eedb647f28",
+      "src/plugins/journalist/request.rs": "9d45deb90e73246fe67d2b1c91202c3f62c379dc78eb601e5def00057e5d38a7",
+      "src/plugins/insider/fresh.rs": "32253d90c6eeab8e076a1bd6586f3f5082125f2dec5db28bebd4cefc2e1eb04b",
+      "src/plugins/insider/request.rs": "16ba056917e4908bcd169199348f2ea3d514b44f6a8261aeef4037c9a473bf23",
+      "src/plugins/influencer/fresh.rs": "50fefbb9ceb6c328f6ad13e729ca85d3233d2e738db86d91fb01c3c106765c17",
+      "src/plugins/influencer/request.rs": "ee2982be7937fb80b4b221f64f424f4fae561716a373256c3339d9a4846ff8cf"
+    }
+  }
+}

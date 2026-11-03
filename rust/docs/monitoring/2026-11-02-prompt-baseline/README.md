@@ -1,5 +1,7 @@
 # Fixed-prompt monitoring window
 
+Monitoring completed at 2026-11-03 02:49 UTC. The automation was deleted; production continues unchanged. See [the final report](final-report.md) for counts, policy-separated rates, retained evidence and comparison plans.
+
 The user requested a few more hours of monitoring before trying new prompt concepts, with enough retained material for larger comparisons. Six thread follow-ups are scheduled 30 minutes apart, ending around 10 PM Detroit time on November 2 (03:00 UTC November 3). Automation: `monitor-scoracle-prompt-baseline`. The older `monitor-backlog-plumbing` automation belongs to another thread and remains paused.
 
 Keep this run observational. Do not change prompts, parsers, model weights, article cap, concurrency, queue state or production configuration; do not retry rejected outputs or invoke extra generations. The baseline uses Journalist `n135-ten-articles`, Insider `insider-source-v36-paragraphs`, Influencer `vibe-frame-v48-paragraphs`, Qwen3.5-4B-Q4_K_M, temperature zero, thinking disabled, ten articles. Mac and Archbox share at most four character claims; Archbox has one Journalist slot. Existing guard failures are data, not permission to relax validation.

@@ -1,0 +1,88 @@
+{
+  "at": "2026-11-02T22:00:11.890803-05:00",
+  "schedule": {
+    "singleton": true,
+    "enabled": true,
+    "enrolled_at": "2026-10-22T14:27:36.042566-04:00",
+    "timezone": "America/Detroit",
+    "cutoff": "00:00:00",
+    "drain_limit": "00:15:00",
+    "character_limit": "06:00:00",
+    "phase": "draining",
+    "edition_date": "2026-11-03",
+    "last_tick_at": "2026-11-02T22:00:04.237223-05:00",
+    "updated_at": "2026-11-02T22:00:04.237223-05:00",
+    "collection_cutoff": "22:00:00",
+    "required_stages": [
+      "vibe",
+      "transfers"
+    ]
+  },
+  "queue": [
+    {
+      "stage": "vibe",
+      "status": "pending",
+      "jobs": 399,
+      "min_attempts": 0,
+      "max_attempts": 0
+    },
+    {
+      "stage": "classifier",
+      "status": "running",
+      "jobs": 4,
+      "min_attempts": 0,
+      "max_attempts": 0
+    },
+    {
+      "stage": "transfers",
+      "status": "pending",
+      "jobs": 347,
+      "min_attempts": 0,
+      "max_attempts": 0
+    },
+    {
+      "stage": "narratives",
+      "status": "failed",
+      "jobs": 2,
+      "min_attempts": 5,
+      "max_attempts": 5
+    },
+    {
+      "stage": "narratives",
+      "status": "pending",
+      "jobs": 746,
+      "min_attempts": 0,
+      "max_attempts": 0
+    },
+    {
+      "stage": "classifier",
+      "status": "pending",
+      "jobs": 13231,
+      "min_attempts": 0,
+      "max_attempts": 0
+    }
+  ],
+  "open_stages": {
+    "narratives": false,
+    "vibe": false,
+    "transfers": false,
+    "classifier": true
+  },
+  "pending_deliveries": [
+    {
+      "character": "influencer",
+      "deliveries": 1628,
+      "targets": 399
+    },
+    {
+      "character": "insider",
+      "deliveries": 559,
+      "targets": 188
+    },
+    {
+      "character": "journalist",
+      "deliveries": 8028,
+      "targets": 743
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "host": "mac",
+  "captured_at": "2026-11-03T03:18:21.152338+00:00",
+  "since": "2026-11-03T03:00:00Z",
+  "private_archive": "/Users/scotty/scoracle-worker/monitoring/early-corpus-20261103/20261103T031821152338Z",
+  "model_calls": {
+    "transfers": {
+      "calls": 7,
+      "input_tokens_min": 1013,
+      "input_tokens_max": 1929,
+      "input_tokens_total": 10285,
+      "output_tokens_total": 989,
+      "wall_ms_total": 97317,
+      "wall_ms_p50": 11946,
+      "wall_ms_p95": 20253
+    },
+    "vibe": {
+      "calls": 4,
+      "input_tokens_min": 1722,
+      "input_tokens_max": 1881,
+      "input_tokens_total": 7167,
+      "output_tokens_total": 1003,
+      "wall_ms_total": 95914,
+      "wall_ms_p50": 23404,
+      "wall_ms_p95": 26927
+    }
+  },
+  "job_events": {
+    "transfers:completed": 7,
+    "vibe:completed": 4
+  },
+  "writer_running": true,
+  "model_health": {
+    "status": "ok"
+  },
+  "observed_validation_attempts": {
+    "transfers": 6
+  },
+  "observed_validation_categories": {
+    "transfers:target_name_opening": 1,
+    "transfers:unsupported_named_claim": 3,
+    "transfers:unsupported_fact_relationship": 1,
+    "transfers:finding_contract": 1
+  },
+  "rejected_generation_attempts": {},
+  "rejection_categories": {},
+  "archive_parse_errors": 0,
+  "undated_archive_records_excluded": 2020,
+  "archive_files": {
+    "rejections.jsonl": {
+      "bytes": 167351,
+      "sha256": "47414a27499bbd03be18f53743ced9cf3b16eb1b13f8ca69616191372d515b58"
+    },
+    "model-calls.log": {
+      "bytes": 4935,
+      "sha256": "195289c164929c5eb3636b95ecf4239482b7cea200098d4b001d8deffe75004f"
+    }
+  }
+}

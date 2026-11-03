@@ -1,0 +1,136 @@
+{
+  "scope": "Six selected diagnostic cases from the paired batch; not an independent evaluation",
+  "search_only_includes_influencer_tone_distinction": true,
+  "cases": [
+    2,
+    5,
+    8,
+    9,
+    13,
+    15
+  ],
+  "variants": {
+    "search-only": {
+      "calls": 6,
+      "strict_validation_passed": 4,
+      "native_input_total": 9472,
+      "output_tokens_total": 790,
+      "errors": 0,
+      "case_metrics": [
+        {
+          "case": 2,
+          "status": "rejected",
+          "native_input_tokens": 1490,
+          "output_tokens": 92,
+          "request_sha256": "368b4b084547c36edbba9ca51d051773dd6627cda7e5e01fba0bd19ee330830e",
+          "response_sha256": "d81b5281cc697c9db0dea5718c1fb4faf6dfede6fac1a8971d9eaf951292e204"
+        },
+        {
+          "case": 5,
+          "status": "accepted",
+          "native_input_tokens": 1156,
+          "output_tokens": 10,
+          "request_sha256": "bb1b277dd9d48abb5be06a22d113822a933a4a3dba7225b279fae3f401f5e4d2",
+          "response_sha256": "004ad9ac3cf6dfc6d92ddc3caeb214e4a6dd312cf6321b1c7620ba711884a7e9"
+        },
+        {
+          "case": 8,
+          "status": "accepted",
+          "native_input_tokens": 2205,
+          "output_tokens": 103,
+          "request_sha256": "b85288be81a7090883c0c224a766bbdcbdef308cebefd3091c3b5651350940eb",
+          "response_sha256": "3980df6b8d4d76ca87d5ff2030cc843ca397515191dfaaa6b1a63ec0221f10a6"
+        },
+        {
+          "case": 9,
+          "status": "rejected",
+          "native_input_tokens": 1502,
+          "output_tokens": 185,
+          "request_sha256": "e245f884806d80d579d5b91394ea38971c9233308330a0603be3840a011d0e72",
+          "response_sha256": "815a3d3e7fd2f17c4e881f9c6725820b6abdbf38c2afb12fb1cf953089c94ab6"
+        },
+        {
+          "case": 13,
+          "status": "accepted",
+          "native_input_tokens": 1808,
+          "output_tokens": 249,
+          "request_sha256": "b16ad858aa6597093818d86642d22c84fd1f223b27a95ac2994ae672fceecb3d",
+          "response_sha256": "07afbe51a4815842e81305f196ea0f111701266ec734165d61eb5561f0f27945"
+        },
+        {
+          "case": 15,
+          "status": "accepted",
+          "native_input_tokens": 1311,
+          "output_tokens": 151,
+          "request_sha256": "6db3d33841c1d247620b609c4e20cd54b15b14ecad210ba81b96362f7c95a3a5",
+          "response_sha256": "7230689aa7728c56fd511c31dac6bea9d28b621fef0ba5d18b6073d485a6cc57"
+        }
+      ]
+    },
+    "themes-only": {
+      "calls": 6,
+      "strict_validation_passed": 4,
+      "native_input_total": 9300,
+      "output_tokens_total": 1113,
+      "errors": 0,
+      "case_metrics": [
+        {
+          "case": 2,
+          "status": "rejected",
+          "native_input_tokens": 1469,
+          "output_tokens": 394,
+          "request_sha256": "70ea1805b825a3c25989b3f514919c34250d246464b9bdafc5fd16997a77e871",
+          "response_sha256": "3a85bd670141a7021e2fff8c4ad4ff9ee6aab9af50f18b520b5734bc93ba6ccc"
+        },
+        {
+          "case": 5,
+          "status": "accepted",
+          "native_input_tokens": 1135,
+          "output_tokens": 10,
+          "request_sha256": "ecb00fb5b3026e5138b6d6d160a25834d3de7f90c9c19c2d9e4bd9587bbd3ab5",
+          "response_sha256": "cde05ffb27e6061cf6e838ab3c8d3a113a84146b0ee3c5f21c85fd04f04b9775"
+        },
+        {
+          "case": 8,
+          "status": "accepted",
+          "native_input_tokens": 2184,
+          "output_tokens": 162,
+          "request_sha256": "b1cdd46dfe7a89650c427dad70b17cb43ac7a56c724b283c40828710972d44b1",
+          "response_sha256": "d77eb23b2f220795c8210b91868df3636d1d30742573348512ba6316b841159f"
+        },
+        {
+          "case": 9,
+          "status": "rejected",
+          "native_input_tokens": 1481,
+          "output_tokens": 150,
+          "request_sha256": "5cc0f38f4817c735b4ff26dc7972b006fca0790a0b7b4328f6127172f7e7b197",
+          "response_sha256": "1bf905549a1ab603c0c89d1a9b11fb3c26939a69e56ccb421bace8ff10d064a2"
+        },
+        {
+          "case": 13,
+          "status": "accepted",
+          "native_input_tokens": 1764,
+          "output_tokens": 234,
+          "request_sha256": "e0d2fcccb9bd2ac59a707287d681cd5027033ac623f9e4a26b4c5fb32405df64",
+          "response_sha256": "12012c087754e0126ff2a02fdf81e008587da16aed9c0322755972bc2a70e726"
+        },
+        {
+          "case": 15,
+          "status": "accepted",
+          "native_input_tokens": 1267,
+          "output_tokens": 163,
+          "request_sha256": "541598e4d635d7bb734ea4370632a0e08c2bfd01d0a0c061cb0484f4ea948b0f",
+          "response_sha256": "fe2920474db4fe7cee9b7fd77da569bf8e3ffe54f81d56b6a39f8ca337b4e8f8"
+        }
+      ]
+    }
+  },
+  "observations": [
+    "All three additions variants abstain on the history-only case; this does not isolate that benefit to search provenance.",
+    "The combined Journalist variant repeats its summary; neither single-component variant repeats that way in this run. Themes-only still misattributes a source and changes an actor relationship.",
+    "The themes-only agent-hiring recap avoids the combined variant's identity contradiction and invented prerequisite, but still omits a separate team-interest story.",
+    "The false employment-move reading persists in every variant.",
+    "The negative-reaction packet still receives a mixed score of 50 in every variant.",
+    "Search/tone-only ends one hook with a dangling quote; combined produces a stray character. Native shape acceptance does not ensure a usable hook."
+  ]
+}

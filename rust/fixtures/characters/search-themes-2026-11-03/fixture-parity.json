@@ -1,0 +1,230 @@
+[
+  {
+    "fixture": "fixtures/quality/investigator/legal-name-connects-accept.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/investigator/namesake-wrong-sport-quoted-honestly.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/investigator/team-page-is-not-a-person.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/falling-confirmed.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/missing-mood-peer.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/mixed-peak-up-vibe-down.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/rising-confirmed.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/shared-decline-holdout.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/sparse-samples-stay-steady.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/synthetic-dated-divergence.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/synthetic-dated-missing-peer.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/conflicting-reports.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/distinct-developments.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/gordon-derozan-wrong-subject.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/headline-corpus.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/late-qualification.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/nba-attribution.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/no-new-material.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/one-result.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/rumour-and-denial.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-closed-training-fresh-only.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-discussion-no-new-event.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-meta-missing.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-meta-name-collision.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-meta-profile-only.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-meta-stale-affiliation.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-training-time-fresh-only.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/oracle/ascendant-aligned.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/oracle/crossroads-conflict.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/oracle/near-empty-quiet-wire.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/oracle/three-card-newcomer.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/football-player-total.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/nfl-team-zero-interceptions.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-composite.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-daily-withdrawal.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-incompatible.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-measured-memory.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-source-trigger.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-sparse.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-strong.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-withdrawn-report.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-zero-unknown.json",
+    "unchanged": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/explicit-denial-clears-prior-rumor.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/fizzled-prior-lowrel-skeptic.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/fully-named-advanced-talks.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/fully-named-interest.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/gordon-derozan-wrong-subject.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/headline-unnamed-signing.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/reliable-source-heating-steam.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/two-distinct-movement-stories.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/unnamed-signing-no-identity-join.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/clearly-negative.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/clearly-positive.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/distinct-positive-and-negative-reactions.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/gordon-derozan-wrong-subject.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/quiet-mixed.json",
+    "guide_only": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/warm-memory-cold-coverage.json",
+    "guide_only": true
+  }
+]

@@ -1,0 +1,138 @@
+{
+  "scope": "Eight selected development cases; exact user-requested cuts versus immediately preceding prompt. Not held-out accuracy.",
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "host": "Mac",
+  "temperature": 0,
+  "thinking": false,
+  "concurrency": 1,
+  "retries": 0,
+  "new_calls": 8,
+  "publishes": false,
+  "archbox_accessed": false,
+  "versions": {
+    "narratives": "n140-specific-news",
+    "transfer": "insider-source-v41-specific-news",
+    "vibe": "vibe-frame-v53-specific-news"
+  },
+  "variants": {
+    "before_cuts": {
+      "calls": 8,
+      "strict_validation_passed": 5,
+      "errors": 0,
+      "native_input_total": 10983,
+      "native_input_min": 1167,
+      "native_input_max": 1609,
+      "output_tokens": 920
+    },
+    "after_cuts": {
+      "calls": 8,
+      "strict_validation_passed": 4,
+      "errors": 0,
+      "native_input_total": 10711,
+      "native_input_min": 1133,
+      "native_input_max": 1575,
+      "output_tokens": 1034
+    }
+  },
+  "cases": [
+    {
+      "case": 1,
+      "task": "narratives",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_native_input": 1609,
+      "after_native_input": 1575,
+      "judgment": "no_clear_change",
+      "notes": "Still lists vague teasers alongside concrete developments; no reliable filtering improvement.",
+      "request_sha256": "3b67343b813222218ed426a209fe353331a96aada7aba14dda43d873af5c7a0d",
+      "response_sha256": "e298976733b1c91be99eda180bf8137c16e3e7d18db87fb4b747cddfdc58f2a6"
+    },
+    {
+      "case": 2,
+      "task": "narratives",
+      "before_status": "accepted",
+      "after_status": "rejected",
+      "before_native_input": 1572,
+      "after_native_input": 1538,
+      "judgment": "mixed",
+      "notes": "Restores a nonempty recap with supported backlash reporting, but leads with unspecified personal news and includes coaching criticism in the hook without citing its evidence.",
+      "request_sha256": "0974571a889ffd9ac8d688e8f0cd0f75ccc6f05b2c2a30b8508e288e0217f1fe",
+      "response_sha256": "d528887a42db18aae5609ab505a2c6c8f7baa4debeb0eca393e33fb5892e2212"
+    },
+    {
+      "case": 4,
+      "task": "narratives",
+      "before_status": "rejected",
+      "after_status": "rejected",
+      "before_native_input": 1167,
+      "after_native_input": 1133,
+      "judgment": "better",
+      "notes": "Removes the invented jersey retirement and returns to the reported number assignment; name-expansion and qualification issues remain.",
+      "request_sha256": "0c35b6744b80757cca2a8debe6c12925355ef13cd7bdc8bdbc7a175967bacfb4",
+      "response_sha256": "b1d5446034d88d1f1db8fb3e0fdd6a9026cf15acf880c2609eb95cc3662dbdf3"
+    },
+    {
+      "case": 5,
+      "task": "narratives",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_native_input": 1238,
+      "after_native_input": 1204,
+      "judgment": "no_clear_change",
+      "notes": "Continues to abstain on the history-only headline.",
+      "request_sha256": "16bc659d05f6e2ea9314b6ac062a3ed2b4f63258728069dca879393c1af59abe",
+      "response_sha256": "b47b4b5895a4da1e456140cb5c3b288f81ea232806883fa250e9448b85fa2e6e"
+    },
+    {
+      "case": 10,
+      "task": "transfer",
+      "before_status": "rejected",
+      "after_status": "rejected",
+      "before_native_input": 1411,
+      "after_native_input": 1377,
+      "judgment": "no_clear_change",
+      "notes": "Structured findings still link a quote to the wrong report and name an unspecified subject; one stage label changes without repairing that mismatch.",
+      "request_sha256": "b1d4879e96f09706c4eb0b10aad0dbef93c46331d04bb32caca53645e5286d3d",
+      "response_sha256": "46bdf87e46bdda1094740ec6c5414068fe2710c90cbeb2bc0f394ecd44570d68"
+    },
+    {
+      "case": 11,
+      "task": "transfer",
+      "before_status": "rejected",
+      "after_status": "rejected",
+      "before_native_input": 1197,
+      "after_native_input": 1163,
+      "judgment": "worse",
+      "notes": "Invented contract expiry returns, and the text adds an unsupported possible nonrenewal.",
+      "request_sha256": "06cbfbb402f73e17c5e425616d250e8d1760ce072382a1a6f219c8ddc82d0c1b",
+      "response_sha256": "7765f44427120d1ae80b3d91e28ad89aa4a4d76851c42c48db1662a585f62c55"
+    },
+    {
+      "case": 15,
+      "task": "vibe",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_native_input": 1393,
+      "after_native_input": 1359,
+      "judgment": "worse",
+      "notes": "Keeps a mixed score of 50 for negative reactions, adds unsupported interpretation of the loss, and ends the hook with an incomplete numeric fragment.",
+      "request_sha256": "2b126ec65f4cf4c1138c1d8ffea7270f496c66b4c20ff09fcbc496a3a833ab2d",
+      "response_sha256": "a1ec5b478c10faa67ba1b1844c174073311f0253cc4c0a1fef3a350e2718ff6e"
+    },
+    {
+      "case": 18,
+      "task": "vibe",
+      "before_status": "accepted",
+      "after_status": "accepted",
+      "before_native_input": 1396,
+      "after_native_input": 1362,
+      "judgment": "no_clear_change",
+      "notes": "Still resolves an ambiguous win headline into a victory for the named opposing club without enough evidence.",
+      "request_sha256": "260cea43386077a1672a9572cde5b8059de6beaae9346a39970eeaf82a636b61",
+      "response_sha256": "1c819bfd8fc0c762533a711b03f4ea9b9703413da40be13755f01e59dbadcc75"
+    }
+  ],
+  "native_input_change": -272,
+  "native_input_change_percent": -2.48,
+  "assessment": "Mixed results; reliable relevance/newsworthiness filtering remains unproven. Do not equate strict acceptance with factual correctness."
+}

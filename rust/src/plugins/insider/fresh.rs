@@ -1,7 +1,7 @@
 //! Load and bound fresh movement headlines and canonical candidate names.
 
 const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
-    relationship: "new_content contains movement reporting. Source wording establishes whether the target moves, recruits, is a former affiliation, or discusses another entity's move. Do not substitute the target for a report's named actor. An injury absence is not a departure or appointment.",
+    relationship: "new_content contains movement reporting. Source wording establishes whether the target moves, recruits, is a former affiliation, or discusses another entity's move. Do not substitute the target for a report's named actor. An injury absence is not a departure or appointment. Headlines found through a Google search for the target may include unrelated stories, repeated coverage, speculation and clickbait. Search inclusion does not establish relevance or confirm a claim. Some articles match the target but reveal no news. Keep specific news, opinions and reactions. Do not invent the missing details or turn a question or implication into a fact. Look for recurring themes supported by distinct reports. Repeated copies are not independent support. Keep unrelated stories separate; do not force a narrative from thin evidence.",
     fields: &[
         ("reports.publisher", "supplying outlet, distinct from any speaker in its text."),
         ("reports.headline", "supplied title."),

@@ -1,0 +1,14 @@
+[
+  {
+    "role": "insider",
+    "http_status": 200,
+    "saved_body_and_hook_match": true,
+    "reporting_date": "2026-11-02"
+  },
+  {
+    "role": "influencer",
+    "http_status": 200,
+    "saved_body_and_hook_match": true,
+    "reporting_date": "2026-11-02"
+  }
+]

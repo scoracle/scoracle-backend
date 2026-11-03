@@ -1,0 +1,61 @@
+{
+  "captured_at": "2026-11-03T11:41:50.920272Z",
+  "reporting_date": "2026-11-02",
+  "saved": {
+    "insider": 192,
+    "influencer": 372
+  },
+  "qualified": {
+    "insider": 176,
+    "influencer": 328
+  },
+  "evidence_assignments": {
+    "insider": 193,
+    "influencer": 410
+  },
+  "assignment_outcomes": [
+    {
+      "stage": "transfers",
+      "outcome": "completed",
+      "resolution": "candidate",
+      "count": 176
+    },
+    {
+      "stage": "transfers",
+      "outcome": "completed",
+      "resolution": "no_new_evidence",
+      "count": 3139
+    },
+    {
+      "stage": "transfers",
+      "outcome": "failed",
+      "resolution": "blocked",
+      "count": 17
+    },
+    {
+      "stage": "vibe",
+      "outcome": "completed",
+      "resolution": "abstained",
+      "count": 27
+    },
+    {
+      "stage": "vibe",
+      "outcome": "completed",
+      "resolution": "candidate",
+      "count": 328
+    },
+    {
+      "stage": "vibe",
+      "outcome": "completed",
+      "resolution": "no_new_evidence",
+      "count": 2922
+    },
+    {
+      "stage": "vibe",
+      "outcome": "failed",
+      "resolution": "blocked",
+      "count": 55
+    }
+  ],
+  "last_required_assignment_finished": "2026-11-02T23:29:23.211612-05:00"
+}

@@ -61,3 +61,29 @@ This displays the exact system and user inputs, schema, options and should-call 
 For structural changes, compare complete requests byte-for-byte and run `cargo test --offline --lib --examples --bin eval`. For instruction changes, update every affected plugin version (including consumers of a changed shared guide), regenerate affected fixtures and compare identical evidence using complete native input tokens and manual source review. Keep failed outputs and receipts. Parser acceptance alone does not establish factual correctness.
 
 The [direct-instructions trial](../fixtures/characters/direct-instructions-2026-11-02/README.md) records the plain Journalist, Insider and Influencer briefs, numeric Journalist citations, and its single-hook recap contract. The [clear-payload trial](../fixtures/characters/clear-payload-2026-11-02/README.md) records the preceding formatting comparison and three-character replay. The [context-component trial](../fixtures/characters/context-components-2026-11-02/README.md) records the preceding structural comparison. Historical experiment folders preserve the code versions and prompts they tested.
+
+## Banked for the next prompt version
+
+User-approved direction, November 2, 2026. Implemented and tested November 3 as experimental Journalist, Insider and Influencer candidates; not deployed. The [48-call Mac-only trial](../fixtures/characters/search-themes-2026-11-03/README.md) records mixed quality results and the unchanged production pause. The approved wording below remains the design intent; the trial uses a concise conditional version to avoid asserting Google provenance for unknown or legacy inputs.
+
+Search provenance and evidence limits:
+
+> These headlines came from a Google search for the target. Search results can include unrelated stories, repeated coverage, speculation and clickbait. Appearing in these results does not establish relevance or confirm a claim. Focus on clearly relevant stories, preserve uncertainty, and do not turn a headline's question or implication into a fact.
+
+Recurring themes without forced connections:
+
+> Look for recurring themes across relevant headlines. When several distinct reports support a common story, summarize it as a prevailing theme. Repeated copies of one headline are not independent support. Keep unrelated stories separate, and do not force a shared narrative when the evidence is thin.
+
+Influencer-specific distinction:
+
+> Distinguish the tone of the coverage from evidence of how people actually feel.
+
+Sensational wording alone should not establish strong public emotion. Describe Google-search provenance only for evidence actually collected that way; other payloads retain their own provenance. Keep these meanings with the relevant evidence guides, preserving each character's task and voice.
+
+The first trial compares both additions across eighteen saved cases, then isolates search/noise and theme guidance on six of them. Continue comparing identical saved targets and evidence from the [November 2 corpus](releases/2026-11-03-early-corpus/README.md). Measure complete native input tokens and manually compare relevance, uncertainty, actor attribution, separation of unrelated stories and unsupported emotion claims. Retain failures and receipts, and update affected prompt versions and fixtures for each subsequent candidate. Parser acceptance alone is not a reason to deploy.
+
+The subsequent [empty-teaser refinement](../fixtures/characters/substantive-news-2026-11-03/README.md) tested stronger filtering language, with over-filtering and retained teasers still observed. The user then removed the sentence containing teaser examples and shortened the instruction to keep specific information. Current experimental versions are `n140-specific-news`, `insider-source-v41-specific-news` and `vibe-frame-v53-specific-news`, with this passage:
+
+> Some articles match the target but reveal no news. Keep specific news, opinions and reactions. Do not invent the missing details or turn a question or implication into a fact.
+
+The two requested cuts were applied to all three guides and current fixtures, then tested in [eight Mac-only comparisons](../fixtures/characters/substantive-news-2026-11-03/specific-news-results.json) at the user's request. Input tokens fell 2.48% versus the preceding wording, but manual quality results remain mixed and reliable filtering is unproven. Earlier trial results describe their recorded versions. Production remains paused.

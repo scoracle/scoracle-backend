@@ -1,0 +1,371 @@
+{
+  "host": "archbox",
+  "captured_at": "2026-11-03T03:20:22.768078+00:00",
+  "since": "2026-11-03T03:00:00Z",
+  "private_archive": "/mnt/data/backup/scoracle/early-corpus-20261103/20261103T032022768078Z",
+  "model_calls": {
+    "vibe": {
+      "calls": 17,
+      "input_tokens_min": 1091,
+      "input_tokens_max": 1872,
+      "input_tokens_total": 28104,
+      "output_tokens_total": 3763,
+      "wall_ms_total": 109114,
+      "wall_ms_p50": 6021,
+      "wall_ms_p95": 8992
+    },
+    "transfers": {
+      "calls": 18,
+      "input_tokens_min": 1083,
+      "input_tokens_max": 2065,
+      "input_tokens_total": 26670,
+      "output_tokens_total": 2299,
+      "wall_ms_total": 78229,
+      "wall_ms_p50": 4505,
+      "wall_ms_p95": 8414
+    }
+  },
+  "job_events": {
+    "vibe:completed": 18,
+    "transfers:completed": 18
+  },
+  "services": {
+    "scoracle-api": "active",
+    "scoracle-cognition": "active",
+    "scoracle-coverage": "active",
+    "scoracle-kev": "active",
+    "scoracle-writer-model": "active",
+    "scoracle-writer": "active"
+  },
+  "gpu": "8192 MiB, 5919 MiB, 97 %",
+  "database": {
+    "captured_at": "2026-11-02T22:20:23.033416-05:00",
+    "schedule": {
+      "singleton": true,
+      "enabled": true,
+      "enrolled_at": "2026-10-22T14:27:36.042566-04:00",
+      "timezone": "America/Detroit",
+      "cutoff": "00:00:00",
+      "drain_limit": "00:15:00",
+      "character_limit": "06:00:00",
+      "phase": "characters",
+      "edition_date": "2026-11-03",
+      "last_tick_at": "2026-11-02T22:20:08.208955-05:00",
+      "updated_at": "2026-11-02T22:15:25.81577-05:00",
+      "collection_cutoff": "22:00:00",
+      "required_stages": [
+        "vibe",
+        "transfers"
+      ]
+    },
+    "publication": {
+      "singleton": true,
+      "edition_date": null,
+      "revision": 11212
+    },
+    "article_cap": 10,
+    "queue": [
+      {
+        "stage": "transfers",
+        "status": "pending",
+        "count": 164,
+        "max_attempts": 0
+      },
+      {
+        "stage": "narratives",
+        "status": "pending",
+        "count": 770,
+        "max_attempts": 0
+      },
+      {
+        "stage": "classifier",
+        "status": "pending",
+        "count": 12921,
+        "max_attempts": 0
+      },
+      {
+        "stage": "vibe",
+        "status": "pending",
+        "count": 395,
+        "max_attempts": 0
+      },
+      {
+        "stage": "narratives",
+        "status": "failed",
+        "count": 2,
+        "max_attempts": 5
+      },
+      {
+        "stage": "vibe",
+        "status": "running",
+        "count": 2,
+        "max_attempts": 0
+      },
+      {
+        "stage": "transfers",
+        "status": "running",
+        "count": 1,
+        "max_attempts": 0
+      }
+    ],
+    "active_assignments": [
+      {
+        "stage": "rating",
+        "outcome": "pending",
+        "resolution": null,
+        "count": 3230
+      },
+      {
+        "stage": "transfers",
+        "outcome": "pending",
+        "resolution": null,
+        "count": 165
+      },
+      {
+        "stage": "transfers",
+        "outcome": "failed",
+        "resolution": "blocked",
+        "count": 5
+      },
+      {
+        "stage": "sigil",
+        "outcome": "pending",
+        "resolution": null,
+        "count": 3230
+      },
+      {
+        "stage": "vibe",
+        "outcome": "completed",
+        "resolution": "no_new_evidence",
+        "count": 2922
+      },
+      {
+        "stage": "vibe",
+        "outcome": "completed",
+        "resolution": "candidate",
+        "count": 12
+      },
+      {
+        "stage": "transfers",
+        "outcome": "completed",
+        "resolution": "no_new_evidence",
+        "count": 3139
+      },
+      {
+        "stage": "narratives",
+        "outcome": "completed",
+        "resolution": "no_new_evidence",
+        "count": 2560
+      },
+      {
+        "stage": "momentum",
+        "outcome": "pending",
+        "resolution": null,
+        "count": 3230
+      },
+      {
+        "stage": "vibe",
+        "outcome": "pending",
+        "resolution": null,
+        "count": 397
+      },
+      {
+        "stage": "vibe",
+        "outcome": "failed",
+        "resolution": "blocked",
+        "count": 1
+      },
+      {
+        "stage": "transfers",
+        "outcome": "completed",
+        "resolution": "candidate",
+        "count": 23
+      },
+      {
+        "stage": "narratives",
+        "outcome": "pending",
+        "resolution": null,
+        "count": 772
+      }
+    ],
+    "products": [
+      {
+        "stage": "transfers",
+        "entity_type": "team",
+        "sport": "FOOTBALL",
+        "prompt_version": "insider-source-v36-paragraphs",
+        "model_version": "Qwen3.5-4B-Q4_K_M",
+        "reporting_date": "2026-11-02",
+        "generated_rows": 5,
+        "distinct_targets": 5,
+        "qualified_rows": 5
+      },
+      {
+        "stage": "transfers",
+        "entity_type": "team",
+        "sport": "NBA",
+        "prompt_version": "insider-source-v36-paragraphs",
+        "model_version": "Qwen3.5-4B-Q4_K_M",
+        "reporting_date": "2026-11-02",
+        "generated_rows": 11,
+        "distinct_targets": 11,
+        "qualified_rows": 10
+      },
+      {
+        "stage": "transfers",
+        "entity_type": "team",
+        "sport": "NFL",
+        "prompt_version": "insider-source-v36-paragraphs",
+        "model_version": "Qwen3.5-4B-Q4_K_M",
+        "reporting_date": "2026-11-02",
+        "generated_rows": 15,
+        "distinct_targets": 15,
+        "qualified_rows": 8
+      },
+      {
+        "stage": "vibe",
+        "entity_type": "team",
+        "sport": "FOOTBALL",
+        "prompt_version": "vibe-frame-v48-paragraphs",
+        "model_version": "Qwen3.5-4B-Q4_K_M",
+        "reporting_date": "2026-11-02",
+        "generated_rows": 2,
+        "distinct_targets": 2,
+        "qualified_rows": 0
+      },
+      {
+        "stage": "vibe",
+        "entity_type": "team",
+        "sport": "NBA",
+        "prompt_version": "vibe-frame-v48-paragraphs",
+        "model_version": "Qwen3.5-4B-Q4_K_M",
+        "reporting_date": "2026-11-02",
+        "generated_rows": 8,
+        "distinct_targets": 8,
+        "qualified_rows": 4
+      },
+      {
+        "stage": "vibe",
+        "entity_type": "team",
+        "sport": "NFL",
+        "prompt_version": "vibe-frame-v48-paragraphs",
+        "model_version": "Qwen3.5-4B-Q4_K_M",
+        "reporting_date": "2026-11-02",
+        "generated_rows": 15,
+        "distinct_targets": 15,
+        "qualified_rows": 8
+      }
+    ],
+    "delivery_states": [
+      {
+        "character": "influencer",
+        "status": "abstained",
+        "reason": "ranked_below_entity_cap",
+        "rows": 330
+      },
+      {
+        "character": "influencer",
+        "status": "held",
+        "reason": "incomplete_reporting_day",
+        "rows": 7
+      },
+      {
+        "character": "influencer",
+        "status": "held",
+        "reason": "unresolved_target_identity",
+        "rows": 19
+      },
+      {
+        "character": "influencer",
+        "status": "pending",
+        "reason": null,
+        "rows": 43
+      },
+      {
+        "character": "influencer",
+        "status": "redundant",
+        "reason": "reposted_headline",
+        "rows": 55
+      },
+      {
+        "character": "influencer",
+        "status": "used",
+        "reason": null,
+        "rows": 202
+      },
+      {
+        "character": "insider",
+        "status": "abstained",
+        "reason": "No source-grounded move for this entity",
+        "rows": 123
+      },
+      {
+        "character": "insider",
+        "status": "abstained",
+        "reason": "ranked_below_entity_cap",
+        "rows": 46
+      },
+      {
+        "character": "insider",
+        "status": "held",
+        "reason": "unresolved_target_identity",
+        "rows": 8
+      },
+      {
+        "character": "insider",
+        "status": "pending",
+        "reason": null,
+        "rows": 31
+      },
+      {
+        "character": "insider",
+        "status": "redundant",
+        "reason": "reposted_headline",
+        "rows": 3
+      },
+      {
+        "character": "insider",
+        "status": "used",
+        "reason": null,
+        "rows": 5
+      },
+      {
+        "character": "journalist",
+        "status": "pending",
+        "reason": null,
+        "rows": 509
+      }
+    ]
+  },
+  "model_health": {
+    "status": "ok"
+  },
+  "observed_validation_attempts": {
+    "transfers": 13
+  },
+  "observed_validation_categories": {
+    "transfers:target_name_opening": 4,
+    "transfers:other_validation": 2,
+    "transfers:unsupported_named_claim": 5,
+    "transfers:finding_contract": 1,
+    "transfers:unsupported_fact_relationship": 1
+  },
+  "rejected_generation_attempts": {},
+  "rejection_categories": {},
+  "archive_parse_errors": 0,
+  "undated_archive_records_excluded": 0,
+  "archive_files": {
+    "model-calls.log": {
+      "bytes": 15657,
+      "sha256": "f634af5ad81ed382c83d242fcecd358b17ca18737320b0e41b9fdf4ad4cbbfb7"
+    },
+    "rejections.jsonl": {
+      "bytes": 351676,
+      "sha256": "58c66baad4994922f508260957e4f4d65c0da7ee8ce2b6d756392007335b351f"
+    },
+    "evidence.jsonl": {
+      "bytes": 5426391,
+      "sha256": "0560f9478a03ccc04644e3dd2b6a3d2e304005548da04ee6961b4b9ba13cc03c"
+    }
+  }
+}

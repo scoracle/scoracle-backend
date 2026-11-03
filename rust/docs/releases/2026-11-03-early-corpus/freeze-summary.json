@@ -1,0 +1,286 @@
+{
+  "applied": true,
+  "receipt": "/mnt/data/backup/scoracle/releases/early-corpus-20261103/apply.jsonl",
+  "spam_count": 0,
+  "before": {
+    "at": "2026-11-02T22:15:25.677449-05:00",
+    "schedule": {
+      "singleton": true,
+      "enabled": true,
+      "enrolled_at": "2026-10-22T14:27:36.042566-04:00",
+      "timezone": "America/Detroit",
+      "cutoff": "00:00:00",
+      "drain_limit": "00:15:00",
+      "character_limit": "06:00:00",
+      "phase": "draining",
+      "edition_date": "2026-11-03",
+      "last_tick_at": "2026-11-02T22:05:49.237176-05:00",
+      "updated_at": "2026-11-02T22:00:04.237223-05:00",
+      "collection_cutoff": "22:00:00",
+      "required_stages": [
+        "vibe",
+        "transfers"
+      ]
+    },
+    "edition": {
+      "edition_date": "2026-11-03",
+      "cutoff_at": "2026-11-03T00:00:00-05:00",
+      "drain_deadline": "2026-11-03T00:00:00.000001-05:00",
+      "frozen_at": null,
+      "character_deadline": null,
+      "finished_at": null,
+      "status": "draining",
+      "reason": null,
+      "collection_closed_at": "2026-11-02T22:00:00-05:00",
+      "missed_boundaries": 0
+    },
+    "classifier_jobs": 12921,
+    "classifier_running": 0,
+    "unsettled_classifier": 12921,
+    "queue": [
+      {
+        "stage": "vibe",
+        "status": "pending",
+        "jobs": 410
+      },
+      {
+        "stage": "sigil",
+        "status": "failed",
+        "jobs": 4
+      },
+      {
+        "stage": "rating",
+        "status": "pending",
+        "jobs": 227
+      },
+      {
+        "stage": "transfers",
+        "status": "pending",
+        "jobs": 351
+      },
+      {
+        "stage": "narratives",
+        "status": "failed",
+        "jobs": 2
+      },
+      {
+        "stage": "narratives",
+        "status": "pending",
+        "jobs": 773
+      },
+      {
+        "stage": "investigate_entity",
+        "status": "pending",
+        "jobs": 473
+      },
+      {
+        "stage": "momentum",
+        "status": "pending",
+        "jobs": 1518
+      },
+      {
+        "stage": "sigil",
+        "status": "pending",
+        "jobs": 3078
+      },
+      {
+        "stage": "rating",
+        "status": "failed",
+        "jobs": 36
+      },
+      {
+        "stage": "harvester",
+        "status": "failed",
+        "jobs": 26607
+      },
+      {
+        "stage": "harvester",
+        "status": "pending",
+        "jobs": 6182
+      },
+      {
+        "stage": "classifier",
+        "status": "pending",
+        "jobs": 12921
+      },
+      {
+        "stage": "editor",
+        "status": "failed",
+        "jobs": 1
+      }
+    ],
+    "assignments": null
+  },
+  "records": [
+    {
+      "phase": "characters"
+    },
+    {
+      "selection_dispositions": 434
+    },
+    {
+      "at": "2026-11-02T22:16:08.222867-05:00",
+      "schedule": {
+        "singleton": true,
+        "enabled": true,
+        "enrolled_at": "2026-10-22T14:27:36.042566-04:00",
+        "timezone": "America/Detroit",
+        "cutoff": "00:00:00",
+        "drain_limit": "00:15:00",
+        "character_limit": "06:00:00",
+        "phase": "characters",
+        "edition_date": "2026-11-03",
+        "last_tick_at": "2026-11-02T22:15:25.81577-05:00",
+        "updated_at": "2026-11-02T22:15:25.81577-05:00",
+        "collection_cutoff": "22:00:00",
+        "required_stages": [
+          "vibe",
+          "transfers"
+        ]
+      },
+      "edition": {
+        "edition_date": "2026-11-03",
+        "cutoff_at": "2026-11-03T00:00:00-05:00",
+        "drain_deadline": "2026-11-03T00:00:00.000001-05:00",
+        "frozen_at": "2026-11-02T22:15:25.81577-05:00",
+        "character_deadline": null,
+        "finished_at": null,
+        "status": "characters",
+        "reason": "early_corpus_classifier_paused",
+        "collection_closed_at": "2026-11-02T22:00:00-05:00",
+        "missed_boundaries": 0
+      },
+      "classifier_jobs": 12921,
+      "classifier_running": 0,
+      "unsettled_classifier": 12921,
+      "queue": [
+        {
+          "stage": "vibe",
+          "status": "pending",
+          "jobs": 410
+        },
+        {
+          "stage": "sigil",
+          "status": "failed",
+          "jobs": 4
+        },
+        {
+          "stage": "rating",
+          "status": "pending",
+          "jobs": 3194
+        },
+        {
+          "stage": "transfers",
+          "status": "pending",
+          "jobs": 193
+        },
+        {
+          "stage": "narratives",
+          "status": "failed",
+          "jobs": 2
+        },
+        {
+          "stage": "narratives",
+          "status": "pending",
+          "jobs": 770
+        },
+        {
+          "stage": "investigate_entity",
+          "status": "pending",
+          "jobs": 473
+        },
+        {
+          "stage": "momentum",
+          "status": "pending",
+          "jobs": 3230
+        },
+        {
+          "stage": "sigil",
+          "status": "pending",
+          "jobs": 3226
+        },
+        {
+          "stage": "rating",
+          "status": "failed",
+          "jobs": 36
+        },
+        {
+          "stage": "harvester",
+          "status": "failed",
+          "jobs": 26607
+        },
+        {
+          "stage": "harvester",
+          "status": "pending",
+          "jobs": 6182
+        },
+        {
+          "stage": "classifier",
+          "status": "pending",
+          "jobs": 12921
+        },
+        {
+          "stage": "editor",
+          "status": "failed",
+          "jobs": 1
+        }
+      ],
+      "assignments": [
+        {
+          "stage": "transfers",
+          "outcome": "pending",
+          "resolution": null,
+          "targets": 193
+        },
+        {
+          "stage": "rating",
+          "outcome": "pending",
+          "resolution": null,
+          "targets": 3230
+        },
+        {
+          "stage": "sigil",
+          "outcome": "pending",
+          "resolution": null,
+          "targets": 3230
+        },
+        {
+          "stage": "vibe",
+          "outcome": "completed",
+          "resolution": "no_new_evidence",
+          "targets": 2922
+        },
+        {
+          "stage": "transfers",
+          "outcome": "completed",
+          "resolution": "no_new_evidence",
+          "targets": 3139
+        },
+        {
+          "stage": "narratives",
+          "outcome": "completed",
+          "resolution": "no_new_evidence",
+          "targets": 2560
+        },
+        {
+          "stage": "momentum",
+          "outcome": "pending",
+          "resolution": null,
+          "targets": 3230
+        },
+        {
+          "stage": "vibe",
+          "outcome": "pending",
+          "resolution": null,
+          "targets": 410
+        },
+        {
+          "stage": "narratives",
+          "outcome": "pending",
+          "resolution": null,
+          "targets": 772
+        }
+      ]
+    }
+  ]
+}

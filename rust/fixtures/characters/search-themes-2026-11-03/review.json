@@ -1,0 +1,26 @@
+{
+  "scope": "18 development cases; manual comparison against supplied evidence, not held-out accuracy",
+  "scale": "Overall candidate versus baseline: better, worse, or no_clear_change. Better does not mean fully correct.",
+  "cases": [
+    {"case": 1, "judgment": "no_clear_change", "notes": "Both recaps list ten headlines in one long paragraph and connect a named player to an ambiguous record-signing teaser. Theme guidance does not resolve the ambiguity."},
+    {"case": 2, "judgment": "worse", "notes": "Candidate covers more headlines initially, then repeats its season summary across several paragraphs and adds broad performance judgments. Baseline is narrow but avoids the repetition loop."},
+    {"case": 3, "judgment": "no_clear_change", "notes": "Outputs are identical: both merge the matching praise reports but omit a separate player story and omit publisher attribution in prose."},
+    {"case": 4, "judgment": "no_clear_change", "notes": "Outputs are identical. Both expand abbreviated team names beyond source wording and strengthen an indicated jersey-number change in the hook."},
+    {"case": 5, "judgment": "better", "notes": "Candidate abstains on a jersey-history headline; baseline invents a current legacy/recall framing for retrospective material. This is a defensible abstention, not proof that retrospective coverage must always be discarded."},
+    {"case": 6, "judgment": "no_clear_change", "notes": "Both abstain on the prediction/result packet."},
+    {"case": 7, "judgment": "no_clear_change", "notes": "Both falsely describe the head coach as fired, reversing the actor relationship in reporting about staff changes. Candidate slightly improves the qualification of an unrelated speculative trade."},
+    {"case": 8, "judgment": "worse", "notes": "Candidate passes strict validation but contradicts itself about whether an agent is named, invents a prerequisite for negotiations, and omits a distinct potential-team-interest story. Acceptance masks a factual regression."},
+    {"case": 9, "judgment": "no_clear_change", "notes": "Both interpret a Champions League reunion as a possible employment move and produce an unsupported structured finding."},
+    {"case": 10, "judgment": "no_clear_change", "notes": "Outputs are identical. Prose keeps the stories separate, but findings attach an unnamed-target quote to a named counterparty and the wrong report index."},
+    {"case": 11, "judgment": "no_clear_change", "notes": "Both turn a possible departure after a stated year into an unsupported contract-expiry claim."},
+    {"case": 12, "judgment": "no_clear_change", "notes": "Both overstate hypothetical trade coverage and lead with stored roster metadata. Baseline misattributes a trade idea; candidate invents an outlet's nationality and omits that idea."},
+    {"case": 13, "judgment": "worse", "notes": "Candidate turns an emergency-quarterback headline into quarterback errors, infers confidence from betting-favorite status, and ends the hook with a stray character. Both retain the same overall score."},
+    {"case": 14, "judgment": "worse", "notes": "Candidate invents a speaker's club affiliation, transfers outlet wording to another speaker, and invents fan anticipation in its hook. Baseline also adds unsupported tactical/cultural interpretation."},
+    {"case": 15, "judgment": "no_clear_change", "notes": "Both give anger and disappointment a mixed score of 50 and include a touchdown highlight that supplies no emotional reaction. Search/tone guidance does not correct the score meaning."},
+    {"case": 16, "judgment": "better", "notes": "Candidate clarifies whose game plan was disrupted and keeps the distinct MVP-frustration thread while covering the scoring headline. Grouped attribution remains imperfect."},
+    {"case": 17, "judgment": "better", "notes": "Candidate stays closer to the reported promise to improve and uses a more concrete hook, avoiding some added interpretation. Improvement is modest."},
+    {"case": 18, "judgment": "no_clear_change", "notes": "Both resolve an ambiguous win headline into a victory for the named opposing club without enough evidence."}
+  ],
+  "totals": {"better": 3, "worse": 4, "no_clear_change": 11},
+  "deployment_assessment": "No general quality improvement established. Keep the combined prompt experimental; production remains paused."
+}

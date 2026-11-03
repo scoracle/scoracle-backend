@@ -13,6 +13,11 @@ use std::ops::{Deref, DerefMut};
 /// * `Err(_)` — transport / programming error → the work item fails and backs off.
 pub trait Parser<T> {
     fn parse(&self, raw: &str) -> Result<Option<T>>;
+
+    /// Opt-in decoding for observation runs; storage and reference checks still apply.
+    fn parse_candidate(&self, raw: &str) -> Result<Option<T>> {
+        self.parse(raw)
+    }
 }
 
 /// Parsed value plus the exact generation provenance.

@@ -66,9 +66,45 @@ pub async fn record(
     error: &anyhow::Error,
     generation_attempt: usize,
 ) -> Result<()> {
+    record_decision(
+        model,
+        prompt,
+        request,
+        response,
+        raw_response,
+        error,
+        generation_attempt,
+        "rejected",
+    )
+    .await
+}
+
+#[cfg(test)]
+tokio::task_local! { pub(crate) static TEST_OBSERVE: bool; }
+
+pub fn observe_content() -> bool {
+    #[cfg(test)]
+    if let Ok(observe) = TEST_OBSERVE.try_with(|value| *value) {
+        return observe;
+    }
+    std::env::var("CHARACTER_CONTENT_POLICY").as_deref() == Ok("observe")
+}
+
+/// An observed validation failure is retained even when the candidate may publish.
+#[allow(clippy::too_many_arguments)]
+pub async fn record_decision(
+    model: &str,
+    prompt: &str,
+    request: &Value,
+    response: Option<&str>,
+    raw_response: &str,
+    error: &anyhow::Error,
+    generation_attempt: usize,
+    disposition: &str,
+) -> Result<()> {
     let record = json!({"capture_version":1,"recorded_at":crate::util::utc_timestamp(
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64),
-        "build_commit":super::buildinfo::COMMIT,"model":model,
+        "build_commit":super::buildinfo::COMMIT,"model":model,"disposition":disposition,
         "claim":CLAIM.try_with(Clone::clone).ok(),"generation_attempt":generation_attempt,
         "input_hash":crate::util::hash_components(prompt),
         "request_hash":crate::util::hash_components(&request.to_string()),

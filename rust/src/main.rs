@@ -50,6 +50,7 @@ async fn main() -> Result<()> {
         model = %cfg.model_name,
         commit = buildinfo::COMMIT,
         built = buildinfo::BUILD_TIME,
+        observe_character_content = scoracle_cognition::harness::rejections::observe_content(),
         "scoracle-cognition starting",
     );
 

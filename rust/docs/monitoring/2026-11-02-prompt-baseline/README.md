@@ -4,6 +4,12 @@ The user requested a few more hours of monitoring before trying new prompt conce
 
 Keep this run observational. Do not change prompts, parsers, model weights, article cap, concurrency, queue state or production configuration; do not retry rejected outputs or invoke extra generations. The baseline uses Journalist `n135-ten-articles`, Insider `insider-source-v36-paragraphs`, Influencer `vibe-frame-v48-paragraphs`, Qwen3.5-4B-Q4_K_M, temperature zero, thinking disabled, ten articles. Mac and Archbox share at most four character claims; Archbox has one Journalist slot. Existing guard failures are data, not permission to relax validation.
 
+## User-directed policy change
+
+The user subsequently requested that model-content failures reach production for review. The fixed-validation baseline ends at the deployment boundary documented in `../../releases/2026-11-02-observe-content/README.md`. After that boundary, `CHARACTER_CONTENT_POLICY=observe` allows structurally usable Journalist, Insider and Influencer candidates past content/style failures. Prompts, model weights, native schemas, cap ten, concurrency and source/claim checks remain unchanged. This explicitly supersedes the earlier instruction to keep blocking content validation throughout the window.
+
+The collector now separates `observed_validation_attempts` from `rejected_generation_attempts`; old receipts without a disposition remain rejections. An observed attempt is allowed past validation, not proof of publication or factual correctness. Compare strict and observation periods separately; higher publication rates after this switch are not a quality improvement. Do not requeue old holds, relax structural checks or make further production changes while monitoring. Resume the existing schedule after rollout, still ending by 03:00 UTC; delete the automation after the final report.
+
 ## Each scheduled check
 
 Run from `/Users/scotty/scoracle/scoracle-backend/rust`. Use a fresh timestamp in output filenames so prior snapshots remain intact:

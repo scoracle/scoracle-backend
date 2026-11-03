@@ -122,7 +122,20 @@ pub async fn create(
     match output_from_receipt(assignment, &receipt) {
         Ok(output) => Ok((output, receipt)),
         Err(error) => {
-            crate::harness::rejections::record(
+            let candidate = if crate::harness::rejections::observe_content() {
+                receipt["validation_policy"] = json!("observe");
+                Some(output_from_receipt(assignment, &receipt))
+            } else {
+                None
+            };
+            let allowed = candidate.as_ref().is_some_and(Result::is_ok);
+            let error = match &candidate {
+                Some(Err(structural)) => {
+                    error.context(format!("observation decoding failed: {structural:#}"))
+                }
+                _ => error,
+            };
+            crate::harness::rejections::record_decision(
                 &generated.model,
                 &world,
                 &request,
@@ -130,10 +143,16 @@ pub async fn create(
                 &generated.raw_response_body,
                 &error,
                 1,
+                if allowed { "observed" } else { "rejected" },
             )
             .await?;
-            receipt["error"] = json!(format!("{error:#}"));
-            Ok((None, receipt))
+            if let Some(Ok(output)) = candidate {
+                receipt["validation_warning"] = json!(format!("{error:#}"));
+                Ok((output, receipt))
+            } else {
+                receipt["error"] = json!(format!("{error:#}"));
+                Ok((None, receipt))
+            }
         }
     }
 }
@@ -144,9 +163,13 @@ fn output_from_receipt(assignment: &Assignment, receipt: &Value) -> Result<Optio
     if receipt["reason"] == "no_fresh_evidence" && assignment.parts.sources.is_empty() {
         return Ok(None);
     }
-    let Some(reply) =
-        VibeParser.parse(receipt["raw_response"].as_str().context("saved response")?)?
-    else {
+    let raw = receipt["raw_response"].as_str().context("saved response")?;
+    let parsed = if receipt["validation_policy"] == "observe" {
+        VibeParser.parse_candidate(raw)?
+    } else {
+        VibeParser.parse(raw)?
+    };
+    let Some(reply) = parsed else {
         return Ok(None);
     };
     let mut source_ids: Vec<i64> = assignment

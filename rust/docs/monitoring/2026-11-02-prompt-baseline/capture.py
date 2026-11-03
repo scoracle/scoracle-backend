@@ -72,6 +72,10 @@ def rejection_category(error):
             return category
     return 'other_validation'
 
+def is_observed(row):
+    # Legacy receipts have no disposition and remain actual rejections.
+    return row.get('disposition') == 'observed'
+
 def main(host):
     assert host in ('mac', 'archbox')
     now = dt.datetime.now(dt.timezone.utc)
@@ -119,6 +123,8 @@ def main(host):
         path = root/path
     rejects = collections.Counter()
     reasons = collections.Counter()
+    observed = collections.Counter()
+    observed_reasons = collections.Counter()
     malformed = 0
     undated = 0
     with path.open() as source, (output/'rejections.jsonl').open('x') as archived:
@@ -137,8 +143,11 @@ def main(host):
             claim = row.get('claim') or {}
             if row['recorded_at'] >= SINCE and claim.get('stage') in STAGES:
                 archived.write(line)
-                rejects[claim['stage']] += 1
-                reasons[claim['stage']+':'+rejection_category(row.get('error'))] += 1
+                counts, categories = (observed, observed_reasons) if is_observed(row) else (rejects, reasons)
+                counts[claim['stage']] += 1
+                categories[claim['stage']+':'+rejection_category(row.get('error'))] += 1
+    summary['observed_validation_attempts'] = dict(observed)
+    summary['observed_validation_categories'] = dict(observed_reasons)
     summary['rejected_generation_attempts'] = dict(rejects)
     summary['rejection_categories'] = dict(reasons)
     summary['archive_parse_errors'] = malformed

@@ -11,6 +11,36 @@ pub(super) struct ReplyParser<'a> {
 }
 
 impl Parser<Reply> for ReplyParser<'_> {
+    fn parse_candidate(&self, raw: &str) -> Result<Option<Reply>> {
+        let mut reply: Reply = serde_json::from_str(raw)?;
+        reply.body = crate::tools::form::normalize_body(&reply.body);
+        crate::tools::form::validate_body(&reply.body)?;
+        for finding in &reply.findings {
+            let report = self
+                .reports
+                .get(finding.report_index)
+                .ok_or_else(|| anyhow::anyhow!("finding cites a missing report"))?;
+            ensure!(
+                report
+                    .co_mentions
+                    .iter()
+                    .any(|m| m.name == finding.counterparty),
+                "finding counterparty was not co-mentioned in its report"
+            );
+            ensure!(
+                match finding.status {
+                    Status::Reported => matches!(
+                        finding.stage.as_deref(),
+                        Some("speculation" | "concrete_interest" | "advanced_talks" | "here_we_go")
+                    ),
+                    Status::Denied => finding.stage.is_none(),
+                },
+                "finding stage does not match its status"
+            );
+        }
+        Ok(Some(reply))
+    }
+
     fn parse(&self, raw: &str) -> Result<Option<Reply>> {
         let mut reply: Reply = serde_json::from_str(raw)?;
         reply.body = crate::tools::guards::clean_served_prose(&crate::tools::form::normalize_body(
@@ -163,6 +193,28 @@ impl Parser<Reply> for ReplyParser<'_> {
 #[cfg(test)]
 mod source_fact_tests {
     use super::*;
+
+    #[test]
+    fn observation_keeps_unsupported_prose_but_refuses_missing_source_references() {
+        let subject = EntityMeta {
+            name: "Cedar".into(),
+            entity_type: "team".into(),
+            entity_id: 1,
+            sport: "NFL".into(),
+        };
+        let parser = ReplyParser {
+            subject: &subject,
+            reports: &[],
+        };
+        let raw = r#"{"body":"Invented United won the World Cup.","findings":[]}"#;
+        assert!(parser.parse(raw).is_err());
+        assert_eq!(
+            parser.parse_candidate(raw).unwrap().unwrap().body,
+            "Invented United won the World Cup."
+        );
+        assert!(parser.parse_candidate(r#"{"body":"News","findings":[{"report_index":9,"counterparty":"Ghost","status":"reported","stage":"here_we_go","evidence_quote":"Invented"}]}"#).is_err());
+        assert!(parser.parse_candidate("broken").is_err());
+    }
 
     #[test]
     fn derozan_report_cannot_be_published_as_a_gordon_move() {

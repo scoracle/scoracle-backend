@@ -132,6 +132,43 @@ async fn day_card_contract() {
         .parse(r#"{"score":null,"headline":null,"body":null}"#)
         .unwrap()
         .is_none());
+    let observed_model = Model {
+        calls: AtomicUsize::new(0),
+        reply: r#"{"score":50,"headline":"First\nSecond","body":"An unsupported interpretation."}"#,
+    };
+    let archive =
+        std::env::temp_dir().join(format!("influencer-observed-{}.jsonl", std::process::id()));
+    let (observed, receipt) = crate::harness::rejections::TEST_PATH
+        .scope(
+            archive.clone(),
+            crate::harness::rejections::TEST_OBSERVE.scope(true, create(&observed_model, &a, 4096)),
+        )
+        .await
+        .unwrap();
+    assert!(observed.is_some());
+    assert_eq!(receipt["validation_policy"], "observe");
+    assert!(receipt["validation_warning"]
+        .as_str()
+        .unwrap()
+        .contains("one line"));
+    assert!(receipt.get("error").is_none());
+    let replay = crate::harness::rejections::TEST_OBSERVE
+        .sync_scope(false, || output_from_receipt(&a, &receipt))
+        .unwrap()
+        .unwrap();
+    assert_eq!(replay.hook.as_deref(), Some("First\nSecond"));
+    assert_eq!(observed_model.calls.load(Ordering::Relaxed), 1);
+    let record: Value = serde_json::from_str(
+        std::fs::read_to_string(&archive)
+            .unwrap()
+            .lines()
+            .last()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(record["disposition"], "observed");
+    std::fs::remove_file(archive).unwrap();
+
     let broken = Model {
         calls: AtomicUsize::new(0),
         reply: "truncated",

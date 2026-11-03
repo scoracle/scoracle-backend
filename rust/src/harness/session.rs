@@ -55,25 +55,32 @@ pub(super) async fn extract_with_backend<T, P: Parser<T>>(
             let value = match parser.parse(&gen.response) {
                 Ok(value) => value,
                 Err(error) => {
-                    super::rejections::record(
-                        &gen.model,
-                        &built_prompt,
-                        &request_body,
-                        Some(&gen.response),
-                        &gen.raw_response_body,
-                        &error,
-                        attempt + 1,
-                    )
-                    .await?;
-                    return Err(error.context(super::model::RejectedReply {
-                        raw_response_body: if gen.raw_response_body.is_empty() {
-                            gen.response.clone()
-                        } else {
-                            gen.raw_response_body.clone()
-                        },
-                        request_body: request_body.clone(),
-                        built_prompt: built_prompt.clone(),
-                    }));
+                    let candidate = super::rejections::observe_content()
+                        .then(|| parser.parse_candidate(&gen.response));
+                    let allowed = candidate.as_ref().is_some_and(Result::is_ok);
+                    let error = match &candidate {
+                        Some(Err(structural)) => error.context(format!("observation decoding failed: {structural:#}")),
+                        _ => error,
+                    };
+                    super::rejections::record_decision(
+                        &gen.model, &built_prompt, &request_body, Some(&gen.response),
+                        &gen.raw_response_body, &error, attempt + 1,
+                        if allowed { "observed" } else { "rejected" },
+                    ).await?;
+                    if let Some(Ok(value)) = candidate {
+                        tracing::warn!(%error, "content validation observed; candidate allowed to publish");
+                        value
+                    } else {
+                        return Err(error.context(super::model::RejectedReply {
+                            raw_response_body: if gen.raw_response_body.is_empty() {
+                                gen.response.clone()
+                            } else {
+                                gen.raw_response_body.clone()
+                            },
+                            request_body: request_body.clone(),
+                            built_prompt: built_prompt.clone(),
+                        }));
+                    }
                 }
             };
             Ok::<_, anyhow::Error>((gen, request_body, value))
@@ -163,6 +170,64 @@ mod surface_tests {
             }
             crate::tools::form::validate_body(raw)?;
             Ok(Some(raw.to_string()))
+        }
+    }
+
+    struct ReviewParser;
+    impl Parser<String> for ReviewParser {
+        fn parse(&self, _: &str) -> Result<Option<String>> {
+            anyhow::bail!("unsupported named claim")
+        }
+        fn parse_candidate(&self, raw: &str) -> Result<Option<String>> {
+            let text: String = serde_json::from_str(raw)?;
+            Ok(Some(text))
+        }
+    }
+
+    #[tokio::test]
+    async fn observation_archives_content_failures_without_rewriting_or_accepting_bad_json() {
+        for (observe, reply, allowed) in [
+            (false, r#""Invented news""#, false),
+            (true, r#""Invented news""#, true),
+            (true, "malformed", false),
+        ] {
+            let path = std::env::temp_dir().join(format!(
+                "observation-{}-{}-{}.jsonl",
+                std::process::id(),
+                observe,
+                allowed
+            ));
+            let _ = std::fs::remove_file(&path);
+            let backend = Backend(Mutex::new(vec![reply.into(), "unused".into()]));
+            let result = super::super::rejections::TEST_PATH
+                .scope(
+                    path.clone(),
+                    super::super::rejections::TEST_OBSERVE.scope(
+                        observe,
+                        extract_with_backend(
+                            &backend,
+                            "Exact evidence",
+                            &GenerateOptions::default(),
+                            &ReviewParser,
+                            no_rewrite,
+                        ),
+                    ),
+                )
+                .await;
+            assert_eq!(result.is_ok(), allowed);
+            if allowed {
+                assert_eq!(result.unwrap().value.as_deref(), Some("Invented news"));
+            }
+            assert_eq!(backend.0.lock().unwrap().len(), 1);
+            let records = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(records.lines().count(), 1);
+            let record: serde_json::Value = serde_json::from_str(records.trim()).unwrap();
+            assert_eq!(record["response"], reply);
+            assert_eq!(
+                record["disposition"],
+                if allowed { "observed" } else { "rejected" }
+            );
+            std::fs::remove_file(path).unwrap();
         }
     }
 

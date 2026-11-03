@@ -29,3 +29,7 @@ events=io.StringIO()
 assert capture.metrics(lines,events)==m
 assert len(events.getvalue().splitlines())==2
 assert "9999" not in events.getvalue()
+
+assert capture.is_observed({'disposition':'observed'})
+assert not capture.is_observed({'disposition':'rejected'})
+assert not capture.is_observed({})

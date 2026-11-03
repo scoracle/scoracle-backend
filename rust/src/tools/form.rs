@@ -244,7 +244,7 @@ pub struct JournalistReply {
     pub headline: Option<String>,
 }
 
-pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
+pub fn decode_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
     let mut reply: JournalistReply = serde_json::from_str(raw)?;
     // Option fields otherwise allow an omitted key, despite the native schema requiring it.
     anyhow::ensure!(
@@ -254,24 +254,18 @@ pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<Journa
         "missing headline"
     );
     anyhow::ensure!(
-        reply.paragraphs.len() <= report_count,
-        "too many paragraphs"
-    );
-    anyhow::ensure!(
         reply.headline.is_none() == reply.paragraphs.is_empty(),
         "headline and paragraphs must both be present or both abstain"
     );
     if let Some(headline) = &mut reply.headline {
         *headline = crate::tools::guards::clean_served_prose(&normalize_body(headline));
     }
-    validate_hook(reply.headline.as_deref())?;
+    if let Some(headline) = &reply.headline {
+        validate_body(headline)?;
+    }
     for paragraph in &mut reply.paragraphs {
         paragraph.body = crate::tools::guards::clean_served_prose(&normalize_body(&paragraph.body));
         validate_body(&paragraph.body)?;
-        anyhow::ensure!(
-            paragraph.body.chars().count() <= JOURNALIST_REPORT_MAX_CHARS,
-            "Journalist paragraph exceeds the reading budget"
-        );
         let mut seen = std::collections::HashSet::new();
         anyhow::ensure!(
             !paragraph.report_ids.is_empty(),
@@ -283,6 +277,22 @@ pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<Journa
                 "invalid or duplicate paragraph report ID"
             );
         }
+    }
+    Ok(reply)
+}
+
+pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
+    let reply = decode_journalist(raw, report_count)?;
+    anyhow::ensure!(
+        reply.paragraphs.len() <= report_count,
+        "too many paragraphs"
+    );
+    validate_hook(reply.headline.as_deref())?;
+    for paragraph in &reply.paragraphs {
+        anyhow::ensure!(
+            paragraph.body.chars().count() <= JOURNALIST_REPORT_MAX_CHARS,
+            "Journalist paragraph exceeds the reading budget"
+        );
     }
     for prose in reply
         .headline
@@ -307,6 +317,25 @@ mod tests {
     use crate::plugins::analyst::parser as analyst;
     use crate::plugins::influencer;
     use crate::plugins::scout::parser as scout;
+
+    #[test]
+    fn journalist_observation_preserves_style_failures_but_refuses_invalid_report_ids() {
+        let mut raw = serde_json::json!({"headline":"x".repeat(141),"paragraphs":[{"body":"Invented news.","report_ids":[1]}]});
+        assert!(parse_journalist(&raw.to_string(), 1).is_err());
+        assert_eq!(
+            decode_journalist(&raw.to_string(), 1).unwrap().paragraphs[0].body,
+            "Invented news."
+        );
+        for invalid in [
+            serde_json::json!([0]),
+            serde_json::json!([2]),
+            serde_json::json!([]),
+        ] {
+            raw["paragraphs"][0]["report_ids"] = invalid;
+            assert!(decode_journalist(&raw.to_string(), 1).is_err());
+        }
+        assert!(decode_journalist("broken", 1).is_err());
+    }
 
     #[test]
     fn body_validation_preserves_prose_and_refuses_blank_content() {

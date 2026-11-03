@@ -23,3 +23,9 @@ print('Telemetry window, ANSI parsing, zero tokens, distinct counters, empty log
 assert capture.rejection_category('model reply rejected: named claim is absent from cited reports: Example')=='unsupported_named_claim'
 assert capture.rejection_category('Insider reading must begin with the full subject name')=='target_name_opening'
 assert capture.rejection_category(None)=='other_validation'
+
+import io
+events=io.StringIO()
+assert capture.metrics(lines,events)==m
+assert len(events.getvalue().splitlines())==2
+assert "9999" not in events.getvalue()

@@ -28,7 +28,7 @@ def env_values(path, names):
                 result[key] = words[0]
     return result
 
-def metrics(lines):
+def metrics(lines, event_sink=None):
     calls = collections.defaultdict(list)
     jobs = collections.Counter()
     for line in lines:
@@ -38,6 +38,8 @@ def metrics(lines):
         if not stamp or stamp[0][:19] < SINCE[:19] or not stage or stage[1] not in STAGES:
             continue
         if 'character model call completed' in line:
+            if event_sink is not None:
+                event_sink.write(line.rstrip()+'\n')
             fields = {k: int(v) for k, v in re.findall(r'(input_tokens|output_tokens|wall_ms)=(\d+)', line)}
             if len(fields) == 3:
                 calls[stage[1]].append(fields)
@@ -84,7 +86,8 @@ def main(host):
     summary = {'host': host, 'captured_at': now.isoformat(), 'since': SINCE, 'private_archive': str(output)}
     if host == 'archbox':
         result = subprocess.run(['journalctl','--user','-u','scoracle-writer.service','--since',SINCE,'--no-pager','-o','cat'], capture_output=True, text=True, check=True)
-        summary.update(metrics(result.stdout.splitlines()))
+        with (output/'model-calls.log').open('x') as events:
+            summary.update(metrics(result.stdout.splitlines(), events))
         units = ['scoracle-api','scoracle-cognition','scoracle-coverage','scoracle-kev','scoracle-writer-model','scoracle-writer']
         summary['services'] = {unit: subprocess.run(['systemctl','--user','is-active',unit],capture_output=True,text=True).stdout.strip() for unit in units}
         summary['gpu'] = subprocess.check_output(['nvidia-smi','--query-gpu=memory.total,memory.used,utilization.gpu','--format=csv,noheader'],text=True).strip()
@@ -102,8 +105,8 @@ def main(host):
         summary['database'] = json.loads(subprocess.check_output(command+['-f',str(Path(__file__).with_name('summary.sql'))],env=pg,text=True,timeout=75))
         port = 8082
     else:
-        with (root/'logs/cognition.log').open() as log:
-            summary.update(metrics(log))
+        with (root/'logs/cognition.log').open() as log, (output/'model-calls.log').open('x') as events:
+            summary.update(metrics(log, events))
         service = subprocess.run(['launchctl','print','gui/501/com.scoracle.cognition'],capture_output=True,text=True)
         summary['writer_running'] = service.returncode == 0 and '\n\tstate = running' in service.stdout
         port = 8081

@@ -1,0 +1,17 @@
+{
+  "01": "Blends a 40-point win with a 128\u201381 loss in one game account; misattributes Coby White report to AP; cites unrelated report slots. The State Hornet identity is not established by its generic Hornets headline.",
+  "02": "Trade idea becomes wording suggesting a completed move; adds significant friction not stated in headlines. Omits Smith/Jones aside.",
+  "03": "Invents Minnesota Vikings as loss opponent where evidence says Bears; includes broadcaster-reaction material.",
+  "04": "Reverses Liverpool-win ownership, assigns the article author\u2019s Mamdani/UAE proposal to Mamdani, misspells Saliba as Salaba, omits publisher attribution and groups unrelated stories.",
+  "05": "Overrides Gasperini with recorded coach Antonio Conte; wounded Red Devils becomes injured Red Devils; includes historical Totti material.",
+  "06": "Inserts recorded Anthony Carter coach metadata alongside current Spoelstra reporting; repeats the same Spoelstra paragraph eight times. No request timeout; finished after 129.9 seconds.",
+  "07": "Vague feat headline becomes generic milestone recap without concrete feat; no useful new detail. Full-team-name parser rejection may be overstrict because the target is known.",
+  "08": "Reverses Chelsea win over Manchester United into failure/defeat; invents Moises Lavia; misattributes sources and adds squad-crisis interpretation.",
+  "09": "Mostly preserves praise speakers/subject, but retains withheld two-word reaction and vague rarefied-air framing; related defense claims repeat across paragraphs.",
+  "10": "Omits historical Nets trade, but mixes Bulls and Magic games and vague history-making framing in one paragraph; merges MassLive/Reuters attribution.",
+  "11": "Broadly preserves Prescott reaction and fan criticism; adds social-media/shouting characterization and uses overtime detail beyond first paragraph\u2019s sole citation. Hook changes one of toughest into toughest.",
+  "12": "Calls Tampa Bay\u2019s game a loss, then says it won; brutally honest reaction becomes performance. Blends separate outlet claims and changes source ownership.",
+  "13": "Faithful concise attribution and reaction. Mechanical rejection should not be treated as a factual error.",
+  "14": "Main claim faithful, but adds repetitive impact sentence and typo cruys in hook. Only strict pass.",
+  "15": "Adds Portland Trail Blazers affiliation from recorded metadata; supplied headline only states season-high 24 minutes Saturday."
+}

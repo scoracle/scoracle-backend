@@ -1,0 +1,497 @@
+[
+  {
+    "id": "01-charlotte-hornets",
+    "context_added": true,
+    "rendered_context": "LaMelo Ball (player); recorded affiliation: this target (Charlotte Hornets), observed 2026-07-03",
+    "scores_without": {
+      "availability": 2.905011119270263,
+      "emotion": 47.85714359229164,
+      "movement": 3.1058679920395265,
+      "subject": 97.09641959387602
+    },
+    "scores_with": {
+      "availability": 6.837074099005605,
+      "emotion": 47.24353173296722,
+      "movement": 7.781044966272624,
+      "subject": 97.60497052671678
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "Dated LaMelo/Hornets affiliation causes small score changes and no routing change. This does not establish the reason he is absent.",
+    "errors": []
+  },
+  {
+    "id": "02-philadelphia-eagles",
+    "context_added": true,
+    "rendered_context": "Jerry Jones (person)",
+    "scores_without": {
+      "availability": 0.69371859791746,
+      "emotion": 45.70844140190642,
+      "movement": 4.48160903782921,
+      "subject": 25.50520017808417
+    },
+    "scores_with": {
+      "availability": 0.5347398515567267,
+      "emotion": 47.075585243110986,
+      "movement": 6.1435696932943875,
+      "subject": 26.119858339347346
+    },
+    "routes_without": {
+      "influencer": false,
+      "insider": false,
+      "journalist": false,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": false,
+      "insider": false,
+      "journalist": false,
+      "scout": false
+    },
+    "admission_without": false,
+    "admission_with": false,
+    "review": "Jerry Jones is identified only as person. The incidental Eagles story remains correctly rejected in both arms; role and affiliation are still missing.",
+    "errors": []
+  },
+  {
+    "id": "03-seattle-seahawks",
+    "context_added": true,
+    "rendered_context": "Troy Aikman (person)",
+    "scores_without": {
+      "availability": 2.0393344527846624,
+      "emotion": 64.47342375709177,
+      "movement": 5.95974297079245,
+      "subject": 63.74690563939184
+    },
+    "scores_with": {
+      "availability": 0.8901021231664823,
+      "emotion": 66.31435897817501,
+      "movement": 3.9713038557664158,
+      "subject": 56.09275714615995
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "Troy Aikman is identified only as person. Relevance drops toward the cutoff but the broadcast story remains falsely admitted; broadcaster role is not supplied.",
+    "errors": []
+  },
+  {
+    "id": "04-arsenal",
+    "context_added": false,
+    "rendered_context": null,
+    "scores_without": {
+      "availability": 10.953645640553672,
+      "emotion": 63.36141904287121,
+      "movement": 46.07333766753973,
+      "subject": 70.65298725763066
+    },
+    "scores_with": {
+      "availability": 10.953645640553672,
+      "emotion": 63.36141904287121,
+      "movement": 46.07333766753973,
+      "subject": 70.65298725763066
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "No other-person context found. Identical scores are a control result, not evidence for or against added relationships.",
+    "errors": []
+  },
+  {
+    "id": "05-roma",
+    "context_added": false,
+    "rendered_context": null,
+    "scores_without": {
+      "availability": 5.160722454529046,
+      "emotion": 70.00113750529967,
+      "movement": 10.478546937679837,
+      "subject": 86.93126031262948
+    },
+    "scores_with": {
+      "availability": 5.160722454529046,
+      "emotion": 70.00113750529967,
+      "movement": 10.478546937679837,
+      "subject": 86.93126031262948
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "No Allegri match found. Identical scores; the relevant speaker’s role and relationship were not tested.",
+    "errors": []
+  },
+  {
+    "id": "06-miami-heat",
+    "context_added": true,
+    "rendered_context": "Giannis Antetokounmpo (player); team on record: Milwaukee Bucks, observed 2026-07-03",
+    "scores_without": {
+      "availability": 1.867369589621803,
+      "emotion": 40.588698660897755,
+      "movement": 34.09099790092663,
+      "subject": 90.10850396226084
+    },
+    "scores_with": {
+      "availability": 1.950202149019337,
+      "emotion": 43.05363769664587,
+      "movement": 25.323000517935025,
+      "subject": 88.82917856975655
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "Dated Milwaukee roster context conflicts with the headline’s Heat-teammate framing. Scores change modestly and routes do not. The test does not establish whether the model resolves that conflict correctly.",
+    "errors": []
+  },
+  {
+    "id": "07-tampa-bay-buccaneers",
+    "context_added": true,
+    "rendered_context": "Baker Mayfield (player); recorded affiliation: this target (Tampa Bay Buccaneers), observed 2026-10-23",
+    "scores_without": {
+      "availability": 4.431129015343121,
+      "emotion": 27.011888094860243,
+      "movement": 18.58103819187256,
+      "subject": 94.41975142802116
+    },
+    "scores_with": {
+      "availability": 4.37046901940778,
+      "emotion": 30.36977193802879,
+      "movement": 20.96884858000703,
+      "subject": 93.256332728642
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "Baker’s dated Buccaneers affiliation produces no route change. Vague rare-feat framing still routes to Influencer.",
+    "errors": []
+  },
+  {
+    "id": "08-chelsea",
+    "context_added": true,
+    "rendered_context": "Josh Acheampong (player); recorded affiliation: this target (Chelsea), observed 2026-07-03",
+    "scores_without": {
+      "availability": 6.972140618237531,
+      "emotion": 60.86419932008875,
+      "movement": 83.38520454883695,
+      "subject": 85.30890124562688
+    },
+    "scores_with": {
+      "availability": 6.637005904647151,
+      "emotion": 61.39243973809133,
+      "movement": 73.15991829360499,
+      "subject": 82.8907432605517
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": true,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "Regression: dated Chelsea affiliation does not help the personnel-interest classification. Movement crosses below 80, dropping Insider.",
+    "errors": []
+  },
+  {
+    "id": "09-luka-doncic",
+    "context_added": false,
+    "rendered_context": null,
+    "scores_without": {
+      "availability": 1.6512712973951102,
+      "emotion": 83.69885767383907,
+      "movement": 7.583819246067145,
+      "subject": 89.41728814816781
+    },
+    "scores_with": {
+      "availability": 1.6512712973951102,
+      "emotion": 83.69885767383907,
+      "movement": 7.583819246067145,
+      "subject": 89.41728814816781
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "No other named person resolved from this headline, which says Raptors Coach without naming the coach. Identical scores.",
+    "errors": []
+  },
+  {
+    "id": "10-jayson-tatum",
+    "context_added": false,
+    "rendered_context": null,
+    "scores_without": {
+      "availability": 2.6867784779071266,
+      "emotion": 43.65936547565422,
+      "movement": 81.4436492768127,
+      "subject": 44.31409975216805
+    },
+    "scores_with": {
+      "availability": 2.6867784779071266,
+      "emotion": 43.65936547565422,
+      "movement": 81.4436492768127,
+      "subject": 44.31409975216805
+    },
+    "routes_without": {
+      "influencer": false,
+      "insider": false,
+      "journalist": false,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": false,
+      "insider": false,
+      "journalist": false,
+      "scout": false
+    },
+    "admission_without": false,
+    "admission_with": false,
+    "review": "No other-person context found. Historical-trade admission remains blocked in both arms; high movement remains masked by admission.",
+    "errors": []
+  },
+  {
+    "id": "11-dak-prescott",
+    "context_added": false,
+    "rendered_context": null,
+    "scores_without": {
+      "availability": 1.597988568153348,
+      "emotion": 70.92132912792574,
+      "movement": 7.5153796178551415,
+      "subject": 96.05148763782144
+    },
+    "scores_with": {
+      "availability": 1.597988568153348,
+      "emotion": 70.92132912792574,
+      "movement": 7.5153796178551415,
+      "subject": 96.05148763782144
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "No Brian Schottenheimer match found. Identical scores; coach relationship context was not tested.",
+    "errors": []
+  },
+  {
+    "id": "12-baker-mayfield",
+    "context_added": false,
+    "rendered_context": null,
+    "scores_without": {
+      "availability": 11.71219019321696,
+      "emotion": 62.53179019687424,
+      "movement": 10.758050018487717,
+      "subject": 84.56949447814102
+    },
+    "scores_with": {
+      "availability": 11.71219019321696,
+      "emotion": 62.53179019687424,
+      "movement": 10.758050018487717,
+      "subject": 84.56949447814102
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "No other-person context found after excluding the target. Opposing teams are not covered by this lookup. Identical scores.",
+    "errors": []
+  },
+  {
+    "id": "13-virgil-van-dijk",
+    "context_added": false,
+    "rendered_context": null,
+    "scores_without": {
+      "availability": 0.7909162062102744,
+      "emotion": 92.84872970823535,
+      "movement": 2.4689880276488827,
+      "subject": 95.63392525555996
+    },
+    "scores_with": {
+      "availability": 0.7909162062102744,
+      "emotion": 92.84872970823535,
+      "movement": 2.4689880276488827,
+      "subject": 95.63392525555996
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "No other-person context found after excluding the target. Opposing teams are not covered by this lookup. Identical scores.",
+    "errors": []
+  },
+  {
+    "id": "14-gessime-yassine",
+    "context_added": false,
+    "rendered_context": null,
+    "scores_without": {
+      "availability": 1.2136143294349593,
+      "emotion": 72.2086482828509,
+      "movement": 0.6144399018890058,
+      "subject": 92.40785498889143
+    },
+    "scores_with": {
+      "availability": 1.2136143294349593,
+      "emotion": 72.2086482828509,
+      "movement": 0.6144399018890058,
+      "subject": 92.40785498889143
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "No other-person context found after excluding the target. Identical scores.",
+    "errors": []
+  },
+  {
+    "id": "15-vit-krejci",
+    "context_added": false,
+    "rendered_context": null,
+    "scores_without": {
+      "availability": 2.7457228629088797,
+      "emotion": 21.351486945062067,
+      "movement": 1.0745639957164341,
+      "subject": 95.4039667332583
+    },
+    "scores_with": {
+      "availability": 2.7457228629088797,
+      "emotion": 21.351486945062067,
+      "movement": 1.0745639957164341,
+      "subject": 95.4039667332583
+    },
+    "routes_without": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_with": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "admission_without": true,
+    "admission_with": true,
+    "review": "No other-person context found after excluding Krejci himself. Emotion remains 21.35, above 15, so the false Influencer route persists; this pair does not test added context.",
+    "errors": []
+  }
+]

@@ -4,6 +4,8 @@
 //! does not imply affiliations, aliases, or relationships absent from the frame.
 use serde::{Deserialize, Serialize};
 
+use super::prompt;
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct EntityMeta {
     pub name: String,
@@ -17,6 +19,154 @@ impl EntityMeta {
     pub fn reference(&self) -> String {
         format!("{}, the {} {}", self.name, self.sport, self.entity_type)
     }
+}
+
+/// Keep identifying background separate from both the question and the headline.
+pub(crate) fn decision_context<'a>(
+    entity: &'a EntityMeta,
+    meta: &'a serde_json::Value,
+) -> anyhow::Result<(prompt::Context<impl Serialize + 'a>, String)> {
+    #[derive(Serialize)]
+    struct Target<'a> {
+        name: &'a str,
+        entity_type: &'a str,
+        sport: &'a str,
+        #[serde(rename = "team_category", skip_serializing_if = "Option::is_none")]
+        team_gender: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        recorded_attributes: Option<serde_json::Value>,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        named_people: String,
+    }
+    let gender = meta.get("team_gender").filter(|gender| !gender.is_null());
+    let subject = if let Some(gender) = gender {
+        anyhow::ensure!(
+            entity.entity_type == "team",
+            "team_gender requires a team subject"
+        );
+        let category = match gender.as_str() {
+            Some("men") => "men's",
+            Some("women") => "women's",
+            Some("mixed") => "mixed-gender",
+            _ => anyhow::bail!("team_gender must be men, women, mixed, or null"),
+        };
+        // d3's gender trial required an explicit category in the question itself.
+        format!(
+            "the {category} {} team named {}",
+            entity.sport.to_lowercase(),
+            entity.name
+        )
+    } else {
+        if entity.entity_type == "team" {
+            format!("{} (team category unknown)", entity.reference())
+        } else {
+            entity.reference()
+        }
+    };
+    let background = meta["identity_record"].as_str().unwrap_or_default().trim();
+    let background = background
+        .strip_prefix(&entity.name)
+        .and_then(|rest| {
+            rest.strip_prefix(" — ")
+                .or_else(|| rest.strip_prefix(". "))
+                .or_else(|| rest.strip_prefix(".\n"))
+                .or_else(|| matches!(rest, "" | ".").then_some(""))
+        })
+        .unwrap_or(background);
+    let background = background
+        .lines()
+        .map(|line| {
+            // The legacy team card's coach has no appointment/observation date.
+            let line = line.split(". Coach on record:").next().unwrap();
+            // Legacy fact lines end in a date and internal source document ID.
+            match line.rsplit_once("; source ") {
+                Some((fact, id))
+                    if id
+                        .strip_suffix(']')
+                        .is_some_and(|id| id.parse::<i64>().is_ok()) =>
+                {
+                    format!("{fact}]")
+                }
+                _ => line.to_owned(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let attributes = match meta.get("database_record").filter(|record| !record.is_null()) {
+        Some(record) => recorded_attributes(entity, &serde_json::from_value::<DatabaseRecord>(record.clone())?),
+        None if !background.is_empty() => Some(serde_json::json!({"background_note": background})),
+        None => None,
+    };
+    let mut named_people = Vec::new();
+    if let Some(people) = meta.get("named_people").filter(|v| !v.is_null()) {
+        let people = people
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("named_people must be an array"))?;
+        anyhow::ensure!(people.len() <= 128, "too many named people");
+        for person in people {
+            let name = person["name"]
+                .as_str()
+                .filter(|s| !s.trim().is_empty())
+                .ok_or_else(|| anyhow::anyhow!("named person requires a name"))?;
+            let kind = person["entity_type"].as_str().unwrap_or("");
+            anyhow::ensure!(
+                matches!(kind, "player" | "person"),
+                "invalid named person type"
+            );
+            let mut description = format!("{name} ({kind})");
+            if let (Some(team), Some(date), Some(source)) = (
+                person["team"].as_str().filter(|s| !s.trim().is_empty()),
+                person["observed_at"].as_str(),
+                person["source"].as_str(),
+            ) {
+                // Stats/legacy affiliations cannot supply a current team bridge.
+                if matches!(source, "roster" | "override") {
+                    anyhow::ensure!(
+                        date.len() == 10
+                            && date.bytes().enumerate().all(|(i, b)| if i == 4 || i == 7 {
+                                b == b'-'
+                            } else {
+                                b.is_ascii_digit()
+                            }),
+                        "named person observation date must be YYYY-MM-DD"
+                    );
+                    let is_target = entity.entity_type == "team"
+                        && person["team_id"].as_i64() == Some(i64::from(entity.entity_id))
+                        && team == entity.name;
+                    if is_target {
+                        description.push_str(&format!(
+                            "; recorded affiliation: this target ({team}), observed {date}"
+                        ));
+                    } else {
+                        description.push_str(&format!("; team on record: {team}, observed {date}"));
+                    }
+                }
+            }
+            named_people.push(description);
+        }
+    }
+    Ok((
+        prompt::Context {
+            guide: prompt::Guide {
+                relationship: "The target is who or what you are evaluating. Full names and suffixes such as Jr., Sr. and II distinguish people; a shorter name inside a different full name is not the target. Use identifying details to distinguish teams and people. Do not invent missing details.",
+                fields: &[
+                    ("team_category", "Team category identifies men's, women's or mixed teams. Unknown supplies no category; it does not mean men or every squad sharing the name. Do not assign explicitly different squad reporting to the target on name alone."),
+                    ("recorded_attributes", "Background details help identify the target. They are not news from the headline and do not prove a past affiliation is still current."),
+                    ("named_people", "Named people are canonical identities matched in this headline, not additional targets. Their dated team records can explain a relationship to the target; they are background, not evidence of a transfer or injury. A stated newer or former affiliation in the headline takes precedence. Other named people must not be confused with the target."),
+                ],
+            },
+            data: Target {
+                name: &entity.name,
+                entity_type: &entity.entity_type,
+                sport: &entity.sport,
+                team_gender: gender.and_then(serde_json::Value::as_str)
+                    .or((entity.entity_type == "team").then_some("unknown")),
+                recorded_attributes: attributes,
+                named_people: named_people.join(" | "),
+            },
+        },
+        subject,
+    ))
 }
 
 /// Identity used for prose; database identity remains in plugin provenance.
@@ -155,7 +305,9 @@ pub async fn load_team_gender(
     sport: &str,
 ) -> anyhow::Result<Option<String>> {
     Ok(sqlx::query_scalar::<_, Option<String>>(
-        "SELECT meta->>'gender' FROM public.teams WHERE id=$1 AND sport=$2",
+        "SELECT COALESCE(t.meta->>'gender',l.meta->>'gender')
+         FROM public.teams t LEFT JOIN public.leagues l ON l.id=t.league_id AND l.sport=t.sport
+         WHERE t.id=$1 AND t.sport=$2",
     )
     .bind(entity_id)
     .bind(sport.to_uppercase())
@@ -466,3 +618,107 @@ const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
         ("database_record", "legacy background prose, not fresh reporting or proof of current employment."),
     ],
 };
+
+/// Shared target presentation for Journalist and Influencer writing requests.
+pub(crate) fn writing_target<'a>(
+    subject: &'a EntityMeta,
+    record: Option<&DatabaseRecord>,
+) -> impl Serialize + 'a {
+    #[derive(Serialize)]
+    struct Target<'a> {
+        #[serde(flatten)]
+        identity: WritingIdentity<'a>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        recorded_attributes: Option<serde_json::Value>,
+    }
+    Target {
+        identity: subject.for_writing(),
+        recorded_attributes: record.and_then(|record| recorded_attributes(subject, record)),
+    }
+}
+
+fn recorded_attributes(
+    subject: &EntityMeta,
+    record: &crate::tools::meta::DatabaseRecord,
+) -> Option<serde_json::Value> {
+    use crate::tools::meta::DatabaseRecord;
+    use serde_json::{json, Value};
+
+    let fields = match record {
+        DatabaseRecord::Attributes(fields) => fields,
+        DatabaseRecord::Legacy(text) => return Some(json!({"background_note": text})),
+    };
+    let mut attrs: serde_json::Map<String, Value> = fields.clone().into_iter().collect();
+    for key in ["affiliation_on_record", "coach_on_record"] {
+        if let Some(relation) = attrs.get_mut(key).and_then(Value::as_object_mut) {
+            relation.remove("source");
+            relation.remove("source_document_id");
+            if relation.is_empty() {
+                attrs.remove(key);
+            }
+        }
+    }
+    if attrs
+        .get("affiliation_on_record")
+        .and_then(|r| r.get("team"))
+        .is_some()
+        && !attrs.contains_key("team_on_record")
+    {
+        let mut team = attrs.remove("affiliation_on_record").unwrap();
+        if let Some(relation) = team.as_object_mut() {
+            if let Some(name) = relation.remove("team") {
+                relation.insert("name".into(), name);
+            }
+            if let Some(date) = relation.remove("observed_at") {
+                relation.insert("observed_on".into(), date);
+            }
+        }
+        attrs.insert("team_on_record".into(), team);
+    }
+    if let Some(location) = attrs.get("location").and_then(Value::as_object).cloned() {
+        attrs.remove("location");
+        for (key, value) in location {
+            attrs
+                .entry(if key == "venue" {
+                    "home_venue_on_record".to_owned()
+                } else {
+                    key
+                })
+                .or_insert(value);
+        }
+    }
+    if subject.sport == "NBA" {
+        if let Some(position) = attrs.get("position").and_then(Value::as_str) {
+            let full = match position {
+                "F" => "forward",
+                "G" => "guard",
+                "C" => "center",
+                other => other,
+            };
+            attrs.insert("position".into(), json!(full));
+        }
+    }
+    if let Some(Value::Array(facts)) = attrs.get_mut("recorded_facts") {
+        for fact in facts.iter_mut().filter_map(Value::as_object_mut) {
+            fact.remove("source_document_id");
+        }
+        let births: Vec<_> = facts
+            .iter()
+            .filter(|f| f["attribute"] == "date_of_birth")
+            .collect();
+        let dob = match births.as_slice() {
+            [f] if f.get("valid_from").is_none() && f.get("valid_to").is_none() => {
+                f.get("value").cloned()
+            }
+            _ => None,
+        };
+        if let Some(dob) = dob.filter(|_| !fields.contains_key("date_of_birth")) {
+            facts.retain(|f| f["attribute"] != "date_of_birth");
+            if facts.is_empty() {
+                attrs.remove("recorded_facts");
+            }
+            attrs.insert("date_of_birth".into(), dob);
+        }
+    }
+    (!attrs.is_empty()).then_some(Value::Object(attrs))
+}

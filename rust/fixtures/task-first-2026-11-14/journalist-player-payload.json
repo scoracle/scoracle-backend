@@ -1,0 +1,27 @@
+{
+  "task": "You will be given a sports-related entity and reporting found mentioning it. Your job is to find concrete developments involving that entity in the evidence and write a concise news recap.",
+  "target_context": "The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.",
+  "target": {
+    "name": "Virgil van Dijk",
+    "entity_type": "player",
+    "sport": "football",
+    "recorded_attributes": {
+      "date_of_birth": "1991-07-08",
+      "nationality": "Netherlands",
+      "position": "Defender",
+      "team_on_record": {
+        "league": "Premier League",
+        "name": "Liverpool",
+        "observed_on": "2026-07-04"
+      }
+    }
+  },
+  "evidence_context": "These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.",
+  "evidence": [
+    {
+      "id": 1,
+      "publisher": "Liverpool FC",
+      "headline": "'Very disappointed' - Virgil van Dijk's reaction to Liverpool's defeat by Arsenal"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "answers": {
+    "availability": {
+      "noul": 0.04600225117769808,
+      "type": "noul"
+    },
+    "emotion": {
+      "noul": 0.939673495446688,
+      "type": "noul"
+    },
+    "movement": {
+      "noul": 0.030582219304339114,
+      "type": "noul"
+    },
+    "subject": {
+      "noul": 0.8739204354535616,
+      "type": "noul"
+    }
+  },
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "usage": {
+    "input_tokens": 2254,
+    "output_tokens": 0
+  }
+}

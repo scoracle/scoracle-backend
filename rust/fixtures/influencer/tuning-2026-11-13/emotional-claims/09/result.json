@@ -1,0 +1,22 @@
+{
+  "case": 9,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/09-luka-doncic.json",
+  "generation_wall_ms": 14005,
+  "input_tokens": 1562,
+  "name": "09-luka-doncic",
+  "output_limit": 3500,
+  "output_tokens": 153,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v58-emotional-claims",
+  "reading": "Doncic praised for defensive dominance and historic night\n\nThe New York Times and Yahoo Sports highlighted Luka Doncic's defensive performance, with the Times calling his defense 'awesome' and Redick praising it after the Lakers beat the Raptors. Heavy.com and Bleacher Report echoed this sentiment, noting Doncic destroyed the Raptors' game plan and describing his impact as a 'supernova' that made the Lakers feel like they were 'living on a spaceship.' ESPN reported that Doncic drew praise from both the Lakers and Raptors for his improved defense, while Sun Herald noted he was enjoying a 'rarefied air' ahead of the Heat.",
+  "request_bytes": 6211,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 14021
+}

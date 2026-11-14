@@ -1,0 +1,22 @@
+{
+  "case": 3,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/relevance-cases/03-seattle-seahawks.json",
+  "generation_wall_ms": 13858,
+  "input_tokens": 1752,
+  "name": "03-seattle-seahawks",
+  "output_limit": 3500,
+  "output_tokens": 218,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v60-target-relevance",
+  "reading": "Seahawks face identity crisis, fan anger, and mixed reactions amid MNF loss and anthem controversy\n\nThe Seattle Times characterized the team's recent primetime performance as a 'reality check' and 'identity crisis,' framing the game as a significant negative moment for the franchise. Yahoo Sports reported that NFL fans reacted with anger and a demand for a full investigation after the referee defended controversial calls in the Seahawks' loss to the Bears, with one fan describing the situation as 'nasty work.' Conversely, Yahoo Sports noted that fans were stunned and positive regarding a blockbuster trade for an 8-time Pro Bowler, using terms like 'Holy FLEECE' and 'MASSIVE Get' to describe the deal. However, other outlets reported severe backlash, with The Mirror US and Daily Express US calling the Seahawks' anthem performance a 'national atrocity' and 'metal singer' act, respectively, while The Shadow League highlighted fan fear over fireworks near helicopters.",
+  "request_bytes": 7270,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 13876
+}

@@ -1,0 +1,348 @@
+{
+  "name": "04-arsenal",
+  "task": "narratives",
+  "prompt_version": "n144-target-context",
+  "system": "",
+  "temperature": 0.0,
+  "user_prompt": "{\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Arsenal\",\n    \"entity_type\": \"team\",\n    \"sport\": \"football\",\n    \"recorded_attributes\": {\n      \"city\": \"London\",\n      \"coach_on_record\": {\n        \"name\": \"Régis Le Bris\",\n        \"observed_at\": \"2026-09-30\"\n      },\n      \"country\": \"England\",\n      \"home_venue_on_record\": \"Emirates Stadium\",\n      \"league\": {\n        \"country\": \"England\",\n        \"name\": \"Premier League\"\n      }\n    }\n  },\n  \"task\": {\n    \"assignment\": \"Faithfully summarize the reported news about the target. Your subject is the target. Gate relevancy: only include evidence relevant to the target. Omit unrelated material. If evidence is sparse, one sentence of output is acceptable. If evidence is excessive, report only the most prominent storylines. Keep paragraphs brief: do not exceed three-to-four concise sentences when evidence supports it. Name your sources. \\n    \\nFinish by writing one engaging, factual hook of 140 characters or fewer recaping your findings.\",\n    \"rules\": [\n      \"Write the paragraphs first and the headline last.\",\n      \"The target will not always be the subject of the evidence. Include a concrete claim when it directly involves the target. Keep who said or did what, and preserve whether the headline reports an opinion, a plan, or something that already happened.\",\n      \"Always note the target's relationship to other entities mentioned. If the relationship is unclear, do not guess or speculate.\",\n      \"Omit questionable or unrelated evidence. Omit clickbait. Omit vague claims. Default to caution when determining if evidence is relevant.\",\n      \"Keep each paragraph about one developing story. Combine articles only when they describe the same development. Keep disagreements attributed.\",\n      \"Copy quotes accurately and preserve who said them. Use the source wording when paraphrasing would change its meaning.\",\n      \"Do not answer a question that the evidence provides. Do not infer motives, feelings, causes, timing or consequences. Do not include repeated claims. Do not include background attributes. Do not include missing-detail commentary.\",\n      \"Provide reliable coverage. Do not take reporting risks. Never fill in gaps. Never speculate on unknowns. Never invent details.\",\n      \"Return only {\\\"paragraphs\\\":[{\\\"body\\\":\\\"Short paragraph naming the publisher\\\",\\\"report_ids\\\":[1]}],\\\"headline\\\":\\\"One hook for the whole recap\\\"}. Each paragraph cites only its supporting article IDs. Use at most one paragraph per supplied article and 1200 characters per paragraph. Check every paragraph against its own cited articles; the hook may use only those same articles. If none supports a recap, return {\\\"paragraphs\\\":[],\\\"headline\\\":null}. No extra keys or commentary.\"\n    ]\n  },\n  \"content_context\": \"These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.\",\n  \"new_content\": [\n    {\n      \"id\": 1,\n      \"publisher\": \"Nine.com.au\",\n      \"headline\": \"Arsenal stunned in all-time upset against tiny fourth-tier club\"\n    },\n    {\n      \"id\": 2,\n      \"publisher\": \"Flashscore.co.za\",\n      \"headline\": \"Arteta heaps praise on Gabriel and Konsa after Arsenal go level top with Man City\"\n    },\n    {\n      \"id\": 3,\n      \"publisher\": \"The Independent\",\n      \"headline\": \"Arsenal receive huge boost as William Saliba returns to training\"\n    },\n    {\n      \"id\": 4,\n      \"publisher\": \"London Evening Standard\",\n      \"headline\": \"Arsenal pay touching tribute to Jesus de Miguel after tragic death\"\n    },\n    {\n      \"id\": 5,\n      \"publisher\": \"ArsenalNews.co.uk\",\n      \"headline\": \"Jamie Carragher calls Arsenal the best defensive team in world football after Liverpool win\"\n    },\n    {\n      \"id\": 6,\n      \"publisher\": \"The Guardian\",\n      \"headline\": \"‘What you live for’: Fleetwood revel in seismic Arsenal shock after Dowman sees red\"\n    },\n    {\n      \"id\": 7,\n      \"publisher\": \"Liverpool Echo\",\n      \"headline\": \"Cody Gakpo dismisses Liverpool transfer claim and makes 'frustrating' Arsenal admission\"\n    },\n    {\n      \"id\": 8,\n      \"publisher\": \"The Guardian\",\n      \"headline\": \"Max Dowman’s Fleetwood fracas leaves him, Arsenal and Arteta red-faced\"\n    },\n    {\n      \"id\": 9,\n      \"publisher\": \"India TV News\",\n      \"headline\": \"'I'm sort of flabbergasted': Jamie Carragher names Arsenal star as the best player in the Premier League\"\n    },\n    {\n      \"id\": 10,\n      \"publisher\": \"The Guardian\",\n      \"headline\": \"Mamdani loves Arsenal. He should challenge them to cut ties with the UAE over Sudan\"\n    }\n  ]\n}",
+  "parts": {
+    "subject": {
+      "name": "Arsenal",
+      "sport": "FOOTBALL",
+      "entity_id": 19,
+      "entity_type": "team"
+    },
+    "database_record": {
+      "league": {
+        "name": "Premier League",
+        "country": "England"
+      },
+      "location": {
+        "city": "London",
+        "venue": "Emirates Stadium",
+        "country": "England"
+      },
+      "coach_on_record": {
+        "name": "Régis Le Bris",
+        "source": "persons.team_id",
+        "observed_at": "2026-09-30"
+      }
+    },
+    "reports": [
+      {
+        "id": 1491792,
+        "title": "Arsenal pay touching tribute to Jesus de Miguel after tragic death",
+        "context": "Arsenal pay touching tribute to Jesus de Miguel after tragic death",
+        "source": "London Evening Standard",
+        "published_at_epoch": 1793709690,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMikgFBVV95cUxPN0swcDMxVm1pTS1Vb29YVFJOZkNyMnpFTjhLSjBSbEhlZllpZkd6R1lqeUNJWkw2Zmt6TWpGZFJnRHZwMm1QZVBOWk13N3h4T1ZXQXBEN3pBMlBOOHdhdmRXaGx0Wi04V1k4TjliMDNUNGVLRU1wRXpJT1VjSmZuNUNGMXgwdEZFRGpQbl9sVFk5dw?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 89.7563753699567,
+            "subject": 98.98471283631844,
+            "movement": 1.823468463256818,
+            "availability": 7.469321868928273
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1468260,
+        "title": "Max Dowman’s Fleetwood fracas leaves him, Arsenal and Arteta red-faced",
+        "context": "Max Dowman’s Fleetwood fracas leaves him, Arsenal and Arteta red-faced",
+        "source": "The Guardian",
+        "published_at_epoch": 1793205180,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMisAFBVV95cUxPY09aY3hOemVQZkRuMUR4Nmx3QkdDLVZKdWVRRnNGSkQtcFFFbVJVX2JNZlB0bVRaMG9NanhlSkJIdlV6cVFKazlkQ2tnRVEta0E5dWZQU090YUVuY0J4OVNzOFhobWpKNklvc2xTbEdyME1hcTF2TUhjN3dGcGlldjZMQ0p5eDkxR2xjWERpeWhDUEVtMHFheVdsdDZUWjlHOHFoa0h1UXF5WDV0V1VHbw?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 88.37554625370029,
+            "subject": 97.358746925643,
+            "movement": 69.2925132960134,
+            "availability": 58.83660797911406
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1468192,
+        "title": "Mamdani loves Arsenal. He should challenge them to cut ties with the UAE over Sudan",
+        "context": "Mamdani loves Arsenal. He should challenge them to cut ties with the UAE over Sudan",
+        "source": "The Guardian",
+        "published_at_epoch": 1792738800,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxOTElYenhXdEZqUlZ4OC01Snc0ZWVVUS0xS3lqemlQcXh4Rkl3M25USnR2ZGlQNTVRRnJyY3g2T2g0dHVSdnpoMHIyc1FWOGZVWjFud0xsb1liTzVENzlYT3dhNWlwdmpBMG9XWmVmbUVmeFNxdG5UcGJMUjd1TDQwby0tbFZWbG84bjNkRkF6cWxyNUpubW5Ha2tlZWo1TEJvbzhydg?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 86.13599589103698,
+            "subject": 60.49606366443952,
+            "movement": 2.2906333832723873,
+            "availability": 0.5629760548411167
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1491815,
+        "title": "'I'm sort of flabbergasted': Jamie Carragher names Arsenal star as the best player in the Premier League",
+        "context": "'I'm sort of flabbergasted': Jamie Carragher names Arsenal star as the best player in the Premier League",
+        "source": "India TV News",
+        "published_at_epoch": 1793705492,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMi9wFBVV95cUxPTmQ4V1JPTURxMmJVeUQ3ZWNxQmdOelo5N3l1MjBudkFwWXdKcGtjRms3azBzSVJudGozNEVGajRmV1FwdXlnSW5JWGp2Sk96QlV1UDhlbmxXNURtYmM2WUFnQjdIay1TOHVuc2Z6WW9VOU52Y1Z4b0VaT1J4Nm8xQzFnNUZ2cmdndWIwQ0NGQklGekRDWTlGSkhMbGlZbGp3YmJsMENYUlpqWGRGS3Fwc3lVdzdnZmxBdzNtLVM1bUtQTlp1eExobFYzZzBpUmNCRkRGaXZxMXE3bmZMTFdfUmJrM2FMSHZTS3hua3AtcC1fYTZIU2dF0gH8AUFVX3lxTE5aX05Lc3ZNRWxITl8wbE5jTWNrUUx1VDRveE05b0RDMmVTTGg4UUl1REgzSTFQSzQ4THI2UUh6VTNINXlNQWRNZEZHR3FadEhyTWZhTHpFR1hla3pJdHc3dmZXLXNkTVBCWHB0YTY4UEdtN0xIYzdxR01vRGVZZzZIOXlhY0pnc0NLampvWGFvbVFfeGFwVFRRMjIyWjd3WUlmMmxEREs4TGhDdW5QOXQ1Zzhpbm5oSXhud0lZYkt5eXF1eVpBRTFRTnVnMUEzSkZfRUYxMUY1YjVsS1JwZnZld1hwYndoNE50ZnFMc0VjS0FOVjd2eVlBRHpkXw?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 86.12154873166793,
+            "subject": 89.49809001976574,
+            "movement": 6.2594527775516635,
+            "availability": 1.446790954456884
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1468215,
+        "title": "‘What you live for’: Fleetwood revel in seismic Arsenal shock after Dowman sees red",
+        "context": "‘What you live for’: Fleetwood revel in seismic Arsenal shock after Dowman sees red",
+        "source": "The Guardian",
+        "published_at_epoch": 1793180340,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxPTlVhMERidWpIN2VVOC13cnZCcERib2dNSV8ya1M3OVpLV3h5SGZtRUIweDc5cDNQWUZyRERLdURIN0ZFUWh0a29VQURYSnR3MDVnQ09IN2hPTWlMc1JnYmdRdFNxRDFEejd3WF9welRWU1l2Y0V4TWlwR2F2eU5YYWRRS0RsTUtoLVpuaUZPQ0hMS2JqX2hXUzZUalVFaVdjeHVwMWtOeW9JQndyVGxNeGp2cU9sd211bkN2Q2lieWtnYk9NQ3c?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 84.31251866003487,
+            "subject": 98.64007885451532,
+            "movement": 59.0253886981842,
+            "availability": 61.52714039255394
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1485246,
+        "title": "Jamie Carragher calls Arsenal the best defensive team in world football after Liverpool win",
+        "context": "Jamie Carragher calls Arsenal the best defensive team in world football after Liverpool win",
+        "source": "ArsenalNews.co.uk",
+        "published_at_epoch": 1793694272,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMiyAFBVV95cUxOSnFkcDZlS3ZZV196T3VKdldhaXVYTnZmbUh5WjBaUlpDMTBaTGFIVkVKbUNNek4ycGE1V09sTDA4Y1l0YzkwVVZFOVM2c3VGX2k5MjNZbXc1UkY3d0Yzc1ZOaVVELXFfY2J3V1RDdElGRHVlVGswZm85LVI0MkdleTBtTkJObTBabXhkTm1PRE1GWFoyYUZNQXlHT216YzZPVkRyaWQ2c1JwMDlqMUFmSFZxLVMwWDZibDhxenBIV3g3WHNDX2JaMQ?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 83.84192133181182,
+            "subject": 98.79260113470976,
+            "movement": 7.859222841738241,
+            "availability": 6.109126450148052
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1511703,
+        "title": "Cody Gakpo dismisses Liverpool transfer claim and makes 'frustrating' Arsenal admission",
+        "context": "Cody Gakpo dismisses Liverpool transfer claim and makes 'frustrating' Arsenal admission",
+        "source": "Liverpool Echo",
+        "published_at_epoch": 1793735040,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxQOGs1Z21MZUswaEhOczc3UzF3MHh4Nmd4bjFpdUJQNGRYOThRY0ZvN3NyOUdPT3BhY0xuLUUyY3FEUHFHeVQxSGw4XzVJVUNXdUplTDF1LXhvSkZpZm9LV1VKak1kRUptODVPMGRzei1wMmR0blhQeHowMy1UWmRHaEI3R3dNMW9EUDk1cldGOGFNYmN6RTk4TEhVeFcxNHZ5akRLTlZtbk8xZGltaEHSAbMBQVVfeXFMTW04bHBHdHF5ZzU0VVBPQzczSE1wZTdSamhSV2U3eWlhUWUyN0tnY2REV0RTZk92LXlfMGYxc0paUnptUGlyMVBiZnlQanBXeUFLc0pxbHVqNkw3bDFpRU9JYUhnYzNrcFhFem1ibmxLemhwZldIdGNPeXdhNUVTN0FiYVpobHAxbVhSbnZHSUhidDZUQmZIX202WVlhblVVaUlkLWFoNFRVTTZJd3h1VmVSRWM?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 83.17077791565485,
+            "subject": 97.60278253675948,
+            "movement": 84.9561489098968,
+            "availability": 18.273480854908172
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1451167,
+        "title": "Arteta heaps praise on Gabriel and Konsa after Arsenal go level top with Man City",
+        "context": "Arteta heaps praise on Gabriel and Konsa after Arsenal go level top with Man City",
+        "source": "Flashscore.co.za",
+        "published_at_epoch": 1792873538,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMi4AFBVV95cUxOVlF1Nk9YZURuNUVqOC1WaFF2Z19iRHMwUU9LRFYxRWJnOC1QekVjZm1XRElXOXRLWDEwTGdMVHRTQUpCVldaTXBfcU4zcWVEUzRiOHNnd0xpM0pFc0xNTV9qbEVXbDlrZDNNcjVMWFVaQmNQY3ZNSXduMHZOSWJJbDdmOWJvX05JUllvUUdWMEZrMzZRSUZFVUxyVDFkNVRycGd2ZS1xdXgyRnB0aDdnNVV1b0RxTVIwM21vS1h1M09CX0ZPV1J6d1UzeXZRbmpSVmVDM3JkQ2JYSmJlM2xLSQ?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 80.15988782293846,
+            "subject": 99.10958148790466,
+            "movement": 22.570781783577925,
+            "availability": 3.913039514229924
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1491784,
+        "title": "Arsenal receive huge boost as William Saliba returns to training",
+        "context": "Arsenal receive huge boost as William Saliba returns to training",
+        "source": "The Independent",
+        "published_at_epoch": 1793709060,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxNcjU4QWwtZy1NT3pmU19JWFktUHlRQWFfdkItM1lmTHU4MUJMUGUxYk4yVVlyQ0ViNmpheGFQaDFfUlQyVDI0NjhzSU5RM2dOUGV0Rm80dTF0RUxyNjF5cGVRcmJvRzIwbEx5QTY3aWVlYS1uM3UwcE1rdDVIR1RHdEV4QW00QUIyOC16MWpLVDBMRkRSdngzUFBuUHA3anBRendiS0xaNExJNVotbWFfYm96aERHUQ?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": true,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 78.33801016123306,
+            "subject": 99.09913068641312,
+            "movement": 25.118372840679044,
+            "availability": 92.00586255370004
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1451760,
+        "title": "Arsenal stunned in all-time upset against tiny fourth-tier club",
+        "context": "Arsenal stunned in all-time upset against tiny fourth-tier club",
+        "source": "Nine.com.au",
+        "published_at_epoch": 1793142368,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMizwFBVV95cUxQRGJTZFdQS0ZncDN2a2hETkRaWG9KY240dk8xY0U0dEtKWmlPdkpyM3I0aC1vUlNLUy0xMnpZZWNYdTNJVF9CYUdyWENpUmE4X3BlZHk0WDJ3dFViaUJydUUzaG9HOWk5OC1CbWRpb2tJRk1vUG5tQzFtR1VLRW54Rnlna1VpcDlNaTcxTjFaWmtWcEZqLWl1NkxoSnNPSngtWEE0X3hPT2VOQWFSakZqQ1g3dDVQQVJxbTM4ZmIzUm5UQVEzbEZiRkg0aHEwUE0?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 77.09242202181639,
+            "subject": 99.63040965824624,
+            "movement": 3.535422426688429,
+            "availability": 56.96927487181871
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "expect": {},
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ]
+}

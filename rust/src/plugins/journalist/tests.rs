@@ -66,15 +66,17 @@ fn complete_conflicting_reports_are_prepared_separately_without_truncation() {
         },
     ]);
     let rendered = prompt(&a);
-    assert!(rendered.starts_with("{\n  \"instructions\":"));
-    let fresh_at = rendered.find(r#""new_content":"#).unwrap();
-    assert!(fresh_at > rendered.find(r#""target":"#).unwrap());
+    assert!(rendered.starts_with("{\n  \"task\":"));
+    let fresh_at = rendered.find(r#""evidence":"#).unwrap();
+    let task_at = rendered.find("\n  \"task\":").unwrap();
+    let description_at = rendered.find("\n  \"evidence_context\":").unwrap();
+    assert!(task_at < description_at && description_at < fresh_at);
     assert!(!rendered.contains(r#""tone":"#));
     let frame: serde_json::Value = serde_json::from_str(&rendered).unwrap();
     let next = prepared(vec![item(1, &text)]);
     let next_frame: serde_json::Value = serde_json::from_str(&prompt(&next)).unwrap();
-    assert_eq!(next_frame["new_content"][0]["publisher_excerpt"], text);
-    assert_eq!(frame["new_content"].as_array().unwrap().len(), 2);
+    assert_eq!(next_frame["evidence"][0]["publisher_excerpt"], text);
+    assert_eq!(frame["evidence"].as_array().unwrap().len(), 2);
     let result = EditionParser {
         assignment: &a,
         activity: &activity::reference(&a.selected, NOW),
@@ -286,11 +288,7 @@ fn natural_paraphrase_preserves_native_output_contract_and_plugin_metadata() {
     let a = prepared(vec![item(1, "Cedar United won 2–1 on Sunday.")]);
     assert_eq!(
         generation_options(&a, 4096).system,
-        Some(
-            super::character_instructions::INSTRUCTIONS
-                .system()
-                .to_owned()
-        )
+        Some(super::character_instructions::system())
     );
     let raw = r#"{"headline":"Cedar United secure victory","paragraphs":[{"body":"Wire reports that Cedar United secured a 2–1 victory on Sunday.","report_ids":[1]}]}"#;
     let p = EditionParser {
@@ -362,7 +360,7 @@ fn fresh_frame_separates_reported_evidence_from_headlines_and_identity() {
     let prompt = prompt(&a);
     let frame: serde_json::Value = serde_json::from_str(&prompt).unwrap();
     assert!(frame["target"].get("entity_id").is_none());
-    let report = &frame["new_content"][0];
+    let report = &frame["evidence"][0];
     assert_eq!(report["publisher"], "Wire");
     assert!(report.get("published_at").is_none());
     assert!(report.get("article_id").is_none());
@@ -370,7 +368,7 @@ fn fresh_frame_separates_reported_evidence_from_headlines_and_identity() {
     assert_eq!(a.selected[0].published_at_epoch, Some(NOW - 3600));
     assert_eq!(report["id"], 1);
     assert_eq!(report["publisher_excerpt"], source);
-    assert_eq!(report["evidence_scope"], "publisher_excerpt");
+    assert!(report.get("evidence_scope").is_none());
     assert!(report.get("classifier_world").is_none());
     assert!(report.get("position").is_none());
     assert!(report.get("event_time").is_none());
@@ -381,12 +379,14 @@ fn fresh_frame_separates_reported_evidence_from_headlines_and_identity() {
     assert_eq!(a.selected[0].title, "Cedar signs world champion");
     // Fresh data has no duplicate identity, history, tone or policy framing.
     let fresh = serde_json::to_value(fresh::reports(&a.selected)).unwrap();
-    assert_eq!(fresh, frame["new_content"]);
+    assert_eq!(fresh, frame["evidence"]);
     assert_eq!(fresh.as_array().unwrap().len(), 1);
-    // Instructions and the three active context parts reach the model.
-    assert_eq!(frame.as_object().unwrap().len(), 3);
+    assert_eq!(frame.as_object().unwrap().len(), 5);
     assert!(frame.get("tone").is_none());
-    assert!(frame.get("task").is_none());
+    assert_eq!(
+        frame["task"],
+        super::character_instructions::INSTRUCTIONS.job()
+    );
     assert!(frame.get("form").is_none());
     assert!(frame.get("memories").is_none());
     assert!(frame.get("history").is_none());
@@ -401,7 +401,7 @@ fn source_delimiters_and_instructions_remain_inside_the_exact_excerpt_value() {
     let a = prepared(vec![item(1, source)]);
     let frame: serde_json::Value = serde_json::from_str(&prompt(&a)).unwrap();
     assert_eq!(frame["target"]["name"], "Cedar United");
-    assert_eq!(frame["new_content"][0]["publisher_excerpt"], source);
+    assert_eq!(frame["evidence"][0]["publisher_excerpt"], source);
     // This proves structural isolation for quoted source syntax.
 }
 
@@ -456,11 +456,7 @@ fn stored_history_is_ignored_and_replay_matches_production() {
     assert!(!parts.assemble().contains("Invented old claim"));
     assert_eq!(
         generation_options(&a, 4096).system,
-        Some(
-            super::character_instructions::INSTRUCTIONS
-                .system()
-                .to_owned()
-        )
+        Some(super::character_instructions::system())
     );
     let product = EditionParser {
         assignment: &a,
@@ -509,7 +505,7 @@ fn chelsea_top_ten_packet_preserves_sources_without_routing_metadata() {
     let packet = prompt(&a);
     // Source preservation is independent of instruction size; admission uses native tokens.
     let envelope: serde_json::Value = serde_json::from_str(&packet).unwrap();
-    assert!(envelope["new_content"].to_string().len() < SOURCE_BUDGET_BYTES);
+    assert!(envelope["evidence"].to_string().len() < SOURCE_BUDGET_BYTES);
     assert!(!packet.contains("news.google.com"));
     for source in &a.selected {
         assert!(packet.contains(&crate::tools::fetch::decode_entities(&source.title)));
@@ -631,18 +627,15 @@ fn database_context_is_preserved_in_production_and_replay_without_becoming_repor
     assert_eq!(parts.assemble(), prompt(&a));
     let frame: serde_json::Value = serde_json::from_str(&prompt(&a)).unwrap();
     assert_eq!(
-        frame["target"]["attributes"]["location"]["venue"],
+        frame["target"]["recorded_attributes"]["home_venue_on_record"],
         "Pine Ground"
     );
-    assert_eq!(
-        frame["target"]["attributes"]["location"]["city"],
-        "Cedar City"
-    );
-    assert!(!frame["new_content"].to_string().contains("Pine Ground"));
-    assert_eq!(frame["new_content"][0]["publisher_excerpt"], "Cedar won.");
+    assert_eq!(frame["target"]["recorded_attributes"]["city"], "Cedar City");
+    assert!(!frame["evidence"].to_string().contains("Pine Ground"));
+    assert_eq!(frame["evidence"][0]["publisher_excerpt"], "Cedar won.");
     a.database_record = None;
     let missing: serde_json::Value = serde_json::from_str(&prompt(&a)).unwrap();
-    assert!(missing["target"]["database_record"].is_null());
+    assert!(missing["target"]["recorded_attributes"].is_null());
     assert_ne!(parts.assemble(), prompt(&a));
 }
 
@@ -654,13 +647,12 @@ fn source_and_database_text_cannot_replace_the_instruction_channel() {
     assert!(frame.get("tone").is_none());
     assert_eq!(
         generation_options(&a, 4096).system,
-        Some(
-            super::character_instructions::INSTRUCTIONS
-                .system()
-                .to_owned()
-        )
+        Some(super::character_instructions::system())
     );
-    assert!(frame.get("task").is_none());
+    assert_eq!(
+        frame["task"],
+        super::character_instructions::INSTRUCTIONS.job()
+    );
     assert!(frame.get("memories").is_none());
 }
 
@@ -676,8 +668,8 @@ fn classifier_identity_decisions_are_not_publisher_evidence() {
         ..item(1, "Cedar United Women appoint Jo Vale")
     }]);
     let frame: serde_json::Value = serde_json::from_str(&prompt(&a)).unwrap();
-    let report = &frame["new_content"][0];
-    assert_eq!(report["evidence_scope"], "headline");
+    let report = &frame["evidence"][0];
+    assert!(report.get("evidence_scope").is_none());
     assert_eq!(report["headline"], "Cedar United Women appoint Jo Vale");
     assert!(report.get("publisher_excerpt").is_none());
     assert!(report.get("classifier_world").is_none());

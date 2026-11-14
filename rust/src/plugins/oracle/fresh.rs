@@ -1,7 +1,7 @@
 //! Current daily peer readings, projected without historical context.
 
 const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
-    relationship: "new_content contains prepared perspectives about the target, possibly sharing sources. Preserve each claim's actor, measure and qualifications; missing perspectives are unknown.",
+    relationship: "evidence contains prepared perspectives about the target, possibly sharing sources. Preserve each claim's actor, measure and qualifications; missing perspectives are unknown.",
     fields: &[
         ("journalist", "reported stories; title labels a story and body contains its qualified claims."),
         ("journalist.generated_at", "reading creation date, not event date."),

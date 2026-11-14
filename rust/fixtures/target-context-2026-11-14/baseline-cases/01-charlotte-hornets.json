@@ -1,0 +1,346 @@
+{
+  "name": "01-charlotte-hornets",
+  "task": "narratives",
+  "prompt_version": "n144-target-context",
+  "system": "",
+  "temperature": 0.0,
+  "user_prompt": "{\n  \"target\": {\n    \"name\": \"Charlotte Hornets\",\n    \"entity_type\": \"team\",\n    \"sport\": \"basketball\",\n    \"recorded_attributes\": {\n      \"city\": \"Charlotte\",\n      \"coach_on_record\": {\n        \"name\": \"Steve Clifford\",\n        \"observed_at\": \"2026-10-01\"\n      },\n      \"conference\": \"East\",\n      \"country\": \"United States\",\n      \"division\": \"Southeast\",\n      \"home_venue_on_record\": \"Spectrum Center\"\n    }\n  },\n  \"task\": {\n    \"assignment\": \"Faithfully summarize the reported news about the target. Your subject is the target. Gate relevancy: only include evidence relevant to the target. Omit unrelated material. If evidence is sparse, one sentence of output is acceptable. If evidence is excessive, report only the most prominent storylines. Keep paragraphs brief: do not exceed three-to-four concise sentences when evidence supports it. Name your sources. \\n    \\nFinish by writing one engaging, factual hook of 140 characters or fewer recaping your findings.\",\n    \"rules\": [\n      \"Write the paragraphs first and the headline last.\",\n      \"The target will not always be the subject of the evidence. Include a concrete claim when it directly involves the target. Keep who said or did what, and preserve whether the headline reports an opinion, a plan, or something that already happened.\",\n      \"Always note the target's relationship to other entities mentioned. If the relationship is unclear, do not guess or speculate.\",\n      \"Omit questionable or unrelated evidence. Omit clickbait. Omit vague claims. Default to caution when determining if evidence is relevant.\",\n      \"Keep each paragraph about one developing story. Combine articles only when they describe the same development. Keep disagreements attributed.\",\n      \"Copy quotes accurately and preserve who said them. Use the source wording when paraphrasing would change its meaning.\",\n      \"Do not answer a question that the evidence provides. Do not infer motives, feelings, causes, timing or consequences. Do not include repeated claims. Do not include background attributes. Do not include missing-detail commentary.\",\n      \"Provide reliable coverage. Do not take reporting risks. Never fill in gaps. Never speculate on unknowns. Never invent details.\",\n      \"Return only {\\\"paragraphs\\\":[{\\\"body\\\":\\\"Short paragraph naming the publisher\\\",\\\"report_ids\\\":[1]}],\\\"headline\\\":\\\"One hook for the whole recap\\\"}. Each paragraph cites only its supporting article IDs. Use at most one paragraph per supplied article and 1200 characters per paragraph. Check every paragraph against its own cited articles; the hook may use only those same articles. If none supports a recap, return {\\\"paragraphs\\\":[],\\\"headline\\\":null}. No extra keys or commentary.\"\n    ]\n  },\n  \"content_context\": \"These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.\",\n  \"new_content\": [\n    {\n      \"id\": 1,\n      \"publisher\": \"AP News\",\n      \"headline\": \"Hornets blown out by Hawks 128-81 in first game home without LaMelo Ball, booed by sellout crowd\"\n    },\n    {\n      \"id\": 2,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"Charlotte Hornets surprise a former star with their plan to retire his jersey\"\n    },\n    {\n      \"id\": 3,\n      \"publisher\": \"DAZN\",\n      \"headline\": \"Hornets show early why fans should be excited after LaMelo Ball trade\"\n    },\n    {\n      \"id\": 4,\n      \"publisher\": \"FOX Carolina News\",\n      \"headline\": \"WATCH: Muggsy Bogues emotional press conference for upcoming Charlotte Hornets jersey retirement\"\n    },\n    {\n      \"id\": 5,\n      \"publisher\": \"The State Hornet\",\n      \"headline\": \"Strong start for the Hornets: New faces turn heads in 40-point victory\"\n    },\n    {\n      \"id\": 6,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"Coby White Sends Blunt Message After Hornets' 27-Turnover Collapse\"\n    },\n    {\n      \"id\": 7,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"NBA Fans Are Asking Questions After Naz Reid Gets Shockingly Benched by Hornets\"\n    },\n    {\n      \"id\": 8,\n      \"publisher\": \"WBTV\",\n      \"headline\": \"Charlotte Hornets fans optimistic for new season, hoping for playoff basketball\"\n    },\n    {\n      \"id\": 9,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"The Hornets Look Lost Without LaMelo Ball\"\n    },\n    {\n      \"id\": 10,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"The Hornets Desperately Need Kon Knueppel And Coby White Back From Injury\"\n    }\n  ]\n}",
+  "parts": {
+    "subject": {
+      "name": "Charlotte Hornets",
+      "sport": "NBA",
+      "entity_id": 4,
+      "entity_type": "team"
+    },
+    "database_record": {
+      "division": "Southeast",
+      "location": {
+        "city": "Charlotte",
+        "venue": "Spectrum Center",
+        "country": "United States"
+      },
+      "conference": "East",
+      "coach_on_record": {
+        "name": "Steve Clifford",
+        "source": "persons.team_id",
+        "observed_at": "2026-10-01"
+      }
+    },
+    "reports": [
+      {
+        "id": 1438644,
+        "title": "Charlotte Hornets fans optimistic for new season, hoping for playoff basketball",
+        "context": "Charlotte Hornets fans optimistic for new season, hoping for playoff basketball",
+        "source": "WBTV",
+        "published_at_epoch": 1792738800,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMimAFBVV95cUxPNUhpYms2T0RON01NUjVMamw3c0NLcV9wSmV1a2QzamFxaWRZVlZQYlZSbVlqcDVCQV95aTJQVlNKQ0pXOEJXaHAxdkRXUGFRVnJSN3RVZVJZUllSaXZ0aFEyVHlPd3NsQ1UtZWJVSkZLUDVaS0hLTFFUN1YxTVo0MzhYOXpNcEduU2FkamR0bFVGUFhhaG9fT9IBrAFBVV95cUxPMkk1YUsyV2ZyQndFaWprVl9sZk5tOU92YURvZ3FSUFA1WVBwUGJkTjI2dUZ5MFlJYXV3YUo4b19WX1NtVWNLX1RvMHVNMkE1RUE0WTEzNE95WTRJRW9rN1VFYkJ3VlhocllGOHRZOFNUbjNqbi1LRWcxbkQtN1hWUE01OFZ1X2p2SnhYRThWM2FRZzRCd0lzQVltb0dSS2UyRGM4bTJ3RlAyV1VH?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 89.89256317338764,
+            "subject": 97.62486466894548,
+            "movement": 1.2236709744837724,
+            "availability": 24.63856331599543
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1438768,
+        "title": "WATCH: Muggsy Bogues emotional press conference for upcoming Charlotte Hornets jersey retirement",
+        "context": "WATCH: Muggsy Bogues emotional press conference for upcoming Charlotte Hornets jersey retirement",
+        "source": "FOX Carolina News",
+        "published_at_epoch": 1793328960,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMiywFBVV95cUxOR2QxYWZDeGFUd2FkOGlTa0dXajhDZ2F4SEoxNEJOOXJqTWVGZlNVSWhXeEhJVkd4bU9NbHFYQ0NrWkJsdUxoTXhiQ3dxTy1FOHVsRWMwTTlySU9MdDdtRl9oamFPXzA1ZjJaaG9lc2ZmRmxQdlBlU3NtczNkZ205cFB2WVEwX0JFclM4LUgzV1hqNkoyZzZ5NEkyWURMWjk0SDNtMFlsQWY0THphMHpvZThucUZ5ZmtnR3Y1MEgySTlqN1lSclFCVHE1UQ?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 89.76607788640075,
+            "subject": 98.78375086593856,
+            "movement": 31.034258355583994,
+            "availability": 58.126664820726425
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1457491,
+        "title": "Hornets show early why fans should be excited after LaMelo Ball trade",
+        "context": "Hornets show early why fans should be excited after LaMelo Ball trade",
+        "source": "DAZN",
+        "published_at_epoch": 1793138400,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMi0gFBVV95cUxNRC1lR0VtbVZNc3dENkc3dzlCLWRJTGNDVTlibnhheE9KVmd3N1BpRHJ0aXhpdng0LS1wNjM5dl80YTRsMUFuSnVQT1doMkN2cXlsZTYxQ0o0Qm9hdGtSOHp3WldsaXpzRzQ4UHJSajhXOTdXZ09PMGszbk43NVhmYzZYbDZLOUtHUFhEb3VDM0hwLVRwNVJyUjB3R18wSFVUOFNIS0REeVNZcHM1aHUzelR4NmRtamFZbEZBMi1pRHd3V0lLRjJMem9HcUtkR1VweUE?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 79.20947877501244,
+            "subject": 98.86079892282204,
+            "movement": 93.59861275956403,
+            "availability": 23.987096484249523
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1509645,
+        "title": "Strong start for the Hornets: New faces turn heads in 40-point victory",
+        "context": "Strong start for the Hornets: New faces turn heads in 40-point victory",
+        "source": "The State Hornet",
+        "published_at_epoch": 1793737833,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMipwFBVV95cUxQUHhIanllSVE1T0lZLTJiM2U0S05nbG5pRXBidENvWVJGVnFFaE1NWE9GZVB4RFYxQm1iaFlBUDloTjJvbnVSdUIzeVRwRnVTUWdRNU1xQkhDb1R5QkNtWHFTdTJTSnFjMU0yMmRWci01VGVUVkNDclpzb3hOTEFzbHBjUmVpVEd3R05leFJqRHlmVENuclhGSDhWd1NjaUxNT3pkUjd4MA?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 69.80456976050554,
+            "subject": 98.29415433651091,
+            "movement": 19.95281580218767,
+            "availability": 12.486349126676188
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1438162,
+        "title": "Hornets blown out by Hawks 128-81 in first game home without LaMelo Ball, booed by sellout crowd",
+        "context": "Hornets blown out by Hawks 128-81 in first game home without LaMelo Ball, booed by sellout crowd",
+        "source": "AP News",
+        "published_at_epoch": 1792738800,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQdGlGY2FuVHk4S2E5VzQtUUJITEdPeE1wQlZsVk9xZzVKQlZ3WVNzUkduNHc3T0NJOXdJalk0T2twdlZwb3VOUlJhRjBhb1JNYzk2THV4czA4aHNXTXVVcTduY1gzWHMxTDc3Zm5Jakktb055NXpaS0pTaHNlRUx1VTRQTE9sdw?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 65.10546365105088,
+            "subject": 99.37500101124112,
+            "movement": 3.3699951009048497,
+            "availability": 75.6231883633975
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1522137,
+        "title": "Coby White Sends Blunt Message After Hornets' 27-Turnover Collapse",
+        "context": "Coby White Sends Blunt Message After Hornets' 27-Turnover Collapse",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793751780,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOX0h0YnJfcFZzZUJPX2pnLVJlNXdOa0I5WmFlRE1EdWJrRWpwV1dTcmxQMm1WNGRseXpILU10YWIyQ2ZJVDg3VTBvSWV5ODh6SVdMemVZNGFfdENQc3pQdXpQZVZZemlwUXNBXzJLaXRvbkdTUFdtNVlVREIwaGVaT0VsbU1KZw?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 52.72780146904932,
+            "subject": 98.2797593233904,
+            "movement": 14.672188467897266,
+            "availability": 47.74080667792907
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1438721,
+        "title": "Charlotte Hornets surprise a former star with their plan to retire his jersey",
+        "context": "Charlotte Hornets surprise a former star with their plan to retire his jersey",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793128200,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxOREZSZXU2M1MzNmMtRnVXRmpwQjVFRHpMaVlzOHIwc244LWJsTERwWmNFay05SGlONlBDRnNmeTU2WGlBdUM3T0NCZkNld19PV2YycEVnUXRTQldxbXVybEhQcmpkdzUwREpxVzFaY3dpb3ptUXNGM2tJeUgxNTNzZHhHVGNPT0lQdXpXRFdYVDc?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 51.66835815818869,
+            "subject": 99.31671910897536,
+            "movement": 10.545687809457505,
+            "availability": 24.51608933801101
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1438788,
+        "title": "The Hornets Desperately Need Kon Knueppel And Coby White Back From Injury",
+        "context": "The Hornets Desperately Need Kon Knueppel And Coby White Back From Injury",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793390184,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNeDdSWDlSUFlwSF9lTnVOTjNfWXl3SHVQUmpuOGtNNjRxd2hSVmNUa2dUd2Qza1RQS2xReUJSV1QxM0pCYWRUeS1Mb2tDS3ptRkptUjdPY1BGSjR2S0dici1QT25lMEJHSlpZOGtpb3dBb3FlRzhJXzFxY2NfblhhcHpxMFZ5QVE3OXo2V1pjcw?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": true,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 51.37916380777246,
+            "subject": 95.61191164086536,
+            "movement": 42.01706293019564,
+            "availability": 96.9176453550464
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1501823,
+        "title": "The Hornets Look Lost Without LaMelo Ball",
+        "context": "The Hornets Look Lost Without LaMelo Ball",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793727330,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNOTRkRmoyTk1NT0xiY3l2VE1qSGtRVU9RR0xrWTFQY003OUk5bDNTcnN6bXhoWGphQk5sLXRSODluZVBMcVZGZmZCTE5EVERkeGNxd0lKdFQ4YTBDWWhib1U2RzlsRnBiY1QxVXNmenV0N29QTkNvQ0dLcU9tREQwNlRsVE5HeVR5?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 50.8563634689294,
+            "subject": 95.6722026041531,
+            "movement": 48.16797767780244,
+            "availability": 68.71625548960336
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1438662,
+        "title": "NBA Fans Are Asking Questions After Naz Reid Gets Shockingly Benched by Hornets",
+        "context": "NBA Fans Are Asking Questions After Naz Reid Gets Shockingly Benched by Hornets",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793392496,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMihAFBVV95cUxNNk41blZTUlBWZWRaYXF5WDVZZHVWNzNHUTNydm1ROWNjWTFEZGVvWFdKank0Rk44RFpUY3dzcWwzTE5INTZzcHdrYmxUSUo5eDl5N0tFbHlISzRJT0pWU2JzbG9FMl9xUmhfWnFRbkNzeTVVX3JhWGx6SFh4T185UkZNVEg?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 39.20185660855508,
+            "subject": 98.0914815873482,
+            "movement": 89.88664349056096,
+            "availability": 67.64103594609179
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "expect": {},
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ]
+}

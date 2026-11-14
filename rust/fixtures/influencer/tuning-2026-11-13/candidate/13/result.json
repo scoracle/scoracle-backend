@@ -1,0 +1,22 @@
+{
+  "case": 13,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/13-virgil-van-dijk.json",
+  "generation_wall_ms": 6039,
+  "input_tokens": 1274,
+  "name": "13-virgil-van-dijk",
+  "output_limit": 3500,
+  "output_tokens": 56,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "reading": "Van Dijk disappointed after Arsenal loss\n\nLiverpool FC reported that Virgil van Dijk expressed being 'Very disappointed' regarding the team's defeat by Arsenal.",
+  "request_bytes": 5366,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 6055
+}

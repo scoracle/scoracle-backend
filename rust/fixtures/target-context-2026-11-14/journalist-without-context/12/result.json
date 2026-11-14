@@ -1,0 +1,22 @@
+{
+  "case": 12,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/baseline-cases/12-baker-mayfield.json",
+  "generation_wall_ms": 19376,
+  "input_tokens": 1073,
+  "name": "12-baker-mayfield",
+  "output_limit": 3500,
+  "output_tokens": 198,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "cited reports do not connect Tampa Bay Buccaneers with numerical fact 1974",
+  "request_bytes": 4266,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 19393
+}

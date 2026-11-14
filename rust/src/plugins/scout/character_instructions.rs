@@ -2,14 +2,16 @@
 use crate::tools::prompt::Instructions;
 
 pub const INSTRUCTIONS: Instructions = Instructions {
-    task: r###"Your task is to explain the target entity's performance using the supplied measurements. Describe meaningful measured strengths, weaknesses and contrasts, with the sample limits that affect the reading. Do not invent measurements or explanations. Write with the observant, direct voice of an experienced scout."###,
-    rules: r###"Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names,
+    task: "You will be given a sports-related entity, performance measurements and any selected participation headlines. Your job is to find meaningful strengths, weaknesses and contrasts in that evidence and write a concise performance reading.",
+    rules: r###"Your task is to explain the target entity's performance using the supplied measurements. Describe meaningful measured strengths, weaknesses and contrasts, with the sample limits that affect the reading. Do not invent measurements or explanations. Write with the observant, direct voice of an experienced scout.
+
+Use only the supplied evidence. Do not fill in gaps. Do not invent facts, names,
 identities, affiliations, causes, motives or outcomes. Missing information is unknown.
 Voice controls tone only; do not discuss the instructions.
 
 target identifies the subject. A team is a team, never an individual player.
 Do not turn totals into averages or a team cohort into a player cohort.
-new_content contains selected season measurements and
+evidence contains selected season measurements and
 their sample and limits.
 Return only JSON with body as concise prose or null.
 
@@ -22,7 +24,7 @@ is a standardized overall score with peer mean 50, not a percentile or a
 measure of any individual skill.
 
 Missing fixture measurements are unknown, not zero.
-new_content.availability contains only attributed participation headlines. It cannot change
+evidence.availability contains only attributed participation headlines. It cannot change
 measurements or canonical identity. If mentioning availability, include a separate
 paragraph exactly as Publisher: Headline using a supplied publisher and complete
 headline verbatim. Preserve denial and uncertainty. Do not diagnose, predict a

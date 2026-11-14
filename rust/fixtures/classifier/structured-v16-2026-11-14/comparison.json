@@ -1,0 +1,467 @@
+[
+  {
+    "id": "01-charlotte-hornets",
+    "review": "Correct relevance and booing signal remain; no route change. Absence of Ball has unclear cause in this headline, so the low availability score is not independently adjudicated.",
+    "before": {
+      "availability": 1.7753262430122314,
+      "emotion": 40.5458851080949,
+      "movement": 5.516622107044556,
+      "subject": 94.95549673583567
+    },
+    "after": {
+      "availability": 4.785318727951266,
+      "emotion": 35.899230120736256,
+      "movement": 1.7211325210277744,
+      "subject": 94.00586607936084
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "02-philadelphia-eagles",
+    "review": "Improvement: incidental Smith/Jones commentary no longer admitted. Subject falls below 55, blocking both Journalist and Influencer even though emotion increases.",
+    "before": {
+      "availability": 0.672041040015912,
+      "emotion": 25.018627723252106,
+      "movement": 10.935148433449044,
+      "subject": 62.168334930356316
+    },
+    "after": {
+      "availability": 1.6062347771599088,
+      "emotion": 45.33717462154688,
+      "movement": 4.281027364494012,
+      "subject": 27.67355766241158
+    },
+    "admitted_before": true,
+    "admitted_after": false,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": false,
+      "insider": false,
+      "journalist": false,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "03-seattle-seahawks",
+    "review": "Improvement: broadcaster tension no longer admitted as a Seahawks development. Subject 51.7 is close to the 55 cutoff, so this one pass does not establish robust separation.",
+    "before": {
+      "availability": 1.5700981858882648,
+      "emotion": 46.223882474999186,
+      "movement": 14.20422334851142,
+      "subject": 80.70020897021298
+    },
+    "after": {
+      "availability": 3.8115219033404193,
+      "emotion": 61.26831467710002,
+      "movement": 4.059567504799349,
+      "subject": 51.66352363401769
+    },
+    "admitted_before": true,
+    "admitted_after": false,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": false,
+      "insider": false,
+      "journalist": false,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "04-arsenal",
+    "review": "Match result remains relevant. Unsupported movement decreases but red-card availability remains weak; no route change.",
+    "before": {
+      "availability": 12.63855571092305,
+      "emotion": 62.29885493584623,
+      "movement": 59.13582440764104,
+      "subject": 81.64502569202594
+    },
+    "after": {
+      "availability": 11.849502766198821,
+      "emotion": 56.402085885393774,
+      "movement": 39.236274998910986,
+      "subject": 67.19172553653509
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "05-roma",
+    "review": "Remains admitted and emotionally classified. The relationship between Allegri’s anger and Roma remains insufficiently resolved; no route change.",
+    "before": {
+      "availability": 4.090370440571714,
+      "emotion": 76.05603549017863,
+      "movement": 15.116823146368008,
+      "subject": 91.18449183889078
+    },
+    "after": {
+      "availability": 6.572027540967659,
+      "emotion": 68.74865866351097,
+      "movement": 4.596455633810463,
+      "subject": 83.2467941575168
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "06-miami-heat",
+    "review": "Teammate criticism remains relevant. Unsupported movement decreases; emotion falls to 18.5, close to the 15 cutoff despite explicit criticism. No route change.",
+    "before": {
+      "availability": 1.727796176430384,
+      "emotion": 43.069631497751196,
+      "movement": 50.566529823495465,
+      "subject": 91.1957390299294
+    },
+    "after": {
+      "availability": 2.86420277368971,
+      "emotion": 18.52640508565874,
+      "movement": 30.993960055267095,
+      "subject": 83.89466723680681
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "07-tampa-bay-buccaneers",
+    "review": "Concrete record remains relevant. Vague rare-feat wording still routes to Influencer without explicit feelings; no route change.",
+    "before": {
+      "availability": 3.9031763311566907,
+      "emotion": 29.112156501762392,
+      "movement": 31.495211314640205,
+      "subject": 94.07895898869552
+    },
+    "after": {
+      "availability": 6.370697297637909,
+      "emotion": 33.40637168369559,
+      "movement": 22.437992227137293,
+      "subject": 89.64445303715024
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "08-chelsea",
+    "review": "Regression: reported interest in Acheampong is personnel news for Chelsea, but movement falls from 88.7 to 77.7, below the Insider threshold of 80. Journalist/Influencer remain enabled.",
+    "before": {
+      "availability": 6.198551946098234,
+      "emotion": 65.53734964085169,
+      "movement": 88.71038687977372,
+      "subject": 90.79848299202348
+    },
+    "after": {
+      "availability": 14.58046897029604,
+      "emotion": 60.2244819236318,
+      "movement": 77.69701764137939,
+      "subject": 78.16180730412194
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": true,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "09-luka-doncic",
+    "review": "Direct praise remains correctly recognized; no route change.",
+    "before": {
+      "availability": 3.065658128638216,
+      "emotion": 86.6915654940784,
+      "movement": 10.244983807833195,
+      "subject": 92.64552759692138
+    },
+    "after": {
+      "availability": 5.976741106306076,
+      "emotion": 83.19489833694409,
+      "movement": 8.331595538740062,
+      "subject": 79.75386375874741
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "10-jayson-tatum",
+    "review": "Improvement at admission: historical 2013 trade now fails subject threshold, blocking all routes. Movement remains high at 85.4, so the movement question itself still mistakes historical trade material for current movement.",
+    "before": {
+      "availability": 1.572329683333169,
+      "emotion": 60.562366759405464,
+      "movement": 87.01141025536121,
+      "subject": 56.7497541633443
+    },
+    "after": {
+      "availability": 7.503000178755942,
+      "emotion": 46.72320539747799,
+      "movement": 85.41481498940611,
+      "subject": 44.825030707779746
+    },
+    "admitted_before": true,
+    "admitted_after": false,
+    "routes_before": {
+      "influencer": true,
+      "insider": true,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": false,
+      "insider": false,
+      "journalist": false,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "11-dak-prescott",
+    "review": "Correct relevant anger remains routed. Emotion falls substantially but stays above threshold; no route change.",
+    "before": {
+      "availability": 1.493476218342917,
+      "emotion": 78.04480117123886,
+      "movement": 12.78611324236605,
+      "subject": 98.4858851165622
+    },
+    "after": {
+      "availability": 5.17657344659089,
+      "emotion": 48.943176334303104,
+      "movement": 10.71121577248967,
+      "subject": 92.06990650378243
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "12-baker-mayfield",
+    "review": "Unsupported movement decreases; availability remains low compared with pre-concise trials. Emotion still risks attaching Falcons-centered framing to Mayfield; no route change.",
+    "before": {
+      "availability": 14.274017012562123,
+      "emotion": 72.3215555234581,
+      "movement": 24.87909353843062,
+      "subject": 86.9140888526743
+    },
+    "after": {
+      "availability": 17.72668029799204,
+      "emotion": 50.70123842664794,
+      "movement": 6.440019489391756,
+      "subject": 74.48432513017552
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "13-virgil-van-dijk",
+    "review": "Clear target disappointment remains strongly recognized; no route change.",
+    "before": {
+      "availability": 1.9192386078366839,
+      "emotion": 93.34411213816107,
+      "movement": 7.122669711026427,
+      "subject": 96.3709968023576
+    },
+    "after": {
+      "availability": 4.600225117769808,
+      "emotion": 93.96734954466879,
+      "movement": 3.0582219304339113,
+      "subject": 87.39204354535616
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "14-gessime-yassine",
+    "review": "Direct target performance judgment remains recognized; no route change.",
+    "before": {
+      "availability": 0.9364445897833769,
+      "emotion": 76.63791986580686,
+      "movement": 1.7338204948264706,
+      "subject": 94.13640473699724
+    },
+    "after": {
+      "availability": 4.015857582254653,
+      "emotion": 65.08591855084686,
+      "movement": 0.5496148422101808,
+      "subject": 83.84706269533315
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "15-vit-krejci",
+    "review": "Playing-time result remains relevant. Emotion 22.4 still routes neutral playing-time reporting to Influencer; availability increases but remains below Scout threshold.",
+    "before": {
+      "availability": 2.609127439553714,
+      "emotion": 22.84767598862912,
+      "movement": 4.615282115007996,
+      "subject": 95.06247993751083
+    },
+    "after": {
+      "availability": 10.176235252120485,
+      "emotion": 22.44260656778209,
+      "movement": 0.9739369013078021,
+      "subject": 85.17038773982823
+    },
+    "admitted_before": true,
+    "admitted_after": true,
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  }
+]

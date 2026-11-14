@@ -1,0 +1,22 @@
+{
+  "case": 4,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/journalist-cases/04-arsenal.json",
+  "generation_wall_ms": 26681,
+  "input_tokens": 1260,
+  "name": "04-arsenal",
+  "output_limit": 3500,
+  "output_tokens": 277,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "named claim is absent from cited reports: Premier League",
+  "request_bytes": 5030,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 26693
+}

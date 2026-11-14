@@ -1,0 +1,110 @@
+{
+  "admitted": true,
+  "expected": {},
+  "gate": {
+    "admitted": true,
+    "characters": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "coverage": "complete",
+    "reason": null,
+    "routing_version": "headline-routing-v3-identity",
+    "scope": "headline"
+  },
+  "id": "03-seattle-seahawks",
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "receipt": {
+    "criteria_version": "classification-criteria-v17-shared-relations",
+    "elapsed_ms": 923,
+    "endpoint": "http://127.0.0.1:28081",
+    "request": {
+      "questions": {
+        "availability": {
+          "instructions": "Does the headline report whether Seattle Seahawks, the NFL team (team category unknown) can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.",
+          "type": "noul"
+        },
+        "emotion": {
+          "instructions": "Does the headline express a feeling or judgment about Seattle Seahawks, the NFL team (team category unknown), or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.",
+          "type": "noul"
+        },
+        "movement": {
+          "instructions": "Does the headline report a personnel or contract development involving Seattle Seahawks, the NFL team (team category unknown)—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.",
+          "type": "noul"
+        },
+        "subject": {
+          "instructions": "Does the headline state a concrete development directly involving Seattle Seahawks, the NFL team (team category unknown)? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.",
+          "type": "noul"
+        }
+      },
+      "state": "{\n  \"task\": {\n    \"assignment\": \"You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.\",\n    \"rules\": [\n      \"Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\",\n      \"Keep each claim with the entity it concerns. Another person's feelings, move or injury do not automatically belong to the target.\",\n      \"Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\"\n    ]\n  },\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Seattle Seahawks\",\n    \"entity_type\": \"team\",\n    \"sport\": \"NFL\",\n    \"team_category\": \"unknown\",\n    \"recorded_attributes\": {\n      \"city\": \"Seattle\",\n      \"coach_on_record\": {\n        \"name\": \"Mike Macdonald\",\n        \"observed_at\": \"2026-09-30\"\n      },\n      \"conference\": \"NFC\",\n      \"country\": \"United States\",\n      \"division\": \"WEST\",\n      \"home_venue_on_record\": \"Lumen Field\"\n    },\n    \"named_people\": \"Troy Aikman (person)\"\n  },\n  \"evidence_context\": \"This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\",\n  \"evidence\": {\n    \"headline\": \"‘Troy Aikman Looks Like He Hates Joe Buck,’ ‘I Can Feel the Tension’ — NFL Fans React to ESPN’s ‘Awkward’ Bears-Seahawks Broadcast\",\n    \"publisher\": \"Yahoo Sports\"\n  }\n}"
+    },
+    "request_version": "classifier-brief-v8-shared-relations",
+    "response": {
+      "answers": {
+        "availability": {
+          "noul": 0.008901021231664823,
+          "type": "noul"
+        },
+        "emotion": {
+          "noul": 0.6631435897817501,
+          "type": "noul"
+        },
+        "movement": {
+          "noul": 0.03971303855766416,
+          "type": "noul"
+        },
+        "subject": {
+          "noul": 0.5609275714615994,
+          "type": "noul"
+        }
+      },
+      "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+      "usage": {
+        "input_tokens": 2528,
+        "output_tokens": 0
+      }
+    },
+    "subject_meta": {
+      "database_record": {
+        "coach_on_record": {
+          "name": "Mike Macdonald",
+          "observed_at": "2026-09-30",
+          "source": "persons.team_id"
+        },
+        "conference": "NFC",
+        "division": "WEST",
+        "location": {
+          "city": "Seattle",
+          "country": "United States",
+          "venue": "Lumen Field"
+        }
+      },
+      "identity": {
+        "entity_id": 31,
+        "entity_type": "team",
+        "name": "Seattle Seahawks",
+        "sport": "NFL"
+      },
+      "identity_record": "Recorded attributes: {\"city\": \"Seattle\", \"coach_on_record\": {\"name\": \"Mike Macdonald\", \"observed_at\": \"2026-09-30\"}, \"conference\": \"NFC\", \"country\": \"United States\", \"division\": \"WEST\", \"home_venue_on_record\": \"Lumen Field\"}",
+      "named_people": [
+        {
+          "entity_id": 73,
+          "entity_type": "person",
+          "name": "Troy Aikman"
+        }
+      ]
+    }
+  },
+  "request_hash": "3eb3e339f246c2248c0b88a349a631ff6358929a82e90fe725d1a6805c0e956c",
+  "seconds": 0.92387975,
+  "spectrum": {
+    "availability": 0.8901021231664823,
+    "emotion": 66.31435897817501,
+    "movement": 3.9713038557664158,
+    "subject": 56.09275714615995
+  },
+  "sport": "NFL"
+}

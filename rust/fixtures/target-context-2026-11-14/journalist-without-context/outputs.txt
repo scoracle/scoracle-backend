@@ -1,0 +1,50 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / 01-charlotte-hornets [rejected]
+cited reports do not connect Charlotte Hornets with numerical fact 128
+
+2 — narratives / 02-philadelphia-eagles [rejected]
+named claim is absent from cited reports: Philadelphia Eagles
+
+3 — narratives / 03-seattle-seahawks [rejected]
+cited reports do not connect Yahoo Sports with numerical fact 34
+
+4 — narratives / 04-arsenal [rejected]
+named claim is absent from cited reports: Mikel Arteta
+
+5 — narratives / 05-roma [rejected]
+named claim is absent from cited reports: Simone Inzaghi
+
+6 — narratives / 06-miami-heat [rejected]
+cited reports do not connect Miami Heat with numerical fact 28
+
+7 — narratives / 07-tampa-bay-buccaneers [rejected]
+named claim is absent from cited reports: Tampa Bay Buccaneers
+
+8 — narratives / 08-chelsea [accepted]
+FootballTransfers.com reports that Chelsea has lost their best player after squandering incredible talent, a significant blow to the squad's depth. HeraldLIVE notes that while Brighton stunned Manchester City, Chelsea added to their own misery by failing to secure a win against Manchester United. In response to the team's struggles, Xabi Alonso has praised the performance of his backup goalkeeper, citing a major injury boost to the defense. Additionally, Yahoo Sports highlights Alonso's endorsement of midfielder Lavia, stating the player is in top form despite the team's recent poor results. TribalFootball reports that the club is sweating over the future of Josh Acheampong as top clubs line up to sign him, indicating a potential transfer window activity for the midfielder.
+
+FootballTransfers.com reports that Chelsea has lost their best player after squandering incredible talent, a significant blow to the squad's depth. HeraldLIVE notes that while Brighton stunned Manchester City, Chelsea added to their own misery by failing to secure a win against Manchester United. In response to the team's struggles, Xabi Alonso has praised the performance of his backup goalkeeper, citing a major injury boost to the defense. Additionally, Yahoo Sports highlights Alonso's endorsement of midfielder Lavia, stating the player is in top form despite the team's recent poor results. TribalFootball reports that the club is sweating over the future of Josh Acheampong as top clubs line up to sign him, indicating a potential transfer window activity for the midfielder.
+
+9 — narratives / 09-luka-doncic [accepted]
+Yahoo Sports reports that JJ Redick praised Luka Dončić's defense after the Lakers defeated the Raptors, noting the team 'live[s] on a spaceship' with Dončić as the 'best damn pilot in the galaxy.' ESPN and The New York Times highlight that Dončić has drawn praise from both the Lakers and Raptors for his improved defensive play, with one source describing his defense as 'awesome' on a history-making night. Heavy.com adds that the Raptors coach specifically commended Dončić for destroying their game plan.
+
+10 — narratives / 10-jayson-tatum [rejected]
+named claim is absent from cited reports: Orlando Magic
+
+11 — narratives / 11-dak-prescott [rejected]
+named claim is absent from cited reports: Arizona Cardinals
+
+12 — narratives / 12-baker-mayfield [rejected]
+cited reports do not connect Tampa Bay Buccaneers with numerical fact 1974
+
+13 — narratives / 13-virgil-van-dijk [rejected]
+named claim is absent from cited reports: Liverpool's Arsenal
+
+14 — narratives / 14-gessime-yassine [accepted]
+Pan Africa Football reported that Gessime Yassine dominated as Strasbourg secured a lopsided Ligue 1 victory.
+
+15 — narratives / 15-vit-krejci [rejected]
+named claim is absent from cited reports: Portland Trail Blazers
+

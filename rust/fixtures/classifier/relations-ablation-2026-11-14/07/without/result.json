@@ -1,0 +1,98 @@
+{
+  "admitted": true,
+  "expected": {},
+  "gate": {
+    "admitted": true,
+    "characters": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "coverage": "complete",
+    "reason": null,
+    "routing_version": "headline-routing-v3-identity",
+    "scope": "headline"
+  },
+  "id": "07-tampa-bay-buccaneers",
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "receipt": {
+    "criteria_version": "classification-criteria-v17-shared-relations",
+    "elapsed_ms": 823,
+    "endpoint": "http://127.0.0.1:28081",
+    "request": {
+      "questions": {
+        "availability": {
+          "instructions": "Does the headline report whether Tampa Bay Buccaneers, the NFL team (team category unknown) can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.",
+          "type": "noul"
+        },
+        "emotion": {
+          "instructions": "Does the headline express a feeling or judgment about Tampa Bay Buccaneers, the NFL team (team category unknown), or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.",
+          "type": "noul"
+        },
+        "movement": {
+          "instructions": "Does the headline report a personnel or contract development involving Tampa Bay Buccaneers, the NFL team (team category unknown)—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.",
+          "type": "noul"
+        },
+        "subject": {
+          "instructions": "Does the headline state a concrete development directly involving Tampa Bay Buccaneers, the NFL team (team category unknown)? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.",
+          "type": "noul"
+        }
+      },
+      "state": "{\n  \"task\": {\n    \"assignment\": \"You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.\",\n    \"rules\": [\n      \"Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\",\n      \"Keep each claim with the entity it concerns. Another person's feelings, move or injury do not automatically belong to the target.\",\n      \"Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\"\n    ]\n  },\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Tampa Bay Buccaneers\",\n    \"entity_type\": \"team\",\n    \"sport\": \"NFL\",\n    \"team_category\": \"unknown\",\n    \"recorded_attributes\": {\n      \"city\": \"Tampa Bay\",\n      \"conference\": \"NFC\",\n      \"country\": \"United States\",\n      \"division\": \"SOUTH\",\n      \"home_venue_on_record\": \"Raymond James Stadium\"\n    }\n  },\n  \"evidence_context\": \"This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\",\n  \"evidence\": {\n    \"headline\": \"Baker Mayfield, Buccaneers accomplish rare feat not seen since 1974\",\n    \"publisher\": \"Yahoo Sports\"\n  }\n}"
+    },
+    "request_version": "classifier-brief-v8-shared-relations",
+    "response": {
+      "answers": {
+        "availability": {
+          "noul": 0.04431129015343121,
+          "type": "noul"
+        },
+        "emotion": {
+          "noul": 0.2701188809486024,
+          "type": "noul"
+        },
+        "movement": {
+          "noul": 0.1858103819187256,
+          "type": "noul"
+        },
+        "subject": {
+          "noul": 0.9441975142802116,
+          "type": "noul"
+        }
+      },
+      "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+      "usage": {
+        "input_tokens": 2244,
+        "output_tokens": 0
+      }
+    },
+    "subject_meta": {
+      "database_record": {
+        "conference": "NFC",
+        "division": "SOUTH",
+        "location": {
+          "city": "Tampa Bay",
+          "country": "United States",
+          "venue": "Raymond James Stadium"
+        }
+      },
+      "identity": {
+        "entity_id": 28,
+        "entity_type": "team",
+        "name": "Tampa Bay Buccaneers",
+        "sport": "NFL"
+      },
+      "identity_record": "Recorded attributes: {\"city\": \"Tampa Bay\", \"conference\": \"NFC\", \"country\": \"United States\", \"division\": \"SOUTH\", \"home_venue_on_record\": \"Raymond James Stadium\"}"
+    }
+  },
+  "request_hash": "cdbd0c61dbe304ff0117328e6e7bdcd87f67910d0cd96ff1ecf997cb9f975c11",
+  "seconds": 0.825340125,
+  "spectrum": {
+    "availability": 4.431129015343121,
+    "emotion": 27.011888094860243,
+    "movement": 18.58103819187256,
+    "subject": 94.41975142802116
+  },
+  "sport": "NFL"
+}

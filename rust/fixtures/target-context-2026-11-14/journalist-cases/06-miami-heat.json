@@ -1,0 +1,345 @@
+{
+  "name": "06-miami-heat",
+  "task": "narratives",
+  "prompt_version": "n144-target-context",
+  "system": "",
+  "temperature": 0.0,
+  "user_prompt": "{\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Miami Heat\",\n    \"entity_type\": \"team\",\n    \"sport\": \"basketball\",\n    \"recorded_attributes\": {\n      \"city\": \"Miami\",\n      \"coach_on_record\": {\n        \"name\": \"Anthony Carter\",\n        \"observed_at\": \"2026-09-28\"\n      },\n      \"conference\": \"East\",\n      \"country\": \"United States\",\n      \"division\": \"Southeast\"\n    }\n  },\n  \"task\": {\n    \"assignment\": \"Faithfully summarize the reported news about the target. Your subject is the target. Gate relevancy: only include evidence relevant to the target. Omit unrelated material. If evidence is sparse, one sentence of output is acceptable. If evidence is excessive, report only the most prominent storylines. Keep paragraphs brief: do not exceed three-to-four concise sentences when evidence supports it. Name your sources. \\n    \\nFinish by writing one engaging, factual hook of 140 characters or fewer recaping your findings.\",\n    \"rules\": [\n      \"Write the paragraphs first and the headline last.\",\n      \"The target will not always be the subject of the evidence. Include a concrete claim when it directly involves the target. Keep who said or did what, and preserve whether the headline reports an opinion, a plan, or something that already happened.\",\n      \"Always note the target's relationship to other entities mentioned. If the relationship is unclear, do not guess or speculate.\",\n      \"Omit questionable or unrelated evidence. Omit clickbait. Omit vague claims. Default to caution when determining if evidence is relevant.\",\n      \"Keep each paragraph about one developing story. Combine articles only when they describe the same development. Keep disagreements attributed.\",\n      \"Copy quotes accurately and preserve who said them. Use the source wording when paraphrasing would change its meaning.\",\n      \"Do not answer a question that the evidence provides. Do not infer motives, feelings, causes, timing or consequences. Do not include repeated claims. Do not include background attributes. Do not include missing-detail commentary.\",\n      \"Provide reliable coverage. Do not take reporting risks. Never fill in gaps. Never speculate on unknowns. Never invent details.\",\n      \"Return only {\\\"paragraphs\\\":[{\\\"body\\\":\\\"Short paragraph naming the publisher\\\",\\\"report_ids\\\":[1]}],\\\"headline\\\":\\\"One hook for the whole recap\\\"}. Each paragraph cites only its supporting article IDs. Use at most one paragraph per supplied article and 1200 characters per paragraph. Check every paragraph against its own cited articles; the hook may use only those same articles. If none supports a recap, return {\\\"paragraphs\\\":[],\\\"headline\\\":null}. No extra keys or commentary.\"\n    ]\n  },\n  \"content_context\": \"These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.\",\n  \"new_content\": [\n    {\n      \"id\": 1,\n      \"publisher\": \"Audacy\",\n      \"headline\": \"Miami Heat defense embarrassed by Luka Doncic and the Los Angeles Lakers\"\n    },\n    {\n      \"id\": 2,\n      \"publisher\": \"Fadeaway World\",\n      \"headline\": \"Stan Van Gundy Rips Miami Heat For Being A ‘Mediocre Team’ Since Big Three Era\"\n    },\n    {\n      \"id\": 3,\n      \"publisher\": \"NBA Analysis Network\",\n      \"headline\": \"Giannis Antetokounmpo puts Miami Heat teammates on blast after heavy LA Lakers loss\"\n    },\n    {\n      \"id\": 4,\n      \"publisher\": \"Miami Herald\",\n      \"headline\": \"Giannis confident Heat can turn things around, but knows ‘we got a lot of things to figure out’\"\n    },\n    {\n      \"id\": 5,\n      \"publisher\": \"ESPN\",\n      \"headline\": \"Bam Adebayo says critics 'make me the scapegoat' for Heat's winless start\"\n    },\n    {\n      \"id\": 6,\n      \"publisher\": \"ClutchPoints\",\n      \"headline\": \"Heat’s Erik Spoelstra admits he needs to do ‘a better job’ amid disappointing 2-5 start\"\n    },\n    {\n      \"id\": 7,\n      \"publisher\": \"The New York Times\",\n      \"headline\": \"Heat struggling. Yaxel rising. West is Spurs’ to lose. How real are these NBA trends?\"\n    },\n    {\n      \"id\": 8,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"Should the Miami Heat Panic This Soon in the NBA Season?\"\n    },\n    {\n      \"id\": 9,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"“The Sneak Diss is CRAZY”: Bucks Fans Throw Major Shade at Giannis Antetokounmpo and Heat After Picking Up a Win Before Miami\"\n    },\n    {\n      \"id\": 10,\n      \"publisher\": \"CBS Sports\",\n      \"headline\": \"Heat's Davion Mitchell: Continues to excel\"\n    }\n  ]\n}",
+  "parts": {
+    "subject": {
+      "name": "Miami Heat",
+      "sport": "NBA",
+      "entity_id": 16,
+      "entity_type": "team"
+    },
+    "database_record": {
+      "division": "Southeast",
+      "location": {
+        "city": "Miami",
+        "country": "United States"
+      },
+      "conference": "East",
+      "coach_on_record": {
+        "name": "Anthony Carter",
+        "source": "persons.team_id",
+        "observed_at": "2026-09-28"
+      }
+    },
+    "reports": [
+      {
+        "id": 1440815,
+        "title": "“The Sneak Diss is CRAZY”: Bucks Fans Throw Major Shade at Giannis Antetokounmpo and Heat After Picking Up a Win Before Miami",
+        "context": "“The Sneak Diss is CRAZY”: Bucks Fans Throw Major Shade at Giannis Antetokounmpo and Heat After Picking Up a Win Before Miami",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793138723,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMiggFBVV95cUxNUHFNMldUV2RidW5yRzRON0tWa1hIbm92SDl2bVE1bXdLanhLa3IzejM3WUltM3VfSXkwdGxQRHV1SWw5WUd2ckVQbGFRUDFDRHE1Zm1aRWtURXVncWY2Q0hvT3g1UWdUMGdvdGs0VmpFTzNfR2NCUjBXaUxBcjdiRlVR?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 73.52367610753295,
+            "subject": 90.1790513708409,
+            "movement": 12.79971052418012,
+            "availability": 16.86040066491425
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1507440,
+        "title": "Stan Van Gundy Rips Miami Heat For Being A ‘Mediocre Team’ Since Big Three Era",
+        "context": "Stan Van Gundy Rips Miami Heat For Being A ‘Mediocre Team’ Since Big Three Era",
+        "source": "Fadeaway World",
+        "published_at_epoch": 1793731423,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxQc1dPeUZfM295eFh1d2NUVFg2bHliSjhfTllLSG1EeV9kY2NCbDZDRnZaSjhVb2I0ZC1LS3l6Q0hYTnhPYTV1V2VtckY5MHhBYkNheVpfdVpWdVcweWxlSmdST3dscmtXTENCWXVVMTg0ZTdSNm1Sa1JMUFpQUUpsUlRleG8wQlQ3RU5vVWJ2MEpiOEQwSXpubTZfa2NzQ1pUUFNQeXhtbTc5RlZHbmstVnlCWjdCcUot?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 70.7224447134659,
+            "subject": 99.08665550662596,
+            "movement": 49.36503009458727,
+            "availability": 14.298166908863244
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1487192,
+        "title": "Giannis Antetokounmpo puts Miami Heat teammates on blast after heavy LA Lakers loss",
+        "context": "Giannis Antetokounmpo puts Miami Heat teammates on blast after heavy LA Lakers loss",
+        "source": "NBA Analysis Network",
+        "published_at_epoch": 1793703096,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxPc3U5M19nUk5VUlVQNkM0WncxNllNcEJKTUxIeTJKMUZpeTd6WWUwaURBcUdmWWpyQlNiNTFaMVctVERNM0tTZmFhM2YxRS1GNEFoVEdwS0NGT20xZ1Z5NkllS3AyazBTQ0JySTg4SjdVQUFkMklEbmYyYWtHd0pESHNfUVFwa2hCOHZFNU12U2VwQ2VMWjA4NklpMmotWVB6LV9IRlJxSlYxTkkx?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 69.89330333866755,
+            "subject": 98.76809221465496,
+            "movement": 32.14527192716126,
+            "availability": 50.491817824142096
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1442612,
+        "title": "Heat struggling. Yaxel rising. West is Spurs’ to lose. How real are these NBA trends?",
+        "context": "Heat struggling. Yaxel rising. West is Spurs’ to lose. How real are these NBA trends?",
+        "source": "The New York Times",
+        "published_at_epoch": 1793183595,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxOblhfcThzR2VBa214LTF0blh1dFBCZlVyc1huczRwdmUzSDJ6T1hJUy10MG5HZmR5TWpzdEdqSzV3NVpZX0puNEt4UVlNbjRRdUhLWlY1Vlh4a2p3TVkwU0w4VWM2SWduU3J5TjRqenAzMDNBS1VFUzZpUTlnN3lRYkhERDNLTzhaNDdvb1BEZUdJSWZqS29ISHlxbFRLQQ?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 66.89216580410769,
+            "subject": 94.63062847518906,
+            "movement": 30.406468040637577,
+            "availability": 51.81695052111915
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1482095,
+        "title": "Heat’s Erik Spoelstra admits he needs to do ‘a better job’ amid disappointing 2-5 start",
+        "context": "Heat’s Erik Spoelstra admits he needs to do ‘a better job’ amid disappointing 2-5 start",
+        "source": "ClutchPoints",
+        "published_at_epoch": 1793689637,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMixwFBVV95cUxPbFFnNWhfdWs5T2tpNVNzTkQtQ0hZTDBKdzlrb1FoM1JOcS1Ta1JtazQ3Wlh4aVhhT2FocGJjTm5Cam5oNVkwREUwaXZ4Nk5jLUZhREhPc2NWRjZPbFhOWDVlTEFQazFzZUt2UVRwd3RqbHpMbXVhN0RKVUVKY21BVUZMajdmZ3BZQVY5NWZOa1BMQlB0bGtqdW9FckxHX0YyYXFXUUlYaGMxYW5zcDdpTXFYTWQxMWphVTllUmxLWmJwUFd4ZWtF?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 63.3928954004604,
+            "subject": 98.07321422139891,
+            "movement": 81.37959990319904,
+            "availability": 22.812056432969744
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1509878,
+        "title": "Giannis confident Heat can turn things around, but knows ‘we got a lot of things to figure out’",
+        "context": "Giannis confident Heat can turn things around, but knows ‘we got a lot of things to figure out’",
+        "source": "Miami Herald",
+        "published_at_epoch": 1793734152,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTE9yN3lKeVdaMnJULUlQV0hpVnhYYzJ3UEwwTlM4ZnhTYXJnb01mWUlnN3dvODVQbGNDSngza0Q5blExYk9CQ0FnQXo1UDNuMGNMa2F6bjMzRW9rcTk5ejBrcVZRVVFyVEg2YUZYSUVqREs2TXBlZi1zUjFMd9IBe0FVX3lxTE54dTF0OVpHWWlfdnVLMGJWRVlhcnlFSTZSb1RzSl9uYWx6VGl1TTVSVkFWSVlPYkoxNXVUcjFSUHpseGphUkpFc3drSnhNZEs5REhKVTBZdV95bXFrcmRYaFR3QzNXWEJLdGdIS3hRazlVRkFkTlVqRnFQRQ?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 63.11468333855246,
+            "subject": 98.70084504040484,
+            "movement": 27.88687501243301,
+            "availability": 19.54799225816348
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1440672,
+        "title": "Bam Adebayo says critics 'make me the scapegoat' for Heat's winless start",
+        "context": "Bam Adebayo says critics 'make me the scapegoat' for Heat's winless start",
+        "source": "ESPN",
+        "published_at_epoch": 1793117040,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxPNEJmcXU1WEY2VXVscmJFMEstMVEyWjZFN1N4dVhha0lRRW03MldKQURESzRWOXFKZ1dpTUx1OEFaNFNJY3B1eTV5NWkwNmNEay1DQUhhVGhublROaGF5Q2VWQml6Q1hOVUVPS0dNZTAwXy1yRkl3UVBhaF85Uy1UMjJreW9UNjR4RFdxN0JmWQ?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 61.387263269021645,
+            "subject": 98.53146408411916,
+            "movement": 8.183943765614227,
+            "availability": 38.03441708370206
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1518255,
+        "title": "Miami Heat defense embarrassed by Luka Doncic and the Los Angeles Lakers",
+        "context": "Miami Heat defense embarrassed by Luka Doncic and the Los Angeles Lakers",
+        "source": "Audacy",
+        "published_at_epoch": 1793746183,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMitAFBVV95cUxNUTdzYWVvQmo3bDNsd0xfREswbjF2RnRHdWJnR0E0eTRWa1BkcUNJVUNNVTN0NVAycEp1bGhaLVZOZVNKS1RyZVBBcjhhRGlpTDFIOEc0TDJqMU1QTEpZdEhDYjFkd0x3eWo0RHozWWlVdVZEanJpbnc5ZFc5TURzLUNxMVEzNEpSaFBVUXJxUmFMOVhaUTRoaTJSTVBhbmxucEt5aDJkZ185NlRDWXNUeHRKcU8?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 59.74851878513747,
+            "subject": 99.42576894304028,
+            "movement": 14.146756509049457,
+            "availability": 38.51433762990397
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1440675,
+        "title": "Should the Miami Heat Panic This Soon in the NBA Season?",
+        "context": "Should the Miami Heat Panic This Soon in the NBA Season?",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1792911600,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMif0FVX3lxTE9qSEFuZUV0ajNTbEdGUW1SQUQ5MmxncUxOcC1NSl9XWDh6c1JNQ2lLZkw4ODNTYXBOWkhSc0NZbGluNXZFQ0dsbXdwTTJzWWR0VW9OU0ZxX1gzRW8tbnA2NzlQUkQyUFVuWEVTMkx5OXdtUW5DeWR1Sy1mQm5BeG8?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 59.097516599424395,
+            "subject": 91.75159669466804,
+            "movement": 33.28015010782931,
+            "availability": 58.8078720839959
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1507431,
+        "title": "Heat's Davion Mitchell: Continues to excel",
+        "context": "Heat's Davion Mitchell: Continues to excel",
+        "source": "CBS Sports",
+        "published_at_epoch": 1793730830,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxOYzFtSVhfZjI4U21BUUxEc3hsRmtHNDk0NTd2c2hMaFFLZmlmSXB6eXdHS01HVUlfeV9qM29leWJXWUp2cEQxazEtTHAwUTY2alUwclAxZnMtZXQtOFNUbXBKYVRMRGpic0dILWowLW9FMzNLT3dQaFdES0RvV2g5eXhMSW5zOERtQVp2N3ZKTk9NU2xaNFE?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 58.86549949599254,
+            "subject": 75.70237160643072,
+            "movement": 14.71448073756632,
+            "availability": 11.961918730837846
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "expect": {},
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ]
+}

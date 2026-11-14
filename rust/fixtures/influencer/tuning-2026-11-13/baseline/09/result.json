@@ -1,0 +1,22 @@
+{
+  "case": 9,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/cases/09-luka-doncic.json",
+  "generation_wall_ms": 33175,
+  "input_tokens": 1935,
+  "name": "09-luka-doncic",
+  "output_limit": 3500,
+  "output_tokens": 258,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v54-target-task-evidence",
+  "reading": "Luka Doncic receives widespread praise for defensive dominance and team success, though some fans express frustration over his MVP standing.\n\nMultiple outlets, including The New York Times and Yahoo Sports, highlighted Luka Doncic's defensive performance, with headlines praising his 'awesome defense' and noting his ability to 'destroy' the Raptors' game plan. JJ Redick specifically commended his defense after the Lakers' victory, while ESPN reported that both Lakers and Raptors officials drew praise for his improved play.\n\nThe prevailing tone across several sources, such as Yahoo Sports and Bleacher Report, was overwhelmingly celebratory, describing the team's success as living on a 'spaceship' and comparing Doncic's impact to a 'supernova' on a history-making night. Heavy.com echoed this sentiment, with the Raptors coach praising Doncic for his dominance.\n\nConversely, a distinct thread of frustration emerged from Yahoo Sports, where headlines indicated that fans were 'fuming' because Doncic still trails Victor Wembanyama in the MVP race. Despite this criticism regarding his award contention, the overall coverage focused heavily on his individual brilliance and the team's elevated status.",
+  "request_bytes": 7894,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 33193
+}

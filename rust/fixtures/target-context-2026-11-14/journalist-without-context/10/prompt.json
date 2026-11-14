@@ -1,0 +1,67 @@
+{
+  "target": {
+    "name": "Jayson Tatum",
+    "entity_type": "player",
+    "sport": "basketball",
+    "recorded_attributes": {
+      "nationality": "USA",
+      "position": "forward",
+      "team_on_record": {
+        "name": "Boston Celtics",
+        "observed_on": "2026-07-04"
+      }
+    }
+  },
+  "task": {
+    "assignment": "Faithfully summarize the reported news about the target. Your subject is the target. Gate relevancy: only include evidence relevant to the target. Omit unrelated material. If evidence is sparse, one sentence of output is acceptable. If evidence is excessive, report only the most prominent storylines. Keep paragraphs brief: do not exceed three-to-four concise sentences when evidence supports it. Name your sources. \n    \nFinish by writing one engaging, factual hook of 140 characters or fewer recaping your findings.",
+    "rules": [
+      "Write the paragraphs first and the headline last.",
+      "The target will not always be the subject of the evidence. Include a concrete claim when it directly involves the target. Keep who said or did what, and preserve whether the headline reports an opinion, a plan, or something that already happened.",
+      "Always note the target's relationship to other entities mentioned. If the relationship is unclear, do not guess or speculate.",
+      "Omit questionable or unrelated evidence. Omit clickbait. Omit vague claims. Default to caution when determining if evidence is relevant.",
+      "Keep each paragraph about one developing story. Combine articles only when they describe the same development. Keep disagreements attributed.",
+      "Copy quotes accurately and preserve who said them. Use the source wording when paraphrasing would change its meaning.",
+      "Do not answer a question that the evidence provides. Do not infer motives, feelings, causes, timing or consequences. Do not include repeated claims. Do not include background attributes. Do not include missing-detail commentary.",
+      "Provide reliable coverage. Do not take reporting risks. Never fill in gaps. Never speculate on unknowns. Never invent details.",
+      "Return only {\"paragraphs\":[{\"body\":\"Short paragraph naming the publisher\",\"report_ids\":[1]}],\"headline\":\"One hook for the whole recap\"}. Each paragraph cites only its supporting article IDs. Use at most one paragraph per supplied article and 1200 characters per paragraph. Check every paragraph against its own cited articles; the hook may use only those same articles. If none supports a recap, return {\"paragraphs\":[],\"headline\":null}. No extra keys or commentary."
+    ]
+  },
+  "content_context": "These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.",
+  "new_content": [
+    {
+      "id": 1,
+      "publisher": "Yahoo Sports",
+      "headline": "Boston Celtics' Jayson Tatum Continues to Make History in Early Going"
+    },
+    {
+      "id": 2,
+      "publisher": "NBC Sports",
+      "headline": "Jayson Tatum scores game-high 32 points vs. ORL"
+    },
+    {
+      "id": 3,
+      "publisher": "FantasyPros",
+      "headline": "Jayson Tatum flirts with triple-double in Friday's win over Bulls"
+    },
+    {
+      "id": 4,
+      "publisher": "MassLive",
+      "headline": "Jayson Tatum is Celtics’ Name to Know Player of the Game in win over Magic"
+    },
+    {
+      "id": 5,
+      "publisher": "Reuters",
+      "headline": "Jayson Tatum leads Celtics past Magic for fifth straight win"
+    },
+    {
+      "id": 6,
+      "publisher": "GMA Network",
+      "headline": "NBA: Jayson Tatum leads Celtics past Magic for fifth straight win"
+    },
+    {
+      "id": 7,
+      "publisher": "Yahoo Sports",
+      "headline": "Nets still haunted by 2013 Celtics trade that led to Jayson Tatum"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "case": 8,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/relevance-cases/08-chelsea.json",
+  "generation_wall_ms": 9890,
+  "input_tokens": 1411,
+  "name": "08-chelsea",
+  "output_limit": 3500,
+  "output_tokens": 143,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v60-target-relevance",
+  "reading": "Mixed reactions: Alonso praises backup, critics cite talent loss\n\nYahoo Sports reports that Chelsea coach Xabi Alonso praised a backup player following Manchester United's victory, framing the result as a significant injury boost for the squad. Conversely, FootballTransfers.com expressed strong criticism, stating that Chelsea squandered 'incredible talent' and lost their best player in the process. TribalFootball highlighted concerns over the future of Josh Acheampong, noting that top clubs are lining up to sign him, while HeraldLIVE described Chelsea's recent performance against Manchester United as adding more misery to their struggles.",
+  "request_bytes": 6025,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 9915
+}

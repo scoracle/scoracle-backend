@@ -1,0 +1,22 @@
+{
+  "case": 7,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/07-tampa-bay-buccaneers.json",
+  "generation_wall_ms": 4946,
+  "input_tokens": 1176,
+  "name": "07-tampa-bay-buccaneers",
+  "output_limit": 3500,
+  "output_tokens": 24,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "reading": "empty reading",
+  "request_bytes": 5111,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 4963
+}

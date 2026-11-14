@@ -1,0 +1,22 @@
+{
+  "case": 6,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/cases/06-miami-heat.json",
+  "generation_wall_ms": 21848,
+  "input_tokens": 1844,
+  "name": "06-miami-heat",
+  "output_limit": 3500,
+  "output_tokens": 266,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v54-target-task-evidence",
+  "reading": "Heat face internal and external criticism amid winless start, with Spoelstra admitting need for improvement and Bucks fans expressing anger.\n\nBucks fans expressed anger and disappointment, throwing shade at Giannis Antetokounmpo and the Miami Heat after the Bucks secured a win prior to Miami, with Yahoo Sports describing the reaction as \"CRAZY.\" Meanwhile, former Heat coach Stan Van Gundy criticized the team as \"mediocre\" since the Big Three era, according to Fadeaway World.\n\nInternal criticism is also evident, as Heat head coach Erik Spoelstra admitted he needs to do \"a better job\" following a disappointing 2-5 start, while Bam Adebayo stated critics are making him the scapegoat for the winless beginning of the season.\n\nExternal challenges were highlighted when Miami's defense was described as embarrassed by Luka Doncic and the Los Angeles Lakers, and Giannis Antetokounmpo put his teammates on blast after a heavy loss to the Lakers. Despite this, Giannis expressed confidence that the team can turn things around, though he acknowledged they have \"a lot of things to figure out,\" while Davion Mitchell continued to excel individually.",
+  "request_bytes": 7677,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 21865
+}

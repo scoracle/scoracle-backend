@@ -495,7 +495,7 @@ mod tests {
             let original: serde_json::Value =
                 serde_json::from_str(&request::assemble(&subject, std::slice::from_ref(&report)))
                     .unwrap();
-            assert_eq!(final_world["new_content"], original["new_content"]);
+            assert_eq!(final_world["evidence"], original["evidence"]);
         }
     }
 

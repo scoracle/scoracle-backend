@@ -1,0 +1,329 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/01-charlotte-hornets.json",
+      "generation_wall_ms": 33640,
+      "input_tokens": 1917,
+      "name": "01-charlotte-hornets",
+      "output_limit": 3500,
+      "output_tokens": 214,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "Mixed reactions: Fan optimism clashes with blowout losses and roster concerns.\n\nWBTV reports that Charlotte Hornets fans are optimistic for the new season, hoping for playoff basketball. FOX Carolina News highlights the emotional press conference regarding Muggsy Bogues' upcoming jersey retirement, while DZN notes early excitement following LaMelo Ball's trade. The State Hornet celebrates a strong start with a 40-point victory where new faces turned heads.\n\nConversely, AP News describes a sellout crowd booing the team after a 128-81 blowout loss to the Hawks in the first game without LaMelo Ball. Yahoo Sports headlines indicate a 27-turnover collapse, a blunt message from Coby White, and questions over Naz Reid's shocking benching. Multiple outlets express concern that the Hornets look lost without LaMelo Ball and desperately need injured players Kon Knueppel and Coby White back.",
+      "request_bytes": 8061,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 33655
+    },
+    {
+      "case": 2,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/02-philadelphia-eagles.json",
+      "generation_wall_ms": 14808,
+      "input_tokens": 1929,
+      "name": "02-philadelphia-eagles",
+      "output_limit": 3500,
+      "output_tokens": 114,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "NFL furious over Eagles' Hurts messaging amid season turmoil\n\nMultiple outlets, including NBC Sports and the New York Post, report that the NFL is 'furious' regarding the Philadelphia Eagles' handling of Jalen Hurts' blood clot messaging. Meanwhile, local coverage from The Morning Call and NBC Sports Philadelphia describes the team's situation as a 'pile of misery' with only 'tiny encouraging blips' amidst a 'season from hell'.",
+      "request_bytes": 8098,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 14826
+    },
+    {
+      "case": 3,
+      "error": "llama.cpp Qwen3.5-4B-Q4_K_M: output incomplete or context truncated (\"limit\"): llama.cpp Qwen3.5-4B-Q4_K_M: output incomplete or context truncated (\"limit\")",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/03-seattle-seahawks.json",
+      "name": "03-seattle-seahawks",
+      "output_limit": 3500,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "request_bytes": 8427,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "error",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 251656
+    },
+    {
+      "case": 4,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/04-arsenal.json",
+      "generation_wall_ms": 11597,
+      "input_tokens": 1932,
+      "name": "04-arsenal",
+      "output_limit": 3500,
+      "output_tokens": 135,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "Mixed reactions: shock at Dowman incident, praise for Carragher and Arteta\n\nThe Guardian reported that Arsenal and manager Arteta were left 'red-faced' following a fracas involving Max Dowman, while another headline noted Fleetwood fans revelled in the 'seismic' shock of the result. Conversely, Jamie Carragher expressed being 'flabbergasted' to name an Arsenal star as the best player in the Premier League, and Arteta also heaped praise on defenders Gabriel and Konsa after the team reached the top of the table.",
+      "request_bytes": 8161,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 11615
+    },
+    {
+      "case": 5,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/05-roma.json",
+      "generation_wall_ms": 15745,
+      "input_tokens": 1942,
+      "name": "05-roma",
+      "output_limit": 3500,
+      "output_tokens": 156,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "Mixed reactions: Allegri furious, Gasperini sees hope in goals\n\nYahoo Sports headlines depict a volatile atmosphere, with manager Allegri expressing anger and questioning his presence on the touchline following a 3-3 draw against Napoli. Conversely, other outlets like Hooligan Soccer and ESPN Singapore offer mixed perspectives, with one opining the result was a 'Roma Gift' while another struggles to determine if Manchester United were good or Roma were bad.\n\nCoach Gasperini provides a more measured outlook, noting that while Roma feel they dropped two points in the draw, the high number of goals scored is a positive signal for the team's performance.",
+      "request_bytes": 8053,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 15764
+    },
+    {
+      "case": 6,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/06-miami-heat.json",
+      "generation_wall_ms": 20424,
+      "input_tokens": 1940,
+      "name": "06-miami-heat",
+      "output_limit": 3500,
+      "output_tokens": 186,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "Heat face criticism from fans, coaches, and players amid winless start\n\nYahoo Sports headlines suggest a volatile atmosphere, with Bucks fans expressing anger toward both Giannis Antetokounmpo and the Heat following a win before Miami, while also questioning if the team should panic so early in the season. Other outlets report significant internal criticism, including Stan Van Gundy calling the Heat a 'mediocre team' since the Big Three era and Erik Spoelstra admitting he needs to do 'a better job' amid a disappointing 2-5 start. Players are also reacting to the struggles; Bam Adebayo stated critics make him the 'scapegoat' for the winless start, while Miami Herald notes Giannis is confident the team can turn things around despite acknowledging many things need figuring out.",
+      "request_bytes": 8096,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 20440
+    },
+    {
+      "case": 7,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/07-tampa-bay-buccaneers.json",
+      "generation_wall_ms": 4946,
+      "input_tokens": 1176,
+      "name": "07-tampa-bay-buccaneers",
+      "output_limit": 3500,
+      "output_tokens": 24,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "empty reading",
+      "request_bytes": 5111,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 4963
+    },
+    {
+      "case": 8,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/08-chelsea.json",
+      "generation_wall_ms": 13965,
+      "input_tokens": 1521,
+      "name": "08-chelsea",
+      "output_limit": 3500,
+      "output_tokens": 146,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "Mixed reactions: Alonso praises backup and Lavia, but concerns persist over Acheampong and recent losses.\n\nYahoo Sports reports that Xabi Alonso praised Chelsea's backup squad following Manchester United's victory, framing the move as a significant injury boost. Conversely, TribalFootball and FootballTransfers.com highlight concerns over Josh Acheampong's future and criticize the club for squandering talent, while Soccer News notes Alonso's positive assessment of midfielder Lavia's form. HeraldLIVE adds context by noting Chelsea's continued struggles, describing their recent performance as adding more misery to Manchester United's tally.",
+      "request_bytes": 6471,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 13986
+    },
+    {
+      "case": 9,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/09-luka-doncic.json",
+      "generation_wall_ms": 17587,
+      "input_tokens": 2031,
+      "name": "09-luka-doncic",
+      "output_limit": 3500,
+      "output_tokens": 173,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "Mixed praise for defense and MVP standings\n\nMultiple outlets, including The New York Times and Yahoo Sports, highlighted Luka Doncic's defensive performance, with headlines praising his 'awesome defense' and noting his ability to destroy opponents' game plans. Other sources, such as Bleacher Report and Yahoo Sports, used enthusiastic metaphors to describe his impact, comparing the Lakers' success to living on a spaceship and his presence to a supernova.\n\nConversely, Yahoo Sports also reported on fan frustration regarding the MVP race, noting that fans are 'fuming' after Doncic trails Victor Wembanyama. Despite this criticism, other coverage from ESPN and the Sun Herald focused on his improved defense and the positive atmosphere surrounding his historic achievements.",
+      "request_bytes": 8313,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 17606
+    },
+    {
+      "case": 10,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/10-jayson-tatum.json",
+      "generation_wall_ms": 8227,
+      "input_tokens": 1644,
+      "name": "10-jayson-tatum",
+      "output_limit": 3500,
+      "output_tokens": 24,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "empty reading",
+      "request_bytes": 6901,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 8241
+    },
+    {
+      "case": 11,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/11-dak-prescott.json",
+      "generation_wall_ms": 13237,
+      "input_tokens": 1355,
+      "name": "11-dak-prescott",
+      "output_limit": 3500,
+      "output_tokens": 156,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "Fans livid, Prescott calls loss toughest\n\nYahoo Sports reports that Cowboys fans are livid, expressing anger with phrases like 'Shut Up' and 'Stop Taking Bullets for Him' after Dak Prescott shielded Brian Schottenheimer following an overtime loss to the Cardinals.\n\nIn contrast, the official Dallas Cowboys site notes that Dak Prescott himself described the loss to the Cardinals as 'one of the toughest' in his career, reflecting a personal sense of difficulty rather than fan outrage.\n\nFOX Sports highlights a positive on-field moment where Dak Prescott scrambled for a five-yard touchdown run, extending the Cowboys' lead over the Cardinals during the game.",
+      "request_bytes": 5849,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 13257
+    },
+    {
+      "case": 12,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/12-baker-mayfield.json",
+      "generation_wall_ms": 19308,
+      "input_tokens": 1746,
+      "name": "12-baker-mayfield",
+      "output_limit": 3500,
+      "output_tokens": 161,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "Mixed: Historic zero-completion game vs. defiant 'whatever it takes' attitude\n\nYahoo Sports headlines frame Baker Mayfield's zero-completion performance against the Atlanta Falcons as a historic anomaly, comparing it to the 1974 infamy and describing the loss as 'horrific.' Despite the statistical record, the Tampa Bay Buccaneers' official press conference headline indicates Mayfield's resolve with the statement, 'Whatever It Takes to Win.'\n\nSky Sports highlights a different narrative, noting that while Mayfield set a remarkable stat, the Kansas City Chiefs 'implode' against Denver, suggesting the broader context of the game was a collapse rather than a singular player achievement.",
+      "request_bytes": 7414,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 19328
+    },
+    {
+      "case": 13,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/13-virgil-van-dijk.json",
+      "generation_wall_ms": 6039,
+      "input_tokens": 1274,
+      "name": "13-virgil-van-dijk",
+      "output_limit": 3500,
+      "output_tokens": 56,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "Van Dijk disappointed after Arsenal loss\n\nLiverpool FC reported that Virgil van Dijk expressed being 'Very disappointed' regarding the team's defeat by Arsenal.",
+      "request_bytes": 5366,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 6055
+    },
+    {
+      "case": 14,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/14-gessime-yassine.json",
+      "generation_wall_ms": 7649,
+      "input_tokens": 1200,
+      "name": "14-gessime-yassine",
+      "output_limit": 3500,
+      "output_tokens": 24,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "empty reading",
+      "request_bytes": 5143,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 7659
+    },
+    {
+      "case": 15,
+      "checks": [],
+      "completion_reason": "eos",
+      "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/15-vit-krejci.json",
+      "generation_wall_ms": 5264,
+      "input_tokens": 1263,
+      "name": "15-vit-krejci",
+      "output_limit": 3500,
+      "output_tokens": 24,
+      "parsed": true,
+      "prompt_version": "vibe-frame-v55-valence-attribution",
+      "reading": "empty reading",
+      "request_bytes": 5299,
+      "review": [
+        "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+      ],
+      "status": "accepted",
+      "task": "vibe",
+      "temperature": 0.0,
+      "wall_ms": 5281
+    }
+  ],
+  "completed": 15
+}

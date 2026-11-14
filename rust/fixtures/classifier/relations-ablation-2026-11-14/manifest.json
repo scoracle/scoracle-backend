@@ -1,0 +1,17 @@
+{
+  "cases": 15,
+  "context_added": 6,
+  "unchanged_controls": 9,
+  "calls": 30,
+  "errors": 0,
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "criteria_version": "classification-criteria-v17-shared-relations",
+  "request_version": "classifier-brief-v8-shared-relations",
+  "paired_request_equality_except_named_people": true,
+  "unchanged_control_scores_exactly_equal": true,
+  "database_access": "READ ONLY canonical lookup",
+  "production_writes": false,
+  "prompt_source_edits": false,
+  "retries": 0,
+  "named_people_not_new_role_enrichment": true
+}

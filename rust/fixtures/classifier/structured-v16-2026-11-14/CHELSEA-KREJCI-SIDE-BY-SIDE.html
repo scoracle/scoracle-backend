@@ -1,0 +1,300 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Chelsea and Krejci — full prompt comparison</title><style>body{font:16px/1.55 system-ui,sans-serif;color:#192330;background:#f5f7fa;margin:0;padding:32px;max-width:1700px;margin:auto}h1{font-size:28px}h2{margin-top:48px}h3{margin-top:0}table{border-collapse:collapse;background:white;width:100%;margin:20px 0}td,th{padding:10px 16px;border:1px solid #d9dfe8;text-align:left}.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}.panel{min-width:0;background:white;border:1px solid #d9dfe8;border-radius:8px;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace;background:#f4f6f9;padding:16px}.question{white-space:pre-wrap;border-top:1px solid #ddd;padding:16px 0}.label{font-weight:700}.note{padding:16px;background:#fff6de;border-left:4px solid #d69b20}summary{cursor:pointer;font-weight:600}@media(max-width:850px){body{padding:16px}.pair{grid-template-columns:1fr}}</style><h1>Chelsea and Vit Krejci: full prompts and scores</h1><p>Previous: last live v14/v5 run. Current: v16/v7. These are saved requests and outputs, not fresh generations. Same headlines, attribute values, model fingerprint and routing thresholds. No source edits.</p><p>Each column shows the complete decoded <code>state</code>, every scoring question in full, and the complete native response. The native request JSON is also included. Scores are native probabilities ×100; they are not accuracy percentages.</p><h2>Chelsea</h2><p><strong>Chelsea sweating over Josh Acheampong future as top clubs line up</strong><br>TribalFootball</p><table><thead><tr><th>Score</th><th>Previous</th><th>Current</th><th>Change</th><th>Routing cutoff</th></tr></thead><tbody><tr><td>subject</td><td>90.80</td><td>78.16</td><td>-12.64</td><td>55</td></tr><tr><td>emotion</td><td>65.54</td><td>60.22</td><td>-5.31</td><td>15</td></tr><tr><td>movement</td><td>88.71</td><td>77.70</td><td>-11.01</td><td>80</td></tr><tr><td>availability</td><td>6.20</td><td>14.58</td><td>+8.38</td><td>85</td></tr></tbody></table><p class="note">Movement drops from 88.71 to 77.70, crossing below the Insider cutoff of 80. The headline reports clubs lining up for Acheampong, so this is a missed personnel-interest route under the approved criterion. Journalist and Influencer remain enabled.</p><p><strong>Errors in both runs:</strong> none. Requests and native response validation succeeded. The issues above are classification/routing errors, not transport errors.</p><div class="pair"><section class="panel"><h3>Previous — v14/v5</h3><h4>Complete brief (decoded state)</h4><pre>{
+  &quot;target_context&quot;: &quot;The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.&quot;,
+  &quot;target&quot;: {
+    &quot;name&quot;: &quot;Chelsea&quot;,
+    &quot;entity_type&quot;: &quot;team&quot;,
+    &quot;sport&quot;: &quot;FOOTBALL&quot;,
+    &quot;team_category&quot;: &quot;unknown&quot;,
+    &quot;recorded_attributes&quot;: &quot;Recorded attributes: {\&quot;city\&quot;: \&quot;London\&quot;, \&quot;coach_on_record\&quot;: {\&quot;name\&quot;: \&quot;Xabi Alonso\&quot;, \&quot;observed_at\&quot;: \&quot;2026-09-30\&quot;}, \&quot;country\&quot;: \&quot;England\&quot;, \&quot;league\&quot;: {\&quot;country\&quot;: \&quot;England\&quot;, \&quot;name\&quot;: \&quot;Premier League\&quot;}}&quot;
+  },
+  &quot;task&quot;: {
+    &quot;assignment&quot;: &quot;Evaluate the headline for this exact target using the four questions.&quot;,
+    &quot;rules&quot;: [
+      &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.&quot;,
+      &quot;Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.&quot;,
+      &quot;Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.&quot;
+    ]
+  },
+  &quot;evidence_context&quot;: &quot;This is a headline collected from a publisher&#x27;s news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.&quot;,
+  &quot;evidence&quot;: {
+    &quot;headline&quot;: &quot;Chelsea sweating over Josh Acheampong future as top clubs line up&quot;,
+    &quot;publisher&quot;: &quot;TribalFootball&quot;
+  }
+}</pre><h4>All native scoring questions</h4><div class="question"><span class="label">availability · noul</span><br>Does the headline report whether Chelsea, the FOOTBALL team (team category unknown) can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.</div><div class="question"><span class="label">emotion · noul</span><br>Does the headline express a feeling or judgment about Chelsea, the FOOTBALL team (team category unknown), or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.</div><div class="question"><span class="label">movement · noul</span><br>Does the headline report a personnel or contract development involving Chelsea, the FOOTBALL team (team category unknown)—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.</div><div class="question"><span class="label">subject · noul</span><br>Does the headline state a concrete development directly involving Chelsea, the FOOTBALL team (team category unknown)? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.</div><h4>Complete native response</h4><pre>{
+  &quot;answers&quot;: {
+    &quot;availability&quot;: {
+      &quot;noul&quot;: 0.06198551946098234,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;emotion&quot;: {
+      &quot;noul&quot;: 0.6553734964085169,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;movement&quot;: {
+      &quot;noul&quot;: 0.8871038687977373,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;subject&quot;: {
+      &quot;noul&quot;: 0.9079848299202348,
+      &quot;type&quot;: &quot;noul&quot;
+    }
+  },
+  &quot;model&quot;: &quot;vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707&quot;,
+  &quot;usage&quot;: {
+    &quot;input_tokens&quot;: 2184,
+    &quot;output_tokens&quot;: 0
+  }
+}</pre><details><summary>Complete native request JSON</summary><pre>{
+  &quot;questions&quot;: {
+    &quot;availability&quot;: {
+      &quot;instructions&quot;: &quot;Does the headline report whether Chelsea, the FOOTBALL team (team category unknown) can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;emotion&quot;: {
+      &quot;instructions&quot;: &quot;Does the headline express a feeling or judgment about Chelsea, the FOOTBALL team (team category unknown), or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;movement&quot;: {
+      &quot;instructions&quot;: &quot;Does the headline report a personnel or contract development involving Chelsea, the FOOTBALL team (team category unknown)—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;subject&quot;: {
+      &quot;instructions&quot;: &quot;Does the headline state a concrete development directly involving Chelsea, the FOOTBALL team (team category unknown)? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    }
+  },
+  &quot;state&quot;: &quot;{\n  \&quot;target_context\&quot;: \&quot;The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\&quot;,\n  \&quot;target\&quot;: {\n    \&quot;name\&quot;: \&quot;Chelsea\&quot;,\n    \&quot;entity_type\&quot;: \&quot;team\&quot;,\n    \&quot;sport\&quot;: \&quot;FOOTBALL\&quot;,\n    \&quot;team_category\&quot;: \&quot;unknown\&quot;,\n    \&quot;recorded_attributes\&quot;: \&quot;Recorded attributes: {\\\&quot;city\\\&quot;: \\\&quot;London\\\&quot;, \\\&quot;coach_on_record\\\&quot;: {\\\&quot;name\\\&quot;: \\\&quot;Xabi Alonso\\\&quot;, \\\&quot;observed_at\\\&quot;: \\\&quot;2026-09-30\\\&quot;}, \\\&quot;country\\\&quot;: \\\&quot;England\\\&quot;, \\\&quot;league\\\&quot;: {\\\&quot;country\\\&quot;: \\\&quot;England\\\&quot;, \\\&quot;name\\\&quot;: \\\&quot;Premier League\\\&quot;}}\&quot;\n  },\n  \&quot;task\&quot;: {\n    \&quot;assignment\&quot;: \&quot;Evaluate the headline for this exact target using the four questions.\&quot;,\n    \&quot;rules\&quot;: [\n      \&quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\&quot;,\n      \&quot;Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\&quot;,\n      \&quot;Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\&quot;\n    ]\n  },\n  \&quot;evidence_context\&quot;: \&quot;This is a headline collected from a publisher&#x27;s news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\&quot;,\n  \&quot;evidence\&quot;: {\n    \&quot;headline\&quot;: \&quot;Chelsea sweating over Josh Acheampong future as top clubs line up\&quot;,\n    \&quot;publisher\&quot;: \&quot;TribalFootball\&quot;\n  }\n}&quot;
+}</pre></details></section><section class="panel"><h3>Current — v16/v7</h3><h4>Complete brief (decoded state)</h4><pre>{
+  &quot;task&quot;: &quot;You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.&quot;,
+  &quot;target_context&quot;: &quot;The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.&quot;,
+  &quot;target&quot;: {
+    &quot;name&quot;: &quot;Chelsea&quot;,
+    &quot;entity_type&quot;: &quot;team&quot;,
+    &quot;sport&quot;: &quot;FOOTBALL&quot;,
+    &quot;team_category&quot;: &quot;unknown&quot;,
+    &quot;recorded_attributes&quot;: {
+      &quot;city&quot;: &quot;London&quot;,
+      &quot;coach_on_record&quot;: {
+        &quot;name&quot;: &quot;Xabi Alonso&quot;,
+        &quot;observed_at&quot;: &quot;2026-09-30&quot;
+      },
+      &quot;country&quot;: &quot;England&quot;,
+      &quot;league&quot;: {
+        &quot;country&quot;: &quot;England&quot;,
+        &quot;name&quot;: &quot;Premier League&quot;
+      }
+    }
+  },
+  &quot;evidence_context&quot;: &quot;This is a headline collected from a publisher&#x27;s news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.&quot;,
+  &quot;evidence&quot;: {
+    &quot;headline&quot;: &quot;Chelsea sweating over Josh Acheampong future as top clubs line up&quot;,
+    &quot;publisher&quot;: &quot;TribalFootball&quot;
+  }
+}</pre><h4>All native scoring questions</h4><div class="question"><span class="label">availability · noul</span><br>Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.
+Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.
+Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.
+
+Does the headline report whether Chelsea, the FOOTBALL team (team category unknown) can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.</div><div class="question"><span class="label">emotion · noul</span><br>Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.
+Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.
+Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.
+
+Does the headline express a feeling or judgment about Chelsea, the FOOTBALL team (team category unknown), or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.</div><div class="question"><span class="label">movement · noul</span><br>Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.
+Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.
+Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.
+
+Does the headline report a personnel or contract development involving Chelsea, the FOOTBALL team (team category unknown)—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.</div><div class="question"><span class="label">subject · noul</span><br>Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.
+Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.
+Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.
+
+Does the headline state a concrete development directly involving Chelsea, the FOOTBALL team (team category unknown)? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.</div><h4>Complete native response</h4><pre>{
+  &quot;answers&quot;: {
+    &quot;availability&quot;: {
+      &quot;noul&quot;: 0.1458046897029604,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;emotion&quot;: {
+      &quot;noul&quot;: 0.602244819236318,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;movement&quot;: {
+      &quot;noul&quot;: 0.776970176413794,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;subject&quot;: {
+      &quot;noul&quot;: 0.7816180730412193,
+      &quot;type&quot;: &quot;noul&quot;
+    }
+  },
+  &quot;model&quot;: &quot;vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707&quot;,
+  &quot;usage&quot;: {
+    &quot;input_tokens&quot;: 2260,
+    &quot;output_tokens&quot;: 0
+  }
+}</pre><details><summary>Complete native request JSON</summary><pre>{
+  &quot;questions&quot;: {
+    &quot;availability&quot;: {
+      &quot;instructions&quot;: &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\nKeep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\nUse recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\n\nDoes the headline report whether Chelsea, the FOOTBALL team (team category unknown) can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;emotion&quot;: {
+      &quot;instructions&quot;: &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\nKeep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\nUse recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\n\nDoes the headline express a feeling or judgment about Chelsea, the FOOTBALL team (team category unknown), or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;movement&quot;: {
+      &quot;instructions&quot;: &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\nKeep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\nUse recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\n\nDoes the headline report a personnel or contract development involving Chelsea, the FOOTBALL team (team category unknown)—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;subject&quot;: {
+      &quot;instructions&quot;: &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\nKeep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\nUse recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\n\nDoes the headline state a concrete development directly involving Chelsea, the FOOTBALL team (team category unknown)? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    }
+  },
+  &quot;state&quot;: &quot;{\n  \&quot;task\&quot;: \&quot;You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.\&quot;,\n  \&quot;target_context\&quot;: \&quot;The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\&quot;,\n  \&quot;target\&quot;: {\n    \&quot;name\&quot;: \&quot;Chelsea\&quot;,\n    \&quot;entity_type\&quot;: \&quot;team\&quot;,\n    \&quot;sport\&quot;: \&quot;FOOTBALL\&quot;,\n    \&quot;team_category\&quot;: \&quot;unknown\&quot;,\n    \&quot;recorded_attributes\&quot;: {\n      \&quot;city\&quot;: \&quot;London\&quot;,\n      \&quot;coach_on_record\&quot;: {\n        \&quot;name\&quot;: \&quot;Xabi Alonso\&quot;,\n        \&quot;observed_at\&quot;: \&quot;2026-09-30\&quot;\n      },\n      \&quot;country\&quot;: \&quot;England\&quot;,\n      \&quot;league\&quot;: {\n        \&quot;country\&quot;: \&quot;England\&quot;,\n        \&quot;name\&quot;: \&quot;Premier League\&quot;\n      }\n    }\n  },\n  \&quot;evidence_context\&quot;: \&quot;This is a headline collected from a publisher&#x27;s news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\&quot;,\n  \&quot;evidence\&quot;: {\n    \&quot;headline\&quot;: \&quot;Chelsea sweating over Josh Acheampong future as top clubs line up\&quot;,\n    \&quot;publisher\&quot;: \&quot;TribalFootball\&quot;\n  }\n}&quot;
+}</pre></details></section></div><h2>Vit Krejci</h2><p><strong>Vit Krejci News: Season-high 24 minutes Saturday</strong><br>RotoWire</p><table><thead><tr><th>Score</th><th>Previous</th><th>Current</th><th>Change</th><th>Routing cutoff</th></tr></thead><tbody><tr><td>subject</td><td>95.06</td><td>85.17</td><td>-9.89</td><td>55</td></tr><tr><td>emotion</td><td>22.85</td><td>22.44</td><td>-0.41</td><td>15</td></tr><tr><td>movement</td><td>4.62</td><td>0.97</td><td>-3.64</td><td>80</td></tr><tr><td>availability</td><td>2.61</td><td>10.18</td><td>+7.57</td><td>85</td></tr></tbody></table><p class="note">Emotion barely changes: 22.85 to 22.44. Both exceed the Influencer cutoff of 15. The headline reports playing time and contains no explicit feeling or judgment; the false-positive route persists.</p><p><strong>Errors in both runs:</strong> none. Requests and native response validation succeeded. The issues above are classification/routing errors, not transport errors.</p><div class="pair"><section class="panel"><h3>Previous — v14/v5</h3><h4>Complete brief (decoded state)</h4><pre>{
+  &quot;target_context&quot;: &quot;The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.&quot;,
+  &quot;target&quot;: {
+    &quot;name&quot;: &quot;Vit Krejci&quot;,
+    &quot;entity_type&quot;: &quot;player&quot;,
+    &quot;sport&quot;: &quot;NBA&quot;,
+    &quot;recorded_attributes&quot;: &quot;Recorded attributes: {\&quot;date_of_birth\&quot;: \&quot;2000-06-19\&quot;, \&quot;nationality\&quot;: \&quot;Czech Republic\&quot;, \&quot;position\&quot;: \&quot;guard\&quot;, \&quot;team_on_record\&quot;: {\&quot;name\&quot;: \&quot;Portland Trail Blazers\&quot;, \&quot;observed_on\&quot;: \&quot;2026-07-04\&quot;}}&quot;
+  },
+  &quot;task&quot;: {
+    &quot;assignment&quot;: &quot;Evaluate the headline for this exact target using the four questions.&quot;,
+    &quot;rules&quot;: [
+      &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.&quot;,
+      &quot;Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.&quot;,
+      &quot;Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.&quot;
+    ]
+  },
+  &quot;evidence_context&quot;: &quot;This is a headline collected from a publisher&#x27;s news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.&quot;,
+  &quot;evidence&quot;: {
+    &quot;headline&quot;: &quot;Vit Krejci News: Season-high 24 minutes Saturday&quot;,
+    &quot;publisher&quot;: &quot;RotoWire&quot;
+  }
+}</pre><h4>All native scoring questions</h4><div class="question"><span class="label">availability · noul</span><br>Does the headline report whether Vit Krejci, the NBA player can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.</div><div class="question"><span class="label">emotion · noul</span><br>Does the headline express a feeling or judgment about Vit Krejci, the NBA player, or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.</div><div class="question"><span class="label">movement · noul</span><br>Does the headline report a personnel or contract development involving Vit Krejci, the NBA player—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.</div><div class="question"><span class="label">subject · noul</span><br>Does the headline state a concrete development directly involving Vit Krejci, the NBA player? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.</div><h4>Complete native response</h4><pre>{
+  &quot;answers&quot;: {
+    &quot;availability&quot;: {
+      &quot;noul&quot;: 0.02609127439553714,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;emotion&quot;: {
+      &quot;noul&quot;: 0.2284767598862912,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;movement&quot;: {
+      &quot;noul&quot;: 0.04615282115007996,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;subject&quot;: {
+      &quot;noul&quot;: 0.9506247993751082,
+      &quot;type&quot;: &quot;noul&quot;
+    }
+  },
+  &quot;model&quot;: &quot;vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707&quot;,
+  &quot;usage&quot;: {
+    &quot;input_tokens&quot;: 2142,
+    &quot;output_tokens&quot;: 0
+  }
+}</pre><details><summary>Complete native request JSON</summary><pre>{
+  &quot;questions&quot;: {
+    &quot;availability&quot;: {
+      &quot;instructions&quot;: &quot;Does the headline report whether Vit Krejci, the NBA player can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;emotion&quot;: {
+      &quot;instructions&quot;: &quot;Does the headline express a feeling or judgment about Vit Krejci, the NBA player, or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;movement&quot;: {
+      &quot;instructions&quot;: &quot;Does the headline report a personnel or contract development involving Vit Krejci, the NBA player—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;subject&quot;: {
+      &quot;instructions&quot;: &quot;Does the headline state a concrete development directly involving Vit Krejci, the NBA player? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    }
+  },
+  &quot;state&quot;: &quot;{\n  \&quot;target_context\&quot;: \&quot;The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\&quot;,\n  \&quot;target\&quot;: {\n    \&quot;name\&quot;: \&quot;Vit Krejci\&quot;,\n    \&quot;entity_type\&quot;: \&quot;player\&quot;,\n    \&quot;sport\&quot;: \&quot;NBA\&quot;,\n    \&quot;recorded_attributes\&quot;: \&quot;Recorded attributes: {\\\&quot;date_of_birth\\\&quot;: \\\&quot;2000-06-19\\\&quot;, \\\&quot;nationality\\\&quot;: \\\&quot;Czech Republic\\\&quot;, \\\&quot;position\\\&quot;: \\\&quot;guard\\\&quot;, \\\&quot;team_on_record\\\&quot;: {\\\&quot;name\\\&quot;: \\\&quot;Portland Trail Blazers\\\&quot;, \\\&quot;observed_on\\\&quot;: \\\&quot;2026-07-04\\\&quot;}}\&quot;\n  },\n  \&quot;task\&quot;: {\n    \&quot;assignment\&quot;: \&quot;Evaluate the headline for this exact target using the four questions.\&quot;,\n    \&quot;rules\&quot;: [\n      \&quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\&quot;,\n      \&quot;Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\&quot;,\n      \&quot;Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\&quot;\n    ]\n  },\n  \&quot;evidence_context\&quot;: \&quot;This is a headline collected from a publisher&#x27;s news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\&quot;,\n  \&quot;evidence\&quot;: {\n    \&quot;headline\&quot;: \&quot;Vit Krejci News: Season-high 24 minutes Saturday\&quot;,\n    \&quot;publisher\&quot;: \&quot;RotoWire\&quot;\n  }\n}&quot;
+}</pre></details></section><section class="panel"><h3>Current — v16/v7</h3><h4>Complete brief (decoded state)</h4><pre>{
+  &quot;task&quot;: &quot;You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.&quot;,
+  &quot;target_context&quot;: &quot;The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.&quot;,
+  &quot;target&quot;: {
+    &quot;name&quot;: &quot;Vit Krejci&quot;,
+    &quot;entity_type&quot;: &quot;player&quot;,
+    &quot;sport&quot;: &quot;NBA&quot;,
+    &quot;recorded_attributes&quot;: {
+      &quot;date_of_birth&quot;: &quot;2000-06-19&quot;,
+      &quot;nationality&quot;: &quot;Czech Republic&quot;,
+      &quot;position&quot;: &quot;guard&quot;,
+      &quot;team_on_record&quot;: {
+        &quot;name&quot;: &quot;Portland Trail Blazers&quot;,
+        &quot;observed_on&quot;: &quot;2026-07-04&quot;
+      }
+    }
+  },
+  &quot;evidence_context&quot;: &quot;This is a headline collected from a publisher&#x27;s news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.&quot;,
+  &quot;evidence&quot;: {
+    &quot;headline&quot;: &quot;Vit Krejci News: Season-high 24 minutes Saturday&quot;,
+    &quot;publisher&quot;: &quot;RotoWire&quot;
+  }
+}</pre><h4>All native scoring questions</h4><div class="question"><span class="label">availability · noul</span><br>Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.
+Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.
+Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.
+
+Does the headline report whether Vit Krejci, the NBA player can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.</div><div class="question"><span class="label">emotion · noul</span><br>Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.
+Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.
+Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.
+
+Does the headline express a feeling or judgment about Vit Krejci, the NBA player, or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.</div><div class="question"><span class="label">movement · noul</span><br>Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.
+Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.
+Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.
+
+Does the headline report a personnel or contract development involving Vit Krejci, the NBA player—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.</div><div class="question"><span class="label">subject · noul</span><br>Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.
+Keep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.
+Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.
+
+Does the headline state a concrete development directly involving Vit Krejci, the NBA player? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.</div><h4>Complete native response</h4><pre>{
+  &quot;answers&quot;: {
+    &quot;availability&quot;: {
+      &quot;noul&quot;: 0.10176235252120484,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;emotion&quot;: {
+      &quot;noul&quot;: 0.2244260656778209,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;movement&quot;: {
+      &quot;noul&quot;: 0.00973936901307802,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;subject&quot;: {
+      &quot;noul&quot;: 0.8517038773982822,
+      &quot;type&quot;: &quot;noul&quot;
+    }
+  },
+  &quot;model&quot;: &quot;vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707&quot;,
+  &quot;usage&quot;: {
+    &quot;input_tokens&quot;: 2194,
+    &quot;output_tokens&quot;: 0
+  }
+}</pre><details><summary>Complete native request JSON</summary><pre>{
+  &quot;questions&quot;: {
+    &quot;availability&quot;: {
+      &quot;instructions&quot;: &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\nKeep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\nUse recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\n\nDoes the headline report whether Vit Krejci, the NBA player can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;emotion&quot;: {
+      &quot;instructions&quot;: &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\nKeep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\nUse recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\n\nDoes the headline express a feeling or judgment about Vit Krejci, the NBA player, or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;movement&quot;: {
+      &quot;instructions&quot;: &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\nKeep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\nUse recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\n\nDoes the headline report a personnel or contract development involving Vit Krejci, the NBA player—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    },
+    &quot;subject&quot;: {
+      &quot;instructions&quot;: &quot;Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\nKeep each claim with the entity it concerns. Another person&#x27;s feelings, move or injury do not automatically belong to the target.\nUse recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\n\nDoes the headline state a concrete development directly involving Vit Krejci, the NBA player? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.&quot;,
+      &quot;type&quot;: &quot;noul&quot;
+    }
+  },
+  &quot;state&quot;: &quot;{\n  \&quot;task\&quot;: \&quot;You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.\&quot;,\n  \&quot;target_context\&quot;: \&quot;The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\&quot;,\n  \&quot;target\&quot;: {\n    \&quot;name\&quot;: \&quot;Vit Krejci\&quot;,\n    \&quot;entity_type\&quot;: \&quot;player\&quot;,\n    \&quot;sport\&quot;: \&quot;NBA\&quot;,\n    \&quot;recorded_attributes\&quot;: {\n      \&quot;date_of_birth\&quot;: \&quot;2000-06-19\&quot;,\n      \&quot;nationality\&quot;: \&quot;Czech Republic\&quot;,\n      \&quot;position\&quot;: \&quot;guard\&quot;,\n      \&quot;team_on_record\&quot;: {\n        \&quot;name\&quot;: \&quot;Portland Trail Blazers\&quot;,\n        \&quot;observed_on\&quot;: \&quot;2026-07-04\&quot;\n      }\n    }\n  },\n  \&quot;evidence_context\&quot;: \&quot;This is a headline collected from a publisher&#x27;s news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\&quot;,\n  \&quot;evidence\&quot;: {\n    \&quot;headline\&quot;: \&quot;Vit Krejci News: Season-high 24 minutes Saturday\&quot;,\n    \&quot;publisher\&quot;: \&quot;RotoWire\&quot;\n  }\n}&quot;
+}</pre></details></section></div><h2>What changed in the prompts</h2><ul><li>The task moved first and became a short job description.</li><li>Recorded attributes became a nested object; values stayed the same.</li><li>The same three relationship rules moved from the shared task into the beginning of every scoring question.</li><li>The four question-specific criteria stayed the same.</li></ul><p>Because these changes were tested together, this comparison cannot establish which caused the score changes. The model supplies scores, not an explanation of its reasoning.</p></html>

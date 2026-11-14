@@ -1,0 +1,437 @@
+[
+  {
+    "id": "01-charlotte-hornets",
+    "review": "Correct subject and booing signal remain. Availability falls 79.5→1.8; headline says without Ball but does not explain whether this is injury, absence or personnel movement. This drop is not automatically a quality gain.",
+    "before": {
+      "availability": 79.49083229596579,
+      "emotion": 59.29474493682925,
+      "movement": 7.93048343271034,
+      "subject": 99.08742936228282
+    },
+    "after": {
+      "availability": 1.7753262430122314,
+      "emotion": 40.5458851080949,
+      "movement": 5.516622107044556,
+      "subject": 94.95549673583567
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "02-philadelphia-eagles",
+    "review": "Subject improves directionally (91.9→62.2), but incidental Smith/Jones commentary still clears admission at 55. Emotion rises above 15, restoring the unwanted Influencer route. Routing regression.",
+    "before": {
+      "availability": 6.979876539385607,
+      "emotion": 14.060868625481618,
+      "movement": 4.508339037137757,
+      "subject": 91.90457663119535
+    },
+    "after": {
+      "availability": 0.672041040015912,
+      "emotion": 25.018627723252106,
+      "movement": 10.935148433449044,
+      "subject": 62.168334930356316
+    },
+    "routes_before": {
+      "influencer": false,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "03-seattle-seahawks",
+    "review": "Broadcaster tension remains wrongly treated as a Seahawks development. Subject falls but stays well above admission; emotion also rises.",
+    "before": {
+      "availability": 14.228914889754831,
+      "emotion": 41.406009429767934,
+      "movement": 6.078205749861443,
+      "subject": 95.55285462664882
+    },
+    "after": {
+      "availability": 1.5700981858882648,
+      "emotion": 46.223882474999186,
+      "movement": 14.20422334851142,
+      "subject": 80.70020897021298
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "04-arsenal",
+    "review": "Match outcome remains relevant. Movement remains unsupported at 59.1, although below Insider routing. Red-card participation signal falls 67.5→12.6: possible lost availability sensitivity, not a blanket improvement.",
+    "before": {
+      "availability": 67.53787479649738,
+      "emotion": 66.04846814627231,
+      "movement": 67.10989310704623,
+      "subject": 97.87506245063854
+    },
+    "after": {
+      "availability": 12.63855571092305,
+      "emotion": 62.29885493584623,
+      "movement": 59.13582440764104,
+      "subject": 81.64502569202594
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "05-roma",
+    "review": "Availability false signal falls 58.3→4.1. Emotion rises 55.3→76.1 despite an unresolved relationship between Allegri’s anger and the Roma target; relationship handling is not solved.",
+    "before": {
+      "availability": 58.270857685073274,
+      "emotion": 55.33688206856277,
+      "movement": 20.079831003192464,
+      "subject": 97.98643076273848
+    },
+    "after": {
+      "availability": 4.090370440571714,
+      "emotion": 76.05603549017863,
+      "movement": 15.116823146368008,
+      "subject": 91.18449183889078
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "06-miami-heat",
+    "review": "Criticism of Heat teammates remains relevant. False availability falls 66.3→1.7, but unsupported movement rises 36.1→50.6. No route changes.",
+    "before": {
+      "availability": 66.3223047502502,
+      "emotion": 50.26581036968156,
+      "movement": 36.07029925524265,
+      "subject": 98.41439870320879
+    },
+    "after": {
+      "availability": 1.727796176430384,
+      "emotion": 43.069631497751196,
+      "movement": 50.566529823495465,
+      "subject": 91.1957390299294
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "07-tampa-bay-buccaneers",
+    "review": "Concrete record remains relevant. Emotion falls 58.6→29.1, but the vague rare-feat headline still routes to Influencer without an explicit feeling.",
+    "before": {
+      "availability": 38.89946812960137,
+      "emotion": 58.60428638464469,
+      "movement": 26.814303129145244,
+      "subject": 97.26796256802182
+    },
+    "after": {
+      "availability": 3.9031763311566907,
+      "emotion": 29.112156501762392,
+      "movement": 31.495211314640205,
+      "subject": 94.07895898869552
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "08-chelsea",
+    "review": "Chelsea personnel interest remains correctly routed to Insider. Availability falls 39.5→6.2. Emotion rises 35.1→65.5: sweating over a future is being read more emotionally, although the headline does not establish a named speaker’s feeling.",
+    "before": {
+      "availability": 39.50528102549132,
+      "emotion": 35.13132376199334,
+      "movement": 90.5847658819774,
+      "subject": 96.6495770364586
+    },
+    "after": {
+      "availability": 6.198551946098234,
+      "emotion": 65.53734964085169,
+      "movement": 88.71038687977372,
+      "subject": 90.79848299202348
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": true,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": true,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "09-luka-doncic",
+    "review": "Direct praise stays correctly attributed to the target dimension; subject/emotion remain high. No route changes.",
+    "before": {
+      "availability": 13.319573300662341,
+      "emotion": 92.25672730690829,
+      "movement": 9.35918868828475,
+      "subject": 98.62561283463326
+    },
+    "after": {
+      "availability": 3.065658128638216,
+      "emotion": 86.6915654940784,
+      "movement": 10.244983807833195,
+      "subject": 92.64552759692138
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "10-jayson-tatum",
+    "review": "Historical 2013 trade still falsely admitted: subject falls 82.1→56.7 but remains above 55. Movement stays 87.0, above Insider’s 80 cutoff. Emotion rises 21.8→60.6. Historical context still treated as current classification material.",
+    "before": {
+      "availability": 7.194054765000262,
+      "emotion": 21.81027185760508,
+      "movement": 87.6278009862085,
+      "subject": 82.13811422873796
+    },
+    "after": {
+      "availability": 1.572329683333169,
+      "emotion": 60.562366759405464,
+      "movement": 87.01141025536121,
+      "subject": 56.7497541633443
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": true,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": true,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "11-dak-prescott",
+    "review": "Prescott reaction and fan anger remain correctly relevant. Emotion strengthens 68.5→78.0; unsupported availability falls 42.0→1.5.",
+    "before": {
+      "availability": 42.01752761304651,
+      "emotion": 68.54448725290545,
+      "movement": 11.520363358946229,
+      "subject": 99.68854934327094
+    },
+    "after": {
+      "availability": 1.493476218342917,
+      "emotion": 78.04480117123886,
+      "movement": 12.78611324236605,
+      "subject": 98.4858851165622
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "12-baker-mayfield",
+    "review": "False availability improves 81.6→14.3 and movement 49.3→24.9. Emotion rises 56.5→72.3 despite wording centered on the Falcons’ infamy/loss, leaving a target-ownership concern.",
+    "before": {
+      "availability": 81.56309304187432,
+      "emotion": 56.51698453938025,
+      "movement": 49.34910636697427,
+      "subject": 97.1839235594506
+    },
+    "after": {
+      "availability": 14.274017012562123,
+      "emotion": 72.3215555234581,
+      "movement": 24.87909353843062,
+      "subject": 86.9140888526743
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "13-virgil-van-dijk",
+    "review": "Clear target reaction strengthens 75.5→93.3. Unsupported availability falls 26.2→1.9. Existing correct route preserved.",
+    "before": {
+      "availability": 26.196286260138912,
+      "emotion": 75.49792079822775,
+      "movement": 2.496039223273847,
+      "subject": 98.21506262524674
+    },
+    "after": {
+      "availability": 1.9192386078366839,
+      "emotion": 93.34411213816107,
+      "movement": 7.122669711026427,
+      "subject": 96.3709968023576
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "14-gessime-yassine",
+    "review": "Direct performance evaluation remains relevant; emotion is slightly stronger. Availability falls 17.1→0.9, consistent with no participation issue in headline.",
+    "before": {
+      "availability": 17.14837942882363,
+      "emotion": 72.0340986619688,
+      "movement": 2.9597919013245146,
+      "subject": 99.11473580336192
+    },
+    "after": {
+      "availability": 0.9364445897833769,
+      "emotion": 76.63791986580686,
+      "movement": 1.7338204948264706,
+      "subject": 94.13640473699724
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  },
+  {
+    "id": "15-vit-krejci",
+    "review": "Playing-time result remains relevant. Availability improves 25.3→2.6, but emotion remains 22.8 and still routes to Influencer despite no explicit feeling.",
+    "before": {
+      "availability": 25.33445408407414,
+      "emotion": 21.390107777682804,
+      "movement": 2.219779251796096,
+      "subject": 99.06815523999471
+    },
+    "after": {
+      "availability": 2.609127439553714,
+      "emotion": 22.84767598862912,
+      "movement": 4.615282115007996,
+      "subject": 95.06247993751083
+    },
+    "routes_before": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "routes_after": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "error": null
+  }
+]

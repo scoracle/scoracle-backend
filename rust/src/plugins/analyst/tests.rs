@@ -146,9 +146,9 @@ async fn complete_assignment_creates_validated_product_with_actual_provenance() 
         Some(super::character_instructions::INSTRUCTIONS.system())
     );
     let package: serde_json::Value = serde_json::from_str(&calls[0].0).unwrap();
-    assert!(package.get("task").is_none());
+    assert!(package["task"].is_string());
     assert_eq!(
-        package["new_content"]["comparisons"][0]["measure"],
+        package["evidence"]["comparisons"][0]["measure"],
         "rating_notability"
     );
     assert_eq!(out.direction, "rising");

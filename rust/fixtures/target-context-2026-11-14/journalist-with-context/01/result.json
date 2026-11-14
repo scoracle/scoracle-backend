@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/journalist-cases/01-charlotte-hornets.json",
+  "generation_wall_ms": 33841,
+  "input_tokens": 1245,
+  "name": "01-charlotte-hornets",
+  "output_limit": 3500,
+  "output_tokens": 353,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "named claim is absent from cited reports: Charlotte Hornets",
+  "request_bytes": 4930,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 33857
+}

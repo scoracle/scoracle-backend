@@ -1,0 +1,22 @@
+{
+  "case": 4,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/04-arsenal.json",
+  "generation_wall_ms": 17198,
+  "input_tokens": 1519,
+  "name": "04-arsenal",
+  "output_limit": 3500,
+  "output_tokens": 198,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v58-emotional-claims",
+  "reading": "Mixed reactions: praise for defense and players, criticism on UAE ties, plus Saliba return and upset win.\n\nThe Guardian reported that a match fracas involving Max Dowman left Arsenal manager Mikel Arteta red-faced, while Fleetwood fans revelled in the shock of Arsenal's defeat. India TV News and ArsenalNews.co.uk both highlighted Jamie Carragher's strong praise, with the former Liverpool player naming an Arsenal star as the best in the Premier League and calling the team the best defensive side in world football. Conversely, The Guardian noted Mamdani's desire for Arsenal to cut ties with the UAE over Sudan, and Liverpool Echo cited Cody Gakpo's 'frustrating' admission regarding a transfer claim. Finally, The Independent and Nine.com.au covered positive news with William Saliba's return to training and Arsenal's stunning upset against a fourth-tier club.",
+  "request_bytes": 6211,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 17219
+}

@@ -1,0 +1,270 @@
+{
+  "captured_at": "2026-11-14T20:10:17.011133+00:00",
+  "method": "Existing named_people SQL; read-only. Exclude exact target identity/name. Affiliation only rendered for dated roster/override records.",
+  "cases": [
+    {
+      "id": "01-charlotte-hornets",
+      "all_matches": [
+        {
+          "name": "LaMelo Ball",
+          "team": "Charlotte Hornets",
+          "source": "roster",
+          "team_id": 4,
+          "entity_id": 3547239,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "other_people": [
+        {
+          "name": "LaMelo Ball",
+          "team": "Charlotte Hornets",
+          "source": "roster",
+          "team_id": 4,
+          "entity_id": 3547239,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "excluded_target_matches": 0
+    },
+    {
+      "id": "02-philadelphia-eagles",
+      "all_matches": [
+        {
+          "name": "Jerry Jones",
+          "entity_id": 959,
+          "entity_type": "person"
+        }
+      ],
+      "other_people": [
+        {
+          "name": "Jerry Jones",
+          "entity_id": 959,
+          "entity_type": "person"
+        }
+      ],
+      "excluded_target_matches": 0
+    },
+    {
+      "id": "03-seattle-seahawks",
+      "all_matches": [
+        {
+          "name": "Troy Aikman",
+          "entity_id": 73,
+          "entity_type": "person"
+        }
+      ],
+      "other_people": [
+        {
+          "name": "Troy Aikman",
+          "entity_id": 73,
+          "entity_type": "person"
+        }
+      ],
+      "excluded_target_matches": 0
+    },
+    {
+      "id": "04-arsenal",
+      "all_matches": [],
+      "other_people": [],
+      "excluded_target_matches": 0
+    },
+    {
+      "id": "05-roma",
+      "all_matches": [],
+      "other_people": [],
+      "excluded_target_matches": 0
+    },
+    {
+      "id": "06-miami-heat",
+      "all_matches": [
+        {
+          "name": "Giannis Antetokounmpo",
+          "team": "Milwaukee Bucks",
+          "source": "roster",
+          "team_id": 17,
+          "entity_id": 15,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "other_people": [
+        {
+          "name": "Giannis Antetokounmpo",
+          "team": "Milwaukee Bucks",
+          "source": "roster",
+          "team_id": 17,
+          "entity_id": 15,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "excluded_target_matches": 0
+    },
+    {
+      "id": "07-tampa-bay-buccaneers",
+      "all_matches": [
+        {
+          "name": "Baker Mayfield",
+          "team": "Tampa Bay Buccaneers",
+          "source": "roster",
+          "team_id": 28,
+          "entity_id": 52,
+          "entity_type": "player",
+          "observed_at": "2026-10-23"
+        }
+      ],
+      "other_people": [
+        {
+          "name": "Baker Mayfield",
+          "team": "Tampa Bay Buccaneers",
+          "source": "roster",
+          "team_id": 28,
+          "entity_id": 52,
+          "entity_type": "player",
+          "observed_at": "2026-10-23"
+        }
+      ],
+      "excluded_target_matches": 0
+    },
+    {
+      "id": "08-chelsea",
+      "all_matches": [
+        {
+          "name": "Josh Acheampong",
+          "team": "Chelsea",
+          "source": "roster",
+          "team_id": 18,
+          "entity_id": 37631362,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "other_people": [
+        {
+          "name": "Josh Acheampong",
+          "team": "Chelsea",
+          "source": "roster",
+          "team_id": 18,
+          "entity_id": 37631362,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "excluded_target_matches": 0
+    },
+    {
+      "id": "09-luka-doncic",
+      "all_matches": [
+        {
+          "name": "Luka Doncic",
+          "team": "Los Angeles Lakers",
+          "source": "roster",
+          "team_id": 14,
+          "entity_id": 132,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "other_people": [],
+      "excluded_target_matches": 1
+    },
+    {
+      "id": "10-jayson-tatum",
+      "all_matches": [
+        {
+          "name": "Jayson Tatum",
+          "team": "Boston Celtics",
+          "source": "roster",
+          "team_id": 2,
+          "entity_id": 434,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "other_people": [],
+      "excluded_target_matches": 1
+    },
+    {
+      "id": "11-dak-prescott",
+      "all_matches": [
+        {
+          "name": "Dak Prescott",
+          "team": "Dallas Cowboys",
+          "source": "roster",
+          "team_id": 19,
+          "entity_id": 25,
+          "entity_type": "player",
+          "observed_at": "2026-10-23"
+        }
+      ],
+      "other_people": [],
+      "excluded_target_matches": 1
+    },
+    {
+      "id": "12-baker-mayfield",
+      "all_matches": [
+        {
+          "name": "Baker Mayfield",
+          "team": "Tampa Bay Buccaneers",
+          "source": "roster",
+          "team_id": 28,
+          "entity_id": 52,
+          "entity_type": "player",
+          "observed_at": "2026-10-23"
+        }
+      ],
+      "other_people": [],
+      "excluded_target_matches": 1
+    },
+    {
+      "id": "13-virgil-van-dijk",
+      "all_matches": [
+        {
+          "name": "Virgil van Dijk",
+          "team": "Liverpool",
+          "source": "roster",
+          "team_id": 8,
+          "entity_id": 1743,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "other_people": [],
+      "excluded_target_matches": 1
+    },
+    {
+      "id": "14-gessime-yassine",
+      "all_matches": [
+        {
+          "name": "Gessime Yassine",
+          "team": "Strasbourg",
+          "source": "roster",
+          "team_id": 686,
+          "entity_id": 37633774,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "other_people": [],
+      "excluded_target_matches": 1
+    },
+    {
+      "id": "15-vit-krejci",
+      "all_matches": [
+        {
+          "name": "Vit Krejci",
+          "team": "Portland Trail Blazers",
+          "source": "roster",
+          "team_id": 25,
+          "entity_id": 4197387,
+          "entity_type": "player",
+          "observed_at": "2026-07-03"
+        }
+      ],
+      "other_people": [],
+      "excluded_target_matches": 1
+    }
+  ]
+}

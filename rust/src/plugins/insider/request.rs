@@ -6,7 +6,7 @@ use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 
-pub const PROMPT_VERSION: &str = "insider-source-v41-specific-news";
+pub const PROMPT_VERSION: &str = "insider-source-v43-task-first";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v7-paragraphs";
 pub const NUM_PREDICT: i32 = 3500;
 pub const BODY_MAX_CHARS: usize = 12000;
@@ -172,20 +172,20 @@ mod tests {
             }],
         };
         let world = assemble(&subject, &[report]);
-        let fresh_at = world.find(r#""new_content":"#).unwrap();
-        assert!(world.starts_with("{\n  \"instructions\":"));
+        let fresh_at = world.find(r#""evidence":"#).unwrap();
+        assert!(world.starts_with("{\n  \"task\":"));
         assert!(fresh_at > world.find(r#""target":"#).unwrap());
         assert!(!world.contains(r#""tone":"#));
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
         assert_eq!(value["target"]["sport"], "American football");
-        assert_eq!(value["new_content"]["reports"][0]["report_index"], 0);
+        assert_eq!(value["evidence"]["reports"][0]["report_index"], 0);
         assert_eq!(
-            value["new_content"]["reports"][0]["co_mentions"][0]["name"],
+            value["evidence"]["reports"][0]["co_mentions"][0]["name"],
             "Cleveland Browns"
         );
         assert!(value["target"].get("entity_id").is_none());
         assert!(value.get("memories").is_none());
-        assert!(value.get("task").is_none());
+        assert!(value["task"].is_string());
         assert_eq!(options(7900).system.as_deref(), Some(INSTRUCTIONS.system()));
         assert!(value.get("form").is_none());
     }

@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/01-charlotte-hornets.json",
+  "generation_wall_ms": 20354,
+  "input_tokens": 1504,
+  "name": "01-charlotte-hornets",
+  "output_limit": 3500,
+  "output_tokens": 184,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v58-emotional-claims",
+  "reading": "Hornets fans optimistic but face criticism over collapse and benching\n\nWBTV reports that Charlotte Hornets fans are optimistic for the new season, hoping for playoff basketball. DAZN notes that fans should be excited after the LaMelo Ball trade, while The State Hornet highlights a strong start with a 40-point victory. Conversely, AP News states the Hornets were blown out by the Hawks and booed by a sellout crowd in their first game without LaMelo Ball. Yahoo Sports headlines indicate a 27-turnover collapse, a desperate need for Kon Knueppel and Coby White back from injury, and that the team looks lost without LaMelo Ball. Additionally, Yahoo Sports reports that NBA fans are asking questions after Naz Reid was shockingly benched.",
+  "request_bytes": 6111,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 20382
+}

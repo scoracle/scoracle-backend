@@ -1,0 +1,21 @@
+{
+  "task": "You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.",
+  "target_context": "The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.",
+  "target": {
+    "name": "Baker Mayfield",
+    "entity_type": "player",
+    "sport": "NFL",
+    "recorded_attributes": {
+      "position": "QB",
+      "team_on_record": {
+        "name": "Tampa Bay Buccaneers",
+        "observed_on": "2026-10-23"
+      }
+    }
+  },
+  "evidence_context": "This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.",
+  "evidence": {
+    "headline": "Falcons Match 1974 Infamy in Horrific No-Pass Baker Mayfield Loss",
+    "publisher": "Yahoo Sports"
+  }
+}

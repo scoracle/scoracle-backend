@@ -1,0 +1,22 @@
+{
+  "case": 13,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/journalist-cases/13-virgil-van-dijk.json",
+  "generation_wall_ms": 9879,
+  "input_tokens": 826,
+  "name": "13-virgil-van-dijk",
+  "output_limit": 900,
+  "output_tokens": 77,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "named claim is absent from cited reports: Liverpool's Arsenal",
+  "request_bytes": 3482,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 9894
+}

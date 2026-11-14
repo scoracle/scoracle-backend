@@ -1,0 +1,22 @@
+{
+  "case": 5,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/baseline-cases/05-roma.json",
+  "generation_wall_ms": 31551,
+  "input_tokens": 1203,
+  "name": "05-roma",
+  "output_limit": 3500,
+  "output_tokens": 229,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "named claim is absent from cited reports: Simone Inzaghi",
+  "request_bytes": 4575,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 31567
+}

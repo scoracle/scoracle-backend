@@ -1,0 +1,22 @@
+{
+  "case": 9,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/baseline-cases/09-luka-doncic.json",
+  "generation_wall_ms": 24108,
+  "input_tokens": 1236,
+  "name": "09-luka-doncic",
+  "output_limit": 3500,
+  "output_tokens": 186,
+  "parsed": true,
+  "prompt_version": "n144-target-context",
+  "reading": "Yahoo Sports reports that JJ Redick praised Luka Dončić's defense after the Lakers defeated the Raptors, noting the team 'live[s] on a spaceship' with Dončić as the 'best damn pilot in the galaxy.' ESPN and The New York Times highlight that Dončić has drawn praise from both the Lakers and Raptors for his improved defensive play, with one source describing his defense as 'awesome' on a history-making night. Heavy.com adds that the Raptors coach specifically commended Dončić for destroying their game plan.",
+  "request_bytes": 4683,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 24128
+}

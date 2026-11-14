@@ -1,19 +1,6 @@
 //! Load and present the daily emotional headline package.
 
-const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
-    relationship: "new_content contains coverage about the target. Distinguish the target's expressed feelings, others' feelings about it, and publisher tone. Headlines found through a Google search for the target may include unrelated stories, repeated coverage, speculation and clickbait. Search inclusion does not establish relevance or confirm a claim. Some articles match the target but reveal no news. Keep specific news, opinions and reactions. Do not invent the missing details or turn a question or implication into a fact. Look for recurring themes supported by distinct reports. Repeated copies are not independent support. Keep unrelated stories separate; do not force a narrative from thin evidence. Distinguish coverage tone from evidence of how people actually feel. Sensational wording alone does not establish strong public emotion.",
-    fields: &[
-        ("reporting_start", "coverage window begins, not a change in feelings."),
-        ("reporting_end", "coverage window ends."),
-        ("reports.publisher", "supplying outlet, distinct from any speaker in its text."),
-        ("reports.headline", "supplied title."),
-        ("reports.publisher_text", "supplied passage."),
-        ("reports.evidence_scope", "available text only; headline supplies no unseen article contents."),
-        ("reports.classifier_world.target_identity_resolved", "upstream identity match, not claim verification."),
-        ("reports.classifier_world.evidence_scope", "available source text."),
-        ("reports.classifier_world.qualified_claims", "selected claims with their qualifications."),
-    ],
-};
+pub(super) const CONTENT_CONTEXT: &str = "These items were selected for the target from collected news coverage. They were flagged by a decision model as containing emotional charge. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied. reporting_start and reporting_end mark the reporting-day window.";
 
 use super::request::{Assignment, Day, Parts, VIBE_PROMPT_VERSION};
 use crate::tools::{meta::EntityMeta, source::SourceContext};
@@ -192,14 +179,42 @@ mod tests {
 pub(super) struct Evidence<'a> {
     reporting_start: String,
     reporting_end: String,
-    reports: Vec<crate::tools::fresh::Report<'a>>,
+    reports: Vec<Report<'a>>,
+}
+
+#[derive(serde::Serialize)]
+struct Report<'a> {
+    id: usize,
+    publisher: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    headline: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    publisher_excerpt: Option<String>,
 }
 
 pub(super) fn evidence(parts: &Parts) -> Evidence<'_> {
     Evidence {
         reporting_start: crate::util::utc_timestamp(parts.day.start),
         reporting_end: crate::util::utc_timestamp(parts.day.end),
-        reports: crate::tools::fresh::reports(&parts.sources),
+        reports: parts
+            .sources
+            .iter()
+            .enumerate()
+            .map(|(index, source)| {
+                let headline_only = source
+                    .classifier_world
+                    .as_ref()
+                    .is_some_and(|world| world["evidence_scope"] == "headline");
+                Report {
+                    id: index + 1,
+                    publisher: &source.source,
+                    headline: headline_only
+                        .then(|| crate::tools::fetch::decode_entities(&source.headline)),
+                    publisher_excerpt: (!headline_only)
+                        .then(|| crate::tools::fetch::decode_entities(&source.context)),
+                }
+            })
+            .collect(),
     }
 }
 
@@ -244,11 +259,4 @@ pub async fn prepare_assignment(
     tx.commit().await?;
     let receipt = json!({"contract":VIBE_PROMPT_VERSION,"day":parts.day,"excluded":parts.excluded,"memories":parts.memories});
     Ok((Assignment::from_parts(parts)?, receipt))
-}
-
-pub(super) fn context(parts: &Parts) -> crate::tools::prompt::Context<Evidence<'_>> {
-    crate::tools::prompt::Context {
-        guide: GUIDE,
-        data: evidence(parts),
-    }
 }

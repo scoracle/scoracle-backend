@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 
 use sqlx::PgPool;
 
-pub const ORACLE_PROMPT_VERSION: &str = "or40-clear-payload";
+pub const ORACLE_PROMPT_VERSION: &str = "or42-task-first";
 
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;
@@ -579,11 +579,11 @@ mod tests {
             ..Cards::default()
         };
         let world = assemble(&subject, &cards);
-        assert!(world.starts_with("{\n  \"instructions\": {"));
+        assert!(world.starts_with("{\n  \"task\":"));
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
         assert!(value.get("memories").is_none());
         assert_eq!(
-            value["new_content"]["insider"]["body"],
+            value["evidence"]["insider"]["body"],
             cards.insider.unwrap().body
         );
         assert!(world.find("score").is_none());

@@ -1,0 +1,22 @@
+{
+  "case": 3,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/recorded-context-cases/03-seattle-seahawks.json",
+  "generation_wall_ms": 12714,
+  "input_tokens": 1501,
+  "name": "03-seattle-seahawks",
+  "output_limit": 3500,
+  "output_tokens": 103,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v57-recorded-context",
+  "reading": "Fans demand investigation after Seahawks' MNF loss and identity crisis\n\nThe Seattle Times characterized the team's recent primetime performance as a 'reality check' that has triggered an 'identity crisis.' Yahoo Sports reported that NFL fans reacted with anger and a demand for a full investigation after the referee defended controversial calls in the loss, with one fan describing the situation as 'nasty work.'",
+  "request_bytes": 5948,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 12728
+}

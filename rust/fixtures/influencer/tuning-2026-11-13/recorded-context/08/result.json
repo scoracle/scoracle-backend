@@ -1,0 +1,22 @@
+{
+  "case": 8,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/recorded-context-cases/08-chelsea.json",
+  "generation_wall_ms": 17907,
+  "input_tokens": 1160,
+  "name": "08-chelsea",
+  "output_limit": 3500,
+  "output_tokens": 178,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v57-recorded-context",
+  "reading": "Mixed reactions: Alonso praises backup and Lavia amid transfer fears and criticism over talent loss.\n\nYahoo Sports reports that Xabi Alonso praised Chelsea's backup player following Manchester United's victory, framing the outcome as a significant injury boost for the squad. Conversely, FootballTransfers.com criticizes the team, stating they squandered 'incredible talent' and lost their best player in the process. TribalFootball adds to the tension by noting Chelsea is 'sweating over Josh Acheampong's future' as top clubs line up to sign him. Meanwhile, Soccer News highlights a positive note from Alonso regarding midfielder Lavia, who is 'in top form', while HeraldLIVE describes Chelsea's recent performance as adding 'more misery' to Manchester United's struggles.",
+  "request_bytes": 4703,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 17923
+}

@@ -80,12 +80,17 @@ impl Model {
                     }
                     let payload: Value =
                         serde_json::from_slice(&bytes[header_end..header_end + length]).unwrap();
-                    let rejected = payload["state"]["article"]["headline"]
-                        .as_str()
-                        .unwrap()
-                        .contains("Unrelated")
-                        || payload["state"]["subject_meta"]["identity"]["entity_id"] == 910417;
-                    let answers=payload["questions"].as_object().unwrap().keys().map(|key|(key.clone(),serde_json::json!({"type":"noul","noul":if rejected || (key=="availability" && !payload["state"]["article"]["headline"].as_str().unwrap().contains("availability fixture")) {0.1}else if key=="availability" {0.85}else{0.95}}))).collect::<serde_json::Map<_,_>>();
+                    let state = payload["state"].as_str().unwrap();
+                    let headline: String = serde_json::from_str(
+                        state
+                            .lines()
+                            .find_map(|line| line.strip_prefix("Headline: "))
+                            .unwrap(),
+                    )
+                    .unwrap();
+                    let rejected =
+                        headline.contains("Unrelated") || state.contains("Name: \"Maple United\"");
+                    let answers=payload["questions"].as_object().unwrap().keys().map(|key|(key.clone(),serde_json::json!({"type":"noul","noul":if rejected || (key=="availability" && !headline.contains("availability fixture")) {0.1}else if key=="availability" {0.85}else{0.95}}))).collect::<serde_json::Map<_,_>>();
                     captured.lock().unwrap().push(payload);
                     (
                         if failed.swap(false, Ordering::Relaxed) {
@@ -283,8 +288,21 @@ async fn headlines_archive_and_dispatch_without_publisher_io() -> Result<()> {
     for request in model.requests.lock().unwrap().iter() {
         assert_eq!(request["questions"].as_object().unwrap().len(), 4);
         assert!(request["questions"].get("clickbait").is_none());
-        assert!(request["state"]["article"].get("body").is_none());
+        let state = request["state"].as_str().unwrap();
+        assert!(!state.contains("Body:"));
+        assert!(!state.contains("Entity id:"));
     }
+    let error = sqlx::query(
+        "UPDATE classifier_spectra SET clean_text='Different headline' WHERE article_id=910415 AND sport=$1",
+    )
+    .bind(SPORT)
+    .execute(&pool)
+    .await
+    .unwrap_err();
+    assert_eq!(
+        error.as_database_error().unwrap().constraint(),
+        Some("classifier_spectra_complete_receipt")
+    );
     let sources = delivery::load_for_character(
         &pool,
         crate::plugins::journalist::manifest::MANIFEST.id.as_str(),
@@ -979,7 +997,7 @@ async fn exact_token_overflow_holds_each_fresh_only_packet_without_retry() -> Re
         assert!(packet.get("memories").is_none());
         assert!(prompts[0].contains("Budget Club celebrate a new transfer report"));
         assert!(!prompts[0].contains("Budget Club deny talks"));
-        assert!(packet.get("new_content").is_some());
+        assert!(packet.get("evidence").is_some());
     }
     let held:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND d.status='held'").bind(sport).fetch_one(&pool).await?;
     assert_eq!(held, 3);

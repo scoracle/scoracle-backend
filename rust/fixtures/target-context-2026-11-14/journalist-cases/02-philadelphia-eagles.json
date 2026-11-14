@@ -1,0 +1,345 @@
+{
+  "name": "02-philadelphia-eagles",
+  "task": "narratives",
+  "prompt_version": "n144-target-context",
+  "system": "",
+  "temperature": 0.0,
+  "user_prompt": "{\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Philadelphia Eagles\",\n    \"entity_type\": \"team\",\n    \"sport\": \"American football\",\n    \"recorded_attributes\": {\n      \"city\": \"Philadelphia\",\n      \"coach_on_record\": {\n        \"name\": \"Dan Quinn\",\n        \"observed_at\": \"2026-09-30\"\n      },\n      \"conference\": \"NFC\",\n      \"country\": \"United States\",\n      \"division\": \"EAST\"\n    }\n  },\n  \"task\": {\n    \"assignment\": \"Faithfully summarize the reported news about the target. Your subject is the target. Gate relevancy: only include evidence relevant to the target. Omit unrelated material. If evidence is sparse, one sentence of output is acceptable. If evidence is excessive, report only the most prominent storylines. Keep paragraphs brief: do not exceed three-to-four concise sentences when evidence supports it. Name your sources. \\n    \\nFinish by writing one engaging, factual hook of 140 characters or fewer recaping your findings.\",\n    \"rules\": [\n      \"Write the paragraphs first and the headline last.\",\n      \"The target will not always be the subject of the evidence. Include a concrete claim when it directly involves the target. Keep who said or did what, and preserve whether the headline reports an opinion, a plan, or something that already happened.\",\n      \"Always note the target's relationship to other entities mentioned. If the relationship is unclear, do not guess or speculate.\",\n      \"Omit questionable or unrelated evidence. Omit clickbait. Omit vague claims. Default to caution when determining if evidence is relevant.\",\n      \"Keep each paragraph about one developing story. Combine articles only when they describe the same development. Keep disagreements attributed.\",\n      \"Copy quotes accurately and preserve who said them. Use the source wording when paraphrasing would change its meaning.\",\n      \"Do not answer a question that the evidence provides. Do not infer motives, feelings, causes, timing or consequences. Do not include repeated claims. Do not include background attributes. Do not include missing-detail commentary.\",\n      \"Provide reliable coverage. Do not take reporting risks. Never fill in gaps. Never speculate on unknowns. Never invent details.\",\n      \"Return only {\\\"paragraphs\\\":[{\\\"body\\\":\\\"Short paragraph naming the publisher\\\",\\\"report_ids\\\":[1]}],\\\"headline\\\":\\\"One hook for the whole recap\\\"}. Each paragraph cites only its supporting article IDs. Use at most one paragraph per supplied article and 1200 characters per paragraph. Check every paragraph against its own cited articles; the hook may use only those same articles. If none supports a recap, return {\\\"paragraphs\\\":[],\\\"headline\\\":null}. No extra keys or commentary.\"\n    ]\n  },\n  \"content_context\": \"These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.\",\n  \"new_content\": [\n    {\n      \"id\": 1,\n      \"publisher\": \"NBC Sports\",\n      \"headline\": \"Report: NFL “furious” over Eagles’ handling of the Jalen Hurts messaging\"\n    },\n    {\n      \"id\": 2,\n      \"publisher\": \"Heavy.com\",\n      \"headline\": \"Eagles Trade Idea Sends $1.5 Million Disappointment to NFC North Before Deadline\"\n    },\n    {\n      \"id\": 3,\n      \"publisher\": \"New York Post\",\n      \"headline\": \"NFL ‘furious’ at Eagles over one issue with Jalen Hurts blood clot drama\"\n    },\n    {\n      \"id\": 4,\n      \"publisher\": \"The Morning Call\",\n      \"headline\": \"With division in disarray, Eagles have hope amid the wreckage\"\n    },\n    {\n      \"id\": 5,\n      \"publisher\": \"Inquirer.com\",\n      \"headline\": \"The Eagles’ season is unraveling. Here are some early 2027 NFL draft story lines to keep an eye on.\"\n    },\n    {\n      \"id\": 6,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"Jonathan Greenard’s slow start is a concern for Eagles\"\n    },\n    {\n      \"id\": 7,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"‘Knows Who He Makes His Money From,’ ‘So Exhausting’ — NFL Fans React to Stephen A. Smith Sitting Next to Jerry Jones During Cowboys-Eagles\"\n    },\n    {\n      \"id\": 8,\n      \"publisher\": \"PhillyVoice\",\n      \"headline\": \"Eagles 'season from hell' tracker\"\n    },\n    {\n      \"id\": 9,\n      \"publisher\": \"NBC Sports Philadelphia\",\n      \"headline\": \"In Roob's Eagles Stats: A big pile of misery broken up by tiny encouraging blips\"\n    },\n    {\n      \"id\": 10,\n      \"publisher\": \"Philadelphia Sports Nation\",\n      \"headline\": \"The Eagles Clearly Can’t Win, But Can They At Least Try To Be Fun?\"\n    }\n  ]\n}",
+  "parts": {
+    "subject": {
+      "name": "Philadelphia Eagles",
+      "sport": "NFL",
+      "entity_id": 18,
+      "entity_type": "team"
+    },
+    "database_record": {
+      "division": "EAST",
+      "location": {
+        "city": "Philadelphia",
+        "country": "United States"
+      },
+      "conference": "NFC",
+      "coach_on_record": {
+        "name": "Dan Quinn",
+        "source": "persons.team_id",
+        "observed_at": "2026-09-30"
+      }
+    },
+    "reports": [
+      {
+        "id": 1446019,
+        "title": "Report: NFL “furious” over Eagles’ handling of the Jalen Hurts messaging",
+        "context": "Report: NFL “furious” over Eagles’ handling of the Jalen Hurts messaging",
+        "source": "NBC Sports",
+        "published_at_epoch": 1793024943,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMiygFBVV95cUxPR2o2dlUzMFFocEo2d2xGRmtyd0hlWjdKZ01XVzRCQUxnYUU5WFBJb3ZKcDZ3RFN3MEZnR083LUdqS3d5RHVRNnkxVlRyTy1qaWNKSm9MMTR1NkJtNGpxOVpTNjRkUFRjeDhHUVdwMXJRSl9NdWd5MFhjYU1ST2RaSU9kdkZMNllOcHJqV0d3THlxY3FEbDVkU3ctcGw3Y2liOXFETTg2S1RHNTVfNHQ0dXZZd0lmUElQZ2ptWDJ3cjB1SzdRcGRRcVlB?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 94.55016981971762,
+            "subject": 99.33696998087828,
+            "movement": 20.271649053798708,
+            "availability": 63.06773678779629
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1445989,
+        "title": "NFL ‘furious’ at Eagles over one issue with Jalen Hurts blood clot drama",
+        "context": "NFL ‘furious’ at Eagles over one issue with Jalen Hurts blood clot drama",
+        "source": "New York Post",
+        "published_at_epoch": 1793039220,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxOWDg2b2MtUWdQcUppaVVXakhWbE1yZURZcnFCNzBSek9qSktwMHJ1RUx1OFJxS3djajdfMklYUjZYOGExUDR3bW9RQngwdjFlQVJKLVVsRUhVbHlubGpfdWlNMHU2NTdyVFVpV1l1eVhWRHM1QnJBYnhCYjBzVjVJVUNnTi1feDZFaHptZHNUekUzWE8xNHd3c05TdlBtQWJGQi1TZ0o2Uk9SNWhV?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": true,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 93.74822029852184,
+            "subject": 98.69919312420744,
+            "movement": 29.99555818879682,
+            "availability": 87.16665835362282
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1464832,
+        "title": "With division in disarray, Eagles have hope amid the wreckage",
+        "context": "With division in disarray, Eagles have hope amid the wreckage",
+        "source": "The Morning Call",
+        "published_at_epoch": 1792738800,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxOTGFSMmJJVjZlbG1Wa2pKM1lOMW9RZlZLal9kTEV2OENzUWhrM3dXajRQZ2dvc2Eyc01lSjFHY01xUnFlNm0wMDE5WXM4N3BPZkEydllyT29MVEN2YUNOWnBFQU1CSkl2YmxoOXZGRDRocl9mMHQ1RjBQMld3MWFHTWVPanVuTTJJVVhHTUV3OXhSMzR6THlpYm1B?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 86.50108633864274,
+            "subject": 98.14484527001316,
+            "movement": 16.22871843728364,
+            "availability": 42.55865785210312
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1490852,
+        "title": "In Roob's Eagles Stats: A big pile of misery broken up by tiny encouraging blips",
+        "context": "In Roob's Eagles Stats: A big pile of misery broken up by tiny encouraging blips",
+        "source": "NBC Sports Philadelphia",
+        "published_at_epoch": 1793707200,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxOWmpTYXNLS1YzUEFlSGxZNUJvN091dmR6RDgtazZqYkotZ1Y0OWxHMGNEelFiRjY3UUI1aG1FZTNPMHZTQmhZWFRib3QybTUxWHlUdkVvbXgtV0JVcUZDU19LMlN5ZEtWQTNxTGNvbGRBQnJweUdraGthc05yRkZ4WkFPazFaYmpMVGdBdWFoX2pONTNyNHZlenJMd00tb2I5VFctZ3FfSG5xVEtTNU5pTXpDU0JSQWw1MHVwRtIBxAFBVV95cUxNblFwSWNqR3ZJSHRFcDRFenJQS2o3RnlWa1lEVTFUUk5GNGRPSjQ3THlSRDZFSG1YT1NUempRZmpkR1FlOFQtamlacGpLOWY2VFE2Z1B6eWxVTHJhVUZBOFJyQXhSUUd0Y0ZZYlBaT09WNGtaSzQ2RkdENW80UUlYYllGcGFwV0F0d042eWJ6Z2FuVzVFZjVPRkFGekZsSGFPS3dYZ2h5MXBYMmVMSnBKU0pKT1BCenN6VDA4R3c3WEdvcjBP?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 85.11735838064622,
+            "subject": 87.71904392816133,
+            "movement": 2.9658486440894825,
+            "availability": 17.005621369291923
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1499491,
+        "title": "Jonathan Greenard’s slow start is a concern for Eagles",
+        "context": "Jonathan Greenard’s slow start is a concern for Eagles",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793725091,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxPa1ZsQTNkSGJSbE5BSkxyclNQVm1LWXpxRFpNellubVZZZDNNaW1CQXRMWUxmNjFBR0dXNVMtZkJLckZOcnM2YkljZFBLLVRkUWpFVDZfdVhZOC1HQ2U5WE5zQkoyVHlJNWxXUVE4OXNTSTh5dmRoX29xNTMtTjRIbTl6dnNaREh6MXU0aFpR?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 81.54404047502516,
+            "subject": 94.73500889583808,
+            "movement": 32.01284726888936,
+            "availability": 78.47720255793223
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1482389,
+        "title": "The Eagles Clearly Can’t Win, But Can They At Least Try To Be Fun?",
+        "context": "The Eagles Clearly Can’t Win, But Can They At Least Try To Be Fun?",
+        "source": "Philadelphia Sports Nation",
+        "published_at_epoch": 1793680876,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMipgFBVV95cUxON3NGS3ROOVBNZzhwSUhRbExGRWliUjFla3hUZGtoRWlGQWlIMS16UjN1MlBuQ2pIOVBjOE1kOUp1RFAyTktYcTgyc0dtVkhBS0YzTXhWSFY0TUw2TFVwUDNrUU5EMXBHT3V1TVZmUE5zX2xLSWNKZmNCSFZ1cGRxeTVXZF81WmQxMkU0NlpmTS1WZXRBY0t2anNyVGducWJlWjJZREx3?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 74.90717974382287,
+            "subject": 87.32641253941411,
+            "movement": 8.834369372333777,
+            "availability": 43.61660545290367
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1480560,
+        "title": "Eagles 'season from hell' tracker",
+        "context": "Eagles 'season from hell' tracker",
+        "source": "PhillyVoice",
+        "published_at_epoch": 1793679927,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxNLUhMaGVhWHd3WTJ0UlBuaFlfNGFGdTdhcW9MZkdjMVFvNEI5VTFuOUFqdHlMWlUtak9WX0IzekZRZ0pxOWs1RVNWam9ZajlIbmZlMDJHdkNHdFgwU2dfUU5yNTZNNHFoMzBqVXlPZlR1cDl5MzRiZkpvU29WOTJDaW9Ca1paSHJHMUJpaFA2XzU5QlVvdTFwcHhPRDdyNDJoZ2wtcE5MWWtWRnVWOWJiOVU4OUJXTGxNNGtF?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 69.29979774040766,
+            "subject": 90.31218740654496,
+            "movement": 4.222516528804425,
+            "availability": 36.80347504517592
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1495715,
+        "title": "Eagles Trade Idea Sends $1.5 Million Disappointment to NFC North Before Deadline",
+        "context": "Eagles Trade Idea Sends $1.5 Million Disappointment to NFC North Before Deadline",
+        "source": "Heavy.com",
+        "published_at_epoch": 1793716569,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxNRzl5allhbG1EZmxLYi1kbzRwMlBIX1JzdEhFbkdRLWdUTFhWUkpXM3FIRHNBd1NPWjRjODlsd0xpX1pKQUNnNHpkTXk5SW1RXzI5VV9UODFrZkE5RkpmYmlWamNGQTZtdkZMdEVwYzVFNU8taFlPeWRmVHVvZTJiYjZtZmxzV1k1Q2M1NEJQLXRHY2ZORnc?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": true,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 68.43058487522616,
+            "subject": 99.19589543923472,
+            "movement": 97.85020973416684,
+            "availability": 31.51033679588216
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1465026,
+        "title": "‘Knows Who He Makes His Money From,’ ‘So Exhausting’ — NFL Fans React to Stephen A. Smith Sitting Next to Jerry Jones During Cowboys-Eagles",
+        "context": "‘Knows Who He Makes His Money From,’ ‘So Exhausting’ — NFL Fans React to Stephen A. Smith Sitting Next to Jerry Jones During Cowboys-Eagles",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793069700,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxOMWV0Rkd6STNWVDNOM3M2Ni1wNWpOeU1aNWdYQnQzVXFlVmhuWDI2djVhckh0dDBPZmtSbHlTZzBLWTFfTGt1UkNYRy1BRlptRzdlMVpqcUpLek81TDY4NVRtY3R6aDNObjRMM0taQ3hvV0RobkdGZnBVUm5MTmhyWlZIU1ZoUHBy?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 66.2118975635327,
+            "subject": 91.67703877744844,
+            "movement": 1.435797500172718,
+            "availability": 1.9000421433073973
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1488001,
+        "title": "The Eagles’ season is unraveling. Here are some early 2027 NFL draft story lines to keep an eye on.",
+        "context": "The Eagles’ season is unraveling. Here are some early 2027 NFL draft story lines to keep an eye on.",
+        "source": "Inquirer.com",
+        "published_at_epoch": 1793700061,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxQbUJSaFN1YTdEd0hiR0laVF9Tclp0X1R3VXA4dVdaY3FDcmpjSUlmdG1PU0dfTnI2eEF2b0diaGlxZHVpNm9kVmNkaG01MTJBNURMZXVYenBOdUJMR0oyc3NORThFNTlOeHdqRDcxWDA4NFZ1eEhydVV0MFRLNHU2ODNUbFIxcThCa1gxQmpNUGVRN0VCMHAtTEI3bWJJVVFRUXFfNQ?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 65.00977005315126,
+            "subject": 96.91132295310685,
+            "movement": 17.561316914199242,
+            "availability": 30.94855449442554
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "expect": {},
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ]
+}

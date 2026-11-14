@@ -1,0 +1,22 @@
+{
+  "case": 10,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/10-jayson-tatum.json",
+  "generation_wall_ms": 8227,
+  "input_tokens": 1644,
+  "name": "10-jayson-tatum",
+  "output_limit": 3500,
+  "output_tokens": 24,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "reading": "empty reading",
+  "request_bytes": 6901,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 8241
+}

@@ -1,0 +1,22 @@
+{
+  "case": 5,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/recorded-context-cases/05-roma.json",
+  "generation_wall_ms": 11795,
+  "input_tokens": 1431,
+  "name": "05-roma",
+  "output_limit": 3500,
+  "output_tokens": 167,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v57-recorded-context",
+  "reading": "Mixed reactions to Roma's draw: Allegri furious, Gasperini cautious\n\nYahoo Sports reported that Allegri was enraged after the 3-3 draw with Napoli, stating, 'Maybe I shouldn't be on the touchline.' ESPN Singapore's Burley noted the difficulty in distinguishing whether Manchester United were good or Roma were bad in the match. Conversely, Football Italia's Carrick praised Roma as a 'really good team,' while Hooligan Soccer called the result a 'Roma Gift' rather than a United win. On the other end, Udinese's Runjaic claimed Roma exploited every mistake, and Gasperini warned the team about being 'goal-crazed' in a European clash.",
+  "request_bytes": 5574,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 11812
+}

@@ -1,0 +1,21 @@
+{
+  "questions": {
+    "availability": {
+      "instructions": "Does the headline report whether Philadelphia Eagles, the NFL team (team category unknown) can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.",
+      "type": "noul"
+    },
+    "emotion": {
+      "instructions": "Does the headline express a feeling or judgment about Philadelphia Eagles, the NFL team (team category unknown), or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.",
+      "type": "noul"
+    },
+    "movement": {
+      "instructions": "Does the headline report a personnel or contract development involving Philadelphia Eagles, the NFL team (team category unknown)—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.",
+      "type": "noul"
+    },
+    "subject": {
+      "instructions": "Does the headline state a concrete development directly involving Philadelphia Eagles, the NFL team (team category unknown)? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.",
+      "type": "noul"
+    }
+  },
+  "state": "{\n  \"task\": {\n    \"assignment\": \"You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.\",\n    \"rules\": [\n      \"Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\",\n      \"Keep each claim with the entity it concerns. Another person's feelings, move or injury do not automatically belong to the target.\",\n      \"Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\"\n    ]\n  },\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Philadelphia Eagles\",\n    \"entity_type\": \"team\",\n    \"sport\": \"NFL\",\n    \"team_category\": \"unknown\",\n    \"recorded_attributes\": {\n      \"city\": \"Philadelphia\",\n      \"coach_on_record\": {\n        \"name\": \"Dan Quinn\",\n        \"observed_at\": \"2026-09-30\"\n      },\n      \"conference\": \"NFC\",\n      \"country\": \"United States\",\n      \"division\": \"EAST\"\n    }\n  },\n  \"evidence_context\": \"This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\",\n  \"evidence\": {\n    \"headline\": \"‘Knows Who He Makes His Money From,’ ‘So Exhausting’ — NFL Fans React to Stephen A. Smith Sitting Next to Jerry Jones During Cowboys-Eagles\",\n    \"publisher\": \"Yahoo Sports\"\n  }\n}"
+}

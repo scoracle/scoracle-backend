@@ -193,7 +193,7 @@ fn first_unsupported_number(body: &str, prompt: &str) -> Option<String> {
     let package = serde_json::from_str::<serde_json::Value>(prompt).ok();
     let evidence = package
         .as_ref()
-        .and_then(|p| p.get("new_content").or_else(|| p.get("fresh")))
+        .and_then(|p| p.get("evidence").or_else(|| p.get("new_content")).or_else(|| p.get("fresh")))
         .map(serde_json::Value::to_string);
     let supplied = numeric_literals(evidence.as_deref().unwrap_or(prompt));
     numeric_literals(body)

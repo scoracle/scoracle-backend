@@ -1,0 +1,12 @@
+{
+  "design": "Paired ablation: current prompt versus current prompt with only target context removed. Not a replay of every deployed prompt difference.",
+  "entities": 15,
+  "teams": 8,
+  "players": 7,
+  "journalist_packets": "Frozen Influencer relevance-trial evidence, rendered by current Journalist selector; not a representative sample of all news.",
+  "classifier_selection": "One headline per entity selected before runs; identity and recorded background frozen for both variants.",
+  "classifier_metadata": "Canonical identity plus recorded attributes rendered as background; no inferred gender or affiliations.",
+  "baseline_contract_versions": "Kept equal to candidate only for fixture harness compatibility; baseline binaries built from isolated source with context injection removed.",
+  "production_writes": false,
+  "prompt_edits_during_trial": false
+}

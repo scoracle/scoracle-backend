@@ -1,0 +1,22 @@
+{
+  "case": 5,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/cases/05-roma.json",
+  "generation_wall_ms": 19747,
+  "input_tokens": 1846,
+  "name": "05-roma",
+  "output_limit": 3500,
+  "output_tokens": 205,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v54-target-task-evidence",
+  "reading": "Mixed reactions surround Roma's 3-3 Napoli draw, with Allegri furious, Gasperini cautious, and critics debating the team's true performance.\n\nCoach Allegri expressed intense frustration regarding the 3-3 draw against Napoli, stating he might not belong on the touchline, while Burley noted the difficulty in judging whether Manchester United were good or Roma were bad. Conversely, Udinese's Runjaic admitted Roma exploited his team's mistakes, and Carrick praised Roma as a really good team in a big game for Manchester United.\n\nGasperini offered mixed signals on the team's performance, warning the goal-crazed Roma over the injured Red Devils in a European clash while simultaneously claiming the numbers count and scoring goals is a good signal. However, he also admitted Roma feel like they dropped two points in the Napoli draw, suggesting a sense of missed opportunity despite the draw.",
+  "request_bytes": 7634,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 19764
+}

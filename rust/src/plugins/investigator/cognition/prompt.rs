@@ -16,11 +16,11 @@
 use crate::harness::model::GenerateOptions;
 use crate::tools::fetch::normalize_space;
 use crate::util::truncate;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// Contract version for the prose arm — recorded on `acquisition_runs` rows this path
 /// produces (`model_version` is the runner's answer; this names the PROMPT contract).
-pub const INVESTIGATOR_PROSE_CONTRACT_VERSION: &str = "ip1";
+pub const INVESTIGATOR_PROSE_CONTRACT_VERSION: &str = "ip3-task-first";
 
 pub const INVESTIGATOR_PROSE_SYSTEM_PROMPT: &str = r#"Read one Wikipedia page summary and copy out what it says. A fact-checker verifies every field by exact substring match against the page text, so every field must be COPIED VERBATIM — a field that is not a contiguous run of characters from the page fails and is discarded. Use only the page shown; never your own knowledge of the person.
 
@@ -134,16 +134,28 @@ pub fn build_prose_prompt(
     description: &str,
     extract: &str,
 ) -> String {
-    let mut p = String::new();
-    p.push_str(&format!("Sought name: {sought_name}\n"));
-    if let Some(d) = descriptor.filter(|d| !d.trim().is_empty()) {
-        p.push_str(&format!("How the news article described them: {d}\n"));
+    #[derive(Serialize)]
+    struct Target<'a> {
+        name: &'a str,
+        sport: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<&'a str>,
     }
-    p.push_str(&format!("Sport in question: {sport}\n"));
-    p.push_str("\nWikipedia page summary:\n");
-    p.push_str(&page_text(title, description, extract));
-    p.push_str("\n\nReturn the JSON object now.");
-    p
+    #[derive(Serialize)]
+    struct Brief<'a> {
+        task: &'a str,
+        target_context: &'a str,
+        target: Target<'a>,
+        evidence_context: &'a str,
+        evidence: String,
+    }
+    serde_json::to_string_pretty(&Brief {
+        task: "You will be given a sports-related entity mentioned in reporting and a candidate Wikipedia page. Your job is to find exact passages identifying the page’s subject, its relationship to the target, occupation and teams.",
+        target_context: crate::tools::prompt::TARGET_CONTEXT,
+        target: Target { name: sought_name, sport, description: descriptor.filter(|d| !d.trim().is_empty()) },
+        evidence_context: "This is a candidate Wikipedia page summary containing its title, description and extract. It may describe someone or something other than the target.",
+        evidence: page_text(title, description, extract),
+    }).expect("Investigator brief serializes")
 }
 
 /// The first complete JSON object in `raw`, skipping any surrounding prose a
@@ -256,8 +268,13 @@ mod tests {
             "American basketball player",
             "Airious \"Ace\" Bailey Jr. ...",
         );
-        assert!(with.contains("How the news article described them: Tennessee freshman"));
+        let with: serde_json::Value = serde_json::from_str(&with).unwrap();
+        assert_eq!(with["target"]["description"], "Tennessee freshman");
         let without = build_prose_prompt("Airious Bailey", None, "NBA", "t", "d", "e");
-        assert!(!without.contains("How the news article described"));
+        assert!(without.starts_with("{\n  \"task\":"));
+        let without: serde_json::Value = serde_json::from_str(&without).unwrap();
+        assert!(without["target"].get("description").is_none());
+        assert_eq!(without["target_context"], crate::tools::prompt::TARGET_CONTEXT);
+        assert_eq!(without["evidence"], page_text("t", "d", "e"));
     }
 }

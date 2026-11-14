@@ -1,0 +1,22 @@
+{
+  "case": 11,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/relevance-cases/11-dak-prescott.json",
+  "generation_wall_ms": 8658,
+  "input_tokens": 1316,
+  "name": "11-dak-prescott",
+  "output_limit": 3500,
+  "output_tokens": 112,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v60-target-relevance",
+  "reading": "Fans angry at Dak Prescott; player calls loss toughest\n\nYahoo Sports reports that Cowboys fans expressed anger, shouting phrases like 'Shut Up' and 'Stop Taking Bullets for Him' after Dak Prescott shielded coach Brian Schottenheimer following an overtime loss to the Cardinals.\n\nIn contrast, the Dallas Cowboys official site notes that Dak Prescott himself described the loss to the Cardinals as 'one of the toughest' in his career.",
+  "request_bytes": 5727,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 8672
+}

@@ -1,0 +1,22 @@
+{
+  "case": 2,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/02-philadelphia-eagles.json",
+  "generation_wall_ms": 17784,
+  "input_tokens": 1512,
+  "name": "02-philadelphia-eagles",
+  "output_limit": 3500,
+  "output_tokens": 190,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v58-emotional-claims",
+  "reading": "NFL furious at Eagles; fans mix hope with misery\n\nNBC Sports and the New York Post reported that the NFL is \"furious\" over the Philadelphia Eagles' handling of Jalen Hurts' blood clot messaging. Meanwhile, The Morning Call noted that while the division is in disarray, the Eagles have found hope amidst the wreckage. NBC Sports Philadelphia described the team's situation as a \"big pile of misery\" punctuated only by tiny encouraging blips, while Philadelphia Sports Nation questioned whether the team could even try to be fun given their struggles. Yahoo Sports highlighted concerns regarding Jonathan Greenard's slow start, and Heavy.com reported disappointment over a trade idea sending a player to the NFC North. Inquirer.com characterized the Eagles' season as unraveling, though they focused on future draft story lines rather than current emotional reactions.",
+  "request_bytes": 6135,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 17797
+}

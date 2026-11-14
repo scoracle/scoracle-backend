@@ -1,0 +1,22 @@
+{
+  "case": 9,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/journalist-cases/09-luka-doncic.json",
+  "generation_wall_ms": 28556,
+  "input_tokens": 1303,
+  "name": "09-luka-doncic",
+  "output_limit": 3500,
+  "output_tokens": 335,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "named claim is absent from cited reports: JJ Redick",
+  "request_bytes": 5030,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 28575
+}

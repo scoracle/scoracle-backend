@@ -1,0 +1,22 @@
+{
+  "case": 9,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/09-luka-doncic.json",
+  "generation_wall_ms": 17587,
+  "input_tokens": 2031,
+  "name": "09-luka-doncic",
+  "output_limit": 3500,
+  "output_tokens": 173,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "reading": "Mixed praise for defense and MVP standings\n\nMultiple outlets, including The New York Times and Yahoo Sports, highlighted Luka Doncic's defensive performance, with headlines praising his 'awesome defense' and noting his ability to destroy opponents' game plans. Other sources, such as Bleacher Report and Yahoo Sports, used enthusiastic metaphors to describe his impact, comparing the Lakers' success to living on a spaceship and his presence to a supernova.\n\nConversely, Yahoo Sports also reported on fan frustration regarding the MVP race, noting that fans are 'fuming' after Doncic trails Victor Wembanyama. Despite this criticism, other coverage from ESPN and the Sun Herald focused on his improved defense and the positive atmosphere surrounding his historic achievements.",
+  "request_bytes": 8313,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 17606
+}

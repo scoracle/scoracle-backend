@@ -220,7 +220,7 @@ fn rate_modes_do_not_clutter_the_selected_measurements() {
     // A rate mode measuring a different quantity cannot be presented as
     // corroboration of the selected measurement.
     let package: serde_json::Value = serde_json::from_str(&world).unwrap();
-    let values = package["new_content"]["values"].as_array().unwrap();
+    let values = package["evidence"]["values"].as_array().unwrap();
     assert_eq!(values.len(), 1);
     assert_eq!(values[0]["measure"], serde_json::json!("shots on target"));
     assert_eq!(values[0]["label"], serde_json::json!("Shooting"));
@@ -465,7 +465,7 @@ fn world(
 /// about a rendered sentence.
 fn fresh(world: &str) -> serde_json::Value {
     serde_json::from_str::<serde_json::Value>(world).expect("the world is a JSON package")
-        ["new_content"]
+        ["evidence"]
         .clone()
 }
 
@@ -521,11 +521,11 @@ fn serialized_request_is_one_self_contained_json_document() {
     assert!(request.get("tools").is_none());
     let evidence = request["messages"][1]["content"].as_str().unwrap();
     let package: serde_json::Value = serde_json::from_str(evidence).unwrap();
-    assert_eq!(package.as_object().unwrap().len(), 3);
-    for part in ["instructions", "target", "new_content"] {
+    assert_eq!(package.as_object().unwrap().len(), 5);
+    for part in ["task", "target_context", "target", "evidence_context", "evidence"] {
         assert!(package.get(part).is_some(), "package is missing {part}");
     }
-    assert!(package.get("task").is_none());
+    assert!(package["task"].is_string());
     let values = fresh(evidence);
     assert_eq!(
         measure_with(&values, "value")["label"],
@@ -776,20 +776,22 @@ fn a_players_world_is_byte_stable() {
     );
     let expected = serde_json::json!({
         "target": {"name":"Test Player", "entity_type":"player", "sport":"basketball"},
-        "new_content": {"availability": [], "season":2025, "values":[
+        "evidence": {"availability": [], "season":2025, "values":[
             {"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite"},
             {"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average"}],
             "supports_cross_season":false, "limit":{"kind":"unknown_sample","minimum":10.0}}
     });
     let mut actual: serde_json::Value = serde_json::from_str(&world).unwrap();
-    assert!(actual["instructions"]["new_content"]
+    assert!(actual["evidence_context"]
         .as_array()
         .is_some_and(|s| !s.is_empty()));
     assert_eq!(
-        actual["instructions"]["task"],
+        actual["task"],
         crate::plugins::scout::character_instructions::INSTRUCTIONS.job()
     );
-    actual.as_object_mut().unwrap().remove("instructions");
+    for field in ["task", "target_context", "evidence_context"] {
+        actual.as_object_mut().unwrap().remove(field);
+    }
     assert_eq!(actual, expected);
 }
 

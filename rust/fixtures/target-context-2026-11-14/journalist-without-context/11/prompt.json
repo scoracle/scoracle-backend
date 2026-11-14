@@ -1,0 +1,46 @@
+{
+  "target": {
+    "name": "Dak Prescott",
+    "entity_type": "player",
+    "sport": "American football",
+    "recorded_attributes": {
+      "position": "QB",
+      "team_on_record": {
+        "name": "Dallas Cowboys",
+        "observed_on": "2026-10-23"
+      }
+    }
+  },
+  "task": {
+    "assignment": "Faithfully summarize the reported news about the target. Your subject is the target. Gate relevancy: only include evidence relevant to the target. Omit unrelated material. If evidence is sparse, one sentence of output is acceptable. If evidence is excessive, report only the most prominent storylines. Keep paragraphs brief: do not exceed three-to-four concise sentences when evidence supports it. Name your sources. \n    \nFinish by writing one engaging, factual hook of 140 characters or fewer recaping your findings.",
+    "rules": [
+      "Write the paragraphs first and the headline last.",
+      "The target will not always be the subject of the evidence. Include a concrete claim when it directly involves the target. Keep who said or did what, and preserve whether the headline reports an opinion, a plan, or something that already happened.",
+      "Always note the target's relationship to other entities mentioned. If the relationship is unclear, do not guess or speculate.",
+      "Omit questionable or unrelated evidence. Omit clickbait. Omit vague claims. Default to caution when determining if evidence is relevant.",
+      "Keep each paragraph about one developing story. Combine articles only when they describe the same development. Keep disagreements attributed.",
+      "Copy quotes accurately and preserve who said them. Use the source wording when paraphrasing would change its meaning.",
+      "Do not answer a question that the evidence provides. Do not infer motives, feelings, causes, timing or consequences. Do not include repeated claims. Do not include background attributes. Do not include missing-detail commentary.",
+      "Provide reliable coverage. Do not take reporting risks. Never fill in gaps. Never speculate on unknowns. Never invent details.",
+      "Return only {\"paragraphs\":[{\"body\":\"Short paragraph naming the publisher\",\"report_ids\":[1]}],\"headline\":\"One hook for the whole recap\"}. Each paragraph cites only its supporting article IDs. Use at most one paragraph per supplied article and 1200 characters per paragraph. Check every paragraph against its own cited articles; the hook may use only those same articles. If none supports a recap, return {\"paragraphs\":[],\"headline\":null}. No extra keys or commentary."
+    ]
+  },
+  "content_context": "These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.",
+  "new_content": [
+    {
+      "id": 1,
+      "publisher": "Dallas Cowboys | Official Site of the Dallas Cowboys",
+      "headline": "Dak Prescott calls loss to Cardinals ‘one of the toughest’ in his career"
+    },
+    {
+      "id": 2,
+      "publisher": "Yahoo Sports",
+      "headline": "‘Shut Up,’ ‘Stop Taking Bullets for Him’ — Cowboys Fans Livid as Dak Prescott Shields Brian Schottenheimer After OT Loss vs. Cardinals"
+    },
+    {
+      "id": 3,
+      "publisher": "FOX Sports",
+      "headline": "Dak Prescott scrambles for five-yard TD run, extending Cowboys' lead over Cardinals | NFL Highlights"
+    }
+  ]
+}

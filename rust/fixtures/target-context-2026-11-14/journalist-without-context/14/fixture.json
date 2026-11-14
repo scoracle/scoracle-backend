@@ -1,0 +1,63 @@
+{
+  "name": "14-gessime-yassine",
+  "task": "narratives",
+  "prompt_version": "n144-target-context",
+  "system": "",
+  "temperature": 0.0,
+  "user_prompt": "{\n  \"target\": {\n    \"name\": \"Gessime Yassine\",\n    \"entity_type\": \"player\",\n    \"sport\": \"football\",\n    \"recorded_attributes\": {\n      \"nationality\": \"Morocco\",\n      \"position\": \"Attacker\",\n      \"team_on_record\": {\n        \"league\": \"Ligue 1\",\n        \"name\": \"Strasbourg\",\n        \"observed_on\": \"2026-07-04\"\n      }\n    }\n  },\n  \"task\": {\n    \"assignment\": \"Faithfully summarize the reported news about the target. Your subject is the target. Gate relevancy: only include evidence relevant to the target. Omit unrelated material. If evidence is sparse, one sentence of output is acceptable. If evidence is excessive, report only the most prominent storylines. Keep paragraphs brief: do not exceed three-to-four concise sentences when evidence supports it. Name your sources. \\n    \\nFinish by writing one engaging, factual hook of 140 characters or fewer recaping your findings.\",\n    \"rules\": [\n      \"Write the paragraphs first and the headline last.\",\n      \"The target will not always be the subject of the evidence. Include a concrete claim when it directly involves the target. Keep who said or did what, and preserve whether the headline reports an opinion, a plan, or something that already happened.\",\n      \"Always note the target's relationship to other entities mentioned. If the relationship is unclear, do not guess or speculate.\",\n      \"Omit questionable or unrelated evidence. Omit clickbait. Omit vague claims. Default to caution when determining if evidence is relevant.\",\n      \"Keep each paragraph about one developing story. Combine articles only when they describe the same development. Keep disagreements attributed.\",\n      \"Copy quotes accurately and preserve who said them. Use the source wording when paraphrasing would change its meaning.\",\n      \"Do not answer a question that the evidence provides. Do not infer motives, feelings, causes, timing or consequences. Do not include repeated claims. Do not include background attributes. Do not include missing-detail commentary.\",\n      \"Provide reliable coverage. Do not take reporting risks. Never fill in gaps. Never speculate on unknowns. Never invent details.\",\n      \"Return only {\\\"paragraphs\\\":[{\\\"body\\\":\\\"Short paragraph naming the publisher\\\",\\\"report_ids\\\":[1]}],\\\"headline\\\":\\\"One hook for the whole recap\\\"}. Each paragraph cites only its supporting article IDs. Use at most one paragraph per supplied article and 1200 characters per paragraph. Check every paragraph against its own cited articles; the hook may use only those same articles. If none supports a recap, return {\\\"paragraphs\\\":[],\\\"headline\\\":null}. No extra keys or commentary.\"\n    ]\n  },\n  \"content_context\": \"These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.\",\n  \"new_content\": [\n    {\n      \"id\": 1,\n      \"publisher\": \"Pan Africa Football\",\n      \"headline\": \"Gessime Yassine dominates in Strasbourg's lopsided Ligue 1 victory\"\n    }\n  ]\n}",
+  "parts": {
+    "subject": {
+      "name": "Gessime Yassine",
+      "sport": "FOOTBALL",
+      "entity_id": 37633774,
+      "entity_type": "player"
+    },
+    "database_record": {
+      "position": "Attacker",
+      "nationality": "Morocco",
+      "affiliation_on_record": {
+        "team": "Strasbourg",
+        "league": "Ligue 1",
+        "source": "roster",
+        "observed_at": "2026-07-04"
+      }
+    },
+    "reports": [
+      {
+        "id": 1473053,
+        "title": "Gessime Yassine dominates in Strasbourg's lopsided Ligue 1 victory",
+        "context": "Gessime Yassine dominates in Strasbourg's lopsided Ligue 1 victory",
+        "source": "Pan Africa Football",
+        "published_at_epoch": 1793558303,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTFBoSjhNQjhPNm5nY2JaZnRyY2phN3NBM2JnbzY5RDE4bWg0RTBXbFE2RGl0MEQ5al9ndUJpaXdlVmpwU2pEUFZjX0FzbGtwcXE3alpEZnlxMl9JR0xURFJsU2hBcHpTNFVkU1RMbmFSM29MdVYwMTVYUjFyYw?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 53.49287952935574,
+            "subject": 89.72386925887787,
+            "movement": 0.08711161855759693,
+            "availability": 0.12431098335890908
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "expect": {},
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ]
+}

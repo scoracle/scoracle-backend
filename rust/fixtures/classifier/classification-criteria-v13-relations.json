@@ -1,0 +1,22 @@
+{
+  "version": "classification-criteria-v13-relations",
+  "questions": {
+    "subject": {
+      "type": "noul",
+      "instructions": "Does the headline report a concrete, newsworthy development about {subject}? Require both what happened, was decided, was said or is reported, and how it directly concerns this exact target. Results, specific attributed opinions, reported rumours and denials can qualify. An involved opponent or directly affected club qualifies. A name or topic alone is insufficient. Reject stream listings, generic profiles, fixtures, prediction/betting/fantasy templates and round-up topic lists that supply no actual development. Reject promises of big news, revelations or reactions when the headline withholds what they are. Dramatic wording does not disqualify an otherwise substantive report. An incidental mention or former affiliation is insufficient. Exclude historical comparisons that report nothing new about the target. Respect full names, sport, competition and supplied team category; do not merge senior, youth, men's or women's teams. Use only supplied reporting and identity context, without guessing missing affiliations or article contents."
+    },
+    "emotion": {
+      "type": "noul",
+      "instructions": "Does someone explicitly express a feeling about {subject}, praise this target or criticize this target? Require the actual feeling or evaluation and its target. A speaker praising another person does not receive that person's praise score. A target describing its own feelings about its own situation can qualify. Neutral results, injury uncertainty, contract possibilities and factual denials do not express emotion by themselves. Huge, shocking, great news and breaks silence alone are promotional framing, not a stated feeling."
+    },
+    "movement": {
+      "type": "noul",
+      "instructions": "Does the headline report a transfer, trade, loan, signing, departure, contract discussion, extension or coaching change for {subject}? For a club, include its own personnel moves. Reported proposals, rumours, denials and an agent discussing future contract talks count. A replacement signing concerns the arriving player and the club; the injured player being replaced has participation news, not movement news. Exclude fantasy trade advice, historical affiliations, imaginary lineups, tactical choices and medical returns. A monetary figure or gamble metaphor alone is not a current contract event."
+    },
+    "availability": {
+      "type": "noul",
+      "instructions": "Does the headline report a current or upcoming participation issue affecting {subject}, including that target's players or personnel where applicable? Include injury, illness, fitness, suspension, eligibility, rest, absence, exclusion or return. Explicit denials of injury and uncertain fitness or returns count as participation reporting. Include an owner's ban from attending the team's arena. Exclude historical injuries, general safety concerns without a participation issue, tactical or starting-lineup choices, and transfers or contract changes without a participation issue. When an injury prompts a replacement signing, the injury concerns the injured player and their club, not the incoming replacement or an opposing team."
+    }
+  },
+  "note": "Untested candidate: concrete target-bound reporting and participant-specific dimensions. Four native noul keys and headline-routing-v2 cutoffs are unchanged. Evaluate against v12 with fixed evidence and human-reviewed labels before deployment."
+}

@@ -1,0 +1,22 @@
+{
+  "case": 5,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/05-roma.json",
+  "generation_wall_ms": 15745,
+  "input_tokens": 1942,
+  "name": "05-roma",
+  "output_limit": 3500,
+  "output_tokens": 156,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "reading": "Mixed reactions: Allegri furious, Gasperini sees hope in goals\n\nYahoo Sports headlines depict a volatile atmosphere, with manager Allegri expressing anger and questioning his presence on the touchline following a 3-3 draw against Napoli. Conversely, other outlets like Hooligan Soccer and ESPN Singapore offer mixed perspectives, with one opining the result was a 'Roma Gift' while another struggles to determine if Manchester United were good or Roma were bad.\n\nCoach Gasperini provides a more measured outlook, noting that while Roma feel they dropped two points in the draw, the high number of goals scored is a positive signal for the team's performance.",
+  "request_bytes": 8053,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 15764
+}

@@ -1,0 +1,22 @@
+{
+  "case": 3,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/03-seattle-seahawks.json",
+  "generation_wall_ms": 26690,
+  "input_tokens": 1599,
+  "name": "03-seattle-seahawks",
+  "output_limit": 3500,
+  "output_tokens": 282,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v58-emotional-claims",
+  "reading": "Seahawks face identity crisis amid mixed reactions to loss and anthem controversy\n\nThe Seattle Times characterized the team's recent performance as a 'reality check' and 'identity crisis,' framing the game as a 'primetime stinker.' Yahoo Sports reported that NFL fans reacted with anger and a demand for investigation following the referee's controversial calls, with one fan calling the work 'nasty.' Conversely, Yahoo Sports noted that fans were stunned and joyful regarding a blockbuster trade, using terms like 'Holy FLEECE' and 'MASSIVE Get' to describe the acquisition of a Pro Bowler.\n\nHowever, significant negative sentiment was directed at the team's pre-game presentation, with The Mirror US and Daily Express US describing the metal singer's performance of the anthem as a 'national atrocity' and stating the Seahawks were 'slammed.' Additionally, www.hitc.com reported that Caleb Williams was ruthlessly mocking the Seahawks, while Yahoo Sports highlighted that NFL fans felt tension during the broadcast, comparing the atmosphere to a 'Troy Aikman' moment of dislike.\n\nOverall, the coverage presents a polarized view where the team's on-field loss and off-field controversies generated strong criticism and anger, though this was briefly offset by excitement over a specific player trade.",
+  "request_bytes": 6477,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 26707
+}

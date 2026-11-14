@@ -1,0 +1,48 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — narratives / 01-charlotte-hornets [rejected]
+named claim is absent from cited reports: Charlotte Hornets
+
+2 — narratives / 02-philadelphia-eagles [rejected]
+named claim is absent from cited reports: Philadelphia Eagles
+
+3 — narratives / 03-seattle-seahawks [rejected]
+named claim is absent from cited reports: Seattle Seahawks
+
+4 — narratives / 04-arsenal [rejected]
+named claim is absent from cited reports: Premier League
+
+5 — narratives / 05-roma [rejected]
+named claim is absent from cited reports: Antonio Conte
+
+6 — narratives / 06-miami-heat [rejected]
+cited reports do not connect Miami Heat with numerical fact 28
+
+7 — narratives / 07-tampa-bay-buccaneers [rejected]
+named claim is absent from cited reports: Tampa Bay Buccaneers
+
+8 — narratives / 08-chelsea [rejected]
+named claim is absent from cited reports: Moises Lavia
+
+9 — narratives / 09-luka-doncic [rejected]
+named claim is absent from cited reports: JJ Redick
+
+10 — narratives / 10-jayson-tatum [rejected]
+named claim is absent from cited reports: Orlando Magic
+
+11 — narratives / 11-dak-prescott [rejected]
+named claim is absent from cited reports: Arizona Cardinals
+
+12 — narratives / 12-baker-mayfield [rejected]
+named claim is absent from cited reports: Tampa Bay Buccaneers Week
+
+13 — narratives / 13-virgil-van-dijk [rejected]
+named claim is absent from cited reports: Liverpool's Arsenal
+
+14 — narratives / 14-gessime-yassine [accepted]
+Pan Africa Football reported that Gessime Yassine dominated as Strasbourg secured a lopsided Ligue 1 victory. The article highlights his performance in the match, noting his impact on the team's win.
+
+15 — narratives / 15-vit-krejci [rejected]
+named claim is absent from cited reports: Portland Trail Blazers
+

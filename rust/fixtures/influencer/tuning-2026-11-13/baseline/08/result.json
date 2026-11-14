@@ -1,0 +1,22 @@
+{
+  "case": 8,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/cases/08-chelsea.json",
+  "generation_wall_ms": 29123,
+  "input_tokens": 1425,
+  "name": "08-chelsea",
+  "output_limit": 3500,
+  "output_tokens": 185,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v54-target-task-evidence",
+  "reading": "Mixed signals emerge as Alonso praises form while headlines cite injury boosts, player departures, and 'misery' in Chelsea's recent coverage\n\nYahoo Sports reports that Xabi Alonso praised Chelsea's backup squad following Manchester United's victory, framing the move as a significant injury boost for the team. Conversely, FootballTransfers.com headlines criticize Chelsea for squandering 'incredible talent' and losing their best player in the process. TribalFootball adds to the tension by noting that Chelsea is 'sweating over' Josh Acheampong's future as top clubs line up to sign him. On a positive note, Soccer News cites Alonso stating that midfielder Lavia is 'in top form'. Meanwhile, HeraldLIVE describes Chelsea as heaping 'more misery' on Manchester United after Brighton stunned Manchester City.",
+  "request_bytes": 6052,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 29144
+}

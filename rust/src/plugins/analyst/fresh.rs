@@ -1,7 +1,7 @@
 //! Current peer readings and dated computed comparisons, without historical prose.
 
 const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
-    relationship: "new_content contains prepared interpretations about the target, not independent raw reports. Missing readings supply no judgment.",
+    relationship: "evidence contains prepared interpretations about the target, not independent raw reports. Missing readings supply no judgment.",
     fields: &[
         ("scout.body", "performance interpretation; preserve each measure and sample limit."),
         ("scout.season", "performance season."),

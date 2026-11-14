@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/recorded-context-cases/01-charlotte-hornets.json",
+  "generation_wall_ms": 13998,
+  "input_tokens": 1406,
+  "name": "01-charlotte-hornets",
+  "output_limit": 3500,
+  "output_tokens": 158,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v57-recorded-context",
+  "reading": "Hornets fans optimistic despite mixed early-season results\n\nWBTV reports that Charlotte Hornets fans are optimistic for the new season, hoping for playoff basketball. DAWN notes that the Hornets show early signs of excitement following the LaMelo Ball trade, while The State Hornet highlights a strong start with a 40-point victory. Conversely, AP News states the Hornets were blown out by the Hawks 128-81 in their first game home without LaMelo Ball and booed by a sellout crowd. Yahoo Sports adds that the team looks lost without LaMelo Ball and that fans are asking questions after Naz Reid was shockingly benched.",
+  "request_bytes": 5582,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 14012
+}

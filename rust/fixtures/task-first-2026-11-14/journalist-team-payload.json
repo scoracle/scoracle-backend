@@ -1,0 +1,24 @@
+{
+  "task": "You will be given a sports-related entity and reporting found mentioning it. Your job is to find concrete developments involving that entity in the evidence and write a concise news recap.",
+  "target_context": "The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.",
+  "target": {
+    "name": "Tampa Bay Buccaneers",
+    "entity_type": "team",
+    "sport": "American football",
+    "recorded_attributes": {
+      "city": "Tampa Bay",
+      "conference": "NFC",
+      "country": "United States",
+      "division": "SOUTH",
+      "home_venue_on_record": "Raymond James Stadium"
+    }
+  },
+  "evidence_context": "These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.",
+  "evidence": [
+    {
+      "id": 1,
+      "publisher": "Yahoo Sports",
+      "headline": "Baker Mayfield, Buccaneers accomplish rare feat not seen since 1974"
+    }
+  ]
+}

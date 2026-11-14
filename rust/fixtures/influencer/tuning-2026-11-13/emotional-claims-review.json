@@ -1,0 +1,125 @@
+{
+  "method": "Manual comparison against the frozen evidence and prewritten rubric. Single deterministic run per case; not an independent holdout. Mechanical acceptance is not factual correctness.",
+  "cases": [
+    {
+      "case": 1,
+      "name": "Charlotte Hornets",
+      "v57_score": 50,
+      "v58_score": 25,
+      "assessment": "Mixed",
+      "finding": "Publisher spelling improves: DAWN becomes DAZN. New hook makes fans the recipients of criticism aimed at the team. Five sentences remain in one paragraph."
+    },
+    {
+      "case": 2,
+      "name": "Philadelphia Eagles",
+      "v57_score": 25,
+      "v58_score": 25,
+      "assessment": "Still fails",
+      "finding": "Negative score stays 25. Hook still invents fans mixing hope and misery. Body changes a player described as a disappointment into disappointment over a trade idea."
+    },
+    {
+      "case": 3,
+      "name": "Seattle Seahawks",
+      "v57_score": 25,
+      "v58_score": 25,
+      "assessment": "Mixed",
+      "finding": "Restores the positive trade reaction omitted by v57 while retaining a defensible negative overall score. Distorts the Aikman/Buck reaction into a Troy Aikman moment of dislike and retains unsupported one-fan specificity."
+    },
+    {
+      "case": 4,
+      "name": "Arsenal",
+      "v57_score": 50,
+      "v58_score": 65,
+      "assessment": "Regression",
+      "finding": "Body explicitly reports Arsenal’s defeat, but hook reintroduces upset win. Editorial suggestion is still attributed as Mamdani’s own desire. Adds Carragher’s former-player background absent from supplied packet."
+    },
+    {
+      "case": 5,
+      "name": "Roma",
+      "v57_score": 50,
+      "v58_score": 45,
+      "assessment": "Regression",
+      "finding": "Hook adds some see Roma’s win, unsupported by the draw and Manchester United material. The literal injured/wounded mistake remains absent, but event/outcome ownership is still wrong."
+    },
+    {
+      "case": 6,
+      "name": "Miami Heat",
+      "v57_score": 25,
+      "v58_score": 45,
+      "assessment": "Regression",
+      "finding": "Changes Bucks winning before Miami into Miami securing a win. Score remains below 50 (45), but the underlying fact is reversed."
+    },
+    {
+      "case": 7,
+      "name": "Tampa Bay Buccaneers",
+      "v57_score": 50,
+      "v58_score": null,
+      "assessment": "Improved",
+      "finding": "Correctly abstains instead of assigning 50 to a rare statistical feat. Directly fixes the intended emotional-claim admission failure."
+    },
+    {
+      "case": 8,
+      "name": "Chelsea",
+      "v57_score": 25,
+      "v58_score": 25,
+      "assessment": "Still fails",
+      "finding": "Still asserts Manchester United’s victory and labels Chelsea as struggling while the quoted misery belongs to Manchester United. Adds transfer-window context not supplied."
+    },
+    {
+      "case": 9,
+      "name": "Luka Doncic",
+      "v57_score": 50,
+      "v58_score": 75,
+      "assessment": "Mixed",
+      "finding": "Score returns from 50 to 75 and awesome-defense wording is no longer assigned to Redick. Drops the distinct MVP-ranking frustration thread, so improved polarity comes with lost emotional coverage."
+    },
+    {
+      "case": 10,
+      "name": "Jayson Tatum",
+      "v57_score": 75,
+      "v58_score": null,
+      "assessment": "Improved",
+      "finding": "Correctly returns to abstention rather than turning statistics into celebration and importing the Nets’ haunted framing."
+    },
+    {
+      "case": 11,
+      "name": "Dak Prescott",
+      "v57_score": 50,
+      "v58_score": 25,
+      "assessment": "Improved",
+      "finding": "Two negative reactions now score 25 instead of 50. Drops unsupported head-coach specificity. Shouting and the contrast connector remain unsupported or misleading embellishments."
+    },
+    {
+      "case": 12,
+      "name": "Baker Mayfield",
+      "v57_score": 25,
+      "v58_score": 45,
+      "assessment": "Still fails",
+      "finding": "Still attaches Falcons’ horrific-loss framing to Mayfield, adds lack of progress and ties Chiefs’ collapse into his emotional reading. Hook still refers to a no-pass loss."
+    },
+    {
+      "case": 13,
+      "name": "Virgil van Dijk",
+      "v57_score": 25,
+      "v58_score": 25,
+      "assessment": "Stable acceptable",
+      "finding": "Preserves explicit Van Dijk disappointment and score 25. Body correctly states Liverpool lost to Arsenal."
+    },
+    {
+      "case": 14,
+      "name": "Gessime Yassine",
+      "v57_score": 75,
+      "v58_score": 75,
+      "assessment": "Stable acceptable",
+      "finding": "Keeps a narrow, attributed positive publisher framing and score 75, without inventing player feelings. Hook now names the publisher too."
+    },
+    {
+      "case": 15,
+      "name": "Vit Krejci",
+      "v57_score": null,
+      "v58_score": null,
+      "assessment": "Stable acceptable",
+      "finding": "Correctly abstains on playing-time statistics."
+    }
+  ]
+}

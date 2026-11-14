@@ -1,0 +1,17 @@
+{
+  "01": "Mixed: baseline separates win/loss into separate games; candidate conflates them but adds jersey-retirement story. Baseline also speculates and omits publisher attribution.",
+  "02": "Essentially unchanged: same trade-proposal distortion and invented significant friction; minor wording difference only.",
+  "03": "Mixed/regression: context output is much shorter and avoids baseline repetition, but invents Vikings instead of Bears. Both retain unrelated broadcaster material.",
+  "04": "Largely unchanged: both reverse Liverpool-win ownership, assign author\u2019s proposal to Mamdani and misspell Saliba. Context removes invented first name Ahmed but retains main attribution error.",
+  "05": "Neither reliable: baseline replaces Gasperini with Simone Inzaghi; context replaces him with Antonio Conte. Both turn metaphorical wounded Red Devils into physical injuries and include historical Totti material.",
+  "06": "Regression in repetition: baseline is one paragraph; context produces ten, including eight copies of one paragraph. Both leak recorded Anthony Carter metadata and blend winless with 2\u20135 start.",
+  "07": "Baseline is shorter; context adds unsupported significance/milestone filler. Both repeat a vague feat without its substance.",
+  "08": "Mixed: context removes duplicated paragraph and some invented role detail, but retains the reversed Chelsea result and adds Moises to Lavia. Baseline passes parser despite factual errors and duplicate text.",
+  "09": "Mixed: context separates publisher quotes more clearly instead of implying Redick said best damn pilot, but adds vague/clickbait material and its first paragraph omits Heavy.com report 8 from citations. Baseline passes parser; context fails.",
+  "10": "Improvement: context drops historical Nets trade and avoids baseline hook blending Bulls near-triple-double with Magic result. Still mixes game stories in body and repeats vague history framing.",
+  "11": "Baseline is more concise and preserves one of the toughest in hook. Context splits stories but adds connective filler, social-media characterization and clipped toughest career hook.",
+  "12": "Regression: baseline consistently states a Tampa Bay win; context introduces a loss then contradicts it with a win. Both contain source-attribution/inference issues.",
+  "13": "Identical, faithful output in both versions. Strict parser rejects the hook phrase Liverpool\u2019s Arsenal as a named claim; this is not evidence of a wrong football claim.",
+  "14": "Baseline cleaner: context adds redundant prose and introduces cruys typo. Both pass strict parser.",
+  "15": "Effectively unchanged: both import Portland Trail Blazers affiliation from recorded metadata rather than supplied headline."
+}

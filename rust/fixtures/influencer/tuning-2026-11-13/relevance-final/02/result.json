@@ -1,0 +1,22 @@
+{
+  "case": 2,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/relevance-cases/02-philadelphia-eagles.json",
+  "generation_wall_ms": 12000,
+  "input_tokens": 1665,
+  "name": "02-philadelphia-eagles",
+  "output_limit": 3500,
+  "output_tokens": 192,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v60-target-relevance",
+  "reading": "NFL furious at Eagles; season described as unraveling and hellish\n\nNBC Sports and the New York Post reported that the NFL is \"furious\" regarding the Philadelphia Eagles' handling of messaging surrounding Jalen Hurts' blood clot drama. Meanwhile, The Morning Call noted the Eagles have hope amidst divisional disarray, while NBC Sports Philadelphia described the team's situation as a \"big pile of misery\" punctuated only by minor encouraging moments. Other outlets expressed deep concern, with Yahoo Sports highlighting Jonathan Greenard's slow start as a worry, and Philadelphia Sports Nation questioning whether the team can even try to be fun given their current state. The Inquirer.com further characterized the season as unraveling, while PhillyVoice labeled it a \"season from hell\" and Heavy.com cited disappointment over a trade sending a player to the NFC North.",
+  "request_bytes": 6928,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 12011
+}

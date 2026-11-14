@@ -1,0 +1,22 @@
+{
+  "case": 11,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/baseline-cases/11-dak-prescott.json",
+  "generation_wall_ms": 20031,
+  "input_tokens": 837,
+  "name": "11-dak-prescott",
+  "output_limit": 2100,
+  "output_tokens": 168,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "named claim is absent from cited reports: Arizona Cardinals",
+  "request_bytes": 3476,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 20047
+}

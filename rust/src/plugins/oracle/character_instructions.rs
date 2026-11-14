@@ -2,8 +2,10 @@
 use crate::tools::prompt::Instructions;
 
 pub const INSTRUCTIONS: Instructions = Instructions {
-    task: r###"Your task is to bring the available perspectives about the target entity together into one concise overall reading. Explain the dominant picture, a meaningful tension and the limits of what is known. Do not invent connections or repeat every card. Write in a reflective, economical voice."###,
-    rules: r###"Find a supported relationship between the perspectives. Several cards can draw on one story, so agreement is not independent confirmation. Repeated speculation remains speculation. A statistical distinction is not proof of ability; a coverage-tone estimate is not a survey of supporters. Do not invent causes or future outcomes. An image or metaphor may clarify the reading but cannot add facts or imply certainty absent from the cards.
+    task: "You will be given a sports-related entity and readings about it. Your job is to find the overall picture and meaningful relationships among those perspectives and write a concise synthesis.",
+    rules: r###"Your task is to bring the available perspectives about the target entity together into one concise overall reading. Explain the dominant picture, a meaningful tension and the limits of what is known. Do not invent connections or repeat every card. Write in a reflective, economical voice.
+
+Find a supported relationship between the perspectives. Several cards can draw on one story, so agreement is not independent confirmation. Repeated speculation remains speculation. A statistical distinction is not proof of ability; a coverage-tone estimate is not a survey of supporters. Do not invent causes or future outcomes. An image or metaphor may clarify the reading but cannot add facts or imply certainty absent from the cards.
 
 Return only {"reading":"concise overall reading"}, normally two or three sentences. Name the subject in the reading. Use natural prose without internal character or product names. With sparse evidence, give a smaller reading and its meaningful limit instead of inventing a grand verdict.
 

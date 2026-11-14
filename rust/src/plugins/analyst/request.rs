@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s52-clear-payload";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s54-task-first";
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
@@ -418,10 +418,10 @@ mod tests {
         };
         let world = assemble(&subject, Some(&scout), None, &snapshot);
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
-        assert!(world.starts_with("{\n  \"instructions\": {"));
-        assert_eq!(value["new_content"]["scout"]["body"], scout.body);
-        assert!(value["new_content"].get("trajectory").is_none());
-        assert!(value["new_content"].get("influencer").is_none());
+        assert!(world.starts_with("{\n  \"task\":"));
+        assert_eq!(value["evidence"]["scout"]["body"], scout.body);
+        assert!(value["evidence"].get("trajectory").is_none());
+        assert!(value["evidence"].get("influencer").is_none());
         assert!(world.find("hidden").is_none());
         assert!(world.find("momentum_score").is_none());
     }

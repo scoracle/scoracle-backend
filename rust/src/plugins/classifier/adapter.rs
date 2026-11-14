@@ -175,12 +175,10 @@ impl StudioPlugin for ClassifierHandler {
         {
             let measured =
                 super::decision::Measurement::from_receipt(entry["measurement"].clone())?;
-            let gate = super::decision::gate(
+            let gate = super::decision::gate_for_target(
                 &measured.spectrum,
                 before.provenance["title"].as_str().context("headline")?,
-                entry["target"]["entity_type"]
-                    .as_str()
-                    .context("target type")?,
+                &measured.receipt["subject_meta"],
             )?;
             let accepted = gate["admitted"] == true;
             let characters = &gate["characters"];
@@ -230,13 +228,20 @@ async fn validate_admission(
     );
     let mut accepted = false;
     let mut model = None;
+    let people = super::headline::named_people(
+        pool,
+        before.provenance["title"].as_str().context("headline")?,
+        &item.sport,
+    )
+    .await?;
     for (candidate, entry) in before.query_entities.iter().zip(retained) {
-        let meta = super::headline::subject_meta(pool, candidate).await?;
+        let mut meta = super::headline::subject_meta(pool, candidate).await?;
+        meta["named_people"] = people.clone();
         let target = json!({"entity_type":meta["identity"]["entity_type"],"entity_id":meta["identity"]["entity_id"],"sport":item.sport});
         ensure!(entry["target"] == target, "admission target changed");
         let measured = super::decision::Measurement::from_receipt(entry["measurement"].clone())?;
         if measured.receipt["request"]
-            != super::character_instructions::request(
+            != super::request::request(
                 before.provenance["title"].as_str().context("headline")?,
                 &before.source,
                 &item.sport,
@@ -253,10 +258,10 @@ async fn validate_admission(
         } else {
             model = Some(measured.model.clone());
         }
-        accepted |= super::decision::gate(
+        accepted |= super::decision::gate_for_target(
             &measured.spectrum,
             before.provenance["title"].as_str().context("headline")?,
-            target["entity_type"].as_str().context("target type")?,
+            &meta,
         )?["admitted"]
             == true;
     }

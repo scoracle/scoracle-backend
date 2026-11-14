@@ -1,0 +1,16 @@
+{
+  "case": 3,
+  "error": "llama.cpp Qwen3.5-4B-Q4_K_M: output incomplete or context truncated (\"limit\"): llama.cpp Qwen3.5-4B-Q4_K_M: output incomplete or context truncated (\"limit\")",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/03-seattle-seahawks.json",
+  "name": "03-seattle-seahawks",
+  "output_limit": 3500,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "request_bytes": 8427,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "error",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 251656
+}

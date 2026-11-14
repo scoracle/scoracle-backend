@@ -1,0 +1,22 @@
+{
+  "case": 6,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/06-miami-heat.json",
+  "generation_wall_ms": 14954,
+  "input_tokens": 1523,
+  "name": "06-miami-heat",
+  "output_limit": 3500,
+  "output_tokens": 153,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v58-emotional-claims",
+  "reading": "Mixed reactions: fans angry, players scapegoated, coach admits fault\n\nYahoo Sports reported that Bucks fans expressed anger, calling the situation \"CRAZY\" after Miami secured a win. ESPN's Bam Adebayo stated that critics make him feel like a scapegoat for the team's winless start, while ClutchPoints noted that Heat coach Erik Spoelstra admitted he needs to do \"a better job\" amid a disappointing 2-5 start. Conversely, Miami Herald's Giannis Antetokounmpo expressed confidence that the team can turn things around, though he acknowledged there are many things to figure out.",
+  "request_bytes": 6133,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 14971
+}

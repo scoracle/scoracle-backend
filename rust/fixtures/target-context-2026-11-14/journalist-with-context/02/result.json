@@ -1,0 +1,22 @@
+{
+  "case": 2,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/journalist-cases/02-philadelphia-eagles.json",
+  "generation_wall_ms": 23509,
+  "input_tokens": 1253,
+  "name": "02-philadelphia-eagles",
+  "output_limit": 3500,
+  "output_tokens": 229,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "named claim is absent from cited reports: Philadelphia Eagles",
+  "request_bytes": 4954,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 23520
+}

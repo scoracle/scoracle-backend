@@ -1,0 +1,22 @@
+{
+  "case": 7,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/relevance-cases/07-tampa-bay-buccaneers.json",
+  "generation_wall_ms": 4596,
+  "input_tokens": 1204,
+  "name": "07-tampa-bay-buccaneers",
+  "output_limit": 3500,
+  "output_tokens": 24,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v60-target-relevance",
+  "reading": "empty reading",
+  "request_bytes": 5295,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 4611
+}

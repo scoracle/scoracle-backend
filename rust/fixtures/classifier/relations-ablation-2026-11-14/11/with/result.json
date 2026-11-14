@@ -1,0 +1,98 @@
+{
+  "admitted": true,
+  "expected": {},
+  "gate": {
+    "admitted": true,
+    "characters": {
+      "influencer": true,
+      "insider": false,
+      "journalist": true,
+      "scout": false
+    },
+    "coverage": "complete",
+    "reason": null,
+    "routing_version": "headline-routing-v3-identity",
+    "scope": "headline"
+  },
+  "id": "11-dak-prescott",
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "receipt": {
+    "criteria_version": "classification-criteria-v17-shared-relations",
+    "elapsed_ms": 822,
+    "endpoint": "http://127.0.0.1:28081",
+    "request": {
+      "questions": {
+        "availability": {
+          "instructions": "Does the headline report whether Dak Prescott, the NFL player can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.",
+          "type": "noul"
+        },
+        "emotion": {
+          "instructions": "Does the headline express a feeling or judgment about Dak Prescott, the NFL player, or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.",
+          "type": "noul"
+        },
+        "movement": {
+          "instructions": "Does the headline report a personnel or contract development involving Dak Prescott, the NFL player—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.",
+          "type": "noul"
+        },
+        "subject": {
+          "instructions": "Does the headline state a concrete development directly involving Dak Prescott, the NFL player? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.",
+          "type": "noul"
+        }
+      },
+      "state": "{\n  \"task\": {\n    \"assignment\": \"You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.\",\n    \"rules\": [\n      \"Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\",\n      \"Keep each claim with the entity it concerns. Another person's feelings, move or injury do not automatically belong to the target.\",\n      \"Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\"\n    ]\n  },\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Dak Prescott\",\n    \"entity_type\": \"player\",\n    \"sport\": \"NFL\",\n    \"recorded_attributes\": {\n      \"position\": \"QB\",\n      \"team_on_record\": {\n        \"name\": \"Dallas Cowboys\",\n        \"observed_on\": \"2026-10-23\"\n      }\n    }\n  },\n  \"evidence_context\": \"This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\",\n  \"evidence\": {\n    \"headline\": \"‘Shut Up,’ ‘Stop Taking Bullets for Him’ — Cowboys Fans Livid as Dak Prescott Shields Brian Schottenheimer After OT Loss vs. Cardinals\",\n    \"publisher\": \"Yahoo Sports\"\n  }\n}"
+    },
+    "request_version": "classifier-brief-v8-shared-relations",
+    "response": {
+      "answers": {
+        "availability": {
+          "noul": 0.01597988568153348,
+          "type": "noul"
+        },
+        "emotion": {
+          "noul": 0.7092132912792575,
+          "type": "noul"
+        },
+        "movement": {
+          "noul": 0.07515379617855142,
+          "type": "noul"
+        },
+        "subject": {
+          "noul": 0.9605148763782144,
+          "type": "noul"
+        }
+      },
+      "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+      "usage": {
+        "input_tokens": 2222,
+        "output_tokens": 0
+      }
+    },
+    "subject_meta": {
+      "database_record": {
+        "affiliation_on_record": {
+          "observed_at": "2026-10-23",
+          "source": "roster",
+          "team": "Dallas Cowboys"
+        },
+        "position": "QB"
+      },
+      "identity": {
+        "entity_id": 25,
+        "entity_type": "player",
+        "name": "Dak Prescott",
+        "sport": "NFL"
+      },
+      "identity_record": "Recorded attributes: {\"position\": \"QB\", \"team_on_record\": {\"name\": \"Dallas Cowboys\", \"observed_on\": \"2026-10-23\"}}",
+      "named_people": []
+    }
+  },
+  "request_hash": "c304cd0c11465ab8fc836812b086872669f83c4481ee2001682484939903fab9",
+  "seconds": 0.824201125,
+  "spectrum": {
+    "availability": 1.597988568153348,
+    "emotion": 70.92132912792574,
+    "movement": 7.5153796178551415,
+    "subject": 96.05148763782144
+  },
+  "sport": "NFL"
+}

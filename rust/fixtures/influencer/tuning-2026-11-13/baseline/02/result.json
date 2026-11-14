@@ -1,0 +1,22 @@
+{
+  "case": 2,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/cases/02-philadelphia-eagles.json",
+  "generation_wall_ms": 17792,
+  "input_tokens": 1833,
+  "name": "02-philadelphia-eagles",
+  "output_limit": 3500,
+  "output_tokens": 207,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v54-target-task-evidence",
+  "reading": "NFL furious at Eagles over Hurts drama; season described as 'hell' and 'disarray' amid tiny blips of hope.\n\nMultiple outlets report that the NFL is expressing intense anger and fury regarding the Philadelphia Eagles' handling of Jalen Hurts' medical messaging and blood clot drama, with headlines describing the league as 'furious' and 'furious at Eagles'.\n\nSimultaneously, local and regional media describe the team's current state as a 'season from hell,' 'disarray,' and a 'pile of misery,' noting that the franchise is unraveling and struggling to find hope amidst the wreckage.\n\nWhile some coverage acknowledges tiny moments of encouragement or questions whether the team can at least try to be fun, the prevailing tone across NBC Sports, The Morning Call, and others is one of deep disappointment, exhaustion, and a sense that the Eagles are clearly unable to win.",
+  "request_bytes": 7679,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 17815
+}

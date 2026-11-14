@@ -1,0 +1,22 @@
+{
+  "case": 8,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/journalist-cases/08-chelsea.json",
+  "generation_wall_ms": 20256,
+  "input_tokens": 999,
+  "name": "08-chelsea",
+  "output_limit": 3500,
+  "output_tokens": 177,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "named claim is absent from cited reports: Moises Lavia",
+  "request_bytes": 4101,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 20275
+}

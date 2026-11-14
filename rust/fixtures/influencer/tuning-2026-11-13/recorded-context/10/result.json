@@ -1,0 +1,22 @@
+{
+  "case": 10,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/recorded-context-cases/10-jayson-tatum.json",
+  "generation_wall_ms": 12581,
+  "input_tokens": 1230,
+  "name": "10-jayson-tatum",
+  "output_limit": 3500,
+  "output_tokens": 131,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v57-recorded-context",
+  "reading": "Tatum celebrated as Celtics' star in historic wins\n\nYahoo Sports highlighted Tatum's historic early performance, while MassLive and GMA Network celebrated him as the key player in the Celtics' victory over the Magic. FantasyPros noted his near-triple-double in the win against the Bulls, and NBC Sports reported his game-high 32 points against Orlando.\n\nYahoo Sports also contextualized his career path by noting how the Nets remain haunted by the 2013 trade that resulted in Tatum joining the Celtics.",
+  "request_bytes": 4883,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 12596
+}

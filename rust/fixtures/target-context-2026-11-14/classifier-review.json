@@ -1,0 +1,647 @@
+[
+  {
+    "case": "01-charlotte-hornets",
+    "headline": "Hornets blown out by Hawks 128-81 in first game home without LaMelo Ball, booed by sellout crowd",
+    "review": "Correct subject/emotion; absence of Ball plausibly supports availability.",
+    "before": {
+      "availability": 77.4521101337208,
+      "emotion": 53.78213876160738,
+      "movement": 6.1447025880005866,
+      "subject": 99.0180061865482
+    },
+    "after": {
+      "availability": 79.49083229596579,
+      "emotion": 59.29474493682925,
+      "movement": 7.93048343271034,
+      "subject": 99.08742936228282
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "02-philadelphia-eagles",
+    "headline": "\u2018Knows Who He Makes His Money From,\u2019 \u2018So Exhausting\u2019 \u2014 NFL Fans React to Stephen A. Smith Sitting Next to Jerry Jones During Cowboys-Eagles",
+    "review": "False-positive subject: reaction concerns Smith/Jones, not an Eagles development. Emotion routing improves (on to off).",
+    "before": {
+      "availability": 5.970195524831874,
+      "emotion": 16.043192514649114,
+      "movement": 2.202166349190086,
+      "subject": 90.4484318695949
+    },
+    "after": {
+      "availability": 6.979876539385607,
+      "emotion": 14.060868625481618,
+      "movement": 4.508339037137757,
+      "subject": 91.90457663119535
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": false,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "03-seattle-seahawks",
+    "headline": "\u2018Troy Aikman Looks Like He Hates Joe Buck,\u2019 \u2018I Can Feel the Tension\u2019 \u2014 NFL Fans React to ESPN\u2019s \u2018Awkward\u2019 Bears-Seahawks Broadcast",
+    "review": "False-positive subject: broadcaster tension is not a Seahawks development. Remains admitted.",
+    "before": {
+      "availability": 8.703421320004583,
+      "emotion": 45.94188276760337,
+      "movement": 2.8819826778207385,
+      "subject": 95.57869457810496
+    },
+    "after": {
+      "availability": 14.228914889754831,
+      "emotion": 41.406009429767934,
+      "movement": 6.078205749861443,
+      "subject": 95.55285462664882
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "04-arsenal",
+    "headline": "\u2018What you live for\u2019: Fleetwood revel in seismic Arsenal shock after Dowman sees red",
+    "review": "Suspension-related participation is plausible from red card; movement score is a false positive for a match result.",
+    "before": {
+      "availability": 67.56991941932412,
+      "emotion": 66.34226097019817,
+      "movement": 65.26572735722795,
+      "subject": 98.72181482070353
+    },
+    "after": {
+      "availability": 67.53787479649738,
+      "emotion": 66.04846814627231,
+      "movement": 67.10989310704623,
+      "subject": 97.87506245063854
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "05-roma",
+    "headline": "Allegri enraged after Napoli 3-3 Roma: \u2018Maybe I shouldn\u2019t be on the touchline\u2019",
+    "review": "Opponent coach emotion should not become Roma emotion; no participation issue is stated.",
+    "before": {
+      "availability": 52.64400145523739,
+      "emotion": 50.840108001673514,
+      "movement": 17.191238337207835,
+      "subject": 98.13923536517851
+    },
+    "after": {
+      "availability": 58.270857685073274,
+      "emotion": 55.33688206856277,
+      "movement": 20.079831003192464,
+      "subject": 97.98643076273848
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "06-miami-heat",
+    "headline": "Giannis Antetokounmpo puts Miami Heat teammates on blast after heavy LA Lakers loss",
+    "review": "Teammate criticism concerns Miami, but no participation issue is stated.",
+    "before": {
+      "availability": 63.22606515825922,
+      "emotion": 53.402141730416986,
+      "movement": 27.256803310456384,
+      "subject": 98.69574681335612
+    },
+    "after": {
+      "availability": 66.3223047502502,
+      "emotion": 50.26581036968156,
+      "movement": 36.07029925524265,
+      "subject": 98.41439870320879
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "07-tampa-bay-buccaneers",
+    "headline": "Baker Mayfield, Buccaneers accomplish rare feat not seen since 1974",
+    "review": "Concrete result/record is relevant; remarkable/rare feat alone does not establish explicit emotion.",
+    "before": {
+      "availability": 40.39155888811584,
+      "emotion": 62.352128012743826,
+      "movement": 24.805110216208142,
+      "subject": 98.07861315485587
+    },
+    "after": {
+      "availability": 38.89946812960137,
+      "emotion": 58.60428638464469,
+      "movement": 26.814303129145244,
+      "subject": 97.26796256802182
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "08-chelsea",
+    "headline": "Chelsea sweating over Josh Acheampong future as top clubs line up",
+    "review": "Contract interest is relevant movement; uncertainty alone does not establish explicit emotion.",
+    "before": {
+      "availability": 44.55295350395727,
+      "emotion": 40.94695920280941,
+      "movement": 92.12622063993417,
+      "subject": 97.85388188386712
+    },
+    "after": {
+      "availability": 39.50528102549132,
+      "emotion": 35.13132376199334,
+      "movement": 90.5847658819774,
+      "subject": 96.6495770364586
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": true,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": true,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "09-luka-doncic",
+    "headline": "Raptors Coach Praised Luka Doncic For Destroying His Game Plan",
+    "review": "Correct subject and explicit praise.",
+    "before": {
+      "availability": 13.211021789172975,
+      "emotion": 95.48226612936313,
+      "movement": 6.591084094674686,
+      "subject": 99.37497850267056
+    },
+    "after": {
+      "availability": 13.319573300662341,
+      "emotion": 92.25672730690829,
+      "movement": 9.35918868828475,
+      "subject": 98.62561283463326
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "10-jayson-tatum",
+    "headline": "Nets still haunted by 2013 Celtics trade that led to Jayson Tatum",
+    "review": "Historical 2013 trade retrospective has no new Tatum development; subject and movement remain false positives.",
+    "before": {
+      "availability": 5.034745546386881,
+      "emotion": 21.74983258313912,
+      "movement": 85.48240519269739,
+      "subject": 79.58352700883057
+    },
+    "after": {
+      "availability": 7.194054765000262,
+      "emotion": 21.81027185760508,
+      "movement": 87.6278009862085,
+      "subject": 82.13811422873796
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": true,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": true,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "11-dak-prescott",
+    "headline": "\u2018Shut Up,\u2019 \u2018Stop Taking Bullets for Him\u2019 \u2014 Cowboys Fans Livid as Dak Prescott Shields Brian Schottenheimer After OT Loss vs. Cardinals",
+    "review": "Correct subject and anger involving Prescott; no participation issue is stated.",
+    "before": {
+      "availability": 37.77491202389239,
+      "emotion": 71.70753474065184,
+      "movement": 6.702151257306281,
+      "subject": 99.669207361514
+    },
+    "after": {
+      "availability": 42.01752761304651,
+      "emotion": 68.54448725290545,
+      "movement": 11.520363358946229,
+      "subject": 99.68854934327094
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "12-baker-mayfield",
+    "headline": "Falcons Match 1974 Infamy in Horrific No-Pass Baker Mayfield Loss",
+    "review": "Headline describes Falcons loss involving Mayfield; no injury/absence or transfer stated. Availability rises 74.9 to 81.6; movement rises 28.7 to 49.3.",
+    "before": {
+      "availability": 74.92615814836148,
+      "emotion": 54.5880353208787,
+      "movement": 28.747666418605505,
+      "subject": 97.03635170620156
+    },
+    "after": {
+      "availability": 81.56309304187432,
+      "emotion": 56.51698453938025,
+      "movement": 49.34910636697427,
+      "subject": 97.1839235594506
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "13-virgil-van-dijk",
+    "headline": "'Very disappointed' - Virgil van Dijk's reaction to Liverpool's defeat by Arsenal",
+    "review": "Correct direct subject emotion, though score declines.",
+    "before": {
+      "availability": 28.297070305887985,
+      "emotion": 80.99253017015599,
+      "movement": 1.201877133653566,
+      "subject": 98.62391189263711
+    },
+    "after": {
+      "availability": 26.196286260138912,
+      "emotion": 75.49792079822775,
+      "movement": 2.496039223273847,
+      "subject": 98.21506262524674
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "14-gessime-yassine",
+    "headline": "Gessime Yassine dominates in Strasbourg's lopsided Ligue 1 victory",
+    "review": "Performance judgment plausibly supports emotion; direct subject remains correct.",
+    "before": {
+      "availability": 12.10645544814344,
+      "emotion": 72.50018712179191,
+      "movement": 1.697766830444468,
+      "subject": 99.06298637686056
+    },
+    "after": {
+      "availability": 17.14837942882363,
+      "emotion": 72.0340986619688,
+      "movement": 2.9597919013245146,
+      "subject": 99.11473580336192
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  },
+  {
+    "case": "15-vit-krejci",
+    "headline": "Vit Krejci News: Season-high 24 minutes Saturday",
+    "review": "Playing-time result is relevant but does not itself report availability or emotion.",
+    "before": {
+      "availability": 13.36068545632221,
+      "emotion": 21.78603287470155,
+      "movement": 0.9700741036520719,
+      "subject": 99.1691807424264
+    },
+    "after": {
+      "availability": 25.33445408407414,
+      "emotion": 21.390107777682804,
+      "movement": 2.219779251796096,
+      "subject": 99.06815523999471
+    },
+    "gate_before": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    },
+    "gate_after": {
+      "admitted": true,
+      "characters": {
+        "influencer": true,
+        "insider": false,
+        "journalist": true,
+        "scout": false
+      },
+      "coverage": "complete",
+      "reason": null,
+      "routing_version": "headline-routing-v3-identity",
+      "scope": "headline"
+    }
+  }
+]

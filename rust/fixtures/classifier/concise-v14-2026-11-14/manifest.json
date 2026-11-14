@@ -1,0 +1,19 @@
+{
+  "baseline": "fixtures/target-context-2026-11-14/classifier-with-context.jsonl",
+  "case_sha256": "4245ae6036a93f8c781825b0e3cb12edab90689a03e0439abb3ee4657acc0466",
+  "criteria_version": "classification-criteria-v14-concise",
+  "request_version": "classifier-brief-v5-target-first",
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "cases": 15,
+  "teams": 8,
+  "players": 7,
+  "retries": 0,
+  "production_writes": false,
+  "format_and_wording_changed_together": true,
+  "tests": {
+    "passed": 411,
+    "ignored": 75
+  },
+  "ignored_tests_not_run": true,
+  "errors": []
+}

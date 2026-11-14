@@ -1,0 +1,122 @@
+[
+  {
+    "case": 1,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Charlotte Hornets",
+    "input_tokens": 1245,
+    "output_tokens": 353,
+    "seconds": 33.9
+  },
+  {
+    "case": 2,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Philadelphia Eagles",
+    "input_tokens": 1253,
+    "output_tokens": 229,
+    "seconds": 23.5
+  },
+  {
+    "case": 3,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Seattle Seahawks",
+    "input_tokens": 1340,
+    "output_tokens": 170,
+    "seconds": 19.1
+  },
+  {
+    "case": 4,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Premier League",
+    "input_tokens": 1260,
+    "output_tokens": 277,
+    "seconds": 26.7
+  },
+  {
+    "case": 5,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Antonio Conte",
+    "input_tokens": 1270,
+    "output_tokens": 225,
+    "seconds": 23.9
+  },
+  {
+    "case": 6,
+    "status": "rejected",
+    "strict_error": "cited reports do not connect Miami Heat with numerical fact 28",
+    "input_tokens": 1264,
+    "output_tokens": 1440,
+    "seconds": 129.9
+  },
+  {
+    "case": 7,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Tampa Bay Buccaneers",
+    "input_tokens": 792,
+    "output_tokens": 106,
+    "seconds": 13.9
+  },
+  {
+    "case": 8,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Moises Lavia",
+    "input_tokens": 999,
+    "output_tokens": 177,
+    "seconds": 20.3
+  },
+  {
+    "case": 9,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: JJ Redick",
+    "input_tokens": 1303,
+    "output_tokens": 335,
+    "seconds": 28.6
+  },
+  {
+    "case": 10,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Orlando Magic",
+    "input_tokens": 1069,
+    "output_tokens": 165,
+    "seconds": 19.3
+  },
+  {
+    "case": 11,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Arizona Cardinals",
+    "input_tokens": 904,
+    "output_tokens": 265,
+    "seconds": 27.3
+  },
+  {
+    "case": 12,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Tampa Bay Buccaneers Week",
+    "input_tokens": 1140,
+    "output_tokens": 210,
+    "seconds": 24.7
+  },
+  {
+    "case": 13,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Liverpool's Arsenal",
+    "input_tokens": 826,
+    "output_tokens": 77,
+    "seconds": 9.9
+  },
+  {
+    "case": 14,
+    "status": "accepted",
+    "strict_error": null,
+    "input_tokens": 811,
+    "output_tokens": 105,
+    "seconds": 10.0
+  },
+  {
+    "case": 15,
+    "status": "rejected",
+    "strict_error": "named claim is absent from cited reports: Portland Trail Blazers",
+    "input_tokens": 815,
+    "output_tokens": 88,
+    "seconds": 13.9
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "base_url": "http://127.0.0.1:8081",
+  "concurrency": 1,
+  "context": 10000,
+  "database_access": false,
+  "fixtures": [
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/01-charlotte-hornets.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/02-philadelphia-eagles.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/03-seattle-seahawks.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/04-arsenal.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/05-roma.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/06-miami-heat.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/07-tampa-bay-buccaneers.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/08-chelsea.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/09-luka-doncic.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/10-jayson-tatum.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/11-dak-prescott.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/12-baker-mayfield.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/13-virgil-van-dijk.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/14-gessime-yassine.json",
+    "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/15-vit-krejci.json"
+  ],
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "publishes": false,
+  "qualification": "first-pass fixture outputs; human review required",
+  "retries": 0,
+  "shared_server": true,
+  "started_epoch": 1794630574,
+  "thinking": false
+}

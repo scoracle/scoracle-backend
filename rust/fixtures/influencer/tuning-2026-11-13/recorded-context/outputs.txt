@@ -1,0 +1,82 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / 01-charlotte-hornets [accepted]
+Hornets fans optimistic despite mixed early-season results
+
+WBTV reports that Charlotte Hornets fans are optimistic for the new season, hoping for playoff basketball. DAWN notes that the Hornets show early signs of excitement following the LaMelo Ball trade, while The State Hornet highlights a strong start with a 40-point victory. Conversely, AP News states the Hornets were blown out by the Hawks 128-81 in their first game home without LaMelo Ball and booed by a sellout crowd. Yahoo Sports adds that the team looks lost without LaMelo Ball and that fans are asking questions after Naz Reid was shockingly benched.
+
+2 — vibe / 02-philadelphia-eagles [accepted]
+NFL furious at Eagles; fans track season from hell
+
+NBC Sports and the New York Post report that the NFL is furious over the Philadelphia Eagles' handling of Jalen Hurts' blood clot messaging. Meanwhile, The Morning Call notes the Eagles have hope amidst divisional disarray, while NBC Sports Philadelphia describes their season as a pile of misery broken by tiny encouraging blips. Other outlets express deep concern, with Yahoo Sports highlighting Jonathan Greenard's slow start and Philadelphia Sports Nation questioning if the team can even try to be fun. The Inquirer suggests the season is unraveling, and PhillyVoice tracks it as a 'season from hell,' though Heavy.com focuses on a specific trade disappointment rather than the overall mood.
+
+3 — vibe / 03-seattle-seahawks [accepted]
+Fans demand investigation after Seahawks' MNF loss and identity crisis
+
+The Seattle Times characterized the team's recent primetime performance as a 'reality check' that has triggered an 'identity crisis.' Yahoo Sports reported that NFL fans reacted with anger and a demand for a full investigation after the referee defended controversial calls in the loss, with one fan describing the situation as 'nasty work.'
+
+4 — vibe / 04-arsenal [accepted]
+Mixed reactions from praise, frustration, and shock
+
+The Guardian reported that a match fracas involving Max Dowman left Arsenal manager Mikel Arteta red-faced, while Fleetwood fans revelled in the shock of the result. India TV News and ArsenalNews.co.uk highlighted Jamie Carragher's praise, calling a specific Arsenal star the best in the Premier League and declaring the team the best defensive side in world football. Conversely, The Guardian noted Mamdani's desire for Arsenal to cut ties with the UAE over Sudan, and Liverpool Echo cited Cody Gakpo's 'frustrating' admission regarding a transfer claim. Flashscore.co.za recorded Arteta heaping praise on defenders Gabriel and Konsa after Arsenal levelled with Man City, while The Independent and Nine.com.au reported on Saliba's return and a stunning upset against a fourth-tier club.
+
+5 — vibe / 05-roma [accepted]
+Mixed reactions to Roma's draw: Allegri furious, Gasperini cautious
+
+Yahoo Sports reported that Allegri was enraged after the 3-3 draw with Napoli, stating, 'Maybe I shouldn't be on the touchline.' ESPN Singapore's Burley noted the difficulty in distinguishing whether Manchester United were good or Roma were bad in the match. Conversely, Football Italia's Carrick praised Roma as a 'really good team,' while Hooligan Soccer called the result a 'Roma Gift' rather than a United win. On the other end, Udinese's Runjaic claimed Roma exploited every mistake, and Gasperini warned the team about being 'goal-crazed' in a European clash.
+
+6 — vibe / 06-miami-heat [accepted]
+Heat face criticism and self-doubt amid winless start
+
+Yahoo Sports reported that Bucks fans expressed anger, calling the situation "CRAZY" after the team won before Miami. ESPN's Bam Adebayo stated that critics make him the scapegoat for the team's winless start, while ClutchPoints noted coach Erik Spoelstra admitted he needs to do a better job amid a disappointing 2-5 record. CBS Sports highlighted that Heat player Davion Mitchell continues to excel despite the team's struggles.
+
+7 — vibe / 07-tampa-bay-buccaneers [accepted]
+Rare feat achieved by Mayfield and Buccaneers
+
+Yahoo Sports reported that Baker Mayfield and the Tampa Bay Buccaneers achieved a rare feat not seen since 1974.
+
+8 — vibe / 08-chelsea [accepted]
+Mixed reactions: Alonso praises backup and Lavia amid transfer fears and criticism over talent loss.
+
+Yahoo Sports reports that Xabi Alonso praised Chelsea's backup player following Manchester United's victory, framing the outcome as a significant injury boost for the squad. Conversely, FootballTransfers.com criticizes the team, stating they squandered 'incredible talent' and lost their best player in the process. TribalFootball adds to the tension by noting Chelsea is 'sweating over Josh Acheampong's future' as top clubs line up to sign him. Meanwhile, Soccer News highlights a positive note from Alonso regarding midfielder Lavia, who is 'in top form', while HeraldLIVE describes Chelsea's recent performance as adding 'more misery' to Manchester United's struggles.
+
+9 — vibe / 09-luka-doncic [accepted]
+Praise for defense clashes with MVP disappointment
+
+The New York Times and Yahoo Sports highlighted Luka Doncic's defensive performance, with Redick calling his play 'awesome' and noting his perfect two-word reaction to the praise. Heavy.com and Bleacher Report echoed this sentiment, with the Raptors coach praising Doncic for destroying their game plan and Redick comparing the Lakers' performance to a 'supernova' and a 'spaceship.' However, Yahoo Sports also reported that fans are fuming because Doncic still trails Victor Wembanyama in the MVP race, creating a contrast between the praise for his defense and the disappointment regarding his overall standing.
+
+10 — vibe / 10-jayson-tatum [accepted]
+Tatum celebrated as Celtics' star in historic wins
+
+Yahoo Sports highlighted Tatum's historic early performance, while MassLive and GMA Network celebrated him as the key player in the Celtics' victory over the Magic. FantasyPros noted his near-triple-double in the win against the Bulls, and NBC Sports reported his game-high 32 points against Orlando.
+
+Yahoo Sports also contextualized his career path by noting how the Nets remain haunted by the 2013 trade that resulted in Tatum joining the Celtics.
+
+11 — vibe / 11-dak-prescott [accepted]
+Fans livid over Schottenheimer shield; Prescott calls loss toughest
+
+Yahoo Sports reports that Cowboys fans are livid, shouting 'Shut Up' and 'Stop Taking Bullets for Him' as Dak Prescott shields head coach Brian Schottenheimer following an overtime loss to the Cardinals.
+
+In contrast, the official Dallas Cowboys site notes that Dak Prescott himself described the loss to the Cardinals as 'one of the toughest' in his career.
+
+12 — vibe / 12-baker-mayfield [accepted]
+Mixed reactions: Mayfield's historic no-pass loss criticized as horrific yet framed as a win for Tampa Bay
+
+Yahoo Sports headlines frame Baker Mayfield's performance against the Atlanta Falcons as a 'horrific' no-pass loss that mirrors 1974 infamy, suggesting a deeply negative reaction to his zero completions. Conversely, the Tampa Bay Buccaneers' official press conference features Mayfield stating 'Whatever It Takes to Win,' indicating a determined, positive internal mood despite the statistical failure.
+
+Sky Sports reports on a separate game where the Kansas City Chiefs 'implode,' noting that while Baker Mayfield set a remarkable stat, the overall context implies a chaotic and negative atmosphere for the opposing team.
+
+13 — vibe / 13-virgil-van-dijk [accepted]
+Van Dijk disappointed after Arsenal loss
+
+Liverpool FC reported that Virgil van Dijk expressed being 'very disappointed' following the team's defeat by Arsenal.
+
+14 — vibe / 14-gessime-yassine [accepted]
+Yassine dominates in Strasbourg win
+
+Pan Africa Football reported that Gessime Yassine dominated during Strasbourg's lopsided Ligue 1 victory.
+
+15 — vibe / 15-vit-krejci [accepted]
+empty reading
+

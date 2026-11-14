@@ -1,0 +1,21 @@
+{
+  "questions": {
+    "availability": {
+      "instructions": "Does the headline report whether Charlotte Hornets, the NBA team (team category unknown) can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.",
+      "type": "noul"
+    },
+    "emotion": {
+      "instructions": "Does the headline express a feeling or judgment about Charlotte Hornets, the NBA team (team category unknown), or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.",
+      "type": "noul"
+    },
+    "movement": {
+      "instructions": "Does the headline report a personnel or contract development involving Charlotte Hornets, the NBA team (team category unknown)—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.",
+      "type": "noul"
+    },
+    "subject": {
+      "instructions": "Does the headline state a concrete development directly involving Charlotte Hornets, the NBA team (team category unknown)? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.",
+      "type": "noul"
+    }
+  },
+  "state": "{\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Charlotte Hornets\",\n    \"entity_type\": \"team\",\n    \"sport\": \"NBA\",\n    \"team_category\": \"unknown\",\n    \"recorded_attributes\": \"Recorded attributes: {\\\"city\\\": \\\"Charlotte\\\", \\\"coach_on_record\\\": {\\\"name\\\": \\\"Steve Clifford\\\", \\\"observed_at\\\": \\\"2026-10-01\\\"}, \\\"conference\\\": \\\"East\\\", \\\"country\\\": \\\"United States\\\", \\\"division\\\": \\\"Southeast\\\", \\\"home_venue_on_record\\\": \\\"Spectrum Center\\\"}\"\n  },\n  \"task\": {\n    \"assignment\": \"Evaluate the headline for this exact target using the four questions.\",\n    \"rules\": [\n      \"Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\",\n      \"Keep each claim with the entity it concerns. Another person's feelings, move or injury do not automatically belong to the target.\",\n      \"Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\"\n    ]\n  },\n  \"evidence_context\": \"This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\",\n  \"evidence\": {\n    \"headline\": \"Hornets blown out by Hawks 128-81 in first game home without LaMelo Ball, booed by sellout crowd\",\n    \"publisher\": \"AP News\"\n  }\n}"
+}

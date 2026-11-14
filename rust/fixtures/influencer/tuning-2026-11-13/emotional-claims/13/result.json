@@ -1,0 +1,22 @@
+{
+  "case": 13,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/13-virgil-van-dijk.json",
+  "generation_wall_ms": 5799,
+  "input_tokens": 1085,
+  "name": "13-virgil-van-dijk",
+  "output_limit": 3500,
+  "output_tokens": 59,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v58-emotional-claims",
+  "reading": "Van Dijk 'very disappointed' after Arsenal loss\n\nLiverpool FC reported that Virgil van Dijk expressed being 'very disappointed' following the team's defeat by Arsenal.",
+  "request_bytes": 4573,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 5814
+}

@@ -95,14 +95,77 @@ async fn day_card_contract() {
             .len(),
         2
     );
-    let world: Value = serde_json::from_str(&a.parts.assemble()).unwrap();
-    assert!(world["new_content"]["reports"][1]["publisher_text"]
+    let prompt = a.parts.assemble();
+    let world: Value = serde_json::from_str(&prompt).unwrap();
+    let positions: Vec<_> = [
+        "task",
+        "target_context",
+        "target",
+        "evidence_context",
+        "evidence",
+    ]
+    .iter()
+    .map(|key| prompt.find(&format!("\n  \"{key}\":")).unwrap())
+    .collect();
+    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+    assert_eq!(world.as_object().unwrap().len(), 5);
+    assert_eq!(world["target_context"], request::TARGET_CONTEXT);
+    assert_eq!(
+        world["task"],
+        character_instructions::INSTRUCTIONS.job()
+    );
+    assert!(!character_instructions::INSTRUCTIONS.system().is_empty());
+    assert!(!prompt.contains("instructions.target"));
+    assert_eq!(
+        prompt
+            .matches(character_instructions::INSTRUCTIONS.job())
+            .count(),
+        1
+    );
+    assert!(world["evidence"]["reports"][1]["publisher_excerpt"]
         .as_str()
         .unwrap()
         .ends_with("No other supporters were interviewed."));
-    assert!(world["new_content"]["reports"][0]
+    assert!(world["evidence"]["reports"][0]
         .get("classification_id")
         .is_none());
+    for kind in ["team", "player"] {
+        let mut parts = a.parts.clone();
+        parts.subject.entity_type = kind.into();
+        parts.database_record = Some(serde_json::from_value(json!({
+            "position": "G", "role": "captain",
+            "affiliation_on_record": {"team": "Cedar", "observed_at": "2025-01-01", "source_document_id": 27},
+            "location": {"venue": "Pine Ground", "city": "Cedar City"}
+        })).unwrap());
+        let influencer: Value = serde_json::from_str(&parts.assemble()).unwrap();
+        let reports: Vec<_> = parts
+            .sources
+            .iter()
+            .map(crate::plugins::journalist::request::CorpusItem::from)
+            .collect();
+        let journalist: Value =
+            serde_json::from_str(&crate::plugins::journalist::request::assemble(
+                &parts.subject,
+                &reports,
+                parts.database_record.as_ref(),
+            ))
+            .unwrap();
+        assert_eq!(influencer["target"], journalist["target"]);
+        assert_eq!(
+            influencer["evidence"]["reports"],
+            journalist["evidence"]
+        );
+        let attrs = &influencer["target"]["recorded_attributes"];
+        assert_eq!(attrs["position"], "guard");
+        assert_eq!(attrs["role"], "captain");
+        assert_eq!(attrs["team_on_record"]["name"], "Cedar");
+        assert_eq!(attrs["team_on_record"]["observed_on"], "2025-01-01");
+        assert!(attrs["team_on_record"].get("source_document_id").is_none());
+        assert_eq!(attrs["home_venue_on_record"], "Pine Ground");
+        assert!(!influencer["evidence"]
+            .to_string()
+            .contains("Pine Ground"));
+    }
     let mut changed = a.parts.clone();
     changed.day.cutoff += 1;
     assert_eq!(
@@ -212,9 +275,14 @@ async fn day_card_contract() {
         "qualifiers":{"speaker":null,"negation":["not confirmed"]}}],"signals_unassessed":true}));
     let with_world = Assignment::from_parts(changed).unwrap();
     let packet: Value = serde_json::from_str(&with_world.parts.assemble()).unwrap();
+    assert!(packet["evidence"]["reports"][0]
+        .get("classifier_world")
+        .is_none());
     assert_eq!(
-        packet["new_content"]["reports"][0]["classifier_world"]["qualified_claims"][0]
-            ["target_relation"],
+        with_world.parts.sources[0]
+            .classifier_world
+            .as_ref()
+            .unwrap()["qualified_claims"][0]["target_relation"],
         "unknown"
     );
     assert_ne!(with_world.input_hash, assignment.input_hash);

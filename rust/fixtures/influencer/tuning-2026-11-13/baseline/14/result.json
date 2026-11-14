@@ -1,0 +1,22 @@
+{
+  "case": 14,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/cases/14-gessime-yassine.json",
+  "generation_wall_ms": 5184,
+  "input_tokens": 1104,
+  "name": "14-gessime-yassine",
+  "output_limit": 3500,
+  "output_tokens": 24,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v54-target-task-evidence",
+  "reading": "empty reading",
+  "request_bytes": 4724,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 5196
+}

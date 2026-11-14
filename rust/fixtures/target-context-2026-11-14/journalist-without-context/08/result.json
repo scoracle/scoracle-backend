@@ -1,0 +1,22 @@
+{
+  "case": 8,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/baseline-cases/08-chelsea.json",
+  "generation_wall_ms": 36840,
+  "input_tokens": 932,
+  "name": "08-chelsea",
+  "output_limit": 3500,
+  "output_tokens": 347,
+  "parsed": true,
+  "prompt_version": "n144-target-context",
+  "reading": "FootballTransfers.com reports that Chelsea has lost their best player after squandering incredible talent, a significant blow to the squad's depth. HeraldLIVE notes that while Brighton stunned Manchester City, Chelsea added to their own misery by failing to secure a win against Manchester United. In response to the team's struggles, Xabi Alonso has praised the performance of his backup goalkeeper, citing a major injury boost to the defense. Additionally, Yahoo Sports highlights Alonso's endorsement of midfielder Lavia, stating the player is in top form despite the team's recent poor results. TribalFootball reports that the club is sweating over the future of Josh Acheampong as top clubs line up to sign him, indicating a potential transfer window activity for the midfielder.\n\nFootballTransfers.com reports that Chelsea has lost their best player after squandering incredible talent, a significant blow to the squad's depth. HeraldLIVE notes that while Brighton stunned Manchester City, Chelsea added to their own misery by failing to secure a win against Manchester United. In response to the team's struggles, Xabi Alonso has praised the performance of his backup goalkeeper, citing a major injury boost to the defense. Additionally, Yahoo Sports highlights Alonso's endorsement of midfielder Lavia, stating the player is in top form despite the team's recent poor results. TribalFootball reports that the club is sweating over the future of Josh Acheampong as top clubs line up to sign him, indicating a potential transfer window activity for the midfielder.",
+  "request_bytes": 3754,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 36860
+}

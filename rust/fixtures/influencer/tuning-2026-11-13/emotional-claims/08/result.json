@@ -1,0 +1,22 @@
+{
+  "case": 8,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/08-chelsea.json",
+  "generation_wall_ms": 14406,
+  "input_tokens": 1258,
+  "name": "08-chelsea",
+  "output_limit": 3500,
+  "output_tokens": 151,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v58-emotional-claims",
+  "reading": "Mixed reactions: Alonso praises backup and Lavia amid transfer concerns and misery reports.\n\nYahoo Sports reported that Xabi Alonso praised Chelsea's backup player, framing the news as a significant injury boost following Manchester United's victory. TribalFootball and FootballTransfers.com expressed concern and criticism, respectively, highlighting Chelsea's uncertainty over Josh Acheampong's future and the loss of an 'incredible talent' during a transfer window. Conversely, Soccer News cited Alonso's statement that midfielder Lavia is 'in top form', while HeraldLIVE noted Chelsea's continued struggles by stating they 'heap more misery' on Manchester United.",
+  "request_bytes": 5232,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 14424
+}

@@ -1,0 +1,22 @@
+{
+  "case": 14,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/baseline-cases/14-gessime-yassine.json",
+  "generation_wall_ms": 8327,
+  "input_tokens": 744,
+  "name": "14-gessime-yassine",
+  "output_limit": 900,
+  "output_tokens": 83,
+  "parsed": true,
+  "prompt_version": "n144-target-context",
+  "reading": "Pan Africa Football reported that Gessime Yassine dominated as Strasbourg secured a lopsided Ligue 1 victory.",
+  "request_bytes": 3080,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "accepted",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 8338
+}

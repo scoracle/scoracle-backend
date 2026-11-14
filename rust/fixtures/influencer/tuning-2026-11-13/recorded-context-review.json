@@ -1,0 +1,170 @@
+{
+  "method": "Manual evidence comparison against prewritten rubric; no external verification. Development set, not an independent holdout. No blanket factual pass inferred from mechanical acceptance.",
+  "cases": [
+    {
+      "case": 1,
+      "name": "Charlotte Hornets",
+      "assessment": "Needs work",
+      "scores": {
+        "baseline": 50,
+        "candidate": 50,
+        "recorded-context": 50
+      },
+      "finding": "DAZN becomes DAWN. Four sentences in one paragraph. Complete hook replaces the original fragment."
+    },
+    {
+      "case": 2,
+      "name": "Philadelphia Eagles",
+      "assessment": "Needs work",
+      "scores": {
+        "baseline": 75,
+        "candidate": 25,
+        "recorded-context": 25
+      },
+      "finding": "Negative score corrected to 25 and body now attributes season from hell to PhillyVoice. Hook invents fans as the people tracking it."
+    },
+    {
+      "case": 3,
+      "name": "Seattle Seahawks",
+      "assessment": "Improved, caveat",
+      "scores": {
+        "baseline": 75,
+        "candidate": "incomplete",
+        "recorded-context": 25
+      },
+      "finding": "Completes without the prior output-limit failure; no invented singer. Converts a group reaction into one fan and omits the positive trade reaction; the negative direction is defensible but coverage is narrower."
+    },
+    {
+      "case": 4,
+      "name": "Arsenal",
+      "assessment": "Needs work",
+      "scores": {
+        "baseline": 75,
+        "candidate": 50,
+        "recorded-context": 50
+      },
+      "finding": "No longer claims Arsenal won the upset. Still turns the Guardian editorial suggestion that Mamdani should challenge Arsenal into Mamdani’s own desire, and relocates Gakpo’s frustration to a transfer claim."
+    },
+    {
+      "case": 5,
+      "name": "Roma",
+      "assessment": "Needs work",
+      "scores": {
+        "baseline": 50,
+        "candidate": 50,
+        "recorded-context": 50
+      },
+      "finding": "No longer calls the Red Devils injured. Conflates the Napoli draw and Manchester United material; changes a warning to goal-crazed Roma about opponents into a warning about being goal-crazed."
+    },
+    {
+      "case": 6,
+      "name": "Miami Heat",
+      "assessment": "Needs work",
+      "scores": {
+        "baseline": 75,
+        "candidate": 25,
+        "recorded-context": 25
+      },
+      "finding": "Negative score corrected to 25. ESPN’s Bam Adebayo blurs outlet and speaker, and the hook adds self-doubt not explicitly supplied. One paragraph has four sentences."
+    },
+    {
+      "case": 7,
+      "name": "Tampa Bay Buccaneers",
+      "assessment": "Regression",
+      "scores": {
+        "baseline": null,
+        "candidate": null,
+        "recorded-context": 50
+      },
+      "finding": "Previously abstained; now recaps a rare statistical feat and assigns 50 despite no emotional evidence."
+    },
+    {
+      "case": 8,
+      "name": "Chelsea",
+      "assessment": "Needs work",
+      "scores": {
+        "baseline": 50,
+        "candidate": 25,
+        "recorded-context": 25
+      },
+      "finding": "Still describes Manchester United’s victory where the supplied Chelsea headline says after Manchester United win. The hook is complete, but the winner remains reversed."
+    },
+    {
+      "case": 9,
+      "name": "Luka Doncic",
+      "assessment": "Needs work",
+      "scores": {
+        "baseline": 75,
+        "candidate": 50,
+        "recorded-context": 50
+      },
+      "finding": "Assigns awesome wording to Redick without support for that attribution. Scores 50 despite predominantly positive praise; unchanged from v55, below the positive v54 reading."
+    },
+    {
+      "case": 10,
+      "name": "Jayson Tatum",
+      "assessment": "Regression",
+      "scores": {
+        "baseline": null,
+        "candidate": null,
+        "recorded-context": 75
+      },
+      "finding": "Previously abstained. Now calls statistical coverage celebration, assigns 75 and includes the Nets’ haunted framing in a Tatum reading."
+    },
+    {
+      "case": 11,
+      "name": "Dak Prescott",
+      "assessment": "Needs work",
+      "scores": {
+        "baseline": 25,
+        "candidate": 50,
+        "recorded-context": 50
+      },
+      "finding": "Omits the irrelevant touchdown recap, but still assigns 50 to two negative reactions. Adds shouting and head-coach specificity not supplied in the retained target/evidence."
+    },
+    {
+      "case": 12,
+      "name": "Baker Mayfield",
+      "assessment": "Needs work",
+      "scores": {
+        "baseline": 25,
+        "candidate": 25,
+        "recorded-context": 25
+      },
+      "finding": "Still assigns the Falcons’ no-pass loss and horrific framing to Mayfield. Hook calls it Mayfield’s loss while also calling it a Tampa Bay win. Chiefs game is identified as separate but still drawn into the emotional context."
+    },
+    {
+      "case": 13,
+      "name": "Virgil van Dijk",
+      "assessment": "Acceptable",
+      "scores": {
+        "baseline": 25,
+        "candidate": 25,
+        "recorded-context": 25
+      },
+      "finding": "Accurate single-source disappointment reading; score 25. Hook could more clearly say loss to Arsenal, but the body preserves the direction."
+    },
+    {
+      "case": 14,
+      "name": "Gessime Yassine",
+      "assessment": "Acceptable",
+      "scores": {
+        "baseline": null,
+        "candidate": null,
+        "recorded-context": 75
+      },
+      "finding": "Narrow, attributed positive publisher framing: dominates. Score 75; no invented player feelings. Earlier abstention was also acceptable under the prewritten rubric."
+    },
+    {
+      "case": 15,
+      "name": "Vit Krejci",
+      "assessment": "Acceptable",
+      "scores": {
+        "baseline": null,
+        "candidate": null,
+        "recorded-context": null
+      },
+      "finding": "Correctly abstains on season-high minutes; no inferred mood."
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+[
+  {
+    "case": 1,
+    "name": "Charlotte Hornets",
+    "type": "team",
+    "sport": "NBA",
+    "attempt_id": 3306,
+    "sources": 10,
+    "fixture": "cases/01-charlotte-hornets.json"
+  },
+  {
+    "case": 2,
+    "name": "Philadelphia Eagles",
+    "type": "team",
+    "sport": "NFL",
+    "attempt_id": 3308,
+    "sources": 10,
+    "fixture": "cases/02-philadelphia-eagles.json"
+  },
+  {
+    "case": 3,
+    "name": "Seattle Seahawks",
+    "type": "team",
+    "sport": "NFL",
+    "attempt_id": 3307,
+    "sources": 10,
+    "fixture": "cases/03-seattle-seahawks.json"
+  },
+  {
+    "case": 4,
+    "name": "Arsenal",
+    "type": "team",
+    "sport": "FOOTBALL",
+    "attempt_id": 3309,
+    "sources": 10,
+    "fixture": "cases/04-arsenal.json"
+  },
+  {
+    "case": 5,
+    "name": "Roma",
+    "type": "team",
+    "sport": "FOOTBALL",
+    "attempt_id": 3312,
+    "sources": 10,
+    "fixture": "cases/05-roma.json"
+  },
+  {
+    "case": 6,
+    "name": "Miami Heat",
+    "type": "team",
+    "sport": "NBA",
+    "attempt_id": 3311,
+    "sources": 10,
+    "fixture": "cases/06-miami-heat.json"
+  },
+  {
+    "case": 7,
+    "name": "Tampa Bay Buccaneers",
+    "type": "team",
+    "sport": "NFL",
+    "attempt_id": 3014,
+    "sources": 1,
+    "fixture": "cases/07-tampa-bay-buccaneers.json"
+  },
+  {
+    "case": 8,
+    "name": "Chelsea",
+    "type": "team",
+    "sport": "FOOTBALL",
+    "attempt_id": 2994,
+    "sources": 5,
+    "fixture": "cases/08-chelsea.json"
+  },
+  {
+    "case": 9,
+    "name": "Luka Doncic",
+    "type": "player",
+    "sport": "NBA",
+    "attempt_id": 3074,
+    "sources": 10,
+    "fixture": "cases/09-luka-doncic.json"
+  },
+  {
+    "case": 10,
+    "name": "Jayson Tatum",
+    "type": "player",
+    "sport": "NBA",
+    "attempt_id": 3107,
+    "sources": 7,
+    "fixture": "cases/10-jayson-tatum.json"
+  },
+  {
+    "case": 11,
+    "name": "Dak Prescott",
+    "type": "player",
+    "sport": "NFL",
+    "attempt_id": 3271,
+    "sources": 3,
+    "fixture": "cases/11-dak-prescott.json"
+  },
+  {
+    "case": 12,
+    "name": "Baker Mayfield",
+    "type": "player",
+    "sport": "NFL",
+    "attempt_id": 3135,
+    "sources": 8,
+    "fixture": "cases/12-baker-mayfield.json"
+  },
+  {
+    "case": 13,
+    "name": "Virgil van Dijk",
+    "type": "player",
+    "sport": "FOOTBALL",
+    "attempt_id": 3298,
+    "sources": 1,
+    "fixture": "cases/13-virgil-van-dijk.json"
+  },
+  {
+    "case": 14,
+    "name": "Gessime Yassine",
+    "type": "player",
+    "sport": "FOOTBALL",
+    "attempt_id": 3305,
+    "sources": 1,
+    "fixture": "cases/14-gessime-yassine.json"
+  },
+  {
+    "case": 15,
+    "name": "Vit Krejci",
+    "type": "player",
+    "sport": "NBA",
+    "attempt_id": 3302,
+    "sources": 1,
+    "fixture": "cases/15-vit-krejci.json"
+  }
+]

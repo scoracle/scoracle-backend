@@ -1,0 +1,27 @@
+{
+  "task": "You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.",
+  "target_context": "The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.",
+  "target": {
+    "name": "Chelsea",
+    "entity_type": "team",
+    "sport": "FOOTBALL",
+    "team_category": "unknown",
+    "recorded_attributes": {
+      "city": "London",
+      "coach_on_record": {
+        "name": "Xabi Alonso",
+        "observed_at": "2026-09-30"
+      },
+      "country": "England",
+      "league": {
+        "country": "England",
+        "name": "Premier League"
+      }
+    }
+  },
+  "evidence_context": "This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.",
+  "evidence": {
+    "headline": "Chelsea sweating over Josh Acheampong future as top clubs line up",
+    "publisher": "TribalFootball"
+  }
+}

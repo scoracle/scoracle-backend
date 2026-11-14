@@ -1,0 +1,22 @@
+{
+  "case": 3,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/target-context-2026-11-14/baseline-cases/03-seattle-seahawks.json",
+  "generation_wall_ms": 100371,
+  "input_tokens": 1273,
+  "name": "03-seattle-seahawks",
+  "output_limit": 3500,
+  "output_tokens": 1008,
+  "parsed": false,
+  "prompt_version": "n144-target-context",
+  "reading": "cited reports do not connect Yahoo Sports with numerical fact 34",
+  "request_bytes": 4949,
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ],
+  "status": "rejected",
+  "task": "narratives",
+  "temperature": 0.0,
+  "wall_ms": 100391
+}

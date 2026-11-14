@@ -1,0 +1,22 @@
+{
+  "case": 6,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/relevance-cases/06-miami-heat.json",
+  "generation_wall_ms": 9314,
+  "input_tokens": 1676,
+  "name": "06-miami-heat",
+  "output_limit": 3500,
+  "output_tokens": 117,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v60-target-relevance",
+  "reading": "Heat face criticism and internal pressure amid winless start\n\nYahoo Sports reported that Bucks fans expressed anger, calling the situation \"CRAZY\" after the team won before Miami. ESPN noted that Bam Adebayo stated critics make him feel like a scapegoat for the team's winless start. The Miami Herald quoted Giannis Antetokounmpo as confident the team can turn things around, though he acknowledged there are many things to figure out.",
+  "request_bytes": 6926,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 9326
+}

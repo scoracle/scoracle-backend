@@ -1,0 +1,21 @@
+{
+  "method": "Manual comparison against supplied evidence only; no external fact checking. Fixed cases selected before baseline outputs. Scores are directional expectations, not exact gold numbers.",
+  "checks": ["Target relevance and who feels what", "Publisher and speaker attribution", "No invented facts, quotes, motives or consensus", "Score polarity agrees with supported reading", "Complete factual hook at most 140 characters", "Abstention when neither reaction nor meaningful emotional tone is supplied"],
+  "cases": {
+    "01": "Mixed Charlotte coverage. Keep fan hopes, Bogues reaction, publisher enthusiasm and booing distinct. Do not treat all Hornets-name results as established Charlotte identity. Copy DAZN. Complete hook.",
+    "02": "Predominantly negative Eagles coverage; score below 50. NFL anger is directed at Eagles. Tiny hopeful blips do not make predominantly negative coverage positive. Do not make Cowboys/Stephen A. Smith criticism Eagles fans' feelings.",
+    "03": "Mixed but strongly critical Seahawks coverage. Attribute broadcasts/fireworks/refereeing reactions to their actual subjects; no invented singer identity. Separate trade enthusiasm from criticism.",
+    "04": "Mixed Arsenal coverage: grief/tribute, embarrassment/upset, praise. Fleetwood's joy belongs to opponents. Do not invent which Arsenal star Carragher named or Gabriel/Konsa roles.",
+    "05": "Mixed Roma coverage. Preserve Allegri/Carrick/Runjaic/Gasperini ownership; do not infer who coaches whom. Separate praise, frustration, criticism and historical masterpiece tone.",
+    "06": "Predominantly negative Heat coverage with Giannis confidence and Mitchell praise. Score below 50. Panic headline is a question. Scapegoat quote belongs to Adebayo, not Giannis.",
+    "07": "Abstain: rare statistical feat alone supplies no emotional reaction.",
+    "08": "Chelsea praise plus criticism/concern. Do not turn Manchester United misery into Chelsea misery. Names/roles only if supplied.",
+    "09": "Predominantly positive praise of Doncic; score above 50. Fans' anger concerns his MVP ranking, not his play. Do not invent his unspecified two-word reaction.",
+    "10": "Mostly Tatum statistics. Nets haunted tone belongs to Nets; no invented Tatum happiness or Celtics confidence. Abstention or narrowly attributed publisher praise only.",
+    "11": "Negative Dak reading; score below 50. Fans criticize him shielding Schottenheimer; his own quote concerns difficulty of loss. TD alone supplies no mood.",
+    "12": "Mayfield quote and publisher tone require care. Falcons' infamy is not Mayfield's shame; no invented joy, defiance or dissatisfaction. His unspecified brutally honest comments cannot be filled in.",
+    "13": "One source, explicitly very disappointed Van Dijk after loss: concise negative reading below 50.",
+    "14": "Dominates is positive publisher framing, not proof of Yassine's feelings or fan sentiment. A narrow attributed reading or cautious abstention is acceptable.",
+    "15": "Abstain: season-high minutes alone supplies no mood."
+  }
+}

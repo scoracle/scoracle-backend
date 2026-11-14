@@ -1,0 +1,78 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / 01-charlotte-hornets [accepted]
+Hornets fans split between playoff optimism and shock over collapse and benching
+
+WBTV reports that Charlotte Hornets fans are optimistic for the new season, hoping for playoff basketball. FOX Carolina News highlights Muggsy Bogues' emotional press conference regarding an upcoming jersey retirement, while DZN notes fans are excited after LaMelo Ball's trade. Conversely, AP News describes a sellout crowd booing the Hornets after a 128-81 loss at home without LaMelo Ball, and Yahoo Sports headlines indicate a 27-turnover collapse and a team looking lost without Ball.
+
+Yahoo Sports further reports that NBA fans are asking questions after Naz Reid was shockingly benched, and the team desperately needs Kon Knueppel and Coby White back from injury. The State Hornet contrasts this by noting a strong start with new faces turning heads in a 40-point victory.
+
+2 — vibe / 02-philadelphia-eagles [accepted]
+NFL furious at Eagles; season described as unraveling and hellish
+
+NBC Sports and the New York Post reported that the NFL is "furious" regarding the Philadelphia Eagles' handling of messaging surrounding Jalen Hurts' blood clot drama. Meanwhile, The Morning Call noted the Eagles have hope amidst divisional disarray, while NBC Sports Philadelphia described the team's situation as a "big pile of misery" punctuated only by minor encouraging moments. Other outlets expressed deep concern, with Yahoo Sports highlighting Jonathan Greenard's slow start as a worry, and Philadelphia Sports Nation questioning whether the team can even try to be fun given their current state. The Inquirer.com further characterized the season as unraveling, while PhillyVoice labeled it a "season from hell" and Heavy.com cited disappointment over a trade sending a player to the NFC North.
+
+3 — vibe / 03-seattle-seahawks [accepted]
+Seahawks face identity crisis, fan anger, and mixed reactions amid MNF loss and anthem controversy
+
+The Seattle Times characterized the team's recent primetime performance as a 'reality check' and 'identity crisis,' framing the game as a significant negative moment for the franchise. Yahoo Sports reported that NFL fans reacted with anger and a demand for a full investigation after the referee defended controversial calls in the Seahawks' loss to the Bears, with one fan describing the situation as 'nasty work.' Conversely, Yahoo Sports noted that fans were stunned and positive regarding a blockbuster trade for an 8-time Pro Bowler, using terms like 'Holy FLEECE' and 'MASSIVE Get' to describe the deal. However, other outlets reported severe backlash, with The Mirror US and Daily Express US calling the Seahawks' anthem performance a 'national atrocity' and 'metal singer' act, respectively, while The Shadow League highlighted fan fear over fireworks near helicopters.
+
+4 — vibe / 04-arsenal [accepted]
+Mixed reactions: Arteta red-faced over a fracas, but praised for defensive solidity and player returns.
+
+The Guardian reported that a fracas involving Max Dowman left Arsenal manager Mikel Arteta red-faced, while Fleetwood fans revelled in the shock of Arsenal's defeat. Conversely, Jamie Carragher expressed being 'flabbergasted' by the Premier League's state, naming an Arsenal star as the best player, and ArsenalNews.co.uk echoed this sentiment by calling the team the best defensive side in world football. Arteta also heaps praise on defenders Gabriel and Konsa following a match where Arsenal moved level top with Manchester City, while The Independent noted a huge boost for the club as William Saliba returned to training.
+
+5 — vibe / 05-roma [accepted]
+Allegri furious at draw; Gasperini sees goal-scoring as positive signal
+
+Yahoo Sports reported that Allegri was enraged after the 3-3 draw, stating, 'Maybe I shouldn't be on the touchline,' while also noting Roma's comeback. ESPN Singapore's Burley questioned whether Manchester United were good or Roma were bad in the match. Conversely, Gasperini, Roma's coach, indicated that scoring many goals was a 'good signal' and that the team felt like they had dropped two points in the Napoli draw.
+
+6 — vibe / 06-miami-heat [accepted]
+Heat face criticism and internal pressure amid winless start
+
+Yahoo Sports reported that Bucks fans expressed anger, calling the situation "CRAZY" after the team won before Miami. ESPN noted that Bam Adebayo stated critics make him feel like a scapegoat for the team's winless start. The Miami Herald quoted Giannis Antetokounmpo as confident the team can turn things around, though he acknowledged there are many things to figure out.
+
+7 — vibe / 07-tampa-bay-buccaneers [accepted]
+empty reading
+
+8 — vibe / 08-chelsea [accepted]
+Mixed reactions: Alonso praises backup, critics cite talent loss
+
+Yahoo Sports reports that Chelsea coach Xabi Alonso praised a backup player following Manchester United's victory, framing the result as a significant injury boost for the squad. Conversely, FootballTransfers.com expressed strong criticism, stating that Chelsea squandered 'incredible talent' and lost their best player in the process. TribalFootball highlighted concerns over the future of Josh Acheampong, noting that top clubs are lining up to sign him, while HeraldLIVE described Chelsea's recent performance against Manchester United as adding more misery to their struggles.
+
+9 — vibe / 09-luka-doncic [accepted]
+Mixed praise for Dončić's defense and MVP standings.
+
+The New York Times and Yahoo Sports reported that JJ Redick and Lakers fans praised Luka Dončić's defense, with Redick describing the team's performance as living on a 'spaceship' and the moment feeling like a 'supernova.' Conversely, Yahoo Sports also noted that fans expressed frustration ('fumed') after Dončić still trailed Victor Wembanyama in the MVP race.
+
+Heavy.com highlighted that the Raptors coach praised Dončić for destroying their game plan, while Dončić himself touted his improved defense and drew praise from both the Lakers and Raptors.
+
+10 — vibe / 10-jayson-tatum [accepted]
+empty reading
+
+11 — vibe / 11-dak-prescott [accepted]
+Fans angry at Dak Prescott; player calls loss toughest
+
+Yahoo Sports reports that Cowboys fans expressed anger, shouting phrases like 'Shut Up' and 'Stop Taking Bullets for Him' after Dak Prescott shielded coach Brian Schottenheimer following an overtime loss to the Cardinals.
+
+In contrast, the Dallas Cowboys official site notes that Dak Prescott himself described the loss to the Cardinals as 'one of the toughest' in his career.
+
+12 — vibe / 12-baker-mayfield [accepted]
+Mixed reactions: Yahoo Sports criticizes Mayfield's zero-completion game, while he vows to win regardless.
+
+Yahoo Sports headlines frame Baker Mayfield's zero-completion performance against the Atlanta Falcons as a "horrific" loss and a reason to revisit NFL history, suggesting a critical tone regarding his play. Conversely, Sky Sports reports on a different game where Mayfield set a remarkable stat, while the Tampa Bay Buccaneers' official press conference features Mayfield stating, "Whatever It Takes to Win," indicating a focused, determined attitude from the player himself.
+
+13 — vibe / 13-virgil-van-dijk [accepted]
+Van Dijk disappointed after Arsenal loss
+
+Liverpool FC reported that Virgil van Dijk expressed being 'very disappointed' following the team's defeat by Arsenal.
+
+14 — vibe / 14-gessime-yassine [accepted]
+Pan Africa Football: Yassine dominates Strasbourg win
+
+Pan Africa Football reported that Gessime Yassine dominated during Strasbourg's lopsided Ligue 1 victory.
+
+15 — vibe / 15-vit-krejci [accepted]
+empty reading
+

@@ -1,7 +1,7 @@
 //! Selected measurements and their interpretation rules.
 
 const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
-    relationship: "new_content measures the target identified by target. Each measurement keeps its amount, rank and comparison together.",
+    relationship: "evidence measures the target identified by target. Each measurement keeps its amount, rank and comparison together.",
     fields: &[
         ("season", "profile season."),
         ("sample", "target's recorded games/appearances, not peer count or playing time."),

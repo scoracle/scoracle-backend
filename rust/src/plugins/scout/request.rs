@@ -12,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s90-ten-articles";
+pub const RATING_PROMPT_VERSION: &str = "s92-task-first";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -369,10 +369,10 @@ mod tests {
         let mut parts: Parts =
             serde_json::from_value(capture["assignment"]["parts"].clone()).unwrap();
         let world: serde_json::Value = serde_json::from_str(&parts.render()).unwrap();
-        assert!(world["new_content"].get("composite_peer_mean").is_none());
+        assert!(world["evidence"].get("composite_peer_mean").is_none());
         parts.profile.composite = None;
         let world: serde_json::Value = serde_json::from_str(&parts.render()).unwrap();
-        assert!(world["new_content"].get("composite_peer_mean").is_none());
+        assert!(world["evidence"].get("composite_peer_mean").is_none());
         for (prior, expected) in [
             (Some(80.0), Some("rose")),
             (Some(95.0), Some("fell")),
@@ -382,7 +382,7 @@ mod tests {
             parts.profile.values[0].prior_percentile = prior;
             let world: serde_json::Value = serde_json::from_str(&parts.render()).unwrap();
             assert_eq!(
-                world["new_content"]["values"][0]["standing_change"].as_str(),
+                world["evidence"]["values"][0]["standing_change"].as_str(),
                 expected
             );
             assert_eq!(

@@ -1,0 +1,22 @@
+{
+  "case": 12,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/emotional-claims-cases/12-baker-mayfield.json",
+  "generation_wall_ms": 17014,
+  "input_tokens": 1399,
+  "name": "12-baker-mayfield",
+  "output_limit": 3500,
+  "output_tokens": 155,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v58-emotional-claims",
+  "reading": "Mixed reactions: Critics cite 'horrific' no-pass loss, Mayfield vows to win.\n\nYahoo Sports headlines frame Baker Mayfield's performance against the Atlanta Falcons as 'horrific' and a 'zero-completion game,' suggesting a deeply negative reaction to his lack of progress. Sky Sports reports a 'remarkable stat' for Mayfield but pairs it with the Chiefs 'imploding,' indicating a mixed tone where his individual achievement is overshadowed by a team collapse. In contrast, the Tampa Bay Buccaneers' official press conference features Mayfield stating 'Whatever It Takes to Win,' presenting a determined, positive emotional thread from the target himself.",
+  "request_bytes": 5774,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 17030
+}

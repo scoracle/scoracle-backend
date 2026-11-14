@@ -1,0 +1,1229 @@
+{
+  "initial": {
+    "pairs": 100,
+    "calls": 200,
+    "errors": 0,
+    "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+    "concurrency": 1,
+    "order": "alternating paired",
+    "cohorts": {
+      "synthetic": 28,
+      "previously_reviewed_production": 72
+    },
+    "label_caution": "assistant-provisional development labels; not held-out or human gold",
+    "metrics": {
+      "all": {
+        "baseline": {
+          "successful": 100,
+          "native_token_n": 100,
+          "native_token_sum": 180648,
+          "native_token_median": 1792.0,
+          "latency_median_seconds": 0.6645272210007533,
+          "latency_p95_seconds": 0.7537167088594288,
+          "routes": {
+            "journalist": {
+              "n": 87,
+              "correct": 66,
+              "false_positive": 20,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 66,
+              "correct": 54,
+              "false_positive": 12,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 63,
+              "correct": 60,
+              "false_positive": 3,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 67,
+              "correct": 62,
+              "false_positive": 1,
+              "false_negative": 4
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 87,
+              "correct": 63
+            },
+            "emotion": {
+              "n": 35,
+              "correct": 32
+            },
+            "movement": {
+              "n": 30,
+              "correct": 28
+            },
+            "availability": {
+              "n": 30,
+              "correct": 26
+            }
+          }
+        },
+        "candidate": {
+          "successful": 100,
+          "native_token_n": 100,
+          "native_token_sum": 221680,
+          "native_token_median": 2238.0,
+          "latency_median_seconds": 0.8484829919179901,
+          "latency_p95_seconds": 0.8636305660475045,
+          "routes": {
+            "journalist": {
+              "n": 87,
+              "correct": 75,
+              "false_positive": 11,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 66,
+              "correct": 47,
+              "false_positive": 19,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 63,
+              "correct": 60,
+              "false_positive": 3,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 67,
+              "correct": 61,
+              "false_positive": 1,
+              "false_negative": 5
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 87,
+              "correct": 72
+            },
+            "emotion": {
+              "n": 35,
+              "correct": 29
+            },
+            "movement": {
+              "n": 30,
+              "correct": 28
+            },
+            "availability": {
+              "n": 30,
+              "correct": 24
+            }
+          }
+        },
+        "routing_changes": {
+          "journalist": 13,
+          "influencer": 19,
+          "scout": 5,
+          "insider": 4
+        }
+      },
+      "synthetic": {
+        "baseline": {
+          "successful": 28,
+          "native_token_n": 28,
+          "native_token_sum": 49168,
+          "native_token_median": 1786.0,
+          "latency_median_seconds": 0.6549484259448946,
+          "latency_p95_seconds": 0.6591030459385365,
+          "routes": {
+            "journalist": {
+              "n": 28,
+              "correct": 20,
+              "false_positive": 7,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 28,
+              "correct": 23,
+              "false_positive": 5,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 28,
+              "correct": 28,
+              "false_positive": 0,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 28,
+              "correct": 26,
+              "false_positive": 0,
+              "false_negative": 2
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 28,
+              "correct": 19
+            },
+            "emotion": {
+              "n": 28,
+              "correct": 26
+            },
+            "movement": {
+              "n": 28,
+              "correct": 28
+            },
+            "availability": {
+              "n": 28,
+              "correct": 24
+            }
+          }
+        },
+        "candidate": {
+          "successful": 28,
+          "native_token_n": 28,
+          "native_token_sum": 60092,
+          "native_token_median": 2174.0,
+          "latency_median_seconds": 0.8268470615148544,
+          "latency_p95_seconds": 0.8466909409034997,
+          "routes": {
+            "journalist": {
+              "n": 28,
+              "correct": 22,
+              "false_positive": 5,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 28,
+              "correct": 18,
+              "false_positive": 10,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 28,
+              "correct": 28,
+              "false_positive": 0,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 28,
+              "correct": 25,
+              "false_positive": 0,
+              "false_negative": 3
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 28,
+              "correct": 21
+            },
+            "emotion": {
+              "n": 28,
+              "correct": 26
+            },
+            "movement": {
+              "n": 28,
+              "correct": 28
+            },
+            "availability": {
+              "n": 28,
+              "correct": 22
+            }
+          }
+        },
+        "routing_changes": {
+          "journalist": 4,
+          "influencer": 7,
+          "scout": 1
+        }
+      },
+      "production": {
+        "baseline": {
+          "successful": 72,
+          "native_token_n": 72,
+          "native_token_sum": 131480,
+          "native_token_median": 1800.0,
+          "latency_median_seconds": 0.6669065520400181,
+          "latency_p95_seconds": 0.7549180968198925,
+          "routes": {
+            "journalist": {
+              "n": 59,
+              "correct": 46,
+              "false_positive": 13,
+              "false_negative": 0
+            },
+            "influencer": {
+              "n": 38,
+              "correct": 31,
+              "false_positive": 7,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 35,
+              "correct": 32,
+              "false_positive": 3,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 39,
+              "correct": 36,
+              "false_positive": 1,
+              "false_negative": 2
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 59,
+              "correct": 44
+            },
+            "emotion": {
+              "n": 7,
+              "correct": 6
+            },
+            "movement": {
+              "n": 2,
+              "correct": 0
+            },
+            "availability": {
+              "n": 2,
+              "correct": 2
+            }
+          }
+        },
+        "candidate": {
+          "successful": 72,
+          "native_token_n": 72,
+          "native_token_sum": 161588,
+          "native_token_median": 2256.0,
+          "latency_median_seconds": 0.8529962236061692,
+          "latency_p95_seconds": 0.8630089489743114,
+          "routes": {
+            "journalist": {
+              "n": 59,
+              "correct": 53,
+              "false_positive": 6,
+              "false_negative": 0
+            },
+            "influencer": {
+              "n": 38,
+              "correct": 29,
+              "false_positive": 9,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 35,
+              "correct": 32,
+              "false_positive": 3,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 39,
+              "correct": 36,
+              "false_positive": 1,
+              "false_negative": 2
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 59,
+              "correct": 51
+            },
+            "emotion": {
+              "n": 7,
+              "correct": 3
+            },
+            "movement": {
+              "n": 2,
+              "correct": 0
+            },
+            "availability": {
+              "n": 2,
+              "correct": 2
+            }
+          }
+        },
+        "routing_changes": {
+          "influencer": 12,
+          "journalist": 9,
+          "scout": 4,
+          "insider": 4
+        }
+      }
+    }
+  },
+  "revision2": {
+    "pairs": 100,
+    "calls": 200,
+    "errors": 0,
+    "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+    "concurrency": 1,
+    "order": "alternating paired",
+    "cohorts": {
+      "synthetic": 28,
+      "previously_reviewed_production": 72
+    },
+    "label_caution": "assistant-provisional development labels; not held-out or human gold",
+    "routing_policy": {
+      "baseline": "headline-routing-v2",
+      "candidate": "headline-routing-v3-identity",
+      "thresholds_changed": false
+    },
+    "metrics": {
+      "all": {
+        "baseline": {
+          "successful": 100,
+          "native_token_n": 100,
+          "native_token_sum": 180648,
+          "native_token_median": 1792.0,
+          "latency_median_seconds": 0.6670099159236997,
+          "latency_p95_seconds": 0.7540071250405163,
+          "routes": {
+            "journalist": {
+              "n": 87,
+              "correct": 66,
+              "false_positive": 20,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 66,
+              "correct": 54,
+              "false_positive": 12,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 63,
+              "correct": 60,
+              "false_positive": 3,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 67,
+              "correct": 62,
+              "false_positive": 1,
+              "false_negative": 4
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 87,
+              "correct": 63
+            },
+            "emotion": {
+              "n": 35,
+              "correct": 32
+            },
+            "movement": {
+              "n": 30,
+              "correct": 28
+            },
+            "availability": {
+              "n": 30,
+              "correct": 26
+            }
+          }
+        },
+        "candidate": {
+          "successful": 100,
+          "native_token_n": 100,
+          "native_token_sum": 213555,
+          "native_token_median": 2156.5,
+          "latency_median_seconds": 0.8249503070255741,
+          "latency_p95_seconds": 0.8550560639705509,
+          "routes": {
+            "journalist": {
+              "n": 87,
+              "correct": 78,
+              "false_positive": 8,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 66,
+              "correct": 56,
+              "false_positive": 10,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 63,
+              "correct": 62,
+              "false_positive": 1,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 67,
+              "correct": 62,
+              "false_positive": 1,
+              "false_negative": 4
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 87,
+              "correct": 74
+            },
+            "emotion": {
+              "n": 35,
+              "correct": 34
+            },
+            "movement": {
+              "n": 30,
+              "correct": 28
+            },
+            "availability": {
+              "n": 30,
+              "correct": 22
+            }
+          }
+        },
+        "routing_changes": {
+          "journalist": 14,
+          "influencer": 7,
+          "scout": 4,
+          "insider": 5
+        }
+      },
+      "synthetic": {
+        "baseline": {
+          "successful": 28,
+          "native_token_n": 28,
+          "native_token_sum": 49168,
+          "native_token_median": 1786.0,
+          "latency_median_seconds": 0.6583634024718776,
+          "latency_p95_seconds": 0.6628817010205239,
+          "routes": {
+            "journalist": {
+              "n": 28,
+              "correct": 20,
+              "false_positive": 7,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 28,
+              "correct": 23,
+              "false_positive": 5,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 28,
+              "correct": 28,
+              "false_positive": 0,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 28,
+              "correct": 26,
+              "false_positive": 0,
+              "false_negative": 2
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 28,
+              "correct": 19
+            },
+            "emotion": {
+              "n": 28,
+              "correct": 26
+            },
+            "movement": {
+              "n": 28,
+              "correct": 28
+            },
+            "availability": {
+              "n": 28,
+              "correct": 24
+            }
+          }
+        },
+        "candidate": {
+          "successful": 28,
+          "native_token_n": 28,
+          "native_token_sum": 57820,
+          "native_token_median": 2092.0,
+          "latency_median_seconds": 0.7902761489385739,
+          "latency_p95_seconds": 0.820433811051771,
+          "routes": {
+            "journalist": {
+              "n": 28,
+              "correct": 24,
+              "false_positive": 3,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 28,
+              "correct": 24,
+              "false_positive": 4,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 28,
+              "correct": 28,
+              "false_positive": 0,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 28,
+              "correct": 25,
+              "false_positive": 0,
+              "false_negative": 3
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 28,
+              "correct": 22
+            },
+            "emotion": {
+              "n": 28,
+              "correct": 27
+            },
+            "movement": {
+              "n": 28,
+              "correct": 28
+            },
+            "availability": {
+              "n": 28,
+              "correct": 20
+            }
+          }
+        },
+        "routing_changes": {
+          "journalist": 4,
+          "influencer": 1,
+          "scout": 1
+        }
+      },
+      "production": {
+        "baseline": {
+          "successful": 72,
+          "native_token_n": 72,
+          "native_token_sum": 131480,
+          "native_token_median": 1800.0,
+          "latency_median_seconds": 0.6688826141180471,
+          "latency_p95_seconds": 0.7561445848550647,
+          "routes": {
+            "journalist": {
+              "n": 59,
+              "correct": 46,
+              "false_positive": 13,
+              "false_negative": 0
+            },
+            "influencer": {
+              "n": 38,
+              "correct": 31,
+              "false_positive": 7,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 35,
+              "correct": 32,
+              "false_positive": 3,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 39,
+              "correct": 36,
+              "false_positive": 1,
+              "false_negative": 2
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 59,
+              "correct": 44
+            },
+            "emotion": {
+              "n": 7,
+              "correct": 6
+            },
+            "movement": {
+              "n": 2,
+              "correct": 0
+            },
+            "availability": {
+              "n": 2,
+              "correct": 2
+            }
+          }
+        },
+        "candidate": {
+          "successful": 72,
+          "native_token_n": 72,
+          "native_token_sum": 155735,
+          "native_token_median": 2175.0,
+          "latency_median_seconds": 0.8280753674916923,
+          "latency_p95_seconds": 0.8534912739414722,
+          "routes": {
+            "journalist": {
+              "n": 59,
+              "correct": 54,
+              "false_positive": 5,
+              "false_negative": 0
+            },
+            "influencer": {
+              "n": 38,
+              "correct": 32,
+              "false_positive": 6,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 35,
+              "correct": 34,
+              "false_positive": 1,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 39,
+              "correct": 37,
+              "false_positive": 1,
+              "false_negative": 1
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 59,
+              "correct": 52
+            },
+            "emotion": {
+              "n": 7,
+              "correct": 7
+            },
+            "movement": {
+              "n": 2,
+              "correct": 0
+            },
+            "availability": {
+              "n": 2,
+              "correct": 2
+            }
+          }
+        },
+        "routing_changes": {
+          "journalist": 10,
+          "influencer": 6,
+          "scout": 3,
+          "insider": 5
+        }
+      }
+    }
+  },
+  "final": {
+    "pairs": 100,
+    "calls": 200,
+    "errors": 0,
+    "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+    "concurrency": 1,
+    "order": "alternating paired",
+    "cohorts": {
+      "synthetic": 28,
+      "previously_reviewed_production": 72
+    },
+    "label_caution": "assistant-provisional development labels; not held-out or human gold",
+    "routing_policy": {
+      "baseline": "headline-routing-v2",
+      "candidate": "headline-routing-v3-identity",
+      "thresholds_changed": false
+    },
+    "metrics": {
+      "all": {
+        "baseline": {
+          "successful": 100,
+          "native_token_n": 100,
+          "native_token_sum": 180648,
+          "native_token_median": 1792.0,
+          "latency_median_seconds": 0.6681183240143582,
+          "latency_p95_seconds": 0.7556509068235755,
+          "routes": {
+            "journalist": {
+              "n": 87,
+              "correct": 66,
+              "false_positive": 20,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 66,
+              "correct": 54,
+              "false_positive": 12,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 63,
+              "correct": 60,
+              "false_positive": 3,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 67,
+              "correct": 62,
+              "false_positive": 1,
+              "false_negative": 4
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 87,
+              "correct": 63
+            },
+            "emotion": {
+              "n": 35,
+              "correct": 32
+            },
+            "movement": {
+              "n": 30,
+              "correct": 28
+            },
+            "availability": {
+              "n": 30,
+              "correct": 26
+            }
+          }
+        },
+        "candidate": {
+          "successful": 100,
+          "native_token_n": 100,
+          "native_token_sum": 214204,
+          "native_token_median": 2163.0,
+          "latency_median_seconds": 0.8282195500796661,
+          "latency_p95_seconds": 0.858407111139968,
+          "routes": {
+            "journalist": {
+              "n": 87,
+              "correct": 78,
+              "false_positive": 8,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 66,
+              "correct": 56,
+              "false_positive": 10,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 63,
+              "correct": 62,
+              "false_positive": 1,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 67,
+              "correct": 63,
+              "false_positive": 1,
+              "false_negative": 3
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 87,
+              "correct": 74
+            },
+            "emotion": {
+              "n": 35,
+              "correct": 34
+            },
+            "movement": {
+              "n": 30,
+              "correct": 28
+            },
+            "availability": {
+              "n": 30,
+              "correct": 28
+            }
+          }
+        },
+        "routing_changes": {
+          "journalist": 14,
+          "influencer": 7,
+          "scout": 3,
+          "insider": 5
+        }
+      },
+      "synthetic": {
+        "baseline": {
+          "successful": 28,
+          "native_token_n": 28,
+          "native_token_sum": 49168,
+          "native_token_median": 1786.0,
+          "latency_median_seconds": 0.6625266915652901,
+          "latency_p95_seconds": 0.6678236329462379,
+          "routes": {
+            "journalist": {
+              "n": 28,
+              "correct": 20,
+              "false_positive": 7,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 28,
+              "correct": 23,
+              "false_positive": 5,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 28,
+              "correct": 28,
+              "false_positive": 0,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 28,
+              "correct": 26,
+              "false_positive": 0,
+              "false_negative": 2
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 28,
+              "correct": 19
+            },
+            "emotion": {
+              "n": 28,
+              "correct": 26
+            },
+            "movement": {
+              "n": 28,
+              "correct": 28
+            },
+            "availability": {
+              "n": 28,
+              "correct": 24
+            }
+          }
+        },
+        "candidate": {
+          "successful": 28,
+          "native_token_n": 28,
+          "native_token_sum": 58016,
+          "native_token_median": 2099.0,
+          "latency_median_seconds": 0.7953916760161519,
+          "latency_p95_seconds": 0.8267912769224495,
+          "routes": {
+            "journalist": {
+              "n": 28,
+              "correct": 24,
+              "false_positive": 3,
+              "false_negative": 1
+            },
+            "influencer": {
+              "n": 28,
+              "correct": 24,
+              "false_positive": 4,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 28,
+              "correct": 28,
+              "false_positive": 0,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 28,
+              "correct": 26,
+              "false_positive": 0,
+              "false_negative": 2
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 28,
+              "correct": 22
+            },
+            "emotion": {
+              "n": 28,
+              "correct": 27
+            },
+            "movement": {
+              "n": 28,
+              "correct": 28
+            },
+            "availability": {
+              "n": 28,
+              "correct": 26
+            }
+          }
+        },
+        "routing_changes": {
+          "journalist": 4,
+          "influencer": 1
+        }
+      },
+      "production": {
+        "baseline": {
+          "successful": 72,
+          "native_token_n": 72,
+          "native_token_sum": 131480,
+          "native_token_median": 1800.0,
+          "latency_median_seconds": 0.6697363939601928,
+          "latency_p95_seconds": 0.7573706340044737,
+          "routes": {
+            "journalist": {
+              "n": 59,
+              "correct": 46,
+              "false_positive": 13,
+              "false_negative": 0
+            },
+            "influencer": {
+              "n": 38,
+              "correct": 31,
+              "false_positive": 7,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 35,
+              "correct": 32,
+              "false_positive": 3,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 39,
+              "correct": 36,
+              "false_positive": 1,
+              "false_negative": 2
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 59,
+              "correct": 44
+            },
+            "emotion": {
+              "n": 7,
+              "correct": 6
+            },
+            "movement": {
+              "n": 2,
+              "correct": 0
+            },
+            "availability": {
+              "n": 2,
+              "correct": 2
+            }
+          }
+        },
+        "candidate": {
+          "successful": 72,
+          "native_token_n": 72,
+          "native_token_sum": 156188,
+          "native_token_median": 2181.0,
+          "latency_median_seconds": 0.8291667919838801,
+          "latency_p95_seconds": 0.8578517001587898,
+          "routes": {
+            "journalist": {
+              "n": 59,
+              "correct": 54,
+              "false_positive": 5,
+              "false_negative": 0
+            },
+            "influencer": {
+              "n": 38,
+              "correct": 32,
+              "false_positive": 6,
+              "false_negative": 0
+            },
+            "insider": {
+              "n": 35,
+              "correct": 34,
+              "false_positive": 1,
+              "false_negative": 0
+            },
+            "scout": {
+              "n": 39,
+              "correct": 37,
+              "false_positive": 1,
+              "false_negative": 1
+            }
+          },
+          "criteria_at_50": {
+            "subject": {
+              "n": 59,
+              "correct": 52
+            },
+            "emotion": {
+              "n": 7,
+              "correct": 7
+            },
+            "movement": {
+              "n": 2,
+              "correct": 0
+            },
+            "availability": {
+              "n": 2,
+              "correct": 2
+            }
+          }
+        },
+        "routing_changes": {
+          "journalist": 10,
+          "influencer": 6,
+          "scout": 3,
+          "insider": 5
+        }
+      }
+    }
+  },
+  "error_review": {
+    "route_transitions": {
+      "journalist": {
+        "evaluated": 87,
+        "fixed": 12,
+        "regressed": 0,
+        "remaining_wrong": 9
+      },
+      "influencer": {
+        "evaluated": 66,
+        "fixed": 2,
+        "regressed": 0,
+        "remaining_wrong": 10
+      },
+      "insider": {
+        "evaluated": 63,
+        "fixed": 2,
+        "regressed": 0,
+        "remaining_wrong": 1
+      },
+      "scout": {
+        "evaluated": 67,
+        "fixed": 1,
+        "regressed": 0,
+        "remaining_wrong": 4
+      }
+    },
+    "native_score_deltas": {
+      "subject": {
+        "n": 100,
+        "mean_score_delta": -4.403315057700747,
+        "median_score_delta": 0.022550762957152415,
+        "min": -86.88807404930591,
+        "max": 38.421821652656355
+      },
+      "emotion": {
+        "n": 100,
+        "mean_score_delta": -0.7657412014290311,
+        "median_score_delta": -0.10232639560763812,
+        "min": -48.6631666497596,
+        "max": 39.666606412250005
+      },
+      "movement": {
+        "n": 100,
+        "mean_score_delta": -1.4581729789733644,
+        "median_score_delta": -0.03897522732042159,
+        "min": -40.52904117981248,
+        "max": 28.527204720859444
+      },
+      "availability": {
+        "n": 100,
+        "mean_score_delta": 3.4039606077004114,
+        "median_score_delta": 0.8000837787614863,
+        "min": -14.260233559766906,
+        "max": 87.50085738955943
+      }
+    },
+    "identity_guard": {
+      "blocked": 2,
+      "admitted_by_score_alone": 2
+    },
+    "remaining_production_admission_flags": {
+      "withheld_development_or_target_link": 4,
+      "listing_or_advice_without_reported_development": 1
+    },
+    "synthetic_errors": [
+      {
+        "case": "synthetic-stream",
+        "incorrect_routes": [
+          "journalist"
+        ],
+        "candidate_scores": {
+          "availability": 29.974435575254425,
+          "emotion": 0.5923050868826906,
+          "movement": 0.22146599328569708,
+          "subject": 79.81632725067153
+        }
+      },
+      {
+        "case": "synthetic-empty-revelation",
+        "incorrect_routes": [
+          "journalist",
+          "influencer"
+        ],
+        "candidate_scores": {
+          "availability": 30.26116196034151,
+          "emotion": 42.57012862938738,
+          "movement": 16.184387443601693,
+          "subject": 98.75672719316472
+        }
+      },
+      {
+        "case": "synthetic-real-dramatic-result",
+        "incorrect_routes": [
+          "influencer"
+        ],
+        "candidate_scores": {
+          "availability": 9.352767004346065,
+          "emotion": 38.37786436661492,
+          "movement": 0.1801289496763996,
+          "subject": 99.79504447204091
+        }
+      },
+      {
+        "case": "synthetic-speaker",
+        "incorrect_routes": [
+          "influencer"
+        ],
+        "candidate_scores": {
+          "availability": 0.5900895260163495,
+          "emotion": 88.72989461196299,
+          "movement": 0.13678864820675374,
+          "subject": 98.04039151156788
+        }
+      },
+      {
+        "case": "synthetic-fitness-no-emotion",
+        "incorrect_routes": [
+          "influencer"
+        ],
+        "candidate_scores": {
+          "availability": 98.45732318465602,
+          "emotion": 28.34608988840097,
+          "movement": 5.661339711459607,
+          "subject": 97.01910996247027
+        }
+      },
+      {
+        "case": "synthetic-vague-reaction",
+        "incorrect_routes": [
+          "journalist"
+        ],
+        "candidate_scores": {
+          "availability": 24.337084022482657,
+          "emotion": 12.848049576891956,
+          "movement": 8.903841866605529,
+          "subject": 97.82232579231672
+        }
+      },
+      {
+        "case": "synthetic-replacement-club",
+        "incorrect_routes": [
+          "scout"
+        ],
+        "candidate_scores": {
+          "availability": 77.56117790521361,
+          "emotion": 2.9627927248321417,
+          "movement": 99.56307302914487,
+          "subject": 99.76174896681206
+        }
+      },
+      {
+        "case": "synthetic-roster-bridge",
+        "incorrect_routes": [
+          "journalist",
+          "scout"
+        ],
+        "candidate_scores": {
+          "availability": 90.00459994120301,
+          "emotion": 2.8284453860774694,
+          "movement": 2.102673343839736,
+          "subject": 31.8904052990249
+        }
+      }
+    ],
+    "revision2_other_criterion_scores_reproduced": 300,
+    "revision2_baseline_scores_reproduced": 400
+  }
+}

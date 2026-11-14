@@ -1,0 +1,22 @@
+{
+  "case": 7,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/recorded-context-cases/07-tampa-bay-buccaneers.json",
+  "generation_wall_ms": 5432,
+  "input_tokens": 953,
+  "name": "07-tampa-bay-buccaneers",
+  "output_limit": 3500,
+  "output_tokens": 59,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v57-recorded-context",
+  "reading": "Rare feat achieved by Mayfield and Buccaneers\n\nYahoo Sports reported that Baker Mayfield and the Tampa Bay Buccaneers achieved a rare feat not seen since 1974.",
+  "request_bytes": 3973,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 5447
+}

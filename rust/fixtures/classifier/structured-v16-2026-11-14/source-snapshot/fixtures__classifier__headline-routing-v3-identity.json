@@ -1,0 +1,24 @@
+{
+  "version": "headline-routing-v3-identity",
+  "admission": {
+    "subject": 55
+  },
+  "characters": {
+    "journalist": {
+      "subject": 55
+    },
+    "influencer": {
+      "subject": 55,
+      "emotion": 15
+    },
+    "insider": {
+      "subject": 55,
+      "movement": 80
+    },
+    "scout": {
+      "subject": 55,
+      "availability": 85
+    }
+  },
+  "note": "Same v2 score cutoffs and spam/type rules. Explicit conflicting personal-name suffixes additionally block admission and every character; native scores remain unchanged."
+}

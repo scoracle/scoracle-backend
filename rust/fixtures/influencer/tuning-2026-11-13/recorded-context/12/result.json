@@ -1,0 +1,22 @@
+{
+  "case": 12,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/recorded-context-cases/12-baker-mayfield.json",
+  "generation_wall_ms": 13634,
+  "input_tokens": 1301,
+  "name": "12-baker-mayfield",
+  "output_limit": 3500,
+  "output_tokens": 166,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v57-recorded-context",
+  "reading": "Mixed reactions: Mayfield's historic no-pass loss criticized as horrific yet framed as a win for Tampa Bay\n\nYahoo Sports headlines frame Baker Mayfield's performance against the Atlanta Falcons as a 'horrific' no-pass loss that mirrors 1974 infamy, suggesting a deeply negative reaction to his zero completions. Conversely, the Tampa Bay Buccaneers' official press conference features Mayfield stating 'Whatever It Takes to Win,' indicating a determined, positive internal mood despite the statistical failure.\n\nSky Sports reports on a separate game where the Kansas City Chiefs 'implode,' noting that while Baker Mayfield set a remarkable stat, the overall context implies a chaotic and negative atmosphere for the opposing team.",
+  "request_bytes": 5245,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 13648
+}

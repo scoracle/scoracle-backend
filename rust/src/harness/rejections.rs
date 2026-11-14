@@ -87,7 +87,30 @@ pub fn observe_content() -> bool {
     if let Ok(observe) = TEST_OBSERVE.try_with(|value| *value) {
         return observe;
     }
-    std::env::var("CHARACTER_CONTENT_POLICY").as_deref() == Ok("observe")
+    observation_active(
+        std::env::var("CHARACTER_CONTENT_POLICY").ok().as_deref(),
+        std::env::var("CHARACTER_CONTENT_OBSERVE_UNTIL").ok().as_deref(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(u64::MAX, |elapsed| elapsed.as_secs()),
+    )
+}
+
+fn observation_active(policy: Option<&str>, until: Option<&str>, now: u64) -> bool {
+    policy == Some("observe")
+        && until.map_or(true, |deadline| {
+            deadline.parse::<u64>().is_ok_and(|deadline| now < deadline)
+        })
+}
+
+#[test]
+fn observation_deadline_restores_strict_validation() {
+    assert!(observation_active(Some("observe"), Some("100"), 99));
+    assert!(!observation_active(Some("observe"), Some("100"), 100));
+    assert!(!observation_active(Some("observe"), Some("100"), 101));
+    assert!(!observation_active(Some("observe"), Some("invalid"), 99));
+    assert!(!observation_active(None, Some("100"), 99));
+    assert!(observation_active(Some("observe"), None, 99));
 }
 
 /// An observed validation failure is retained even when the candidate may publish.

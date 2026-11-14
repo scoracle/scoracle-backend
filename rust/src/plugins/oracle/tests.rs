@@ -185,7 +185,7 @@ async fn finished_cards_get_one_model_call_and_no_memory() {
     let prompt: serde_json::Value = serde_json::from_str(&model.calls.lock().unwrap()[0]).unwrap();
     assert!(prompt.get("memories").is_none());
     assert_eq!(
-        prompt["new_content"]["insider"]["body"],
+        prompt["evidence"]["insider"]["body"],
         "A source reports Northbridge FC are pursuing Vale."
     );
 }

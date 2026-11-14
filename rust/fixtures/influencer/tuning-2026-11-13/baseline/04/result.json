@@ -1,0 +1,22 @@
+{
+  "case": 4,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/cases/04-arsenal.json",
+  "generation_wall_ms": 18546,
+  "input_tokens": 1836,
+  "name": "04-arsenal",
+  "output_limit": 3500,
+  "output_tokens": 226,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v54-target-task-evidence",
+  "reading": "Fans and pundits alike express overwhelming pride and shock at Arsenal's historic defensive dominance and stunning upset victory.\n\nThe prevailing mood across the coverage is one of intense excitement, pride, and admiration for Arsenal's performance and personnel. Jamie Carragher expressed deep awe, calling the team the best defensive unit in world football and naming a star the best player in the Premier League. Arteta offered specific praise for his defenders Gabriel and Konsa, while the club paid a touching tribute to Jesus de Miguel following his tragic death, highlighting a moment of solemn respect amidst the noise.\n\nThe team's recent success has generated a sense of shock and disbelief, particularly regarding their upset against a tiny fourth-tier club and their rise to the top of the table alongside Manchester City. This seismic shift has left fans and opponents alike red-faced, with Fleetwood reveling in the shock after Max Dowman saw red. The emotional charge is overwhelmingly positive, driven by the belief in the squad's quality and the sheer magnitude of their achievement.",
+  "request_bytes": 7742,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 18565
+}

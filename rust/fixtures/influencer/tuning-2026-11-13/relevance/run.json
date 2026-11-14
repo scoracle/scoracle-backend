@@ -1,0 +1,16 @@
+{
+  "base_url": "http://127.0.0.1:8081",
+  "concurrency": 1,
+  "context": 10000,
+  "database_access": false,
+  "fixtures": [
+    "fixtures/influencer/tuning-2026-11-13/relevance-cases/01-charlotte-hornets.json"
+  ],
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "publishes": false,
+  "qualification": "first-pass fixture outputs; human review required",
+  "retries": 0,
+  "shared_server": true,
+  "started_epoch": 1794667991,
+  "thinking": false
+}

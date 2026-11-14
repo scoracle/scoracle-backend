@@ -1,16 +1,5 @@
 //! Load, select and present Classifier headlines for the daily package.
 
-const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
-    relationship: "new_content contains the articles you may use as evidence. Their text identifies who acts, speaks or is discussed; the target is not automatically the actor or speaker. Keep names, actions, numbers, units, dates and qualifications with their original subjects. Preserve conditions, denials and corrections. Repeated claims are not independent confirmation. Target attributes are background, not evidence for a news story. Headlines found through a Google search for the target may include unrelated stories, repeated coverage, speculation and clickbait. Search inclusion does not establish relevance or confirm a claim. Some articles match the target but reveal no news. Keep specific news, opinions and reactions. Do not invent the missing details or turn a question or implication into a fact. Look for recurring themes supported by distinct reports. Repeated copies are not independent support. Keep unrelated stories separate; do not force a narrative from thin evidence.",
-    fields: &[
-        ("id", "article number within this request; cite it in report_ids."),
-        ("publisher", "outlet supplying this article. Name it when citing the story; it is not necessarily the speaker or original source named in the text."),
-        ("headline", "article title, not the full article. Use only what it states; do not guess omitted details or identify unnamed people."),
-        ("publisher_excerpt", "supplied passage."),
-        ("evidence_scope", "available text only; headline supplies no unseen article contents."),
-    ],
-};
-
 use super::request::{assemble, prompt, Assignment, Disposition, NARRATIVES_PROMPT_VERSION};
 use crate::tools::meta::EntityMeta;
 use crate::tools::source::SourceContext;
@@ -49,7 +38,6 @@ pub(super) struct Report<'a> {
     /// A request-local writing slot, not a durable source identity.
     id: usize,
     publisher: &'a str,
-    evidence_scope: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     headline: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -93,15 +81,6 @@ pub(super) fn reports(reports: &[CorpusItem]) -> Vec<Report<'_>> {
                 .as_ref()
                 .is_none_or(|w| w["evidence_scope"] != "headline")
                 .then(|| crate::tools::fetch::decode_entities(&report.context)),
-            evidence_scope: if report
-                .classifier_world
-                .as_ref()
-                .is_some_and(|world| world["evidence_scope"] == "headline")
-            {
-                "headline"
-            } else {
-                "publisher_excerpt"
-            },
         })
         .collect()
 }
@@ -233,11 +212,4 @@ pub async fn load_narratives_material(
         assignment,
         sources,
     })
-}
-
-pub(super) fn context(reports: &[CorpusItem]) -> crate::tools::prompt::Context<Vec<Report<'_>>> {
-    crate::tools::prompt::Context {
-        guide: GUIDE,
-        data: self::reports(reports),
-    }
 }

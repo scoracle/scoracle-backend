@@ -1926,9 +1926,9 @@ mod tests {
             let request = task.assemble(&parts).unwrap();
             let packet: serde_json::Value = serde_json::from_str(&request.user_prompt).unwrap();
             let reports = if task_name == "narratives" {
-                &packet["new_content"]
+                &packet["evidence"]
             } else {
-                &packet["new_content"]["reports"]
+                &packet["evidence"]["reports"]
             };
             let headlines: Vec<_> = reports
                 .as_array()
@@ -2008,16 +2008,19 @@ mod tests {
                         .system
                         .as_ref()
                         .is_some_and(|s| !s.is_empty()));
-                    assert_eq!(package.as_object().unwrap().len(), 3);
-                    assert!(package.get("tone").is_none());
-                    assert!(package["instructions"].get("tone").is_none());
-                    let job = package["instructions"]["task"].as_str().unwrap();
-                    assert!(!job.is_empty());
-                    assert!(!request.options.system.as_ref().unwrap().contains(job));
-                    for field in ["instructions", "target", "new_content"] {
-                        assert!(package.get(field).is_some(), "{name}: missing {field}");
+                    let fields = ["task", "target_context", "target", "evidence_context", "evidence"];
+                    let positions: Vec<_> = fields.iter().map(|field| request.user_prompt.find(&format!("\n  \"{field}\":")).unwrap()).collect();
+                    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+                    assert_eq!(package.as_object().unwrap().len(), 5);
+                    assert!(package["task"].is_string());
+                    assert!(!request.options.system.as_ref().unwrap().contains(package["task"].as_str().unwrap()));
+                    if matches!(name, "narratives" | "vibe") {
+                        assert_eq!(package["target_context"], crate::tools::prompt::TARGET_CONTEXT);
+                        assert!(package["evidence_context"].is_string());
+                    } else {
+                        assert_eq!(package["target_context"][0], crate::tools::prompt::TARGET_CONTEXT);
+                        assert!(package["evidence_context"].is_array());
                     }
-                    assert!(request.user_prompt.starts_with("{\n  \"instructions\":"));
                     assert!(package["target"].get("task").is_none());
                 }
                 assert!(!fx.review.is_empty());

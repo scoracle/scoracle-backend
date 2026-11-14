@@ -1,0 +1,125 @@
+{
+  "method": "Single-run manual comparison against frozen evidence. Only approved target_context was added. Native transport reproduces baseline tokens exactly; Rust build/parser not verified because compiler stalled.",
+  "cases": [
+    {
+      "case": 1,
+      "name": "Charlotte Hornets",
+      "v58_score": 25,
+      "v59_score": 45,
+      "assessment": "Improved hook; issues remain",
+      "finding": "DAZN remains correct. Hook no longer makes fans recipients of criticism; score moves 25 to 45. Body still merges many threads into one five-sentence paragraph and accepts ambiguous Hornets coverage."
+    },
+    {
+      "case": 2,
+      "name": "Philadelphia Eagles",
+      "v58_score": 25,
+      "v59_score": 25,
+      "assessment": "Still fails",
+      "finding": "Body separates TV-seating frustration from team mood, but hook turns it into fans calling the season exhausting. Trade-idea disappointment is still assigned to the wrong object."
+    },
+    {
+      "case": 3,
+      "name": "Seattle Seahawks",
+      "v58_score": 25,
+      "v59_score": 25,
+      "assessment": "Mixed",
+      "finding": "Retains positive trade reaction and removes the garbled Troy Aikman moment phrasing. Still generalizes Bears Wire’s good/bad/ugly assessment to Seahawks mood, pools anthem wording, and adds one-fan specificity."
+    },
+    {
+      "case": 4,
+      "name": "Arsenal",
+      "v58_score": 65,
+      "v59_score": 65,
+      "assessment": "Mixed",
+      "finding": "Hook no longer asserts an upset win. But Arteta praise is assigned to ArsenalNews.co.uk instead of Flashscore.co.za, going level top becomes a top-of-table finish, and Mamdani remains the purported speaker of an editorial suggestion."
+    },
+    {
+      "case": 5,
+      "name": "Roma",
+      "v58_score": 45,
+      "v59_score": 45,
+      "assessment": "Improved hook; issue remains",
+      "finding": "Removes unsupported Roma-win hook and keeps anger/caution distinct. Adds unsupported temporal sequencing with later."
+    },
+    {
+      "case": 6,
+      "name": "Miami Heat",
+      "v58_score": 45,
+      "v59_score": 25,
+      "assessment": "Still fails",
+      "finding": "Still says Miami secured a win, reversing the Bucks-before-Miami headline. Outlet/speaker presentation improves from ESPN’s Bam Adebayo to ESPN noted that Bam Adebayo stated."
+    },
+    {
+      "case": 7,
+      "name": "Tampa Bay Buccaneers",
+      "v58_score": null,
+      "v59_score": null,
+      "assessment": "Stable acceptable",
+      "finding": "Retains correct abstention on statistics-only evidence."
+    },
+    {
+      "case": 8,
+      "name": "Chelsea",
+      "v58_score": 25,
+      "v59_score": 25,
+      "assessment": "Still fails",
+      "finding": "Still asserts Manchester United’s victory and Chelsea’s broader struggles while the misery belongs to Manchester United."
+    },
+    {
+      "case": 9,
+      "name": "Luka Doncic",
+      "v58_score": 75,
+      "v59_score": 50,
+      "assessment": "Mixed",
+      "finding": "Restores the omitted MVP-ranking frustration, but reverts 75 to 50 despite predominantly positive coverage and invents Lakers fans as praise-givers. The headline MVP fumes is awkward and imprecise."
+    },
+    {
+      "case": 10,
+      "name": "Jayson Tatum",
+      "v58_score": null,
+      "v59_score": null,
+      "assessment": "Stable acceptable",
+      "finding": "Retains abstention instead of inventing celebratory feelings from statistics."
+    },
+    {
+      "case": 11,
+      "name": "Dak Prescott",
+      "v58_score": 25,
+      "v59_score": 25,
+      "assessment": "Stable with caveat",
+      "finding": "Keeps negative score 25 and a supported main hook. Reintroduces coach specificity and retains shouting, neither established by the supplied packet."
+    },
+    {
+      "case": 12,
+      "name": "Baker Mayfield",
+      "v58_score": 45,
+      "v59_score": 25,
+      "assessment": "Still fails",
+      "finding": "Still transfers Falcons’ horrific-loss framing and Chiefs’ implosion into Mayfield’s reading. Assigns his quote to the publishing team/organization and still calls it Mayfield’s no-pass loss."
+    },
+    {
+      "case": 13,
+      "name": "Virgil van Dijk",
+      "v58_score": 25,
+      "v59_score": 25,
+      "assessment": "Stable acceptable",
+      "finding": "Preserves single-source disappointment and score 25."
+    },
+    {
+      "case": 14,
+      "name": "Gessime Yassine",
+      "v58_score": 75,
+      "v59_score": 75,
+      "assessment": "Stable acceptable",
+      "finding": "Preserves narrowly attributed positive publisher framing and score 75 without invented feelings."
+    },
+    {
+      "case": 15,
+      "name": "Vit Krejci",
+      "v58_score": null,
+      "v59_score": null,
+      "assessment": "Stable acceptable",
+      "finding": "Retains correct abstention on playing-time statistics."
+    }
+  ]
+}

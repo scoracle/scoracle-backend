@@ -1,0 +1,22 @@
+{
+  "case": 1,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/01-charlotte-hornets.json",
+  "generation_wall_ms": 33640,
+  "input_tokens": 1917,
+  "name": "01-charlotte-hornets",
+  "output_limit": 3500,
+  "output_tokens": 214,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "reading": "Mixed reactions: Fan optimism clashes with blowout losses and roster concerns.\n\nWBTV reports that Charlotte Hornets fans are optimistic for the new season, hoping for playoff basketball. FOX Carolina News highlights the emotional press conference regarding Muggsy Bogues' upcoming jersey retirement, while DZN notes early excitement following LaMelo Ball's trade. The State Hornet celebrates a strong start with a 40-point victory where new faces turned heads.\n\nConversely, AP News describes a sellout crowd booing the team after a 128-81 blowout loss to the Hawks in the first game without LaMelo Ball. Yahoo Sports headlines indicate a 27-turnover collapse, a blunt message from Coby White, and questions over Naz Reid's shocking benching. Multiple outlets express concern that the Hornets look lost without LaMelo Ball and desperately need injured players Kon Knueppel and Coby White back.",
+  "request_bytes": 8061,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 33655
+}

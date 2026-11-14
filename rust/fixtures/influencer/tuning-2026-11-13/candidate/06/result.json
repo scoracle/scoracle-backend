@@ -1,0 +1,22 @@
+{
+  "case": 6,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/06-miami-heat.json",
+  "generation_wall_ms": 20424,
+  "input_tokens": 1940,
+  "name": "06-miami-heat",
+  "output_limit": 3500,
+  "output_tokens": 186,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "reading": "Heat face criticism from fans, coaches, and players amid winless start\n\nYahoo Sports headlines suggest a volatile atmosphere, with Bucks fans expressing anger toward both Giannis Antetokounmpo and the Heat following a win before Miami, while also questioning if the team should panic so early in the season. Other outlets report significant internal criticism, including Stan Van Gundy calling the Heat a 'mediocre team' since the Big Three era and Erik Spoelstra admitting he needs to do 'a better job' amid a disappointing 2-5 start. Players are also reacting to the struggles; Bam Adebayo stated critics make him the 'scapegoat' for the winless start, while Miami Herald notes Giannis is confident the team can turn things around despite acknowledging many things need figuring out.",
+  "request_bytes": 8096,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 20440
+}

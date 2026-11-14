@@ -1,7 +1,9 @@
-//! Shared instructions → target → new_content assembly.
+//! Shared task → target_context → target → evidence_context → evidence assembly.
 //! Context modules own their data and interpretation rules; adapters own transport/schema.
 use serde::Serialize;
 use serde_json::Value;
+
+pub const TARGET_CONTEXT: &str = "The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.";
 
 #[derive(Serialize)]
 pub struct Instructions {
@@ -59,6 +61,17 @@ impl Guide {
         }));
         lines
     }
+
+    fn prose(&self, value: &Value) -> Vec<&str> {
+        std::iter::once(self.relationship)
+            .filter(|text| !text.is_empty())
+            .chain(
+                self.fields
+                    .iter()
+                    .filter_map(|(path, meaning)| supplied(value, path).then_some(*meaning)),
+            )
+            .collect()
+    }
 }
 
 pub fn assemble(
@@ -67,32 +80,67 @@ pub fn assemble(
     new_content: Context<impl Serialize>,
 ) -> String {
     #[derive(Serialize)]
-    struct ReadingInstructions<'a> {
-        task: &'a str,
-        target: Vec<String>,
-        new_content: Vec<String>,
-    }
-    #[derive(Serialize)]
     struct Payload<'a, T, F> {
-        instructions: ReadingInstructions<'a>,
+        task: &'a str,
+        target_context: Vec<String>,
         target: T,
-        new_content: F,
+        evidence_context: Vec<String>,
+        evidence: F,
     }
-    let guide = ReadingInstructions {
-        task: instructions.job(),
-        target: target
-            .guide
-            .lines(&serde_json::to_value(&target.data).expect("target serializes")),
-        new_content: new_content
-            .guide
-            .lines(&serde_json::to_value(&new_content.data).expect("content serializes")),
-    };
+    let mut target_context = vec![TARGET_CONTEXT.to_owned()];
+    target_context.extend(target.guide.lines(&serde_json::to_value(&target.data).expect("target serializes")));
     serde_json::to_string_pretty(&Payload {
-        instructions: guide,
+        task: instructions.job(),
+        target_context,
         target: target.data,
-        new_content: new_content.data,
+        evidence_context: new_content.guide.lines(&serde_json::to_value(&new_content.data).expect("content serializes")),
+        evidence: new_content.data,
     })
     .expect("character payload serializes")
+}
+
+/// A plain-language rendering for native decision models with a string state.
+/// Quoted field values keep source text from introducing extra section labels.
+pub fn assemble_brief(
+    instructions: &Instructions,
+    target: Context<impl Serialize>,
+    new_content: Context<impl Serialize>,
+) -> String {
+    let target_data = serde_json::to_value(&target.data).expect("target serializes");
+    let content_data = serde_json::to_value(&new_content.data).expect("content serializes");
+    let mut lines = vec!["Instructions".to_owned(), instructions.job().to_owned()];
+    lines.extend(
+        target
+            .guide
+            .prose(&target_data)
+            .into_iter()
+            .map(str::to_owned),
+    );
+    lines.extend(
+        new_content
+            .guide
+            .prose(&content_data)
+            .into_iter()
+            .map(str::to_owned),
+    );
+    lines.push(format!("\nTarget context\n{TARGET_CONTEXT}"));
+    for (heading, data) in [
+        ("Target", target_data),
+        ("Headline to evaluate", content_data),
+    ] {
+        lines.push(format!("\n{heading}"));
+        for (key, value) in data.as_object().expect("brief context is a field map") {
+            let label = key.replace('_', " ");
+            let mut letters = label.chars();
+            let label = format!(
+                "{}{}",
+                letters.next().unwrap().to_uppercase(),
+                letters.as_str()
+            );
+            lines.push(format!("{label}: {value}"));
+        }
+    }
+    lines.join("\n")
 }
 
 // Historical receipts retain the previous envelope; validation reads either layout.
@@ -100,28 +148,7 @@ pub(crate) fn target(packet: &Value) -> &Value {
     packet.get("target").unwrap_or(&packet["meta"])
 }
 pub(crate) fn new_content(packet: &Value) -> &Value {
-    packet.get("new_content").unwrap_or(&packet["fresh"])
-}
-
-/// The decision adapter uses the same context ownership with its native questions protocol.
-pub fn decision(
-    subject: &str,
-    context: Context<Value>,
-    mut questions: Value,
-) -> anyhow::Result<Value> {
-    use anyhow::Context as _;
-    let guide = context.guide.lines(&context.data).join("\n");
-    for question in questions.as_object_mut().context("questions")?.values_mut() {
-        question["instructions"] = serde_json::json!(format!(
-            "{} {}",
-            guide,
-            question["instructions"]
-                .as_str()
-                .context("instructions")?
-                .replace("{subject}", subject)
-        ));
-    }
-    Ok(serde_json::json!({"state":context.data,"questions":questions}))
+    packet.get("evidence").or_else(|| packet.get("new_content")).unwrap_or(&packet["fresh"])
 }
 
 #[cfg(test)]
@@ -187,33 +214,24 @@ mod tests {
             },
         );
         let packet: Value = serde_json::from_str(&prompt).unwrap();
-        assert!(prompt.starts_with("{\n  \"instructions\":"));
-        assert!(
-            prompt.find("\n  \"instructions\":").unwrap() < prompt.find("\n  \"target\":").unwrap()
-        );
-        assert!(
-            prompt.find("\n  \"target\":").unwrap() < prompt.find("\n  \"new_content\":").unwrap()
-        );
-        assert_eq!(
-            packet["instructions"]["task"],
-            "Summarize supplied reporting. Be measured."
-        );
-        assert_eq!(prompt.matches("Be measured.").count(), 1);
-        assert!(!INSTRUCTIONS.system().contains(INSTRUCTIONS.task));
-        assert_eq!(packet.as_object().unwrap().len(), 3);
+        let fields = ["task", "target_context", "target", "evidence_context", "evidence"];
+        let positions: Vec<_> = fields.iter().map(|field| prompt.find(&format!("\n  \"{field}\":")).unwrap()).collect();
+        assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+        assert_eq!(packet.as_object().unwrap().len(), 5);
+        assert_eq!(packet["task"], INSTRUCTIONS.job());
         assert_eq!(packet["target"], target);
-        assert_eq!(packet["new_content"], evidence);
-        assert_eq!(
-            packet["instructions"]["target"],
-            json!([
-                "The supplied organization is the target.",
-                "custom_attribute: Plugin-specific flag."
-            ])
-        );
-        assert_eq!(
-            packet["instructions"]["new_content"],
-            json!(["Reports about the target.", "count: report count."])
-        );
+        assert_eq!(packet["evidence"], evidence);
+        assert_eq!(packet["target_context"], json!([TARGET_CONTEXT, "The supplied organization is the target.", "custom_attribute: Plugin-specific flag."]));
+        assert_eq!(packet["evidence_context"], json!(["Reports about the target.", "count: report count."]));
+    }
+
+    #[test]
+    fn evidence_reader_accepts_current_and_historical_packets() {
+        for key in ["evidence", "new_content", "fresh"] {
+            let packet = json!({key: {"value": 7}});
+            assert_eq!(new_content(&packet), &json!({"value": 7}));
+        }
+        assert_eq!(new_content(&json!({"evidence": 1, "new_content": 2, "fresh": 3})), &json!(1));
     }
 
     #[test]
@@ -258,7 +276,7 @@ mod tests {
             } else {
                 assert!(packet["target"].get("attributes").is_none());
             }
-            assert_eq!(packet["new_content"], evidence);
+            assert_eq!(packet["evidence"], evidence);
             assert!(packet["target"].get("target").is_none());
         }
     }

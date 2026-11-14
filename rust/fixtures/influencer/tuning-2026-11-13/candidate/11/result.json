@@ -1,0 +1,22 @@
+{
+  "case": 11,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/11-dak-prescott.json",
+  "generation_wall_ms": 13237,
+  "input_tokens": 1355,
+  "name": "11-dak-prescott",
+  "output_limit": 3500,
+  "output_tokens": 156,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "reading": "Fans livid, Prescott calls loss toughest\n\nYahoo Sports reports that Cowboys fans are livid, expressing anger with phrases like 'Shut Up' and 'Stop Taking Bullets for Him' after Dak Prescott shielded Brian Schottenheimer following an overtime loss to the Cardinals.\n\nIn contrast, the official Dallas Cowboys site notes that Dak Prescott himself described the loss to the Cardinals as 'one of the toughest' in his career, reflecting a personal sense of difficulty rather than fan outrage.\n\nFOX Sports highlights a positive on-field moment where Dak Prescott scrambled for a five-yard touchdown run, extending the Cowboys' lead over the Cardinals during the game.",
+  "request_bytes": 5849,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 13257
+}

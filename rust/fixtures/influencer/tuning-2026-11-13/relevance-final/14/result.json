@@ -1,0 +1,22 @@
+{
+  "case": 14,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/relevance-cases/14-gessime-yassine.json",
+  "generation_wall_ms": 6134,
+  "input_tokens": 1223,
+  "name": "14-gessime-yassine",
+  "output_limit": 3500,
+  "output_tokens": 59,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v60-target-relevance",
+  "reading": "Pan Africa Football: Yassine dominates Strasbourg win\n\nPan Africa Football reported that Gessime Yassine dominated during Strasbourg's lopsided Ligue 1 victory.",
+  "request_bytes": 5311,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 6148
+}

@@ -1,0 +1,22 @@
+{
+  "case": 9,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/relevance-cases/09-luka-doncic.json",
+  "generation_wall_ms": 11222,
+  "input_tokens": 1715,
+  "name": "09-luka-doncic",
+  "output_limit": 3500,
+  "output_tokens": 150,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v60-target-relevance",
+  "reading": "Mixed praise for Dončić's defense and MVP standings.\n\nThe New York Times and Yahoo Sports reported that JJ Redick and Lakers fans praised Luka Dončić's defense, with Redick describing the team's performance as living on a 'spaceship' and the moment feeling like a 'supernova.' Conversely, Yahoo Sports also noted that fans expressed frustration ('fumed') after Dončić still trailed Victor Wembanyama in the MVP race.\n\nHeavy.com highlighted that the Raptors coach praised Dončić for destroying their game plan, while Dončić himself touted his improved defense and drew praise from both the Lakers and Raptors.",
+  "request_bytes": 7004,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 11237
+}

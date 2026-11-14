@@ -1,0 +1,123 @@
+{
+  "name": "11-dak-prescott",
+  "task": "narratives",
+  "prompt_version": "n144-target-context",
+  "system": "",
+  "temperature": 0.0,
+  "user_prompt": "{\n  \"target\": {\n    \"name\": \"Dak Prescott\",\n    \"entity_type\": \"player\",\n    \"sport\": \"American football\",\n    \"recorded_attributes\": {\n      \"position\": \"QB\",\n      \"team_on_record\": {\n        \"name\": \"Dallas Cowboys\",\n        \"observed_on\": \"2026-10-23\"\n      }\n    }\n  },\n  \"task\": {\n    \"assignment\": \"Faithfully summarize the reported news about the target. Your subject is the target. Gate relevancy: only include evidence relevant to the target. Omit unrelated material. If evidence is sparse, one sentence of output is acceptable. If evidence is excessive, report only the most prominent storylines. Keep paragraphs brief: do not exceed three-to-four concise sentences when evidence supports it. Name your sources. \\n    \\nFinish by writing one engaging, factual hook of 140 characters or fewer recaping your findings.\",\n    \"rules\": [\n      \"Write the paragraphs first and the headline last.\",\n      \"The target will not always be the subject of the evidence. Include a concrete claim when it directly involves the target. Keep who said or did what, and preserve whether the headline reports an opinion, a plan, or something that already happened.\",\n      \"Always note the target's relationship to other entities mentioned. If the relationship is unclear, do not guess or speculate.\",\n      \"Omit questionable or unrelated evidence. Omit clickbait. Omit vague claims. Default to caution when determining if evidence is relevant.\",\n      \"Keep each paragraph about one developing story. Combine articles only when they describe the same development. Keep disagreements attributed.\",\n      \"Copy quotes accurately and preserve who said them. Use the source wording when paraphrasing would change its meaning.\",\n      \"Do not answer a question that the evidence provides. Do not infer motives, feelings, causes, timing or consequences. Do not include repeated claims. Do not include background attributes. Do not include missing-detail commentary.\",\n      \"Provide reliable coverage. Do not take reporting risks. Never fill in gaps. Never speculate on unknowns. Never invent details.\",\n      \"Return only {\\\"paragraphs\\\":[{\\\"body\\\":\\\"Short paragraph naming the publisher\\\",\\\"report_ids\\\":[1]}],\\\"headline\\\":\\\"One hook for the whole recap\\\"}. Each paragraph cites only its supporting article IDs. Use at most one paragraph per supplied article and 1200 characters per paragraph. Check every paragraph against its own cited articles; the hook may use only those same articles. If none supports a recap, return {\\\"paragraphs\\\":[],\\\"headline\\\":null}. No extra keys or commentary.\"\n    ]\n  },\n  \"content_context\": \"These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.\",\n  \"new_content\": [\n    {\n      \"id\": 1,\n      \"publisher\": \"Dallas Cowboys | Official Site of the Dallas Cowboys\",\n      \"headline\": \"Dak Prescott calls loss to Cardinals ‘one of the toughest’ in his career\"\n    },\n    {\n      \"id\": 2,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"‘Shut Up,’ ‘Stop Taking Bullets for Him’ — Cowboys Fans Livid as Dak Prescott Shields Brian Schottenheimer After OT Loss vs. Cardinals\"\n    },\n    {\n      \"id\": 3,\n      \"publisher\": \"FOX Sports\",\n      \"headline\": \"Dak Prescott scrambles for five-yard TD run, extending Cowboys' lead over Cardinals | NFL Highlights\"\n    }\n  ]\n}",
+  "parts": {
+    "subject": {
+      "name": "Dak Prescott",
+      "sport": "NFL",
+      "entity_id": 25,
+      "entity_type": "player"
+    },
+    "database_record": {
+      "position": "QB",
+      "affiliation_on_record": {
+        "team": "Dallas Cowboys",
+        "source": "roster",
+        "observed_at": "2026-10-23"
+      }
+    },
+    "reports": [
+      {
+        "id": 1448565,
+        "title": "‘Shut Up,’ ‘Stop Taking Bullets for Him’ — Cowboys Fans Livid as Dak Prescott Shields Brian Schottenheimer After OT Loss vs. Cardinals",
+        "context": "‘Shut Up,’ ‘Stop Taking Bullets for Him’ — Cowboys Fans Livid as Dak Prescott Shields Brian Schottenheimer After OT Loss vs. Cardinals",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793580404,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxPeXMyS2JPWWU5TVdOa1VEaDNGMUhNX2NMUTU0RHdCbjUzY2RHYi1GWnBBdEljUWt1UE9jNmhLWGRFTDNFNVlwS1pFNWRZUTE2b2g0MHFQU0V4T3F1eE5iYXljSE8tQ01jR3Z4XzZfbEhyMzZyV09JNG1yMnB3TUNtOVVOMA?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 58.06497779837079,
+            "subject": 99.55169429974576,
+            "movement": 2.484934206608002,
+            "availability": 2.9888960486697984
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1467376,
+        "title": "Dak Prescott calls loss to Cardinals ‘one of the toughest’ in his career",
+        "context": "Dak Prescott calls loss to Cardinals ‘one of the toughest’ in his career",
+        "source": "Dallas Cowboys | Official Site of the Dallas Cowboys",
+        "published_at_epoch": 1793580176,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMiqAFBVV95cUxNOEFJNDNpeDUyR0tLNkowOGVTbnI5TXdfZV84Y0NyeHdZQVBGcy1xVm96TVBVb2ZicFNLNUlGOG0zUGxfNzh6YnN6dU5yX2dmZ0ZoT2syVDNnUWVLa2hadDcyN3RoclZCejltLVEtemVUdGk5ekxxdXQ2VHZWdFgtTndxOGt3RzU2LU9qQVhFbTIyVlRRQ3BkTFNSNkFQeGZrSkItT1RyaVQ?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 48.29232380073805,
+            "subject": 99.77900577002552,
+            "movement": 0.11850992230887032,
+            "availability": 0.4152485784002298
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      },
+      {
+        "id": 1448555,
+        "title": "Dak Prescott scrambles for five-yard TD run, extending Cowboys' lead over Cardinals | NFL Highlights",
+        "context": "Dak Prescott scrambles for five-yard TD run, extending Cowboys' lead over Cardinals | NFL Highlights",
+        "source": "FOX Sports",
+        "published_at_epoch": 1793565211,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMibkFVX3lxTE9FeDg5NHZOamw3ZzlLZ1d0bDZGLWlONGducFdGcGFrX1JBd0F6ejI1VnpNWENaLThLR243eEFya0ZocVg0bVlVa2JQV1VmLUppOUV4dHozLWdhc1hZRW5GaFlyZHFFa1piQURURkl3?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 17.075740827962566,
+            "subject": 99.51497088185796,
+            "movement": 0.1017380351463623,
+            "availability": 0.22941935624285312
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "expect": {},
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ]
+}

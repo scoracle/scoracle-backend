@@ -1,0 +1,15 @@
+{
+  "baseline": "fixtures/classifier/concise-v14-2026-11-14/results.jsonl",
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "cases": 15,
+  "teams": 8,
+  "players": 7,
+  "unchanged_attribute_values_verified": true,
+  "task_first_intermediate_run": false,
+  "production_writes": false,
+  "retries": 0,
+  "errors": [],
+  "tests_passed": 413,
+  "tests_ignored": 75,
+  "case_sha256": "db796738dc485eae3385776f7ca4f47909af81688dc5203c0b163a615153ee13"
+}

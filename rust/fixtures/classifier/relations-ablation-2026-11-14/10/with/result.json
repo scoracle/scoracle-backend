@@ -1,0 +1,99 @@
+{
+  "admitted": false,
+  "expected": {},
+  "gate": {
+    "admitted": false,
+    "characters": {
+      "influencer": false,
+      "insider": false,
+      "journalist": false,
+      "scout": false
+    },
+    "coverage": "complete",
+    "reason": null,
+    "routing_version": "headline-routing-v3-identity",
+    "scope": "headline"
+  },
+  "id": "10-jayson-tatum",
+  "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+  "receipt": {
+    "criteria_version": "classification-criteria-v17-shared-relations",
+    "elapsed_ms": 824,
+    "endpoint": "http://127.0.0.1:28081",
+    "request": {
+      "questions": {
+        "availability": {
+          "instructions": "Does the headline report whether Jayson Tatum, the NBA player can participate because of injury, illness, fitness, suspension, eligibility, rest or return? For a team, include its own personnel. Uncertainty and denials can qualify; performance, playing time, tactical choices and transfers alone do not.",
+          "type": "noul"
+        },
+        "emotion": {
+          "instructions": "Does the headline express a feeling or judgment about Jayson Tatum, the NBA player, or the target’s feelings about its own situation? Keep the emotion with its speaker and subject. A result, statistic or dramatic wording alone is insufficient.",
+          "type": "noul"
+        },
+        "movement": {
+          "instructions": "Does the headline report a personnel or contract development involving Jayson Tatum, the NBA player—a transfer, trade, loan, signing, departure, contract discussion or coaching change? Include reported rumours and denials, and a team’s own personnel moves. Exclude historical moves and hypothetical trade advice.",
+          "type": "noul"
+        },
+        "subject": {
+          "instructions": "Does the headline state a concrete development directly involving Jayson Tatum, the NBA player? Results, attributed opinions, reported rumours and denials can qualify. Incidental mentions, historical comparisons, listings, predictions and teasers that withhold the development do not.",
+          "type": "noul"
+        }
+      },
+      "state": "{\n  \"task\": {\n    \"assignment\": \"You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.\",\n    \"rules\": [\n      \"Identify who is speaking, who is acting and who is affected. The target may be any of these, but a name appearing in the headline does not establish relevance.\",\n      \"Keep each claim with the entity it concerns. Another person's feelings, move or injury do not automatically belong to the target.\",\n      \"Use recorded attributes to understand identity and relationships, not as evidence of a new event. Preserve uncertainty and do not guess missing relationships or details.\"\n    ]\n  },\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Jayson Tatum\",\n    \"entity_type\": \"player\",\n    \"sport\": \"NBA\",\n    \"recorded_attributes\": {\n      \"nationality\": \"USA\",\n      \"position\": \"forward\",\n      \"team_on_record\": {\n        \"name\": \"Boston Celtics\",\n        \"observed_on\": \"2026-07-04\"\n      }\n    }\n  },\n  \"evidence_context\": \"This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.\",\n  \"evidence\": {\n    \"headline\": \"Nets still haunted by 2013 Celtics trade that led to Jayson Tatum\",\n    \"publisher\": \"Yahoo Sports\"\n  }\n}"
+    },
+    "request_version": "classifier-brief-v8-shared-relations",
+    "response": {
+      "answers": {
+        "availability": {
+          "noul": 0.026867784779071265,
+          "type": "noul"
+        },
+        "emotion": {
+          "noul": 0.4365936547565422,
+          "type": "noul"
+        },
+        "movement": {
+          "noul": 0.8144364927681271,
+          "type": "noul"
+        },
+        "subject": {
+          "noul": 0.44314099752168046,
+          "type": "noul"
+        }
+      },
+      "model": "vllm-sr/d3-2b-Q8_0@sha256:47d85eed4b76e2613d2b1496f6a106841fc605638f96acf46ef54ad1a9f45707",
+      "usage": {
+        "input_tokens": 2222,
+        "output_tokens": 0
+      }
+    },
+    "subject_meta": {
+      "database_record": {
+        "affiliation_on_record": {
+          "observed_at": "2026-07-04",
+          "source": "roster",
+          "team": "Boston Celtics"
+        },
+        "nationality": "USA",
+        "position": "F"
+      },
+      "identity": {
+        "entity_id": 434,
+        "entity_type": "player",
+        "name": "Jayson Tatum",
+        "sport": "NBA"
+      },
+      "identity_record": "Recorded attributes: {\"nationality\": \"USA\", \"position\": \"forward\", \"team_on_record\": {\"name\": \"Boston Celtics\", \"observed_on\": \"2026-07-04\"}}",
+      "named_people": []
+    }
+  },
+  "request_hash": "24bf3a1da65d94d1ae1e9926e748675aa90132782eba14e1c2e940a64f64ae41",
+  "seconds": 0.8247725,
+  "spectrum": {
+    "availability": 2.6867784779071266,
+    "emotion": 43.65936547565422,
+    "movement": 81.4436492768127,
+    "subject": 44.31409975216805
+  },
+  "sport": "NBA"
+}

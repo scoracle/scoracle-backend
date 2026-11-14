@@ -1,0 +1,80 @@
+First-pass fixture outputs. Status records mechanical checks, not factual quality.
+Model: Qwen3.5-4B-Q4_K_M. Shared server; one request at a time; no retries or publication.
+
+1 — vibe / 01-charlotte-hornets [accepted]
+Mixed reactions: Fan optimism clashes with blowout losses and roster concerns.
+
+WBTV reports that Charlotte Hornets fans are optimistic for the new season, hoping for playoff basketball. FOX Carolina News highlights the emotional press conference regarding Muggsy Bogues' upcoming jersey retirement, while DZN notes early excitement following LaMelo Ball's trade. The State Hornet celebrates a strong start with a 40-point victory where new faces turned heads.
+
+Conversely, AP News describes a sellout crowd booing the team after a 128-81 blowout loss to the Hawks in the first game without LaMelo Ball. Yahoo Sports headlines indicate a 27-turnover collapse, a blunt message from Coby White, and questions over Naz Reid's shocking benching. Multiple outlets express concern that the Hornets look lost without LaMelo Ball and desperately need injured players Kon Knueppel and Coby White back.
+
+2 — vibe / 02-philadelphia-eagles [accepted]
+NFL furious over Eagles' Hurts messaging amid season turmoil
+
+Multiple outlets, including NBC Sports and the New York Post, report that the NFL is 'furious' regarding the Philadelphia Eagles' handling of Jalen Hurts' blood clot messaging. Meanwhile, local coverage from The Morning Call and NBC Sports Philadelphia describes the team's situation as a 'pile of misery' with only 'tiny encouraging blips' amidst a 'season from hell'.
+
+3 — vibe / 03-seattle-seahawks [error]
+llama.cpp Qwen3.5-4B-Q4_K_M: output incomplete or context truncated ("limit"): llama.cpp Qwen3.5-4B-Q4_K_M: output incomplete or context truncated ("limit")
+
+4 — vibe / 04-arsenal [accepted]
+Mixed reactions: shock at Dowman incident, praise for Carragher and Arteta
+
+The Guardian reported that Arsenal and manager Arteta were left 'red-faced' following a fracas involving Max Dowman, while another headline noted Fleetwood fans revelled in the 'seismic' shock of the result. Conversely, Jamie Carragher expressed being 'flabbergasted' to name an Arsenal star as the best player in the Premier League, and Arteta also heaped praise on defenders Gabriel and Konsa after the team reached the top of the table.
+
+5 — vibe / 05-roma [accepted]
+Mixed reactions: Allegri furious, Gasperini sees hope in goals
+
+Yahoo Sports headlines depict a volatile atmosphere, with manager Allegri expressing anger and questioning his presence on the touchline following a 3-3 draw against Napoli. Conversely, other outlets like Hooligan Soccer and ESPN Singapore offer mixed perspectives, with one opining the result was a 'Roma Gift' while another struggles to determine if Manchester United were good or Roma were bad.
+
+Coach Gasperini provides a more measured outlook, noting that while Roma feel they dropped two points in the draw, the high number of goals scored is a positive signal for the team's performance.
+
+6 — vibe / 06-miami-heat [accepted]
+Heat face criticism from fans, coaches, and players amid winless start
+
+Yahoo Sports headlines suggest a volatile atmosphere, with Bucks fans expressing anger toward both Giannis Antetokounmpo and the Heat following a win before Miami, while also questioning if the team should panic so early in the season. Other outlets report significant internal criticism, including Stan Van Gundy calling the Heat a 'mediocre team' since the Big Three era and Erik Spoelstra admitting he needs to do 'a better job' amid a disappointing 2-5 start. Players are also reacting to the struggles; Bam Adebayo stated critics make him the 'scapegoat' for the winless start, while Miami Herald notes Giannis is confident the team can turn things around despite acknowledging many things need figuring out.
+
+7 — vibe / 07-tampa-bay-buccaneers [accepted]
+empty reading
+
+8 — vibe / 08-chelsea [accepted]
+Mixed reactions: Alonso praises backup and Lavia, but concerns persist over Acheampong and recent losses.
+
+Yahoo Sports reports that Xabi Alonso praised Chelsea's backup squad following Manchester United's victory, framing the move as a significant injury boost. Conversely, TribalFootball and FootballTransfers.com highlight concerns over Josh Acheampong's future and criticize the club for squandering talent, while Soccer News notes Alonso's positive assessment of midfielder Lavia's form. HeraldLIVE adds context by noting Chelsea's continued struggles, describing their recent performance as adding more misery to Manchester United's tally.
+
+9 — vibe / 09-luka-doncic [accepted]
+Mixed praise for defense and MVP standings
+
+Multiple outlets, including The New York Times and Yahoo Sports, highlighted Luka Doncic's defensive performance, with headlines praising his 'awesome defense' and noting his ability to destroy opponents' game plans. Other sources, such as Bleacher Report and Yahoo Sports, used enthusiastic metaphors to describe his impact, comparing the Lakers' success to living on a spaceship and his presence to a supernova.
+
+Conversely, Yahoo Sports also reported on fan frustration regarding the MVP race, noting that fans are 'fuming' after Doncic trails Victor Wembanyama. Despite this criticism, other coverage from ESPN and the Sun Herald focused on his improved defense and the positive atmosphere surrounding his historic achievements.
+
+10 — vibe / 10-jayson-tatum [accepted]
+empty reading
+
+11 — vibe / 11-dak-prescott [accepted]
+Fans livid, Prescott calls loss toughest
+
+Yahoo Sports reports that Cowboys fans are livid, expressing anger with phrases like 'Shut Up' and 'Stop Taking Bullets for Him' after Dak Prescott shielded Brian Schottenheimer following an overtime loss to the Cardinals.
+
+In contrast, the official Dallas Cowboys site notes that Dak Prescott himself described the loss to the Cardinals as 'one of the toughest' in his career, reflecting a personal sense of difficulty rather than fan outrage.
+
+FOX Sports highlights a positive on-field moment where Dak Prescott scrambled for a five-yard touchdown run, extending the Cowboys' lead over the Cardinals during the game.
+
+12 — vibe / 12-baker-mayfield [accepted]
+Mixed: Historic zero-completion game vs. defiant 'whatever it takes' attitude
+
+Yahoo Sports headlines frame Baker Mayfield's zero-completion performance against the Atlanta Falcons as a historic anomaly, comparing it to the 1974 infamy and describing the loss as 'horrific.' Despite the statistical record, the Tampa Bay Buccaneers' official press conference headline indicates Mayfield's resolve with the statement, 'Whatever It Takes to Win.'
+
+Sky Sports highlights a different narrative, noting that while Mayfield set a remarkable stat, the Kansas City Chiefs 'implode' against Denver, suggesting the broader context of the game was a collapse rather than a singular player achievement.
+
+13 — vibe / 13-virgil-van-dijk [accepted]
+Van Dijk disappointed after Arsenal loss
+
+Liverpool FC reported that Virgil van Dijk expressed being 'Very disappointed' regarding the team's defeat by Arsenal.
+
+14 — vibe / 14-gessime-yassine [accepted]
+empty reading
+
+15 — vibe / 15-vit-krejci [accepted]
+empty reading
+

@@ -1,0 +1,22 @@
+{
+  "version": "classification-criteria-v12-newsworthy",
+  "questions": {
+    "subject": {
+      "type": "noul",
+      "instructions": "Does the headline contain newsworthy reporting about {subject}? Newsworthy means a substantive development, result, decision, statement or reported situation directly concerning this specific target, with enough information to identify what is being reported. Concrete results, attributed opinions, reported rumours and denials can qualify. Match the target's sport, competition and team category when supplied. An explicitly involved opponent or directly affected club qualifies. Mere name recognition, an incidental mention, a former affiliation or a historical comparison alone does not qualify. A historical comparison does not disqualify reporting that also directly concerns the target now. Reject unrelated reporting and teasers that withhold the actual development. Dramatic wording alone does not disqualify substantive reporting. Judge the supplied headline without assuming facts from the full article."
+    },
+    "emotion": {
+      "type": "noul",
+      "instructions": "Does the headline explicitly express emotional charge concerning {subject}? Include feelings, emotional reactions, personal praise and criticism. Identify whose reaction it is and which entity it concerns. The target may be the object of someone else's reaction. A speaker discussing another entity does not make that reaction concern the speaker. Do not infer emotion from a win, loss, ranking, prediction, job uncertainty, injury status or contract possibility alone. Metaphors about future talks or opportunities alone supply no emotional reaction."
+    },
+    "movement": {
+      "type": "noul",
+      "instructions": "Does the headline report current or proposed transfers, trades, loans, signings, departures, contract discussions, extensions or coaching changes involving {subject}? Include an agent discussing possible future contract talks, rumours and denials. Exclude historical affiliation, fantasy trades, tactical choices, playing-time competition and medical clearance to return."
+    },
+    "availability": {
+      "type": "noul",
+      "instructions": "Does the headline report a current or upcoming participation issue affecting {subject}, including that target's players or personnel where applicable? Include injury, illness, fitness, suspension, eligibility, rest, absence, exclusion or return. Explicit denials of injury and uncertain fitness or returns count as participation reporting. Include an owner's ban from attending the team's arena. Exclude historical injuries, general safety concerns without a participation issue, tactical or starting-lineup choices, and transfers or contract changes without a participation issue."
+    }
+  },
+  "note": "Unqualified candidate. subject now measures newsworthiness for the specific target and still feeds admission and Journalist. emotion includes explicit criticism. movement retains transfers, contracts and coaching changes. Native keys and headline-routing-v2 thresholds are preserved. Prior relevance labels require review before use as newsworthiness labels."
+}

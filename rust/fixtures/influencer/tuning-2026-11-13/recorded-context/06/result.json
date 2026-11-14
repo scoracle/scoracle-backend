@@ -1,0 +1,22 @@
+{
+  "case": 6,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/recorded-context-cases/06-miami-heat.json",
+  "generation_wall_ms": 14613,
+  "input_tokens": 1425,
+  "name": "06-miami-heat",
+  "output_limit": 3500,
+  "output_tokens": 130,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v57-recorded-context",
+  "reading": "Heat face criticism and self-doubt amid winless start\n\nYahoo Sports reported that Bucks fans expressed anger, calling the situation \"CRAZY\" after the team won before Miami. ESPN's Bam Adebayo stated that critics make him the scapegoat for the team's winless start, while ClutchPoints noted coach Erik Spoelstra admitted he needs to do a better job amid a disappointing 2-5 record. CBS Sports highlighted that Heat player Davion Mitchell continues to excel despite the team's struggles.",
+  "request_bytes": 5604,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 14629
+}

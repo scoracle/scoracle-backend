@@ -1,0 +1,22 @@
+{
+  "case": 11,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/recorded-context-cases/11-dak-prescott.json",
+  "generation_wall_ms": 8277,
+  "input_tokens": 1065,
+  "name": "11-dak-prescott",
+  "output_limit": 3500,
+  "output_tokens": 114,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v57-recorded-context",
+  "reading": "Fans livid over Schottenheimer shield; Prescott calls loss toughest\n\nYahoo Sports reports that Cowboys fans are livid, shouting 'Shut Up' and 'Stop Taking Bullets for Him' as Dak Prescott shields head coach Brian Schottenheimer following an overtime loss to the Cardinals.\n\nIn contrast, the official Dallas Cowboys site notes that Dak Prescott himself described the loss to the Cardinals as 'one of the toughest' in his career.",
+  "request_bytes": 4405,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 8288
+}

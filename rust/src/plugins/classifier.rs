@@ -1,6 +1,7 @@
 //! Archived RSS headlines and their source-bound relevance spectra.
 pub mod adapter;
 pub mod character_instructions;
+pub mod request;
 pub mod decision;
 pub mod delivery;
 mod fresh;

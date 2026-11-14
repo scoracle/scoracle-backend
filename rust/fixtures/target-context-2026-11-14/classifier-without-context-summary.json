@@ -1,0 +1,1 @@
+{"brier":null,"completed":15,"concurrency":1,"criteria_version":"classification-criteria-v13-relations","failed":0,"labels":0,"mistakes_at_50_percent":0,"p95_seconds":0.941453,"request_version":"classifier-brief-v4-target-context","requests_per_second":1.1550184865040085,"seconds":12.986805125}

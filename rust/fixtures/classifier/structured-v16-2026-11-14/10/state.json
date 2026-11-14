@@ -1,0 +1,22 @@
+{
+  "task": "You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.",
+  "target_context": "The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.",
+  "target": {
+    "name": "Jayson Tatum",
+    "entity_type": "player",
+    "sport": "NBA",
+    "recorded_attributes": {
+      "nationality": "USA",
+      "position": "forward",
+      "team_on_record": {
+        "name": "Boston Celtics",
+        "observed_on": "2026-07-04"
+      }
+    }
+  },
+  "evidence_context": "This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.",
+  "evidence": {
+    "headline": "Nets still haunted by 2013 Celtics trade that led to Jayson Tatum",
+    "publisher": "Yahoo Sports"
+  }
+}

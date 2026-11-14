@@ -1,0 +1,22 @@
+{
+  "case": 12,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/relevance-cases/12-baker-mayfield.json",
+  "generation_wall_ms": 9844,
+  "input_tokens": 1552,
+  "name": "12-baker-mayfield",
+  "output_limit": 3500,
+  "output_tokens": 136,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v60-target-relevance",
+  "reading": "Mixed reactions: Yahoo Sports criticizes Mayfield's zero-completion game, while he vows to win regardless.\n\nYahoo Sports headlines frame Baker Mayfield's zero-completion performance against the Atlanta Falcons as a \"horrific\" loss and a reason to revisit NFL history, suggesting a critical tone regarding his play. Conversely, Sky Sports reports on a different game where Mayfield set a remarkable stat, while the Tampa Bay Buccaneers' official press conference features Mayfield stating, \"Whatever It Takes to Win,\" indicating a focused, determined attitude from the player himself.",
+  "request_bytes": 6567,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 9857
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "01-charlotte-hornets",
+    "rendered_context": "LaMelo Ball (player); recorded affiliation: this target (Charlotte Hornets), observed 2026-07-03"
+  },
+  {
+    "id": "02-philadelphia-eagles",
+    "rendered_context": "Jerry Jones (person)"
+  },
+  {
+    "id": "03-seattle-seahawks",
+    "rendered_context": "Troy Aikman (person)"
+  },
+  {
+    "id": "06-miami-heat",
+    "rendered_context": "Giannis Antetokounmpo (player); team on record: Milwaukee Bucks, observed 2026-07-03"
+  },
+  {
+    "id": "07-tampa-bay-buccaneers",
+    "rendered_context": "Baker Mayfield (player); recorded affiliation: this target (Tampa Bay Buccaneers), observed 2026-10-23"
+  },
+  {
+    "id": "08-chelsea",
+    "rendered_context": "Josh Acheampong (player); recorded affiliation: this target (Chelsea), observed 2026-07-03"
+  }
+]

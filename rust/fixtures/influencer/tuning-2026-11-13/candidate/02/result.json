@@ -1,0 +1,22 @@
+{
+  "case": 2,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/candidate-cases/02-philadelphia-eagles.json",
+  "generation_wall_ms": 14808,
+  "input_tokens": 1929,
+  "name": "02-philadelphia-eagles",
+  "output_limit": 3500,
+  "output_tokens": 114,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v55-valence-attribution",
+  "reading": "NFL furious over Eagles' Hurts messaging amid season turmoil\n\nMultiple outlets, including NBC Sports and the New York Post, report that the NFL is 'furious' regarding the Philadelphia Eagles' handling of Jalen Hurts' blood clot messaging. Meanwhile, local coverage from The Morning Call and NBC Sports Philadelphia describes the team's situation as a 'pile of misery' with only 'tiny encouraging blips' amidst a 'season from hell'.",
+  "request_bytes": 8098,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 14826
+}

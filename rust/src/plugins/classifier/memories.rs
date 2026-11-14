@@ -44,7 +44,7 @@ pub async fn load_on(
                 (s.source->>'published_at')::timestamptz AS published
             FROM classifier_spectra x JOIN classifier_sources s ON s.id=x.source_id CROSS JOIN clock c
             WHERE x.sport=$3 AND x.target->>'entity_type'=$1 AND x.target->>'entity_id'=$2::text
-                AND x.criteria_version IN ($7,'classification-criteria-v10-availability','classification-criteria-v9-headlines') AND s.source->>'evidence_scope'='headline'
+                AND x.criteria_version IN ($7,'classification-criteria-v12-newsworthy','classification-criteria-v11-targeted','classification-criteria-v10-availability','classification-criteria-v9-headlines') AND s.source->>'evidence_scope'='headline'
                 AND NOT (x.article_id=ANY($5)) AND x.created_at<=c.captured
             ORDER BY x.article_id,x.id DESC
         ), eligible AS (
@@ -337,11 +337,11 @@ mod tests {
             json!({"name":"New York Knicks","entity_type":"team","sport":"basketball"})
         );
         assert!(packet.get("voice").is_none());
-        assert!(packet.get("task").is_none());
-        assert_eq!(packet.as_object().unwrap().len(), 3);
+        assert!(packet["task"].is_string());
+        assert_eq!(packet.as_object().unwrap().len(), 5);
         assert!(packet.get("tone").is_none());
-        assert!(packet["new_content"]["reports"][0]
-            .get("publisher_text")
+        assert!(packet["evidence"]["reports"][0]
+            .get("publisher_excerpt")
             .is_none());
         let with_memories = Assignment::from_parts(parts.clone()).unwrap().input_hash;
         parts.memories.clear();
@@ -387,9 +387,11 @@ mod tests {
                 VALUES($1,$2,'NBA',$3,$4,$5,'rss-headline-spectrum-v1',$6,$7,$8,$9,$10,$11,to_timestamp(1792382459)) RETURNING id")
                 .bind(source_id).bind(id).bind(json!({"entity_type":"team","entity_id":20,"sport":"NBA"}))
                 // Mixed versions preserve pending deliveries and memories across model/prompt cutovers.
-                .bind(native.model).bind(match spectrum_ids.len() % 3 {
+                .bind(native.model).bind(match spectrum_ids.len() % 5 {
                     0 => super::super::decision::CRITERIA_VERSION,
-                    1 => "classification-criteria-v10-availability",
+                    1 => "classification-criteria-v12-newsworthy",
+                    2 => "classification-criteria-v11-targeted",
+                    3 => "classification-criteria-v10-availability",
                     _ => "classification-criteria-v9-headlines",
                 }).bind(headline).bind(super::super::hash(headline))
                 .bind(json!(native.spectrum)).bind(gate).bind(native.request_hash).bind(native.receipt).fetch_one(&mut *tx).await?;
@@ -453,9 +455,9 @@ mod tests {
         )?;
         let packet: Value =
             serde_json::from_str(&crate::plugins::journalist::request::prompt(&assignment))?;
-        assert_eq!(packet["new_content"].as_array().unwrap().len(), 2);
+        assert_eq!(packet["evidence"].as_array().unwrap().len(), 2);
         assert!(packet.get("memories").is_none());
-        for report in packet["new_content"].as_array().unwrap() {
+        for report in packet["evidence"].as_array().unwrap() {
             assert!(report.get("publisher_excerpt").is_none());
             assert!(fresh.iter().any(|s| report["headline"] == s.headline));
         }

@@ -1,0 +1,26 @@
+{
+  "task": "You will be given an entity and a headline found mentioning it. Your job is to look for a concrete development, emotion, personnel movement and participation issue involving that entity in the evidence.",
+  "target_context": "The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.",
+  "target": {
+    "name": "Seattle Seahawks",
+    "entity_type": "team",
+    "sport": "NFL",
+    "team_category": "unknown",
+    "recorded_attributes": {
+      "city": "Seattle",
+      "coach_on_record": {
+        "name": "Mike Macdonald",
+        "observed_at": "2026-09-30"
+      },
+      "conference": "NFC",
+      "country": "United States",
+      "division": "WEST",
+      "home_venue_on_record": "Lumen Field"
+    }
+  },
+  "evidence_context": "This is a headline collected from a publisher's news feed. The full article is not supplied. The publisher identifies the outlet, not necessarily the speaker or subject.",
+  "evidence": {
+    "headline": "‘Troy Aikman Looks Like He Hates Joe Buck,’ ‘I Can Feel the Tension’ — NFL Fans React to ESPN’s ‘Awkward’ Bears-Seahawks Broadcast",
+    "publisher": "Yahoo Sports"
+  }
+}

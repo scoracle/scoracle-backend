@@ -1,0 +1,22 @@
+{
+  "case": 12,
+  "checks": [],
+  "completion_reason": "eos",
+  "fixture": "fixtures/influencer/tuning-2026-11-13/cases/12-baker-mayfield.json",
+  "generation_wall_ms": 22037,
+  "input_tokens": 1650,
+  "name": "12-baker-mayfield",
+  "output_limit": 3500,
+  "output_tokens": 222,
+  "parsed": true,
+  "prompt_version": "vibe-frame-v54-target-task-evidence",
+  "reading": "Media frames Baker Mayfield's zero-completion loss as historic horror, though player remains defiant.\n\nYahoo Sports headlines frame Baker Mayfield's zero-completion performance against the Atlanta Falcons as a 'horrific' event mirroring a 1974 infamy, suggesting a tone of shock and historical comparison. Other Yahoo Sports reports describe the game as one of the 'strangest in NFL history' and note that Mayfield 'doesn't care' about the victory, implying a detached or indifferent attitude from the player himself. Conversely, Sky Sports headlines focus on the Buccaneers' overall 'implosion' rather than Mayfield's specific actions, while SB Nation highlights the 'remarkable' nature of the feat without explicit emotional judgment on the player's character. The Tampa Bay Buccaneers' own press conference headline frames the situation with determination, stating Mayfield's resolve is 'whatever it takes to win,' which contrasts with the external media's focus on the statistical anomaly and potential criticism.",
+  "request_bytes": 6995,
+  "review": [
+    "Use supplied evidence only; assess target relevance, attribution, score polarity, abstention and complete factual hook."
+  ],
+  "status": "accepted",
+  "task": "vibe",
+  "temperature": 0.0,
+  "wall_ms": 22055
+}

@@ -1,0 +1,62 @@
+{
+  "name": "07-tampa-bay-buccaneers",
+  "task": "narratives",
+  "prompt_version": "n145-task-first",
+  "system": "",
+  "temperature": 0.0,
+  "user_prompt": "{\n  \"task\": \"You will be given a sports-related entity and reporting found mentioning it. Your job is to find concrete developments involving that entity in the evidence and write a concise news recap.\",\n  \"target_context\": \"The target below is a sports-related entity, such as a team, player, coach, owner or agent, associated with European football, NFL football or NBA basketball. Its name, entity type and sport identify who the reading concerns. Recorded attributes provide additional background about its role, affiliations and relationships.\",\n  \"target\": {\n    \"name\": \"Tampa Bay Buccaneers\",\n    \"entity_type\": \"team\",\n    \"sport\": \"American football\",\n    \"recorded_attributes\": {\n      \"city\": \"Tampa Bay\",\n      \"conference\": \"NFC\",\n      \"country\": \"United States\",\n      \"division\": \"SOUTH\",\n      \"home_venue_on_record\": \"Raymond James Stadium\"\n    }\n  },\n  \"evidence_context\": \"These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.\",\n  \"evidence\": [\n    {\n      \"id\": 1,\n      \"publisher\": \"Yahoo Sports\",\n      \"headline\": \"Baker Mayfield, Buccaneers accomplish rare feat not seen since 1974\"\n    }\n  ]\n}",
+  "parts": {
+    "subject": {
+      "name": "Tampa Bay Buccaneers",
+      "sport": "NFL",
+      "entity_id": 28,
+      "entity_type": "team"
+    },
+    "database_record": {
+      "division": "SOUTH",
+      "location": {
+        "city": "Tampa Bay",
+        "venue": "Raymond James Stadium",
+        "country": "United States"
+      },
+      "conference": "NFC"
+    },
+    "reports": [
+      {
+        "id": 1447655,
+        "title": "Baker Mayfield, Buccaneers accomplish rare feat not seen since 1974",
+        "context": "Baker Mayfield, Buccaneers accomplish rare feat not seen since 1974",
+        "source": "Yahoo Sports",
+        "published_at_epoch": 1793578020,
+        "classifier_world": {
+          "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxQeThYSEM4aDlpTFZSaGVzVVZFYklKT0d6S3VLeXZoaHgwZUg0cGl3YmludWRqR2szTXpTeGFqc2U1VS1qQTVldTBTRV9BSzVzbFFnWnhldlRIZ3pjOWZHaUlSUGdBNG53N0VCeEhiSVppX2lCOGNOOXpKZDV0UE95clhaNTRVWGRoYldZTkVoSS05ZHFx?oc=5",
+          "gate": {
+            "scope": "headline",
+            "reason": null,
+            "admitted": true,
+            "coverage": "complete",
+            "characters": {
+              "scout": false,
+              "insider": false,
+              "influencer": true,
+              "journalist": true
+            },
+            "routing_version": "headline-routing-v2"
+          },
+          "spectrum": {
+            "emotion": 24.956992749501172,
+            "subject": 98.19100386747272,
+            "movement": 1.044835921579616,
+            "availability": 0.6377313050853883
+          },
+          "evidence_scope": "headline",
+          "target_identity_resolved": true
+        }
+      }
+    ]
+  },
+  "expect": {},
+  "review": [
+    "Check target/other-entity attribution, faithful uncertainty and source attribution; omit unrelated material."
+  ]
+}

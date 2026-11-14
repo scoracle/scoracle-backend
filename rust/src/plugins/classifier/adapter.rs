@@ -228,15 +228,8 @@ async fn validate_admission(
     );
     let mut accepted = false;
     let mut model = None;
-    let people = super::headline::named_people(
-        pool,
-        before.provenance["title"].as_str().context("headline")?,
-        &item.sport,
-    )
-    .await?;
     for (candidate, entry) in before.query_entities.iter().zip(retained) {
-        let mut meta = super::headline::subject_meta(pool, candidate).await?;
-        meta["named_people"] = people.clone();
+        let meta = super::headline::subject_meta(pool, candidate).await?;
         let target = json!({"entity_type":meta["identity"]["entity_type"],"entity_id":meta["identity"]["entity_id"],"sport":item.sport});
         ensure!(entry["target"] == target, "admission target changed");
         let measured = super::decision::Measurement::from_receipt(entry["measurement"].clone())?;

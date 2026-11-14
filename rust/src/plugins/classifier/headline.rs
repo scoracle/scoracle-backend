@@ -29,6 +29,7 @@ pub(super) async fn subject_meta(pool: &PgPool, candidate: &Value) -> Result<Val
 }
 
 /// Only people actually named in the headline; never a whole roster or query candidates.
+#[cfg(test)]
 pub(super) async fn named_people(pool: &PgPool, headline: &str, sport: &str) -> Result<Value> {
     Ok(sqlx::query_scalar(
         r#"WITH named AS (
@@ -70,10 +71,8 @@ pub(super) async fn measure(
         .bind(hash("")).bind(json!(before)).fetch_one(&mut **publication.transaction()).await?;
     publication.commit_progress().await?;
     let mut results = Vec::new();
-    let people = named_people(pool, title, &item.sport).await?;
     for candidate in &before.query_entities {
-        let mut meta = subject_meta(pool, candidate).await?;
-        meta["named_people"] = people.clone();
+        let meta = subject_meta(pool, candidate).await?;
         let target = json!({"entity_type":meta["identity"]["entity_type"],"entity_id":meta["identity"]["entity_id"],"sport":item.sport});
         let request = crate::plugins::classifier::request::request(
             title,

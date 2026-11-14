@@ -28,10 +28,24 @@ Successful character products remain in `insider_scores` / `news_summaries`, wit
 
 Mac rollback: restore the release directory's `rollback-run-worker.sh` to `/Users/scotty/scoracle-worker/run-worker.sh`, then signal its LaunchAgent with SIGINT for a graceful restart. Archbox rollback: stop the writer, remove only the `three-model-corpus.conf` drop-ins from the cognition and writer units, reload systemd user units, and restart cognition. The old binaries and unit snapshots are retained in the release directory; the original writer was inactive. Leave compatible migrations and all collected results intact. No Git push was performed.
 
-## Continuous corpus follow-up (activation pending approval)
+## Continuous corpus follow-up (initial preparation)
 
 The user requested immediate live outputs and Archbox Classifier with Mac Journalist/Influencer. Mac Influencer now uses the same compatible `2d052ea1` release and common observation deadline; its prior launcher is saved as `rollback-influencer-launcher.sh`. Insider continues on Archbox. New Mac Influencer startup was verified.
 
 Migration 333 prepares continuous-mode API views for Journalist, Influencer and Insider (including transfer rumors). When the existing coverage scheduler is enabled, its normal publication filters remain authoritative. When explicitly disabled, those views expose all retained rows and `published_edition()` returns NULL so default readers choose the latest reporting date. Prior definitions are saved privately in `rollback-live-views.sql`.
 
 Automatic approval review rejected the combined scheduler-disable and failed-job-reset action because it may cause duplicate/invalid reprocessing and required more specific authorization. It did not execute. The scheduler remains enabled in the November 4 character phase. An explicit approval question is pending for continuous mode and the 90 failed jobs (52 Journalist, 38 Influencer). No retry or schedule mutation was made. Raw queue state was retained privately before the proposed action. At the latest check, 49 new Insider outputs were stored.
+
+## Approved continuous activation and Insider pause
+
+The user explicitly approved continuous publication and the 90 retries, then asked to pause Insider pending its next prompt review. On November 14 at approximately 5:41 p.m. EST, coverage scheduling was disabled through its existing continuous-mode switch. The November 4 edition and its assignments remain retained. Exactly 52 failed Journalist and 38 failed Influencer queue rows were reset; Insider retries were excluded. The API views now expose retained products immediately. This scheduler setting remains in continuous mode until deliberately restored; it does not share the parser observation deadline.
+
+Insider's `scoracle-writer.service` was stopped cleanly and disabled to preserve the pause across restarts. Existing outputs and pending work were retained. Its prompt was not edited. Classifier remains on Archbox; Journalist and Influencer run separately on the Mac with one concurrent job each.
+
+The RSS monitor had a redundant `enabled AND coverage_collection_open()` condition that prevented collection in continuous mode. Commit `513647cc` removes only the redundant enabled check. `go test ./cmd/pipeline` passed, and the collector binary was built on Archbox and activated through `scoracle-coverage.service.d/continuous-corpus.conf`. Previous unit configuration is retained as `rollback-coverage-unit.txt`; remove that drop-in and reload/restart the collector to restore the previous binary.
+
+The RSS sweep restarted successfully. A bounded call to the existing `classifier_replay_admission(1000)` queued 1,000 retained headlines; it completed and committed. One coverage tick hit its bounded lock timeout during that batch; the queue subsequently progressed normally. Classifier successful executions were verified. Both Mac workers completed the retried jobs; completion can mean no remaining source work rather than a new generation.
+
+To resume Insider after review: deliberately enable/start `scoracle-writer.service`. Do not resume it merely to restore the other workers. Restoring daily scheduling requires reviewing the retained November 4 edition rather than assuming it finished while continuous mode was active.
+
+At approximately 5:43 p.m. EST, fresh production-visible outputs were verified through the API's qualified views: one Journalist n145 and two Influencer v61 products. Classifier had stored 29 v17 receipts at the preceding check, with over 1,800 queued jobs. Two initial Influencer execution errors were retained for retry/review: a `news_articles` row-lock conflict and `Classifier evidence or delivery changed during articulation`. These are concurrent source/publication errors, not content-quality parser rejections. No additional prompt tuning or guard changes were made.

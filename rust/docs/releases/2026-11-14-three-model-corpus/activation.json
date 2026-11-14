@@ -1,0 +1,13 @@
+{
+  "commit": "2d052ea1",
+  "activation_epoch": 1794694253,
+  "observe_until": 1794867053,
+  "observe_until_utc": "2026-11-16T22:10:53+00:00",
+  "checkpoint": "d2ee094c",
+  "library_tests_passed": 413,
+  "library_tests_ignored": 75,
+  "verified_insider_outputs": 11,
+  "verified_insider_prompt_receipts": 11,
+  "new_classifier_output_verified": false,
+  "new_journalist_output_verified": false
+}

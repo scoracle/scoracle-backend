@@ -758,7 +758,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// each entity's top narrative in the selected scope, ranked by impact.
 		// Supersedes the raw mention-count and standalone headlines boards.
 		// $1 sport · $2 limit · $3 entity_type · $4 scope
-		"narratives_leaderboard": `WITH req AS (
+		// Inline request filters so the planner does not repeatedly scan history for an estimated single entity.
+		"narratives_leaderboard": `WITH req AS NOT MATERIALIZED (
 			SELECT upper($1::text) AS sport,
 			       COALESCE($2::int, 50) AS lim,
 			       NULLIF(lower($3::text), '') AS entity_type,

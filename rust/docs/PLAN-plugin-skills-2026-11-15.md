@@ -1,6 +1,6 @@
 # Harness → plugins → skills
 
-Status: implemented on `codex/character-skills`; local validation complete, not deployed. Updated 2026-11-15.
+Status: deployed from `codex/character-skills` at `65ae6d500939`; startup, API and model smoke checks pass. Fresh end-to-end verification is pending RSS recovery; main is unchanged. See the [deployment receipt](plugin-skills-deployment-2026-11-15.md). Updated 2026-11-15.
 
 ## Objective and scope
 
@@ -192,4 +192,4 @@ The root/Rust READMEs, development guide, prompt ownership guide and operating/h
 
 Validation: 439 Rust unit tests, 74 disposable PostgreSQL integration/CLI tests, and Go auth/API/handler tests with race detection passed. The concurrent-refresh test forces both requests to wait on the same token row and verifies exactly one replacement. Temporary overlays of the old auth code fail both new security regressions as expected. The initial reused database run hit leftover fixture collisions; a fresh UTF-8 database passed the complete integration suite.
 
-[Live baseline comparison](qualification/2026-11-15-plugin-skills/BASELINE-COMPARISON.md): no fixture-level regressions from the plugin refactor. Prompt/parser quality remains separate work. Caretaker is inactive; this branch is not deployed.
+[Live baseline comparison](qualification/2026-11-15-plugin-skills/BASELINE-COMPARISON.md): no fixture-level regressions from the plugin refactor. Prompt/parser quality remains separate work. Caretaker is inactive. The subsequent deployment and its remaining end-to-end check are recorded in the [deployment receipt](plugin-skills-deployment-2026-11-15.md).

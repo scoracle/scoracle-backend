@@ -1,0 +1,48 @@
+# Plugin skills production deployment — 2026-11-15
+
+Runtime commit: `65ae6d500939`, branch `codex/character-skills`. Cutover completed at approximately 14:01 America/Detroit (19:01 UTC). The branch was pushed before deployment; main was not merged.
+
+## Scope and state
+
+Paused Archbox cognition, its restart watcher, collection, and both Mac Character launch agents before switching binaries. The API continued serving saved products during the build and restarted onto the release during cutover.
+
+Preserved the existing production scope and policies:
+
+- Archbox: Classifier skill and RSS collection; coverage controller remains configured, with the database schedule still disabled.
+- Mac: Journalist (`narratives`) and Influencer (`vibe`), each retaining its one-claim limit and existing model/context settings. The other four Character skills are present in the release but were not newly activated.
+- All workers register the three plugin owners. Caretaker has no enabled handlers. The 473 pending Investigator rows remain untouched and inactive.
+- Existing time-limited content observation policy and its original expiry (`1794867053`) were retained, not extended.
+- No schema migration, historical-data rewrite, queue reset, or prompt change occurred. Existing five failed Vibe jobs were not reset.
+
+The installed crontab contained no factsweep entry. Existing production backup-script customizations and the original source checkout were preserved.
+
+## Release locations
+
+Archbox used an isolated detached checkout at `/home/sheneveld/scoracle/releases/plugin-skills-65ae6d50`. Its `bin/` contains all seven release binaries built from the commit using the release script's isolated build mode. Production API, collection and cognition select those binaries through `zz-plugin-skills.conf` systemd drop-ins. The cognition base unit was updated to the supported task list; the existing classifier-only override remains effective.
+
+Mac release: `/Users/scotty/scoracle-worker/releases/plugin-skills-65ae6d50/`. Both launch-agent plists point to new launchers in that directory. The new launchers preserve the previous enabled skills, endpoints and observation policy. Logs remain at their established launch-agent destinations; decision receipts use the new release directory.
+
+Each release contains `binary-hashes.json` and a `rollback/` directory. Archbox hashes:
+
+| Binary | SHA-256 |
+| --- | --- |
+| API | `6b044f6781c20dca227c922d7e84606505a909b3e54f6d7936eac08b91874dbb` |
+| Collection | `5ff1d8fca0f8ff51a8a0500907e775fa16054d5be0a7815dbe03147d92a5ce30` |
+| Cognition | `466b0f0a114ea8253c569840e0b5b980a1a1ceb2f8df32b201b7814bb95009b9` |
+
+## Verification
+
+- Production schema preflight passed read-only.
+- API `/health/db` returned healthy/connected; `/` reported `65ae6d500939`.
+- Saved news endpoint returned HTTP 200; unauthenticated protected logout returned HTTP 401.
+- Archbox API, Classifier and collection services are active. Both Mac launch agents are running.
+- All three worker startup logs report `65ae6d500939`, database connection, the new plugin roster, and only their intended enabled skills. Both Character workers reached the existing Qwen server and subscribed to queue notifications.
+- Read-only fixture smoke tests against the existing model endpoints passed: one Classifier relations case, Journalist `distinct-developments`, and Influencer `clearly-positive`. These calls used fixture mode with an unreachable database URL and published nothing.
+
+**Remaining verification:** fresh RSS requests returned HTTP 503 throughout the initial observation window. No new Classifier/Character completions or generation-ledger rows were observed after cutover. Startup, serving and direct model paths are verified; a fresh collection → classification → Character publication cycle is not yet verified. Keep main unchanged until that cycle is observed or the collection problem is resolved. The RSS HTTP client code is unchanged from the preceding release commit; this alone does not establish the cause of the errors.
+
+## Rollback
+
+Pause the three processing workers and collection before rollback. On Archbox, remove only the new `zz-plugin-skills.conf` drop-ins for API, cognition and coverage, restore the saved cognition base unit from `rollback/`, reload systemd and restart the previously active services. The original release overrides and binaries remain available; the effective pre-cutover units were saved in `rollback/*.effective`.
+
+On Mac, boot out both launch agents, restore their saved plists from the release's `rollback/` directory, then bootstrap those plists. Their original launcher scripts and binaries were not changed. No schema rollback is required.

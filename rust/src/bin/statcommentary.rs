@@ -11,10 +11,10 @@ use scoracle_cognition::harness::models::Models;
 use scoracle_cognition::harness::providers::llama::LlamaClient;
 use scoracle_cognition::harness::queue::work;
 use scoracle_cognition::harness::route::Router;
-use scoracle_cognition::plugins::scout::request::{
+use scoracle_cognition::plugins::character::skills::scout::request::{
     build_rating_request, RatingBuild, RatingReq, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
 };
-use scoracle_cognition::plugins::scout::{
+use scoracle_cognition::plugins::character::skills::scout::{
     invoke_rating, rating_work_input_version, RatingOutput, RatingRunContext,
 };
 use scoracle_cognition::tools::meta;
@@ -102,8 +102,8 @@ async fn run_single(pool: &sqlx::PgPool, models: &Models, args: &Args) -> Result
         season: args.season,
         trigger_type: args.trigger.clone(),
     };
-    let capabilities =
-        models.capabilities(&scoracle_cognition::plugins::scout::manifest::MANIFEST)?;
+    let capabilities = models
+        .capabilities(&scoracle_cognition::plugins::character::skills::scout::manifest::MANIFEST)?;
     let context = if args.persist {
         RatingRunContext::PublishSingle {
             skip_unchanged: args.skip_unchanged,
@@ -245,7 +245,7 @@ async fn enqueue_peak_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -
             RatingBuild::Ready(r) => rating_work_input_version(r.season, Some(&r.input_hash)),
         };
     let rating = work::Item {
-        stage: scoracle_cognition::plugins::scout::manifest::TASK,
+        stage: scoracle_cognition::plugins::character::skills::scout::manifest::TASK,
         entity_type: t.entity_type.clone(),
         entity_id: i64::from(t.entity_id),
         sport: t.sport.clone(),
@@ -266,8 +266,8 @@ async fn run_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -> Result<
         season: Some(t.season),
         trigger_type: "periodic".to_string(),
     };
-    let capabilities =
-        models.capabilities(&scoracle_cognition::plugins::scout::manifest::MANIFEST)?;
+    let capabilities = models
+        .capabilities(&scoracle_cognition::plugins::character::skills::scout::manifest::MANIFEST)?;
     invoke_rating(
         pool,
         &capabilities,

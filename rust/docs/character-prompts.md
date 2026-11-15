@@ -1,16 +1,16 @@
 # Character prompt ownership
 
-Plugins own meaning and behavior. Shared code owns assembly and field-presence rules. Every context provider returns its data together with a guide explaining how that data relates to the target.
+Skills own meaning and behavior within their plugin. Shared code owns assembly and field-presence rules. Every context provider returns its data together with a guide explaining how that data relates to the target.
 
 | Change | Owner |
 | --- | --- |
-| Role, voice, requested product, output instructions | Plugin `character_instructions.rs` |
-| Which evidence is selected and how it relates to the target | Plugin `fresh.rs` |
+| Role, voice, requested product, output instructions | Skill `character_instructions.rs` |
+| Which evidence is selected and how it relates to the target | Skill `fresh.rs` |
 | Canonical identity and stored attributes | Shared `tools/meta.rs` |
-| Connecting context providers, schema, generation settings, version | Plugin `request.rs` |
+| Connecting context providers, schema, generation settings, version | Skill `request.rs` |
 | Ordering, conditional definitions, serialization | Shared `tools/prompt.rs` |
-| Output parsing and evidence checks | Plugin `parser.rs` and existing schema helpers |
-| Registration, execution, publication | Existing plugin manifest and runtime modules |
+| Output parsing and evidence checks | Skill `parser.rs` and existing schema helpers |
+| Registration, execution, publication | Plugin roster, skill manifest and harness runtime |
 
 Every entity-targeted model receives the same top-level order: `task → target_context → target → evidence_context → evidence`. The task is a short statement of the input and the job at hand. It is specific to the evidence actually supplied: reporting for Journalist, Influencer and Insider; measurements for Scout; dated readings for Analyst; perspective cards for Oracle; one headline for Classifier; a candidate Wikipedia summary for Investigator.
 
@@ -38,21 +38,21 @@ Relationship guidance is always included. Each `(field_path, meaning)` pair is i
 
 Keep the guide beside the evidence projection it describes. A renamed serialized field needs its guide path updated and a rendered fixture checked. Prose punctuation has no program semantics: the assembler no longer parses Markdown definitions.
 
-Use shared metadata when its identity semantics fit. A plugin can supply a different typed metadata component without changing the assembler. Both metadata and fresh components arrive prepared; the assembler has no database-record dependency and never loads or selects evidence. Keep the two component slots until an actual product needs another one.
+Use shared metadata when its identity semantics fit. A skill can supply a different typed metadata component without changing the assembler. Both metadata and fresh components arrive prepared; the assembler has no database-record dependency and never loads or selects evidence. Keep the two component slots until an actual product needs another one.
 
 Share a component or definition when its meaning is identical across consumers. Target/related-entity roles, publisher/speaker roles, stored affiliation/fresh reporting, event dates and target sample/comparison cohort must remain explicit. Avoid instructions that assume every target is a team or player. Read canonical identity and optional attributes from the payload.
 
 The shared sports-entity description lives in `tools/prompt.rs::TARGET_CONTEXT`. Journalist, Influencer, Analyst, Oracle, Insider, Scout, Classifier and Investigator all render it before their target identity. Classifier renders an ordered JSON brief inside its native string state: `task → target_context → target → evidence_context → evidence`. Its four scoring questions remain separate native questions. Investigator clarifies that it describes the sought entity, since the candidate Wikipedia page may concern another subject; its page evidence and verbatim-containment checks remain separate.
 
-Classifier’s overall task and all four scoring questions live in `plugins/classifier/character_instructions.rs`; `request.rs` assembles them with target and headline context. Criteria JSON files are historical snapshots, not runtime instruction sources. Response validation uses the same question keys. The v17 criteria and v8 task-first request retain identifying metadata and named-person context. Classifier loads the same structured database record and uses the same recorded-attribute formatter as Journalist. `recorded_attributes` is an object; legacy prose-only records are preserved under `background_note`.
+Classifier’s overall task and all four scoring questions live in `plugins/classifier/skills/classify/character_instructions.rs`; `request.rs` assembles them with target and headline context. Criteria JSON files are historical snapshots, not runtime instruction sources. Response validation uses the same question keys. The v17 criteria and v8 task-first request retain identifying metadata and named-person context. Classifier loads the same structured database record and uses the same recorded-attribute formatter as Journalist. `recorded_attributes` is an object; legacy prose-only records are preserved under `background_note`.
 
 The decision model uses the same context ownership convention but retains its native scoring questions and transport. It does not need a prose voice or a character output schema.
 
-## Add or tune a plugin
+## Add or tune a skill
 
-Use an existing character as an example. Define its instructions, return `Context<T>` from its evidence provider, and connect the providers through `request.rs` to `tools::prompt::assemble`. Implement its output schema/parser and register it through the existing manifest/runtime and evaluation task registration. No new registry, inheritance layer or template language is required.
+Use an existing character as an example. Define its instructions, return `Context<T>` from its evidence provider, and connect the providers through `request.rs` to `tools::prompt::assemble`. Implement its output schema/parser and add its manifest and constructor to the Character plugin, plus its evaluation task registration. No new registry, inheritance layer or template language is required.
 
-Keep selection and interpretation in code/text owned by that plugin. Keep reusable ranking, identity and presence rules in the existing shared helpers. The temporary ten-article cap applies to all article-consuming characters: Journalist (`subject`), Insider (`movement`), Influencer (`emotion`) and Scout (`availability`). Keep `tools::source::CHARACTER_ARTICLE_LIMIT` and SQL `headline_entity_cap()` aligned. Frozen-source exclusions retain auditable selection receipts; unserved sources must never be acknowledged as model-used. Analyst and Oracle consume structured evidence, and the decision model scores one article per request. Schema, request and parser must all refer to that same selected order.
+Keep selection and interpretation in code/text owned by that skill. Keep reusable ranking, identity and presence rules in the existing shared helpers. The temporary ten-article cap applies to all article-consuming characters: Journalist (`subject`), Insider (`movement`), Influencer (`emotion`) and Scout (`availability`). Keep `tools::source::CHARACTER_ARTICLE_LIMIT` and SQL `headline_entity_cap()` aligned. Frozen-source exclusions retain auditable selection receipts; unserved sources must never be acknowledged as model-used. Analyst and Oracle consume structured evidence, and the decision model scores one article per request. Schema, request and parser must all refer to that same selected order.
 
 Insider and Influencer use evidence-led paragraphs, not a total sentence count. Their existing `body` string preserves blank lines. Influencer writes the reading first, assigns one overall vibe score, then writes one hook; the score and hook describe the whole reading. Both retain a bounded 12,000-character body and reserve up to 3,500 output tokens for the ten-article packet. Those ceilings are safeguards, not length targets. Source/finding validation and the 140-character hook limit remain.
 
@@ -66,7 +66,7 @@ cargo run --offline --example character_package -- fixtures/quality/narratives/o
 
 This displays the exact system and user inputs, schema, options and should-call decision. Structured fixture parts rebuild through production assembly. Inspect the selected evidence, included guide, complete request, raw output and validation result together. Saved input hashes, prompt versions and native token receipts identify what actually ran.
 
-For structural changes, compare complete requests byte-for-byte and run `cargo test --offline --lib --examples --bin eval`. For instruction changes, update every affected plugin version (including consumers of a changed shared guide), regenerate affected fixtures and compare identical evidence using complete native input tokens and manual source review. Keep failed outputs and receipts. Parser acceptance alone does not establish factual correctness.
+For structural changes, compare complete requests byte-for-byte and run `cargo test --offline --lib --examples --bin eval`. For instruction changes, update every affected skill version (including consumers of a changed shared guide), regenerate affected fixtures and compare identical evidence using complete native input tokens and manual source review. Keep failed outputs and receipts. Parser acceptance alone does not establish factual correctness.
 
 The [direct-instructions trial](../fixtures/characters/direct-instructions-2026-11-02/README.md) records the plain Journalist, Insider and Influencer briefs, numeric Journalist citations, and its single-hook recap contract. The [clear-payload trial](../fixtures/characters/clear-payload-2026-11-02/README.md) records the preceding formatting comparison and three-character replay. The [context-component trial](../fixtures/characters/context-components-2026-11-02/README.md) records the preceding structural comparison. Historical experiment folders preserve the code versions and prompts they tested.
 

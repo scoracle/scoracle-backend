@@ -42,6 +42,8 @@ struct CognitionLedgerEntry {
 /// Static identity of one generated product in the cognition ledger.
 #[derive(Clone, Copy, Debug)]
 pub struct LedgerSpec {
+    /// Owning capability family. `stage` identifies the producing skill; historical rows
+    /// retain the former per-skill plugin IDs.
     pub plugin_id: &'static str,
     pub stage: &'static str,
     pub lens: &'static str,
@@ -197,7 +199,7 @@ mod postgres_tests {
             plugin_id: "scoracle.test.ledger",
             stage: "rating",
             lens: "test-ledger",
-            role: crate::plugins::scout::manifest::ROUTE,
+            role: crate::plugins::character::skills::scout::manifest::ROUTE,
             product_table: "stat_summaries",
             output_contract_version: "test-output-v1",
         };

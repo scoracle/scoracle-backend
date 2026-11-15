@@ -1,11 +1,11 @@
 from pathlib import Path
 import json,re,urllib.request,time
 root=Path('/Users/scotty/scoracle/scoracle-backend/rust');trial=root/'fixtures/influencer/tuning-2026-11-13'
-code=(root/'src/plugins/influencer/request.rs').read_text()
+code=(root/'src/plugins/character/skills/influencer/request.rs').read_text()
 context=json.loads(re.search(r'pub const TARGET_CONTEXT: &str = ("[^"]*");',code)[1])
 schema=json.loads(re.search(r'pub const SCHEMA_RAW: &str = r#"(.*?)"#;',code)[1])
 version='vibe-frame-v59-target-context'
-assert (root/'src/plugins/influencer/character_instructions.rs').read_text()==(trial/'emotional-claims-instructions.rs').read_text()
+assert (root/'src/plugins/character/skills/influencer/character_instructions.rs').read_text()==(trial/'emotional-claims-instructions.rs').read_text()
 system=json.loads(re.search(r'pub const SYSTEM: &str = ("[^"]*");',(trial/'emotional-claims-instructions.rs').read_text())[1])
 out=trial/'target-context';out.mkdir();cases=trial/'target-context-cases';cases.mkdir()
 def save(p,v):p.write_text(json.dumps(v,indent=2,ensure_ascii=False)+'\n')

@@ -1,36 +1,20 @@
-//! The Studio plugin contract: manifests, identity, and the runtime seam.
-//!
-//! **The Studio provides the contained space for cognition; plugins define the cognition
-//! that happens inside it.** A plugin is an architectural unit — a statically registered
-//! Rust module with a manifest — not a dynamically loaded library. The Studio owns the
-//! lifecycle that runs around a plugin's bounded cognitive work; the plugin owns its
-//! identity, materials recipe, allowed output, prompt, parser, validation, and product contract.
-//!
-//! Cognition receives prepared material and resolved inference handles. Concrete plugin
-//! adapters own typed preparation over application-supplied read/provider capabilities.
-//! They write domain effects through a host-owned, claim-fenced publication transaction.
-//!
-//! Task ownership, claim policy, resource scheduling, inference declarations, and web grants
-//! are live contracts. Preparation and product relationships stay in typed plugin code instead
-//! of an unused declarative graph.
+//! Harness → plugins → skills. Plugins own capability families; skills own bounded jobs.
+//! The harness schedules each skill independently and enforces its declared capabilities.
+//! Domain publication stays in skills, through host-owned claim-fenced transactions.
 
 use crate::harness::queue::work::{ClaimPolicy, Item, TaskKey};
 use crate::harness::route::RouteKey;
 use crate::harness::tools::DomainClass;
 use anyhow::Result;
 use async_trait::async_trait;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-/// Stable, semantic plugin identity, e.g. `scoracle.character.vibe`.
-///
-/// The manifest's `plugin_id` is the anchor connecting configuration, context, products,
-/// and provenance; the ledger and diagnostics should refer to it rather than to queue
-/// stage spellings, which are durable storage vocabulary.
+/// Stable skill identity. Existing identities are retained for historical provenance.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PluginId(&'static str);
+pub struct SkillId(&'static str);
 
-impl PluginId {
+impl SkillId {
     pub const fn new(id: &'static str) -> Self {
         Self(id)
     }
@@ -40,7 +24,7 @@ impl PluginId {
     }
 }
 
-impl fmt::Display for PluginId {
+impl fmt::Display for SkillId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.0)
     }
@@ -65,11 +49,11 @@ impl ToolGrant {
     }
 }
 
-/// How many claimed items a plugin may hold at once, and which shared backend slot
+/// How many claimed items a skill may hold at once, and which shared backend slot
 /// group (if any) bounds it. This is live admission policy read by the Studio scheduler.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ResourceProfile {
-    /// Ceiling on this plugin's in-flight claims. Zero is treated as one downstream.
+    /// Ceiling on this skill's in-flight claims. Zero is treated as one downstream.
     pub max_in_flight: usize,
     /// Shared backend slots as `(group name, total slots)`, mirroring the queue's
     /// slot-group contract. `None` means ungrouped.
@@ -102,11 +86,12 @@ impl ResourceProfile {
     }
 }
 
-/// Live registration policy for one plugin: identity, durable task ownership, claim policy,
+/// Live registration policy for one skill: identity, durable task ownership, claim policy,
 /// inference routes, resources, and grants. The manifest contains no business logic.
-#[derive(Clone, Debug)]
-pub struct PluginManifest {
-    pub id: PluginId,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SkillManifest {
+    pub plugin_id: &'static str,
+    pub id: SkillId,
     /// One durable task per registration, matching the worker scheduling contract.
     /// TaskKey is the existing storage vocabulary; no arbitrary string conversion occurs.
     pub task: TaskKey,
@@ -119,7 +104,7 @@ pub struct PluginManifest {
     pub tools: &'static [ToolGrant],
 }
 
-impl PluginManifest {
+impl SkillManifest {
     /// True when this grant covers fetching the given domain class.
     pub fn grants_web(&self, class: DomainClass) -> bool {
         self.tools.iter().any(|g| g.grants_web(class))
@@ -129,16 +114,16 @@ impl PluginManifest {
 /// The adapter's report about one exact claim. Host publication receipts establish committed
 /// progress or final completion; the worker handles failure and deferral.
 ///
-/// - [`PluginOutcome::Committed`] — products (or their required effects) landed; the
+/// - [`SkillOutcome::Committed`] — products (or their required effects) landed; the
 ///   exact claim has been completed atomically with its required effects.
-/// - [`PluginOutcome::Deferred`] — partial progress landed durably and the work should
+/// - [`SkillOutcome::Deferred`] — partial progress landed durably and the work should
 ///   return to pending for another turn. **A defer without progress is a contract
 ///   violation**: the worker converts it to the retry ladder rather than granting a
 ///   free turn.
-/// - [`PluginOutcome::Superseded`] — the claim was stale or reclaimed at a publication
+/// - [`SkillOutcome::Superseded`] — the claim was stale or reclaimed at a publication
 ///   boundary; that publication was skipped. Earlier progress commits may still exist.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PluginOutcome {
+pub enum SkillOutcome {
     Committed,
     Deferred {
         /// The progress guarantee. The worker refuses a defer without it.
@@ -151,7 +136,7 @@ pub enum PluginOutcome {
     Superseded,
 }
 
-impl PluginOutcome {
+impl SkillOutcome {
     pub fn deferred(note: impl Into<String>, delay: std::time::Duration) -> Self {
         Self::Deferred {
             made_progress: true,
@@ -168,12 +153,12 @@ impl PluginOutcome {
 /// finishes before each publication transaction; each boundary checks the exact claim.
 /// Earlier progress commits survive later errors, which are retried by the worker.
 #[async_trait]
-pub trait StudioPlugin: Send + Sync {
-    fn manifest(&self) -> &'static PluginManifest;
+pub trait Skill: Send + Sync {
+    fn manifest(&self) -> &'static SkillManifest;
 
-    /// Plugin-owned maintenance that the host runs independently of queue depth.
+    /// Skill-owned maintenance that the host runs independently of queue depth.
     /// The host supplies lifecycle and shutdown; each operation owns its work and
-    /// cadence policy. Most plugins have no scheduled operations.
+    /// cadence policy. Most skills have no scheduled operations.
     fn scheduled_operations(&self) -> Vec<std::sync::Arc<dyn ScheduledOperation>> {
         Vec::new()
     }
@@ -181,10 +166,10 @@ pub trait StudioPlugin: Send + Sync {
     /// Execute under the exact claim and report the outcome derived from host publication
     /// receipts. Required follow-ups belong in the publication transaction; deferral
     /// decisions are reported, and the worker performs deferral.
-    async fn execute(&self, item: &Item) -> Result<PluginOutcome>;
+    async fn execute(&self, item: &Item) -> Result<SkillOutcome>;
 }
 
-/// One plugin-owned scheduled operation. The durable host invokes it immediately
+/// One skill-owned scheduled operation. The durable host invokes it immediately
 /// at startup and then sleeps for the returned delay. Operations are best-effort:
 /// they log their own domain failures and choose the next cadence without affecting
 /// claimed work.
@@ -197,73 +182,114 @@ pub trait ScheduledOperation: Send + Sync {
     async fn run(&self, cause: &'static str) -> std::time::Duration;
 }
 
-/// Boot-time registry of the cognitive fleet. Validates task ownership once, at
-/// startup — a mis-wired fleet fails boot clearly instead of surfacing as odd runtime
-/// behavior. An empty registry is the valid idle scaffold.
+/// Statically linked capability family and its declared skill contracts.
+#[derive(Debug)]
+pub struct PluginManifest {
+    pub id: &'static str,
+    pub skills: &'static [&'static SkillManifest],
+}
+
+/// One plugin's enabled skills, with dependencies bound by its composition code.
+pub struct Plugin {
+    pub manifest: &'static PluginManifest,
+    pub skills: Vec<std::sync::Arc<dyn Skill>>,
+}
+
+/// Validated enabled fleet. Flatten once at boot so plugins do not add a scheduling layer.
 pub struct PluginRegistry {
-    plugins: Vec<std::sync::Arc<dyn StudioPlugin>>,
+    plugins: Vec<Plugin>,
+    skills: Vec<std::sync::Arc<dyn Skill>>,
 }
 
 impl PluginRegistry {
-    /// Validate and register. Fails closed on:
-    /// - duplicate plugin IDs
-    /// - duplicate task ownership
-    /// - inference roles without a grant, or an inference grant without roles
-    /// - an empty plugin ID
-    ///
-    /// An empty fleet is valid: it is the idle scaffold the worker warns about.
-    pub fn new(plugins: Vec<std::sync::Arc<dyn StudioPlugin>>) -> Result<Self> {
-        let mut seen_ids = BTreeMap::new();
-        let mut by_task: BTreeMap<&'static str, usize> = BTreeMap::new();
-        for (index, plugin) in plugins.iter().enumerate() {
-            let manifest = plugin.manifest();
+    pub fn new(plugins: Vec<Plugin>) -> Result<Self> {
+        let mut plugin_ids = BTreeSet::new();
+        let mut tasks = BTreeMap::new();
+        let mut groups = BTreeMap::new();
+        let mut skills = Vec::new();
+        for plugin in &plugins {
+            let owner = plugin.manifest;
+            anyhow::ensure!(!owner.id.is_empty(), "plugin registry: empty plugin id");
             anyhow::ensure!(
-                !manifest.id.as_str().is_empty(),
-                "plugin registry: plugin {index} has an empty id"
+                plugin_ids.insert(owner.id),
+                "duplicate plugin id {}",
+                owner.id
             );
-            anyhow::ensure!(
-                !manifest.task.as_str().is_empty(),
-                "plugin registry: {} has an empty task key",
-                manifest.id
-            );
-            anyhow::ensure!(
-                seen_ids.insert(manifest.id.as_str(), index).is_none(),
-                "plugin registry: duplicate plugin id {}",
-                manifest.id
-            );
-            anyhow::ensure!(
-                manifest.tools.contains(&ToolGrant::Inference)
-                    != manifest.inference_routes.is_empty(),
-                "plugin registry: {} must declare inference roles and the inference grant together",
-                manifest.id
-            );
-            // Duplicate task ownership fails boot. `by_task` is a build-time local only:
-            // nothing resolves a stage through the registry, the worker iterates `plugins()`.
-            if let Some(previous) = by_task.insert(manifest.task.as_str(), index) {
-                let prior_owner = plugins[previous].manifest().id.as_str();
-                anyhow::bail!(
-                    "plugin registry: task {} is owned by both {} and {}",
-                    manifest.task,
-                    prior_owner,
+            let mut ids = BTreeSet::new();
+            for manifest in owner.skills {
+                anyhow::ensure!(
+                    manifest.plugin_id == owner.id,
+                    "skill {} has wrong plugin owner",
                     manifest.id
                 );
+                anyhow::ensure!(
+                    !manifest.id.as_str().is_empty(),
+                    "{} has an empty skill id",
+                    owner.id
+                );
+                anyhow::ensure!(
+                    ids.insert(manifest.id),
+                    "duplicate skill id {}",
+                    manifest.id
+                );
+                anyhow::ensure!(
+                    !manifest.task.as_str().is_empty(),
+                    "{} has an empty task key",
+                    manifest.id
+                );
+                anyhow::ensure!(
+                    manifest.tools.contains(&ToolGrant::Inference)
+                        != manifest.inference_routes.is_empty(),
+                    "{} must declare inference roles and the inference grant together",
+                    manifest.id
+                );
+                if let Some(previous) = tasks.insert(manifest.task, manifest.id) {
+                    anyhow::bail!(
+                        "task {} is owned by both {} and {}",
+                        manifest.task,
+                        previous,
+                        manifest.id
+                    );
+                }
+                if let Some((group, budget)) = manifest.resources.slot_group {
+                    anyhow::ensure!(budget > 0, "slot group {group} must have a positive budget");
+                    if let Some(previous) = groups.insert(group, budget) {
+                        anyhow::ensure!(
+                            previous == budget,
+                            "inconsistent budget for slot group {group}"
+                        );
+                    }
+                }
+            }
+            let mut enabled = BTreeSet::new();
+            for skill in &plugin.skills {
+                let manifest = skill.manifest();
+                anyhow::ensure!(
+                    owner.skills.contains(&manifest),
+                    "undeclared or altered skill {} for {}",
+                    manifest.id,
+                    owner.id
+                );
+                anyhow::ensure!(
+                    enabled.insert(manifest.id),
+                    "duplicate enabled skill {}",
+                    manifest.id
+                );
+                skills.push(skill.clone());
             }
         }
-
-        // Product dependencies are descriptive today: the dependency-invalidation engine
-        // is future work (shadow-compare first), and the reading relationships it will
-        // derive are recorded on the manifests themselves. Registration accepts partial
-        // fleets, so a missing producer is not a boot error; when invalidation arrives it
-        // will validate full coverage and cycle-freedom over the enabled graph.
-
-        Ok(Self { plugins })
+        Ok(Self { plugins, skills })
     }
 
-    /// The registered fleet in registration order.
-    pub fn plugins(&self) -> &[std::sync::Arc<dyn StudioPlugin>] {
+    pub fn plugins(&self) -> &[Plugin] {
         &self.plugins
+    }
+
+    /// Independently scheduled skills, in plugin and skill registration order.
+    pub fn skills(&self) -> &[std::sync::Arc<dyn Skill>] {
+        &self.skills
     }
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

@@ -3,7 +3,7 @@
 use anyhow::{ensure, Result};
 use scoracle_cognition::{
     harness::{model::Inference, providers::llama::LlamaClient},
-    plugins::journalist::{fresh, request as prompt},
+    plugins::character::skills::journalist::{fresh, request as prompt},
     tools::meta::EntityMeta,
 };
 use serde_json::json;

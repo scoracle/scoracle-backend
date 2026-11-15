@@ -7,24 +7,26 @@ use crate::harness::model::GenerateOptions;
 use crate::harness::models::Models;
 use crate::harness::route::RouteKey;
 use crate::harness::Parser;
-use crate::plugins::analyst::parser::MomentumParser;
-use crate::plugins::analyst::request::load_momentum_context;
-use crate::plugins::influencer::{request::VIBE_NUM_PREDICT, VibeParser};
-use crate::plugins::insider::fresh::preview as preview_insider;
-use crate::plugins::insider::request::{
-    Parts as InsiderParts, PROMPT_VERSION as INSIDER_PROMPT_VERSION,
-};
-use crate::plugins::investigator::cognition::prompt::{
+use crate::plugins::caretaker::skills::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
+use crate::plugins::character::skills::analyst::parser::MomentumParser;
+use crate::plugins::character::skills::analyst::request::load_momentum_context;
+use crate::plugins::character::skills::influencer::{request::VIBE_NUM_PREDICT, VibeParser};
+use crate::plugins::character::skills::insider::fresh::preview as preview_insider;
+use crate::plugins::character::skills::insider::request::{
+    Parts as InsiderParts, PROMPT_VERSION as INSIDER_PROMPT_VERSION,
+};
 #[cfg(test)]
-use crate::plugins::journalist::request::CorpusItem;
-use crate::plugins::oracle::request::load_pillars;
-use crate::plugins::oracle::request::{
+use crate::plugins::character::skills::journalist::request::CorpusItem;
+use crate::plugins::character::skills::oracle::request::load_pillars;
+use crate::plugins::character::skills::oracle::request::{
     generation_options as oracle_generation_options, Subject as OracleSubject,
     ORACLE_PROMPT_VERSION,
 };
-use crate::plugins::scout::request::{build_rating_request, RatingBuild, RatingReq};
+use crate::plugins::character::skills::scout::request::{
+    build_rating_request, RatingBuild, RatingReq,
+};
 use crate::tools::guards::count_sentences;
 use crate::tools::meta::lookup_entity_name;
 use crate::util::truncate;
@@ -361,12 +363,16 @@ pub trait LensTask: Send + Sync {
         expect: Option<&Expect>,
     ) -> CaseVerdict {
         let evidence_result = match self.name() {
-            "momentum" => crate::plugins::analyst::parser::RequestParser(&request.user_prompt)
-                .parse(raw)
-                .map(|_| ()),
-            "oracle" => crate::plugins::oracle::parser::RequestParser(&request.user_prompt)
-                .parse(raw)
-                .map(|_| ()),
+            "momentum" => crate::plugins::character::skills::analyst::parser::RequestParser(
+                &request.user_prompt,
+            )
+            .parse(raw)
+            .map(|_| ()),
+            "oracle" => crate::plugins::character::skills::oracle::parser::RequestParser(
+                &request.user_prompt,
+            )
+            .parse(raw)
+            .map(|_| ()),
             _ => Ok(()),
         };
         if let Err(error) = evidence_result {
@@ -457,10 +463,10 @@ impl LensTask for NarrativesTask {
         "narratives"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::journalist::manifest::ROUTE
+        crate::plugins::character::skills::journalist::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::journalist::request::NARRATIVES_PROMPT_VERSION
+        crate::plugins::character::skills::journalist::request::NARRATIVES_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
         // The response schema depends on the prepared report count.
@@ -480,19 +486,20 @@ impl LensTask for NarrativesTask {
             entity_id: e.entity_id,
             sport: e.sport.to_uppercase(),
         };
-        let material = crate::plugins::journalist::fresh::load_narratives_material(
-            pool,
-            subject,
-            crate::plugins::influencer::now(),
-        )
-        .await?;
+        let material =
+            crate::plugins::character::skills::journalist::fresh::load_narratives_material(
+                pool,
+                subject,
+                crate::plugins::character::skills::influencer::now(),
+            )
+            .await?;
         let assignment = material.assignment;
         // No selected report is a no-call, not a package with nothing in it.
         if assignment.selected.is_empty() {
             return Ok(None);
         }
         Ok(Some(self.assemble(&serde_json::to_value(
-            crate::plugins::journalist::request::Parts {
+            crate::plugins::character::skills::journalist::request::Parts {
                 subject: assignment.subject,
                 reports: assignment.selected,
                 database_record: assignment.database_record,
@@ -513,7 +520,10 @@ impl LensTask for NarrativesTask {
             return rejected("Journalist has no fresh assignment");
         }
         let Some(parts) = request.parts.as_ref().and_then(|parts| {
-            serde_json::from_value::<crate::plugins::journalist::request::Parts>(parts.clone()).ok()
+            serde_json::from_value::<crate::plugins::character::skills::journalist::request::Parts>(
+                parts.clone(),
+            )
+            .ok()
         }) else {
             return rejected("Journalist evaluation requires report parts");
         };
@@ -584,13 +594,13 @@ impl LensTask for NarrativesTask {
         }
     }
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::journalist::request::Parts =
+        let parts: crate::plugins::character::skills::journalist::request::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("narratives parts: {e}"))?;
         let subject = parts.subject.clone();
         let reports = parts.reports.clone();
         // Replay the production payload and the report-count-specific schema.
-        let assignment = crate::plugins::journalist::request::Assignment {
+        let assignment = crate::plugins::character::skills::journalist::request::Assignment {
             database_record: parts.database_record,
             subject,
             selected: reports,
@@ -600,8 +610,13 @@ impl LensTask for NarrativesTask {
         Ok(Prepared {
             parts: Some(stored_parts.clone()),
             should_call: !assignment.selected.is_empty(),
-            user_prompt: crate::plugins::journalist::request::prompt(&assignment),
-            options: crate::plugins::journalist::request::generation_options(&assignment, 0),
+            user_prompt: crate::plugins::character::skills::journalist::request::prompt(
+                &assignment,
+            ),
+            options: crate::plugins::character::skills::journalist::request::generation_options(
+                &assignment,
+                0,
+            ),
         })
     }
     fn stores_parts(&self) -> bool {
@@ -619,17 +634,19 @@ impl LensTask for VibeTask {
         "vibe"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::influencer::manifest::ROUTE
+        crate::plugins::character::skills::influencer::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::influencer::request::VIBE_PROMPT_VERSION
+        crate::plugins::character::skills::influencer::request::VIBE_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        Ok(crate::plugins::influencer::request::generation_options(
-            temperature,
-            0,
-            VIBE_NUM_PREDICT,
-        ))
+        Ok(
+            crate::plugins::character::skills::influencer::request::generation_options(
+                temperature,
+                0,
+                VIBE_NUM_PREDICT,
+            ),
+        )
     }
     async fn build_request(
         &self,
@@ -643,9 +660,11 @@ impl LensTask for VibeTask {
             entity_id: e.entity_id,
             sport: e.sport.to_uppercase(),
         };
-        let sources = crate::plugins::classifier::delivery::load_for_character(
+        let sources = crate::plugins::classifier::skills::classify::delivery::load_for_character(
             pool,
-            crate::plugins::influencer::manifest::MANIFEST.id.as_str(),
+            crate::plugins::character::skills::influencer::manifest::MANIFEST
+                .id
+                .as_str(),
             &subject.entity_type,
             subject.entity_id,
             &subject.sport,
@@ -659,12 +678,13 @@ impl LensTask for VibeTask {
         }) else {
             return Ok(None);
         };
-        let (assignment, _) = crate::plugins::influencer::fresh::prepare_assignment(
-            pool,
-            subject,
-            crate::plugins::influencer::now(),
-        )
-        .await?;
+        let (assignment, _) =
+            crate::plugins::character::skills::influencer::fresh::prepare_assignment(
+                pool,
+                subject,
+                crate::plugins::character::skills::influencer::now(),
+            )
+            .await?;
         Ok(Some(
             self.assemble(&serde_json::to_value(assignment.parts)?)?,
         ))
@@ -688,15 +708,15 @@ impl LensTask for VibeTask {
         }
     }
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::influencer::request::Parts =
+        let parts: crate::plugins::character::skills::influencer::request::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("vibe parts: {e}"))?;
         Ok(Prepared {
             parts: Some(stored_parts.clone()),
             should_call: !parts.sources.is_empty() && parts.hold_reason().is_none(),
             user_prompt: parts.assemble(),
-            options: crate::plugins::influencer::request::generation_options(
-                crate::plugins::influencer::request::VIBE_TEMPERATURE,
+            options: crate::plugins::character::skills::influencer::request::generation_options(
+                crate::plugins::character::skills::influencer::request::VIBE_TEMPERATURE,
                 0,
                 VIBE_NUM_PREDICT,
             ),
@@ -720,7 +740,7 @@ impl LensTask for OracleTask {
         "oracle"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::oracle::manifest::ROUTE
+        crate::plugins::character::skills::oracle::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         ORACLE_PROMPT_VERSION
@@ -732,12 +752,13 @@ impl LensTask for OracleTask {
         true
     }
     fn assemble(&self, stored: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::oracle::request::Parts = serde_json::from_value(stored.clone())?;
+        let parts: crate::plugins::character::skills::oracle::request::Parts =
+            serde_json::from_value(stored.clone())?;
         Ok(Prepared {
             user_prompt: parts.assemble(),
             options: self.gen_options(0.0)?,
             should_call: parts.cards.readiness()
-                != crate::plugins::oracle::request::Readiness::Empty,
+                != crate::plugins::character::skills::oracle::request::Readiness::Empty,
             parts: Some(stored.clone()),
         })
     }
@@ -751,11 +772,12 @@ impl LensTask for OracleTask {
         let sport = e.sport.to_uppercase();
         let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
         // With no evidence, the stage persists a marker without a model call.
-        if cards.readiness() == crate::plugins::oracle::request::Readiness::Empty {
+        if cards.readiness() == crate::plugins::character::skills::oracle::request::Readiness::Empty
+        {
             return Ok(None);
         }
         self.assemble(&serde_json::to_value(
-            crate::plugins::oracle::request::Parts {
+            crate::plugins::character::skills::oracle::request::Parts {
                 subject: OracleSubject {
                     entity_id: e.entity_id,
                     entity_type: e.entity_type.clone(),
@@ -775,11 +797,12 @@ impl LensTask for OracleTask {
         .map(Some)
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let reading = match crate::plugins::oracle::parser::ReadingParser.parse(raw) {
-            Ok(Some(reading)) => reading,
-            Ok(None) => return rejected("Oracle returned no reading"),
-            Err(error) => return rejected(&format!("{error:#}")),
-        };
+        let reading =
+            match crate::plugins::character::skills::oracle::parser::ReadingParser.parse(raw) {
+                Ok(Some(reading)) => reading,
+                Ok(None) => return rejected("Oracle returned no reading"),
+                Err(error) => return rejected(&format!("{error:#}")),
+            };
         let sentences = count_sentences(&reading);
         let mut checks = Vec::new();
 
@@ -851,7 +874,7 @@ impl LensTask for TransferTask {
         "transfer"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::insider::manifest::ROUTE
+        crate::plugins::character::skills::insider::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         INSIDER_PROMPT_VERSION
@@ -867,7 +890,7 @@ impl LensTask for TransferTask {
         let user_prompt = selected.assemble();
         Ok(Prepared {
             user_prompt,
-            options: crate::plugins::insider::request::options_for_reports(
+            options: crate::plugins::character::skills::insider::request::options_for_reports(
                 0,
                 &selected.subject,
                 &selected.reports,
@@ -920,7 +943,7 @@ impl LensTask for TransferTask {
                 checks.push(PropertyCheck {
                     name: "has_source_linked_move".into(),
                     pass: reply.findings.iter().any(|f| {
-                        f.status == crate::plugins::insider::Status::Reported
+                        f.status == crate::plugins::character::skills::insider::Status::Reported
                             && !reply.findings.iter().any(|later| {
                                 later.counterparty == f.counterparty
                                     && later.report_index < f.report_index
@@ -981,10 +1004,10 @@ impl LensTask for RatingTask {
         "rating"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::scout::manifest::ROUTE
+        crate::plugins::character::skills::scout::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::scout::request::RATING_PROMPT_VERSION
+        crate::plugins::character::skills::scout::request::RATING_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
         // Scout acceptance needs the selected measurements, so callers must carry
@@ -1015,13 +1038,15 @@ impl LensTask for RatingTask {
     }
     /// Rebuild the production request and retain its measurement context for parsing.
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::scout::request::Parts =
+        let parts: crate::plugins::character::skills::scout::request::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("rating parts: {e}"))?;
         Ok(Prepared {
             user_prompt: parts.render(),
-            options: parts
-                .generation_options(0, crate::plugins::scout::request::RATING_TEMPERATURE),
+            options: parts.generation_options(
+                0,
+                crate::plugins::character::skills::scout::request::RATING_TEMPERATURE,
+            ),
             parts: Some(stored_parts.clone()),
             should_call: parts.has_measured_profile(),
         })
@@ -1042,8 +1067,10 @@ impl LensTask for RatingTask {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Scout evaluation requires parts"))
             .and_then(|p| {
-                serde_json::from_value::<crate::plugins::scout::request::Parts>(p.clone())?
-                    .parse(raw)
+                serde_json::from_value::<crate::plugins::character::skills::scout::request::Parts>(
+                    p.clone(),
+                )?
+                .parse(raw)
             });
         let mut verdict = self.evaluate(raw, label, expect);
         if let Err(error) = validation {
@@ -1078,7 +1105,7 @@ impl LensTask for RatingTask {
                 display: "abstained — no card".into(),
             };
         };
-        let reply = crate::plugins::scout::parser::RatingReply {
+        let reply = crate::plugins::character::skills::scout::parser::RatingReply {
             body: body.to_string(),
         };
         let mut checks = Vec::new();
@@ -1091,7 +1118,7 @@ impl LensTask for RatingTask {
         // `prose_excludes` entries; same list `RatingParser` rejects on in production.
         let banned = crate::tools::guards::first_banned_phrase(
             &reply.body,
-            crate::plugins::scout::parser::RATING_BODY_BANS,
+            crate::plugins::character::skills::scout::parser::RATING_BODY_BANS,
         );
         checks.push(PropertyCheck {
             name: "no_banned_phrases".into(),
@@ -1119,7 +1146,7 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-// Momentum preparation lives in `crate::plugins::analyst::request`, reading finished Scout
+// Momentum preparation lives in `crate::plugins::character::skills::analyst::request`, reading finished Scout
 // and Influencer products plus the dated study. Eval reuses it and the local parser.
 // It USED to carry its own fork ("momentum-eval-v3",
 // a duplicate system prompt, its own parser): a relic from momentum's fixture-first era that
@@ -1132,13 +1159,14 @@ impl LensTask for MomentumTask {
         "momentum"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::analyst::manifest::ROUTE
+        crate::plugins::character::skills::analyst::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::analyst::request::MOMENTUM_PROMPT_VERSION
+        crate::plugins::character::skills::analyst::request::MOMENTUM_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        let mut options = crate::plugins::analyst::request::generation_options(0);
+        let mut options =
+            crate::plugins::character::skills::analyst::request::generation_options(0);
         options.temperature = Some(temperature);
         Ok(options)
     }
@@ -1146,7 +1174,7 @@ impl LensTask for MomentumTask {
         true
     }
     fn assemble(&self, stored: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::analyst::request::Parts =
+        let parts: crate::plugins::character::skills::analyst::request::Parts =
             serde_json::from_value(stored.clone())?;
         Ok(Prepared {
             user_prompt: parts.assemble(),
@@ -1174,7 +1202,7 @@ impl LensTask for MomentumTask {
             sport: e.sport.clone(),
         };
         self.assemble(&serde_json::to_value(
-            crate::plugins::analyst::request::Parts {
+            crate::plugins::character::skills::analyst::request::Parts {
                 subject,
                 database_record: context.database_record,
                 scout: context.rating,
@@ -1279,7 +1307,7 @@ impl LensTask for InvestigatorTask {
         "investigator"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::investigator::manifest::ROUTE
+        crate::plugins::caretaker::skills::investigator::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         INVESTIGATOR_PROSE_CONTRACT_VERSION
@@ -1817,7 +1845,8 @@ mod tests {
     #[test]
     fn momentum_parser_extracts_the_read() {
         let raw = r#"{"blurb":"Recent form is rising while the mood is steady, so the current direction is modestly positive."}"#;
-        let parsed = crate::plugins::analyst::parser::parse_momentum_reply(raw).unwrap();
+        let parsed =
+            crate::plugins::character::skills::analyst::parser::parse_momentum_reply(raw).unwrap();
         assert!(parsed.blurb.contains("form is rising"));
     }
 
@@ -2008,17 +2037,42 @@ mod tests {
                         .system
                         .as_ref()
                         .is_some_and(|s| !s.is_empty()));
-                    let fields = ["task", "target_context", "target", "evidence_context", "evidence"];
-                    let positions: Vec<_> = fields.iter().map(|field| request.user_prompt.find(&format!("\n  \"{field}\":")).unwrap()).collect();
+                    let fields = [
+                        "task",
+                        "target_context",
+                        "target",
+                        "evidence_context",
+                        "evidence",
+                    ];
+                    let positions: Vec<_> = fields
+                        .iter()
+                        .map(|field| {
+                            request
+                                .user_prompt
+                                .find(&format!("\n  \"{field}\":"))
+                                .unwrap()
+                        })
+                        .collect();
                     assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
                     assert_eq!(package.as_object().unwrap().len(), 5);
                     assert!(package["task"].is_string());
-                    assert!(!request.options.system.as_ref().unwrap().contains(package["task"].as_str().unwrap()));
+                    assert!(!request
+                        .options
+                        .system
+                        .as_ref()
+                        .unwrap()
+                        .contains(package["task"].as_str().unwrap()));
                     if matches!(name, "narratives" | "vibe") {
-                        assert_eq!(package["target_context"], crate::tools::prompt::TARGET_CONTEXT);
+                        assert_eq!(
+                            package["target_context"],
+                            crate::tools::prompt::TARGET_CONTEXT
+                        );
                         assert!(package["evidence_context"].is_string());
                     } else {
-                        assert_eq!(package["target_context"][0], crate::tools::prompt::TARGET_CONTEXT);
+                        assert_eq!(
+                            package["target_context"][0],
+                            crate::tools::prompt::TARGET_CONTEXT
+                        );
                         assert!(package["evidence_context"].is_array());
                     }
                     assert!(package["target"].get("task").is_none());

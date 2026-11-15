@@ -39,8 +39,7 @@ async fn main() -> Result<()> {
         "production requires model timeout < handler timeout < stale lease"
     );
     // Acquisition-only workers have no inference routes or model-host dependency.
-    let routes: Vec<_> = scoracle_cognition::harness::fleet::ALL
-        .iter()
+    let routes: Vec<_> = scoracle_cognition::harness::fleet::skills()
         .filter(|m| enabled.contains(m.task.as_str()))
         .flat_map(|m| m.inference_routes.iter().copied())
         .collect();
@@ -128,9 +127,7 @@ async fn main() -> Result<()> {
         voice_num_ctx: cfg.voice_num_ctx,
     });
 
-    // Each plugin owns exactly one enabled queue stage via its manifest; scheduling caps
-    // come from the same manifest. The worker validates the fleet (unique ids, unique
-    // task ownership) at construction.
+    // Plugins bind their skills; the worker validates ownership and schedules each skill.
     let handlers = registration::build(pool.clone(), models.clone(), &enabled)?;
     let reactions = registration::build_reactions(pool.clone())?;
     info!(stages = ?enabled, plugins = handlers.len(), "registered plugins");
@@ -138,7 +135,7 @@ async fn main() -> Result<()> {
         plugins = scoracle_cognition::harness::fleet::ALL.len(),
         ids = scoracle_cognition::harness::fleet::ALL
             .iter()
-            .map(|m| m.id.as_str())
+            .map(|m| m.id)
             .collect::<Vec<_>>()
             .join(" "),
         "resolved plugin fleet"

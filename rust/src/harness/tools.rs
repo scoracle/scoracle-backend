@@ -89,7 +89,7 @@ impl std::fmt::Display for ToolRefusal {
     }
 }
 
-use crate::harness::plugin::PluginManifest;
+use crate::harness::plugin::SkillManifest;
 use crate::tools::fetch::{BudgetedFetcher, FetchPolicy, SourceFetch};
 use anyhow::{anyhow, Result};
 use sqlx::PgPool;
@@ -113,7 +113,7 @@ impl WebBroker {
     }
 
     /// Open one run's web scope. Reach is derived exclusively from the plugin manifest.
-    pub fn scope<'a>(&'a self, pool: &'a PgPool, plugin: &'a PluginManifest) -> ScopedWeb<'a> {
+    pub fn scope<'a>(&'a self, pool: &'a PgPool, plugin: &'a SkillManifest) -> ScopedWeb<'a> {
         ScopedWeb {
             broker: self,
             pool,
@@ -127,7 +127,7 @@ impl WebBroker {
 pub struct ScopedWeb<'a> {
     broker: &'a WebBroker,
     pool: &'a PgPool,
-    plugin: &'a PluginManifest,
+    plugin: &'a SkillManifest,
     calls: AtomicU64,
 }
 

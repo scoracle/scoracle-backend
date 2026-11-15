@@ -1,13 +1,5 @@
-//! First-party capabilities, each owning its cognition and concrete adapters.
+//! First-party capability families. Each plugin owns its executable skills.
 
-pub mod analyst;
+pub mod caretaker;
+pub mod character;
 pub mod classifier;
-pub mod fixture_boxscore;
-pub mod influencer;
-pub mod insider;
-pub mod investigator;
-pub mod journalist;
-pub mod oracle;
-pub mod scout;
-
-pub mod text_generation;

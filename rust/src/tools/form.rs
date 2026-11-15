@@ -314,9 +314,9 @@ pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<Journa
 mod tests {
     use super::*;
     use crate::harness::Parser;
-    use crate::plugins::analyst::parser as analyst;
-    use crate::plugins::influencer;
-    use crate::plugins::scout::parser as scout;
+    use crate::plugins::character::skills::analyst::parser as analyst;
+    use crate::plugins::character::skills::influencer;
+    use crate::plugins::character::skills::scout::parser as scout;
 
     #[test]
     fn journalist_observation_preserves_style_failures_but_refuses_invalid_report_ids() {

@@ -5,33 +5,17 @@
 //! here leaves `main.rs` as process boot and makes the adapter boundary explicit.
 
 use crate::harness::models::Models;
-use crate::harness::plugin::StudioPlugin;
-use crate::harness::queue::work;
-use crate::plugins::analyst;
-use crate::plugins::influencer;
-use crate::plugins::insider;
-use crate::plugins::journalist;
-use crate::plugins::oracle;
-use crate::plugins::scout;
+use crate::plugins::character::skills::analyst;
+use crate::plugins::character::skills::oracle;
+use crate::plugins::character::skills::scout;
 use anyhow::{anyhow, Result};
 use sqlx::PgPool;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-/// First-party registration order. This is composition policy, not a durable
-/// queue invariant; claim-time database gates remain authoritative across workers.
-const VOICE_ORDER: [work::TaskKey; 6] = [
-    crate::plugins::journalist::manifest::TASK,
-    crate::plugins::influencer::manifest::TASK,
-    crate::plugins::scout::manifest::TASK,
-    crate::plugins::insider::manifest::TASK,
-    crate::plugins::analyst::manifest::TASK,
-    crate::plugins::oracle::manifest::TASK,
-];
-
 /// Resolve `COGNITION_STAGES` against the registered Studio fleet.
 ///
-/// An unset value means every task currently declared by a first-party manifest. An
+/// An unset value enables the character skills; Classifier remains opt-in. An
 /// explicitly empty value remains an idle fleet, which is useful for a process that
 /// only runs its outbox or recovery loops.
 pub fn enabled_from_config(raw: Option<&str>) -> Result<HashSet<String>> {
@@ -72,8 +56,7 @@ pub fn enabled_from_config(raw: Option<&str>) -> Result<HashSet<String>> {
 /// Task names are durable queue vocabulary, derived from the manifest roster rather
 /// than duplicated in service configuration.
 fn known_stages() -> Vec<&'static str> {
-    let mut stages: Vec<&'static str> = crate::harness::fleet::ALL
-        .iter()
+    let mut stages: Vec<&'static str> = crate::harness::fleet::skills()
         .map(|manifest| manifest.task.as_str())
         .collect();
     stages.sort_unstable();
@@ -85,65 +68,17 @@ fn known_stages() -> Vec<&'static str> {
 ///
 /// Registration order is deliberate: intake precedes the voice stages, which
 /// follow their product dependency order. Scheduling caps and task ownership
-/// still come from each plugin's Studio manifest once the fleet reaches the worker.
+/// still come from each skill's manifest once the fleet reaches the worker.
 pub fn build(
     pool: PgPool,
     models: Arc<Models>,
     enabled: &HashSet<String>,
-) -> Result<Vec<Arc<dyn StudioPlugin>>> {
-    let mut handlers: Vec<Arc<dyn StudioPlugin>> = Vec::new();
-
-    if enabled.contains("classifier") {
-        handlers.push(Arc::new(
-            crate::plugins::classifier::adapter::ClassifierHandler::new(
-                pool.clone(),
-                crate::plugins::classifier::decision::Decision::from_env()?,
-            ),
-        ));
-    }
-
-    // Voice registration order is the tested dependency order.
-    for stage in VOICE_ORDER {
-        if !enabled.contains(stage.as_str()) {
-            continue;
-        }
-        handlers.push(match stage {
-            crate::plugins::journalist::manifest::TASK => {
-                Arc::new(journalist::NarrativesHandler::new(
-                    pool.clone(),
-                    models.capabilities(&crate::plugins::journalist::manifest::MANIFEST)?,
-                )) as Arc<dyn StudioPlugin>
-            }
-            crate::plugins::influencer::manifest::TASK => Arc::new(influencer::VibeHandler::new(
-                pool.clone(),
-                models.capabilities(&crate::plugins::influencer::manifest::MANIFEST)?,
-            )),
-            // The rating stage feeds Momentum/Sigil but not the news rail, so it sits behind the
-            // two news-product voices: a nightly stat backlog must not delay The Journalist.
-            crate::plugins::scout::manifest::TASK => Arc::new(scout::RatingHandler::new(
-                pool.clone(),
-                models.capabilities(&crate::plugins::scout::manifest::MANIFEST)?,
-            )),
-            crate::plugins::insider::manifest::TASK => Arc::new(insider::TransferHandler::new(
-                pool.clone(),
-                models.capabilities(&crate::plugins::insider::manifest::MANIFEST)?,
-            )),
-            // Momentum consumes the rating card + vibe, so a vibe hand-off drains in the same
-            // tick pass instead of waiting for the next NOTIFY/safety-net wake.
-            crate::plugins::analyst::manifest::TASK => Arc::new(analyst::MomentumHandler::new(
-                pool.clone(),
-                models.capabilities(&crate::plugins::analyst::manifest::MANIFEST)?,
-            )),
-            // Sigil is terminal because it reads all five pillars.
-            crate::plugins::oracle::manifest::TASK => Arc::new(oracle::SigilHandler::new(
-                pool.clone(),
-                models.capabilities(&crate::plugins::oracle::manifest::MANIFEST)?,
-            )),
-            other => unreachable!("{other} is not a voice; VOICE_ORDER holds the six voices"),
-        });
-    }
-
-    Ok(handlers)
+) -> Result<Vec<crate::harness::plugin::Plugin>> {
+    Ok(vec![
+        crate::plugins::classifier::build(pool.clone(), enabled)?,
+        crate::plugins::character::build(pool, &models, enabled)?,
+        crate::plugins::caretaker::build(),
+    ])
 }
 
 /// Assemble complete durable reaction chains from the statically linked fleet.
@@ -162,7 +97,8 @@ pub fn build_reactions(pool: PgPool) -> Result<crate::harness::queue::outbox::Re
 
 #[cfg(test)]
 mod tests {
-    use super::{build_reactions, enabled_from_config, known_stages, VOICE_ORDER};
+    use super::*;
+    use crate::harness::plugin::PluginRegistry;
 
     #[test]
     fn unset_configuration_keeps_classifier_opt_in() {
@@ -211,22 +147,23 @@ mod tests {
     #[test]
     fn composition_registers_consumers_after_their_producers() {
         let position = |stage| {
-            VOICE_ORDER
+            crate::plugins::character::MANIFEST
+                .skills
                 .iter()
-                .position(|candidate| *candidate == stage)
+                .position(|candidate| candidate.task == stage)
                 .unwrap()
         };
         assert!(
-            position(crate::plugins::analyst::manifest::TASK)
-                > position(crate::plugins::scout::manifest::TASK)
+            position(crate::plugins::character::skills::analyst::manifest::TASK)
+                > position(crate::plugins::character::skills::scout::manifest::TASK)
         );
         assert!(
-            position(crate::plugins::analyst::manifest::TASK)
-                > position(crate::plugins::influencer::manifest::TASK)
+            position(crate::plugins::character::skills::analyst::manifest::TASK)
+                > position(crate::plugins::character::skills::influencer::manifest::TASK)
         );
         assert_eq!(
-            position(crate::plugins::oracle::manifest::TASK),
-            VOICE_ORDER.len() - 1
+            position(crate::plugins::character::skills::oracle::manifest::TASK),
+            crate::plugins::character::MANIFEST.skills.len() - 1
         );
     }
 
@@ -238,17 +175,17 @@ mod tests {
         let complete = build_reactions(pool).unwrap();
         let oracle_only = ["oracle.completion-barrier"];
         for kind in [
-            crate::plugins::analyst::MOMENTUM_COMPLETED,
-            crate::plugins::scout::RATING_DEBOUNCED,
-            crate::plugins::journalist::NARRATIVES_COMPLETED,
-            crate::plugins::insider::TRANSFER_PUBLISHED,
+            crate::plugins::character::skills::analyst::MOMENTUM_COMPLETED,
+            crate::plugins::character::skills::scout::RATING_DEBOUNCED,
+            crate::plugins::character::skills::journalist::NARRATIVES_COMPLETED,
+            crate::plugins::character::skills::insider::TRANSFER_PUBLISHED,
         ] {
             assert_eq!(complete.reaction_names(kind), oracle_only, "{kind}");
         }
         let momentum_then_oracle = ["analyst.enqueue-momentum", "oracle.completion-barrier"];
         for kind in [
-            crate::plugins::influencer::VIBE_COMPLETED,
-            crate::plugins::scout::RATING_COMPLETED,
+            crate::plugins::character::skills::influencer::VIBE_COMPLETED,
+            crate::plugins::character::skills::scout::RATING_COMPLETED,
         ] {
             assert_eq!(
                 complete.reaction_names(kind),
@@ -257,8 +194,52 @@ mod tests {
             );
         }
         assert_eq!(
-            complete.reaction_names(crate::plugins::scout::TRANSFER_IDENTITY_APPLIED),
+            complete.reaction_names(
+                crate::plugins::character::skills::scout::TRANSFER_IDENTITY_APPLIED
+            ),
             ["scout.rate-applied-identity"]
         );
+    }
+
+    #[tokio::test]
+    async fn real_character_assembly_preserves_partial_and_idle_fleets() {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgresql://localhost/unused")
+            .unwrap();
+        let models = Arc::new(crate::harness::models::tests::models());
+        for (config, expected) in [
+            (Some(""), vec![]),
+            (Some("momentum,narratives"), vec!["narratives", "momentum"]),
+            (
+                None,
+                vec![
+                    "narratives",
+                    "vibe",
+                    "rating",
+                    "transfers",
+                    "momentum",
+                    "sigil",
+                ],
+            ),
+        ] {
+            let enabled = enabled_from_config(config).unwrap();
+            let registry =
+                PluginRegistry::new(build(pool.clone(), models.clone(), &enabled).unwrap())
+                    .unwrap();
+            assert_eq!(registry.plugins().len(), 3);
+            assert_eq!(
+                registry
+                    .skills()
+                    .iter()
+                    .map(|s| s.manifest().task.as_str())
+                    .collect::<Vec<_>>(),
+                expected
+            );
+            assert!(registry.plugins()[2].skills.is_empty());
+            assert!(registry
+                .skills()
+                .iter()
+                .all(|s| s.manifest().plugin_id == crate::plugins::character::ID));
+        }
     }
 }

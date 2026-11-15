@@ -2,15 +2,17 @@
 //! per-run budget. No network.
 
 use super::*;
-use crate::harness::fleet::{CLASSIFIER, FIXTURE_BOXSCORE, INVESTIGATOR};
-use crate::harness::plugin::PluginManifest;
+use crate::harness::plugin::SkillManifest;
 use crate::harness::tools::{ScopedWeb, WebBroker};
+use crate::plugins::caretaker::skills::fixture_boxscore::manifest::MANIFEST as FIXTURE_BOXSCORE;
+use crate::plugins::caretaker::skills::investigator::manifest::MANIFEST as INVESTIGATOR;
+use crate::plugins::classifier::skills::classify::manifest::MANIFEST as CLASSIFIER;
 use crate::tools::fetch::FetchPolicy;
 
 fn scope<'a>(
     broker: &'a WebBroker,
     pool: &'a sqlx::PgPool,
-    plugin: &'a PluginManifest,
+    plugin: &'a SkillManifest,
 ) -> ScopedWeb<'a> {
     broker.scope(pool, plugin)
 }
@@ -119,7 +121,11 @@ async fn wikimedia_grant_cannot_be_spent_on_other_hosts() {
 async fn headline_character_cannot_fetch_sources() {
     let broker = WebBroker::new(4).unwrap();
     let pool = lazy_pool();
-    let web = scope(&broker, &pool, &crate::harness::fleet::JOURNALIST);
+    let web = scope(
+        &broker,
+        &pool,
+        &crate::plugins::character::skills::journalist::manifest::MANIFEST,
+    );
 
     let error = web
         .fetch_for_class(

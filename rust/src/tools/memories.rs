@@ -1,5 +1,5 @@
 //! Run bounded headline-history snapshots through DuckDB for character context.
-//! Source selection and writing views live in `plugins::classifier::memories`.
+//! Source selection and writing views live in `plugins::classifier::skills::classify::memories`.
 use anyhow::{ensure, Context, Result};
 use serde::Serialize;
 use std::process::Stdio;

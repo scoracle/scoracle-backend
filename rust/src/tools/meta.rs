@@ -92,8 +92,14 @@ pub(crate) fn decision_context<'a>(
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let attributes = match meta.get("database_record").filter(|record| !record.is_null()) {
-        Some(record) => recorded_attributes(entity, &serde_json::from_value::<DatabaseRecord>(record.clone())?),
+    let attributes = match meta
+        .get("database_record")
+        .filter(|record| !record.is_null())
+    {
+        Some(record) => recorded_attributes(
+            entity,
+            &serde_json::from_value::<DatabaseRecord>(record.clone())?,
+        ),
         None if !background.is_empty() => Some(serde_json::json!({"background_note": background})),
         None => None,
     };

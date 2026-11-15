@@ -4,7 +4,9 @@
 //! Recorded evidence needs no database: --recorded INPUT.jsonl OUTPUT.jsonl MODEL_URL MODEL
 use anyhow::{ensure, Context, Result};
 use scoracle_cognition::harness::providers::llama::LlamaClient;
-use scoracle_cognition::plugins::{classifier::delivery, influencer};
+use scoracle_cognition::plugins::{
+    character::skills::influencer, classifier::skills::classify::delivery,
+};
 use scoracle_cognition::tools::meta::{lookup_entity_name, EntityMeta};
 use serde::Deserialize;
 use serde_json::{json, Value};

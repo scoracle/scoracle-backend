@@ -88,12 +88,18 @@ pub fn assemble(
         evidence: F,
     }
     let mut target_context = vec![TARGET_CONTEXT.to_owned()];
-    target_context.extend(target.guide.lines(&serde_json::to_value(&target.data).expect("target serializes")));
+    target_context.extend(
+        target
+            .guide
+            .lines(&serde_json::to_value(&target.data).expect("target serializes")),
+    );
     serde_json::to_string_pretty(&Payload {
         task: instructions.job(),
         target_context,
         target: target.data,
-        evidence_context: new_content.guide.lines(&serde_json::to_value(&new_content.data).expect("content serializes")),
+        evidence_context: new_content
+            .guide
+            .lines(&serde_json::to_value(&new_content.data).expect("content serializes")),
         evidence: new_content.data,
     })
     .expect("character payload serializes")
@@ -148,7 +154,10 @@ pub(crate) fn target(packet: &Value) -> &Value {
     packet.get("target").unwrap_or(&packet["meta"])
 }
 pub(crate) fn new_content(packet: &Value) -> &Value {
-    packet.get("evidence").or_else(|| packet.get("new_content")).unwrap_or(&packet["fresh"])
+    packet
+        .get("evidence")
+        .or_else(|| packet.get("new_content"))
+        .unwrap_or(&packet["fresh"])
 }
 
 #[cfg(test)]
@@ -214,15 +223,34 @@ mod tests {
             },
         );
         let packet: Value = serde_json::from_str(&prompt).unwrap();
-        let fields = ["task", "target_context", "target", "evidence_context", "evidence"];
-        let positions: Vec<_> = fields.iter().map(|field| prompt.find(&format!("\n  \"{field}\":")).unwrap()).collect();
+        let fields = [
+            "task",
+            "target_context",
+            "target",
+            "evidence_context",
+            "evidence",
+        ];
+        let positions: Vec<_> = fields
+            .iter()
+            .map(|field| prompt.find(&format!("\n  \"{field}\":")).unwrap())
+            .collect();
         assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
         assert_eq!(packet.as_object().unwrap().len(), 5);
         assert_eq!(packet["task"], INSTRUCTIONS.job());
         assert_eq!(packet["target"], target);
         assert_eq!(packet["evidence"], evidence);
-        assert_eq!(packet["target_context"], json!([TARGET_CONTEXT, "The supplied organization is the target.", "custom_attribute: Plugin-specific flag."]));
-        assert_eq!(packet["evidence_context"], json!(["Reports about the target.", "count: report count."]));
+        assert_eq!(
+            packet["target_context"],
+            json!([
+                TARGET_CONTEXT,
+                "The supplied organization is the target.",
+                "custom_attribute: Plugin-specific flag."
+            ])
+        );
+        assert_eq!(
+            packet["evidence_context"],
+            json!(["Reports about the target.", "count: report count."])
+        );
     }
 
     #[test]
@@ -231,7 +259,10 @@ mod tests {
             let packet = json!({key: {"value": 7}});
             assert_eq!(new_content(&packet), &json!({"value": 7}));
         }
-        assert_eq!(new_content(&json!({"evidence": 1, "new_content": 2, "fresh": 3})), &json!(1));
+        assert_eq!(
+            new_content(&json!({"evidence": 1, "new_content": 2, "fresh": 3})),
+            &json!(1)
+        );
     }
 
     #[test]

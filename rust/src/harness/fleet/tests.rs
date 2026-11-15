@@ -1,10 +1,17 @@
-//! Production fleet contract tests. These protect durable identifiers, operational
-//! resource policy, scoped web reach, and complete boot registration.
+//! Production fleet contracts: identifiers, resources, grants and registration.
+
+use crate::plugins::caretaker::skills::fixture_boxscore::manifest::MANIFEST as FIXTURE_BOXSCORE;
+use crate::plugins::caretaker::skills::investigator::manifest::MANIFEST as INVESTIGATOR;
+use crate::plugins::character::skills::analyst::manifest::MANIFEST as ANALYST;
+use crate::plugins::character::skills::influencer::manifest::MANIFEST as INFLUENCER;
+use crate::plugins::character::skills::insider::manifest::MANIFEST as INSIDER;
+use crate::plugins::character::skills::journalist::manifest::MANIFEST as JOURNALIST;
+use crate::plugins::character::skills::oracle::manifest::MANIFEST as ORACLE;
+use crate::plugins::character::skills::scout::manifest::MANIFEST as SCOUT;
+use crate::plugins::classifier::skills::classify::manifest::MANIFEST as CLASSIFIER;
 
 use super::*;
-use crate::harness::plugin::{
-    PluginManifest, PluginOutcome, PluginRegistry, StudioPlugin, ToolGrant,
-};
+use crate::harness::plugin::{PluginRegistry, Skill, SkillManifest, SkillOutcome, ToolGrant};
 use crate::harness::tools::DomainClass;
 
 #[test]
@@ -105,56 +112,62 @@ fn acquisition_web_grants_are_scoped_to_each_plugins_sources() {
 
 #[test]
 fn full_and_partial_production_fleets_register() {
-    let fleet = ALL;
-    let registry =
-        PluginRegistry::new(fleet.iter().map(|manifest| plugin(manifest)).collect()).unwrap();
-    assert_eq!(registry.plugins().len(), fleet.len());
-    let ids: Vec<_> = registry.plugins().iter().map(|p| p.manifest().id).collect();
-    assert_eq!(
-        ids,
-        fleet.iter().map(|m| m.id).collect::<Vec<_>>(),
-        "registration order must be preserved"
-    );
-    // Every fleet member also registers on its own (a partial deployment).
-    for manifest in fleet {
-        let partial = PluginRegistry::new(vec![plugin(manifest)]).unwrap();
-        assert_eq!(partial.plugins()[0].manifest().id, manifest.id);
+    let plugins = ALL
+        .iter()
+        .map(|manifest| crate::harness::plugin::Plugin {
+            manifest,
+            skills: if manifest.id == crate::plugins::caretaker::MANIFEST.id {
+                vec![]
+            } else {
+                manifest.skills.iter().map(|m| plugin(m)).collect()
+            },
+        })
+        .collect();
+    let registry = PluginRegistry::new(plugins).unwrap();
+    assert_eq!(registry.plugins().len(), 3);
+    assert_eq!(registry.skills().len(), 7);
+    assert!(registry.plugins()[2].skills.is_empty());
+    for manifest in crate::harness::fleet::skills() {
+        let owner = ALL.iter().find(|p| p.id == manifest.plugin_id).unwrap();
+        let partial = PluginRegistry::new(vec![crate::harness::plugin::Plugin {
+            manifest: owner,
+            skills: vec![plugin(manifest)],
+        }])
+        .unwrap();
+        assert_eq!(partial.skills()[0].manifest().id, manifest.id);
     }
+}
+
+struct ManifestPlugin(&'static SkillManifest);
+
+#[async_trait::async_trait]
+impl Skill for ManifestPlugin {
+    fn manifest(&self) -> &'static SkillManifest {
+        self.0
+    }
+
+    async fn execute(&self, _: &crate::harness::queue::work::Item) -> anyhow::Result<SkillOutcome> {
+        unreachable!("registration-only test")
+    }
+}
+
+fn plugin(manifest: &'static SkillManifest) -> std::sync::Arc<dyn Skill> {
+    std::sync::Arc::new(ManifestPlugin(manifest))
 }
 
 #[test]
 fn classifier_replaces_retired_intake_in_the_deployable_fleet() {
     assert_eq!(CLASSIFIER.task.as_str(), "classifier");
-    assert!(!ALL.iter().any(|m| matches!(
+    assert!(!skills().any(|m| matches!(
         m.task.as_str(),
         "harvester" | "editor" | "graph" | "classifier_acquire"
     )));
     assert!(inference_routes()
         .iter()
         .all(|r| r.env_suffix() != "EMOTIONAL_NEWS"));
-    assert!(ALL.iter().any(|m| m.id == CLASSIFIER.id));
+    assert!(skills().any(|m| m.id == CLASSIFIER.id));
     assert!(crate::harness::registration::enabled_from_config(Some("harvester,editor")).is_err());
     assert!(!crate::harness::registration::enabled_from_config(None)
         .unwrap()
         .contains("classifier"));
-}
-
-struct ManifestPlugin(&'static PluginManifest);
-
-#[async_trait::async_trait]
-impl StudioPlugin for ManifestPlugin {
-    fn manifest(&self) -> &'static PluginManifest {
-        self.0
-    }
-
-    async fn execute(
-        &self,
-        _: &crate::harness::queue::work::Item,
-    ) -> anyhow::Result<PluginOutcome> {
-        unreachable!("registration-only test")
-    }
-}
-
-fn plugin(manifest: &'static PluginManifest) -> std::sync::Arc<dyn StudioPlugin> {
-    std::sync::Arc::new(ManifestPlugin(manifest))
 }

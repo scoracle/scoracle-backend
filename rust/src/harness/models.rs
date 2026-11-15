@@ -1,6 +1,6 @@
 //! Application-selected model routes and generation limits. No storage or queue access.
 use crate::harness::model::Inference;
-use crate::harness::plugin::{PluginManifest, ToolGrant};
+use crate::harness::plugin::{SkillManifest, ToolGrant};
 use crate::harness::route::{RouteKey, Router};
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
@@ -11,8 +11,8 @@ pub struct Models {
     pub voice_num_ctx: i32,
 }
 
-/// Capabilities resolved for one plugin at composition time. Unlike [`Models`], this
-/// value cannot discover another plugin's route or reach the global router.
+/// Capabilities resolved for one skill at composition time. Unlike [`Models`], this
+/// value cannot discover another skill's route or reach the global router.
 #[derive(Clone)]
 pub struct ExecutionCapabilities {
     inference: HashMap<RouteKey, Arc<dyn Inference>>,
@@ -31,9 +31,9 @@ impl ExecutionCapabilities {
 }
 
 impl Models {
-    /// Construct the exact inference surface declared by a plugin manifest.
-    /// Declaration checks happen here, where concrete handles cross into plugin code.
-    pub fn capabilities(&self, manifest: &PluginManifest) -> Result<ExecutionCapabilities> {
+    /// Construct the exact inference surface declared by a skill manifest.
+    /// Declaration checks happen here, where concrete handles cross into skill code.
+    pub fn capabilities(&self, manifest: &SkillManifest) -> Result<ExecutionCapabilities> {
         if manifest.inference_routes.is_empty() {
             anyhow::ensure!(
                 !manifest.tools.contains(&ToolGrant::Inference),
@@ -59,12 +59,12 @@ impl Models {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::harness::config::{Backend, ModelSpec, RouteConfig};
     use std::time::Duration;
 
-    fn models() -> Models {
+    pub(crate) fn models() -> Models {
         let roles = crate::harness::fleet::inference_routes()
             .into_iter()
             .map(|route| {
@@ -95,15 +95,15 @@ mod tests {
     }
 
     #[test]
-    fn production_capability_scope_refuses_another_plugins_route() {
+    fn production_capability_scope_refuses_another_skills_route() {
         let capabilities = models()
-            .capabilities(&crate::plugins::analyst::manifest::MANIFEST)
+            .capabilities(&crate::plugins::character::skills::analyst::manifest::MANIFEST)
             .unwrap();
         assert!(capabilities
-            .inference(crate::plugins::analyst::manifest::ROUTE)
+            .inference(crate::plugins::character::skills::analyst::manifest::ROUTE)
             .is_ok());
         let error = capabilities
-            .inference(crate::plugins::scout::manifest::ROUTE)
+            .inference(crate::plugins::character::skills::scout::manifest::ROUTE)
             .err()
             .expect("undeclared route must be absent");
         assert!(error.to_string().contains("was not supplied"));
@@ -112,13 +112,13 @@ mod tests {
     #[test]
     fn insider_receives_only_its_single_route() {
         let capabilities = models()
-            .capabilities(&crate::plugins::insider::manifest::MANIFEST)
+            .capabilities(&crate::plugins::character::skills::insider::manifest::MANIFEST)
             .unwrap();
         assert!(capabilities
-            .inference(crate::plugins::insider::manifest::ROUTE)
+            .inference(crate::plugins::character::skills::insider::manifest::ROUTE)
             .is_ok());
         assert!(capabilities
-            .inference(crate::plugins::journalist::manifest::ROUTE)
+            .inference(crate::plugins::character::skills::journalist::manifest::ROUTE)
             .is_err());
     }
 }

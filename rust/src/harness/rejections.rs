@@ -89,7 +89,9 @@ pub fn observe_content() -> bool {
     }
     observation_active(
         std::env::var("CHARACTER_CONTENT_POLICY").ok().as_deref(),
-        std::env::var("CHARACTER_CONTENT_OBSERVE_UNTIL").ok().as_deref(),
+        std::env::var("CHARACTER_CONTENT_OBSERVE_UNTIL")
+            .ok()
+            .as_deref(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(u64::MAX, |elapsed| elapsed.as_secs()),

@@ -2,7 +2,10 @@
 use anyhow::{bail, ensure, Context, Result};
 use scoracle_cognition::{
     harness::{config::Config, db},
-    plugins::{classifier::delivery::load_for_character, journalist::manifest::MANIFEST},
+    plugins::{
+        character::skills::journalist::manifest::MANIFEST,
+        classifier::skills::classify::delivery::load_for_character,
+    },
 };
 use serde_json::Value;
 

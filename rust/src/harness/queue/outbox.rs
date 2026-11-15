@@ -254,7 +254,7 @@ mod postgres_recovery_tests {
             .bind(SPORT).execute(pool).await.unwrap();
         // Recording uses the same production statement as atomic seat publication.
         let item = Item {
-            stage: crate::plugins::analyst::manifest::TASK,
+            stage: crate::plugins::character::skills::analyst::manifest::TASK,
             entity_type: "team".into(),
             entity_id: 9_600_001,
             sport: SPORT.into(),
@@ -263,7 +263,7 @@ mod postgres_recovery_tests {
             claim_token: Some("00000000-0000-4000-8000-000000000001".into()),
         };
         let mut tx = pool.begin().await.unwrap();
-        crate::plugins::analyst::record_momentum_completed(&mut tx, &item)
+        crate::plugins::character::skills::analyst::record_momentum_completed(&mut tx, &item)
             .await
             .unwrap();
         tx.commit().await.unwrap();
@@ -274,7 +274,7 @@ mod postgres_recovery_tests {
             .unwrap();
         Event {
             id,
-            kind: crate::plugins::analyst::MOMENTUM_COMPLETED.into(),
+            kind: crate::plugins::character::skills::analyst::MOMENTUM_COMPLETED.into(),
             entity_type: item.entity_type,
             entity_id: item.entity_id as i32,
             sport: item.sport,
@@ -346,7 +346,7 @@ mod postgres_recovery_tests {
         sqlx::query("INSERT INTO sports (id, display_name, current_season) VALUES ($1, 'Outbox recovery test', 2026) ON CONFLICT DO NOTHING")
             .bind(SPORT).execute(&pool).await.unwrap();
         let item = Item {
-            stage: crate::plugins::insider::manifest::TASK,
+            stage: crate::plugins::character::skills::insider::manifest::TASK,
             entity_type: "team".into(),
             entity_id: 9_600_001,
             sport: SPORT.into(),
@@ -357,10 +357,10 @@ mod postgres_recovery_tests {
         let rating_version = "rating:s2026:transfer:77";
 
         let mut rolled_back = pool.begin().await.unwrap();
-        crate::plugins::insider::record_transfer_event(
+        crate::plugins::character::skills::insider::record_transfer_event(
             &mut rolled_back,
             &item,
-            crate::plugins::scout::TRANSFER_IDENTITY_APPLIED,
+            crate::plugins::character::skills::scout::TRANSFER_IDENTITY_APPLIED,
             "player",
             9_600_002,
             Some(rating_version),
@@ -372,7 +372,7 @@ mod postgres_recovery_tests {
             "SELECT count(*) FROM application_outbox WHERE sport=$1 AND kind=$2",
         )
         .bind(SPORT)
-        .bind(crate::plugins::scout::TRANSFER_IDENTITY_APPLIED)
+        .bind(crate::plugins::character::skills::scout::TRANSFER_IDENTITY_APPLIED)
         .fetch_one(&pool)
         .await
         .unwrap();
@@ -384,10 +384,10 @@ mod postgres_recovery_tests {
             ("team", 9_600_001),
             ("team", 9_600_003),
         ] {
-            crate::plugins::insider::record_transfer_event(
+            crate::plugins::character::skills::insider::record_transfer_event(
                 &mut committed,
                 &item,
-                crate::plugins::scout::TRANSFER_IDENTITY_APPLIED,
+                crate::plugins::character::skills::scout::TRANSFER_IDENTITY_APPLIED,
                 entity_type,
                 entity_id,
                 Some(rating_version),
@@ -432,7 +432,7 @@ mod postgres_recovery_tests {
             .unwrap();
             let event = Event {
                 id,
-                kind: crate::plugins::analyst::MOMENTUM_COMPLETED.into(),
+                kind: crate::plugins::character::skills::analyst::MOMENTUM_COMPLETED.into(),
                 entity_type: "team".into(),
                 entity_id: 9_600_001,
                 sport: SPORT.into(),

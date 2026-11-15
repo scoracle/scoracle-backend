@@ -6,8 +6,8 @@ use scoracle_cognition::harness::{
     model::{GenerateOptions, GenerateResult, Inference},
     Parser, Studio,
 };
-use scoracle_cognition::plugins::scout::parser::RatingRequestParser;
-use scoracle_cognition::plugins::scout::request::Parts;
+use scoracle_cognition::plugins::character::skills::scout::parser::RatingRequestParser;
+use scoracle_cognition::plugins::character::skills::scout::request::Parts;
 use serde_json::{json, Value};
 use std::{path::Path, sync::Mutex};
 
@@ -49,7 +49,8 @@ impl Inference for Recording<'_> {
 
 pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
     let router = Router::from_config(&cfg.route, cfg.model_timeout, 1)?;
-    let backend = router.for_route(scoracle_cognition::plugins::scout::manifest::ROUTE);
+    let backend =
+        router.for_route(scoracle_cognition::plugins::character::skills::scout::manifest::ROUTE);
     for line in std::fs::read_to_string(path)?
         .lines()
         .filter(|l| !l.trim().is_empty())

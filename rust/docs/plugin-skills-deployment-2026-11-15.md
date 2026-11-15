@@ -46,3 +46,15 @@ Each release contains `binary-hashes.json` and a `rollback/` directory. Archbox 
 Pause the three processing workers and collection before rollback. On Archbox, remove only the new `zz-plugin-skills.conf` drop-ins for API, cognition and coverage, restore the saved cognition base unit from `rollback/`, reload systemd and restart the previously active services. The original release overrides and binaries remain available; the effective pre-cutover units were saved in `rollback/*.effective`.
 
 On Mac, boot out both launch agents, restore their saved plists from the release's `rollback/` directory, then bootstrap those plists. Their original launcher scripts and binaries were not changed. No schema rollback is required.
+
+## RSS investigation and pause (19:06 UTC)
+
+The user approved pausing RSS collection. `scoracle-coverage.service` was stopped at 19:06 UTC; API, Classifier and both Character workers remain running. Caretaker remains inactive and main remains unchanged.
+
+A single production-host probe returned HTTP 503 with Google's explicit automated-query refusal page ("your computer or network may be sending automated queries"). It supplied no `Retry-After` header. This is a provider refusal, not evidence of a plugin routing or model failure. The previous 13:00 UTC sweep recorded 583 calls with zero RSS errors; the HTTP client implementation is unchanged between releases. No alternate IP, proxy, or user-agent workaround was attempted.
+
+The collector fix stops the entire sweep on HTTP 429/503, propagates the failure to the run ledger, and defers monitor retries for at least one hour (longer `Retry-After` values take precedence, with numeric values capped at one year to avoid overflow). An entity whose searches all fail now returns an error rather than a false success. Ordinary partial failures still preserve the existing collection cursor. Tests cover fail-fast behavior, delay parsing, coverage-window reopening, and database cursor preservation on refusal.
+
+Operational limit: the monitor's cooldown is process-local. Restarting it or invoking manual ingestion bypasses that timer. Keep collection stopped during this refusal; do not restart before 20:06 UTC on November 15 (15:06 EST), and do not treat that time as proof that Google has lifted the refusal. No automatic restart has been scheduled.
+
+Fresh collection-to-publication verification remains blocked. A recovery check must establish successful RSS retrieval, new Classifier completion, Character generation under `scoracle.character`, and the corresponding served product. Model fixture smoke tests and serving previously saved products do not meet that requirement.

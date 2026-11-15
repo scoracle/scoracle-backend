@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +30,32 @@ import (
 // ---------------------------------------------------------------------------
 
 const newsRSSTimeout = 15 * time.Second
+
+// RSSBackoffError stops the whole sweep when the provider asks callers to wait.
+type RSSBackoffError struct {
+	Status  int
+	RetryAt time.Time
+}
+
+func (e *RSSBackoffError) Error() string {
+	return fmt.Sprintf("RSS HTTP %d; collection deferred until %s", e.Status, e.RetryAt.UTC().Format(time.RFC3339))
+}
+func rssRetryAt(value string, now time.Time) time.Time {
+	// Keep at least the ordinary hourly interval; a longer provider delay wins.
+	retryAt := now.Add(time.Hour)
+	if seconds, err := strconv.ParseInt(value, 10, 64); err == nil && seconds > 0 {
+		// Avoid overflowing time.Duration when a malformed server sends a huge value.
+		if seconds > 86400*365 {
+			seconds = 86400 * 365
+		}
+		if candidate := now.Add(time.Duration(seconds) * time.Second); candidate.After(retryAt) {
+			retryAt = candidate
+		}
+	} else if candidate, err := http.ParseTime(value); err == nil && candidate.After(retryAt) {
+		retryAt = candidate
+	}
+	return retryAt
+}
 
 type newsWindow struct {
 	since, through time.Time
@@ -450,6 +477,9 @@ func (s *NewsService) fetchRSS(ctx context.Context, query string, window newsWin
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable {
+		return nil, &RSSBackoffError{Status: resp.StatusCode, RetryAt: rssRetryAt(resp.Header.Get("Retry-After"), time.Now())}
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("RSS HTTP %d", resp.StatusCode)
 	}
@@ -512,6 +542,7 @@ func (s *NewsService) fetchFromRSS(
 	editions := rssEditionsForEntity(entityType, sport)
 
 	var allArticles []Article
+	var lastFetchError error
 	f := Funnel{
 		Entities:        1,
 		EditionsPlanned: len(editions),
@@ -530,6 +561,11 @@ func (s *NewsService) fetchFromRSS(
 			articles, err := s.fetchRSS(ctx, query, window, edition, &f)
 			if err != nil {
 				f.RSSErrors++
+				lastFetchError = err
+				var backoff *RSSBackoffError
+				if errors.As(err, &backoff) {
+					return nil, f, err
+				}
 				if errors.Is(err, errCollectionUnavailable) {
 					return nil, f, err
 				}
@@ -556,6 +592,10 @@ func (s *NewsService) fetchFromRSS(
 			allArticles = deduplicateArticles(append(allArticles, articles...))
 			f.DedupCollapsed += beforeDedup - len(allArticles)
 		}
+	}
+
+	if f.RSSCalls > 0 && f.RSSCalls == f.RSSErrors {
+		return nil, f, fmt.Errorf("all RSS searches failed: %w", lastFetchError)
 	}
 
 	// Stable rank ordering keeps primary-query results ahead of aliases on ties.

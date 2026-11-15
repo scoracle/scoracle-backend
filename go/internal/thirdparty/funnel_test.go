@@ -2,6 +2,7 @@ package thirdparty
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -138,8 +139,8 @@ func TestFunnelSurvivesFetchErrors(t *testing.T) {
 
 	_, f, err := s.GetEntityNews(context.Background(), "team", 1,
 		"Chicago Bulls", "NBA", 0, nil)
-	if err != nil {
-		t.Fatalf("GetEntityNews: %v", err)
+	if err == nil {
+		t.Fatal("all failed searches must return an error")
 	}
 	if f.RSSCalls == 0 || f.RSSErrors != f.RSSCalls {
 		t.Errorf("RSSCalls %d / RSSErrors %d, want every call counted as an error", f.RSSCalls, f.RSSErrors)
@@ -182,5 +183,47 @@ func TestReadsWithheldDoesNotBreakTheResidualInvariant(t *testing.T) {
 
 	if r := f.Residual(); r != 0 {
 		t.Errorf("a fully-capped sweep must still balance: residual %d (%v)", r, f.LogAttrs())
+	}
+}
+
+func TestProviderRefusalStopsRemainingSearches(t *testing.T) {
+	for _, status := range []int{429, 503} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			calls := 0
+			s := newFixtureService(t, func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				w.Header().Set("Retry-After", "7200")
+				w.WriteHeader(status)
+			})
+			before := time.Now()
+			ids, f, err := s.GetEntityNews(context.Background(), "team", 1, "Manchester United", "FOOTBALL", 0, []string{"Man United", "MUN"})
+			var backoff *RSSBackoffError
+			if !errors.As(err, &backoff) {
+				t.Fatalf("want provider backoff, got %v", err)
+			}
+			if backoff.Status != status || backoff.RetryAt.Before(before.Add(2*time.Hour)) {
+				t.Fatalf("wrong backoff: %+v", backoff)
+			}
+			if calls != 1 || f.RSSCalls != 1 || f.RSSErrors != 1 || len(ids) != 0 {
+				t.Fatalf("continued refused sweep: calls=%d funnel=%+v ids=%v", calls, f, ids)
+			}
+		})
+	}
+}
+
+func TestRSSRetryAfter(t *testing.T) {
+	now := time.Date(2026, 11, 15, 19, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		header string
+		delay  time.Duration
+	}{
+		{"", time.Hour}, {"invalid", time.Hour}, {"-1", time.Hour}, {"60", time.Hour},
+		{"7200", 2 * time.Hour}, {now.Add(3 * time.Hour).Format(http.TimeFormat), 3 * time.Hour},
+		{now.Add(-time.Hour).Format(http.TimeFormat), time.Hour},
+		{"9223372036854775807", 365 * 24 * time.Hour},
+	} {
+		if got := rssRetryAt(tc.header, now); !got.Equal(now.Add(tc.delay)) {
+			t.Errorf("header %q: got %s want delay %s", tc.header, got, tc.delay)
+		}
 	}
 }

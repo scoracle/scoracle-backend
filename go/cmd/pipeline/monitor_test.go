@@ -33,3 +33,25 @@ func TestCoverageMonitorHourlyPollingAndImmediateCatchup(t *testing.T) {
 		t.Fatal("a restart during coverage must catch up immediately")
 	}
 }
+
+func TestProviderBackoffSurvivesWindowReopening(t *testing.T) {
+	start := time.Date(2026, 11, 15, 19, 0, 0, 0, time.UTC)
+	monitor := coverageMonitor{}
+	if !monitor.poll(true, start) {
+		t.Fatal("initial sweep missing")
+	}
+	monitor.retryAt = start.Add(2 * time.Hour)
+	monitor.poll(false, start.Add(time.Minute))
+	if monitor.poll(true, start.Add(2*time.Minute)) {
+		t.Fatal("reopening bypassed backoff")
+	}
+	if monitor.poll(true, start.Add(time.Hour)) {
+		t.Fatal("hourly tick bypassed backoff")
+	}
+	if !monitor.poll(true, monitor.retryAt) {
+		t.Fatal("did not retry when backoff expired")
+	}
+	if monitor.poll(true, monitor.retryAt.Add(time.Second)) {
+		t.Fatal("duplicate retry")
+	}
+}

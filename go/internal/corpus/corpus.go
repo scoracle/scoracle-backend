@@ -3,6 +3,7 @@ package corpus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -85,6 +86,14 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 			if err != nil {
 				fail++
 				logger.Warn("corpus: rss fetch failed", "sport", sport, "team", t.Name, "id", t.ID, "error", err)
+				var backoff *thirdparty.RSSBackoffError
+				if errors.As(err, &backoff) {
+					logSportFunnel(logger, sport, len(teams), i+1, sportFunnel, zeroAdmitted)
+					runFunnel.Add(sportFunnel)
+					logRunFunnel(logger, runFunnel)
+					return ok, fail, err
+				}
+
 			} else {
 				ok++
 				fresh += len(ids)

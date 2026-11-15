@@ -2,6 +2,7 @@ package thirdparty
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -481,7 +482,7 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 			q := r.URL.Query().Get("q")
 			queries = append(queries, q)
 			if strings.Contains(q, "Broken Alias") {
-				w.WriteHeader(http.StatusServiceUnavailable)
+				w.WriteHeader(http.StatusBadGateway)
 				return
 			}
 			w.Header().Set("Content-Type", "application/xml")
@@ -505,6 +506,19 @@ func TestClassifierRSSAcquisition(t *testing.T) {
 			}
 		}
 		setCursor(cursor)
+		for _, status := range []int{429, 503} {
+			refused := newFixtureService(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) })
+			refused.pool = pool
+			_, _, err := refused.GetEntityNews(ctx, "team", 1, "Test Club", "INTAKE_TEST", 0, nil)
+			var backoff *RSSBackoffError
+			if !errors.As(err, &backoff) {
+				t.Fatalf("provider refusal lost: %v", err)
+			}
+			var retained time.Time
+			if err := pool.QueryRow(ctx, "SELECT fetched_through FROM headline_fetch_watermarks WHERE sport='INTAKE_TEST'").Scan(&retained); err != nil || !retained.Equal(cursor) {
+				t.Fatalf("provider refusal advanced cursor: %v %v", retained, err)
+			}
+		}
 		ids, _, err := fetcher.GetEntityNews(ctx, "team", 1, "Test Club", "INTAKE_TEST", 0, nil)
 		if err != nil || len(ids) != 1 || len(queries) != 1 || !strings.Contains(queries[0], "when:1h") {
 			t.Fatalf("hourly fetch ids=%v queries=%v error=%v", ids, queries, err)

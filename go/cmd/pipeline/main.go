@@ -87,7 +87,8 @@ func main() {
 	if *mode == "headshots" {
 		os.Exit(runHeadshots(pool, cfg.DatabaseURL, *sport, *season, logger))
 	}
-	os.Exit(runIngestOnly(context.Background(), pool, cfg.DatabaseURL, *sport, *rssLimit, *rssPauseMs, logger))
+	code, _ := runIngestOnly(context.Background(), pool, cfg.DatabaseURL, *sport, *rssLimit, *rssPauseMs, logger)
+	os.Exit(code)
 }
 
 // runHeadshots repairs the two US-league image columns from stable provider
@@ -227,7 +228,7 @@ func runData(pool *pgxpool.Pool, dbURL string, season int, logger *slog.Logger) 
 	return exit
 }
 
-func runIngestOnly(ctx context.Context, pool *pgxpool.Pool, dbURL, sportArg string, rssLimit, rssPauseMs int, logger *slog.Logger) int {
+func runIngestOnly(ctx context.Context, pool *pgxpool.Pool, dbURL, sportArg string, rssLimit, rssPauseMs int, logger *slog.Logger) (int, error) {
 	sports := []string{"NBA", "NFL", "FOOTBALL"}
 	if s := strings.ToLower(strings.TrimSpace(sportArg)); s != "" && s != "all" {
 		sports = []string{strings.ToUpper(sportArg)}
@@ -241,11 +242,11 @@ func runIngestOnly(ctx context.Context, pool *pgxpool.Pool, dbURL, sportArg stri
 	run, acquired, err := jobrun.Guard(ctx, pool, dbURL, "pipeline")
 	if err != nil {
 		logger.Error("pipeline ingest: run-guard failed", "error", err)
-		return 1
+		return 1, err
 	}
 	if !acquired {
 		logger.Warn("pipeline ingest: another pipeline run holds the lock - exiting cleanly")
-		return 0
+		return 0, nil
 	}
 	defer run.Close()
 
@@ -269,5 +270,5 @@ func runIngestOnly(ctx context.Context, pool *pgxpool.Pool, dbURL, sportArg stri
 	if ferr := run.Finish(finishCtx, status, jobrun.Counts{Attempted: ok + fail, Succeeded: ok, Failed: fail}, runErr); ferr != nil {
 		logger.Warn("pipeline ingest: record run failed", "error", ferr)
 	}
-	return exit
+	return exit, runErr
 }

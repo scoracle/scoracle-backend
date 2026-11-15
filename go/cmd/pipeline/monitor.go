@@ -2,19 +2,23 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
+	"github.com/albapepper/scoracle-data/internal/thirdparty"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type coverageMonitor struct {
 	nextSweep time.Time
 	wasOpen   bool
+	// shortcut: cooldown is process-local; persist it before supporting restarts during provider backoff.
+	retryAt time.Time
 }
 
 func (m *coverageMonitor) poll(open bool, now time.Time) bool {
-	due := open && (!m.wasOpen || !now.Before(m.nextSweep))
+	due := open && !now.Before(m.retryAt) && (!m.wasOpen || !now.Before(m.nextSweep))
 	m.wasOpen = open
 	if due {
 		m.nextSweep = now.Add(time.Hour)
@@ -37,7 +41,12 @@ func runMonitor(ctx context.Context, pool *pgxpool.Pool, dbURL, sport string, li
 			logger.Error("coverage monitor: clock unavailable; discovery paused", "error", err)
 			monitor.poll(false, time.Now())
 		} else if monitor.poll(open, time.Now()) {
-			runIngestOnly(ctx, pool, dbURL, sport, limit, pause, logger)
+			_, err := runIngestOnly(ctx, pool, dbURL, sport, limit, pause, logger)
+			var backoff *thirdparty.RSSBackoffError
+			if errors.As(err, &backoff) {
+				monitor.retryAt = backoff.RetryAt
+				logger.Warn("coverage monitor: provider backoff", "retry_at", monitor.retryAt, "error", err)
+			}
 		}
 
 		select {

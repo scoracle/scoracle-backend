@@ -1,0 +1,9 @@
+   Compiling scoracle-cognition v0.0.0 (/Users/scotty/.codex/worktrees/character-skills/scoracle-backend/rust)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.73s
+     Running unittests src/lib.rs (target/debug/deps/scoracle_cognition-a65f1645456a79d7)
+
+running 1 test
+test harness::queue::coverage_tests::inactive_characters_do_not_fail_a_completed_required_edition ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 497 filtered out; finished in 0.06s
+

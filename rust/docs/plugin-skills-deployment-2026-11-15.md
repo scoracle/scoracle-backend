@@ -72,3 +72,13 @@ The condition for resuming collection was not met, so RSS remains paused; no ret
 The user authorized adding Insider after sample qualification, while leaving Scout, Analyst, Oracle and Caretaker inactive. The isolated live-model sample cycle passed intake, classification, day-end handoff, all three headline skills, publication and API serving; see [sample evidence](qualification/2026-11-15-headline-pipeline/README.md). Migration 334 fixes the discovered scheduler mismatch so inactive pending assignments do not make a completed required edition partial.
 
 Planned production settings retain the established America/Detroit clock: hourly collection sweeps while the collection window is open, collection closing at 22:00, classification draining until midnight, then Journalist/Influencer/Insider. RSS remains paused for the explicit Google refusal; this rollout does not bypass that block or claim fresh Google recovery. An hourly sweep consists of multiple feed requests, not one request per hour.
+
+### Applied at 15:33 EST
+
+Commit `7aef71ee` is pushed on the feature branch. Migration 334 was applied transactionally on Archbox. The clock was restored from its disabled November 4 Character phase to a newly enrolled coverage phase, with exactly `narratives,vibe,transfers` required. Historical editions, assignments, failures and products were retained. Previous clock settings and scheduler function are saved privately in `/home/sheneveld/scoracle/releases/headline-skills-7aef71ee/rollback/`.
+
+`com.scoracle.insider` now runs the existing qualified `65ae6d50` binary with `COGNITION_STAGES=transfers`, a single-claim limit, the same Qwen endpoint/context window, and unchanged observation policy/expiry. Its launcher and logs are under `/Users/scotty/scoracle-worker/releases/headline-skills-7aef71ee/`. Journalist and Influencer retain their launchers. Only SQL scheduling and Insider enablement changed; API and Classifier binaries were not replaced.
+
+Post-rollout checks: API database health is healthy; saved news returns HTTP 200 with a narrative. Controller ticks show `coverage`, Classifier open, and all Character stages closed during the day. Insider startup registers only `transfers`. RSS remains inactive, all 473 Investigator jobs remain untouched, and no `example.invalid/sample/` article exists in production. Main has not been merged.
+
+Rollback: boot out the new Insider launch agent before removing its plist; restore the saved scheduler function and clock settings under the coverage advisory lock. Restore only the saved configuration, not historical job/product data. The staged collector and its separate rollback remain unchanged.

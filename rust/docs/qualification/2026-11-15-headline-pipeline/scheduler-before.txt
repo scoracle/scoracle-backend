@@ -1,0 +1,24 @@
+   Compiling scoracle-cognition v0.0.0 (/Users/scotty/.codex/worktrees/character-skills/scoracle-backend/rust)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.74s
+     Running unittests src/lib.rs (target/debug/deps/scoracle_cognition-a65f1645456a79d7)
+
+running 1 test
+test harness::queue::coverage_tests::inactive_characters_do_not_fail_a_completed_required_edition ... FAILED
+
+failures:
+
+---- harness::queue::coverage_tests::inactive_characters_do_not_fail_a_completed_required_edition stdout ----
+
+thread 'harness::queue::coverage_tests::inactive_characters_do_not_fail_a_completed_required_edition' (3998955) panicked at src/harness/queue/coverage_tests.rs:640:5:
+assertion `left == right` failed
+  left: "partial"
+ right: "complete"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    harness::queue::coverage_tests::inactive_characters_do_not_fail_a_completed_required_edition
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 497 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `--lib`

@@ -1,0 +1,18 @@
+   Compiling scoracle-cognition v0.0.0 (/Users/scotty/.codex/worktrees/character-skills/scoracle-backend/rust)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.12s
+     Running unittests src/lib.rs (target/debug/deps/scoracle_cognition-a65f1645456a79d7)
+
+running 10 tests
+test harness::queue::coverage_tests::daily_output_requires_the_lease_and_cannot_publish_from_two_transactions ... ok
+test harness::queue::coverage_tests::exhausted_decisions_are_reported_and_release_the_drain_without_retry_reset ... ok
+test harness::queue::coverage_tests::exhausted_handoffs_stay_reportable_without_stalling_collection ... ok
+test harness::queue::coverage_tests::failed_characters_skip_dependents_finish_other_work_and_reopen_without_publication ... ok
+test harness::queue::coverage_tests::fresh_package_uses_local_days_without_a_reporting_week_or_memory_study ... ok
+test harness::queue::coverage_tests::inactive_characters_do_not_fail_a_completed_required_edition ... ok
+test harness::queue::coverage_tests::local_midnight_handles_dst_and_missed_windows_without_duplicate_dates ... ok
+test harness::queue::coverage_tests::only_current_edition_outbox_events_delay_completion ... ok
+test harness::queue::coverage_tests::people_receive_explicit_empty_reporting_outcomes_without_statistical_jobs ... ok
+test harness::queue::coverage_tests::scout_retries_use_frozen_measurements_even_after_data_ingestion ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 488 filtered out; finished in 0.33s
+

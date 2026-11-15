@@ -1058,7 +1058,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			           FROM narr) n), '[]'::json)
 		)`,
 		"entity_vibe": entityVibeStatement,
-		"entity_transfers": `WITH req AS (
+		// Inline entity filters before scanning qualified history.
+		"entity_transfers": `WITH req AS NOT MATERIALIZED (
 			SELECT upper($1::text) AS sport,
 			       lower($2::text) AS entity_type,
 			       $3::int AS entity_id,

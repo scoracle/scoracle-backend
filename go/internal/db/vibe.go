@@ -2,7 +2,8 @@ package db
 
 // Latest saved daily card, or one explicit Eastern reporting date.
 // $1 sport · $2 entity_type · $3 entity_id · $4 date
-const entityVibeStatement = `WITH req AS (
+// Inline entity filters before scanning qualified history.
+const entityVibeStatement = `WITH req AS NOT MATERIALIZED (
 	SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id, $4::date AS reporting_date
 ),
 vibe_cur AS (

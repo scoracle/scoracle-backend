@@ -2,6 +2,23 @@
 
 **Harness → plugins → skills.** The harness owns reliable execution. Three plugins organize capability families: Classifier, Character, and inactive Caretaker. Skills own individual jobs, prompts, tools, validation and product publication.
 
+**Each voice is a skill of the single Character plugin.** Journalist, Influencer, Insider, Scout, Analyst and Oracle are six skills, each with its own prompts, tools and output contract. We maintain one Character plugin that owns those voices.
+
+```text
+Harness
+├── Classifier plugin → classify skill
+├── Character plugin
+│   ├── Journalist skill → news narratives
+│   ├── Influencer skill → sentiment
+│   ├── Insider skill → transfer reporting
+│   ├── Scout skill → statistical assessment
+│   ├── Analyst skill → momentum
+│   └── Oracle skill → synthesis
+└── Caretaker plugin → retained maintenance skills (inactive)
+```
+
+As of November 15, 2026, production enables the Classifier skill and three Character voices: **Journalist, Influencer and Insider**. Scout, Analyst and Oracle are implemented but inactive; Caretaker is inactive. The three active voices read headline evidence routed by Classifier and run at the end-of-day handoff. See the [deployment and schedule record](rust/docs/plugin-skills-deployment-2026-11-15.md) for current operation and the RSS pause.
+
 Studio and harness name the same runtime in [`rust/src/harness/`](rust/src/harness/). The registry validates plugin ownership and skill contracts, then schedules enabled skills independently. Grouping the six characters does not serialize their work or combine their permissions. Models receive prepared evidence; they do not select skills or call tools.
 
 See the [skill/task/source/output map](rust/README.md#plugin-and-skill-map), [migration plan](rust/docs/PLAN-plugin-skills-2026-11-15.md), and [old/new Figma comparison](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs). Existing queue task names and publication guarantees remain stable. Caretaker holds retained maintenance code with zero enabled handlers; it is not a new maintenance service.
@@ -29,7 +46,7 @@ These are responsibilities, not a requirement for three services or repositories
 
 ## Implementation status
 
-The architecture above is the migration direction. The checked-in implementation currently has these boundaries:
+The checked-in implementation follows these boundaries:
 
 - **Classifier:** the d3 Q8_0 rollout uses four native decision questions with v17 shared-relation criteria and v3 identity-aware routing, retaining historical receipts. See [qualification and rollout](docs/progress_docs/2026-10-27-d3-classifier.md).
 - **Harness:** `rust/src/harness/` owns model/generation contracts, plugin manifests and registration, capability binding, routing, scheduling, claim-fenced publication and recovery. `fleet.rs` is the roster; `registration.rs` binds concrete dependencies; `queue/` retains durable work and outbox transport; `providers/` retains model transports.

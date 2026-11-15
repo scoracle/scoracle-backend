@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict YSRrww8dPbMVRzKM8DQk1mtTqKvB3iD3CG7QJck8WHtABeT8uAyS87zyhQJjpfj
+\restrict k0tyEncgDDJc9DVu8fG4uHTd31saFQoIvSnyZ5HNy3QwyyXLZgc3ABNKKn9wcDn
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1725,7 +1725,7 @@ BEGIN
     SELECT x.criteria_version,x.gate,x.clean_text,s.source INTO STRICT measured
         FROM public.classifier_spectra x JOIN public.classifier_sources s ON s.id=x.source_id
         WHERE x.id=NEW.spectrum_id;
-    IF measured.criteria_version IN ('classification-criteria-v9-headlines','classification-criteria-v10-availability','classification-criteria-v11-targeted') THEN
+    IF measured.criteria_version IN ('classification-criteria-v9-headlines','classification-criteria-v10-availability','classification-criteria-v11-targeted','classification-criteria-v12-newsworthy','classification-criteria-v13-relations','classification-criteria-v14-concise','classification-criteria-v15-task-first','classification-criteria-v16-structured-target','classification-criteria-v17-shared-relations') THEN
         IF NOT COALESCE((measured.gate->'characters'->>NEW.character)::boolean,false)
             OR measured.source->>'evidence_scope' IS DISTINCT FROM 'headline'
             OR length(btrim(measured.clean_text))=0
@@ -1919,6 +1919,8 @@ BEGIN
             AND (words[n-1]<>lower(words[n-1]) OR headline=lower(headline))
             AND NOT(previous=ANY(connectors)) THEN CONTINUE; END IF;
         IF following IS NOT NULL AND gaps[n+size-1]!~ '[,;:!?()/–—-]' THEN
+            -- A suffix is part of a person's full name, even for multiword names.
+            IF kind IN ('player','person') AND following=ANY(ARRAY['jr','sr','junior','senior','ii','iii','iv']) THEN CONTINUE; END IF;
             IF kind='team' AND following=ANY(ARRAY['women','womens','ladies','youth','academy','u18','u19','u21','u23','school','college']) THEN CONTINUE; END IF;
             IF kind IN ('player','person') AND size=1 AND following~'^[a-z]+$'
                 AND NOT(following=ANY(connectors)) THEN CONTINUE; END IF;
@@ -2544,6 +2546,27 @@ $$;
 
 
 --
+-- Name: coverage_character_visible(date, text, text, bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_character_visible(candidate date, task text, subject_type text, subject_id bigint, league text) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+ SELECT EXISTS (
+  SELECT 1 FROM public.coverage_assignments a
+  WHERE a.edition_date=candidate AND a.stage=task AND a.entity_type=subject_type
+   AND a.entity_id=subject_id AND a.sport=league
+   AND a.outcome='completed' AND a.resolution='candidate'
+ ) AND (NULLIF(current_setting('scoracle.reporting_date',true),'') IS NOT NULL OR NOT EXISTS (
+  SELECT 1 FROM public.coverage_assignments a
+  WHERE a.edition_date>candidate AND a.stage=task AND a.entity_type=subject_type
+   AND a.entity_id=subject_id AND a.sport=league AND a.outcome='completed'
+   AND a.resolution='abstained'
+ ))
+$$;
+
+
+--
 -- Name: coverage_claimable(text, text, bigint, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2839,8 +2862,8 @@ CREATE FUNCTION public.coverage_stage_open(task text) RETURNS boolean
     LANGUAGE sql STABLE
     AS $$
  SELECT NOT enabled OR CASE phase WHEN 'coverage' THEN task='classifier'
- WHEN 'draining' THEN task='classifier' WHEN 'characters' THEN coverage_is_character(task) ELSE false END
- FROM coverage_schedule
+ WHEN 'draining' THEN task='classifier' WHEN 'characters' THEN task=ANY(required_stages) ELSE false END
+ FROM public.coverage_schedule
 $$;
 
 
@@ -2850,6 +2873,7 @@ $$;
 
 CREATE FUNCTION public.coverage_tick(at_time timestamp with time zone DEFAULT clock_timestamp()) RETURNS text
     LANGUAGE plpgsql
+    SET search_path TO 'public', 'pg_temp'
     AS $$
 DECLARE s coverage_schedule; e coverage_editions; local_day date; boundary timestamptz; changed bigint;
 BEGIN
@@ -2933,7 +2957,7 @@ BEGIN
   PERFORM pg_notify('pipeline_work_ready','coverage:characters'); RETURN 'characters';
  END IF;
  UPDATE coverage_assignments a SET outcome='failed',resolution='blocked',finished_at=at_time,detail=w.last_error
- FROM pipeline_work w WHERE a.edition_date=e.edition_date AND a.outcome='pending' AND w.stage=a.stage
+ FROM pipeline_work w WHERE a.edition_date=e.edition_date AND a.outcome='pending' AND a.stage=ANY(s.required_stages) AND w.stage=a.stage
  AND w.entity_type=a.entity_type AND w.entity_id=a.entity_id AND w.sport=a.sport AND w.status='failed' AND w.attempts>=5
  AND w.input_version IS NOT DISTINCT FROM a.input_version;
  -- Dependency failures are terminal too; an unclaimable child must not hold collection closed.
@@ -2943,7 +2967,7 @@ BEGIN
       FROM coverage_assignments dep WHERE dep.edition_date=a.edition_date AND dep.entity_type=a.entity_type
         AND dep.entity_id=a.entity_id AND dep.sport=a.sport AND dep.stage=ANY(coverage_dependencies(a.stage))
         AND dep.outcome IN ('failed','expired'))
-  WHERE a.edition_date=e.edition_date AND a.outcome='pending' AND EXISTS(
+  WHERE a.edition_date=e.edition_date AND a.outcome='pending' AND a.stage=ANY(s.required_stages) AND EXISTS(
     SELECT 1 FROM coverage_assignments dep WHERE dep.edition_date=a.edition_date AND dep.entity_type=a.entity_type
       AND dep.entity_id=a.entity_id AND dep.sport=a.sport AND dep.stage=ANY(coverage_dependencies(a.stage))
       AND dep.outcome IN ('failed','expired')) AND NOT EXISTS(
@@ -2978,9 +3002,11 @@ BEGIN
    AND w.entity_type=a.entity_type AND w.entity_id=a.entity_id AND w.sport=a.sport
    AND w.status<>'running' AND w.input_version IS NOT DISTINCT FROM a.input_version;
  IF EXISTS(SELECT 1 FROM coverage_assignments WHERE edition_date=e.edition_date AND
-    outcome NOT IN ('completed','failed','expired')) OR
- EXISTS(SELECT 1 FROM application_outbox WHERE edition_date=e.edition_date AND attempts<5) THEN RETURN 'characters'; END IF;
- IF EXISTS(SELECT 1 FROM coverage_failures WHERE edition_date=e.edition_date) THEN
+    stage=ANY(s.required_stages) AND outcome NOT IN ('completed','failed','expired')) OR
+ EXISTS(SELECT 1 FROM application_outbox WHERE edition_date=e.edition_date AND source_stage=ANY(s.required_stages) AND attempts<5) THEN RETURN 'characters'; END IF;
+ IF EXISTS(SELECT 1 FROM coverage_failures WHERE edition_date=e.edition_date) OR
+ EXISTS(SELECT 1 FROM coverage_assignments WHERE edition_date=e.edition_date
+    AND stage=ANY(s.required_stages) AND outcome<>'completed') THEN
   UPDATE coverage_editions SET status='partial',finished_at=at_time,reason='completed_with_failures'
   WHERE edition_date=e.edition_date;
  ELSE
@@ -4029,10 +4055,7 @@ COMMENT ON FUNCTION public.promote_narrative_persons(p_sport text) IS 'Nightly c
 
 CREATE FUNCTION public.published_edition() RETURNS date
     LANGUAGE sql STABLE
-    AS $$
- SELECT COALESCE(NULLIF(current_setting('scoracle.published_edition',true),'' )::date,edition_date)
- FROM coverage_publication
-$$;
+    AS $$ SELECT CASE WHEN (SELECT enabled FROM public.coverage_schedule) THEN COALESCE(NULLIF(current_setting('scoracle.published_edition',true),'')::date,edition_date) END FROM public.coverage_publication $$;
 
 
 --
@@ -8482,11 +8505,13 @@ CREATE TABLE public.coverage_schedule (
     last_tick_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     collection_cutoff time without time zone DEFAULT '22:00:00'::time without time zone NOT NULL,
+    required_stages text[] DEFAULT ARRAY['narratives'::text, 'vibe'::text, 'rating'::text, 'transfers'::text, 'momentum'::text, 'sigil'::text] NOT NULL,
     CONSTRAINT coverage_schedule_character_limit_check CHECK ((character_limit > '00:00:00'::interval)),
     CONSTRAINT coverage_schedule_check CHECK (((NOT enabled) OR (enrolled_at IS NOT NULL))),
     CONSTRAINT coverage_schedule_check1 CHECK (((phase = 'coverage'::text) = (edition_date IS NULL))),
     CONSTRAINT coverage_schedule_drain_limit_check CHECK ((drain_limit > '00:00:00'::interval)),
     CONSTRAINT coverage_schedule_phase_check CHECK ((phase = ANY (ARRAY['coverage'::text, 'draining'::text, 'characters'::text]))),
+    CONSTRAINT coverage_schedule_required_stages_check CHECK (((cardinality(required_stages) > 0) AND (required_stages <@ ARRAY['narratives'::text, 'vibe'::text, 'rating'::text, 'transfers'::text, 'momentum'::text, 'sigil'::text]))),
     CONSTRAINT coverage_schedule_singleton_check CHECK (singleton),
     CONSTRAINT coverage_schedule_timezone_check CHECK ((timezone = 'America/Detroit'::text))
 );
@@ -11057,27 +11082,65 @@ ALTER SEQUENCE public.provider_seasons_id_seq OWNED BY public.provider_seasons.i
 --
 
 CREATE VIEW public.qualified_insider_scores AS
- SELECT id,
-    sport,
-    entity_type,
-    entity_id,
-    score,
-    previous_score,
-    read,
-    model_version,
-    prompt_version,
-    input_hash,
-    generated_at,
-    headline,
-    week_season,
-    week_no,
-    reporting_date,
-    candidate_edition
-   FROM public.insider_scores p
-  WHERE ((((NOT ( SELECT coverage_schedule.enabled
-           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
-           FROM public.coverage_editions e
-          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'transfers'::text, entity_type, (entity_id)::bigint, sport)));
+ SELECT insider_scores.id,
+    insider_scores.sport,
+    insider_scores.entity_type,
+    insider_scores.entity_id,
+    insider_scores.score,
+    insider_scores.previous_score,
+    insider_scores.read,
+    insider_scores.model_version,
+    insider_scores.prompt_version,
+    insider_scores.input_hash,
+    insider_scores.generated_at,
+    insider_scores.headline,
+    insider_scores.week_season,
+    insider_scores.week_no,
+    insider_scores.reporting_date,
+    insider_scores.candidate_edition
+   FROM public.insider_scores
+  WHERE (NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule))
+UNION ALL
+ SELECT old_view.id,
+    old_view.sport,
+    old_view.entity_type,
+    old_view.entity_id,
+    old_view.score,
+    old_view.previous_score,
+    old_view.read,
+    old_view.model_version,
+    old_view.prompt_version,
+    old_view.input_hash,
+    old_view.generated_at,
+    old_view.headline,
+    old_view.week_season,
+    old_view.week_no,
+    old_view.reporting_date,
+    old_view.candidate_edition
+   FROM ( SELECT p.id,
+            p.sport,
+            p.entity_type,
+            p.entity_id,
+            p.score,
+            p.previous_score,
+            p.read,
+            p.model_version,
+            p.prompt_version,
+            p.input_hash,
+            p.generated_at,
+            p.headline,
+            p.week_season,
+            p.week_no,
+            p.reporting_date,
+            p.candidate_edition
+           FROM public.insider_scores p
+          WHERE ((((NOT ( SELECT coverage_schedule.enabled
+                   FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (p.candidate_edition IS NULL)) OR ((p.candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+                   FROM public.coverage_editions e
+                  WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(p.candidate_edition, 'transfers'::text, p.entity_type, (p.entity_id)::bigint, p.sport)) OR public.coverage_character_visible(p.candidate_edition, 'transfers'::text, p.entity_type, (p.entity_id)::bigint, p.sport))) old_view
+  WHERE ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule);
 
 
 --
@@ -11154,41 +11217,107 @@ CREATE VIEW public.qualified_momentum_summaries AS
 --
 
 CREATE VIEW public.qualified_news_summaries AS
- SELECT id,
-    entity_type,
-    entity_id,
-    sport,
-    trigger_type,
-    trigger_payload,
-    body,
-    impact,
-    impact_components,
-    input_news_ids,
-    model_version,
-    prompt_version,
-    generated_at,
-    narrative_title,
-    narrative_updated_at,
-    source_count,
-    source_names,
-    source_latest_at,
-    source_oldest_at,
-    trajectory,
-    trajectory_components,
-    input_hash,
-    card_score,
-    card_score_prev,
-    storyline_id,
-    headline,
-    week_season,
-    week_no,
-    reporting_date,
-    candidate_edition
-   FROM public.news_summaries p
-  WHERE ((((NOT ( SELECT coverage_schedule.enabled
-           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
-           FROM public.coverage_editions e
-          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'narratives'::text, entity_type, (entity_id)::bigint, sport)));
+ SELECT news_summaries.id,
+    news_summaries.entity_type,
+    news_summaries.entity_id,
+    news_summaries.sport,
+    news_summaries.trigger_type,
+    news_summaries.trigger_payload,
+    news_summaries.body,
+    news_summaries.impact,
+    news_summaries.impact_components,
+    news_summaries.input_news_ids,
+    news_summaries.model_version,
+    news_summaries.prompt_version,
+    news_summaries.generated_at,
+    news_summaries.narrative_title,
+    news_summaries.narrative_updated_at,
+    news_summaries.source_count,
+    news_summaries.source_names,
+    news_summaries.source_latest_at,
+    news_summaries.source_oldest_at,
+    news_summaries.trajectory,
+    news_summaries.trajectory_components,
+    news_summaries.input_hash,
+    news_summaries.card_score,
+    news_summaries.card_score_prev,
+    news_summaries.storyline_id,
+    news_summaries.headline,
+    news_summaries.week_season,
+    news_summaries.week_no,
+    news_summaries.reporting_date,
+    news_summaries.candidate_edition
+   FROM public.news_summaries
+  WHERE (NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule))
+UNION ALL
+ SELECT old_view.id,
+    old_view.entity_type,
+    old_view.entity_id,
+    old_view.sport,
+    old_view.trigger_type,
+    old_view.trigger_payload,
+    old_view.body,
+    old_view.impact,
+    old_view.impact_components,
+    old_view.input_news_ids,
+    old_view.model_version,
+    old_view.prompt_version,
+    old_view.generated_at,
+    old_view.narrative_title,
+    old_view.narrative_updated_at,
+    old_view.source_count,
+    old_view.source_names,
+    old_view.source_latest_at,
+    old_view.source_oldest_at,
+    old_view.trajectory,
+    old_view.trajectory_components,
+    old_view.input_hash,
+    old_view.card_score,
+    old_view.card_score_prev,
+    old_view.storyline_id,
+    old_view.headline,
+    old_view.week_season,
+    old_view.week_no,
+    old_view.reporting_date,
+    old_view.candidate_edition
+   FROM ( SELECT p.id,
+            p.entity_type,
+            p.entity_id,
+            p.sport,
+            p.trigger_type,
+            p.trigger_payload,
+            p.body,
+            p.impact,
+            p.impact_components,
+            p.input_news_ids,
+            p.model_version,
+            p.prompt_version,
+            p.generated_at,
+            p.narrative_title,
+            p.narrative_updated_at,
+            p.source_count,
+            p.source_names,
+            p.source_latest_at,
+            p.source_oldest_at,
+            p.trajectory,
+            p.trajectory_components,
+            p.input_hash,
+            p.card_score,
+            p.card_score_prev,
+            p.storyline_id,
+            p.headline,
+            p.week_season,
+            p.week_no,
+            p.reporting_date,
+            p.candidate_edition
+           FROM public.news_summaries p
+          WHERE ((((NOT ( SELECT coverage_schedule.enabled
+                   FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (p.candidate_edition IS NULL)) OR ((p.candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+                   FROM public.coverage_editions e
+                  WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(p.candidate_edition, 'narratives'::text, p.entity_type, (p.entity_id)::bigint, p.sport)) OR public.coverage_character_visible(p.candidate_edition, 'narratives'::text, p.entity_type, (p.entity_id)::bigint, p.sport))) old_view
+  WHERE ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule);
 
 
 --
@@ -11588,44 +11717,116 @@ COMMENT ON COLUMN public.transfer_rumors.subject_type IS 'Which table player_id 
 --
 
 CREATE VIEW public.qualified_transfer_rumors AS
- SELECT id,
-    team_id,
-    player_id,
-    sport,
-    trigger_type,
-    trigger_payload,
-    heat,
-    heat_components,
-    is_rumor,
-    direction,
-    stage,
-    model_summary,
-    source_attribution,
-    confidence,
-    input_news_ids,
-    model_version,
-    prompt_version,
-    generated_at,
-    rumor_updated_at,
-    source_count,
-    source_names,
-    source_latest_at,
-    source_oldest_at,
-    trajectory,
-    trajectory_components,
-    input_hash,
-    subject_type,
-    week_season,
-    week_no,
-    reporting_date,
-    candidate_entity_type,
-    candidate_entity_id,
-    candidate_edition
-   FROM public.transfer_rumors p
-  WHERE ((((NOT ( SELECT coverage_schedule.enabled
-           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
-           FROM public.coverage_editions e
-          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'transfers'::text, candidate_entity_type, candidate_entity_id, sport)));
+ SELECT transfer_rumors.id,
+    transfer_rumors.team_id,
+    transfer_rumors.player_id,
+    transfer_rumors.sport,
+    transfer_rumors.trigger_type,
+    transfer_rumors.trigger_payload,
+    transfer_rumors.heat,
+    transfer_rumors.heat_components,
+    transfer_rumors.is_rumor,
+    transfer_rumors.direction,
+    transfer_rumors.stage,
+    transfer_rumors.model_summary,
+    transfer_rumors.source_attribution,
+    transfer_rumors.confidence,
+    transfer_rumors.input_news_ids,
+    transfer_rumors.model_version,
+    transfer_rumors.prompt_version,
+    transfer_rumors.generated_at,
+    transfer_rumors.rumor_updated_at,
+    transfer_rumors.source_count,
+    transfer_rumors.source_names,
+    transfer_rumors.source_latest_at,
+    transfer_rumors.source_oldest_at,
+    transfer_rumors.trajectory,
+    transfer_rumors.trajectory_components,
+    transfer_rumors.input_hash,
+    transfer_rumors.subject_type,
+    transfer_rumors.week_season,
+    transfer_rumors.week_no,
+    transfer_rumors.reporting_date,
+    transfer_rumors.candidate_entity_type,
+    transfer_rumors.candidate_entity_id,
+    transfer_rumors.candidate_edition
+   FROM public.transfer_rumors
+  WHERE (NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule))
+UNION ALL
+ SELECT old_view.id,
+    old_view.team_id,
+    old_view.player_id,
+    old_view.sport,
+    old_view.trigger_type,
+    old_view.trigger_payload,
+    old_view.heat,
+    old_view.heat_components,
+    old_view.is_rumor,
+    old_view.direction,
+    old_view.stage,
+    old_view.model_summary,
+    old_view.source_attribution,
+    old_view.confidence,
+    old_view.input_news_ids,
+    old_view.model_version,
+    old_view.prompt_version,
+    old_view.generated_at,
+    old_view.rumor_updated_at,
+    old_view.source_count,
+    old_view.source_names,
+    old_view.source_latest_at,
+    old_view.source_oldest_at,
+    old_view.trajectory,
+    old_view.trajectory_components,
+    old_view.input_hash,
+    old_view.subject_type,
+    old_view.week_season,
+    old_view.week_no,
+    old_view.reporting_date,
+    old_view.candidate_entity_type,
+    old_view.candidate_entity_id,
+    old_view.candidate_edition
+   FROM ( SELECT p.id,
+            p.team_id,
+            p.player_id,
+            p.sport,
+            p.trigger_type,
+            p.trigger_payload,
+            p.heat,
+            p.heat_components,
+            p.is_rumor,
+            p.direction,
+            p.stage,
+            p.model_summary,
+            p.source_attribution,
+            p.confidence,
+            p.input_news_ids,
+            p.model_version,
+            p.prompt_version,
+            p.generated_at,
+            p.rumor_updated_at,
+            p.source_count,
+            p.source_names,
+            p.source_latest_at,
+            p.source_oldest_at,
+            p.trajectory,
+            p.trajectory_components,
+            p.input_hash,
+            p.subject_type,
+            p.week_season,
+            p.week_no,
+            p.reporting_date,
+            p.candidate_entity_type,
+            p.candidate_entity_id,
+            p.candidate_edition
+           FROM public.transfer_rumors p
+          WHERE ((((NOT ( SELECT coverage_schedule.enabled
+                   FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (p.candidate_edition IS NULL)) OR ((p.candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+                   FROM public.coverage_editions e
+                  WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(p.candidate_edition, 'transfers'::text, p.candidate_entity_type, p.candidate_entity_id, p.sport)) OR public.coverage_character_visible(p.candidate_edition, 'transfers'::text, p.candidate_entity_type, p.candidate_entity_id, p.sport))) old_view
+  WHERE ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule);
 
 
 --
@@ -11688,34 +11889,86 @@ COMMENT ON COLUMN public.vibe_scores.scoring_version IS 'emotional-valence-v1: 0
 --
 
 CREATE VIEW public.qualified_vibe_scores AS
- SELECT id,
-    entity_type,
-    entity_id,
-    sport,
-    trigger_type,
-    trigger_payload,
-    input_news_ids,
-    model_version,
-    prompt_version,
-    generated_at,
-    sentiment,
-    prompt,
-    input_hash,
-    hook,
-    week_season,
-    week_no,
-    reporting_start,
-    reporting_end,
-    evidence_cutoff,
-    scoring_version,
-    source_references,
-    reporting_date,
-    candidate_edition
-   FROM public.vibe_scores p
-  WHERE ((((NOT ( SELECT coverage_schedule.enabled
-           FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
-           FROM public.coverage_editions e
-          WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(candidate_edition, 'vibe'::text, entity_type, (entity_id)::bigint, sport)));
+ SELECT vibe_scores.id,
+    vibe_scores.entity_type,
+    vibe_scores.entity_id,
+    vibe_scores.sport,
+    vibe_scores.trigger_type,
+    vibe_scores.trigger_payload,
+    vibe_scores.input_news_ids,
+    vibe_scores.model_version,
+    vibe_scores.prompt_version,
+    vibe_scores.generated_at,
+    vibe_scores.sentiment,
+    vibe_scores.prompt,
+    vibe_scores.input_hash,
+    vibe_scores.hook,
+    vibe_scores.week_season,
+    vibe_scores.week_no,
+    vibe_scores.reporting_start,
+    vibe_scores.reporting_end,
+    vibe_scores.evidence_cutoff,
+    vibe_scores.scoring_version,
+    vibe_scores.source_references,
+    vibe_scores.reporting_date,
+    vibe_scores.candidate_edition
+   FROM public.vibe_scores
+  WHERE (NOT ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule))
+UNION ALL
+ SELECT old_view.id,
+    old_view.entity_type,
+    old_view.entity_id,
+    old_view.sport,
+    old_view.trigger_type,
+    old_view.trigger_payload,
+    old_view.input_news_ids,
+    old_view.model_version,
+    old_view.prompt_version,
+    old_view.generated_at,
+    old_view.sentiment,
+    old_view.prompt,
+    old_view.input_hash,
+    old_view.hook,
+    old_view.week_season,
+    old_view.week_no,
+    old_view.reporting_start,
+    old_view.reporting_end,
+    old_view.evidence_cutoff,
+    old_view.scoring_version,
+    old_view.source_references,
+    old_view.reporting_date,
+    old_view.candidate_edition
+   FROM ( SELECT p.id,
+            p.entity_type,
+            p.entity_id,
+            p.sport,
+            p.trigger_type,
+            p.trigger_payload,
+            p.input_news_ids,
+            p.model_version,
+            p.prompt_version,
+            p.generated_at,
+            p.sentiment,
+            p.prompt,
+            p.input_hash,
+            p.hook,
+            p.week_season,
+            p.week_no,
+            p.reporting_start,
+            p.reporting_end,
+            p.evidence_cutoff,
+            p.scoring_version,
+            p.source_references,
+            p.reporting_date,
+            p.candidate_edition
+           FROM public.vibe_scores p
+          WHERE ((((NOT ( SELECT coverage_schedule.enabled
+                   FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (p.candidate_edition IS NULL)) OR ((p.candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
+                   FROM public.coverage_editions e
+                  WHERE ((e.edition_date = p.candidate_edition) AND (e.status = 'complete'::text)))) AND public.coverage_carry_allowed(p.candidate_edition, 'vibe'::text, p.entity_type, (p.entity_id)::bigint, p.sport)) OR public.coverage_character_visible(p.candidate_edition, 'vibe'::text, p.entity_type, (p.entity_id)::bigint, p.sport))) old_view
+  WHERE ( SELECT coverage_schedule.enabled
+           FROM public.coverage_schedule);
 
 
 --
@@ -12753,7 +13006,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict YSRrww8dPbMVRzKM8DQk1mtTqKvB3iD3CG7QJck8WHtABeT8uAyS87zyhQJjpfj
+\unrestrict k0tyEncgDDJc9DVu8fG4uHTd31saFQoIvSnyZ5HNy3QwyyXLZgc3ABNKKn9wcDn
 
 
 \ir reference-data.sql
@@ -12761,7 +13014,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict dMVYAQLXXyfwCv5R4OXWlrG8aV4VqreA20bmGJWkjktD5jCenCc8zd5iW0nZrjr
+\restrict vv3kEhocqGCyuWk4K1GbaZxbfTLoqeY4Apd1HTmLD5ObL9sgDFXrTbOozHsxwdy
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -12913,7 +13166,25 @@ ALTER TABLE ONLY public.classifier_sources
 --
 
 ALTER TABLE public.classifier_spectra
-    ADD CONSTRAINT classifier_spectra_complete_receipt CHECK (COALESCE((((gate ->> 'coverage'::text) = 'complete'::text) AND (COALESCE((receipt #>> '{request,state,article,headline}'::text[]), (receipt #>> '{request,state,article,body}'::text[]), (receipt #>> '{request,state,body}'::text[])) = clean_text) AND ((receipt #>> '{response,model}'::text[]) = model) AND (request_hash <> ''::text)), false)) NOT VALID;
+    ADD CONSTRAINT classifier_spectra_complete_receipt CHECK (COALESCE((((gate ->> 'coverage'::text) = 'complete'::text) AND (
+CASE
+    WHEN ((receipt ->> 'request_version'::text) = ANY (ARRAY['classifier-brief-v5-target-first'::text, 'classifier-brief-v6-task-first'::text, 'classifier-brief-v7-structured-target'::text, 'classifier-brief-v8-shared-relations'::text])) THEN
+    CASE
+        WHEN (jsonb_typeof((receipt #> '{request,state}'::text[])) = 'string'::text) THEN (((receipt #>> '{request,state}'::text[]))::jsonb #>> '{evidence,headline}'::text[])
+        ELSE NULL::text
+    END
+    WHEN ((receipt ->> 'request_version'::text) = ANY (ARRAY['classifier-brief-v2'::text, 'classifier-brief-v3'::text, 'classifier-brief-v4-target-context'::text])) THEN
+    CASE
+        WHEN (jsonb_typeof((receipt #> '{request,state}'::text[])) = 'string'::text) THEN (((regexp_match((receipt #>> '{request,state}'::text[]), '(?n)^Headline: (.*)$'::text))[1])::jsonb #>> '{}'::text[])
+        ELSE NULL::text
+    END
+    WHEN ((receipt ->> 'request_version'::text) = 'classifier-assignment-v1'::text) THEN
+    CASE
+        WHEN (jsonb_typeof((receipt #> '{request,state}'::text[])) = 'string'::text) THEN (((receipt #>> '{request,state}'::text[]))::jsonb #>> '{new_content,headline}'::text[])
+        ELSE NULL::text
+    END
+    ELSE COALESCE((receipt #>> '{request,state,article,headline}'::text[]), (receipt #>> '{request,state,article,body}'::text[]), (receipt #>> '{request,state,body}'::text[]))
+END = clean_text) AND ((receipt #>> '{response,model}'::text[]) = model) AND (request_hash <> ''::text)), false)) NOT VALID;
 
 
 --
@@ -15155,6 +15426,27 @@ CREATE TRIGGER entity_aliases_append_only BEFORE UPDATE ON public.entity_aliases
 
 
 --
+-- Name: coverage_assignments invalidate_character_completion; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_character_completion AFTER UPDATE OF outcome, resolution ON public.coverage_assignments FOR EACH ROW WHEN (((new.stage = ANY (ARRAY['narratives'::text, 'vibe'::text, 'transfers'::text])) AND ((old.outcome IS DISTINCT FROM new.outcome) OR (old.resolution IS DISTINCT FROM new.resolution)))) EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: coverage_assignments invalidate_character_insertion; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_character_insertion AFTER INSERT ON public.coverage_assignments FOR EACH ROW WHEN (((new.stage = ANY (ARRAY['narratives'::text, 'vibe'::text, 'transfers'::text])) AND (new.outcome = 'completed'::text))) EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
+-- Name: coverage_assignments invalidate_character_withdrawal; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER invalidate_character_withdrawal AFTER DELETE ON public.coverage_assignments FOR EACH ROW WHEN (((old.stage = ANY (ARRAY['narratives'::text, 'vibe'::text, 'transfers'::text])) AND (old.outcome = 'completed'::text))) EXECUTE FUNCTION public.invalidate_coverage_publication();
+
+
+--
 -- Name: insider_scores invalidate_publication; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -16549,206 +16841,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-CREATE FUNCTION public.coverage_character_visible(candidate date, task text, subject_type text, subject_id bigint, league text)
-RETURNS boolean LANGUAGE sql STABLE AS $$
- SELECT EXISTS (
-  SELECT 1 FROM public.coverage_assignments a
-  WHERE a.edition_date=candidate AND a.stage=task AND a.entity_type=subject_type
-   AND a.entity_id=subject_id AND a.sport=league
-   AND a.outcome='completed' AND a.resolution='candidate'
- ) AND (NULLIF(current_setting('scoracle.reporting_date',true),'') IS NOT NULL OR NOT EXISTS (
-  SELECT 1 FROM public.coverage_assignments a
-  WHERE a.edition_date>candidate AND a.stage=task AND a.entity_type=subject_type
-   AND a.entity_id=subject_id AND a.sport=league AND a.outcome='completed'
-   AND a.resolution='abstained'
- ))
-$$;
-DO $$ DECLARE t text; task text; BEGIN
- FOREACH t IN ARRAY ARRAY['news_summaries','vibe_scores','insider_scores'] LOOP
-  task:=CASE t WHEN 'news_summaries' THEN 'narratives' WHEN 'vibe_scores' THEN 'vibe' ELSE 'transfers' END;
-  EXECUTE format('CREATE OR REPLACE VIEW public.qualified_%I AS SELECT p.* FROM public.%I p WHERE
-   ((NOT (SELECT enabled FROM public.coverage_schedule) OR public.published_edition() IS NULL) AND p.candidate_edition IS NULL) OR
-   (p.candidate_edition <= public.published_edition() AND EXISTS(SELECT 1 FROM public.coverage_editions e
-      WHERE e.edition_date=p.candidate_edition AND e.status=''complete'') AND
-    public.coverage_carry_allowed(p.candidate_edition,%L,p.entity_type,p.entity_id,p.sport)) OR
-   public.coverage_character_visible(p.candidate_edition,%L,p.entity_type,p.entity_id,p.sport)',t,t,task,task);
- END LOOP;
-END $$;
-CREATE TRIGGER invalidate_character_completion AFTER UPDATE OF outcome,resolution ON public.coverage_assignments
- FOR EACH ROW WHEN (NEW.stage IN ('narratives','vibe','transfers') AND
- (OLD.outcome IS DISTINCT FROM NEW.outcome OR OLD.resolution IS DISTINCT FROM NEW.resolution))
- EXECUTE FUNCTION public.invalidate_coverage_publication();
-CREATE TRIGGER invalidate_character_insertion AFTER INSERT ON public.coverage_assignments
- FOR EACH ROW WHEN (NEW.stage IN ('narratives','vibe','transfers') AND NEW.outcome='completed')
- EXECUTE FUNCTION public.invalidate_coverage_publication();
-CREATE TRIGGER invalidate_character_withdrawal AFTER DELETE ON public.coverage_assignments
- FOR EACH ROW WHEN (OLD.stage IN ('narratives','vibe','transfers') AND OLD.outcome='completed')
- EXECUTE FUNCTION public.invalidate_coverage_publication();
-
-ALTER TABLE public.coverage_schedule ADD COLUMN required_stages text[] NOT NULL
- DEFAULT ARRAY['narratives','vibe','rating','transfers','momentum','sigil']
- CHECK(cardinality(required_stages)>0 AND required_stages <@ ARRAY['narratives','vibe','rating','transfers','momentum','sigil']);
-CREATE OR REPLACE FUNCTION public.coverage_stage_open(task text) RETURNS boolean
-LANGUAGE sql STABLE AS $$
- SELECT NOT enabled OR CASE phase WHEN 'coverage' THEN task='classifier'
- WHEN 'draining' THEN task='classifier' WHEN 'characters' THEN task=ANY(required_stages) ELSE false END
- FROM public.coverage_schedule
-$$;
-CREATE OR REPLACE FUNCTION public.coverage_tick(at_time timestamptz DEFAULT clock_timestamp()) RETURNS text
-LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
-DECLARE s coverage_schedule; e coverage_editions; local_day date; boundary timestamptz; changed bigint;
-BEGIN
- PERFORM pg_advisory_xact_lock(1935896421,1);
- SELECT * INTO s FROM coverage_schedule FOR UPDATE;
- IF NOT s.enabled THEN RETURN 'disabled'; END IF;
- UPDATE coverage_schedule SET last_tick_at=at_time;
- IF s.phase='coverage' THEN
-  local_day := (at_time AT TIME ZONE s.timezone)::date;
-  boundary := (local_day+s.collection_cutoff) AT TIME ZONE s.timezone;
-  IF boundary>at_time THEN local_day:=local_day-1; boundary:=(local_day+s.collection_cutoff) AT TIME ZONE s.timezone; END IF;
-  -- After an overrun, collect until the next normal boundary, without a stack of missed editions.
-  IF boundary<s.enrolled_at OR EXISTS(SELECT 1 FROM coverage_editions WHERE edition_date=local_day+1)
-   OR EXISTS(SELECT 1 FROM coverage_editions WHERE finished_at>=boundary) THEN RETURN 'coverage'; END IF;
-  INSERT INTO coverage_editions(edition_date,cutoff_at,drain_deadline,collection_closed_at,status)
-  VALUES(local_day+1,(local_day+1)::timestamp AT TIME ZONE s.timezone,
-    (local_day+1)::timestamp AT TIME ZONE s.timezone+interval '1 microsecond',boundary,'draining');
-  INSERT INTO coverage_drain_obligations(edition_date,entity_type,entity_id,sport,input_version)
-  SELECT local_day+1,entity_type,entity_id,sport,input_version FROM pipeline_work WHERE stage='classifier';
-  UPDATE coverage_schedule SET phase='draining',edition_date=local_day+1,updated_at=at_time;
-  RETURN 'draining';
- END IF;
- SELECT * INTO STRICT e FROM coverage_editions WHERE edition_date=s.edition_date FOR UPDATE;
- UPDATE coverage_editions SET missed_boundaries=GREATEST(0,(at_time AT TIME ZONE s.timezone)::date-e.edition_date)
- WHERE edition_date=e.edition_date;
- IF s.phase='draining' THEN
-  INSERT INTO coverage_failures(edition_date,kind,stage,entity_type,entity_id,sport,input_version,attempts,error,receipt)
-  SELECT d.edition_date,'decision_exhausted',w.stage,w.entity_type,w.entity_id,w.sport,w.input_version,w.attempts,
-    COALESCE(w.last_error,'decision attempts exhausted'),to_jsonb(w)
-  FROM coverage_drain_obligations d JOIN pipeline_work w USING(entity_type,entity_id,sport)
-  WHERE d.edition_date=e.edition_date AND d.settled_at IS NULL AND w.stage='classifier'
-    AND w.input_version IS NOT DISTINCT FROM d.input_version AND w.status='failed' AND w.attempts>=5
-  ON CONFLICT DO NOTHING;
-  UPDATE coverage_drain_obligations d SET settled_at=at_time
-  WHERE d.edition_date=e.edition_date AND d.settled_at IS NULL AND EXISTS(
-    SELECT 1 FROM coverage_failures f WHERE f.edition_date=d.edition_date AND f.kind='decision_exhausted'
-      AND f.entity_type=d.entity_type AND f.entity_id=d.entity_id AND f.sport=d.sport
-      AND f.input_version IS NOT DISTINCT FROM d.input_version);
-  IF at_time<e.cutoff_at OR EXISTS(SELECT 1 FROM coverage_drain_obligations
-     WHERE edition_date=e.edition_date AND settled_at IS NULL) THEN RETURN 'draining'; END IF;
-        INSERT INTO public.pipeline_work(stage,entity_type,entity_id,sport,input_version)
-        SELECT DISTINCT downstream,w.entity_type,w.entity_id,w.sport,
-            CASE WHEN downstream='transfers' THEN 'classifier-spectrum-v1:daily:'||e.edition_date
-                 WHEN downstream='rating' THEN 'daily-rating:'||e.edition_date
-                 ELSE 'coverage:'||e.edition_date END
-        FROM public.pipeline_work w CROSS JOIN
-            unnest(ARRAY['narratives','vibe','rating','transfers','momentum','sigil']) downstream
-        WHERE public.coverage_is_character(w.stage) AND (w.entity_type IN ('team','player') OR (w.entity_type='person' AND downstream IN ('narratives','vibe','transfers')))
-        ON CONFLICT(stage,entity_type,entity_id,sport) DO NOTHING;
-        WITH pending AS MATERIALIZED (
-            SELECT x.sport,x.target->>'entity_type' AS entity_type,
-                x.target->>'entity_id' AS entity_id,d.character,
-                array_agg(x.id ORDER BY x.id) AS spectrum_ids
-            FROM public.classifier_spectrum_deliveries d
-            JOIN public.classifier_spectra x ON x.id=d.spectrum_id
-            WHERE d.status='pending'
-            GROUP BY x.sport,x.target->>'entity_type',x.target->>'entity_id',d.character
-        )
-        INSERT INTO public.coverage_assignments(edition_date,stage,entity_type,entity_id,sport,input_version,spectrum_ids)
-        SELECT e.edition_date,w.stage,w.entity_type,w.entity_id,w.sport,w.input_version,
-            COALESCE(d.spectrum_ids,'{}'::bigint[])
-        FROM public.pipeline_work w LEFT JOIN pending d
-          ON d.sport=w.sport AND d.entity_type=w.entity_type AND d.entity_id=w.entity_id::text
-          AND d.character=CASE w.stage WHEN 'narratives' THEN 'journalist'
-              WHEN 'vibe' THEN 'influencer' WHEN 'rating' THEN 'scout'
-              WHEN 'transfers' THEN 'insider' END
-        WHERE public.coverage_is_character(w.stage);
-
-  -- Empty news has an explicit dated outcome, without a queue claim or model call.
-  UPDATE coverage_assignments a SET outcome='completed',resolution='no_new_evidence',
-      detail='no pending headline evidence',finished_at=at_time
-  FROM pipeline_work w WHERE a.edition_date=e.edition_date AND a.stage IN ('narratives','vibe','transfers')
-   AND cardinality(a.spectrum_ids)=0 AND a.stage=w.stage AND a.entity_type=w.entity_type
-   AND a.entity_id=w.entity_id AND a.sport=w.sport AND w.status='pending' AND w.attempts=0;
-  DELETE FROM pipeline_work w USING coverage_assignments a WHERE a.edition_date=e.edition_date
-   AND a.resolution='no_new_evidence' AND a.stage=w.stage AND a.entity_type=w.entity_type
-   AND a.entity_id=w.entity_id AND a.sport=w.sport;
-  UPDATE coverage_editions SET status='characters',frozen_at=at_time,character_deadline=NULL,
-   reason=CASE WHEN at_time>e.cutoff_at+interval '1 minute' THEN 'late_drain' END WHERE edition_date=e.edition_date;
-  UPDATE coverage_schedule SET phase='characters',updated_at=at_time;
-  PERFORM pg_notify('pipeline_work_ready','coverage:characters'); RETURN 'characters';
- END IF;
- UPDATE coverage_assignments a SET outcome='failed',resolution='blocked',finished_at=at_time,detail=w.last_error
- FROM pipeline_work w WHERE a.edition_date=e.edition_date AND a.outcome='pending' AND a.stage=ANY(s.required_stages) AND w.stage=a.stage
- AND w.entity_type=a.entity_type AND w.entity_id=a.entity_id AND w.sport=a.sport AND w.status='failed' AND w.attempts>=5
- AND w.input_version IS NOT DISTINCT FROM a.input_version;
- -- Dependency failures are terminal too; an unclaimable child must not hold collection closed.
- LOOP
-  UPDATE coverage_assignments a SET outcome='failed',resolution='blocked',finished_at=at_time,
-    detail='failed prerequisite: '||(SELECT string_agg(dep.stage,', ' ORDER BY dep.stage)
-      FROM coverage_assignments dep WHERE dep.edition_date=a.edition_date AND dep.entity_type=a.entity_type
-        AND dep.entity_id=a.entity_id AND dep.sport=a.sport AND dep.stage=ANY(coverage_dependencies(a.stage))
-        AND dep.outcome IN ('failed','expired'))
-  WHERE a.edition_date=e.edition_date AND a.outcome='pending' AND a.stage=ANY(s.required_stages) AND EXISTS(
-    SELECT 1 FROM coverage_assignments dep WHERE dep.edition_date=a.edition_date AND dep.entity_type=a.entity_type
-      AND dep.entity_id=a.entity_id AND dep.sport=a.sport AND dep.stage=ANY(coverage_dependencies(a.stage))
-      AND dep.outcome IN ('failed','expired')) AND NOT EXISTS(
-    SELECT 1 FROM pipeline_work w WHERE w.stage=a.stage AND w.entity_type=a.entity_type
-      AND w.entity_id=a.entity_id AND w.sport=a.sport AND w.status='running');
-  GET DIAGNOSTICS changed=ROW_COUNT;
-  EXIT WHEN changed=0;
- END LOOP;
- INSERT INTO coverage_failures(edition_date,kind,stage,entity_type,entity_id,sport,input_version,attempts,error,receipt)
- SELECT a.edition_date,CASE WHEN a.detail LIKE 'failed prerequisite:%' THEN 'dependency_failed'
-    WHEN w.status='failed' AND w.attempts>=5 THEN 'character_exhausted' ELSE 'held_assignment' END,
-    a.stage,a.entity_type,a.entity_id,a.sport,a.input_version,w.attempts,
-    COALESCE(a.detail,'assignment failed without a diagnostic'),
-    jsonb_build_object('spectrum_ids',a.spectrum_ids,'work',to_jsonb(w),'resolution',a.resolution)
- FROM coverage_assignments a LEFT JOIN pipeline_work w USING(stage,entity_type,entity_id,sport)
- WHERE a.edition_date=e.edition_date AND a.outcome IN ('failed','expired')
- ON CONFLICT DO NOTHING;
- INSERT INTO coverage_failures(edition_date,kind,stage,entity_type,entity_id,sport,input_version,attempts,error,receipt)
- SELECT o.edition_date,'handoff_exhausted',o.source_stage,o.entity_type,o.entity_id,o.sport,
-    max(o.source_input_version),max(o.attempts),string_agg(COALESCE(o.last_error,'handoff attempts exhausted'),'; '),
-    jsonb_build_object('events',jsonb_agg(to_jsonb(o) ORDER BY o.id))
- FROM application_outbox o WHERE o.edition_date=e.edition_date AND o.attempts>=5
- GROUP BY o.edition_date,o.source_stage,o.entity_type,o.entity_id,o.sport ON CONFLICT DO NOTHING;
- UPDATE classifier_spectrum_deliveries d SET status='held',reason='character_assignment_failed',updated_at=at_time,
-    product_ref=d.product_ref||jsonb_build_object('failure_edition',a.edition_date,'failure_stage',a.stage,'error',a.detail)
- FROM coverage_assignments a WHERE a.edition_date=e.edition_date AND a.outcome IN ('failed','expired')
-   AND d.spectrum_id=ANY(a.spectrum_ids) AND d.status='pending'
-   AND d.character=CASE a.stage WHEN 'narratives' THEN 'journalist' WHEN 'rating' THEN 'scout'
-     WHEN 'vibe' THEN 'influencer' WHEN 'transfers' THEN 'insider' END;
- DELETE FROM pipeline_work w USING coverage_assignments a WHERE a.edition_date=e.edition_date
-   AND a.detail LIKE 'failed prerequisite:%' AND a.outcome='failed' AND w.stage=a.stage
-   AND w.entity_type=a.entity_type AND w.entity_id=a.entity_id AND w.sport=a.sport
-   AND w.status<>'running' AND w.input_version IS NOT DISTINCT FROM a.input_version;
- IF EXISTS(SELECT 1 FROM coverage_assignments WHERE edition_date=e.edition_date AND
-    stage=ANY(s.required_stages) AND outcome NOT IN ('completed','failed','expired')) OR
- EXISTS(SELECT 1 FROM application_outbox WHERE edition_date=e.edition_date AND source_stage=ANY(s.required_stages) AND attempts<5) THEN RETURN 'characters'; END IF;
- IF EXISTS(SELECT 1 FROM coverage_failures WHERE edition_date=e.edition_date) OR
- EXISTS(SELECT 1 FROM coverage_assignments WHERE edition_date=e.edition_date AND outcome<>'completed') THEN
-  UPDATE coverage_editions SET status='partial',finished_at=at_time,reason='completed_with_failures'
-  WHERE edition_date=e.edition_date;
- ELSE
-  UPDATE coverage_editions SET status='complete',finished_at=at_time WHERE edition_date=e.edition_date;
-  UPDATE coverage_publication SET edition_date=e.edition_date,revision=revision+1;
- END IF;
- UPDATE coverage_schedule SET phase='coverage',edition_date=NULL,updated_at=at_time;
- INSERT INTO pipeline_work(stage,entity_type,entity_id,sport,input_version)
- SELECT stage,entity_type,entity_id,sport,deferred_versions[cardinality(deferred_versions)] FROM coverage_assignments
- WHERE edition_date=e.edition_date AND cardinality(deferred_versions)>0
- ON CONFLICT(stage,entity_type,entity_id,sport) DO UPDATE SET input_version=EXCLUDED.input_version,
- status='pending',attempts=0,claim_token=NULL,running_input_version=NULL,available_at=at_time,updated_at=at_time,last_error=NULL
- WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version;
- PERFORM pg_notify('pipeline_work_ready','coverage:open'); RETURN 'coverage';
-END $$;
-
--- Insider findings follow the assignment that produced them, which may target a team.
-CREATE OR REPLACE VIEW public.qualified_transfer_rumors AS SELECT p.* FROM public.transfer_rumors p WHERE
- ((NOT (SELECT enabled FROM public.coverage_schedule) OR public.published_edition() IS NULL) AND p.candidate_edition IS NULL) OR
- (p.candidate_edition <= public.published_edition() AND EXISTS(SELECT 1 FROM public.coverage_editions e
-  WHERE e.edition_date=p.candidate_edition AND e.status='complete') AND
- public.coverage_carry_allowed(p.candidate_edition,'transfers',p.candidate_entity_type,p.candidate_entity_id,p.sport)) OR
- public.coverage_character_visible(p.candidate_edition,'transfers',p.candidate_entity_type,p.candidate_entity_id,p.sport);
-
-\unrestrict dMVYAQLXXyfwCv5R4OXWlrG8aV4VqreA20bmGJWkjktD5jCenCc8zd5iW0nZrjr
+\unrestrict vv3kEhocqGCyuWk4K1GbaZxbfTLoqeY4Apd1HTmLD5ObL9sgDFXrTbOozHsxwdy

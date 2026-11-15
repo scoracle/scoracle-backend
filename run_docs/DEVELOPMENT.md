@@ -2,7 +2,7 @@
 
 ## Current implementation: Harness → plugins → skills
 
-Classifier owns `classify`; Character owns Journalist, Influencer, Scout, Insider, Analyst and Oracle. Caretaker organizes retained Investigator and fixture-boxscore code with no enabled skills. See the [complete task/source/output map](../rust/README.md#plugin-and-skill-map) and [visual comparison](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs).
+Classifier owns the `classify` skill. Character is one plugin whose six voice skills are Journalist, Influencer, Insider, Scout, Analyst and Oracle. A voice is a skill, not a separate plugin. Caretaker organizes retained Investigator and fixture-boxscore code with no enabled skills. See the [complete task/source/output map](../rust/README.md#plugin-and-skill-map) and [visual comparison](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs).
 
 Add job-specific preparation, prompts, tools, validation and publication under `plugins/<owner>/skills/<skill>/`. Declare its `SkillManifest` in the owner's roster and bind dependencies in that plugin's `build`. The harness validates ownership and schedules the flattened enabled skills independently; do not add another character plugin or a second scheduler. `Skill::execute` returns `SkillOutcome`; task IDs and exact-claim publication remain unchanged. New Character ledger rows use `scoracle.character` plus the existing stage; source receipts and historical skill IDs retain their old spellings.
 

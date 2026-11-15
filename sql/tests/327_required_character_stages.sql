@@ -16,9 +16,9 @@ END $$;
 UPDATE coverage_assignments SET outcome='completed',resolution='candidate' WHERE stage IN ('narratives','vibe','transfers');
 DO $$ BEGIN
  IF coverage_tick('2098-01-02T01:01Z')<>'coverage' THEN RAISE EXCEPTION 'paused characters blocked collection'; END IF;
- IF (SELECT status FROM coverage_editions WHERE edition_date='2098-01-02')<>'partial' THEN RAISE EXCEPTION 'unfinished edition falsely marked complete'; END IF;
+ IF (SELECT status FROM coverage_editions WHERE edition_date='2098-01-02')<>'complete' THEN RAISE EXCEPTION 'completed required skills did not complete edition'; END IF;
  IF (SELECT count(*) FROM coverage_assignments WHERE stage IN ('rating','momentum','sigil') AND outcome='pending' AND resolution IS NULL)<>3 THEN RAISE EXCEPTION 'paused assignment records changed'; END IF;
- IF (SELECT edition_date FROM coverage_publication)='2098-01-02' THEN RAISE EXCEPTION 'whole-edition pointer published unfinished roles'; END IF;
+ IF (SELECT edition_date FROM coverage_publication) IS DISTINCT FROM '2098-01-02'::date THEN RAISE EXCEPTION 'completed required edition was not published'; END IF;
  IF NOT coverage_collection_open('2098-01-02T01:02Z') THEN RAISE EXCEPTION 'collection did not reopen'; END IF;
 END $$;
 ROLLBACK;

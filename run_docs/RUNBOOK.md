@@ -4,6 +4,8 @@
 
 The runtime is **Harness → plugins → skills**, with three owners: Classifier, Character and inactive Caretaker. See the [skill map](../rust/README.md#plugin-and-skill-map) for names, queue tasks, source paths and products. Queue tasks are not plugin names.
 
+Each voice is a skill of the Character plugin. The November 15 production rollout enables Journalist (`narratives`), Influencer (`vibe`) and Insider (`transfers`); Scout, Analyst and Oracle remain inactive. `coverage_schedule.required_stages` contains exactly those three active task names. Collection normally sweeps hourly, closes at 22:00 America/Detroit, and drains classification until the midnight Character handoff. RSS is currently paused for Google’s refusal; consult the [deployment record](../rust/docs/plugin-skills-deployment-2026-11-15.md) before resuming. Worker processes can stay running while the database clock gates their skills.
+
 The service's supported task list is `classifier,rating,momentum,transfers,narratives,vibe,sigil`. Check any `COGNITION_STAGES` override in `.env.local`: systemd's environment file overrides the service default. An unset variable in a direct binary invocation enables Character only; an empty value enables no handlers. Neither `investigate_entity` nor `fixture_boxscore` is accepted. Remove any previously installed factsweep cron entry when applying this release; updating the example file alone does not edit an installed crontab.
 
 Database reconnection is polled alongside shutdown, safety ticks and watchdog checks. A database outage must not prevent the normal shutdown grace period. Authentication requires `JWT_SECRET`; without it, token issuance is unavailable and protected routes reject access tokens.

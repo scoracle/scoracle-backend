@@ -2,6 +2,8 @@
 
 **Harness → plugins → skills.** The harness runs durable work. Classifier owns decision-model work; Character owns six output skills; Caretaker organizes existing maintenance machinery and remains inactive. Skills bring tools and instructions; the LLM discovers what the supplied clues support and articulates the answer. Cheap code owns collection; expensive compute owns discovery.
 
+A **voice is a Character skill**: Journalist, Influencer, Insider, Scout, Analyst or Oracle. All six belong to `scoracle.character`. Each voice owns its instructions, tools, validation and publication behavior under `src/plugins/character/skills/<voice>/`. Adding or tuning a voice changes a skill within that plugin.
+
 Plugins assemble dependencies and declare their skills. Each skill retains its own task, claim policy, resource budget, model routes and tool grants. The registry validates ownership and flattens enabled skills into the existing scheduler. Shared plugin ownership does not combine permissions, serialize character work, or change publication fences. See the [migration plan and inventory](docs/PLAN-plugin-skills-2026-11-15.md).
 
 New generation-ledger rows use `scoracle.character` as `plugin_id` and the unchanged `stage` to identify the skill. Historical rows retain their former per-character IDs. Skill IDs preserve those old spellings for source receipts and input compatibility; no historical rows are rewritten.
@@ -24,6 +26,8 @@ Paths below are relative to `src/plugins/`. These are statically linked Rust ski
 | Caretaker (inactive) | Fixture boxscore | `fixture_boxscore` (unavailable) | `caretaker/skills/fixture_boxscore/` | Retained fixture-data machinery |
 
 Classifier routes evidence to character work. Rating and Vibe feed Momentum; Oracle waits for its five pillars. The harness claims each skill independently using the existing queue and dependency gates. Plugins introduce ownership, not another queue or a model choosing the next job.
+
+Production currently enables Journalist (`narratives`), Influencer (`vibe`) and Insider (`transfers`) for the daily handoff. Scout, Analyst and Oracle remain inactive; the table above describes the available roster, not the enabled deployment. Classifier runs separately during coverage. See the [deployment record](docs/plugin-skills-deployment-2026-11-15.md).
 
 `COGNITION_STAGES` still accepts queue task names. Unset enables the six Character skills; Classifier is opt-in. The shipped service explicitly enables Classifier plus those six skills. Caretaker tasks are rejected by configuration, and `factsweep` refuses before database access. There is no factsweep cron job.
 

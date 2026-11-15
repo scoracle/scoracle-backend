@@ -7,6 +7,7 @@ INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_FINDING','Finding 
 INSERT INTO transfer_rumors(team_id,player_id,sport,trigger_type,reporting_date) VALUES(1,2,'ZZ_FINDING','manual','2099-01-01');
 UPDATE transfer_rumors SET candidate_edition='2099-01-02',candidate_entity_type='team',candidate_entity_id=1 WHERE sport='ZZ_FINDING';
 INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport,outcome,resolution) VALUES('2099-01-02','transfers','player',2,'ZZ_FINDING','completed','candidate');
+UPDATE coverage_schedule SET enabled=true,enrolled_at='2099-01-01Z';
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING') THEN RAISE EXCEPTION 'related player completion leaked team claim finding'; END IF; END $$;
 INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport,outcome,resolution) VALUES('2099-01-02','transfers','team',1,'ZZ_FINDING','failed','blocked');
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING') THEN RAISE EXCEPTION 'failed team claim leaked finding'; END IF; END $$;

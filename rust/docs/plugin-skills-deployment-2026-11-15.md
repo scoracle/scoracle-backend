@@ -66,3 +66,9 @@ Collector fix `30347216` was committed and pushed to `codex/character-skills`. I
 At the user's request, waited until the full cooldown elapsed, then made exactly one Google RSS request from Archbox at 20:06:36 UTC (15:06:36 EST) on November 15. The request used the collector's existing User-Agent and Accept headers. Google returned HTTP 503 at 20:06:43 UTC, with the same automated-query refusal page and no `Retry-After`. Response artifacts remain on Archbox at `/tmp/rss-recovery-20261115.headers` and `/tmp/rss-recovery-20261115.body`.
 
 The condition for resuming collection was not met, so RSS remains paused; no retry loop or restart was scheduled. Fresh collection-to-publication verification is still blocked by the provider refusal. Caretaker remains inactive and the feature branch has not been merged to main.
+
+## Headline skills and daily schedule follow-up
+
+The user authorized adding Insider after sample qualification, while leaving Scout, Analyst, Oracle and Caretaker inactive. The isolated live-model sample cycle passed intake, classification, day-end handoff, all three headline skills, publication and API serving; see [sample evidence](qualification/2026-11-15-headline-pipeline/README.md). Migration 334 fixes the discovered scheduler mismatch so inactive pending assignments do not make a completed required edition partial.
+
+Planned production settings retain the established America/Detroit clock: hourly collection sweeps while the collection window is open, collection closing at 22:00, classification draining until midnight, then Journalist/Influencer/Insider. RSS remains paused for the explicit Google refusal; this rollout does not bypass that block or claim fresh Google recovery. An hourly sweep consists of multiple feed requests, not one request per hour.

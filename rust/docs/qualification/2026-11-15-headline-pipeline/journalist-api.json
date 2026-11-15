@@ -1,0 +1,53 @@
+{
+  "page": "news",
+  "sport": "football",
+  "entity_type": "team",
+  "entity_id": 990001,
+  "scope": {
+    "key": "daily",
+    "label": "Daily",
+    "starts_at": "2026-11-15T00:00:00-05:00",
+    "ends_at": "2026-11-16T00:00:00-05:00"
+  },
+  "card_score": 60,
+  "headline": "Arsenal finalize Alex Sample transfer, captain sidelined, fans celebrate late win",
+  "narratives": [
+    {
+      "headline": "Arsenal finalize Alex Sample transfer, captain sidelined, fans celebrate late win",
+      "narrative_title": "Arsenal finalize Alex Sample transfer, captain sidelined, fans celebrate late win",
+      "body": "Arsenal have agreed a fee with Chelsea to sign Alex Sample, with his medical scheduled for tomorrow. Sample Sports Desk reported that Arsenal's captain will miss two weeks due to an ankle injury. Sample Fan Report noted that supporters celebrated a late winner and praised the team's fighting spirit.",
+      "heat": 60,
+      "impact": 60,
+      "impact_components": {
+        "policy": "source-activity-v2",
+        "volume": 27.071301834358415,
+        "recency": 15.0,
+        "article_count": 3,
+        "source_breadth": 18.0,
+        "distinct_sources": 3
+      },
+      "input_news_ids": [
+        3,
+        1,
+        2
+      ],
+      "updated_at": "2026-11-15T15:28:00-05:00",
+      "source_count": 3,
+      "source_names": [
+        "Sample Transfer Desk",
+        "Sample Sports Desk",
+        "Sample Fan Report"
+      ],
+      "source_latest_at": "2026-11-15T15:28:00-05:00",
+      "source_oldest_at": "2026-11-15T15:28:00-05:00",
+      "trajectory": "developing_story",
+      "trajectory_label": "Developing story...",
+      "trajectory_components": {
+        "reason": "independent_source_report"
+      },
+      "model_version": "Qwen3.5-4B-Q4_K_M",
+      "prompt_version": "n145-task-first",
+      "generated_at": "2026-11-15T15:30:05.846862-05:00"
+    }
+  ]
+}

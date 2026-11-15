@@ -616,3 +616,48 @@ async fn people_receive_explicit_empty_reporting_outcomes_without_statistical_jo
     finish(&pool).await?;
     Ok(())
 }
+
+#[tokio::test]
+#[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
+async fn inactive_characters_do_not_fail_a_completed_required_edition() -> Result<()> {
+    let pool = setup().await?;
+    enroll(&pool).await?;
+    assert_eq!(tick(&pool, 0.0).await?, "draining");
+    assert_eq!(tick(&pool, 0.0).await?, "characters");
+    sqlx::raw_sql("UPDATE coverage_schedule SET required_stages=ARRAY['narratives','vibe','transfers'];
+        INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport,outcome)
+        SELECT edition_date,task,'team',101,'ZZ_COVERAGE','pending'
+        FROM coverage_schedule CROSS JOIN unnest(ARRAY['narratives','vibe','transfers','rating','momentum','sigil']) task;")
+        .execute(&pool).await?;
+    assert_eq!(
+        tick(&pool, 0.0).await?,
+        "characters",
+        "required work must finish"
+    );
+    sqlx::query("UPDATE coverage_assignments SET outcome='completed',finished_at=now() WHERE stage IN ('narratives','vibe','transfers')")
+        .execute(&pool).await?;
+    assert_eq!(tick(&pool, 0.0).await?, "coverage");
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT status FROM coverage_editions")
+            .fetch_one(&pool)
+            .await?,
+        "complete"
+    );
+    assert!(
+        sqlx::query_scalar::<_, bool>("SELECT edition_date IS NOT NULL FROM coverage_publication")
+            .fetch_one(&pool)
+            .await?
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM coverage_assignments WHERE outcome='pending'"
+        )
+        .fetch_one(&pool)
+        .await?,
+        3
+    );
+    sqlx::query("UPDATE coverage_schedule SET required_stages=ARRAY['narratives','vibe','rating','transfers','momentum','sigil']")
+        .execute(&pool).await?;
+    finish(&pool).await?;
+    Ok(())
+}

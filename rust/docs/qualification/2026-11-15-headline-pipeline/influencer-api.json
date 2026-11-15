@@ -1,0 +1,42 @@
+{
+  "page": "vibe",
+  "sport": "football",
+  "entity_type": "team",
+  "entity_id": 990001,
+  "current": {
+    "id": 1,
+    "heat": 75,
+    "score": 75,
+    "headline": "Arsenal fans celebrate late victory and praise team spirit.",
+    "body": "Sample Fan Report notes that Arsenal supporters celebrated a late winner and praised the team's fighting spirit.\n\nscore: 75 headline: Arsenal fans celebrate late victory and praise team spirit.",
+    "trigger_type": "periodic",
+    "generated_at": "2026-11-15T15:30:08.270589-05:00",
+    "model_version": "Qwen3.5-4B-Q4_K_M",
+    "prompt_version": "vibe-frame-v61-task-first",
+    "input_hash": "3e0e8f9d8d4b031c90ae1e28a94a56de",
+    "score_scale": "emotional-valence-v1",
+    "date": "2026-11-15",
+    "reporting_start": "2026-11-15T00:00:00-05:00",
+    "reporting_end": "2026-11-16T00:00:00-05:00",
+    "evidence_cutoff": "2026-11-16T00:00:02-05:00",
+    "sources": [
+      {
+        "id": 2,
+        "url": "https://example.invalid/sample/fans",
+        "publisher": "Sample Fan Report",
+        "published_at": "2026-11-15T20:28:00+00:00"
+      }
+    ]
+  },
+  "date": "2026-11-15",
+  "snapshots": [
+    {
+      "date": "2026-11-15",
+      "sentiment": 75,
+      "generated_at": "2026-11-15T15:30:08.270589-05:00",
+      "trigger_type": "periodic",
+      "headline": "Arsenal fans celebrate late victory and praise team spirit.",
+      "body": "Sample Fan Report notes that Arsenal supporters celebrated a late winner and praised the team's fighting spirit.\n\nscore: 75 headline: Arsenal fans celebrate late victory and praise team spirit."
+    }
+  ]
+}

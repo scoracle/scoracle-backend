@@ -1,0 +1,44 @@
+{
+  "page": "transfers",
+  "sport": "football",
+  "entity_type": "player",
+  "entity_id": 990003,
+  "scope": {
+    "key": "daily",
+    "label": "Daily",
+    "starts_at": "2026-11-15T00:00:00-05:00",
+    "ends_at": "2026-11-16T00:00:00-05:00"
+  },
+  "heat": 88,
+  "card_score": 88,
+  "headline": "Alex Sample: transfer picture",
+  "wire_read": "Alex Sample has reportedly agreed a fee with Arsenal to join Chelsea, with a medical scheduled for tomorrow.\n\nSample Transfer Desk",
+  "transfers": [
+    {
+      "id": 990001,
+      "name": "Arsenal",
+      "image": null,
+      "heat": 88,
+      "heat_components": {
+        "stage": "here_we_go",
+        "status": "reported",
+        "source_count": 1
+      },
+      "direction": "incoming",
+      "stage": "here_we_go",
+      "headline": "Sample Transfer Desk: Arsenal agree fee with Chelsea to sign Alex Sample, medical scheduled tomorrow",
+      "source_attribution": "Sample Transfer Desk",
+      "updated_at": "2026-11-15T15:28:00-05:00",
+      "source_count": 1,
+      "source_names": [
+        "Sample Transfer Desk"
+      ],
+      "source_latest_at": "2026-11-15T15:28:00-05:00",
+      "source_oldest_at": "2026-11-15T15:28:00-05:00",
+      "trajectory": "developing_story",
+      "trajectory_label": "Developing story...",
+      "trajectory_components": {},
+      "rank": 1
+    }
+  ]
+}

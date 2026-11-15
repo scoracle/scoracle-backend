@@ -1,5 +1,7 @@
 # Character prompt ownership
 
+Classifier owns the classification skill; Character owns the six output skills. Caretaker's Investigator instructions are retained for offline/compatibility use only, with no enabled maintenance work. See the [task/source/output map](../README.md#plugin-and-skill-map) before adding or moving instructions.
+
 Skills own meaning and behavior within their plugin. Shared code owns assembly and field-presence rules. Every context provider returns its data together with a guide explaining how that data relates to the target.
 
 | Change | Owner |

@@ -1,0 +1,185 @@
+{
+  "commit": "9be32e645648ec814a9cba4981a6031d8d597c2c",
+  "results": [
+    {
+      "name": "character-narratives",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/eval",
+        "--task",
+        "narratives",
+        "--fixtures"
+      ],
+      "exit_code": 1
+    },
+    {
+      "name": "character-vibe",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/eval",
+        "--task",
+        "vibe",
+        "--fixtures"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "character-rating",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/eval",
+        "--task",
+        "rating",
+        "--fixtures"
+      ],
+      "exit_code": 1
+    },
+    {
+      "name": "character-transfer",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/eval",
+        "--task",
+        "transfer",
+        "--fixtures"
+      ],
+      "exit_code": 1
+    },
+    {
+      "name": "character-momentum",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/eval",
+        "--task",
+        "momentum",
+        "--fixtures"
+      ],
+      "exit_code": 1
+    },
+    {
+      "name": "character-oracle",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/eval",
+        "--task",
+        "oracle",
+        "--fixtures"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "classifier-relations",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/examples/classifier_replay",
+        "fixtures/classifier/relations-v13/cases.jsonl",
+        "2"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "classifier-availability",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/examples/classifier_replay",
+        "fixtures/classifier/availability-calibration-2026-10-22.jsonl",
+        "2"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "classifier-structured",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/examples/classifier_replay",
+        "fixtures/classifier/structured-v16-2026-11-14/cases.jsonl",
+        "2"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "classifier-gender",
+      "command": [
+        "/tmp/scoracle-skills-baseline-target/debug/examples/classifier_replay",
+        "fixtures/classifier/team-gender-2026-11-01/production-builder-cases.jsonl",
+        "2"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "character_concurrency": 3,
+  "classifier_concurrency": 2,
+  "caretaker_active": false,
+  "database_access": false,
+  "deployment": false,
+  "classifier_fixture_sha256": {
+    "fixtures/classifier/relations-v13/cases.jsonl": "f4cd549564965e7544045db7d110a323a5fcf8ddff94c4b8e9f4c578b7d908f6",
+    "fixtures/classifier/availability-calibration-2026-10-22.jsonl": "d1258355cd7353e0e9c6e11f6be7f1844e891daa585bb19f5f0b655a45a0863c",
+    "fixtures/classifier/structured-v16-2026-11-14/cases.jsonl": "db796738dc485eae3385776f7ca4f47909af81688dc5203c0b163a615153ee13",
+    "fixtures/classifier/team-gender-2026-11-01/production-builder-cases.jsonl": "8ed871ad6eaa0495ad4aa4cd78b14e15d56b21780b4d5d180f930394c9143bb2"
+  },
+  "concurrency_note": "At most three runner processes total: Classifier plus two Character runners initially; up to three Character runners after Classifier finished. Classifier itself used two concurrent native requests.",
+  "character_fixture_sha256": {
+    "fixtures/quality/narratives/conflicting-reports.json": "dc679de8a318f68a86fbe3ea022535b7a73e11ad875d54b8c1bfad92491de3c9",
+    "fixtures/quality/narratives/distinct-developments.json": "2c295f9602df7e210af0bd9525de4e73104366193279ef8e573add2b332d7fd9",
+    "fixtures/quality/narratives/gordon-derozan-wrong-subject.json": "e41cd90270d0bd6a32640db7ef9023b22e2db6be3f3d7aa732526b95b2b19d9b",
+    "fixtures/quality/narratives/headline-corpus.json": "a67eb66a3a33f1de7362732c89da973a64c57dd20f37f4feee71dfccceada094",
+    "fixtures/quality/narratives/late-qualification.json": "e9e108583e9d2ac52187d72c33fde6b4be63bbe49ebb1d316cffa54319c2ee7a",
+    "fixtures/quality/narratives/nba-attribution.json": "c3c5fa302b93d22b736bdcc09f6e2520572bcedc857c127b3ef0cb7e3c68afe5",
+    "fixtures/quality/narratives/no-new-material.json": "cae0bc62c3ba79ab81fdaa49dbfb54671d7d5b75ff0085c9038bcdca67aa55c4",
+    "fixtures/quality/narratives/one-result.json": "ce0226a89773a3cec8962d1105ddc4fd9aa938dee67b096772bcc7b24e538dea",
+    "fixtures/quality/narratives/rumour-and-denial.json": "37cf07ee126d24c87aac9ff28c6dd3dfbc2180c5a5e898c95b7b51c33f84bd24",
+    "fixtures/quality/narratives/synthetic-closed-training-fresh-only.json": "7106a4aa2b2a8cfbcec4bafa413c9c47159af83ebc7d27e8e3a19eea6d305068",
+    "fixtures/quality/narratives/synthetic-discussion-no-new-event.json": "37093888f6415d6c484839dd1e6bfb4f52a5fbd3a3d069c4971aa7508482f62c",
+    "fixtures/quality/narratives/synthetic-meta-missing.json": "b740837628f2b11b1482a9c4cbfa1c1f0a94359bbbea0f6715181b1115fe92d5",
+    "fixtures/quality/narratives/synthetic-meta-name-collision.json": "7c0e89bb56e8f12d58eb829cbaa0a913a03d27c4088d7ebe9778a77faa473b33",
+    "fixtures/quality/narratives/synthetic-meta-profile-only.json": "e567f858cb81b4ae786a7d5b7c1e1a3d4aa2f726b12d624f5e99acebf343f340",
+    "fixtures/quality/narratives/synthetic-meta-stale-affiliation.json": "3aee68c650ba989cc21bfae9e3851b525d4b608b03288d2aee3d969447333a90",
+    "fixtures/quality/narratives/synthetic-training-time-fresh-only.json": "7efcb801a92f4c03fc2a4fa47b2174ce997ae22021266939ae638a7821d61ded",
+    "fixtures/quality/vibe/clearly-negative.json": "c036291e4a373376cffa53efc4f56419751c60009c1113adc7ffcb0648eb4fbf",
+    "fixtures/quality/vibe/clearly-positive.json": "a10646aa37a288fd5025d8fd5d3c1448d3df10fa26d08504416e965260d1c85c",
+    "fixtures/quality/vibe/distinct-positive-and-negative-reactions.json": "16f03efb40e3e7621fcde70535e23e79859fa614453504ebf6dd40dae7fb8e92",
+    "fixtures/quality/vibe/gordon-derozan-wrong-subject.json": "4715d76cffadd5538fe245dd7ab516d46ba6d41e422cfb1f2fed64e40d279da2",
+    "fixtures/quality/vibe/quiet-mixed.json": "6df14fcb6fd26ddb14edb089d538ab4493627c59d50d82f9f2bd1d3ab57a90b2",
+    "fixtures/quality/vibe/warm-memory-cold-coverage.json": "768642665943118f138b9235f55a85e04b5850d01c865f85126240160a91a282",
+    "fixtures/quality/rating/football-player-total.json": "a6ce48f08323a1cfa3a26688be8c9597aa4a6e8324f00cdac0b9d74628b8a472",
+    "fixtures/quality/rating/nfl-team-zero-interceptions.json": "490904d03997e0fb8ef9529465fbaf637b88fa6a589c9985ea6cde5893f382e3",
+    "fixtures/quality/rating/synthetic-composite.json": "828798cfddc972665ecd3ff333264ffb0b08fc5c59a1129ddce43da4475fb38c",
+    "fixtures/quality/rating/synthetic-daily-withdrawal.json": "70060ded4b70b79376ed168eff28de53fd9b4d53c9ecf5ffccdf95695c927be8",
+    "fixtures/quality/rating/synthetic-incompatible.json": "3026a5f5d870667fa66641032e0582c36bb0ea4feb042b8062bccdcce3c180d2",
+    "fixtures/quality/rating/synthetic-measured-memory.json": "14fd662d5d356ec743bd8aaa7187b384a2075cec98ed0b7ff3463905f5bd6056",
+    "fixtures/quality/rating/synthetic-source-trigger.json": "38277f92969e95a3d21bd7061ea9d6720fe95e2896b70c9f0d900556cc3f2e75",
+    "fixtures/quality/rating/synthetic-sparse.json": "08acda7216a1a7faf281e14227fe326ed78ec67f3442c0c02afb517a12d877a5",
+    "fixtures/quality/rating/synthetic-strong.json": "75fcd03995e549d127f814c9c20f67f90ca8f9c47eaf99caa205b11fa12fb461",
+    "fixtures/quality/rating/synthetic-withdrawn-report.json": "79e948f7716fea73bb07808867f02defa15d5d50bb81494d46c0fd816d54bbd1",
+    "fixtures/quality/rating/synthetic-zero-unknown.json": "ba75f5439191b6db0897f885a182c748a76d1c57cec5ea2588f369da99e887e1",
+    "fixtures/quality/transfer/explicit-denial-clears-prior-rumor.json": "00fbbc11edea651d88a2d259afd385ca1331bdd37bd9f0d92f3f7b070c9fbfca",
+    "fixtures/quality/transfer/fizzled-prior-lowrel-skeptic.json": "2cd3d98ff9c4c5e9550e60397bc0a0fc1df870d344f66545abb645cde7bd9e6b",
+    "fixtures/quality/transfer/fully-named-advanced-talks.json": "6161f872afed8aaf79d58131b48255e45b9fee4b23e3f3f2412fac30d7e61dd4",
+    "fixtures/quality/transfer/fully-named-interest.json": "69244f12ec8492675615757db109936e2936cf5431bba33c04b3947cb349d14c",
+    "fixtures/quality/transfer/gordon-derozan-wrong-subject.json": "3a2e9206aba759a13c76ae665a50e43d3ad5865b92248d045dfd60489b4fcf4d",
+    "fixtures/quality/transfer/headline-unnamed-signing.json": "067067389b8db1d952d9d7f9eb15e1336455bb475f23da51ee9105c0a173e3f0",
+    "fixtures/quality/transfer/reliable-source-heating-steam.json": "aef15ba9015daff4887f329a7f289396fc8d5efe92d3827b83e1039616805fda",
+    "fixtures/quality/transfer/two-distinct-movement-stories.json": "0afc37c201ce20cb501bb5cd9ba9536f21457a938fa826bc5c6fddfb80e2d420",
+    "fixtures/quality/transfer/unnamed-signing-no-identity-join.json": "7eca68dfbeeecd0d68485c910acb39f86005f15741c4cd6b2e5981f450385231",
+    "fixtures/quality/momentum/falling-confirmed.json": "d69b4e2bf60ce435ee4d377cfa985b5da1370b1755e5fd1837edd5531e6ca452",
+    "fixtures/quality/momentum/missing-mood-peer.json": "7ad45d9132d2aff280329ef3fccdf92c7dbb38d5a077ac18fb891119e856de9a",
+    "fixtures/quality/momentum/mixed-peak-up-vibe-down.json": "40a145de413ba6ab33cbc7d38e1c59d4492be8e43a23df3549f1f936f719646d",
+    "fixtures/quality/momentum/rising-confirmed.json": "2a5b52b073bbd70c35a2b956b34540805fd54e6a0b31388212fb5c844e444431",
+    "fixtures/quality/momentum/shared-decline-holdout.json": "849afd3fe8004d60e13510c0514c9af4fdb38019a863a53652c0cca323bd295f",
+    "fixtures/quality/momentum/sparse-samples-stay-steady.json": "a15cf8536835ca906d3e94f902ff6e28222e747172531f6dd06877a88a9cf3a5",
+    "fixtures/quality/momentum/synthetic-dated-divergence.json": "7cd158e13d4242e016f25330e337e9fc6618e5399d7fb5f56fed68302226f010",
+    "fixtures/quality/momentum/synthetic-dated-missing-peer.json": "f374a69ead6b093c9fff355c1e0488063fdf878237d9774e53677856723094dd",
+    "fixtures/quality/oracle/ascendant-aligned.json": "ef232e059ca7c1073b1d392fd1b917ffad213ac78ba13a70eddaebe1530b0433",
+    "fixtures/quality/oracle/crossroads-conflict.json": "22fcd41988c4b124e15bfdaf6a04ae42f1b3e7133a400de543e55f58ee41dc22",
+    "fixtures/quality/oracle/near-empty-quiet-wire.json": "2e6fa1f1d604c744f276582c8ed0e8607e35abd303948ac7babc21a22bdcd305",
+    "fixtures/quality/oracle/three-card-newcomer.json": "136cc5e9e614ec094e8ce9cb31617581169e165deb10755b3812eb3547ad05e4"
+  },
+  "figma_url": "https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs",
+  "environment": {
+    "MODEL_BASE_URL": "http://127.0.0.1:8081",
+    "MODEL_NAME": "Qwen3.5-4B-Q4_K_M",
+    "VOICE_NUM_CTX": "10000",
+    "MODEL_TIMEOUT_SECONDS": "180",
+    "COGNITION_STAGES": "",
+    "COGNITION_COVERAGE_CONTROLLER": "false",
+    "CLASSIFIER_URL": "http://127.0.0.1:18081",
+    "DATABASE_URL": "postgresql://127.0.0.1:1/fixture_only_no_database"
+  },
+  "cleared_environment": [
+    "DATABASE_PRIVATE_URL",
+    "COGNITION_ROUTE_*"
+  ],
+  "source": "Fresh git archive of baseline commit, extracted under /tmp; no source edits"
+}

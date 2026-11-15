@@ -1,0 +1,1 @@
+{"brier":null,"completed":15,"concurrency":2,"criteria_version":"classification-criteria-v17-shared-relations","failed":0,"labels":0,"mistakes_at_50_percent":0,"p95_seconds":1.83715325,"request_version":"classifier-brief-v8-shared-relations","requests_per_second":1.1331402707825646,"seconds":13.237549125}

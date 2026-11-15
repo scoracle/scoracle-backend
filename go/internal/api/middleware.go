@@ -33,31 +33,50 @@ func TimingMiddleware(next http.Handler) http.Handler {
 // Rate limiting middleware (IP-based token bucket)
 // --------------------------------------------------------------------------
 
+type ipLimitEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
 type ipLimiter struct {
-	mu       sync.Mutex
-	limiters map[string]*rate.Limiter
-	rate     rate.Limit
-	burst    int
+	mu        sync.Mutex
+	limiters  map[string]ipLimitEntry
+	rate      rate.Limit
+	burst     int
+	idleTTL   time.Duration
+	nextSweep time.Time
 }
 
 func newIPLimiter(requestsPerWindow int, window time.Duration) *ipLimiter {
 	rps := float64(requestsPerWindow) / window.Seconds()
 	return &ipLimiter{
-		limiters: make(map[string]*rate.Limiter),
+		limiters: make(map[string]ipLimitEntry),
 		rate:     rate.Limit(rps),
 		burst:    requestsPerWindow / 2,
+		idleTTL:  max(10*time.Minute, window),
 	}
 }
 
 func (l *ipLimiter) getLimiter(ip string) *rate.Limiter {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if limiter, exists := l.limiters[ip]; exists {
-		return limiter
+	now := time.Now()
+	// Sweep on traffic so the limiter needs no background goroutine or shutdown hook.
+	if !now.Before(l.nextSweep) {
+		for key, entry := range l.limiters {
+			if now.Sub(entry.lastSeen) >= l.idleTTL {
+				delete(l.limiters, key)
+			}
+		}
+		l.nextSweep = now.Add(time.Minute)
 	}
-	limiter := rate.NewLimiter(l.rate, l.burst)
-	l.limiters[ip] = limiter
-	return limiter
+	entry, exists := l.limiters[ip]
+	if !exists {
+		entry.limiter = rate.NewLimiter(l.rate, l.burst)
+	}
+	entry.lastSeen = now
+	l.limiters[ip] = entry
+	return entry.limiter
 }
 
 // clientIP resolves the end-user IP for rate-limit bucketing. Behind Cloudflare

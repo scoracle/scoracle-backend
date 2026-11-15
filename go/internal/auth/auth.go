@@ -91,6 +91,9 @@ func (t *Tokens) IssueAccess(userID string) (string, error) {
 // ParseAccess verifies a JWT's signature, algorithm, issuer, and expiry, and
 // returns the subject (user id).
 func (t *Tokens) ParseAccess(token string) (string, error) {
+	if !t.Configured() {
+		return "", ErrInvalidToken
+	}
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
 		return "", ErrInvalidToken

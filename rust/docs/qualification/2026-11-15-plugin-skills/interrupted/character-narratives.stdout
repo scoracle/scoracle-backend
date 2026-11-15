@@ -1,0 +1,15 @@
+fixtures — task=narratives role=narrative-logic n=16 dir=/Users/scotty/.codex/worktrees/character-skills/scoracle-backend/rust/fixtures/quality/narratives/  incumbent=Qwen3.5-4B-Q4_K_M
+lens — operator=The Journalist | mandate=Compile the stories swirling around the entity into grounded storylines. | guard=Group what sources actually say; do not inflate vague hype or off-entity noise.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[conflicting-reports-two-sources-that-contradict-each-other]  (temp=0)
+  Review: Keep both source positions attributed; they may share a narrative but must not become one settled fact.
+  Review: Both reports are unconfirmed; the reading must not resolve the contradiction for the reader.
+      call: request=3575 bytes, input=768 tokens, output=95 tokens, latency=8.56s, retries=0
+  A Qwen3.5-4B-Q4_K_M cited reports do not connect Cedar United with numerical fact 1
+      raw: {"paragraphs":[{"body":"Cedar United denied agreeing a fee for Alex Stone, with a club spokesperson stating discussions had not begun (Club Bulletin, ID 1). Conversely, City Wire reports that Cedar United agreed a fee for Stone, citing an u...
+
+[distinct-developments-three-independent-developments,-three-keyed-slots]  (temp=0)
+  Review: Keep each development attached to its own supporting report_key; do not transfer claims between reports.
+  Review: The ankle injury, the appointment and the result are three stories, not one narrative.

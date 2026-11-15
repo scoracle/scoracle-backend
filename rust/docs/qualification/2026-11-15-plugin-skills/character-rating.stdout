@@ -1,0 +1,103 @@
+fixtures — task=rating role=stats-logic n=11 dir=/Users/scotty/.codex/worktrees/character-skills/scoracle-backend/rust/fixtures/quality/rating/  incumbent=Qwen3.5-4B-Q4_K_M
+lens — operator=The Scout | mandate=Tell the story of the entity's playing characteristics, expected contributions and supported profile direction. | guard=Interpret supplied measurements together; use metadata as context and preserve the distinction between profile, form and relative standing.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[football-player-total]  (temp=0)
+  Review: Football player positive control: four goals is a supplied total, not per-game scoring or four goals in each appearance. No ability, form or health inference.
+      call: request=5862 bytes, input=1265 tokens, output=40 tokens, latency=9.49s, retries=0
+  A Qwen3.5-4B-Q4_K_M The recorded profile shows 4 goals across 12 appearances, placing the goals measure at the 80th percentile in the strong band. No prior comparison is supplied.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[nfl-team-zero-interceptions]  (temp=0)
+  Review: NFL team positive control: zero interceptions thrown is measured, not forcing opponent interceptions or quarterback skill. No team-to-player identity conversion.
+      call: request=6017 bytes, input=1303 tokens, output=64 tokens, latency=6.91s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Briar Bears recorded 12 games played in the 2026 season. Interceptions thrown totaled 0.0, ranking at the 99th percentile in the elite band. The team's composite score is 64.0. No availability headlines are supplied.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[synthetic-composite]  (temp=0)
+  Review: The composite has a peer mean of 50. No individual measurements, playing traits, trend or balanced offense/defense are established.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation.
+      call: request=5528 bytes, input=1176 tokens, output=40 tokens, latency=5.68s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Cedar Comets recorded a composite score of 64.0 in the 2026 season across 25 games. No individual performance measurements are supplied.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[synthetic-daily-withdrawal]  (temp=0)
+  Review: Assess supplied season measurements only; article reporting is excluded from the stats-only Scout contract.
+  Review: Preserve measured values and distinguish relative standing from improvement magnitude. Missing availability evidence supports no fitness or recovery claim.
+  Review: Offline recapture; generation quality remains subject to evaluation.
+      call: request=6600 bytes, input=1485 tokens, output=111 tokens, latency=12.97s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Cedar Comets recorded 25 games played in the 2026 season. Rebounds per game totaled 48.0, ranking at the 90th percentile in the elite band, a rise from the 80th percentile the prior season. Assists per game totaled 23.0, ranking at the 75th percentile in the strong band, which held steady from the prior season. The team's composite score is 64.0. No availability headlines are supplied.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[synthetic-incompatible]  (temp=0)
+  Review: The prior competition is incompatible. Describe current standing without inventing a comparison, stability or recent form.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation.
+      call: request=6294 bytes, input=1405 tokens, output=86 tokens, latency=13.10s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Cedar Comets recorded 48 rebounds per game and 23 assists per game across 25 games in the 2026 season. Rebounds rank at the 90th percentile in the elite band, while assists rank at the 75th percentile in the strong band. The team's composite score is 64. No prior comparison is supplied for these measures.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[synthetic-measured-memory]  (temp=0)
+  Review: The current points average is 105 across three measured fixtures out of four. The supplied change is 2; do not turn 105 into the prior average or invent 107. Preserve missing-data coverage.
+  Review: Explicit synthetic windows: previous August 1–30 average 103; current August 30–September 29 average 105. This reconstructs a coherent test comparison, not a historical database receipt.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation.
+      call: request=6600 bytes, input=1485 tokens, output=111 tokens, latency=14.78s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Cedar Comets recorded 25 games played in the 2026 season. Rebounds per game totaled 48.0, ranking at the 90th percentile in the elite band, a rise from the 80th percentile the prior season. Assists per game totaled 23.0, ranking at the 75th percentile in the strong band, which held steady from the prior season. The team's composite score is 64.0. No availability headlines are supplied.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[synthetic-source-trigger]  (temp=0)
+  Review: The sample count is unknown. The minimum of 10 is an appearance threshold, not a points threshold or observed sample. No stability or recent form is established.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation.
+      call: request=5895 bytes, input=1272 tokens, output=55 tokens, latency=4.56s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Harvester Test Club's 2026 scoring performance recorded 20.0 points at the 80th percentile in the strong band. This reading rests on an unknown sample with a minimum threshold of 10.0.
+      rejected: The observed sample count is unknown. A policy minimum is not an observed count.
+      raw: {"body":"The Harvester Test Club's 2026 scoring performance recorded 20.0 points at the 80th percentile in the strong band. This reading rests on an unknown sample with a minimum threshold of 10.0."}
+
+[synthetic-sparse]  (temp=0)
+  Review: Three stored games describe source coverage, not first games, early-season participation or future potential. No cross-season comparison is supplied.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation.
+      call: request=6400 bytes, input=1439 tokens, output=75 tokens, latency=9.96s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Cedar Comets' 2026 profile shows 3 games played, placing the rebounds measure at the 90th percentile in the elite band and assists at the 75th percentile in the strong band. This reading rests on a thin-sample limit of 3 appearances, which falls below the 10-game minimum threshold.
+      rejected: The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games.
+      raw: {"body":"The Cedar Comets' 2026 profile shows 3 games played, placing the rebounds measure at the 90th percentile in the elite band and assists at the 75th percentile in the strong band. This reading rests on a thin-sample limit of 3 appear...
+
+[synthetic-strong]  (temp=0)
+  Review: Rebounding standing rose; assist standing held. Do not infer ability, tactics, health or recent form from these comparisons.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation.
+      call: request=6600 bytes, input=1485 tokens, output=111 tokens, latency=10.52s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Cedar Comets recorded 25 games played in the 2026 season. Rebounds per game totaled 48.0, ranking at the 90th percentile in the elite band, a rise from the 80th percentile the prior season. Assists per game totaled 23.0, ranking at the 75th percentile in the strong band, which held steady from the prior season. The team's composite score is 64.0. No availability headlines are supplied.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[synthetic-withdrawn-report]  (temp=0)
+  Review: Assess supplied season measurements only; article reporting is excluded from the stats-only Scout contract.
+  Review: Preserve measured values and distinguish relative standing from improvement magnitude. Missing availability evidence supports no fitness or recovery claim.
+  Review: Offline recapture; generation quality remains subject to evaluation.
+      call: request=6600 bytes, input=1485 tokens, output=111 tokens, latency=12.07s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Cedar Comets recorded 25 games played in the 2026 season. Rebounds per game totaled 48.0, ranking at the 90th percentile in the elite band, a rise from the 80th percentile the prior season. Assists per game totaled 23.0, ranking at the 75th percentile in the strong band, which held steady from the prior season. The team's composite score is 64.0. No availability headlines are supplied.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+[synthetic-zero-unknown]  (temp=0)
+  Review: Zero turnovers is measured; assists are unknown. Low turnovers do not establish defensive performance or forcing opponent turnovers.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Stats-only Scout contract: article context is excluded; assess only supplied measurements. Offline recapture; generation quality remains subject to evaluation.
+      call: request=6132 bytes, input=1342 tokens, output=72 tokens, latency=11.76s, retries=0
+  A Qwen3.5-4B-Q4_K_M The Cedar Comets recorded 25 games played in the 2026 season. Turnovers per game were 0.0, ranking at the 99th percentile in the elite band. Assists per game are unknown. The team's composite score is 64.0. Cross-season comparison is supported.
+      [✓] no_product_names
+      [✓] no_banned_phrases
+
+=== fixture summary — Qwen3.5-4B-Q4_K_M : 27/29 property checks passed ===
+Mechanical checks do not establish semantic quality; the review criteria remain manual.

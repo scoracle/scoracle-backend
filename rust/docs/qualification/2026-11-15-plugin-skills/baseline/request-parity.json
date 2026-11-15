@@ -1,0 +1,272 @@
+[
+  {
+    "fixture": "fixtures/quality/momentum/falling-confirmed.json",
+    "request_sha256": "8956f7c156e7fbfb025bfa80d60c3eb0262aac3e18c99e06880b5555cb71c380",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/missing-mood-peer.json",
+    "request_sha256": "6705600b9919f689e331d3fb951a3602ca50475b1e1c0a5c08fe53c46ba3d5c5",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/mixed-peak-up-vibe-down.json",
+    "request_sha256": "d2195c0a817540bd51f20cc1c2eb85ef02010c465ed5f3079ab6abc7821e2c1c",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/rising-confirmed.json",
+    "request_sha256": "427e72891d2aaaa0de23a3c78981902133dea08a84e981c5b9ad289efb8936a0",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/shared-decline-holdout.json",
+    "request_sha256": "537d7d66e0eaff63b3996ebccc9227cf86f0cb31326d5daf6128aa58be2a3f21",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/sparse-samples-stay-steady.json",
+    "request_sha256": "da68836d6a21bb6e049f6709a1fb34a2e5595f7d40bd66d5c259509a356d37fb",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/synthetic-dated-divergence.json",
+    "request_sha256": "de96d300ba0bd62863ee6b0691a3fd1deb487d0441b8141a4e20ac1cfed3064d",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/momentum/synthetic-dated-missing-peer.json",
+    "request_sha256": "9fa41a0662f1ede80140b6b89adf44f438f91f79081ad338e3c5ab999566df0e",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/conflicting-reports.json",
+    "request_sha256": "416adaead7994885b30b73fec3a2e1af2b6584b2b0396d6f5b88a51b910fa8d9",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/distinct-developments.json",
+    "request_sha256": "3ee24b9509b5f8d1caf63c33c647e66b80473acfec3044cf4b8bcb5e19a315a3",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/gordon-derozan-wrong-subject.json",
+    "request_sha256": "fd48ebd82462ebddc0cc6fc290fe6a05a008a93af091b38604f562599f0a316c",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/headline-corpus.json",
+    "request_sha256": "6b65ed77ab3eb5595e675f32c13bf6fba428e1f5574d21a8cd122b149bce3d86",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/late-qualification.json",
+    "request_sha256": "5a57c5a6d2971c5cc03ec42ae28426cc114f6fb9372d7c6f2336f84b7423b8b8",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/nba-attribution.json",
+    "request_sha256": "2c57ca4aca57ca2ce4cd96f45ff816a68c962ce11096c639a39bdf4148b1cea3",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/no-new-material.json",
+    "request_sha256": "391a87fd3c3a00fc6f8232750a76ee0f2eb28ef2f22daf26fe40533c00545a17",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/one-result.json",
+    "request_sha256": "4168bf0653f4b774b7c3a8d1977e5ce54450e902d5a21b9e5431985e1864c79c",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/rumour-and-denial.json",
+    "request_sha256": "1d581be1c9e8d104e0ce925866ae0b2456714416ca5c89db474ed32975fd9f0f",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-closed-training-fresh-only.json",
+    "request_sha256": "96fa4a056877bbe95e8ec0d45dc5dee74480c51d1646ce6da1c97e6ddb37623c",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-discussion-no-new-event.json",
+    "request_sha256": "0572904933d2a4e4d9c2bdd6df4ffd8fbfd12c7d6dbd3648353fdacce46a1e80",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-meta-missing.json",
+    "request_sha256": "5918b55322d7740ed8f6eeba6cd1f7fcd0f980ab31703506555a37e07d545c28",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-meta-name-collision.json",
+    "request_sha256": "d3cddb397babef94d37f9bcf0c24aa27315ef1b71b40e8bb1c6a11f880c85e90",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-meta-profile-only.json",
+    "request_sha256": "86cac58826fe959789c2512b4e733463ef60d7515011a41961a3ab0bccd683ea",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-meta-stale-affiliation.json",
+    "request_sha256": "575dde2e70edf4f8c4df0f53b8cbba241a43638938de515912287847c5117366",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/narratives/synthetic-training-time-fresh-only.json",
+    "request_sha256": "f675525ef3c71f42360d7865bf990e78184a83a49383d991d83aae6f8b0b1e60",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/oracle/ascendant-aligned.json",
+    "request_sha256": "27b42b5a948e254a9b238ce9f39d482d9700b6b4d5c6cd335dc6a23a19041cba",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/oracle/crossroads-conflict.json",
+    "request_sha256": "79457778aff04658f3b53f08522e4b4141a8faea60ccb2b9cb02963ca73bc8c2",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/oracle/near-empty-quiet-wire.json",
+    "request_sha256": "46c2d79eb59b3f69572c5e0b7c4e08b07439dcefe9c96a80bdcd8a5dcf1c7474",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/oracle/three-card-newcomer.json",
+    "request_sha256": "a023520630cc3188afa7b579ef4206b0d897c2ad93b3afaf1382ee3d722c8d98",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/football-player-total.json",
+    "request_sha256": "c9a7a6b454be85fee33ccd9d4e14a7c11970d61b72e019b82aa3ba2318302bd8",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/nfl-team-zero-interceptions.json",
+    "request_sha256": "bfa92ddeb9a6c5e22d9c097d60566ac6de4bd1fea112b284b782e1b32346ec5f",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-composite.json",
+    "request_sha256": "a83cad8504d2c99b3f17a7084948198843973c660710e91366a9556dfd4afaba",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-daily-withdrawal.json",
+    "request_sha256": "7862d5a8db8ddf19fc1cecffc7f7780aa36e9935d4371d9140757e1ec9600065",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-incompatible.json",
+    "request_sha256": "56867b57873c79858f0b6616d7aace65df7edc4cc135967e88ede3118a4f9248",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-measured-memory.json",
+    "request_sha256": "7862d5a8db8ddf19fc1cecffc7f7780aa36e9935d4371d9140757e1ec9600065",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-source-trigger.json",
+    "request_sha256": "0733cdb5eb0afaa6f123da1a01b4db2ba03d04a4d1edbf918589655a6585c6a5",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-sparse.json",
+    "request_sha256": "aeb5e53885a78986b58c749d9bbdc3aacf0aae6982e7557577cc92d0090a728e",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-strong.json",
+    "request_sha256": "7862d5a8db8ddf19fc1cecffc7f7780aa36e9935d4371d9140757e1ec9600065",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-withdrawn-report.json",
+    "request_sha256": "7862d5a8db8ddf19fc1cecffc7f7780aa36e9935d4371d9140757e1ec9600065",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/rating/synthetic-zero-unknown.json",
+    "request_sha256": "4a6c2c0f0140ff9b9aa26d2b4a56f56a604bff86bdc04ed0e2ab71546a5a9525",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/explicit-denial-clears-prior-rumor.json",
+    "request_sha256": "c1dfa1d78b034b048d4ee783845c62d997647013711214e1d19f65d915339a68",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/fizzled-prior-lowrel-skeptic.json",
+    "request_sha256": "21ed5abcf01d69544ece531a785d39bc233e87c080f54c2d41980b61a28953e7",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/fully-named-advanced-talks.json",
+    "request_sha256": "6258dd46327a375475ee393db662ba396356b5e57821527c6dca07f8e82a6ac6",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/fully-named-interest.json",
+    "request_sha256": "9b73661095a46c3d9883694566d7e48e4f378bbdee3c3176a2f9ce73aa201d8d",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/gordon-derozan-wrong-subject.json",
+    "request_sha256": "2e003ac3df8d552c66184169d806c4fd9b86a40532af62a4849a1578b6fc5435",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/headline-unnamed-signing.json",
+    "request_sha256": "fd612cdd0f436aeae7c9d07daa0959c3b93b4ecec23109f88329f711af6ccfef",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/reliable-source-heating-steam.json",
+    "request_sha256": "86450db7f7f8eb17d2cd384e9f6967f4df2dd336aff45074becf8eaffd869637",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/two-distinct-movement-stories.json",
+    "request_sha256": "ad1c12950fe6c3d9f132ca4e0a52930928a106bdadbdcc29def6c68cbb703628",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/transfer/unnamed-signing-no-identity-join.json",
+    "request_sha256": "1a34cd6d7565e4237f728e9e24d7157d34de7970a9c590e54f0d2eeeb5980ff0",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/clearly-negative.json",
+    "request_sha256": "491f944a481e066c73d20a4958b5980642041e8e9bfd7136bac4482435ea1780",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/clearly-positive.json",
+    "request_sha256": "75b7082afb1ec4a2056d4fb7a3ab1d00f786d77795b3f0f8b2a6b720d066472c",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/distinct-positive-and-negative-reactions.json",
+    "request_sha256": "a4b722e50df71ad019e151748a628d4cd4c1a324c66189c659bd528669492c92",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/gordon-derozan-wrong-subject.json",
+    "request_sha256": "ac747ede4440e9e65b5637de12eda5a3ad4390c9b8258f072af4f77746be8691",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/quiet-mixed.json",
+    "request_sha256": "a59d95d54c91e4847cccd1e88ce9febfd3fe34a08d6235d2ed42149e882bc11c",
+    "identical": true
+  },
+  {
+    "fixture": "fixtures/quality/vibe/warm-memory-cold-coverage.json",
+    "request_sha256": "34885654b4a74679e8f5927a900436074a2d1e1dc9325877bc055852b8e73319",
+    "identical": true
+  }
+]

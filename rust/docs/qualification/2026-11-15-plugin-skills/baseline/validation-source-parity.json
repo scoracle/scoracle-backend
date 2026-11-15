@@ -1,0 +1,37 @@
+[
+  {
+    "baseline": "src/evaluation/tasks.rs",
+    "branch": "src/evaluation/tasks.rs",
+    "identical_after_module_path_and_format_normalization": true
+  },
+  {
+    "baseline": "src/plugins/journalist/parser.rs",
+    "branch": "src/plugins/character/skills/journalist/parser.rs",
+    "identical_after_module_path_and_format_normalization": true
+  },
+  {
+    "baseline": "src/plugins/influencer/parser.rs",
+    "branch": "src/plugins/character/skills/influencer/parser.rs",
+    "identical_after_module_path_and_format_normalization": true
+  },
+  {
+    "baseline": "src/plugins/scout/parser.rs",
+    "branch": "src/plugins/character/skills/scout/parser.rs",
+    "identical_after_module_path_and_format_normalization": true
+  },
+  {
+    "baseline": "src/plugins/insider/parser.rs",
+    "branch": "src/plugins/character/skills/insider/parser.rs",
+    "identical_after_module_path_and_format_normalization": true
+  },
+  {
+    "baseline": "src/plugins/analyst/parser.rs",
+    "branch": "src/plugins/character/skills/analyst/parser.rs",
+    "identical_after_module_path_and_format_normalization": true
+  },
+  {
+    "baseline": "src/plugins/oracle/parser.rs",
+    "branch": "src/plugins/character/skills/oracle/parser.rs",
+    "identical_after_module_path_and_format_normalization": true
+  }
+]

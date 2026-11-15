@@ -1,0 +1,719 @@
+{
+  "classifier": {
+    "relations": {
+      "brier": 0.0877011084429442,
+      "completed": 28,
+      "concurrency": 2,
+      "criteria_version": "classification-criteria-v17-shared-relations",
+      "failed": 0,
+      "labels": 112,
+      "mistakes_at_50_percent": 12,
+      "p95_seconds": 5.537618959,
+      "request_version": "classifier-brief-v8-shared-relations",
+      "requests_per_second": 0.38430045927859335,
+      "seconds": 72.859657916,
+      "mismatches": [
+        {
+          "id": "synthetic-stream",
+          "criterion": "subject",
+          "score": 62.2903652190443,
+          "expected": false,
+          "admitted": true,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-empty-revelation",
+          "criterion": "subject",
+          "score": 74.56974345660164,
+          "expected": false,
+          "admitted": true,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-speaker",
+          "criterion": "emotion",
+          "score": 90.41006816131065,
+          "expected": false,
+          "admitted": true,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-praise-object",
+          "criterion": "subject",
+          "score": 47.52797139007465,
+          "expected": true,
+          "admitted": false,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-fitness-no-emotion",
+          "criterion": "emotion",
+          "score": 65.02924812668793,
+          "expected": false,
+          "admitted": true,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-vague-reaction",
+          "criterion": "subject",
+          "score": 84.9059239741918,
+          "expected": false,
+          "admitted": true,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-replacement-club",
+          "criterion": "availability",
+          "score": 1.3302309318630763,
+          "expected": true,
+          "admitted": true,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-all-time-lineup",
+          "criterion": "movement",
+          "score": 64.19988189267663,
+          "expected": false,
+          "admitted": true,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-roster-bridge",
+          "criterion": "availability",
+          "score": 28.980705828910985,
+          "expected": true,
+          "admitted": false,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-roster-bridge",
+          "criterion": "subject",
+          "score": 17.635872723403235,
+          "expected": true,
+          "admitted": false,
+          "gate_reason": null
+        },
+        {
+          "id": "synthetic-senior-collision",
+          "criterion": "availability",
+          "score": 99.15528155776246,
+          "expected": false,
+          "admitted": false,
+          "gate_reason": "identity_suffix_conflict"
+        },
+        {
+          "id": "synthetic-senior-collision",
+          "criterion": "subject",
+          "score": 98.80384960035185,
+          "expected": false,
+          "admitted": false,
+          "gate_reason": "identity_suffix_conflict"
+        }
+      ]
+    },
+    "availability": {
+      "brier": 0.04372163227827633,
+      "completed": 12,
+      "concurrency": 2,
+      "criteria_version": "classification-criteria-v17-shared-relations",
+      "failed": 0,
+      "labels": 24,
+      "mistakes_at_50_percent": 1,
+      "p95_seconds": 5.522745917,
+      "request_version": "classifier-brief-v8-shared-relations",
+      "requests_per_second": 0.373011754573108,
+      "seconds": 32.170567959,
+      "mismatches": [
+        {
+          "id": "historical-injury",
+          "criterion": "availability",
+          "score": 89.33304912831798,
+          "expected": false,
+          "admitted": true,
+          "gate_reason": null
+        }
+      ]
+    },
+    "structured": {
+      "brier": null,
+      "completed": 15,
+      "concurrency": 2,
+      "criteria_version": "classification-criteria-v17-shared-relations",
+      "failed": 0,
+      "labels": 0,
+      "mistakes_at_50_percent": 0,
+      "p95_seconds": 5.592104583,
+      "request_version": "classifier-brief-v8-shared-relations",
+      "requests_per_second": 0.3498061638996293,
+      "seconds": 42.880891042,
+      "mismatches": []
+    },
+    "gender": {
+      "brier": 0.0004407658001466583,
+      "completed": 24,
+      "concurrency": 2,
+      "criteria_version": "classification-criteria-v17-shared-relations",
+      "failed": 0,
+      "labels": 18,
+      "mistakes_at_50_percent": 0,
+      "p95_seconds": 7.24197175,
+      "request_version": "classifier-brief-v8-shared-relations",
+      "requests_per_second": 0.3677553871837772,
+      "seconds": 65.260770709,
+      "mismatches": []
+    }
+  },
+  "character": {
+    "narratives": {
+      "fixtures": 16,
+      "calls": 15,
+      "checks_passed": 47,
+      "checks_total": 83,
+      "cases": [
+        {
+          "name": "conflicting-reports-two-sources-that-contradict-each-other",
+          "status": "rejected",
+          "input_tokens": 768,
+          "output_tokens": 95,
+          "latency_seconds": 13.26,
+          "failures": [],
+          "display": "cited reports do not connect Cedar United with numerical fact 1"
+        },
+        {
+          "name": "distinct-developments-three-independent-developments,-three-keyed-slots",
+          "status": "mechanical_pass",
+          "input_tokens": 806,
+          "output_tokens": 91,
+          "latency_seconds": 11.12,
+          "failures": [],
+          "display": "Cedar United appointed Jo Vale as head coach on Monday, with a contract lasting two years. The team won 2\u20131 against Vale City on Sunday. Goalkeeper Kim Park will miss the next match with an ankle injury, though no return date was given."
+        },
+        {
+          "name": "gordon-derozan-preserve-reported-subject",
+          "status": "expectation_failure",
+          "input_tokens": 726,
+          "output_tokens": 10,
+          "latency_seconds": 2.04,
+          "failures": [
+            "[\u2717] narratives empty == false \u2014 0 narratives",
+            "[\u2717] body includes \"DeMar DeRozan\"",
+            "[\u2717] body includes \"Synthetic Wire\""
+          ],
+          "display": ""
+        },
+        {
+          "name": "headline-corpus-denial-with-prior-rumour",
+          "status": "mechanical_pass",
+          "input_tokens": 701,
+          "output_tokens": 69,
+          "latency_seconds": 13.86,
+          "failures": [],
+          "display": "Cedar United denied making an offer for Alex Stone, a player they are associated with in football. This denial was reported by City Wire. The club explicitly stated they did not extend an offer to the player."
+        },
+        {
+          "name": "late-qualification-late-correction-in-the-same-source",
+          "status": "mechanical_pass",
+          "input_tokens": 743,
+          "output_tokens": 79,
+          "latency_seconds": 8.66,
+          "failures": [],
+          "display": "Cedar United held discussions with Alex Stone and his representatives on Monday, with club officials present. City Wire initially reported an agreement but later corrected the story, stating that no contract was offered and no deal was reached. The talks occurred after training sessions."
+        },
+        {
+          "name": "nba-attribution-basketball-source-under-a-league-namespace",
+          "status": "rejected",
+          "input_tokens": 734,
+          "output_tokens": 103,
+          "latency_seconds": 10.04,
+          "failures": [],
+          "display": "cited reports do not connect Cedar Comets with numerical fact 27"
+        },
+        {
+          "name": "no-new-material-nothing-eligible:-no-call,-no-package",
+          "status": "no_call",
+          "input_tokens": null,
+          "output_tokens": null,
+          "latency_seconds": null,
+          "failures": [],
+          "display": "no-call disposition"
+        },
+        {
+          "name": "one-result-single-result,-named-scorer",
+          "status": "rejected",
+          "input_tokens": 717,
+          "output_tokens": 60,
+          "latency_seconds": 11.56,
+          "failures": [],
+          "display": "cited reports do not connect Cedar United with numerical fact 84"
+        },
+        {
+          "name": "rumour-and-denial-rumour-with-its-denial-intact",
+          "status": "mechanical_pass",
+          "input_tokens": 721,
+          "output_tokens": 61,
+          "latency_seconds": 5.84,
+          "failures": [],
+          "display": "Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources. No agreement has been reached. Cedar United declined to comment."
+        },
+        {
+          "name": "synthetic-closed-training-fresh-only",
+          "status": "mechanical_pass",
+          "input_tokens": 719,
+          "output_tokens": 59,
+          "latency_seconds": 8.14,
+          "failures": [],
+          "display": "Cedar United announced that its training session scheduled for September 29 will be closed to supporters. The club issued this statement without providing a reason for the decision."
+        },
+        {
+          "name": "synthetic-discussion-no-new-event",
+          "status": "expectation_failure",
+          "input_tokens": 731,
+          "output_tokens": 54,
+          "latency_seconds": 6.85,
+          "failures": [
+            "[\u2717] body excludes \"Canadian\"",
+            "[\u2717] body excludes \"defender\""
+          ],
+          "display": "City Wire reported that Alex Stone, a Canadian defender, discussed his training preferences, stating he favors short passing drills over long runs."
+        },
+        {
+          "name": "synthetic-meta-missing",
+          "status": "mechanical_pass",
+          "input_tokens": 703,
+          "output_tokens": 76,
+          "latency_seconds": 9.87,
+          "failures": [],
+          "display": "Alex Stone stated that contract negotiations with his current club are still in progress, though no agreement has been reached as of the latest report. This update comes from City Wire, which confirmed the ongoing status of the talks without specifying a resolution date."
+        },
+        {
+          "name": "synthetic-routed-subject-preserved",
+          "status": "rejected",
+          "input_tokens": 754,
+          "output_tokens": 92,
+          "latency_seconds": 10.22,
+          "failures": [],
+          "display": "named claim is absent from cited reports: Cedar Ground"
+        },
+        {
+          "name": "synthetic-meta-profile-only",
+          "status": "rejected",
+          "input_tokens": 749,
+          "output_tokens": 57,
+          "latency_seconds": 8.79,
+          "failures": [],
+          "display": "named claim is absent from cited reports: Cedar United"
+        },
+        {
+          "name": "synthetic-meta-stale-affiliation",
+          "status": "rejected",
+          "input_tokens": 760,
+          "output_tokens": 80,
+          "latency_seconds": 5.98,
+          "failures": [],
+          "display": "named claim is absent from cited reports: Cedar United"
+        },
+        {
+          "name": "synthetic-training-time-fresh-only",
+          "status": "rejected",
+          "input_tokens": 731,
+          "output_tokens": 69,
+          "latency_seconds": 7.51,
+          "failures": [],
+          "display": "cited reports do not connect North Field with numerical fact 10"
+        }
+      ]
+    },
+    "vibe": {
+      "fixtures": 6,
+      "calls": 6,
+      "checks_passed": 6,
+      "checks_total": 6,
+      "cases": [
+        {
+          "name": "clearly-negative",
+          "status": "mechanical_pass",
+          "input_tokens": 1127,
+          "output_tokens": 55,
+          "latency_seconds": 8.64,
+          "failures": [],
+          "display": "Fans booed Cedar Comets over performance"
+        },
+        {
+          "name": "clearly-positive",
+          "status": "mechanical_pass",
+          "input_tokens": 1124,
+          "output_tokens": 54,
+          "latency_seconds": 7.11,
+          "failures": [],
+          "display": "Cedar Comets fans delighted by victory"
+        },
+        {
+          "name": "distinct-positive-and-negative-reactions",
+          "status": "mechanical_pass",
+          "input_tokens": 1170,
+          "output_tokens": 73,
+          "latency_seconds": 7.09,
+          "failures": [],
+          "display": "Cedar Comets fans show mixed reactions to stadium and ticket news."
+        },
+        {
+          "name": "gordon-derozan-wrong-subject",
+          "status": "mechanical_pass",
+          "input_tokens": 1137,
+          "output_tokens": 14,
+          "latency_seconds": 4.82,
+          "failures": [],
+          "display": "empty reading"
+        },
+        {
+          "name": "quiet-mixed",
+          "status": "mechanical_pass",
+          "input_tokens": 1126,
+          "output_tokens": 14,
+          "latency_seconds": 2.72,
+          "failures": [],
+          "display": "empty reading"
+        },
+        {
+          "name": "warm-memory-cold-coverage",
+          "status": "mechanical_pass",
+          "input_tokens": 1120,
+          "output_tokens": 14,
+          "latency_seconds": 2.74,
+          "failures": [],
+          "display": "empty reading"
+        }
+      ]
+    },
+    "rating": {
+      "fixtures": 11,
+      "calls": 11,
+      "checks_passed": 27,
+      "checks_total": 29,
+      "cases": [
+        {
+          "name": "football-player-total",
+          "status": "mechanical_pass",
+          "input_tokens": 1265,
+          "output_tokens": 40,
+          "latency_seconds": 8.71,
+          "failures": [],
+          "display": "The recorded profile shows 4 goals across 12 appearances, placing the goals measure at the 80th percentile in the strong band. No prior comparison is supplied."
+        },
+        {
+          "name": "nfl-team-zero-interceptions",
+          "status": "mechanical_pass",
+          "input_tokens": 1303,
+          "output_tokens": 64,
+          "latency_seconds": 5.41,
+          "failures": [],
+          "display": "The Briar Bears recorded 12 games played in the 2026 season. Interceptions thrown totaled 0.0, ranking at the 99th percentile in the elite band. The team's composite score is 64.0. No availability headlines are supplied."
+        },
+        {
+          "name": "synthetic-composite",
+          "status": "mechanical_pass",
+          "input_tokens": 1176,
+          "output_tokens": 40,
+          "latency_seconds": 5.53,
+          "failures": [],
+          "display": "The Cedar Comets recorded a composite score of 64.0 in the 2026 season across 25 games. No individual performance measurements are supplied."
+        },
+        {
+          "name": "synthetic-daily-withdrawal",
+          "status": "mechanical_pass",
+          "input_tokens": 1485,
+          "output_tokens": 111,
+          "latency_seconds": 13.59,
+          "failures": [],
+          "display": "The Cedar Comets recorded 25 games played in the 2026 season. Rebounds per game totaled 48.0, ranking at the 90th percentile in the elite band, a rise from the 80th percentile the prior season. Assists per game totaled 23.0, ranking at the 75th percentile in the strong band, which held steady from the prior season. The team's composite score is 64.0. No availability headlines are supplied."
+        },
+        {
+          "name": "synthetic-incompatible",
+          "status": "mechanical_pass",
+          "input_tokens": 1405,
+          "output_tokens": 86,
+          "latency_seconds": 11.52,
+          "failures": [],
+          "display": "The Cedar Comets recorded 48 rebounds per game and 23 assists per game across 25 games in the 2026 season. Rebounds rank at the 90th percentile in the elite band, while assists rank at the 75th percentile in the strong band. The team's composite score is 64. No prior comparison is supplied for these measures."
+        },
+        {
+          "name": "synthetic-measured-memory",
+          "status": "mechanical_pass",
+          "input_tokens": 1485,
+          "output_tokens": 111,
+          "latency_seconds": 14.08,
+          "failures": [],
+          "display": "The Cedar Comets recorded 25 games played in the 2026 season. Rebounds per game totaled 48.0, ranking at the 90th percentile in the elite band, a rise from the 80th percentile the prior season. Assists per game totaled 23.0, ranking at the 75th percentile in the strong band, which held steady from the prior season. The team's composite score is 64.0. No availability headlines are supplied."
+        },
+        {
+          "name": "synthetic-source-trigger",
+          "status": "rejected",
+          "input_tokens": 1272,
+          "output_tokens": 55,
+          "latency_seconds": 6.18,
+          "failures": [
+            "rejected: The observed sample count is unknown. A policy minimum is not an observed count."
+          ],
+          "display": "The Harvester Test Club's 2026 scoring performance recorded 20.0 points at the 80th percentile in the strong band. This reading rests on an unknown sample with a minimum threshold of 10.0."
+        },
+        {
+          "name": "synthetic-sparse",
+          "status": "rejected",
+          "input_tokens": 1439,
+          "output_tokens": 75,
+          "latency_seconds": 9.62,
+          "failures": [
+            "rejected: The thin stored sample is source coverage, not proof of complete participation. Say recorded/stored/snapshot appearances rather than claiming the player played that many games."
+          ],
+          "display": "The Cedar Comets' 2026 profile shows 3 games played, placing the rebounds measure at the 90th percentile in the elite band and assists at the 75th percentile in the strong band. This reading rests on a thin-sample limit of 3 appearances, which falls below the 10-game minimum threshold."
+        },
+        {
+          "name": "synthetic-strong",
+          "status": "mechanical_pass",
+          "input_tokens": 1485,
+          "output_tokens": 111,
+          "latency_seconds": 15.06,
+          "failures": [],
+          "display": "The Cedar Comets recorded 25 games played in the 2026 season. Rebounds per game totaled 48.0, ranking at the 90th percentile in the elite band, a rise from the 80th percentile the prior season. Assists per game totaled 23.0, ranking at the 75th percentile in the strong band, which held steady from the prior season. The team's composite score is 64.0. No availability headlines are supplied."
+        },
+        {
+          "name": "synthetic-withdrawn-report",
+          "status": "mechanical_pass",
+          "input_tokens": 1485,
+          "output_tokens": 111,
+          "latency_seconds": 7.31,
+          "failures": [],
+          "display": "The Cedar Comets recorded 25 games played in the 2026 season. Rebounds per game totaled 48.0, ranking at the 90th percentile in the elite band, a rise from the 80th percentile the prior season. Assists per game totaled 23.0, ranking at the 75th percentile in the strong band, which held steady from the prior season. The team's composite score is 64.0. No availability headlines are supplied."
+        },
+        {
+          "name": "synthetic-zero-unknown",
+          "status": "mechanical_pass",
+          "input_tokens": 1342,
+          "output_tokens": 72,
+          "latency_seconds": 10.37,
+          "failures": [],
+          "display": "The Cedar Comets recorded 25 games played in the 2026 season. Turnovers per game were 0.0, ranking at the 99th percentile in the elite band. Assists per game are unknown. The team's composite score is 64.0. Cross-season comparison is supported."
+        }
+      ]
+    },
+    "transfer": {
+      "fixtures": 9,
+      "calls": 9,
+      "checks_passed": 52,
+      "checks_total": 73,
+      "cases": [
+        {
+          "name": "explicit-denial-clears-prior-rumor",
+          "status": "mechanical_pass",
+          "input_tokens": 1121,
+          "output_tokens": 110,
+          "latency_seconds": 16.01,
+          "failures": [],
+          "display": "1 finding(s) | Lina Foss has been linked to Everton, but the club has denied any talks to sign her."
+        },
+        {
+          "name": "fizzled-prior-lowrel-skeptic",
+          "status": "mechanical_pass",
+          "input_tokens": 1125,
+          "output_tokens": 47,
+          "latency_seconds": 7.22,
+          "failures": [],
+          "display": "0 finding(s) | Kai Sorensen is reportedly being monitored by Chelsea, though no active bid or negotiation has been confirmed."
+        },
+        {
+          "name": "fully-named-advanced-talks",
+          "status": "rejected",
+          "input_tokens": 1286,
+          "output_tokens": 160,
+          "latency_seconds": 18.93,
+          "failures": [],
+          "display": "finding quote must name both the target and counterparty in full"
+        },
+        {
+          "name": "fully-named-interest",
+          "status": "expectation_failure",
+          "input_tokens": 1124,
+          "output_tokens": 58,
+          "latency_seconds": 9.77,
+          "failures": [
+            "[\u2717] has_source_linked_move \u2014 findings=0",
+            "[\u2717] stage:concrete_interest"
+          ],
+          "display": "0 finding(s) | Kai Sorensen is reportedly being monitored by Chelsea, with TransferTavern noting that the club is among those tracking the forward but clarifying that no bid or talks have been mentioned."
+        },
+        {
+          "name": "gordon-derozan-wrong-subject",
+          "status": "mechanical_pass",
+          "input_tokens": 1163,
+          "output_tokens": 59,
+          "latency_seconds": 9.31,
+          "failures": [],
+          "display": "0 finding(s) | Aaron Gordon remains on the Denver Nuggets roster as the team is linked to a trade for DeMar DeRozan, with no movement reported for Gordon in this report."
+        },
+        {
+          "name": "headline-unnamed-signing",
+          "status": "mechanical_pass",
+          "input_tokens": 1159,
+          "output_tokens": 60,
+          "latency_seconds": 8.75,
+          "failures": [],
+          "display": "0 finding(s) | Cedar Bears have announced the signing of a former Maple Foxes player, according to Example Wire."
+        },
+        {
+          "name": "reliable-source-heating-steam",
+          "status": "rejected",
+          "input_tokens": 1278,
+          "output_tokens": 139,
+          "latency_seconds": 16.08,
+          "failures": [],
+          "display": "named claim is absent from cited reports: Bayern Munich"
+        },
+        {
+          "name": "two-distinct-movement-stories",
+          "status": "mechanical_pass",
+          "input_tokens": 1160,
+          "output_tokens": 179,
+          "latency_seconds": 16.95,
+          "failures": [],
+          "display": "2 finding(s) | Cedar United have agreed a deal to sign Alex Reed, according to Example Wire."
+        },
+        {
+          "name": "unnamed-signing-no-identity-join",
+          "status": "mechanical_pass",
+          "input_tokens": 1114,
+          "output_tokens": 57,
+          "latency_seconds": 6.34,
+          "failures": [],
+          "display": "0 finding(s) | Aaron Gordon attended a community event while the Denver Nuggets announced the signing of an unnamed forward."
+        }
+      ]
+    },
+    "momentum": {
+      "fixtures": 8,
+      "calls": 7,
+      "checks_passed": 15,
+      "checks_total": 17,
+      "cases": [
+        {
+          "name": "falling-confirmed",
+          "status": "mechanical_pass",
+          "input_tokens": 949,
+          "output_tokens": 42,
+          "latency_seconds": 6.08,
+          "failures": [],
+          "display": "The measured performance profile shows a weakening trend while the coverage tone reflects cooling sentiment; both readings are dated to the same window but no dated comparison exists to confirm a change over time."
+        },
+        {
+          "name": "missing-mood-peer",
+          "status": "no_call",
+          "input_tokens": null,
+          "output_tokens": null,
+          "latency_seconds": null,
+          "failures": [],
+          "display": "no-call disposition"
+        },
+        {
+          "name": "mixed-peak-up-vibe-down",
+          "status": "rejected",
+          "input_tokens": 950,
+          "output_tokens": 66,
+          "latency_seconds": 13.51,
+          "failures": [],
+          "display": "cited reports do not connect Jalen Rowe's with numerical fact 2026"
+        },
+        {
+          "name": "rising-confirmed",
+          "status": "mechanical_pass",
+          "input_tokens": 951,
+          "output_tokens": 55,
+          "latency_seconds": 6.64,
+          "failures": [],
+          "display": "The measured performance profile shows strengthening creation and finishing, while the coverage tone is emphatically positive and warming. Since both readings share the same date and no dated comparison exists, the agreement between performance and mood cannot be assessed as a change over time."
+        },
+        {
+          "name": "shared-decline-holdout",
+          "status": "rejected",
+          "input_tokens": 949,
+          "output_tokens": 62,
+          "latency_seconds": 5.66,
+          "failures": [],
+          "display": "cited reports do not connect Briar Bears with numerical fact 2026"
+        },
+        {
+          "name": "sparse-samples-stay-steady",
+          "status": "mechanical_pass",
+          "input_tokens": 949,
+          "output_tokens": 43,
+          "latency_seconds": 6.73,
+          "failures": [],
+          "display": "The measured performance sample is too thin to support a directional comparison, and the coverage tone carries no settled emotional direction. Without dated comparisons, the agreement between performance and mood cannot be assessed."
+        },
+        {
+          "name": "synthetic-dated-divergence",
+          "status": "mechanical_pass",
+          "input_tokens": 1435,
+          "output_tokens": 60,
+          "latency_seconds": 8.64,
+          "failures": [],
+          "display": "Harbor's measured rebounding profile is strong while the supplied coverage leans cautious, creating a tension between performance and mood. Statistical distinctiveness increased by eight points over the window, while coverage tone decreased by twelve points; neither change proves a shift in skill or public sentiment."
+        },
+        {
+          "name": "synthetic-dated-missing-peer",
+          "status": "mechanical_pass",
+          "input_tokens": 1258,
+          "output_tokens": 57,
+          "latency_seconds": 9.03,
+          "failures": [],
+          "display": "Harbor's statistical distinctiveness increased by 8 points over a two-day window, while its coverage tone decreased by 12 points in a slightly overlapping period. These opposing trends indicate tension between the team's measured prominence and the sentiment of its reporting."
+        }
+      ]
+    },
+    "oracle": {
+      "fixtures": 4,
+      "calls": 4,
+      "checks_passed": 16,
+      "checks_total": 16,
+      "cases": [
+        {
+          "name": "ascendant-aligned",
+          "status": "mechanical_pass",
+          "input_tokens": 1000,
+          "output_tokens": 56,
+          "latency_seconds": 8.95,
+          "failures": [],
+          "display": "Kiana Wells is depicted as a defensive anchor whose performance and surrounding coverage are both trending upward together. While multiple sources confirm a recent run of dominant rim protection, the lack of specific directional data on her long-term trajectory leaves the sustainability of this momentum undefined."
+        },
+        {
+          "name": "crossroads-conflict",
+          "status": "mechanical_pass",
+          "input_tokens": 996,
+          "output_tokens": 60,
+          "latency_seconds": 5.68,
+          "failures": [],
+          "display": "Marcus Vale presents a sharp contrast between elite, stable production and a deteriorating narrative environment. While scouts confirm his numbers remain consistent, journalists and influencers report a heating-up trade demand and thinning patience, creating a tension where high performance is overshadowed by a souring atmosphere."
+        },
+        {
+          "name": "near-empty-quiet-wire",
+          "status": "mechanical_pass",
+          "input_tokens": 829,
+          "output_tokens": 49,
+          "latency_seconds": 4.58,
+          "failures": [],
+          "display": "Venezia's available picture centers on a single reported return for preseason testing, with no further details or corroborating sources. This isolated perspective leaves the team's current form, roster status, and competitive trajectory largely unknown."
+        },
+        {
+          "name": "three-card-newcomer",
+          "status": "mechanical_pass",
+          "input_tokens": 934,
+          "output_tokens": 69,
+          "latency_seconds": 7.58,
+          "failures": [],
+          "display": "Ipswich Town is actively rebuilding its defensive structure following promotion, confirmed by recent signings including Issa Diop and a general trajectory of reshaping the squad. While this activity has generated cautious optimism regarding the business side of the project, the lack of on-pitch results leaves the effectiveness of these moves unproven."
+        }
+      ]
+    }
+  },
+  "deployment": false,
+  "caretaker_active": false,
+  "qualification_passed": false
+}

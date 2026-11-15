@@ -182,3 +182,14 @@ Build from this branch and retain the previously deployed binary before deployin
 ### Pre-commit review
 
 Reviewed registration, scheduling, scoped capabilities, claim fencing, source settlement, atomic outbox follow-ups and inactive Caretaker assembly. Added fail-fast validation for zero-capacity slot groups, which otherwise silently prevent claims, with a regression test. Removed the unused worker skill accessor and merged duplicate registration test modules. The final all-target suite passes 446 tests; the earlier disposable-database run passed 74 integration checks. No additional execution/publication changes were needed. Caretaker remains inactive; deployment and live-model qualification remain deferred.
+
+
+## Release audit fixes — 2026-11-15
+
+The follow-up audit fixes reject access tokens when authentication is unconfigured, consume refresh tokens atomically, keep database reconnection responsive to shutdown/timers, and expire idle API rate-limit entries. The service default enables only Classifier and the six Character skills. The obsolete factsweep cron wrapper and schedule are removed; its refusing compatibility command remains.
+
+The root/Rust READMEs, development guide, prompt ownership guide and operating/hosting runbooks now explain the three owners, independent skills, stable queue names, source paths, outputs and inactive Caretaker. Operators must remove any old factsweep entry from installed crontabs when they later deploy; no live configuration was changed here.
+
+Validation: 439 Rust unit tests, 74 disposable PostgreSQL integration/CLI tests, and Go auth/API/handler tests with race detection passed. The concurrent-refresh test forces both requests to wait on the same token row and verifies exactly one replacement. Temporary overlays of the old auth code fail both new security regressions as expected. The initial reused database run hit leftover fixture collisions; a fresh UTF-8 database passed the complete integration suite.
+
+[Live baseline comparison](qualification/2026-11-15-plugin-skills/BASELINE-COMPARISON.md): no fixture-level regressions from the plugin refactor. Prompt/parser quality remains separate work. Caretaker is inactive; this branch is not deployed.

@@ -126,38 +126,23 @@ func (h *Handler) AuthRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 	hash := auth.HashRefresh(body.RefreshToken)
 
-	var (
-		userID    string
-		expiresAt time.Time
-		revokedAt *time.Time
-	)
-	err := h.pool.QueryRow(ctx,
-		`SELECT user_id, expires_at, revoked_at FROM auth_refresh_tokens WHERE token_hash = $1`,
-		hash).Scan(&userID, &expiresAt, &revokedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		respond.WriteError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid refresh token")
-		return
-	}
-	if err != nil {
-		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "Refresh lookup failed")
-		return
-	}
-	if revokedAt != nil || time.Now().After(expiresAt) {
-		respond.WriteError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Refresh token expired or revoked")
-		return
-	}
-
-	// Rotate atomically: revoke the presented token, then issue a new pair.
+	// Consume and replace in one transaction; a concurrent refresh must lose.
 	tx, err := h.pool.Begin(ctx)
 	if err != nil {
 		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "tx begin failed")
 		return
 	}
 	defer tx.Rollback(ctx)
-
-	if _, err := tx.Exec(ctx,
-		`UPDATE auth_refresh_tokens SET revoked_at = NOW(), last_used_at = NOW() WHERE token_hash = $1`,
-		hash); err != nil {
+	var userID string
+	err = tx.QueryRow(ctx, `UPDATE auth_refresh_tokens
+ SET revoked_at = NOW(), last_used_at = NOW()
+ WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()
+ RETURNING user_id`, hash).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		respond.WriteError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Refresh token expired, revoked or invalid")
+		return
+	}
+	if err != nil {
 		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "Could not rotate token")
 		return
 	}

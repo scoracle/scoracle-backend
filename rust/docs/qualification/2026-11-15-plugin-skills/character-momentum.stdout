@@ -1,0 +1,60 @@
+fixtures — task=momentum role=momentum-logic n=8 dir=/Users/scotty/.codex/worktrees/character-skills/scoracle-backend/rust/fixtures/quality/momentum/  incumbent=Qwen3.5-4B-Q4_K_M
+lens — operator=The Analyst | mandate=Read the directional force of form (the rating trajectory) and feeling (the news mood), then narrate the decided direction with conviction. | guard=Stay detached and results-only; do not chase sentiment hype or cling to stale profile strength.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[falling-confirmed]  (temp=0)
+  Review: Both supplied trajectories fall; preserve that agreement without inventing a tactical or psychological cause.
+      call: request=4479 bytes, input=949 tokens, output=42 tokens, latency=7.64s, retries=0
+  A Qwen3.5-4B-Q4_K_M The measured performance profile shows a weakening trend while the coverage tone reflects cooling sentiment; both readings are dated to the same window but no dated comparison exists to confirm a change over time.
+      [✓] no_banned_phrases
+      [✓] no_product_names
+
+[missing-mood-peer]  (temp=0)
+  Review: Performance strengthens; mood is absent. Do not invent neutrality, agreement or divergence. Explicitly say performance/mood agreement cannot be assessed.
+  A Qwen3.5-4B-Q4_K_M no-call disposition
+
+[mixed-peak-up-vibe-down]  (temp=0)
+  Review: Recognize that performance rises while sentiment falls; a near-flat combined reading must not erase the disagreement.
+      call: request=4483 bytes, input=950 tokens, output=66 tokens, latency=11.47s, retries=0
+  A Qwen3.5-4B-Q4_K_M cited reports do not connect Jalen Rowe's with numerical fact 2026
+      raw: {"blurb":"Jalen Rowe's measured performance profile shows improvement in creation efficiency for the 2026 season, while coverage tone indicates a cooling mood despite these stronger statistics. Since no dated comparisons are provided, the c...
+
+[rising-confirmed]  (temp=0)
+  Review: Both supplied trajectories rise; the synthesis should preserve that agreement without forecasting results.
+      call: request=4499 bytes, input=951 tokens, output=55 tokens, latency=7.30s, retries=0
+  A Qwen3.5-4B-Q4_K_M The measured performance profile shows strengthening creation and finishing, while the coverage tone is emphatically positive and warming. Since both readings share the same date and no dated comparison exists, the agreement between performance and mood cannot be assessed as a change over time.
+      [✓] no_banned_phrases
+      [✓] no_product_names
+
+[shared-decline-holdout]  (temp=0)
+  Review: Holdout wording: both directions worsen. Shared decline, no invented causal connection or team morale.
+      call: request=4474 bytes, input=949 tokens, output=62 tokens, latency=9.16s, retries=0
+  A Qwen3.5-4B-Q4_K_M cited reports do not connect Briar Bears with numerical fact 2026
+      raw: {"blurb":"The Briar Bears' performance profile indicates a loss of statistical ground in the 2026 season, while coverage reflects increasingly negative supporter sentiment on the same date. Since no dated comparison exists between these two...
+
+[sparse-samples-stay-steady]  (temp=0)
+  Review: Treat sparse history as limited evidence, not proof of either stability or a confident directional trend.
+      call: request=4502 bytes, input=949 tokens, output=47 tokens, latency=4.89s, retries=0
+  A Qwen3.5-4B-Q4_K_M The measured performance sample is too thin to support a directional comparison, and the coverage tone carries no settled emotional direction. Without dated comparisons or explicit performance metrics, the agreement between performance and mood cannot be assessed.
+      [✓] no_banned_phrases
+      [✓] no_product_names
+
+[synthetic-dated-divergence]  (temp=0)
+  Review: Explain the dated change in statistical distinctiveness without calling it skill improvement.
+  Review: Preserve two-observation sample and different coverage/performance dimensions; missing peer is unknown.
+      call: request=6090 bytes, input=1435 tokens, output=60 tokens, latency=6.05s, retries=0
+  A Qwen3.5-4B-Q4_K_M Harbor's measured rebounding profile is strong while the supplied coverage leans cautious, creating a tension between performance and mood. Statistical distinctiveness increased by eight points over the window, while coverage tone decreased by twelve points; neither change proves a shift in skill or public sentiment.
+      [✓] no_banned_phrases
+      [✓] no_product_names
+
+[synthetic-dated-missing-peer]  (temp=0)
+  Review: Explain the dated change in statistical distinctiveness without calling it skill improvement.
+  Review: Preserve two-observation sample and different coverage/performance dimensions; missing peer is unknown.
+      call: request=5443 bytes, input=1258 tokens, output=57 tokens, latency=6.07s, retries=0
+  A Qwen3.5-4B-Q4_K_M Harbor's statistical distinctiveness increased by 8 points over a two-day window, while its coverage tone decreased by 12 points in a slightly overlapping period. These opposing trends indicate tension between the team's measured prominence and the sentiment of its reporting.
+      [✓] no_banned_phrases
+      [✓] no_product_names
+
+=== fixture summary — Qwen3.5-4B-Q4_K_M : 15/17 property checks passed ===
+Mechanical checks do not establish semantic quality; the review criteria remain manual.

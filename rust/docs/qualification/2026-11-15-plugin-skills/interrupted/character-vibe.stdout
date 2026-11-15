@@ -1,0 +1,26 @@
+fixtures — task=vibe role=vibe-logic n=6 dir=/Users/scotty/.codex/worktrees/character-skills/scoracle-backend/rust/fixtures/quality/vibe/  incumbent=Qwen3.5-4B-Q4_K_M
+lens — operator=The Influencer | mandate=Articulate the plugin's supplied publisher reporting with its attribution and qualifications. | guard=Distinguish expressed reactions from interpretations of coverage tone. Neither establishes population sentiment.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[clearly-negative]  (temp=0)
+  Review: Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.
+  Review: Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.
+  Review: Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.
+  Review: Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.
+  Review: Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation.
+      call: request=5222 bytes, input=1127 tokens, output=55 tokens, latency=5.79s, retries=0
+  A Qwen3.5-4B-Q4_K_M Fans booed Cedar Comets over performance
+
+Example Wire reported that Cedar Comets fans expressed fury and booed the team regarding its performance.
+
+[clearly-positive]  (temp=0)
+  Review: Headline and body express one supported reading about the identified subject. Unrelated material supports paired null abstention.
+  Review: Preserve speakers, bylines, attribution, timing, scope and uncertainty. Historical headline questions remain questions.
+  Review: Read emotional tone across a spectrum, including neutral reporting, intensity and mixed voices. Unreported feelings remain unknown. Dated history may enrich the ongoing story; a routine update neither erases earlier reactions nor proves they persist unchanged. Coverage counts do not establish agreement or mood.
+  Review: Headline is at most 140 characters. Body uses concise, complete sentences with meaningful qualifications; assess factual support separately from parser acceptance.
+  Review: Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation.

@@ -1,5 +1,13 @@
 # Scoracle Backend — Operations Runbook
 
+## Plugin/skill operating contract
+
+The runtime is **Harness → plugins → skills**, with three owners: Classifier, Character and inactive Caretaker. See the [skill map](../rust/README.md#plugin-and-skill-map) for names, queue tasks, source paths and products. Queue tasks are not plugin names.
+
+The service's supported task list is `classifier,rating,momentum,transfers,narratives,vibe,sigil`. Check any `COGNITION_STAGES` override in `.env.local`: systemd's environment file overrides the service default. An unset variable in a direct binary invocation enables Character only; an empty value enables no handlers. Neither `investigate_entity` nor `fixture_boxscore` is accepted. Remove any previously installed factsweep cron entry when applying this release; updating the example file alone does not edit an installed crontab.
+
+Database reconnection is polled alongside shutdown, safety ticks and watchdog checks. A database outage must not prevent the normal shutdown grace period. Authentication requires `JWT_SECRET`; without it, token issuance is unavailable and protected routes reject access tokens.
+
 Platform direction follows the [governing contract](../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md). Cheap code owns collection; expensive compute owns discovery. This runbook records operations; it does not redefine model reasoning.
 
 For the current Studio recovery and bounded cohort canaries, use [Recovery and analytics acceptance](RECOVERY_ANALYTICS_ACCEPTANCE.md). Its live evidence is recorded separately in the wiki; historical deployment/model descriptions below are not a live inventory.
@@ -21,66 +29,40 @@ the small busy-work model, `systemd --user`), the Go API (`systemd --user`, `sco
 Cognition Harness daemon (`systemd --user`, `scoracle-cognition.service`), cron jobs, and a
 Cloudflare Tunnel exposing `api.scoracle.com`.
 
-Post the **Step-3 cutover (2026-06-28)** and follow-up Go prune (2026-06-29), the Go LLM derive
-stages are retired; Rust owns all LLM cognition (scrub -> transfers -> narratives ->
-vibe -> sigil as queue stages, rating as a batch bin). The Go API serves precomputed data and runs
-SQL-only maintenance/notification workers.
-
----
-
 ## 1. System map — what runs where
 
-```
-                       cron (crontab.example)            systemd --user
- Google News ──► pipeline ──► Postgres 18 ◄──────────── scoracle-api.service
-   (RSS)         (Go)        │   │   ▲                      ├─ HTTP serving (read-only, precomputed)
-                             │   │   │  NOTIFY              ├─ SQL maintenance (pipeline-stats,
-                             │   │   └──── pipeline_work ───┤   ranks, cohorts, cleanup)
-                             │   │              ready       │  notifications/listener (FCM + enqueue)
-                             │   └──────► scoracle-cognition.service  ◄── durable queue stages:
-                             │                     │                editor, investigate_entity, graph,
-                             │                     ▼                transfers, narratives, vibe,
-                             │                 statcommentary        rating, momentum, sigil
-                             │                  (cron batch)
-                             ▼
-                    llama-server (archbox 1070 Ti — §1.1)
+```text
+Go RSS collection → PostgreSQL evidence + durable queue
+                           ↓
+                    Rust harness
+                     ├─ Classifier → classify skill
+                     ├─ Character → six independent output skills
+                     └─ Caretaker → retained code, no enabled work
+                           ↓
+                saved products → Go API → clients
 ```
 
-### 1.1 Model topology — one machine, one model, model-agnostic by design
+### 1.1 Model topology
 
-The cognition daemon routes each seat to a model@host resolved from the
-`COGNITION_ROUTE_<ROLE>[_BASE_URL]` env keys (`rust/src/route.rs`) — nothing about
-a specific model is compiled in. Since the 2026-08-20 consolidation every seat
-runs on one pinned model on one machine; the route seams remain the re-expansion
-point if a seat ever moves again (any seat can change model or machine by config
-alone; `scripts/hosting/model-gate.sh` and `eval --task <seat> --fixtures` exist
-to audition a candidate).
+Classifier uses the native decision endpoint in `CLASSIFIER_URL`. Production Character skills share `Qwen3.5-4B-Q4_K_M` at `MODEL_BASE_URL`, with four aggregate running character claims across workers. Production selects this shared route in `rust/src/main.rs`; per-role overrides and candidates are evaluation controls, not production routing switches. Confirm actual host addresses from deployment configuration rather than old machine inventories.
 
-| Machine | Hardware | Model | Seats |
-|---|---|---|---|
-| **archbox** | 1070 Ti @ 135W (llama-server, `localhost:8080`, 4 parallel slots) | `ministral-3:3b` | ALL of them: Editor (`editor`), Investigator (`investigator`), Graph (`emotional-news`), Journalist (`narrative-logic`), Insider (`transfer-logic`), Influencer (`vibe-logic`), Analyst (`momentum-logic`), Scout (`stats-logic`), Oracle (`oracle-logic`) |
-
-The Mac mini lane (ministral-3:8b) was retired from production 2026-08-20; the
-machine remains a standalone LLM/agent box, not attached to the pipeline.
-
-Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust):
+`release.sh` builds seven binaries from one commit: four Go and three Rust. `factsweep` is retained only as a refusing compatibility command.
 
 | Binary | Role | Lifecycle |
 |---|---|---|
-| `scoracle-api` | HTTP serving (precomputed) + enqueue Editor reads at ingest + maintenance tickers | `scoracle-api.service` (always on) |
-| `pipeline` | the ONLY data ingestion layer: nightly Google News RSS sweep (persist + enqueue the Editor's read) | cron (`cron-pipeline.sh`) |
+| `scoracle-api` | HTTP serving of saved products + maintenance tickers | `scoracle-api.service` (always on) |
+| `pipeline` | the ONLY data ingestion layer: Google News RSS collection (persist + enqueue Classifier work) | `scoracle-coverage.service` (`pipeline -mode monitor`); explicit ingest runs remain available |
 | `vibesynth` | nightly Sigil reconciliation backstop (DB-only; enqueues durable `sigil` work) | cron (`cron-vibesynth.sh`) |
-| `scoracle-cognition` | the Rust daemon: drains editor → investigate_entity → graph → transfers → narratives → vibe → rating → momentum → sigil | `scoracle-cognition.service` (always on, GPU box) |
+| `scoracle-cognition` | the Rust daemon: runs Classifier and the six independently scheduled Character skills; Caretaker is inactive | `scoracle-cognition.service` (always on, GPU box) |
+| `scoracle-memory-study` | Explicit offline analytical helper | Operator/evaluation invocation |
+| `factsweep` | Refuses obsolete maintenance calls | Compatibility command; never scheduled |
 | `statcommentary` | Rust rating batch (single / nightly / backfill, NOT a queue stage) | cron (`cron-rust-statcommentary.sh`) |
 
 `statcommentary -mode nightly` only enqueues durable current-season Rating work. Its `single`
 preview/publication and historical `backfill` modes invoke Scout directly through typed non-queue
-contexts; they do not invent a queue lease. `factsweep -sport <SPORT> [-person <ID>] [-dry-run]` is
-the analogous operator entry point for Investigator person-metadata adjudication. It is not a
-daemon stage or cron job, and resolves only the Investigator's declared inference capability.
+contexts; they do not invent a queue lease. `factsweep` is a retained compatibility command that always refuses before database access. It has no cron job. Investigator and fixture-boxscore machinery live under Caretaker, with zero enabled handlers.
 
-Google does the relevancy work at fetch time; the Rust application and Studio curate everything
-downstream. There is no other ingestion path — no provider clients, no live polling.
+Go collects RSS candidates; Classifier scores headline relevance and routes evidence. Character skills produce saved outputs. The API reads products without inference.
 
 The running API reports its build at `GET /` (`{"commit": "...", "build_time": "..."}`) and logs it
 at startup — the authoritative "what's deployed" check for the Go side. The Rust daemon has no HTTP
@@ -90,20 +72,20 @@ probe; check its state with `systemctl --user status scoracle-cognition` and the
 
 ## 2. Release
 
-`scripts/hosting/release.sh` is the **single** release command. It builds all five binaries from one
-commit (3 Go + 2 Rust; stamping commit + build time into the Go side), masks both the
+`scripts/hosting/release.sh` is the **single** release command. It builds all seven binaries from one
+commit (4 Go + 3 Rust; stamping commit + build time into the Go side), masks both the
 `scoracle-api.path` and `scoracle-cognition.path` rebuild watchers during placement, reinstalls the
-systemd units, restarts the API + the Rust cognition daemon, and verifies `/health/db` + the served
+systemd units, restarts the API and previously active cognition workers, and verifies `/health/db` + the served
 commit + the daemon's `is-active`.
 
 ```bash
 cd /home/sheneveld/scoracle/scoracle-backend
 git fetch && git status            # confirm synced with origin/main FIRST (README rule)
-scripts/hosting/release.sh          # build all 5 + install + restart + verify
+scripts/hosting/release.sh          # build all 7 + install + restart + verify
 scripts/hosting/release.sh --build-only   # build + place only (no live changes)
 ```
 
-Why "all five from one commit" matters: a Session-2 audit finding was that hand-built binaries
+Why "all seven from one commit" matters: a Session-2 audit finding was that hand-built binaries
 drifted across commits. `release.sh` builds **every** binary (Go + Rust) before placing **any**, so a
 failed build aborts (`set -e`) before a single binary moves — the cron binaries + the daemon can
 never end up on a different commit than the API.
@@ -223,18 +205,19 @@ depends on an ephemeral notification for correctness — every stage hands off t
 
 | Trigger | What happens |
 |---|---|
-| Scrub vets a news link (`enqueue_derive_on_vetted` trigger, migration 103) → `NOTIFY pipeline_work_ready` | Durable `pipeline_work` items are created; `scoracle-cognition` drains stage order and retries on failure. |
-| A Vibe generation completes | enqueues the terminal **Sigil** convergence for that entity. |
-| Rating/Vibe/Momentum input changes | enqueues **one debounced** Sigil convergence (input-hash + round/slope debounce — no duplicate Sigil for unchanged inputs). |
-| Startup + safety-net cadence (`COGNITION_SAFETY_NET_SECONDS`) | the Rust worker re-drains + `RequeueStale` recovers rows abandoned mid-lease — a missed NOTIFY costs latency, never correctness. |
+| RSS discovery is committed | Classifier work is durably queued and workers receive a wake-up notification. |
+| Classifier decisions settle | Selected evidence becomes Character delivery obligations under the daily coverage schedule. |
+| Rating or Vibe completes | A durable follow-up event offers Momentum work. |
+| Character pillars settle | Oracle becomes eligible after its dependencies are resolved. |
+| Startup, safety ticks and lease recovery | Workers find durable work even if a notification was missed. |
 
 ### Cron-driven (see `scripts/hosting/crontab.example` for exact times — `CRON_TZ=America/New_York`)
 
 | Job | Cadence | Role |
 |---|---|---|
-| `cron-pipeline.sh -mode ingest` | daily 02:00 | THE ONLY DATA INGESTION LAYER: RSS sweep, persist + enqueue the Editor's read; durable queue stages derive the products |
-| `cron-narrative-links.sh` | daily 02:45 | narrative-graph co-mention refresh (pure SQL); cadence is the heating/cooling baseline |
-| `cron-rust-statcommentary.sh -mode nightly -limit 400` | daily 03:00 | stats-rail commentary + PEAK trajectory metadata; regenerates only when a rating snapshot's `input_hash` changed |
+| `cron-pipeline.sh -mode ingest` | daily 02:00 | THE ONLY DATA INGESTION LAYER: RSS sweep, persist + enqueue Classifier scoring; durable queue stages derive the products |
+| `cron-narrative-links.sh` | daily 02:45 | refresh reporting outcomes and existing-entity metadata |
+| `cron-rust-statcommentary.sh -mode nightly -limit 400` | daily 03:00 | enqueue current-season Rating work; the worker applies input-hash reuse |
 | `cron-stat-matchups.sh` | daily 03:30 | stat-matchup refresh (pure SQL) |
 | `cron-vibesynth.sh -mode nightly -limit 500` | daily 05:00 | **Sigil BACKSTOP only** — enqueues current-season entities whose Sigil is missing/stale for Rust to drain; no inline synthesis, no unchanged-Sigil duplicates |
 | `recompute-tiers.sh` | weekly Mon 02:00 | entity tier recompute (drives vibe scheduling) |
@@ -243,11 +226,7 @@ depends on an ephemeral notification for correctness — every stage hands off t
 **Sigil is event-driven + debounced.** The nightly `vibesynth` line is reconciliation only — it
 never creates an unchanged duplicate and never calls the model inline.
 
-**Transfers** are a **News scope** (a facet of the news pipeline), even though `/transfers` remains a
-supporting per-entity contract. Transfers and Narratives share the same historical scopes
-(`current_week`, `last_week`, `two_weeks_ago`, `three_weeks_ago`, `last_month`) and the
-same live staleness rule: current-week rows marked `cooling_off` stay visible only while
-their source/update timestamp is within the last three days.
+Reporting routes use daily saved products with optional `date=YYYY-MM-DD`; retired weekly scope names are not the current reporting contract. See [endpoint contracts](ENDPOINTS.md).
 
 ### Overlap + observability
 
@@ -266,28 +245,11 @@ the queue retries) · `1` systemic (enumeration/stage failure, or dead-lettered 
 
 ## 7. The pipeline: ingest → queue → derive → reveal
 
-The once-daily `cmd/pipeline -mode ingest` run feeds the durable queue; Rust drains the stages:
+Go collects team RSS headlines and records source/query provenance plus Classifier work atomically. Classifier evaluates known subjects and records scores and delivery obligations. It does not fetch full articles or create unknown entities.
 
-```
-sweep ingest -> enqueue/notify -> editor -> investigate_entity -> graph -> transfers -> narratives -> vibe -> peak -> momentum -> sigil
-```
+The harness independently schedules Journalist, Influencer, Scout and Insider work. Rating and Vibe feed Analyst; Oracle waits for the five pillars. Each skill prepares evidence, validates output and commits products plus required follow-up events through an exact-claim transaction. Retries and stale-lease recovery remain harness responsibilities.
 
-1. **Compile (sweep):** RSS-sweep every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so
-   offseason coverage doesn't collapse); persist to `news_articles` and enqueue the Editor's
-   read in the same transaction.
-2. **Enqueue:** vetted transitions (and other stage handoffs) enqueue durable `pipeline_work` rows.
-3. **Derive:** `scoracle-cognition` claims → runs → completes/fails each queued stage in declared
-   order (claim → run → complete/fail), with retry + stale-lease recovery.
-4. **Reveal:** the precomputed products (`news_summaries`, `transfer_rumors`, `vibe_scores`,
-   `sigil_synthesis`, `stat_summaries`) are what the per-product serving endpoints read.
-
-The news-scrub ticker (`NEWS_SCRUB_ENABLED`) is GONE (PLAN-one-rail 8.8) along with the `scrub`
-stage it fed. `vetted` is the Editor's fact now: it reads the article and confirms or denies the
-links (8.5).
-
-**Live table → product names:** `vibe_scores` = Vibe · `sigil_synthesis` = Sigil crown ·
-`news_summaries` = narratives · `stat_summaries` (`divined_peak`, `peak_trajectory`) = stat commentary ·
-`transfer_rumors` = transfers.
+The API serves stored products without inference. Main tables include `news_summaries`, `vibe_scores`, `stat_summaries`, `insider_scores`, `transfer_rumors`, `momentum_summaries` and `sigil_synthesis`. Caretaker adds no active step to this flow.
 
 ---
 
@@ -411,7 +373,7 @@ third-party provider credential is needed at all: `API_SPORTS_KEY`, `BALLDONTLIE
 | Rate limiting | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW`, `RATE_LIMIT_INTERNAL_KEY` |
 | Cache | `CACHE_ENABLED` |
 | Model | `MODEL_BASE_URL`, `MODEL_NAME`, `MODEL_TIMEOUT_SECONDS`, `MODEL_MAX_CONCURRENT` |
-| Cognition | `COGNITION_STAGES`, `COGNITION_BACKEND_CONCURRENCY`, `COGNITION_HANDLER_TIMEOUT_SECONDS`, `COGNITION_ARTICLE_READ_TOP_K`, `DERIVE_WORKER_ENABLED`, and the per-role routes `COGNITION_ROUTE_<ROLE>` (9 model keys today; the `_BASE_URL`/`_BACKEND` suffixes are unset since the single-box consolidation — every role rides the default `localhost:8080`) |
+| Cognition | `COGNITION_STAGES`, `COGNITION_BACKEND_CONCURRENCY`, `COGNITION_HANDLER_TIMEOUT_SECONDS`, `COGNITION_ARTICLE_READ_TOP_K`, `DERIVE_WORKER_ENABLED`, and the per-role routes `COGNITION_ROUTE_<ROLE>` (per-role overrides are offline evaluation controls; production uses one shared Character backend) |
 
 `COGNITION_ROUTE_*` keys are built at runtime by `format!("COGNITION_ROUTE_{}", role.env_suffix())`
 (`rust/src/config.rs:265`), so a plain grep for them finds nothing — **do not "clean them up" as

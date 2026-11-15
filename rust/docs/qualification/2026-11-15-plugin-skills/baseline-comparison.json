@@ -1,0 +1,189 @@
+{
+  "baseline_commit": "9be32e645648ec814a9cba4981a6031d8d597c2c",
+  "branch_commit": "1c4573c9026dde37203be7f4d574b9f7209645ff",
+  "classifier": {
+    "relations": {
+      "cases": 28,
+      "identical_requests_scores_and_decisions": true,
+      "changed_case_ids": [],
+      "baseline_label_disagreements": 12,
+      "branch_label_disagreements": 12
+    },
+    "availability": {
+      "cases": 12,
+      "identical_requests_scores_and_decisions": true,
+      "changed_case_ids": [],
+      "baseline_label_disagreements": 1,
+      "branch_label_disagreements": 1
+    },
+    "structured": {
+      "cases": 15,
+      "identical_requests_scores_and_decisions": true,
+      "changed_case_ids": [],
+      "baseline_label_disagreements": 0,
+      "branch_label_disagreements": 0
+    },
+    "gender": {
+      "cases": 24,
+      "identical_requests_scores_and_decisions": true,
+      "changed_case_ids": [],
+      "baseline_label_disagreements": 0,
+      "branch_label_disagreements": 0
+    }
+  },
+  "character": {
+    "narratives": {
+      "fixtures": 16,
+      "calls": 15,
+      "baseline_checks": [
+        47,
+        83
+      ],
+      "branch_checks": [
+        47,
+        83
+      ],
+      "identical_case_results": true,
+      "identical_printed_outputs_except_timing_and_directory": true,
+      "changed_cases": [],
+      "identical_status_and_failures": true,
+      "changed_case_details": {}
+    },
+    "vibe": {
+      "fixtures": 6,
+      "calls": 6,
+      "baseline_checks": [
+        6,
+        6
+      ],
+      "branch_checks": [
+        6,
+        6
+      ],
+      "identical_case_results": true,
+      "identical_printed_outputs_except_timing_and_directory": true,
+      "changed_cases": [],
+      "identical_status_and_failures": true,
+      "changed_case_details": {}
+    },
+    "rating": {
+      "fixtures": 11,
+      "calls": 11,
+      "baseline_checks": [
+        27,
+        29
+      ],
+      "branch_checks": [
+        27,
+        29
+      ],
+      "identical_case_results": true,
+      "identical_printed_outputs_except_timing_and_directory": true,
+      "changed_cases": [],
+      "identical_status_and_failures": true,
+      "changed_case_details": {}
+    },
+    "transfer": {
+      "fixtures": 9,
+      "calls": 9,
+      "baseline_checks": [
+        52,
+        73
+      ],
+      "branch_checks": [
+        52,
+        73
+      ],
+      "identical_case_results": false,
+      "identical_printed_outputs_except_timing_and_directory": false,
+      "changed_cases": [
+        "fully-named-advanced-talks",
+        "reliable-source-heating-steam"
+      ],
+      "identical_status_and_failures": true,
+      "changed_case_details": {
+        "fully-named-advanced-talks": {
+          "output_tokens": {
+            "baseline": 160,
+            "branch": 288
+          }
+        },
+        "reliable-source-heating-steam": {
+          "output_tokens": {
+            "baseline": 139,
+            "branch": 147
+          }
+        }
+      }
+    },
+    "momentum": {
+      "fixtures": 8,
+      "calls": 7,
+      "baseline_checks": [
+        15,
+        17
+      ],
+      "branch_checks": [
+        15,
+        17
+      ],
+      "identical_case_results": false,
+      "identical_printed_outputs_except_timing_and_directory": false,
+      "changed_cases": [
+        "sparse-samples-stay-steady"
+      ],
+      "identical_status_and_failures": true,
+      "changed_case_details": {
+        "sparse-samples-stay-steady": {
+          "output_tokens": {
+            "baseline": 43,
+            "branch": 47
+          },
+          "display": {
+            "baseline": "The measured performance sample is too thin to support a directional comparison, and the coverage tone carries no settled emotional direction. Without dated comparisons, the agreement between performance and mood cannot be assessed.",
+            "branch": "The measured performance sample is too thin to support a directional comparison, and the coverage tone carries no settled emotional direction. Without dated comparisons or explicit performance metrics, the agreement between performance and mood cannot be assessed."
+          }
+        }
+      }
+    },
+    "oracle": {
+      "fixtures": 4,
+      "calls": 4,
+      "baseline_checks": [
+        16,
+        16
+      ],
+      "branch_checks": [
+        16,
+        16
+      ],
+      "identical_case_results": false,
+      "identical_printed_outputs_except_timing_and_directory": false,
+      "changed_cases": [
+        "crossroads-conflict"
+      ],
+      "identical_status_and_failures": true,
+      "changed_case_details": {
+        "crossroads-conflict": {
+          "output_tokens": {
+            "baseline": 60,
+            "branch": 59
+          },
+          "display": {
+            "baseline": "Marcus Vale presents a sharp contrast between elite, stable production and a deteriorating narrative environment. While scouts confirm his numbers remain consistent, journalists and influencers report a heating-up trade demand and thinning patience, creating a tension where high performance is overshadowed by a souring atmosphere.",
+            "branch": "Marcus Vale presents a sharp contrast between elite, stable production and a deteriorating narrative environment. While his on-court performance remains consistent, the surrounding context is defined by a heated trade demand and thinning patience, creating a tension where tangible ability clashes with a fragile organizational mood."
+          }
+        }
+      }
+    }
+  },
+  "caretaker_active": false,
+  "deployment": false,
+  "confirmed_regressions": [],
+  "conclusion": "No confirmed fixture-level regressions. All failures reproduce on the baseline; identical prepared requests and unchanged validation logic support model variability for wording/token differences.",
+  "limits": [
+    "One live run per revision, not an interleaved repeated trial",
+    "Rejected Character replies are sometimes only excerpts",
+    "No database, worker integration, or production load replay in this comparison"
+  ]
+}

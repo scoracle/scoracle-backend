@@ -20,14 +20,14 @@ WorkingDirectory=__SCORACLE_REPO_ROOT__
 # scoracle-api reads, so both processes see one config. Do not re-add a second file:
 # the old .env/.env.local overlay made a key's value depend on load order.
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
-# Native acquisition and Classifier replace Harvester/Editor. Model routes and
-# evaluated delivery policies must be configured before cognition is resumed.
+# Classifier and Character are active plugin owners. Caretaker remains inactive.
+# Model endpoints and delivery policies must be configured before cognition resumes.
 # The Classifier is stage 1: a llama.cpp System-1 decision model (Kev) via CLASSIFIER_URL
 # (/v1/systemone). The daemon refuses to start the classifier stage without it.
 # EnvironmentFile overrides Environment; keep COGNITION_STAGES in .env.local
-# aligned with this set. The separate source service forces acquisition-only.
+# aligned with this supported task set; maintenance task names are rejected.
 # Keep DERIVE_WORKER_ENABLED=false so Go never claims these stages.
-Environment=COGNITION_STAGES=classifier,investigate_entity,fixture_boxscore,rating,momentum,transfers,narratives,vibe,sigil
+Environment=COGNITION_STAGES=classifier,rating,momentum,transfers,narratives,vibe,sigil
 ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
 Restart=always
 RestartSec=3

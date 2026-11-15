@@ -1,0 +1,115 @@
+fixtures — task=transfer role=transfer-logic n=9 dir=/tmp/scoracle-baseline-live-20261115/rust/fixtures/quality/transfer/  incumbent=Qwen3.5-4B-Q4_K_M
+lens — operator=The Insider | mandate=Get movement predictions out quickly while preserving long-term credibility. | guard=Fail closed on name-drops, stale links, weak sourcing, and misleading heat.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[explicit-denial-clears-prior-rumor]  (temp=0)
+  Review: A source-grounded denied finding has stage null and clears the earlier reported move. Silence alone does not.
+  Review: Article-level Classifier scores are routing hints; determine subject relevance from the complete source and never infer entity-specific facts from a score. Prompt-version update preserves the recorded source packet; generation has not been requalified.
+  Review: Daily fresh-only context; input contract updated offline. Model fidelity has not been requalified.
+  Review: Classifier routing provenance can be headline-only; the full publisher excerpt remains the character's evidence. Offline contract recapture; generation quality remains subject to evaluation.
+      call: request=5313 bytes, input=1121 tokens, output=110 tokens, latency=16.01s, retries=0
+  A Qwen3.5-4B-Q4_K_M 1 finding(s) | Lina Foss has been linked to Everton, but the club has denied any talks to sign her.
+      [✓] no_product_names
+      [✓] has_source_linked_move — findings=1
+      [✓] body_includes:Lina Foss
+      [✓] body_includes:Everton
+      [✓] body_includes:denied
+
+[fizzled-prior-lowrel-skeptic]  (temp=0)
+  Review: Evidence-limit case: the source lacks full party names. Preserve the packet and return no linked finding; this is not positive transfer coverage.
+      call: request=5348 bytes, input=1125 tokens, output=47 tokens, latency=7.22s, retries=0
+  A Qwen3.5-4B-Q4_K_M 0 finding(s) | Kai Sorensen is reportedly being monitored by Chelsea, though no active bid or negotiation has been confirmed.
+
+TransferTavern
+      [✓] no_product_names
+      [✓] has_source_linked_move — findings=0
+      [✓] body_includes:Sorensen
+      [✓] body_excludes:$
+      [✓] body_excludes:£
+      [✓] body_excludes:€
+      [✓] body_excludes:million
+
+[fully-named-advanced-talks]  (temp=0)
+  Review: Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty.
+      call: request=6016 bytes, input=1286 tokens, output=160 tokens, latency=18.93s, retries=0
+  A Qwen3.5-4B-Q4_K_M finding quote must name both the target and counterparty in full
+      raw: {
+  "body": "Mateus Andrade is the subject of active transfer talks between Bayern Munich and Flamengo, with reports indicating the clubs are negotiating the fee while personal terms for a five-year deal have reportedly been agreed.\n\nBaye...
+
+[fully-named-interest]  (temp=0)
+  Review: Synthetic positive control: full party names and move evidence are present in an exact source quote. Preserve attribution, stage and uncertainty.
+      call: request=5356 bytes, input=1124 tokens, output=58 tokens, latency=9.77s, retries=0
+  A Qwen3.5-4B-Q4_K_M 0 finding(s) | Kai Sorensen is reportedly being monitored by Chelsea, with TransferTavern noting that the club is among those tracking the forward but clarifying that no bid or talks have been mentioned.
+      [✓] no_product_names
+      [✗] has_source_linked_move — findings=0
+      [✗] stage:concrete_interest
+      [✓] body_includes:Sorensen
+      [✓] body_excludes:$
+      [✓] body_excludes:£
+      [✓] body_excludes:€
+      [✓] body_excludes:million
+
+[gordon-derozan-wrong-subject]  (temp=0)
+  Review: Synthetic regression for the Gordon incident: DeRozan is the moving subject; Gordon is incidental. Subject-first body, no finding, no retelling the DeRozan move under Gordon.
+      call: request=5495 bytes, input=1163 tokens, output=59 tokens, latency=9.31s, retries=0
+  A Qwen3.5-4B-Q4_K_M 0 finding(s) | Aaron Gordon remains on the Denver Nuggets roster as the team is linked to a trade for DeMar DeRozan, with no movement reported for Gordon in this report.
+
+Synthetic Wire
+      [✓] no_product_names
+      [✓] has_source_linked_move — findings=0
+      [✓] body_includes:Aaron Gordon
+      [✓] body_excludes:Gordon is linked
+      [✓] body_excludes:Gordon is moving
+      [✓] body_excludes:Gordon will join
+
+[headline-unnamed-signing]  (temp=0)
+  Review: An unnamed signing is reported; preserve it without inventing a player.
+  Review: Empty findings reflect the unresolved counterparty, not an absence of reported transactions.
+      call: request=5528 bytes, input=1159 tokens, output=60 tokens, latency=8.75s, retries=0
+  A Qwen3.5-4B-Q4_K_M 0 finding(s) | Cedar Bears have announced the signing of a former Maple Foxes player, according to Example Wire.
+      [✓] no_product_names
+      [✓] has_source_linked_move — findings=0
+      [✓] body_includes:sign
+      [✓] body_excludes:no confirmed signings
+      [✓] body_excludes:no confirmed trades or signings
+      [✓] body_excludes:not executed
+      [✓] body_excludes:no confirmed deals
+      [✓] body_excludes:no confirmed transactions
+
+[reliable-source-heating-steam]  (temp=0)
+  Review: Evidence-limit case: the source lacks full party names. Preserve the packet and return no linked finding; this is not positive transfer coverage.
+      call: request=5974 bytes, input=1278 tokens, output=139 tokens, latency=16.08s, retries=0
+  A Qwen3.5-4B-Q4_K_M named claim is absent from cited reports: Bayern Munich
+      raw: {
+  "body": "Mateus Andrade is the subject of active recruitment discussions between Bayern Munich and Flamengo, with reports indicating formal negotiations are underway regarding his transfer.\n\nFabrizio Romano reports that Bayern and Fla...
+
+[two-distinct-movement-stories]  (temp=0)
+  Review: Authored development control, not held out: separate the reported Alex Reed agreement from the Rowan Vale denial in concise paragraphs. Keep the sources and counterparties separate; findings must quote each exact headline.
+      call: request=5433 bytes, input=1160 tokens, output=179 tokens, latency=16.95s, retries=0
+  A Qwen3.5-4B-Q4_K_M 2 finding(s) | Cedar United have agreed a deal to sign Alex Reed, according to Example Wire.
+
+Cedar United have denied talks to sign Rowan Vale, as reported by Cedar Daily.
+      [✓] no_product_names
+      [✓] has_source_linked_move — findings=2
+      [✓] stage:here_we_go
+      [✓] body_includes:Alex Reed
+      [✓] body_includes:Rowan Vale
+      [✓] body_includes:Example Wire
+      [✓] body_includes:Cedar Daily
+
+[unnamed-signing-no-identity-join]  (temp=0)
+  Review: An unnamed signing cannot acquire the co-mentioned target identity. No linked finding.
+      call: request=5340 bytes, input=1114 tokens, output=57 tokens, latency=6.34s, retries=0
+  A Qwen3.5-4B-Q4_K_M 0 finding(s) | Aaron Gordon attended a community event while the Denver Nuggets announced the signing of an unnamed forward.
+
+Aaron Gordon attended a community event while the Denver Nuggets announced the signing of an unnamed forward.
+      [✓] no_product_names
+      [✓] has_source_linked_move — findings=0
+      [✓] body_includes:Aaron Gordon
+      [✓] body_excludes:Gordon is linked
+      [✓] body_excludes:Gordon is moving
+      [✓] body_excludes:Gordon will join
+
+=== fixture summary — Qwen3.5-4B-Q4_K_M : 52/73 property checks passed ===
+Mechanical checks do not establish semantic quality; the review criteria remain manual.

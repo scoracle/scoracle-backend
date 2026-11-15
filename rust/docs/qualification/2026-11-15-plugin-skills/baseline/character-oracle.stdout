@@ -1,0 +1,39 @@
+fixtures — task=oracle role=oracle-logic n=4 dir=/tmp/scoracle-baseline-live-20261115/rust/fixtures/quality/oracle/  incumbent=Qwen3.5-4B-Q4_K_M
+lens — operator=the Oracle | mandate=Read the available evidence, deliver the entity's reading in the house voice, then render the score earned by its circumstances. | guard=The mysticism lives in the telling, never the facts — ground every claim in the supplied evidence; invent nothing and expose no internal field or product names.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[ascendant-aligned]  (temp=0)
+  Review: Draw a supported connection across the aligned readings without adding facts.
+      call: request=4727 bytes, input=1000 tokens, output=56 tokens, latency=8.95s, retries=0
+  A Qwen3.5-4B-Q4_K_M Kiana Wells is depicted as a defensive anchor whose performance and surrounding coverage are both trending upward together. While multiple sources confirm a recent run of dominant rim protection, the lack of specific directional data on her long-term trajectory leaves the sustainability of this momentum undefined.
+      [✓] no_product_names
+      [✓] reading_plain_text
+      [✓] reading_max_sentences — sentences=2 ≤ 3
+
+[crossroads-conflict]  (temp=0)
+  Review: Preserve disagreement across the supplied pillars rather than forcing unanimous direction.
+      call: request=4706 bytes, input=996 tokens, output=60 tokens, latency=5.68s, retries=0
+  A Qwen3.5-4B-Q4_K_M Marcus Vale presents a sharp contrast between elite, stable production and a deteriorating narrative environment. While scouts confirm his numbers remain consistent, journalists and influencers report a heating-up trade demand and thinning patience, creating a tension where high performance is overshadowed by a souring atmosphere.
+      [✓] no_product_names
+      [✓] reading_plain_text
+      [✓] reading_max_sentences — sentences=2 ≤ 3
+
+[near-empty-quiet-wire]  (temp=0)
+  Review: Make a restrained reading of sparse material; missing pillars do not become negative findings.
+      call: request=4004 bytes, input=829 tokens, output=49 tokens, latency=4.58s, retries=0
+  A Qwen3.5-4B-Q4_K_M Venezia's available picture centers on a single reported return for preseason testing, with no further details or corroborating sources. This isolated perspective leaves the team's current form, roster status, and competitive trajectory largely unknown.
+      [✓] no_product_names
+      [✓] reading_plain_text
+      [✓] reading_max_sentences — sentences=2 ≤ 3
+
+[three-card-newcomer]  (temp=0)
+  Review: Use the three supplied readings without implying the missing pillars were also observed.
+      call: request=4412 bytes, input=934 tokens, output=69 tokens, latency=7.58s, retries=0
+  A Qwen3.5-4B-Q4_K_M Ipswich Town is actively rebuilding its defensive structure following promotion, confirmed by recent signings including Issa Diop and a general trajectory of reshaping the squad. While this activity has generated cautious optimism regarding the business side of the project, the lack of on-pitch results leaves the effectiveness of these moves unproven.
+      [✓] no_product_names
+      [✓] reading_plain_text
+      [✓] reading_max_sentences — sentences=2 ≤ 3
+
+=== fixture summary — Qwen3.5-4B-Q4_K_M : 16/16 property checks passed ===
+Mechanical checks do not establish semantic quality; the review criteria remain manual.

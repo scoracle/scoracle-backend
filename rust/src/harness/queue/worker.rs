@@ -221,45 +221,54 @@ async fn connect_listener(pool: &PgPool) -> PgListener {
     }
 }
 
-/// supervise loops on the responsive half of the worker until a shutdown signal
-/// arrives, then hands the drain its grace period and returns. The watchdog path
-/// never returns — it exits the process for systemd to restart clean.
+/// Keep connection retries inside a future polled alongside shutdown and timers.
+async fn listen_for_work(sv: &Supervision) {
+    loop {
+        let mut listener = connect_listener(&sv.pool).await;
+        sv.request("listener-reconnect");
+        loop {
+            match listener.recv().await {
+                Ok(_) => sv.request("notify"),
+                Err(e) => {
+                    error!(error = %e, "listener error; reconnecting in 1s");
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    break;
+                }
+            }
+        }
+    }
+}
+
 async fn supervise(sv: Supervision) {
-    // Persistent streams, registered once: a signal arriving while the drain holds
-    // the runtime's attention is latched and observed at the next poll. (The old
-    // single-loop worker recreated `ctrl_c()` per select iteration, so a signal
-    // landing mid-tick was swallowed — the reproduced stop → 90s → SIGKILL.)
     let mut sigint = signal(SignalKind::interrupt()).expect("register SIGINT handler");
     let mut sigterm = signal(SignalKind::terminate()).expect("register SIGTERM handler");
+    supervise_until(sv, async move {
+        tokio::select! {
+            _ = sigint.recv() => "SIGINT",
+            _ = sigterm.recv() => "SIGTERM",
+        }
+    })
+    .await;
+}
+
+async fn supervise_until(sv: Supervision, stop: impl std::future::Future<Output = &'static str>) {
     let mut watchdog_poll = tokio::time::interval(WATCHDOG_POLL);
     watchdog_poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-
-    let mut listener = connect_listener(&sv.pool).await;
-
+    let mut safety_net = tokio::time::interval(sv.safety_net.max(Duration::from_millis(1)));
+    safety_net.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let notifications = listen_for_work(&sv);
+    tokio::pin!(notifications, stop);
     let signal_name;
     loop {
         tokio::select! {
-            _ = sigint.recv() => { signal_name = "SIGINT"; break; }
-            _ = sigterm.recv() => { signal_name = "SIGTERM"; break; }
-            _ = tokio::time::sleep(sv.safety_net) => sv.request("safety-net"),
-            recv = listener.recv() => match recv {
-                Ok(_note) => sv.request("notify"),
-                Err(e) => {
-                    error!(error = %format!("{e:#}"), "listener error; reconnecting in 1s");
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                    listener = connect_listener(&sv.pool).await;
-                    // Anything NOTIFYed during the gap is gone — tick once to cover it.
-                    sv.request("listener-reconnect");
-                }
-            },
+            name = &mut stop => { signal_name = name; break; }
+            _ = &mut notifications => unreachable!("notification loop retries indefinitely"),
+            _ = safety_net.tick() => sv.request("safety-net"),
             _ = watchdog_poll.tick() => {
                 let (busy, beat_age, activity) = sv.pulse.snapshot();
                 if stalled(busy, beat_age, sv.watchdog) {
-                    error!(
-                        activity = %activity,
-                        stalled_secs = beat_age.as_secs(),
-                        "watchdog: drain made no progress past threshold — exiting for a clean systemd restart"
-                    );
+                    error!(activity = %activity, stalled_secs = beat_age.as_secs(),
+                        "watchdog: drain made no progress past threshold — exiting for a clean systemd restart");
                     std::process::exit(1);
                 }
             }
@@ -1681,5 +1690,52 @@ mod postgres_recovery_rehearsal {
                 .await
                 .unwrap();
         assert_eq!(remaining, 0);
+    }
+}
+
+#[cfg(test)]
+mod supervision_outage_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn stalled_database_connection_does_not_block_timers_or_shutdown() {
+        let endpoint = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy(&format!(
+                "postgres://test:test@{}/test?sslmode=disable",
+                endpoint.local_addr().unwrap()
+            ))
+            .unwrap();
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let tick = Arc::new(Notify::new());
+        let (stop, stopped) = tokio::sync::oneshot::channel();
+        let supervisor = tokio::spawn(supervise_until(
+            Supervision {
+                pool,
+                safety_net: Duration::from_millis(10),
+                watchdog: Duration::ZERO,
+                pulse: Arc::new(Pulse::new()),
+                tick: tick.clone(),
+                cause: Arc::new(StdMutex::new("test")),
+                shutdown: shutdown.clone(),
+            },
+            async {
+                stopped.await.unwrap();
+                "test shutdown"
+            },
+        ));
+        let proof = async {
+            let (_connection, _) = endpoint.accept().await.unwrap();
+            tick.notified().await;
+            tick.notified().await;
+            stop.send(()).unwrap();
+            while !shutdown.load(Ordering::Acquire) {
+                tick.notified().await;
+            }
+        };
+        let result = tokio::time::timeout(Duration::from_secs(2), proof).await;
+        supervisor.abort();
+        let _ = supervisor.await;
+        result.expect("database connection blocked safety ticks or shutdown");
     }
 }

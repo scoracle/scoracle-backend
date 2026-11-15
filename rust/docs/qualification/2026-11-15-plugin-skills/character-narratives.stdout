@@ -1,0 +1,152 @@
+fixtures — task=narratives role=narrative-logic n=16 dir=/Users/scotty/.codex/worktrees/character-skills/scoracle-backend/rust/fixtures/quality/narratives/  incumbent=Qwen3.5-4B-Q4_K_M
+lens — operator=The Journalist | mandate=Compile the stories swirling around the entity into grounded storylines. | guard=Group what sources actually say; do not inflate vague hype or off-entity noise.
+CURRENT CONTRACT: current system and schema with version-checked frozen evidence.
+Review individual claims and voice; generation varies with model and load.
+
+[conflicting-reports-two-sources-that-contradict-each-other]  (temp=0)
+  Review: Keep both source positions attributed; they may share a narrative but must not become one settled fact.
+  Review: Both reports are unconfirmed; the reading must not resolve the contradiction for the reader.
+      call: request=3575 bytes, input=768 tokens, output=95 tokens, latency=8.85s, retries=0
+  A Qwen3.5-4B-Q4_K_M cited reports do not connect Cedar United with numerical fact 1
+      raw: {"paragraphs":[{"body":"Cedar United denied agreeing a fee for Alex Stone, with a club spokesperson stating discussions had not begun (Club Bulletin, ID 1). Conversely, City Wire reports that Cedar United agreed a fee for Stone, citing an u...
+
+[distinct-developments-three-independent-developments,-three-keyed-slots]  (temp=0)
+  Review: Keep each development attached to its own supporting report_key; do not transfer claims between reports.
+  Review: The ankle injury, the appointment and the result are three stories, not one narrative.
+      call: request=3680 bytes, input=806 tokens, output=91 tokens, latency=8.55s, retries=0
+  A Qwen3.5-4B-Q4_K_M Cedar United appointed Jo Vale as head coach on Monday, with a contract lasting two years. The team won 2–1 against Vale City on Sunday. Goalkeeper Kim Park will miss the next match with an ankle injury, though no return date was given.
+      [✓] narratives empty == false — 1 narratives
+      [✓] body includes "Kim Park"
+      [✓] body includes "Jo Vale"
+      [✓] body includes "Vale City"
+
+[gordon-derozan-preserve-reported-subject]  (temp=0)
+  Review: The report has already been selected upstream. Preserve DeRozan as the speaker discussing a trade; never transfer his claim to Gordon.
+  Review: Gordon is only listed as a current Nuggets player. Do not infer that Gordon is moving, speaking, or involved in the talks.
+      call: request=3431 bytes, input=726 tokens, output=10 tokens, latency=1.90s, retries=0
+  A Qwen3.5-4B-Q4_K_M 
+      [✗] narratives empty == false — 0 narratives
+      [✗] body includes "DeMar DeRozan"
+      [✗] body includes "Synthetic Wire"
+      [✓] body excludes "Gordon said"
+      [✓] body excludes "Gordon is discussing"
+      [✓] body excludes "Gordon scored"
+
+[headline-corpus-denial-with-prior-rumour]  (temp=0)
+  Review: Fresh is a headline only. Attribute the denial without inventing talks, a bid amount, player affiliation or unseen article detail.
+  Review: Legacy memories in stored parts must not reach the model. Do not mention the earlier link or Evening Wire.
+      call: request=3293 bytes, input=701 tokens, output=69 tokens, latency=12.09s, retries=0
+  A Qwen3.5-4B-Q4_K_M Cedar United denied making an offer for Alex Stone, a player they are associated with in football. This denial was reported by City Wire. The club explicitly stated they did not extend an offer to the player.
+      [✓] narratives empty == false — 1 narratives
+      [✓] body includes "Alex Stone"
+      [✓] body excludes "agreed a deal"
+      [✓] body excludes "has signed"
+      [✓] body excludes "reached an agreement"
+      [✓] body excludes "Evening Wire"
+      [✓] body excludes "earlier link"
+
+[late-qualification-late-correction-in-the-same-source]  (temp=0)
+  Review: The correction is the report: no contract was offered and no deal was reached.
+  Review: An earlier sentence in the same source called this an agreement; dropping the correction is a meaning-loss failure.
+      call: request=3538 bytes, input=743 tokens, output=79 tokens, latency=10.37s, retries=0
+  A Qwen3.5-4B-Q4_K_M Cedar United held discussions with Alex Stone and his representatives on Monday, with club officials present. City Wire initially reported an agreement but later corrected the story, stating that no contract was offered and no deal was reached. The talks occurred after training sessions.
+      [✓] narratives empty == false — 1 narratives
+      [✓] body includes "Alex Stone"
+      [✓] body excludes "agreed a deal"
+      [✓] body excludes "has signed"
+      [✓] body excludes "reached an agreement"
+
+[nba-attribution-basketball-source-under-a-league-namespace]  (temp=0)
+  Review: The identity part says basketball, not NBA: the sport, not the competition namespace.
+  Review: Keep the question mark on Reed's availability; the source says questionable, not ruled out.
+      call: request=3420 bytes, input=734 tokens, output=103 tokens, latency=12.24s, retries=0
+  A Qwen3.5-4B-Q4_K_M cited reports do not connect Cedar Comets with numerical fact 27
+      raw: {"paragraphs":[{"body":"The Cedar Comets defeated the Vale Stars 108–104 on Monday, with Jordan Reed leading the team with 27 points. The Comets announced that Reed is questionable for Wednesday's game due to ankle soreness. (Source: Court ...
+
+[no-new-material-nothing-eligible:-no-call,-no-package]  (temp=0)
+  Review: An empty world produces no report. A body here would be an invented story.
+  A Qwen3.5-4B-Q4_K_M no-call disposition
+
+[one-result-single-result,-named-scorer]  (temp=0)
+  Review: Articulate the supplied result and its scorer; add no significance the source does not carry.
+  Review: Keep the source's attribution and keep the result factual.
+      call: request=3344 bytes, input=717 tokens, output=60 tokens, latency=7.38s, retries=0
+  A Qwen3.5-4B-Q4_K_M cited reports do not connect Cedar United with numerical fact 84
+      raw: {"paragraphs":[{"body":"Cedar United defeated Vale City 2–1 on Sunday, with Sam Lee scoring the winning goal in the 84th minute.","report_ids":[1]}],"headline":"Cedar United clinch victory over Vale City thanks to Sam Lee's late strike"}
+
+[rumour-and-denial-rumour-with-its-denial-intact]  (temp=0)
+  Review: Preserve the rumour qualification: reported, not agreed, and the club declined to comment.
+  Review: A body that states a completed signing fails, even though the source names a player.
+      call: request=3409 bytes, input=721 tokens, output=61 tokens, latency=8.84s, retries=0
+  A Qwen3.5-4B-Q4_K_M Cedar United are reportedly in talks to sign Alex Stone, according to two unnamed sources. No agreement has been reached. Cedar United declined to comment.
+      [✓] narratives empty == false — 1 narratives
+      [✓] body includes "Alex Stone"
+      [✓] body includes "talks"
+      [✓] body excludes "has signed"
+      [✓] body excludes "agreed a deal"
+      [✓] body excludes "completed the signing"
+
+[synthetic-closed-training-fresh-only]  (temp=0)
+  Review: Attribute the closed session on 29 September to the club statement.
+  Review: The club supplied no reason; do not infer a cause, prior supporter access or prior venue.
+      call: request=3395 bytes, input=719 tokens, output=59 tokens, latency=8.71s, retries=0
+  A Qwen3.5-4B-Q4_K_M Cedar United announced that its training session scheduled for September 29 will be closed to supporters. The club issued this statement without providing a reason for the decision.
+      [✓] narratives empty == false — 1 narratives
+      [✓] body includes "supporters"
+
+[synthetic-discussion-no-new-event]  (temp=0)
+  Review: Summarize Stone's stated training preference, attributed to City Wire. No new event or broader narrative is needed.
+  Review: Do not infer a change, improvement, motivation, playing style or athletic ability. Do not insert metadata nationality or position into the publisher summary.
+      call: request=3420 bytes, input=731 tokens, output=54 tokens, latency=6.40s, retries=0
+  A Qwen3.5-4B-Q4_K_M City Wire reported that Alex Stone, a Canadian defender, discussed his training preferences, stating he favors short passing drills over long runs.
+      [✓] narratives empty == false — 1 narratives
+      [✓] body includes "Alex Stone"
+      [✓] body includes "City Wire"
+      [✓] body excludes "improved"
+      [✓] body excludes "changed"
+      [✓] body excludes "new routine"
+      [✗] body excludes "Canadian"
+      [✗] body excludes "defender"
+
+[synthetic-meta-missing]  (temp=0)
+  Review: Report the ongoing talks and lack of agreement with attribution. Missing metadata is not a reason to invent a position, club, nationality or identity.
+  Review: A substantive explicit report is enough; do not abstain just because the optional database record is missing.
+      call: request=3321 bytes, input=703 tokens, output=76 tokens, latency=8.71s, retries=0
+  A Qwen3.5-4B-Q4_K_M Alex Stone stated that contract negotiations with his current club are still in progress, though no agreement has been reached as of the latest report. This update comes from City Wire, which confirmed the ongoing status of the talks without specifying a resolution date.
+      [✓] narratives empty == false — 1 narratives
+      [✓] body includes "Alex Stone"
+      [✓] body includes "City Wire"
+      [✓] body excludes "defender"
+      [✓] body excludes "Cedar"
+      [✓] body excludes "has signed"
+
+[synthetic-routed-subject-preserved]  (temp=0)
+  Review: This fixture deliberately supplies an upstream routing mismatch. Eligibility belongs to the decision model and is not scored here.
+  Review: Faithfully summarize City Wire's appointment report, retaining Cedar United Women as the reported subject. Do not rewrite it as an appointment by the men's team or infer a link to the target from metadata.
+      call: request=3454 bytes, input=754 tokens, output=92 tokens, latency=10.61s, retries=0
+  A Qwen3.5-4B-Q4_K_M named claim is absent from cited reports: Cedar Ground
+      raw: {"paragraphs":[{"body":"City Wire reported that Cedar United Women have appointed Jo Vale as their new head coach. This appointment marks a leadership change for the women's squad, which operates separately from the men's first team based a...
+
+[synthetic-meta-profile-only]  (temp=0)
+  Review: A limited summary of the profile topics or an empty response is acceptable. Do not invent article contents from the title.
+  Review: Do not supply database nationality, position or affiliation as article contents. Meta supports understanding, not additional reporting.
+      call: request=3461 bytes, input=749 tokens, output=57 tokens, latency=4.53s, retries=0
+  A Qwen3.5-4B-Q4_K_M named claim is absent from cited reports: Cedar United
+      raw: {"paragraphs":[{"body":"City Wire published a profile on Alex Stone, a Canadian defender currently playing for Cedar United, detailing his career, nationality, and position.","report_ids":[1]}],"headline":"City Wire profiles Canadian defend...
+
+[synthetic-meta-stale-affiliation]  (temp=0)
+  Review: Attribute the denial of an offer to City Wire. Do not invent a transfer or negotiation.
+  Review: Do not add database affiliation or position to the summary; the report does not state them. In particular, do not present the 2025 roster entry as current reporting.
+      call: request=3458 bytes, input=760 tokens, output=80 tokens, latency=8.67s, retries=0
+  A Qwen3.5-4B-Q4_K_M named claim is absent from cited reports: Cedar United
+      raw: {"paragraphs":[{"body":"City Wire reported that Vale City has denied making an offer for defender Alex Stone, who is currently associated with Cedar United. The club explicitly stated they will not pursue a transfer deal for the player. Thi...
+
+[synthetic-training-time-fresh-only]  (temp=0)
+  Review: Report the supplied 10:00 start, 29 September date and North Field venue.
+  Review: The club supplied no reason; do not infer one or invent a previous start time.
+      call: request=3425 bytes, input=731 tokens, output=69 tokens, latency=8.05s, retries=0
+  A Qwen3.5-4B-Q4_K_M cited reports do not connect North Field with numerical fact 10
+      raw: {"paragraphs":[{"body":"Cedar United confirmed an updated start time of 10:00 for its training session on 29 September at North Field. The club provided no reason for the update.","report_ids":[1]}],"headline":"Cedar United shifts training ...
+
+=== fixture summary — Qwen3.5-4B-Q4_K_M : 47/83 property checks passed ===
+Mechanical checks do not establish semantic quality; the review criteria remain manual.

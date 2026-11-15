@@ -52,6 +52,12 @@ without touching the live ones:
 SCORACLE_SYSTEMD_DIR=$(mktemp -d) scripts/hosting/install.sh
 ```
 
+## Capability owners
+
+Cognition runs Classifier and six Character skills under the harness. Caretaker is inactive; its two task names are not valid service configuration. See the [runtime map](../../rust/README.md#plugin-and-skill-map).
+
+The `factsweep` binary remains only to refuse obsolete operator calls explicitly. It must not be scheduled. Remove an existing factsweep entry from installed crontabs when applying this release; the installer does not change crontabs automatically. Keep `JWT_SECRET` configured for mobile authentication.
+
 ## Release
 
 ```bash

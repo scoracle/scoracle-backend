@@ -79,3 +79,14 @@ func TestUnconfigured(t *testing.T) {
 		t.Fatal("non-empty secret should report configured")
 	}
 }
+
+func TestUnconfiguredRejectsEmptyKeyToken(t *testing.T) {
+	tk := &Tokens{accessTTL: time.Hour}
+	token, err := tk.IssueAccess("known-user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tk.ParseAccess(token); err != ErrInvalidToken {
+		t.Fatalf("empty-key token accepted: %v", err)
+	}
+}

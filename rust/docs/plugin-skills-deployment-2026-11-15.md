@@ -60,3 +60,9 @@ Operational limit: the monitor's cooldown is process-local. Restarting it or inv
 Fresh collection-to-publication verification remains blocked. A recovery check must establish successful RSS retrieval, new Classifier completion, Character generation under `scoracle.character`, and the corresponding served product. Model fixture smoke tests and serving previously saved products do not meet that requirement.
 
 Collector fix `30347216` was committed and pushed to `codex/character-skills`. Its Linux binary is staged at `/home/sheneveld/scoracle/releases/rss-backoff-30347216/bin/pipeline`; the coverage override selects it for the next start, but the service remains inactive. SHA-256: `63fd62f6b6e40d41da9e847ed42e4b064e223662d8d8c8f978f65a3169f2acd8`. The prior override is saved under that release's `rollback/`. The affected Go packages passed race-enabled tests, including the database acquisition suite on a fresh local PostgreSQL database. Final read-only production checks still show no post-cutover stage completions or generation rows; 473 Investigator jobs remain untouched and the five preexisting failed Vibe jobs remain unchanged.
+
+## Recovery check after cooldown (20:06 UTC)
+
+At the user's request, waited until the full cooldown elapsed, then made exactly one Google RSS request from Archbox at 20:06:36 UTC (15:06:36 EST) on November 15. The request used the collector's existing User-Agent and Accept headers. Google returned HTTP 503 at 20:06:43 UTC, with the same automated-query refusal page and no `Retry-After`. Response artifacts remain on Archbox at `/tmp/rss-recovery-20261115.headers` and `/tmp/rss-recovery-20261115.body`.
+
+The condition for resuming collection was not met, so RSS remains paused; no retry loop or restart was scheduled. Fresh collection-to-publication verification is still blocked by the provider refusal. Caretaker remains inactive and the feature branch has not been merged to main.

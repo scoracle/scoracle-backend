@@ -3,9 +3,7 @@ use crate::harness::queue::work;
 #[tokio::test]
 #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
 async fn terminal_acquisition_and_ledger_commit_only_with_exact_claim() {
-    let pool = sqlx::PgPool::connect(&std::env::var("TEST_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
+    let pool = crate::harness::dbtest::pool_with_limit(10).await.unwrap();
     let sport = "ZZ_INVESTIGATOR_BOX";
     let id = 9_610_001;
     for sql in [

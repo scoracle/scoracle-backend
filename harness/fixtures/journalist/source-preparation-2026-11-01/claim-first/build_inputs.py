@@ -6,8 +6,7 @@ ROOT = Path(__file__).resolve().parent
 BASE = ROOT.parent / 'semantic-preparer'
 
 def build():
-    unchanged = ['writer.txt', 'preparer.txt', 'development-control.jsonl',
-                 'validation-control.jsonl', 'run.py', 'screen-selection.json']
+    unchanged = ['writer.txt', 'preparer.txt', 'run.py', 'screen-selection.json']
     for name in unchanged:
         (ROOT / name).write_bytes((BASE / name).read_bytes())
     sources = ['development-sources.jsonl', 'validation-sources.jsonl']
@@ -28,7 +27,7 @@ def build():
         assert len(rows) == len(before)
         for a, b in zip(rows, before, strict=True):
             assert json.loads(a.pop('schema_raw')) == json.loads(b.pop('schema_raw')) and a == b
-    files = unchanged + sources + ['protocol.txt', 'build_inputs.py']
+    files = unchanged + sources + ['../worked-writer/development-control.jsonl', '../worked-writer/validation-control.jsonl'] + ['protocol.txt', 'build_inputs.py']
     (ROOT / 'manifest.json').write_text(json.dumps({
         'baseline': '../semantic-preparer',
         'sha256': {n: hashlib.sha256((ROOT / n).read_bytes()).hexdigest() for n in files}

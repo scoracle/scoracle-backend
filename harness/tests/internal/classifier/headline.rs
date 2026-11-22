@@ -68,10 +68,7 @@ async fn named_people_and_explicit_league_category_reach_the_same_request_builde
 #[tokio::test]
 #[ignore = "requires migrated disposable classifier_test_coverage database; run serially"]
 async fn canonical_team_gender_reaches_the_decision_target() -> Result<()> {
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(1)
-        .connect(&std::env::var("TEST_DATABASE_URL")?)
-        .await?;
+    let pool = crate::harness::dbtest::pool_with_limit(1).await?;
     let database: String = sqlx::query_scalar("SELECT current_database()")
         .fetch_one(&pool)
         .await?;

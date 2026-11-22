@@ -227,6 +227,7 @@ pub struct PluginRegistry {
 impl PluginRegistry {
     pub fn new(plugins: Vec<Plugin>) -> Result<Self> {
         let mut plugin_ids = BTreeSet::new();
+        let mut skill_ids = BTreeSet::new();
         let mut tasks = BTreeMap::new();
         let mut groups = BTreeMap::new();
         let mut skills = Vec::new();
@@ -238,7 +239,6 @@ impl PluginRegistry {
                 "duplicate plugin id {}",
                 owner.id
             );
-            let mut ids = BTreeSet::new();
             for manifest in owner.skills {
                 anyhow::ensure!(
                     manifest.plugin_id == owner.id,
@@ -251,7 +251,7 @@ impl PluginRegistry {
                     owner.id
                 );
                 anyhow::ensure!(
-                    ids.insert(manifest.id),
+                    skill_ids.insert(manifest.id),
                     "duplicate skill id {}",
                     manifest.id
                 );

@@ -81,11 +81,7 @@ async fn a_single_ready_stage_fills_its_capacity_without_exceeding_it() {
 }
 
 async fn fixture(sport: &str) -> PgPool {
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(8)
-        .connect(&std::env::var("TEST_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
+    let pool = crate::harness::dbtest::pool_with_limit(8).await.unwrap();
     sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES ($1,$1,2026) ON CONFLICT DO NOTHING")
         .bind(sport).execute(&pool).await.unwrap();
     for table in ["pipeline_work", "application_outbox"] {
@@ -483,11 +479,7 @@ impl Skill for Terminal {
 #[tokio::test]
 #[ignore = "requires isolated migrated TEST_DATABASE_URL; run serially"]
 async fn outbox_poll_recovers_obligation_without_listen_or_models() {
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(4)
-        .connect(&std::env::var("TEST_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
+    let pool = crate::harness::dbtest::pool_with_limit(4).await.unwrap();
     let sport = "ZZ_WORKER_REHEARSAL";
     sqlx::query("INSERT INTO sports(id,display_name,current_season) VALUES ($1,$1,2026) ON CONFLICT DO NOTHING")
         .bind(sport).execute(&pool).await.unwrap();

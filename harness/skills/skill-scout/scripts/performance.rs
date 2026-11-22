@@ -974,11 +974,3 @@ pub async fn last_commentary_input_hash(
     .with_context(|| format!("last commentary provenance {entity_type}/{entity_id}"))?;
     Ok(row.and_then(|(hash,)| hash.filter(|h| !h.is_empty())))
 }
-
-pub(crate) async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
-    sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
-        .bind(sport)
-        .fetch_one(pool)
-        .await
-        .with_context(|| format!("current season {sport}"))
-}

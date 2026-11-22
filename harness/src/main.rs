@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
         "scoracle-cognition starting",
     );
 
-    let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
+    let pool = db::build_worker_pool(&cfg.database_url, cfg.db_max_conns).await?;
     info!("connected to postgres");
 
     // Boot reachability check against EVERY host the route table names, not just the default

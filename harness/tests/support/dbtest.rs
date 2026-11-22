@@ -18,16 +18,47 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::time::Duration;
 
-/// A pool against the isolated test database. Panics with the caller's hint when
-/// `TEST_DATABASE_URL` is unset, so each suite still names the migrations it needs.
-pub async fn pool(requirement: &str) -> PgPool {
-    let url = std::env::var("TEST_DATABASE_URL")
-        .unwrap_or_else(|_| panic!("set TEST_DATABASE_URL: {requirement}"));
-    PgPoolOptions::new()
-        .max_connections(3)
+/// Check the connected database before returning a pool to a destructive test.
+pub async fn pool_with_limit(max_connections: u32) -> anyhow::Result<PgPool> {
+    let url = std::env::var("TEST_DATABASE_URL")?;
+    let pool = PgPoolOptions::new()
+        .max_connections(max_connections)
         .connect(&url)
+        .await?;
+    let name: String = sqlx::query_scalar("SELECT current_database()")
+        .fetch_one(&pool)
+        .await?;
+    check_disposable_name(&name)?;
+    Ok(pool)
+}
+
+fn check_disposable_name(name: &str) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        name == "classifier_test" || name.starts_with("classifier_test_"),
+        "disposable classifier_test database required, connected to {name:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn only_disposable_database_names_are_accepted() {
+    for name in ["classifier_test", "classifier_test_coverage_ci"] {
+        assert!(check_disposable_name(name).is_ok());
+    }
+    for name in [
+        "postgres",
+        "scoracle",
+        "classifier_testing",
+        "prod_classifier_test",
+    ] {
+        assert!(check_disposable_name(name).is_err());
+    }
+}
+
+pub async fn pool(requirement: &str) -> PgPool {
+    pool_with_limit(3)
         .await
-        .expect("connect TEST_DATABASE_URL")
+        .unwrap_or_else(|err| panic!("{requirement}: {err}"))
 }
 
 /// Delete every row a suite owns, then ensure its test sport exists.

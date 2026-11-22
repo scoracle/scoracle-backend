@@ -1,5 +1,7 @@
 # Source-scoped preparation — 2026-11-01
 
+The worked-writer experiment owns the frozen development and validation controls. The copied-evidence, semantic-preparer and claim-first manifests reference those files directly. Their original filenames are relative links so archived replay commands still work.
+
 **Accurate preparation helps the 4B writer, but the automated preparer is not yet
 reliable enough or cheap enough to promote.** With the retained worked-example
 writer, manually reviewed source notes produced six faithful complete packets.

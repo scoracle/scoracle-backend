@@ -18,6 +18,7 @@ use scoracle_cognition::harness::skills::scout::{
     invoke_rating, rating_work_input_version, RatingOutput, RatingRunContext,
 };
 use scoracle_cognition::tools::meta;
+use scoracle_cognition::tools::meta::current_season;
 use sqlx::{PgPool, Postgres, Row};
 use std::time::Duration;
 
@@ -278,14 +279,6 @@ async fn run_target(pool: &sqlx::PgPool, models: &Models, t: &Target) -> Result<
         RatingRunContext::HistoricalBackfill,
     )
     .await
-}
-
-async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
-    sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
-        .bind(sport)
-        .fetch_one(pool)
-        .await
-        .with_context(|| format!("current season {sport}"))
 }
 
 async fn enum_current_season(pool: &PgPool, sport: &str, season: i32) -> Result<Vec<Target>> {

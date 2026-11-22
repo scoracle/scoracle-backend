@@ -85,6 +85,32 @@ fn registry_rejects_duplicate_skill_ids() {
 }
 
 #[test]
+fn registry_rejects_duplicate_skill_ids_across_owners() {
+    static A: SkillManifest = manifest("shared.skill", TASK_A);
+    static B: SkillManifest = SkillManifest {
+        plugin_id: "other",
+        ..manifest("shared.skill", TASK_B)
+    };
+    static OTHER: PluginManifest = PluginManifest {
+        id: "other",
+        skills: &[&B],
+    };
+    let owners = vec![
+        test_plugin(vec![plugin(&A)]),
+        Plugin {
+            manifest: &OTHER,
+            skills: vec![],
+        },
+    ];
+    let error = PluginRegistry::new(owners)
+        .err()
+        .expect("duplicate declared skill ID");
+    assert!(error
+        .to_string()
+        .contains("duplicate skill id shared.skill"));
+}
+
+#[test]
 fn registry_rejects_an_empty_open_task_key() {
     static EMPTY: SkillManifest = manifest("test.empty-task", TaskKey::new(""));
     let error = PluginRegistry::new(vec![test_plugin(vec![plugin(&EMPTY)])])

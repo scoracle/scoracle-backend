@@ -12,8 +12,7 @@ def build():
     prompt.write_text(prompt.read_text().strip())
     for cohort, count in [('development', 29), ('validation', 11)]:
         control = f'{cohort}-control.jsonl'
-        (ROOT / control).write_bytes((BASE / control).read_bytes())
-        cases = list(map(json.loads, (ROOT / control).read_text().splitlines()))
+        cases = list(map(json.loads, (BASE / control).read_text().splitlines()))
         for case in cases:
             packet = json.loads(case['user_prompt'])
             for group in packet['fresh']:
@@ -38,7 +37,8 @@ def build():
             assert schema == old
         (ROOT / f'{cohort}-sources.jsonl').write_text(''.join(json.dumps(c, ensure_ascii=False) + '\n' for c in sources))
     files = ['writer.txt', 'preparer.txt', 'protocol.txt', 'build_inputs.py', 'contract.py', 'run.py']
-    files += [f'{c}-{a}.jsonl' for c in ['development', 'validation'] for a in ['control', 'verbatim', 'sources']]
+    files += [f'{c}-{a}.jsonl' for c in ['development', 'validation'] for a in ['verbatim', 'sources']]
+    files += ['../worked-writer/development-control.jsonl', '../worked-writer/validation-control.jsonl']
     (ROOT / 'manifest.json').write_text(json.dumps({'baseline': '../worked-writer', 'sha256': {
         f: hashlib.sha256((ROOT / f).read_bytes()).hexdigest() for f in files}}, indent=2) + '\n')
     print('Frozen 29/11 source inputs; claims and unknown expressions restricted to exact source spans; writer unchanged.')

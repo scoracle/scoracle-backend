@@ -1,14 +1,10 @@
 use super::*;
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::PgPool;
 
 const SPORT: &str = "ZZ_OUTBOX_RECOVERY";
 
 async fn pool() -> PgPool {
-    PgPoolOptions::new()
-        .max_connections(4)
-        .connect(&std::env::var("TEST_DATABASE_URL").expect("isolated migrated database"))
-        .await
-        .unwrap()
+    crate::harness::dbtest::pool_with_limit(4).await.unwrap()
 }
 
 async fn clean(pool: &PgPool) {
@@ -63,7 +59,13 @@ async fn committed_obligation(pool: &PgPool) -> Event {
 #[tokio::test]
 #[ignore = "requires isolated TEST_DATABASE_URL; run serially"]
 async fn postgres_dispatch_replays_after_dispatch_before_ack_without_a_model_runtime() {
-    let pool = pool().await;
+    let pool = crate::harness::dbtest::pool_with_limit(crate::harness::db::MIN_WORKER_CONNECTIONS)
+        .await
+        .unwrap();
+    let mut listener = sqlx::postgres::PgListener::connect_with(&pool)
+        .await
+        .unwrap();
+    listener.listen("pipeline_work_ready").await.unwrap();
     let event = committed_obligation(&pool).await;
     // Simulate dispatch committed, then process death before event acknowledgement.
     let reactions = reactions(&pool);

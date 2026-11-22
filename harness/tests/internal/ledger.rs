@@ -1,16 +1,11 @@
 use super::*;
-use sqlx::postgres::PgPoolOptions;
 
 const SPORT: &str = "ZZ_LEDGER_PLUGIN";
 
 #[tokio::test]
 #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
 async fn generation_diagnostics_retain_the_owning_plugin_identity() {
-    let pool = PgPoolOptions::new()
-        .max_connections(1)
-        .connect(&std::env::var("TEST_DATABASE_URL").expect("isolated migrated database"))
-        .await
-        .unwrap();
+    let pool = crate::harness::dbtest::pool_with_limit(1).await.unwrap();
     sqlx::query("DELETE FROM cognition_ledger WHERE sport=$1")
         .bind(SPORT)
         .execute(&pool)

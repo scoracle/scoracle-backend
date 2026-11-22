@@ -15,7 +15,7 @@ Cargo builds the worker from `src/main.rs` and the operator commands from `src/b
 
 Unit tests live beside the code they exercise. Integration checks live in `tests/`. Cargo discovers public-interface tests there directly. Some database and recovery checks exercise private implementation details. Their owning modules compile the files under `tests/internal/` only for test builds. Shared evaluation and replay inputs live in `fixtures/`.
 
-From the repository root, run `cargo test --manifest-path harness/Cargo.toml --all-targets` for the ordinary suite. Use `scripts/check.sh` with an empty disposable PostgreSQL 18 database for the full CI suite.
+From the repository root, run `cargo test --manifest-path harness/Cargo.toml --all-targets` for the ordinary suite. Use `scripts/check.sh` with an empty disposable PostgreSQL 18 database named `classifier_test_coverage*` for the full CI suite. The worker requires at least three connections in `COGNITION_DB_MAX_CONNS` for its listener, outbox transaction, and event reaction.
 
 ## Plugin and skill map
 

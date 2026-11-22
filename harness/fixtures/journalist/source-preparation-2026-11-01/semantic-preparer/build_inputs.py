@@ -6,8 +6,7 @@ ROOT = Path(__file__).resolve().parent
 BASE = ROOT.parent / 'worked-writer'
 
 def build():
-    unchanged = ['writer.txt', 'development-control.jsonl', 'validation-control.jsonl',
-                 'development-sources.jsonl', 'validation-sources.jsonl']
+    unchanged = ['writer.txt', 'development-sources.jsonl', 'validation-sources.jsonl']
     for name in unchanged:
         (ROOT / name).write_bytes((BASE / name).read_bytes())
         assert (ROOT / name).read_bytes() == (BASE / name).read_bytes()
@@ -36,11 +35,12 @@ def build():
     assert runner.count(marker) == 1
     runner = runner.replace(marker, marker + " (ROOT/'model-before.json').write_text(json.dumps(before,indent=2)+'\\n')\n")
     (ROOT / 'run.py').write_text(runner)
-    files = unchanged + ['preparer.txt', 'instruction-addition.txt', 'protocol.txt', 'run.py', 'build_inputs.py', 'screen-selection.json']
+    controls = ['development-control.jsonl', 'validation-control.jsonl']
+    files = unchanged + [f'../worked-writer/{name}' for name in controls] + ['preparer.txt', 'instruction-addition.txt', 'protocol.txt', 'run.py', 'build_inputs.py', 'screen-selection.json']
     (ROOT / 'manifest.json').write_text(json.dumps({
         'baseline': '../worked-writer',
         'sha256': {n: hashlib.sha256((ROOT / n).read_bytes()).hexdigest() for n in files},
-        'baseline_sha256': {n: hashlib.sha256((BASE / n).read_bytes()).hexdigest() for n in unchanged}
+        'baseline_sha256': {n: hashlib.sha256((BASE / n).read_bytes()).hexdigest() for n in unchanged + controls}
     }, indent=2) + '\n')
     print('Frozen prompt-only comparison: 29 development sources, six writer packets; 11 validation sources remain unused.')
 

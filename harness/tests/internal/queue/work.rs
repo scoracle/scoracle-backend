@@ -1,14 +1,9 @@
 use super::*;
-use sqlx::postgres::PgPoolOptions;
 
 async fn pool() -> PgPool {
-    let url = std::env::var("TEST_DATABASE_URL")
-        .expect("set TEST_DATABASE_URL to an isolated database with migration 256 applied");
-    PgPoolOptions::new()
-        .max_connections(2)
-        .connect(&url)
+    crate::harness::dbtest::pool_with_limit(2)
         .await
-        .expect("connect TEST_DATABASE_URL")
+        .expect("disposable queue database")
 }
 
 fn pending(stage: TaskKey, entity_id: i64, sport: &str, revision: &str) -> Item {

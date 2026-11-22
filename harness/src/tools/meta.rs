@@ -545,6 +545,14 @@ mod tests {
 use anyhow::{bail, Context, Result};
 use sqlx::PgPool;
 
+pub async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
+    sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
+        .bind(sport)
+        .fetch_one(pool)
+        .await
+        .with_context(|| format!("current season {sport}"))
+}
+
 /// lookup_entity_name resolves the display name for the prompt. An empty/missing name is an
 /// error, so the work item fails and retries rather than generating against a blank prompt.
 pub async fn lookup_entity_name(

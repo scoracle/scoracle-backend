@@ -2,14 +2,11 @@
 use super::publication::ClaimPublication;
 use super::work::{self, ClaimPolicy, Item, TaskKey};
 use anyhow::{ensure, Result};
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::PgPool;
 use std::time::Duration;
 
 async fn setup() -> Result<PgPool> {
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&std::env::var("TEST_DATABASE_URL")?)
-        .await?;
+    let pool = crate::harness::dbtest::pool_with_limit(5).await?;
     let database: String = sqlx::query_scalar("SELECT current_database()")
         .fetch_one(&pool)
         .await?;
@@ -103,9 +100,7 @@ async fn exhausted_decisions_are_reported_and_release_the_drain_without_retry_re
         }
     }
     assert!(claim(&pool, "classifier").await?.is_empty());
-    let restarted = PgPoolOptions::new()
-        .connect(&std::env::var("TEST_DATABASE_URL")?)
-        .await?;
+    let restarted = crate::harness::dbtest::pool_with_limit(10).await?;
     assert_eq!(tick(&restarted, 0.0).await?, "characters");
     assert_eq!(tick(&restarted, 0.0).await?, "coverage");
     let receipt: (String, i32, String) = sqlx::query_as(
@@ -201,9 +196,7 @@ async fn failed_characters_skip_dependents_finish_other_work_and_reopen_without_
             .await?,
         3
     );
-    let restarted = PgPoolOptions::new()
-        .connect(&std::env::var("TEST_DATABASE_URL")?)
-        .await?;
+    let restarted = crate::harness::dbtest::pool_with_limit(10).await?;
     ClaimPublication::begin(&restarted, &healthy)
         .await?
         .unwrap()

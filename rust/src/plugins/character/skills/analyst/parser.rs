@@ -7,6 +7,7 @@ use anyhow::{anyhow, Result};
 pub struct MomentumReply {
     /// The Analyst's read.
     pub blurb: String,
+    pub headline: String,
 }
 
 pub struct MomentumParser;
@@ -31,5 +32,8 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     if blurb.is_empty() {
         return None;
     }
-    Some(MomentumReply { blurb })
+    Some(MomentumReply {
+        blurb,
+        headline: crate::tools::form::card_hook(map.get("headline")?),
+    })
 }

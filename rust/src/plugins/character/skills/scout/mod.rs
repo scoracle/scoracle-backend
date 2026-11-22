@@ -501,16 +501,6 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
             call,
         ));
     };
-    // The title is the plugin's own, not the model's: it names the entity and the
-    // kind of read, which is a fact rather than something to articulate.
-    let headline = crate::tools::guards::settle_title(
-        "scout",
-        Some(&format!(
-            "{}: measured profile",
-            assignment.subject.entity_name
-        )),
-    );
-
     Ok(Generation::called(
         RatingProduct {
             season: assignment.season,
@@ -518,7 +508,7 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
             abstained: false,
             skipped_unchanged: false,
             body: Some(reply.body),
-            headline,
+            headline: Some(reply.headline),
             card_score: assignment.card_score,
             notability: Some(assignment.notability),
             notability_components: assignment.notability_components,

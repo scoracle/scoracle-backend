@@ -201,7 +201,7 @@ async fn day_card_contract() {
         .sync_scope(false, || output_from_receipt(&a, &receipt))
         .unwrap()
         .unwrap();
-    assert_eq!(replay.hook.as_deref(), Some("First\nSecond"));
+    assert_eq!(replay.hook.as_deref(), Some("First Second"));
     assert_eq!(observed_model.calls.load(Ordering::Relaxed), 1);
     let broken = Model {
         calls: AtomicUsize::new(0),

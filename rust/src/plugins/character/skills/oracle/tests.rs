@@ -167,7 +167,7 @@ fn score_is_computed_without_a_model_score() {
 #[tokio::test]
 async fn finished_cards_get_one_model_call_and_no_memory() {
     let model = FakeModel {
-        response: r#"{"reading":"Northbridge FC have gathered pace across the five readings."}"#,
+        response: r#"{"reading":"Northbridge FC have gathered pace across the five readings.","headline":"Northbridge gathers pace"}"#,
         fail: false,
         calls: Mutex::new(Vec::new()),
     };
@@ -176,6 +176,7 @@ async fn finished_cards_get_one_model_call_and_no_memory() {
         .unwrap();
     assert_eq!(output.score, Some(75));
     assert_eq!(output.omen, Some("ascendant"));
+    assert_eq!(output.headline.as_deref(), Some("Northbridge gathers pace"));
     assert_eq!(output.convergence, Some(100));
     assert_eq!(
         output.provenance.input_hash.as_deref(),
@@ -236,7 +237,7 @@ async fn empty_cards_and_sql_failure_never_call_the_model() {
 
 pub(super) async fn created_crown(pool: &PgPool) -> SigilOutput {
     let model = FakeModel {
-        response: r#"{"reading":"Northbridge FC have gathered pace across the five readings."}"#,
+        response: r#"{"reading":"Northbridge FC have gathered pace across the five readings.","headline":"Northbridge gathers pace"}"#,
         fail: false,
         calls: Mutex::new(vec![]),
     };
@@ -359,7 +360,7 @@ async fn sql_metrics_match_legacy_scores_convergence_omens_and_requests() -> Res
             }
             let a = assignment(c);
             let model = || FakeModel {
-                response: r#"{"reading":"Northbridge FC have gathered pace across the available readings."}"#,
+                response: r#"{"reading":"Northbridge FC have gathered pace across the available readings.","headline":"Northbridge gathers pace"}"#,
                 fail: false,
                 calls: Mutex::new(vec![]),
             };

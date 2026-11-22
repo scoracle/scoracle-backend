@@ -42,6 +42,7 @@ pub struct Reply {
     #[serde(skip_deserializing)]
     pub card_score: i16,
     pub body: String,
+    pub headline: String,
     pub findings: Vec<Finding>,
 }
 
@@ -331,9 +332,9 @@ mod tests {
             Ok((
                 GenerateResult {
                     response: if let Some(body) = first_body {
-                        serde_json::json!({"body":body,"findings":[]}).to_string()
+                        serde_json::json!({"body":body,"findings":[],"headline":"The personnel picture"}).to_string()
                     } else {
-                        r#"{"body":"Jordan Sample is linked with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland Browns is monitoring Jordan Sample in trade talks"}]}"#.into()
+                        r#"{"body":"Jordan Sample is linked with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland Browns is monitoring Jordan Sample in trade talks"}],"headline":"Cleveland keeps tabs on Sample"}"#.into()
                     },
                     thinking: String::new(),
                     model: "fake".into(),
@@ -491,6 +492,7 @@ mod tests {
             let generated = generated.unwrap();
             assert_eq!(generated.product.findings.len(), 1);
             assert_eq!(generated.product.card_score, 10);
+            assert_eq!(generated.product.headline, "Cleveland keeps tabs on Sample");
             assert!(generated.product.body.contains("Wire"));
             let final_world: serde_json::Value =
                 serde_json::from_str(&generated.call.unwrap().built_prompt).unwrap();
@@ -527,7 +529,7 @@ mod tests {
             subject: &subject,
             reports: &reports,
         };
-        assert!(parser.parse(r#"{"body":"Jordan Sample is linked with Cleveland.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland has signed Jordan Sample"}]}"#).unwrap().unwrap().findings.is_empty());
+        assert!(parser.parse(r#"{"body":"Jordan Sample is linked with Cleveland.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland has signed Jordan Sample"}],"headline":"The recorded performance"}"#).unwrap().unwrap().findings.is_empty());
     }
 
     #[test]
@@ -553,7 +555,7 @@ mod tests {
             subject: &subject,
             reports: &reports,
         };
-        let denied = r#"{"body":"Jordan Sample is not in talks with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"denied","stage":null,"evidence_quote":"Cleveland Browns denied talks for Jordan Sample"}]}"#;
+        let denied = r#"{"body":"Jordan Sample is not in talks with Cleveland, according to Wire.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"denied","stage":null,"evidence_quote":"Cleveland Browns denied talks for Jordan Sample"}],"headline":"The recorded performance"}"#;
         assert_eq!(
             parser.parse(denied).unwrap().unwrap().findings[0].status,
             Status::Denied

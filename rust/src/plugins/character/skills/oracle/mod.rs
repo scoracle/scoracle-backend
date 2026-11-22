@@ -301,7 +301,7 @@ async fn articulate(
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
-    let reading = extracted
+    let (reading, headline) = extracted
         .value
         .ok_or_else(|| anyhow!("crown: parser returned no value"))?;
 
@@ -309,13 +309,7 @@ async fn articulate(
         SigilSynthesis {
             score: Some(score),
             reading: Some(reading),
-            headline: crate::tools::guards::settle_title(
-                "oracle",
-                Some(&format!(
-                    "{}: the current picture",
-                    assignment.subject.entity_name
-                )),
-            ),
+            headline: Some(headline),
             season: assignment.season,
             input_components_json: assignment.input_components_json.clone(),
             convergence,

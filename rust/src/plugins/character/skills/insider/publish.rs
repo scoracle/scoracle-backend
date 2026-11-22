@@ -201,6 +201,7 @@ async fn insert_rumors(
             rumor_heat(
                 &mut **tx,
                 &Reply {
+                    headline: String::new(),
                     card_score: 0,
                     body: String::new(),
                     findings: selected.iter().map(|f| (*f).clone()).collect(),
@@ -285,7 +286,7 @@ pub(super) async fn commit(
              VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id"
         ).bind(&material.subject.sport).bind(&item.entity_type).bind(item.entity_id_i32()?)
             .bind(score).bind(previous).bind(&generation.product.body)
-            .bind(format!("{}: transfer picture", material.subject.name))
+            .bind(&generation.product.headline)
             .bind(&generation.provenance.model_version).bind(generation.provenance.prompt_version)
             .bind(generation.provenance.input_hash.as_deref())
             .bind(crate::tools::source::ACTIVITY_SCORING_VERSION)
@@ -431,6 +432,7 @@ mod tests {
                             findings.rotate_left(1);
                         }
                         let reply = Reply {
+                            headline: String::new(),
                             card_score: 0,
                             body: String::new(),
                             findings,
@@ -492,6 +494,7 @@ mod tests {
                     ]);
                     findings.reverse();
                     let reply = Reply {
+                        headline: String::new(),
                         card_score: 0,
                         body: String::new(),
                         findings,
@@ -508,6 +511,7 @@ mod tests {
                     let (lead, selected) = current_run(&group);
                     assert_eq!(lead.status, Status::Reported);
                     let selected_reply = Reply {
+                        headline: String::new(),
                         card_score: 0,
                         body: String::new(),
                         findings: selected.into_iter().cloned().collect(),
@@ -521,6 +525,7 @@ mod tests {
             }
         }
         let missing_source = Reply {
+            headline: String::new(),
             card_score: 0,
             body: String::new(),
             findings: vec![Finding {
@@ -615,6 +620,7 @@ mod tests {
         assert_eq!(
             reference_rumor_heat(
                 &Reply {
+                    headline: String::new(),
                     card_score: 0,
                     body: String::new(),
                     findings: vec![oldest.clone(), intervening.clone(), newest],
@@ -626,6 +632,7 @@ mod tests {
         assert_eq!(
             reference_rumor_heat(
                 &Reply {
+                    headline: String::new(),
                     card_score: 0,
                     body: String::new(),
                     findings: vec![oldest, intervening],

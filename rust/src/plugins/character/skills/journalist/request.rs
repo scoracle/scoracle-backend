@@ -7,7 +7,7 @@ use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use serde::{Deserialize, Serialize};
 
-pub const NARRATIVES_PROMPT_VERSION: &str = "n149-full-profile";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n150-card-hook";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v18-recap-hook-last";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;

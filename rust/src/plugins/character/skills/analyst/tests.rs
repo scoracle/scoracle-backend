@@ -126,7 +126,7 @@ async fn create_from_reference(
 #[tokio::test]
 async fn complete_assignment_creates_validated_product_with_actual_provenance() {
     let model = Model::new(
-        r#"{"blurb":"Kerr's form and mood both strengthen, within their separate windows."}"#,
+        r#"{"blurb":"Kerr's form and mood both strengthen, within their separate windows.","headline":"Kerr finds a spark"}"#,
     );
     let assignment = assignment();
     let out = create_from_reference(&Studio::new(&model), &assignment)
@@ -153,7 +153,7 @@ async fn complete_assignment_creates_validated_product_with_actual_provenance() 
     assert_eq!(out.direction, "rising");
     assert_eq!(out.score, 2);
     assert_eq!(out.card_score, Some(62.5));
-    assert_eq!(out.headline.as_deref(), Some("Vale Kerr: current momentum"));
+    assert_eq!(out.headline.as_deref(), Some("Kerr finds a spark"));
     assert_eq!(out.season, 2026);
     assert_eq!(out.provenance.model_version, "model-that-answered");
     assert_eq!(out.provenance.prompt_version, MOMENTUM_PROMPT_VERSION);
@@ -215,7 +215,7 @@ async fn model_failure_propagates_without_retry() {
 
 #[tokio::test]
 async fn blank_prose_produces_no_product() {
-    let model = Model::new(r#"{"blurb":"  "}"#);
+    let model = Model::new(r#"{"blurb":"  ","headline":"Kerr finds a spark"}"#);
     assert!(create_from_reference(&Studio::new(&model), &assignment())
         .await
         .is_err());
@@ -226,7 +226,7 @@ async fn blank_prose_produces_no_product() {
 #[tokio::test]
 async fn a_single_current_reading_can_describe_its_own_side() {
     let model =
-        Model::new(r#"{"blurb":"The mood reading is calm; measured movement is unavailable."}"#);
+        Model::new(r#"{"blurb":"The mood reading is calm; measured movement is unavailable.","headline":"Kerr finds a spark"}"#);
     let mut assignment = assignment();
     assignment.context = MomentumContext::new(
         2026,
@@ -247,7 +247,7 @@ async fn a_single_current_reading_can_describe_its_own_side() {
         .unwrap();
     assert_eq!(out.direction, "steady");
     assert_eq!(out.score, 0);
-    assert_eq!(out.headline.as_deref(), Some("Vale Kerr: current momentum"));
+    assert_eq!(out.headline.as_deref(), Some("Kerr finds a spark"));
     assert!(out.blurb.contains("mood reading is calm"));
     assert!(out.was_called());
     assert_eq!(model.calls.lock().unwrap().len(), 1);
@@ -364,7 +364,7 @@ async fn sql_metrics_match_legacy_thresholds_and_creation() -> Result<()> {
             snapshot.momentum_score = score;
             a.context = MomentumContext::new(2026, rating, vibe, snapshot);
             let model = Model::new(
-                r#"{"blurb":"Kerr's measured form and mood retain their separate windows."}"#,
+                r#"{"blurb":"Kerr's measured form and mood retain their separate windows.","headline":"Kerr finds a spark"}"#,
             );
             let reference_model = Model::new(&model.response);
             let actual = create(&pool, &Studio::new(&model), &a).await?;

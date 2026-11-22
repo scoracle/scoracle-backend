@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 
 use sqlx::PgPool;
 
-pub const ORACLE_PROMPT_VERSION: &str = "or44-finished-cards";
+pub const ORACLE_PROMPT_VERSION: &str = "or45-card-hook";
 
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;
@@ -19,14 +19,15 @@ pub const ORACLE_TEMPERATURE: f64 = 0.6;
 pub const ORACLE_NUM_PREDICT: i32 = 700;
 
 pub fn generation_options(temperature: f64, num_ctx: i32) -> GenerateOptions {
+    let schema = crate::tools::form::card_schema_raw("reading", false);
     GenerateOptions {
         system: None,
         temperature: Some(temperature),
         num_predict: ORACLE_NUM_PREDICT,
         num_ctx,
         json_mode: false,
-        format_schema: Some(prose().schema()),
-        format_schema_raw: None,
+        format_schema: Some(serde_json::from_str(&schema).expect("card schema")),
+        format_schema_raw: Some(schema),
     }
 }
 
@@ -569,7 +570,7 @@ impl Parts {
 }
 
 pub fn prose() -> crate::tools::form::Prose {
-    crate::tools::form::Prose::new(&["reading"])
+    crate::tools::form::Prose::new(&["reading", "headline"])
 }
 
 #[cfg(test)]

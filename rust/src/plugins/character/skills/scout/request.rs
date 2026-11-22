@@ -12,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s98-stat-direction";
+pub const RATING_PROMPT_VERSION: &str = "s99-card-hook";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -98,14 +98,15 @@ impl Parts {
         num_ctx: i32,
         temperature: f64,
     ) -> crate::harness::model::GenerateOptions {
+        let schema = crate::tools::form::card_schema_raw("body", true);
         crate::harness::model::GenerateOptions {
             system: None,
             temperature: Some(temperature),
             num_predict: RATING_NUM_PREDICT,
             num_ctx,
             json_mode: false,
-            format_schema: Some(parser::prose().schema()),
-            format_schema_raw: None,
+            format_schema: Some(serde_json::from_str(&schema).expect("card schema")),
+            format_schema_raw: Some(schema),
         }
     }
 

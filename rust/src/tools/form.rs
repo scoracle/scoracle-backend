@@ -45,6 +45,33 @@ impl Prose {
     }
 }
 
+/// Each written card has a body and a hook. Scout can also decline both.
+pub fn card_schema_raw(body_key: &str, can_abstain: bool) -> String {
+    let body_key = serde_json::json!(body_key);
+    let object = |body: &str, hook: &str| {
+        format!(
+            r#"{{"type":"object","additionalProperties":false,"required":[{body_key},"headline"],"properties":{{{body_key}:{body},"headline":{hook}}}}}"#
+        )
+    };
+    let prose = r#"{"type":"string","minLength":1}"#;
+    let hook = format!(r#"{{"type":"string","minLength":1,"maxLength":{HOOK_MAX_CHARS}}}"#);
+    let card = object(prose, &hook);
+    if can_abstain {
+        let null = r#"{"type":"null"}"#;
+        let pass = object(null, null);
+        format!(r#"{{"oneOf":[{card},{pass}]}}"#)
+    } else {
+        card
+    }
+}
+
+pub fn card_hook(text: &str) -> String {
+    crate::tools::guards::clean_served_prose(text)
+        .chars()
+        .take(HOOK_MAX_CHARS)
+        .collect()
+}
+
 /// Reader-facing dimensions, independent of any model's tokenization or runtime budget.
 pub const HOOK_MAX_CHARS: usize = 140;
 pub const JOURNALIST_REPORT_MAX_CHARS: usize = 1200;
@@ -258,7 +285,7 @@ pub fn decode_journalist(raw: &str, report_count: usize) -> anyhow::Result<Journ
         "headline and paragraphs must both be present or both abstain"
     );
     if let Some(headline) = &mut reply.headline {
-        *headline = crate::tools::guards::clean_served_prose(&normalize_body(headline));
+        *headline = card_hook(headline);
     }
     if let Some(headline) = &reply.headline {
         validate_body(headline)?;
@@ -286,6 +313,23 @@ mod tests {
     use crate::plugins::character::skills::analyst::parser as analyst;
     use crate::plugins::character::skills::influencer;
     use crate::plugins::character::skills::scout::parser as scout;
+
+    #[test]
+    fn hook_follows_the_body_and_is_bounded_in_characters() {
+        for (body, abstains) in [("body", true), ("blurb", false), ("reading", false)] {
+            let raw = card_schema_raw(body, abstains);
+            let schema: Value = serde_json::from_str(&raw).unwrap();
+            let card = if abstains {
+                &schema["oneOf"][0]
+            } else {
+                &schema
+            };
+            assert_eq!(card["required"], serde_json::json!([body, "headline"]));
+            assert_eq!(card["properties"]["headline"]["maxLength"], HOOK_MAX_CHARS);
+            assert!(raw.contains(&format!(r#""properties":{{"{body}":"#)));
+        }
+        assert_eq!(card_hook(&"é".repeat(141)), "é".repeat(140));
+    }
 
     #[test]
     fn body_validation_preserves_prose_and_refuses_blank_content() {
@@ -325,7 +369,9 @@ mod tests {
         .to_string();
         // Analyst now declares one blurb, so an old scored card is rejected.
         assert!(analyst::MomentumParser.parse(&card).is_err());
-        let analyst_reply = serde_json::json!({"blurb": paragraphs}).to_string();
+        let analyst_reply =
+            serde_json::json!({"blurb": paragraphs, "headline": "The recorded performance"})
+                .to_string();
         assert_eq!(
             analyst::MomentumParser
                 .parse(&analyst_reply)
@@ -334,7 +380,8 @@ mod tests {
                 .blurb,
             paragraphs
         );
-        let keyed = serde_json::json!({"body": paragraphs}).to_string();
+        let keyed = serde_json::json!({"body": paragraphs, "headline": "The recorded performance"})
+            .to_string();
         assert_eq!(
             scout::RatingParser.parse(&keyed).unwrap().unwrap().body,
             paragraphs

@@ -6,7 +6,7 @@ use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 
-pub const PROMPT_VERSION: &str = "insider-source-v47-full-profile";
+pub const PROMPT_VERSION: &str = "insider-source-v48-card-hook";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v7-paragraphs";
 pub const NUM_PREDICT: i32 = 3500;
 pub const BODY_MAX_CHARS: usize = 12000;
@@ -26,7 +26,7 @@ pub fn options(num_ctx: i32) -> GenerateOptions {
         json_mode: false,
         format_schema: Some(serde_json::json!({
             "type": "object", "additionalProperties": false,
-            "required": ["body", "findings"],
+            "required": ["body", "findings", "headline"],
             "properties": {
                 "body": {"type": "string", "maxLength": BODY_MAX_CHARS},
                 "findings": {
@@ -42,7 +42,8 @@ pub fn options(num_ctx: i32) -> GenerateOptions {
                             "evidence_quote": {"type": "string", "minLength":1, "maxLength":EVIDENCE_QUOTE_MAX_CHARS}
                         }
                     }
-                }
+                },
+                "headline": {"type":"string","minLength":1,"maxLength":crate::tools::form::HOOK_MAX_CHARS}
             }
         })),
         format_schema_raw: None,

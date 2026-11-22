@@ -9,7 +9,7 @@ use crate::util::{hash_components, round1};
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s56-card-scores";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s57-card-hook";
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
@@ -322,14 +322,15 @@ pub async fn load_momentum_context(
 
 /// Preserve the current voice-window reservation; all adapters use these same options.
 pub fn generation_options(voice_num_ctx: i32) -> GenerateOptions {
+    let schema = crate::tools::form::card_schema_raw("blurb", false);
     GenerateOptions {
         system: None,
         temperature: Some(MOMENTUM_TEMPERATURE),
         num_predict: MOMENTUM_NUM_PREDICT,
         num_ctx: voice_num_ctx,
         json_mode: false,
-        format_schema: Some(prose().schema()),
-        format_schema_raw: None,
+        format_schema: Some(serde_json::from_str(&schema).expect("card schema")),
+        format_schema_raw: Some(schema),
     }
 }
 
@@ -402,7 +403,7 @@ async fn load_snapshot(
 }
 
 pub fn prose() -> crate::tools::form::Prose {
-    crate::tools::form::Prose::new(&["blurb"])
+    crate::tools::form::Prose::new(&["blurb", "headline"])
 }
 
 #[cfg(test)]

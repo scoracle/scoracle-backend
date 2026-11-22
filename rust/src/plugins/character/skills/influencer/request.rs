@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const MODEL: RouteKey = RouteKey::new("vibe-logic", "VIBE_LOGIC");
-pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v65-full-profile";
+pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v66-card-hook";
 pub const SCORE_VERSION: &str = "emotional-valence-v1";
 pub const VIBE_TEMPERATURE: f64 = 0.0;
 pub const VIBE_NUM_PREDICT: i32 = 3500;

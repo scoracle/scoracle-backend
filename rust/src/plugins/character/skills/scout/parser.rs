@@ -3,7 +3,7 @@ use crate::harness::Parser;
 use anyhow::Result;
 
 pub fn prose() -> crate::tools::form::Prose {
-    crate::tools::form::Prose::new(&["body"])
+    crate::tools::form::Prose::new(&["body", "headline"])
 }
 
 /// Output contract captured separately in the diagnostic ledger.
@@ -30,10 +30,11 @@ pub const RATING_BODY_BANS: &[&str] = &[
     "only verified fixture",
 ];
 
-/// The model supplies only the body.
+/// The model writes the profile and its hook in one call.
 #[derive(Clone, Debug)]
 pub struct RatingReply {
     pub body: String,
+    pub headline: String,
 }
 
 /// An explicit JSON null is a completed pass. Empty or invalid cards remain errors.
@@ -47,7 +48,11 @@ impl Parser<RatingReply> for RatingParser {
         };
         let body = clean_commentary(text);
         crate::tools::form::validate_body(&body)?;
-        Ok(Some(RatingReply { body }))
+        let headline = crate::tools::form::card_hook(
+            map.get("headline")
+                .ok_or_else(|| anyhow::anyhow!("Scout hook missing"))?,
+        );
+        Ok(Some(RatingReply { body, headline }))
     }
 }
 

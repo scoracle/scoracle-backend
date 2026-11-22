@@ -145,17 +145,13 @@ async fn articulate(
         .value
         .ok_or_else(|| anyhow!("momentum: parser returned no value"))?;
     let blurb = reply.blurb;
-    let headline = crate::tools::guards::settle_title(
-        "analyst",
-        Some(&format!("{}: current momentum", assignment.entity_name)),
-    );
     Ok(Some(Generation::called(
         MomentumSummary {
             card_score: ctx.snapshot.card_score(),
             direction,
             score,
             blurb,
-            headline,
+            headline: Some(reply.headline),
             season: ctx.season,
             input_components_json: ctx.input_components_json.clone(),
         },

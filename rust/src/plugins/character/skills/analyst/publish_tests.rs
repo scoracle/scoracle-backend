@@ -13,7 +13,7 @@ use std::time::Duration;
 #[test]
 fn parses_momentum_reply() {
     let parsed =
-        parse_momentum_reply(r#"{"blurb":"Form is rising while the mood is calm."}"#).unwrap();
+        parse_momentum_reply(r#"{"blurb":"Form is rising while the mood is calm.","headline":"Kerr finds a spark"}"#).unwrap();
     assert_eq!(parsed.blurb, "Form is rising while the mood is calm.");
 }
 
@@ -33,20 +33,20 @@ fn preserves_the_written_text_in_any_script() {
     // mid-word in card-facing prose. The reply is well-formed by the JSON contract, so
     // only a content check catches it — reject and let the retry re-roll.
     assert!(
-        parse_momentum_reply(r#"{"blurb":"His playmaking has زمنed in Milwaukee."}"#).is_some()
+        parse_momentum_reply(r#"{"blurb":"His playmaking has زمنed in Milwaukee.","headline":"Kerr finds a spark"}"#).is_some()
     );
     // Latin diacritics are names, not leaks.
     let ok = parse_momentum_reply(
-        r#"{"blurb":"Éder Militão's form is falling, and the tape backs the drop."}"#,
+        r#"{"blurb":"Éder Militão's form is falling, and the tape backs the drop.","headline":"Kerr finds a spark"}"#,
     )
     .expect("diacritics must pass");
     assert!(ok.blurb.contains("Militão"));
 }
 
 #[test]
-fn prose_form_rejects_extra_headline() {
+fn prose_form_rejects_undeclared_fields() {
     assert!(
-        parse_momentum_reply(r#"{"blurb":"The tape is steady.","headline":"Extra"}"#).is_none()
+        parse_momentum_reply(r#"{"blurb":"The tape is steady.","headline":"Steady","extra":"Extra"}"#).is_none()
     );
 }
 
@@ -135,7 +135,7 @@ fn only_readings_or_measured_rails_are_material() {
 /// replaced it: digits in open prose are ordinary sporting evidence, internal numeric field citations are desk notes.
 #[test]
 fn momentum_preserves_digits_and_score_wording() {
-    let read = |blurb: &str| MomentumParser.parse(&serde_json::json!({"blurb":blurb}).to_string());
+    let read = |blurb: &str| MomentumParser.parse(&serde_json::json!({"blurb":blurb,"headline":"The scores tell the story"}).to_string());
 
     // Ships now. Under the old rule every one of these burned a finished READ.
     for ok in [
@@ -169,7 +169,7 @@ fn momentum_preserves_digits_and_score_wording() {
 #[test]
 fn claim_paragraphs_survive_the_production_parser() {
     let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
-    let raw = serde_json::json!({"blurb":body}).to_string();
+    let raw = serde_json::json!({"blurb":body, "headline": "The recorded performance"}).to_string();
     let parsed = MomentumParser.parse(&raw).unwrap().unwrap();
     assert_eq!(parsed.blurb, body);
 }
@@ -191,7 +191,7 @@ impl Inference for LifecycleAdapters {
         Ok((
             GenerateResult {
                 response: if self.response.is_empty() {
-                    serde_json::json!({"blurb": "The measured profile is gaining ground. The mood is warming alongside it. Both supplied readings point upward."}).to_string()
+                    serde_json::json!({"blurb": "The measured profile is gaining ground. The mood is warming alongside it. Both supplied readings point upward.", "headline": "The recorded performance"}).to_string()
                 } else {
                     self.response.clone()
                 },

@@ -36,7 +36,7 @@ impl Parser<VibeReply> for VibeParser {
         let body = value["body"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("Vibe body missing"))?;
-        let headline = crate::util::strip_markdown_emphasis(headline);
+        let headline = crate::tools::form::card_hook(headline);
         validate_body(&headline)?;
         let body = normalize_body(&crate::util::strip_markdown_emphasis(body));
         validate_body(&body)?;

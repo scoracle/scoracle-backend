@@ -1103,12 +1103,12 @@ fn a_declined_body_is_a_pass_and_a_dropped_slot_is_not() {
     // `body: null` is the Scout declining to publish prose. `{}` is a dropped
     // slot, which is a contract violation. The two must not collapse — the
     // whole point of a declared abstention is that it is distinguishable.
-    assert!(RatingParser.parse(r#"{"body": null}"#).unwrap().is_none());
+    assert!(RatingParser.parse(r#"{"body":null,"headline":null}"#).unwrap().is_none());
     assert!(RatingParser.parse(r#"{}"#).is_err());
     assert!(RatingParser.parse(r#"{"headline": "A title"}"#).is_err());
-    assert!(RatingParser.parse(r#"{"body": ""}"#).is_err());
+    assert!(RatingParser.parse(r#"{"body":"","headline":"The recorded performance"}"#).is_err());
     // A declined body cannot smuggle undeclared fields through the decoder.
-    assert!(RatingParser.parse(r#"{"body": null, "score": 3}"#).is_err());
+    assert!(RatingParser.parse(r#"{"body":null,"score":3,"headline":null}"#).is_err());
 }
 
 #[test]
@@ -1117,7 +1117,7 @@ fn claim_paragraphs_survive_the_production_parser() {
     // measures paragraphs rather than lines: a wrapped line is not a break.
     let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
     let parsed = RatingParser
-        .parse(&serde_json::json!({"body": body}).to_string())
+        .parse(&serde_json::json!({"body": body, "headline": "The recorded performance"}).to_string())
         .unwrap()
         .unwrap();
     assert_eq!(parsed.body, body);
@@ -1388,19 +1388,15 @@ fn scout_parts() -> crate::plugins::character::skills::scout::request::Parts {
 
 #[tokio::test]
 async fn prepared_assignment_creates_without_application_services() {
-    // The model now articulates the assembled world, so it returns the keyed
-    // prose map this plugin declares rather than palette indexes.
     let body = "Vale Kerr's blocked shots rank elite in this profile at the 91st percentile, \
                and the stored sample is what that standing rests on.";
-    let model = FakeModel::new(&serde_json::json!({"body": body}).to_string());
+    let model = FakeModel::new(&serde_json::json!({"body": body, "headline": "Kerr owns the block column"}).to_string());
     let output = create(&Studio::new(&model), assignment()).await.unwrap();
     assert_eq!(output.body.as_deref(), Some(body));
     assert_eq!(output.card_score, Some(67.7));
-    // The title is the plugin's own: it names the entity and the kind of read,
-    // which is a fact rather than something to articulate.
     assert_eq!(
         output.headline.as_deref(),
-        Some("Vale Kerr: measured profile")
+        Some("Kerr owns the block column")
     );
     assert_eq!(output.provenance.model_version, "model-that-answered");
     assert_eq!(
@@ -1450,7 +1446,7 @@ async fn a_called_pass_is_a_product_rather_than_an_error() {
     // is a result: it publishes a marker saying so. It is not a missing profile
     // (an uncalled marker) and not a malformed card (an error). The palette path
     // could not express this at all — it had no null to accept.
-    let model = FakeModel::new(r#"{"body": null}"#);
+    let model = FakeModel::new(r#"{"body":null,"headline":null}"#);
     let output = create(&Studio::new(&model), assignment()).await.unwrap();
     assert!(output.abstained);
     assert!(output.body.is_none());

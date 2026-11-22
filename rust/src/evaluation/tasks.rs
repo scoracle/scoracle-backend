@@ -783,7 +783,7 @@ impl LensTask for OracleTask {
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let reading =
             match crate::plugins::character::skills::oracle::parser::ReadingParser.parse(raw) {
-                Ok(Some(reading)) => reading,
+                Ok(Some((reading, _headline))) => reading,
                 Ok(None) => return rejected("Oracle returned no reading"),
                 Err(error) => return rejected(&format!("{error:#}")),
             };
@@ -1068,11 +1068,11 @@ impl LensTask for RatingTask {
         verdict
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let map = match crate::tools::form::decode_prose_map(raw, &["body".into()]) {
-            Ok(map) => map,
+        let parsed = match crate::plugins::character::skills::scout::parser::RatingParser.parse(raw) {
+            Ok(card) => card,
             Err(error) => return rejected(&error.to_string()),
         };
-        let Some(body) = map.get("body") else {
+        let Some(reply) = parsed else {
             // No card. The parse is valid, but the check stays RED: withholding a card is a
             // judgement about the evidence, and only a human review can sign it off. The
             // `abstain` axis that let a fixture pre-authorize this was pruned 10-06 for
@@ -1088,9 +1088,6 @@ impl LensTask for RatingTask {
                 }],
                 display: "abstained — no card".into(),
             };
-        };
-        let reply = crate::plugins::character::skills::scout::parser::RatingReply {
-            body: body.to_string(),
         };
         let mut checks = Vec::new();
 
@@ -1474,7 +1471,7 @@ mod tests {
 
     // --- crown (Oracle) eval: reading -------------------------------------
 
-    const CROWN_OK: &str = r#"{"reading": "The winger's arc holds under a turning sky; the wind toward Liverpool stirs but nothing has broken. A steady hand on a rising line."}"#;
+    const CROWN_OK: &str = r#"{"reading":"The winger's arc holds under a turning sky; the wind toward Liverpool stirs but nothing has broken. A steady hand on a rising line.","headline":"Northbridge gathers pace"}"#;
 
     #[test]
     fn crown_eval_parses_reading_without_a_model_score() {
@@ -1498,7 +1495,7 @@ mod tests {
     #[test]
     fn crown_eval_reading_excludes_catches_pundit_register() {
         // The reading must leave the pundit's register at the door.
-        let raw = r#"{"reading": "Keep an eye on this one going forward."}"#;
+        let raw = r#"{"reading":"Keep an eye on this one going forward.","headline":"Northbridge gathers pace"}"#;
         let x = Expect {
             reading_excludes: Some(vec!["keep an eye".into()]),
             ..Default::default()
@@ -1546,7 +1543,7 @@ mod tests {
         })).unwrap()
     }
 
-    const TRUE_TRANSFER: &str = r#"{"body":"Lina Foss is the subject of Everton talks, according to TV2, but a deal is not final.","findings":[{"report_index":0,"counterparty":"Everton","status":"reported","stage":"advanced_talks","evidence_quote":"Everton are in advanced talks to sign Lina Foss"}]}"#;
+    const TRUE_TRANSFER: &str = r#"{"body":"Lina Foss is the subject of Everton talks, according to TV2, but a deal is not final.","findings":[{"report_index":0,"counterparty":"Everton","status":"reported","stage":"advanced_talks","evidence_quote":"Everton are in advanced talks to sign Lina Foss"}],"headline":"The recorded performance"}"#;
 
     #[test]
     fn transfer_true_positive_has_one_source_linked_finding() {
@@ -1572,13 +1569,13 @@ mod tests {
         let options = transfer_request("Lina Foss").options;
         assert_eq!(
             options.format_schema.unwrap()["required"],
-            serde_json::json!(["body", "findings"])
+            serde_json::json!(["body", "findings", "headline"])
         );
     }
 
     #[test]
     fn transfer_empty_findings_clear_the_move_expectation() {
-        let raw = r#"{"body":"Mika Salo is mentioned, but no move is reported.","findings":[]}"#;
+        let raw = r#"{"body":"Mika Salo is mentioned, but no move is reported.","findings":[],"headline":"The recorded performance"}"#;
         let x = Expect {
             transfer_is_rumor: Some(false),
             subject_includes: Some(vec!["Mika Salo".into()]),
@@ -1597,12 +1594,12 @@ mod tests {
         .unwrap();
         let prepared = TransferTask.prepare_fixture(&fixture).unwrap();
         let supported = TransferTask.evaluate_prepared(&prepared,
-            r#"{"body":"Cedar Bears announced an unnamed signing, according to Example Wire.","findings":[]}"#,
+            r#"{"body":"Cedar Bears announced an unnamed signing, according to Example Wire.","findings":[],"headline":"The recorded performance"}"#,
             None, Some(&fixture.expect));
         assert!(supported.all_checks_pass());
         let contradiction = TransferTask.evaluate_prepared(
             &prepared,
-            r#"{"body":"Cedar Bears have no confirmed signings.","findings":[]}"#,
+            r#"{"body":"Cedar Bears have no confirmed signings.","findings":[],"headline":"The recorded performance"}"#,
             None,
             Some(&fixture.expect),
         );
@@ -1611,7 +1608,7 @@ mod tests {
 
     #[test]
     fn transfer_denial_finding_is_not_a_live_rumor() {
-        let raw = r#"{"body":"Lina Foss is not in talks with Everton, according to TV2.","findings":[{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
+        let raw = r#"{"body":"Lina Foss is not in talks with Everton, according to TV2.","findings":[{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}],"headline":"The recorded performance"}"#;
         let x = Expect {
             transfer_is_rumor: Some(false),
             subject_includes: Some(vec!["Lina Foss".into()]),
@@ -1624,7 +1621,7 @@ mod tests {
 
     #[test]
     fn transfer_new_denial_supersedes_older_report_in_evaluation() {
-        let raw = r#"{"body":"Lina Foss is not in talks with Everton, according to TV2.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered a transfer for Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}]}"#;
+        let raw = r#"{"body":"Lina Foss is not in talks with Everton, according to TV2.","findings":[{"report_index":1,"counterparty":"Everton","status":"reported","stage":"speculation","evidence_quote":"Everton considered a transfer for Lina Foss"},{"report_index":0,"counterparty":"Everton","status":"denied","stage":null,"evidence_quote":"Everton denied talks for Lina Foss"}],"headline":"The recorded performance"}"#;
         let x = Expect {
             transfer_is_rumor: Some(false),
             ..Default::default()
@@ -1636,7 +1633,7 @@ mod tests {
 
     #[test]
     fn transfer_invented_fee_is_caught_by_body_excludes() {
-        let raw = r#"{"body":"Lina Foss is wanted by Everton in a £12m move.","findings":[]}"#;
+        let raw = r#"{"body":"Lina Foss is wanted by Everton in a £12m move.","findings":[],"headline":"The recorded performance"}"#;
         let x = Expect {
             summary_excludes: Some(vec!["£12m".into()]),
             ..Default::default()
@@ -1787,7 +1784,7 @@ mod tests {
     #[test]
     fn rating_lens_gates_on_its_global_invariants_only() {
         let v = RatingTask.evaluate(
-            &serde_json::json!({"body":RATING_REPLY}).to_string(),
+            &serde_json::json!({"body":RATING_REPLY, "headline": "The recorded performance"}).to_string(),
             None,
             None,
         );
@@ -1807,7 +1804,7 @@ mod tests {
     fn rating_product_name_ban_is_case_sensitive_and_body_scoped() {
         // Lowercase "peak" is honest English and must not trip the product-name ban.
         let clean = "Still at the peak of his powers: an elite rim protector at the 94th percentile in blocks who anchors the paint without fouling, and the defensive identity is clear.";
-        let v = RatingTask.evaluate(&serde_json::json!({"body":clean}).to_string(), None, None);
+        let v = RatingTask.evaluate(&serde_json::json!({"body":clean, "headline": "The recorded performance"}).to_string(), None, None);
         assert!(
             v.checks.iter().all(|c| c.pass),
             "clean body tripped: {:?}",
@@ -1815,7 +1812,7 @@ mod tests {
         );
         // An echoed product name in the body is exactly what the check exists to catch.
         let echo = "His PEAK skill is rim protection and the staff must scheme away from it, forcing the ball to the perimeter.";
-        let v = RatingTask.evaluate(&serde_json::json!({"body":echo}).to_string(), None, None);
+        let v = RatingTask.evaluate(&serde_json::json!({"body":echo, "headline": "The recorded performance"}).to_string(), None, None);
         let ban = v
             .checks
             .iter()
@@ -1828,7 +1825,7 @@ mod tests {
 
     #[test]
     fn momentum_parser_extracts_the_read() {
-        let raw = r#"{"blurb":"Recent form is rising while the mood is steady, so the current direction is modestly positive."}"#;
+        let raw = r#"{"blurb":"Recent form is rising while the mood is steady, so the current direction is modestly positive.","headline":"Kerr finds a spark"}"#;
         let parsed =
             crate::plugins::character::skills::analyst::parser::parse_momentum_reply(raw).unwrap();
         assert!(parsed.blurb.contains("form is rising"));
@@ -1855,7 +1852,7 @@ mod tests {
         // s15: the compliant READ speaks the sport's words — product names trip the
         // no_product_names invariant. The per-fixture prose axes are gone (pruned 10-06), so
         // this lens's gate is the two global invariants.
-        let raw = r#"{"blurb":"The mood around the club is pulling the profile down despite steadier recent form."}"#;
+        let raw = r#"{"blurb":"The mood around the club is pulling the profile down despite steadier recent form.","headline":"Kerr finds a spark"}"#;
         let v = MomentumTask.evaluate(raw, None, None);
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
@@ -1864,7 +1861,7 @@ mod tests {
     #[test]
     fn momentum_product_names_trip_the_invariant() {
         // The s14-era register itself: exactly what the s15 contract inverts.
-        let raw = r#"{"blurb":"Vibe is pulling the profile down despite a steadier PEAK read."}"#;
+        let raw = r#"{"blurb":"Vibe is pulling the profile down despite a steadier PEAK read.","headline":"Kerr finds a spark"}"#;
         let v = MomentumTask.evaluate(raw, None, None);
         assert!(v.parsed && !v.all_checks_pass());
         assert!(v.checks.iter().any(|check| !check.pass));
@@ -2217,7 +2214,7 @@ mod tests {
             RatingTask
                 .evaluate_prepared(
                     &request,
-                    r#"{"body":"The recorded profile describes measured contributions."}"#,
+                    r#"{"body":"The recorded profile describes measured contributions.","headline":"The recorded performance"}"#,
                     None,
                     None
                 )
@@ -2227,7 +2224,7 @@ mod tests {
             RatingTask
                 .evaluate_prepared(
                     &request,
-                    r#"{"body":"He averages 99999 blocks."}"#,
+                    r#"{"body":"He averages 99999 blocks.","headline":"The recorded performance"}"#,
                     None,
                     None
                 )
@@ -2238,7 +2235,7 @@ mod tests {
                 .evaluate_prepared(&request, "broken", None, None)
                 .parsed
         );
-        let pass = RatingTask.evaluate_prepared(&request, r#"{"body":null}"#, None, None);
+        let pass = RatingTask.evaluate_prepared(&request, r#"{"body":null,"headline":null}"#, None, None);
         assert!(pass.parsed && !pass.all_checks_pass());
         fx.user_prompt.push(' ');
         assert!(RatingTask.prepare_fixture(&fx).is_err());
@@ -2323,7 +2320,7 @@ mod scout_abstention_tests {
     use super::*;
     #[test]
     fn a_valid_pass_is_visible_without_being_a_vacuous_quality_pass() {
-        let result = RatingTask.evaluate(r#"{"body":null}"#, None, None);
+        let result = RatingTask.evaluate(r#"{"body":null,"headline":null}"#, None, None);
         assert!(result.parsed);
         assert!(result.display.contains("abstained"));
         assert!(result.checks.iter().any(|check| !check.pass));

@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 
 use sqlx::PgPool;
 
-pub const ORACLE_PROMPT_VERSION: &str = "or45-card-hook";
+pub const ORACLE_PROMPT_VERSION: &str = "or46-short-hook";
 
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;

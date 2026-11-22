@@ -9,7 +9,7 @@ use crate::util::{hash_components, round1};
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s57-card-hook";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s58-short-hook";
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.

@@ -12,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s99-card-hook";
+pub const RATING_PROMPT_VERSION: &str = "s100-short-hook";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;

@@ -227,6 +227,8 @@ pub async fn load_character_identity_on(
                 'league', jsonb_build_object('name', l.name, 'country', l.country),
                 'location', jsonb_build_object('city', t.city, 'country', t.country, 'venue', t.venue_name),
                 'conference', t.conference, 'division', t.division, 'gender', t.meta->>'gender',
+                'short_code', t.short_code, 'aliases', NULLIF(t.search_aliases, '{}'::text[]),
+                'founded', t.founded, 'venue_capacity', t.venue_capacity,
                 'coach_on_record', (SELECT jsonb_strip_nulls(jsonb_build_object(
                     'name', pe.full_name, 'source', 'persons.team_id',
                     'observed_at', left(pe.meta->>'affiliation_checked_at',10)))
@@ -238,7 +240,10 @@ pub async fn load_character_identity_on(
         "player" => {
             r#"
             SELECT jsonb_strip_nulls(jsonb_build_object(
-                'position', pci.position, 'nationality', p.nationality,
+                'position', pci.position, 'position_group', pci.position_group,
+                'jersey_number', pci.jersey_number, 'nationality', p.nationality,
+                'date_of_birth', p.date_of_birth, 'height', p.height, 'weight', p.weight,
+                'aliases', NULLIF(p.search_aliases, '{}'::text[]),
                 'affiliation_on_record', jsonb_build_object('team', t.name, 'league', l.name,
                     'source', pci.source, 'observed_at', pci.source_updated_at::date::text)))
             FROM public.players p
@@ -250,6 +255,7 @@ pub async fn load_character_identity_on(
         "person" => {
             r#"
             SELECT jsonb_strip_nulls(jsonb_build_object('role', p.kind,
+                'aliases', NULLIF(p.search_aliases, '{}'::text[]),
                 'affiliation_on_record', jsonb_build_object('team', t.name, 'source', 'persons.team_id',
                     'observed_at', left(p.meta->>'affiliation_checked_at',10))))
             FROM public.persons p LEFT JOIN public.teams t ON t.id=p.team_id AND t.sport=p.sport

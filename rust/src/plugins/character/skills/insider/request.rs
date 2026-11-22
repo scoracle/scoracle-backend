@@ -1,12 +1,12 @@
 //! Daily fresh source preparation, linked mentions and model requests.
-use super::character_instructions::INSTRUCTIONS;
+use super::TASK;
 use crate::harness::route::RouteKey;
 pub const MODEL: RouteKey = RouteKey::new("transfer-logic", "TRANSFER_LOGIC");
 use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use anyhow::Result;
 
-pub const PROMPT_VERSION: &str = "insider-source-v43-task-first";
+pub const PROMPT_VERSION: &str = "insider-source-v47-full-profile";
 pub const OUTPUT_CONTRACT_VERSION: &str = "insider-reading-findings-v7-paragraphs";
 pub const NUM_PREDICT: i32 = 3500;
 pub const BODY_MAX_CHARS: usize = 12000;
@@ -15,7 +15,7 @@ pub const EVIDENCE_QUOTE_MAX_CHARS: usize = 500;
 
 pub fn options(num_ctx: i32) -> GenerateOptions {
     let mut options = GenerateOptions {
-        system: Some(INSTRUCTIONS.system().to_owned()),
+        system: None,
         temperature: Some(0.0),
         num_predict: NUM_PREDICT,
         num_ctx: if num_ctx > 0 {
@@ -141,10 +141,11 @@ pub(super) fn assemble_with_record(
     reports: &[Report],
     database_record: Option<&crate::tools::meta::DatabaseRecord>,
 ) -> String {
-    crate::tools::prompt::assemble(
-        &INSTRUCTIONS,
-        crate::tools::meta::context(subject.for_writing(), database_record),
-        super::fresh::context(reports),
+    crate::tools::prompt::headline_card(
+        TASK,
+        subject,
+        database_record,
+        super::fresh::evidence(reports),
     )
 }
 
@@ -179,14 +180,13 @@ mod tests {
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
         assert_eq!(value["target"]["sport"], "American football");
         assert_eq!(value["evidence"]["reports"][0]["report_index"], 0);
-        assert_eq!(
-            value["evidence"]["reports"][0]["co_mentions"][0]["name"],
-            "Cleveland Browns"
-        );
+        assert!(value["evidence"]["reports"][0].get("co_mentions").is_none());
+        assert!(value["evidence"]["reports"][0].get("classifier_world").is_none());
+        assert_eq!(value["evidence"]["reports"][0]["headline"], "Browns consider Jordan Sample");
         assert!(value["target"].get("entity_id").is_none());
         assert!(value.get("memories").is_none());
         assert!(value["task"].is_string());
-        assert_eq!(options(7900).system.as_deref(), Some(INSTRUCTIONS.system()));
+        assert!(options(7900).system.is_none());
         assert!(value.get("form").is_none());
     }
 

@@ -26,10 +26,7 @@ async fn persist_momentum_summary(
     out: &MomentumOutput,
 ) -> Result<i64> {
     let trigger_payload = serde_json::json!({});
-    let measured = serde_json::from_str::<serde_json::Value>(&out.input_components_json)?
-        .get("momentum_score")
-        .and_then(serde_json::Value::as_f64)
-        .is_some();
+    let measured = out.card_score.is_some();
     let row = sqlx::query(
         r#"
         INSERT INTO public.momentum_summaries (

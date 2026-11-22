@@ -30,7 +30,7 @@ pub(super) async fn load(
         .iter()
         .map(|s| s.published_at_epoch)
         .collect::<Vec<_>>();
-    let row: (i64, i32, i64, i64, f64, f64, f64, i16) =
+    let row: (i64, i32, i64, i64, f64, f64, f64) =
         sqlx::query_as(include_str!("activity.sql"))
             .bind(publishers)
             .bind(epochs)
@@ -43,7 +43,7 @@ pub(super) async fn load(
             components: json!({"policy":"source-activity-v2","article_count":row.2,
                 "distinct_sources":row.3,"volume":row.4,"source_breadth":row.5,"recency":row.6}),
         },
-        card_score: row.7,
+        card_score: crate::tools::source::activity_score(corpus.len()),
     })
 }
 
@@ -82,6 +82,6 @@ pub(super) fn reference(corpus: &[CorpusItem], now: i64) -> EditionActivity {
             let (score, components) = reference_score(corpus, now);
             Activity { score, components }
         },
-        card_score: reference_score(corpus, now).0.clamp(1, 99) as i16,
+        card_score: crate::tools::source::activity_score(corpus.len()),
     }
 }

@@ -114,12 +114,14 @@ fn observed_zero_and_missing_measurement_stay_distinct_without_extra_trend() {
             label: "Goalscoring".into(),
             measure: "goals".into(),
             value: Some(0.0),
+            in_comp: true,
             sign: 1,
             ..Default::default()
         },
         RatingDatapoint {
             label: "Chance Creation".into(),
             measure: "expected assists".into(),
+            in_comp: true,
             sign: 1,
             ..Default::default()
         },
@@ -255,21 +257,14 @@ fn season_changes_stay_with_their_own_skill() {
             .cloned()
             .unwrap_or_else(|| panic!("{label} is missing from {values}"))
     };
-    // Creation carries its own prior percentile. Chance Creation has no
-    // compatible comparison, so selection drops it rather than presenting it
-    // beside a comparison that belongs to a different skill.
     assert_eq!(
         by_label("Creation")["prior_percentile"],
         serde_json::json!(95.0)
     );
     assert_eq!(by_label("Creation")["percentile"], serde_json::json!(66.0));
     assert_eq!(by_label("Creation")["standing_change"], "fell");
-    assert!(
-        !listed
-            .iter()
-            .any(|v| v["label"] == serde_json::json!("Chance Creation")),
-        "a measurement with no comparison must not borrow another's: {values}"
-    );
+    assert!(by_label("Chance Creation").get("standing_change").is_none());
+    assert!(by_label("Chance Creation").get("prior_percentile").is_none());
 }
 
 #[test]
@@ -386,8 +381,32 @@ fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32) -> RatingDatapoint {
         z: Some(z),
         pct: Some(pct),
         sign,
+        in_comp: true,
         ..Default::default()
     }
+}
+
+#[test]
+fn scout_keeps_raw_stat_direction_separate_from_peer_standing() {
+    let mut p = profile_player();
+    p.breakdown = vec![
+        dp("Yards Drawn", 520.0, 2.1, 100.0, 1),
+        dp("Points Allowed", 90.0, -1.7, 95.0, -1),
+        dp("Unspecified", 3.0, 0.0, 50.0, 0),
+    ];
+    let prompt = world(
+        &req("NFL", "team", "Test Team"),
+        &p,
+        None,
+        &RatingExclusions::default(),
+    );
+    let packet: serde_json::Value = serde_json::from_str(&prompt).unwrap();
+    assert!(packet["evidence_context"][0].as_str().unwrap().contains("yards the opponents lost"));
+    let values = &packet["evidence"]["values"];
+    assert_eq!(values[0]["better_value"], "higher");
+    assert_eq!(values[1]["better_value"], "lower");
+    assert_eq!(values[1]["percentile"], 95.0);
+    assert!(values[2].get("better_value").is_none());
 }
 
 #[test]
@@ -440,7 +459,7 @@ fn world(
     _exclusions: &RatingExclusions,
 ) -> String {
     let supports_cross_season = supports_cross_season_comparison(profile);
-    let selected = model_prompt_profile(profile, supports_cross_season, comparisons);
+    let selected = model_prompt_profile(profile);
     crate::plugins::character::skills::scout::request::Parts {
         database_record: None,
         availability: Default::default(),
@@ -489,6 +508,7 @@ fn profile_player() -> RatingProfile {
         entity_type: "player".to_string(),
         season: 2025,
         position: "Guard".to_string(),
+        card_score: None,
         composite_score: Some(67.0),
         breakdown: vec![scoring, dp("Defense", 2.5, -0.5, 40.0, 1)],
         scoped_ranks: HashMap::new(),
@@ -514,25 +534,23 @@ fn serialized_request_is_one_self_contained_json_document() {
     let options = scout_parts().generation_options(32768, 0.0);
     assert_eq!(
         options.system.as_deref(),
-        Some(
-            crate::plugins::character::skills::scout::character_instructions::INSTRUCTIONS.system()
-        )
+        None
     );
     let request = client.request_body(&prompt, &options);
-    assert_eq!(request["messages"].as_array().unwrap().len(), 2);
+    assert_eq!(request["messages"].as_array().unwrap().len(), 1);
     assert!(request.get("tools").is_none());
-    let evidence = request["messages"][1]["content"].as_str().unwrap();
+    let evidence = request["messages"][0]["content"].as_str().unwrap();
     let package: serde_json::Value = serde_json::from_str(evidence).unwrap();
     assert_eq!(package.as_object().unwrap().len(), 5);
-    for part in [
-        "task",
-        "target_context",
-        "target",
-        "evidence_context",
-        "evidence",
-    ] {
-        assert!(package.get(part).is_some(), "package is missing {part}");
-    }
+    let positions: Vec<_> = ["task", "target_context", "target", "evidence_context", "evidence"]
+        .iter()
+        .map(|field| evidence.find(&format!("\n  \"{field}\":")).unwrap())
+        .collect();
+    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+    let context = package["evidence_context"][0].as_str().unwrap();
+    assert!(context.contains("statistical data points"));
+    assert!(package["evidence"].get("availability").is_none());
+    assert!(!evidence.contains("availability"));
     assert!(package["task"].is_string());
     let values = fresh(evidence);
     assert_eq!(
@@ -585,6 +603,7 @@ fn nfl_profile(position: &str, breakdown: Vec<RatingDatapoint>) -> RatingProfile
         entity_type: "player".to_string(),
         season: 2025,
         position: position.to_string(),
+        card_score: None,
         composite_score: Some(60.0),
         breakdown,
         scoped_ranks: HashMap::new(),
@@ -614,7 +633,7 @@ fn off_facet_filter_drops_other_side_for_qb() {
             faceted("Tackling", 0.0, "defense"),
         ],
     );
-    let dropped = drop_off_facet_datapoints(&mut p);
+    let dropped = drop_off_facet_datapoints(&mut p, "NFL");
     assert_eq!(dropped, vec!["Tackling", "Tackles For Loss"]);
     let labels: Vec<&str> = p.breakdown.iter().map(|d| d.label.as_str()).collect();
     assert_eq!(labels, vec!["Passing Yards", "Giveaways"]);
@@ -630,7 +649,7 @@ fn off_facet_filter_drops_offense_for_cornerback_spelled_out() {
             faceted("Receiving Yards", 2.0, "offense"),
         ],
     );
-    let dropped = drop_off_facet_datapoints(&mut p);
+    let dropped = drop_off_facet_datapoints(&mut p, "NFL");
     assert_eq!(dropped, vec!["Receiving Yards"]);
 }
 
@@ -644,21 +663,18 @@ fn off_facet_filter_fails_open_for_special_teams_and_unknown() {
                 faceted("Tackling", 10.0, "defense"),
             ],
         );
-        assert!(drop_off_facet_datapoints(&mut p).is_empty(), "pos={pos:?}");
+        assert!(drop_off_facet_datapoints(&mut p, "NFL").is_empty(), "pos={pos:?}");
         assert_eq!(p.breakdown.len(), 2, "pos={pos:?}");
     }
 }
 
 #[test]
-fn off_facet_filter_noops_without_nfl_facets() {
-    // NBA "Guard" collides with the NFL position name, but NBA breakdowns carry
-    // facet="all" (or ""), which the filter never touches — the facet VALUE gates,
-    // not the position alone.
+fn basketball_guards_keep_their_defensive_measurements() {
     let mut p = nfl_profile(
         "Guard",
-        vec![faceted("Scoring", 95.0, "all"), faceted("Steals", 20.0, "")],
+        vec![faceted("Scoring", 95.0, "offense"), faceted("Steals", 20.0, "defense")],
     );
-    assert!(drop_off_facet_datapoints(&mut p).is_empty());
+    assert!(drop_off_facet_datapoints(&mut p, "NBA").is_empty());
     assert_eq!(p.breakdown.len(), 2);
 }
 
@@ -784,9 +800,9 @@ fn a_players_world_is_byte_stable() {
     );
     let expected = serde_json::json!({
         "target": {"name":"Test Player", "entity_type":"player", "sport":"basketball"},
-        "evidence": {"availability": [], "season":2025, "values":[
-            {"label":"Scoring","measure":"Scoring","value":24.0,"percentile":95.0,"band":"elite"},
-            {"label":"Defense","measure":"Defense","value":2.5,"percentile":40.0,"band":"below average"}],
+        "evidence": {"comparison_group":"players", "season":2025, "values":[
+            {"label":"Scoring","measure":"Scoring","value":24.0,"better_value":"higher","percentile":95.0,"band":"elite"},
+            {"label":"Defense","measure":"Defense","value":2.5,"better_value":"higher","percentile":40.0,"band":"below average"}],
             "supports_cross_season":false, "limit":{"kind":"unknown_sample","minimum":10.0}}
     });
     let mut actual: serde_json::Value = serde_json::from_str(&world).unwrap();
@@ -795,7 +811,7 @@ fn a_players_world_is_byte_stable() {
         .is_some_and(|s| !s.is_empty()));
     assert_eq!(
         actual["task"],
-        crate::plugins::character::skills::scout::character_instructions::INSTRUCTIONS.job()
+        crate::plugins::character::skills::scout::TASK
     );
     for field in ["task", "target_context", "evidence_context"] {
         actual.as_object_mut().unwrap().remove(field);
@@ -815,6 +831,7 @@ fn a_teams_world_omits_a_composite_it_does_not_have() {
         entity_type: "team".to_string(),
         season: 2025,
         position: String::new(),
+        card_score: None,
         composite_score: None,
         breakdown: vec![dp("Defense", 0.38, 1.2, 78.0, 1)],
         scoped_ranks: HashMap::new(),
@@ -827,6 +844,7 @@ fn a_teams_world_omits_a_composite_it_does_not_have() {
         &RatingExclusions::default(),
     );
     let fresh = fresh(&world);
+    assert_eq!(fresh["comparison_group"], "teams");
     assert!(fresh["composite"].is_null());
     assert_eq!(fresh["values"][0]["band"], serde_json::json!("strong"));
     assert_eq!(fresh["values"][0]["percentile"], serde_json::json!(78.0));
@@ -868,6 +886,7 @@ fn input_components_omits_absent_optional_keys() {
         entity_type: "team".to_string(),
         season: 2024,
         position: String::new(),
+        card_score: None,
         composite_score: None,
         breakdown: vec![],
         scoped_ranks: HashMap::new(),
@@ -919,31 +938,6 @@ fn compute_notability_known_case() {
     assert_eq!(comps["top_pct"], 95.0);
     assert_eq!(comps["elite_count"], 1);
     assert_eq!(comps["composite"], 67.0);
-}
-
-#[test]
-fn ordered_facts_sorts_desc_and_truncates() {
-    let p = RatingProfile {
-        observed_at: None,
-        sample: Default::default(),
-        league_id: None,
-        entity_type: "player".to_string(),
-        season: 2025,
-        position: String::new(),
-        composite_score: None,
-        breakdown: vec![
-            dp("low", 1.0, 0.0, 20.0, 1),
-            dp("high", 1.0, 0.0, 90.0, 1),
-            dp("mid", 1.0, 0.0, 55.0, 1),
-        ],
-        scoped_ranks: HashMap::new(),
-        rate_modes: HashMap::new(),
-    };
-    let ordered = ordered_facts(&p.breakdown);
-    assert_eq!(
-        ordered.iter().map(|d| d.label.as_str()).collect::<Vec<_>>(),
-        vec!["high", "mid", "low"]
-    );
 }
 
 #[test]
@@ -1092,338 +1086,17 @@ fn rating_parser_rejects_empty_cards() {
     assert!(RatingParser.parse("").is_err());
 }
 
-#[test]
-fn request_parser_rewrites_reversed_comparison_direction() {
-    let directions = BTreeMap::from([
-        ("Scoring".into(), RelativeDirection::Rose),
-        ("Steals".into(), RelativeDirection::Fell),
-    ]);
-    let bands = BTreeMap::new();
-    let parser = RatingRequestParser::new(
-        "Scoring and steals comparison supplied.",
-        &directions,
-        &bands,
-    );
-    let reversed = parser
-        .parse(r#"{"body":"Scoring declined relative to peers."}"#)
-        .unwrap_err();
-    assert!(reversed.is::<crate::tools::form::SurfaceError>());
-    assert!(reversed.to_string().contains("evidence says it rose"));
 
-    let accepted = parser
-        .parse(r#"{"body":"Scoring rose while steals fell relative to peers."}"#)
-        .unwrap()
-        .unwrap();
-    assert!(accepted.body.contains("Scoring rose"));
 
-    let grouped = parser
-        .parse(r#"{"body":"Scoring, steals, and playmaking are below average, with relative standing improving across these areas."}"#)
-        .unwrap_err();
-    assert!(grouped.to_string().contains("Steals rose"));
 
-    let stable_rebounder_directions =
-        BTreeMap::from([("Rebounding".into(), RelativeDirection::Rose)]);
-    let stable_rebounder = RatingRequestParser::new(
-        "Rebounding comparison supplied.",
-        &stable_rebounder_directions,
-        &bands,
-    )
-    .parse(r#"{"body":"He remains a consistent rebounder."}"#)
-    .unwrap_err();
-    assert!(stable_rebounder
-        .to_string()
-        .contains("says Rebounding held"));
-}
 
-#[test]
-fn request_parser_rewrites_an_unsourced_height() {
-    let directions = BTreeMap::new();
-    let bands = BTreeMap::new();
-    let parser = RatingRequestParser::new("A center for Portland.", &directions, &bands);
-    let error = parser
-        .parse(r#"{"body":"The 6'9\" center protects the rim."}"#)
-        .unwrap_err();
-    assert!(error.is::<crate::tools::form::SurfaceError>());
-    assert!(error.to_string().contains("invents height"));
 
-    let possessive = parser
-        .parse(r#"{"body":"LeVert’s scoring profile is measured."}"#)
-        .expect("a typographic possessive is not a height")
-        .expect("a reply");
-    assert!(possessive.body.contains("LeVert’s"));
-}
 
-#[test]
-fn request_parser_rewrites_numeric_values_absent_from_the_assignment() {
-    let directions = BTreeMap::new();
-    let bands = BTreeMap::new();
-    let parser = RatingRequestParser::new(
-        "Rating: 6.74. Finishing: percentile 91.2. Relative standing rose by 3.5 percentile points.",
-        &directions,
-        &bands,
-    );
-    let invented = parser
-        .parse(r#"{"body":"The rating is 3.71 after a 0.44 rise."}"#)
-        .unwrap_err();
-    assert!(invented.is::<crate::tools::form::SurfaceError>());
-    assert!(invented.to_string().contains("numeric value 3.71"));
 
-    let grounded = parser
-        .parse(r#"{"body":"The rating is 6.74 after a 3.5-point rise."}"#)
-        .unwrap()
-        .unwrap();
-    assert!(grounded.body.contains("6.74"));
-}
 
-#[test]
-fn request_parser_rewrites_mixed_blanket_claims_and_self_contradictory_form() {
-    let directions = BTreeMap::from([
-        ("Scoring".into(), RelativeDirection::Rose),
-        ("Steals".into(), RelativeDirection::Fell),
-    ]);
-    let bands = BTreeMap::new();
-    let parser =
-        RatingRequestParser::new("Comparison and recent form supplied.", &directions, &bands);
-    let blanket = parser
-        .parse(r#"{"body":"The player shows consistent improvement across key metrics."}"#)
-        .unwrap_err();
-    assert!(blanket.to_string().contains("mixed directions"));
 
-    let form = parser
-        .parse(r#"{"body":"A downward trend is visible, but the player remains in strong form."}"#)
-        .unwrap_err();
-    assert!(form
-        .to_string()
-        .contains("both strong/rising and declining/falling"));
-}
 
-#[test]
-fn request_parser_keeps_separate_comparison_clauses_separate() {
-    let directions = BTreeMap::from([
-        ("Rebounding".into(), RelativeDirection::Rose),
-        ("Assists".into(), RelativeDirection::Held),
-    ]);
-    let bands = BTreeMap::new();
-    let parser = RatingRequestParser::new("Comparison supplied.", &directions, &bands);
-    for connector in ["while", "whereas", "but"] {
-        let body = format!("Rebounding rose, {connector} assists held steady.");
-        assert!(parser
-            .parse(&serde_json::json!({"body":body}).to_string())
-            .is_ok());
-    }
-    assert!(parser
-        .parse(r#"{"body":"Rebounding rose; assists held steady."}"#)
-        .is_ok());
-    assert!(parser
-        .parse(r#"{"body":"Rebounding and assists both rose."}"#)
-        .is_err());
-    assert!(parser
-        .parse(r#"{"body":"Rebounding fell while assists held."}"#)
-        .is_err());
-}
 
-#[test]
-fn request_parser_does_not_turn_percentile_movement_into_development() {
-    let directions = BTreeMap::new();
-    let bands = BTreeMap::new();
-    let parser = RatingRequestParser::new(
-        r#"{"fresh":{"supports_cross_season":true}}"#,
-        &directions,
-        &bands,
-    );
-    let error = parser
-        .parse(r#"{"body":"This reflects consistent development across the season."}"#)
-        .unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("does not establish player development"));
-}
-
-#[test]
-fn request_parser_keeps_xg_and_xa_attached_to_their_measures() {
-    let directions = BTreeMap::new();
-    let bands = BTreeMap::new();
-    let parser = RatingRequestParser::new("xG and xA evidence supplied.", &directions, &bands);
-    let xg = parser
-        .parse(r#"{"body":"His xG indicates strong creation."}"#)
-        .unwrap_err();
-    assert!(xg.to_string().contains("xG) is shooting/scoring evidence"));
-
-    let xa = parser
-        .parse(r#"{"body":"Expected assists show stronger finishing."}"#)
-        .unwrap_err();
-    assert!(xa.to_string().contains("xA) is creation evidence"));
-
-    let grouped = parser
-        .parse(r#"{"body":"His xG and xA are both at elite percentiles (99.2 and 97.0)."}"#)
-        .unwrap_err();
-    assert!(grouped.to_string().contains("separate claims"));
-
-    let accepted = parser
-        .parse(r#"{"body":"His xG supports the shooting read, while xA supports creation."}"#)
-        .unwrap()
-        .unwrap();
-    assert!(accepted.body.contains("xA supports creation"));
-
-    assert!(parser
-        .parse(r#"{"body":"The exact scoring measurement is supplied."}"#)
-        .is_ok());
-    assert!(parser
-        .parse(r#"{"body":"The exact xG percentile measures shooting."}"#)
-        .is_ok());
-    assert!(parser
-        .parse(r#"{"body":"His (xA) supports finishing."}"#)
-        .is_err());
-}
-
-#[test]
-fn request_parser_preserves_weighted_measures_and_thin_sample_coverage() {
-    let directions = BTreeMap::new();
-    let bands = BTreeMap::new();
-    let prompt = r#"{"fresh":{"supports_cross_season":false,"limit":{"kind":"thin_sample","appearances":3,"minimum":10},"sample":{"appearances":3,"minutes":257},"values":[{"label":"Discipline","value":1,"measure":"yellow cards + 3 x red cards"}]}}"#;
-    let parser = RatingRequestParser::new(prompt, &directions, &bands);
-    let cards = parser
-        .parse(r#"{"body":"Discipline is poor: 1 yellow + 3 red cards."}"#)
-        .unwrap_err();
-    assert!(cards.to_string().contains("weighted formula"));
-
-    let games = parser
-        .parse(r#"{"body":"Rogers played 3 games with 257 minutes."}"#)
-        .unwrap_err();
-    assert!(games.to_string().contains("source coverage"));
-
-    let bare_sample = parser
-        .parse(r#"{"body":"Rogers has 3 appearances and 257 minutes."}"#)
-        .unwrap_err();
-    assert!(bare_sample.to_string().contains("source coverage"));
-
-    assert!(parser
-        .parse(r#"{"body":"Rogers has a thin sample of 3 appearances and 257 minutes."}"#)
-        .is_ok());
-
-    let stability = parser
-        .parse(r#"{"body":"No change in relative standing is indicated; he remains reliable and consistently elite."}"#)
-        .unwrap_err();
-    assert!(stability
-        .to_string()
-        .contains("no computed cross-season direction"));
-
-    let psychology = parser
-        .parse(r#"{"body":"His reported frustration may influence his decision-making under pressure."}"#)
-        .unwrap_err();
-    assert!(psychology.to_string().contains("psychological inference"));
-
-    // The retired thin-sample boundary told the model to stay under 800
-    // characters. That was an instruction the model was asked to honour, and it
-    // is gone. Thin-sample claim guards remain, while body length is writing guidance.
-    let long_body = "x".repeat(2400);
-    let longer = parser
-        .parse(&serde_json::json!({"body":long_body}).to_string())
-        .unwrap()
-        .unwrap();
-    assert_eq!(longer.body, long_body);
-
-    let accepted = parser
-        .parse(r#"{"body":"The stored snapshot records 3 appearances and 257 minutes. Discipline ranks poorly."}"#)
-        .unwrap()
-        .unwrap();
-    assert!(accepted.body.contains("stored snapshot"));
-}
-
-#[test]
-fn thin_sample_stability_is_claim_shaped_not_word_shaped() {
-    let directions = BTreeMap::new();
-    let bands = BTreeMap::from([("Goals Against".into(), "elite".into())]);
-    let prompt = r#"{"fresh":{"supports_cross_season":false,"values":[{"label":"Goals Against","value":1,"percentile":100.0,"band":"elite"}]}}"#;
-    let parser = RatingRequestParser::new(prompt, &directions, &bands);
-
-    // Within-snapshot consistency is a description of standing, not a cross-time claim.
-    let snapshot = parser
-        .parse(r#"{"body":"The team maintains consistent defensive discipline in this stored snapshot."}"#)
-        .unwrap()
-        .unwrap();
-    assert!(snapshot.body.contains("consistent defensive discipline"));
-
-    // Reaching across time is still rejected.
-    let cross_season = parser
-        .parse(r#"{"body":"He stayed stable compared with last season."}"#)
-        .unwrap_err();
-    assert!(cross_season
-        .to_string()
-        .contains("no computed cross-season direction"));
-
-    // A direction verb tied to a named measure has no per-measure trend evidence.
-    let measure_trend = parser
-        .parse(r#"{"body":"Goals Against has declined recently."}"#)
-        .unwrap_err();
-    assert!(measure_trend.to_string().contains("no per-measure trend"));
-
-    // The supplied overall-score trend line is not a measure, so it stays free.
-    let supplied_trend = parser
-        .parse(r#"{"body":"The overall scores are trending down over recent games."}"#)
-        .unwrap()
-        .unwrap();
-    assert!(supplied_trend.body.contains("trending down"));
-
-    // One-appearance assignments carry the same no-comparison contract.
-    let one = RatingRequestParser::new(
-        r#"{"fresh":{"supports_cross_season":false,"limit":{"kind":"one_appearance","appearances":1}}}"#,
-        &directions,
-        &bands,
-    )
-    .parse(r#"{"body":"Unchanged from the previous season."}"#)
-    .unwrap_err();
-    assert!(one.to_string().contains("cross-season"));
-}
-
-#[test]
-fn request_parser_keeps_quality_words_in_the_supplied_percentile_band() {
-    let directions = BTreeMap::new();
-    let bands = BTreeMap::from([
-        ("Tackling".into(), "below average".into()),
-        ("Chance Creation".into(), "elite".into()),
-        ("Creation".into(), "strong".into()),
-    ]);
-    let parser = RatingRequestParser::new("Percentile bands supplied.", &directions, &bands);
-    let error = parser
-        .parse(r#"{"body":"Tackling is above average, while Chance Creation is elite."}"#)
-        .unwrap_err();
-    assert!(error.to_string().contains("Tackling above average"));
-    assert!(error.to_string().contains("below average"));
-
-    let accepted = parser
-        .parse(r#"{"body":"Tackling is below average, while Chance Creation is elite."}"#)
-        .unwrap()
-        .unwrap();
-    assert!(accepted.body.contains("Chance Creation is elite"));
-}
-
-#[test]
-fn averaging_a_measure_does_not_call_its_percentile_average() {
-    let directions = BTreeMap::new();
-    let bands = BTreeMap::from([("Rebounds".into(), "elite".into())]);
-    let parser = RatingRequestParser::new("48 rebounds per game", &directions, &bands);
-    assert!(parser
-        .parse(r#"{"body":"The team averaged 48 rebounds per game."}"#)
-        .is_ok());
-    assert!(parser
-        .parse(r#"{"body":"Rebounds rank average."}"#)
-        .is_err());
-}
-
-#[test]
-fn held_assists_cannot_fall_when_the_reply_uses_the_singular_label() {
-    let directions = BTreeMap::from([("Assists".into(), RelativeDirection::Held)]);
-    let bands = BTreeMap::new();
-    let parser = RatingRequestParser::new("23 assists per game", &directions, &bands);
-    let error = parser
-        .parse(r#"{"body":"The assist per game average fell slightly."}"#)
-        .unwrap_err();
-    assert!(error.to_string().contains("Assists changed"));
-    assert!(parser
-        .parse(r#"{"body":"The assist standing held."}"#)
-        .is_ok());
-}
 
 #[test]
 fn a_declined_body_is_a_pass_and_a_dropped_slot_is_not() {
@@ -1489,59 +1162,29 @@ fn a_thin_sample_states_its_boundary_instead_of_describing_it() {
     // The manual says what the boundary forbids, in the same terms the guard
     // enforces. A limit in the world that the manual does not describe is a
     // limit the model will talk past.
-    let manual = crate::plugins::character::skills::scout::character_instructions::INSTRUCTIONS
-        .system()
+    let manual = crate::plugins::character::skills::scout::TASK
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
     assert!(manual.contains("source coverage, not playing time"));
-    assert!(manual.contains("Missing comparison is unknown, not stability"));
 
     p.sample.insert("appearances".to_string(), 10.0);
     assert!(supports_cross_season_comparison(&p));
 }
 
 #[test]
-fn thin_sample_selection_omits_discipline_in_code() {
+fn scout_uses_the_curated_profile_in_engine_order_even_for_a_thin_sample() {
     let mut p = profile_player();
-    p.sample.insert("appearances".to_string(), 3.0);
-    // Elite Discipline among the two highest percentiles: the old boundary handed it to
-    // the model with an order to omit; selection now withholds it in code.
-    p.breakdown.push(dp("Discipline", 0.2, 1.9, 95.0, -1));
-    p.breakdown.push(dp("Passing", 9.0, 0.5, 80.0, 1));
-
-    assert_eq!(thin_sample_omitted_stat_labels(&p), vec!["Discipline"]);
-    let prompt_profile = model_prompt_profile(&p, false, None);
-    assert_eq!(prompt_profile.breakdown.len(), 2);
-    assert!(prompt_profile
-        .breakdown
-        .iter()
-        .all(|datapoint| datapoint.label != "Discipline"));
-    assert_eq!(prompt_profile.breakdown[0].label, "Scoring");
-    assert_eq!(prompt_profile.breakdown[1].label, "Passing");
-
-    // A full sample keeps Discipline available.
-    p.sample.insert("appearances".to_string(), 12.0);
-    assert!(thin_sample_omitted_stat_labels(&p).is_empty());
-    let full_prompt_profile = model_prompt_profile(&p, true, None);
-    assert!(full_prompt_profile
-        .breakdown
-        .iter()
-        .any(|datapoint| datapoint.label == "Discipline"));
-}
-
-#[test]
-fn thin_current_sample_shows_only_its_two_highest_ranked_measures() {
-    let mut p = profile_player();
-    p.sample.insert("appearances".to_string(), 3.0);
-    p.breakdown.push(dp("Passing", 9.0, 0.5, 80.0, 1));
-
-    let prompt_profile = model_prompt_profile(&p, false, None);
-    assert_eq!(prompt_profile.composite_score, None);
-    assert_eq!(prompt_profile.breakdown.len(), 2);
-    assert_eq!(prompt_profile.breakdown[0].label, "Scoring");
-    assert_eq!(prompt_profile.breakdown[1].label, "Passing");
-    assert_eq!(prompt_profile.sample["appearances"], 3.0);
+    p.sample.insert("appearances".into(), 3.0);
+    let mut specialist = dp("Specialist only", 12.0, 2.0, 96.0, 1);
+    specialist.in_comp = false;
+    specialist.in_spec = true;
+    p.breakdown.push(specialist);
+    p.breakdown.push(dp("Discipline", 0.0, 0.0, 50.0, -1));
+    let selected = model_prompt_profile(&p);
+    let labels: Vec<_> = selected.breakdown.iter().map(|d| d.label.as_str()).collect();
+    assert_eq!(labels, ["Scoring", "Defense", "Discipline"]);
+    assert!(selected.composite_score.is_none());
 }
 
 #[test]
@@ -1567,7 +1210,7 @@ fn unselected_measures_do_not_clutter_context() {
 }
 
 #[test]
-fn comparative_model_profile_keeps_changes_and_strongest_held_anchors() {
+fn a_stable_measure_stays_in_the_current_performance_profile() {
     let labels = [
         "Rise A",
         "Rise B",
@@ -1594,19 +1237,21 @@ fn comparative_model_profile_keeps_changes_and_strongest_held_anchors() {
             .collect(),
     );
     let changes = build_skill_changes(&current, &prior);
-    let prompt_profile = model_prompt_profile(&current, true, Some(&changes));
+    let prompt_profile = model_prompt_profile(&current);
+    let parts = profile_parts(&prompt_profile, true, Some(&changes));
+    assert!(parts.values.iter().all(|v| v.prior_percentile.is_some()));
     let labels = prompt_profile
         .breakdown
         .iter()
         .map(|datapoint| datapoint.label.as_str())
         .collect::<HashSet<_>>();
 
-    assert_eq!(labels.len(), 6);
+    assert_eq!(labels.len(), 7);
     assert!(labels.contains("Rise A"));
     assert!(labels.contains("Fall B"));
     assert!(labels.contains("Held High"));
     assert!(labels.contains("Held Mid"));
-    assert!(!labels.contains("Held Low"));
+    assert!(labels.contains("Held Low"));
 }
 
 /// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
@@ -1680,6 +1325,7 @@ fn assignment() -> Assignment {
             sport_name: String::new(),
         },
         season: 2026,
+        card_score: Some(67.7),
         notability: 72,
         notability_components: serde_json::json!({"top_pct": 91.0}),
         rating_trajectory: RatingTrajectory {
@@ -1722,17 +1368,17 @@ fn scout_parts() -> crate::plugins::character::skills::scout::request::Parts {
         profile: crate::plugins::character::skills::scout::performance::Profile {
             season: 2026,
             sample: BTreeMap::new(),
-            values: vec![
-                crate::plugins::character::skills::scout::performance::MeasuredValue {
-                    label: "Blocks Per Game".into(),
-                    measure: "blocks_per_game".into(),
-                    value: None,
-                    percentile: Some(91.0),
-                    cohort: None,
-                    band: Some("elite".into()),
-                    prior_percentile: None,
-                },
-            ],
+            values: vec![crate::plugins::character::skills::scout::performance::MeasuredValue {
+                facet: "defense".into(),
+                label: "Blocks Per Game".into(),
+                measure: "blocks_per_game".into(),
+                value: None,
+                better_value: None,
+                percentile: Some(91.0),
+                cohort: None,
+                band: Some("elite".into()),
+                prior_percentile: None,
+            }],
             composite: None,
             supports_cross_season: false,
             limit: None,
@@ -1749,6 +1395,7 @@ async fn prepared_assignment_creates_without_application_services() {
     let model = FakeModel::new(&serde_json::json!({"body": body}).to_string());
     let output = create(&Studio::new(&model), assignment()).await.unwrap();
     assert_eq!(output.body.as_deref(), Some(body));
+    assert_eq!(output.card_score, Some(67.7));
     // The title is the plugin's own: it names the entity and the kind of read,
     // which is a fact rather than something to articulate.
     assert_eq!(
@@ -1814,52 +1461,12 @@ async fn a_called_pass_is_a_product_rather_than_an_error() {
     assert!(!output.skipped_unchanged);
     // The measurement still stands: declining to articulate is not declining to
     // measure, and the provenance has to reflect that.
+    assert_eq!(output.card_score, None);
     assert_eq!(output.notability, Some(72));
     assert_eq!(output.rating_trajectory.as_deref(), Some("rising"));
 }
 
 /// s21: the datapoint block must SPAN the entity's range, not crowd its top.
-#[test]
-fn datapoints_span_the_range_rather_than_taking_the_top() {
-    // Forty facets at descending percentiles, 97.5 down to 0.0.
-    let breakdown: Vec<RatingDatapoint> = (0..40)
-        .map(|i| RatingDatapoint {
-            label: format!("Stat {i}"),
-            pct: Some(97.5 - (i as f64) * 2.5),
-            ..Default::default()
-        })
-        .collect();
-    let got = ordered_facts(&breakdown);
-
-    assert_eq!(
-        got.len(),
-        MAX_STAT_FACTS,
-        "the 4,096-window budget still binds"
-    );
-    // Presented high to low.
-    for w in got.windows(2) {
-        assert!(w[0].pct >= w[1].pct, "datapoints stay in pct DESC order");
-    }
-    // Both ends are present. Before s21 this list was facts[0..14] — everything at or below
-    // the 62nd percentile was invisible, so the bottom assertion is the whole point.
-    assert_eq!(
-        got.first().unwrap().pct,
-        Some(97.5),
-        "the best skill is shown"
-    );
-    assert_eq!(got.last().unwrap().pct, Some(0.0), "and so is the worst");
-    // ...and the middle survives, which top-plus-bottom would also have missed.
-    let middle = got
-        .iter()
-        .filter(|d| d.pct.is_some_and(|pct| pct > 20.0 && pct < 75.0))
-        .count();
-    assert!(
-        middle >= 3,
-        "the interior of the distribution must be represented, got {middle}: {:?}",
-        got.iter().map(|d| d.pct).collect::<Vec<_>>()
-    );
-}
-
 #[test]
 fn incompatible_history_does_not_erase_current_measurements() {
     let mut current = profile_player();
@@ -1942,101 +1549,4 @@ fn the_header_carries_the_curated_sport_display_name() {
         serde_json::from_str::<serde_json::Value>(&world).unwrap()["target"]["sport"],
         serde_json::json!("Football (Soccer)")
     );
-}
-
-#[test]
-fn recorded_decimal_counts_and_declared_minimum_are_not_participation_claims() {
-    let prompt = serde_json::json!({"fresh":{"season":2026,"supports_cross_season":false,
-        "limit":{"kind":"thin_sample","appearances":7.0,"minimum":10.0}}})
-    .to_string();
-    let directions = std::collections::BTreeMap::new();
-    let bands = std::collections::BTreeMap::new();
-    let parser = super::parser::RatingRequestParser::new(&prompt, &directions, &bands);
-    for body in [
-        "Chelsea has a recorded sample of 7 appearances.",
-        "Chelsea has a recorded sample of 7.0 appearances.",
-        "Chelsea has a recorded sample of 7 appearances. The sample minimum is 10 appearances.",
-        "For the 2026 season, the sample minimum is 10 appearances.",
-        "Chelsea's relative standing is strong in this snapshot.",
-    ] {
-        assert!(
-            parser
-                .parse(&serde_json::json!({"body":body}).to_string())
-                .is_ok(),
-            "{body}"
-        );
-    }
-    for body in [
-        "Chelsea played 7 appearances.",
-        "The sample minimum is 7 appearances.",
-        "Chelsea's standing is unchanged across seasons.",
-    ] {
-        assert!(
-            parser
-                .parse(&serde_json::json!({"body":body}).to_string())
-                .is_err(),
-            "{body}"
-        );
-    }
-}
-
-#[test]
-fn explicit_denials_of_stability_are_limits_not_positive_stability_claims() {
-    let fixture: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../../fixtures/quality/rating/synthetic-sparse.json"
-    ))
-    .unwrap();
-    let parts: super::request::Parts = serde_json::from_value(fixture["parts"].clone()).unwrap();
-    let body="Cedar Comets' 2026 season data, based on 3.0 games played, shows 48.0 rebounds per game (90th percentile, elite band) and 23.0 assists per game (75th percentile, strong band). These thin-sample measurements do not establish cross-season comparisons, stability, or ability beyond relative standing within the cohort.";
-    assert!(parts
-        .parse(&serde_json::json!({"body":body}).to_string())
-        .is_ok());
-    for body in ["The profile is stable across seasons.", "There is no change across seasons.",
-        "These measurements do not establish stability, but the player is consistently reliable across seasons."] {
-        assert!(parts.parse(&serde_json::json!({"body":body}).to_string()).is_err(),"{body}");
-    }
-}
-
-#[test]
-fn availability_is_attributed_without_changing_measurements() {
-    let prompt = serde_json::json!({"fresh":{"values":[{"value":4}],
-        "availability":[{"publisher":"Wire","headline":"Kai Rowan denies injury and may return after 2 weeks"}]}}).to_string();
-    let directions = Default::default();
-    let bands = Default::default();
-    let parser = super::parser::RatingRequestParser::new(&prompt, &directions, &bands);
-    use crate::harness::Parser;
-    assert!(parser.parse(&serde_json::json!({"body":"Recorded 4 goals.\n\nWire: Kai Rowan denies injury and may return after 2 weeks"}).to_string()).unwrap().is_some());
-    assert!(parser
-        .parse(r#"{"body":"Kai Rowan has recovered from injury."}"#)
-        .is_err());
-    assert!(parser.parse(r#"{"body":"Recorded 2 goals."}"#).is_err());
-}
-
-#[test]
-fn sample_policy_never_becomes_an_observation_or_comparison() {
-    use crate::harness::Parser;
-    let directions = Default::default();
-    let bands = Default::default();
-    let prompt =
-        r#"{"fresh":{"sample":{"Games Played":25},"values":[],"supports_cross_season":true}}"#;
-    let parser = super::parser::RatingRequestParser::new(prompt, &directions, &bands);
-    assert!(parser
-        .parse(r#"{"body":"A source sample of 25 games was recorded."}"#)
-        .unwrap()
-        .is_some());
-    assert!(parser
-        .parse(r#"{"body":"A thin-sample limit applies with a sample count of 25."}"#)
-        .is_err());
-    assert!(parser
-        .parse(r#"{"body":"Both measurements are supported across seasons."}"#)
-        .is_err());
-    let prompt = r#"{"fresh":{"values":[],"supports_cross_season":false,"limit":{"kind":"unknown_sample","minimum":10}}}"#;
-    let parser = super::parser::RatingRequestParser::new(prompt, &directions, &bands);
-    assert!(parser
-        .parse(r#"{"body":"The sample count is unknown. The policy minimum is 10 appearances."}"#)
-        .unwrap()
-        .is_some());
-    assert!(parser
-        .parse(r#"{"body":"The stored sample count is 10."}"#)
-        .is_err());
 }

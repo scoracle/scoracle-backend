@@ -167,7 +167,7 @@ async fn sql_activity_matches_legacy_formula_and_served_product() {
     let output = journalist::create(&pool, &Studio::new(&model), &a, now, 4096)
         .await
         .unwrap();
-    assert_eq!(output.card_score, Some(32));
+    assert_eq!(output.card_score, Some(10));
     assert_eq!(output.narratives[0].impact, 32);
     assert_eq!(
         output.narratives[0].impact_components,

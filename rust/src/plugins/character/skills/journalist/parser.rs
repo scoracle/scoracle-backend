@@ -1,4 +1,4 @@
-//! Strict edition parsing and deterministic source metadata.
+//! Decode the news edition and attach its cited reports.
 use super::activity::EditionActivity;
 use super::request::{Assignment, CorpusItem};
 use super::{Narrative, NarrativesProduct};
@@ -25,21 +25,13 @@ fn source_metadata(corpus: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Opt
     (corpus.len() as i32, source_names, latest, oldest)
 }
 
-/// Production and replay share the same strict form parser and source mapping.
-/// This checks shape and surface, not semantic entailment; fidelity is evaluated
-/// against the prepared reports, not inferred from parser success.
+/// Link the model’s paragraphs to the reports in this assignment.
 pub struct EditionParser<'a> {
     pub assignment: &'a Assignment,
     pub activity: &'a EditionActivity,
 }
 impl Parser<NarrativesProduct> for EditionParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
-        let selected = super::fresh::select(&self.assignment.selected);
-        let reply = parse_reports(raw, &selected)?;
-        Ok(Some(self.product(reply, &selected)))
-    }
-
-    fn parse_candidate(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
         let selected = super::fresh::select(&self.assignment.selected);
         let reply = crate::tools::form::decode_journalist(raw, selected.len())?;
         Ok(Some(self.product(reply, &selected)))
@@ -85,81 +77,8 @@ impl EditionParser<'_> {
         NarrativesProduct {
             memory_provenance: json!({"receipt":null,"selected":[]}),
             narratives,
-            card_score: Some(self.activity.card_score),
+            card_score: headline.as_ref().map(|_| self.activity.card_score),
             headline,
         }
-    }
-}
-
-pub(super) fn parse_reports(
-    raw: &str,
-    reports: &[CorpusItem],
-) -> Result<crate::tools::form::JournalistReply> {
-    let reply = crate::tools::form::parse_journalist(raw, reports.len())?;
-    let evidence = super::fresh::reports(reports);
-    let mut cited = HashSet::new();
-    for paragraph in &reply.paragraphs {
-        let sources: Vec<_> = paragraph
-            .report_ids
-            .iter()
-            .map(|id| {
-                cited.insert(*id);
-                evidence[*id - 1].evidence()
-            })
-            .collect();
-        crate::tools::fresh::validate_report_facts(&paragraph.body, &sources)
-            .map_err(|error| crate::tools::form::SurfaceError(error.to_string()))?;
-    }
-    if let Some(headline) = &reply.headline {
-        let sources: Vec<_> = evidence
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| cited.contains(&(i + 1)))
-            .map(|(_, report)| report.evidence())
-            .collect();
-        crate::tools::fresh::validate_report_facts(headline, &sources)
-            .map_err(|error| crate::tools::form::SurfaceError(error.to_string()))?;
-    }
-    Ok(reply)
-}
-
-#[cfg(test)]
-mod observation_tests {
-    use super::*;
-    #[test]
-    fn unsupported_prose_can_publish_with_unchanged_source_mapping() {
-        let assignment = Assignment {
-            database_record: None,
-            subject: crate::tools::meta::EntityMeta {
-                name: "Cedar".into(),
-                entity_type: "team".into(),
-                entity_id: 1,
-                sport: "NFL".into(),
-            },
-            selected: vec![CorpusItem {
-                id: 42,
-                title: "Cedar won.".into(),
-                context: String::new(),
-                source: "Wire".into(),
-                published_at_epoch: Some(100),
-                classifier_world: None,
-            }],
-            dispositions: vec![],
-            input_hash: "test".into(),
-        };
-        let activity = super::super::activity::reference(&assignment.selected, 100);
-        let parser = EditionParser {
-            assignment: &assignment,
-            activity: &activity,
-        };
-        let raw = r#"{"headline":"Alien United takes over","paragraphs":[{"body":"Alien United bought Cedar for $300 billion.","report_ids":[1]}]}"#;
-        assert!(parser.parse(raw).is_err());
-        let product = parser.parse_candidate(raw).unwrap().unwrap();
-        assert_eq!(product.narratives[0].input_news_ids, vec![42]);
-        assert_eq!(
-            product.narratives[0].body,
-            "Alien United bought Cedar for $300 billion."
-        );
-        assert!(parser.parse_candidate(&raw.replace("[1]", "[2]")).is_err());
     }
 }

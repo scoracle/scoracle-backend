@@ -1,5 +1,5 @@
 //! Finished-card retrieval, readiness, request projection and provenance.
-use super::character_instructions::INSTRUCTIONS;
+use super::TASK;
 use crate::harness::route::RouteKey;
 pub const MODEL: RouteKey = RouteKey::new("oracle-logic", "ORACLE_LOGIC");
 use crate::harness::model::GenerateOptions;
@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 
 use sqlx::PgPool;
 
-pub const ORACLE_PROMPT_VERSION: &str = "or42-task-first";
+pub const ORACLE_PROMPT_VERSION: &str = "or44-finished-cards";
 
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;
@@ -20,7 +20,7 @@ pub const ORACLE_NUM_PREDICT: i32 = 700;
 
 pub fn generation_options(temperature: f64, num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(INSTRUCTIONS.system().to_owned()),
+        system: None,
         temperature: Some(temperature),
         num_predict: ORACLE_NUM_PREDICT,
         num_ctx,
@@ -196,7 +196,7 @@ pub fn build_synthesis_input_components(cards: &Cards) -> String {
     narratives.sort_by(|a, b| a["title"].as_str().cmp(&b["title"].as_str()));
     serde_json::json!({
         "prompt_version": ORACLE_PROMPT_VERSION,
-        "instructions": INSTRUCTIONS,
+        "instructions": TASK,
         "narratives": narratives,
         "rating": cards.rating.as_ref().map(|r| serde_json::json!({
             "body": r.body, "notability": r.notability,
@@ -234,29 +234,38 @@ pub async fn resolve_season(pool: &PgPool, sport: &str, want: Option<i32>) -> Re
         .with_context(|| format!("resolve current_season for {sport}"))
 }
 
-pub async fn load_narrative_pillar(
+// Table names are fixed by the five callers. Continuous publication reads exactly the API-visible rows.
+fn peer_source(table: &'static str, daily: bool) -> String {
+    if daily {
+        format!("(SELECT * FROM public.{table} WHERE reporting_date=public.character_reporting_date() AND candidate_edition=(SELECT edition_date FROM public.coverage_schedule)) AS peer")
+    } else {
+        format!("public.qualified_{table}")
+    }
+}
+
+async fn load_narrative_pillar(
+    daily: bool,
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
 ) -> Result<Vec<SynthNarrative>> {
-    let rows: Vec<(String, String, i32, String, i32, Option<i32>, String, Vec<i64>)> = sqlx::query_as(
+    let readings = peer_source("news_summaries", daily);
+    let rows: Vec<(String, String, i32, String, i32, Option<i32>, String, Vec<i64>)> = sqlx::query_as(&format!(
         r#"
         SELECT narrative_title, body, COALESCE(impact, 0), COALESCE(trajectory, $4),
                COALESCE(source_count, 0),
                EXTRACT(day FROM NOW() - source_latest_at)::int, generated_at::text, COALESCE(input_news_ids, ARRAY[]::bigint[])
-          FROM news_summaries
+          FROM {readings}
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
            AND body IS NOT NULL
            AND generated_at = (
-               SELECT max(generated_at) FROM news_summaries
+               SELECT max(generated_at) FROM {readings}
                 WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
            )
          ORDER BY impact DESC NULLS LAST
-        "#,
-    )
+        "#
+    ))
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
@@ -290,25 +299,26 @@ pub async fn load_narrative_pillar(
         .collect())
 }
 
-pub async fn load_rating_pillar(
+async fn load_rating_pillar(
+    daily: bool,
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
     season: Option<i32>,
 ) -> Result<Option<SynthRating>> {
-    let row: Option<(Option<String>, i32, String, String, String)> = sqlx::query_as(
+    let readings = peer_source("stat_summaries", daily);
+    let row: Option<(Option<String>, i32, String, String, String)> = sqlx::query_as(&format!(
         r#"
         SELECT body, COALESCE(notability, 0),
                COALESCE(rating_trajectory, 'steady'), COALESCE(rating_trajectory_label, ''), generated_at::text
-          FROM stat_summaries
+          FROM {readings}
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
            AND ($4::int IS NULL OR season = $4)
-         ORDER BY generated_at DESC
+         ORDER BY generated_at DESC, id DESC
          LIMIT 1
-        "#,
-    )
+        "#
+    ))
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
@@ -334,22 +344,23 @@ pub async fn load_rating_pillar(
     })
 }
 
-pub async fn load_vibe_pillar(
+async fn load_vibe_pillar(
+    daily: bool,
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
 ) -> Result<Option<SynthVibe>> {
-    let row: Option<(Option<i16>, String, String)> = sqlx::query_as(
+    let readings = peer_source("vibe_scores", daily);
+    let row: Option<(Option<i16>, String, String)> = sqlx::query_as(&format!(
         r#"
         SELECT sentiment, COALESCE(prompt, ''), generated_at::text
-          FROM vibe_scores
+          FROM {readings}
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
-         ORDER BY generated_at DESC
+         ORDER BY generated_at DESC, id DESC
          LIMIT 1
-        "#,
-    )
+        "#
+    ))
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
@@ -366,13 +377,15 @@ pub async fn load_vibe_pillar(
     })
 }
 
-pub async fn load_momentum_pillar(
+async fn load_momentum_pillar(
+    daily: bool,
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
     season: Option<i32>,
 ) -> Result<SynthMomentum> {
+    let readings = peer_source("momentum_summaries", daily);
     #[allow(clippy::type_complexity)]
     let row: Option<(
         Option<String>,
@@ -381,17 +394,16 @@ pub async fn load_momentum_pillar(
         Option<String>,
         serde_json::Value,
         String,
-    )> = sqlx::query_as(
+    )> = sqlx::query_as(&format!(
         r#"
-        SELECT direction, score, blurb, input_hash, COALESCE(input_components, '{}'::jsonb), generated_at::text
-          FROM momentum_summaries
+        SELECT direction, score, blurb, input_hash, COALESCE(input_components, '{{}}'::jsonb), generated_at::text
+          FROM {readings}
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-           AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
            AND ($4::int IS NULL OR season = $4)
-         ORDER BY generated_at DESC
+         ORDER BY generated_at DESC, id DESC
          LIMIT 1
-        "#,
-    )
+        "#
+    ))
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
@@ -425,17 +437,19 @@ pub async fn load_momentum_pillar(
     })
 }
 
-pub async fn load_insider_pillar(
+async fn load_insider_pillar(
+    daily: bool,
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
 ) -> Result<Option<SynthInsider>> {
-    let row: Option<(Option<String>, i16, String)> = sqlx::query_as(
-        "SELECT read,score,generated_at::date::text FROM public.insider_scores \
-         WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule)) \
-         ORDER BY generated_at DESC,id DESC LIMIT 1",
-    )
+    let readings = peer_source("insider_scores", daily);
+    let row: Option<(Option<String>, i16, String)> = sqlx::query_as(&format!(
+        "SELECT read,score,generated_at::date::text FROM {readings} \
+         WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 \
+         ORDER BY generated_at DESC,id DESC LIMIT 1"
+    ))
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
@@ -457,13 +471,14 @@ pub async fn load_pillars(
     entity_id: i32,
     sport: &str,
 ) -> Result<(i32, Cards)> {
+    let daily: bool = sqlx::query_scalar("SELECT enabled FROM public.coverage_schedule").fetch_one(pool).await?;
     let season = resolve_season(pool, sport, None).await?;
     let (narratives, rating, vibe, momentum, insider) = tokio::try_join!(
-        load_narrative_pillar(pool, entity_type, entity_id, sport),
-        load_rating_pillar(pool, entity_type, entity_id, sport, Some(season)),
-        load_vibe_pillar(pool, entity_type, entity_id, sport),
-        load_momentum_pillar(pool, entity_type, entity_id, sport, Some(season)),
-        load_insider_pillar(pool, entity_type, entity_id, sport),
+        load_narrative_pillar(daily, pool, entity_type, entity_id, sport),
+        load_rating_pillar(daily, pool, entity_type, entity_id, sport, Some(season)),
+        load_vibe_pillar(daily, pool, entity_type, entity_id, sport),
+        load_momentum_pillar(daily, pool, entity_type, entity_id, sport, Some(season)),
+        load_insider_pillar(daily, pool, entity_type, entity_id, sport),
     )?;
     Ok((
         season,
@@ -536,7 +551,7 @@ pub fn assemble(subject: &Subject, cards: &Cards) -> String {
         sport: subject.sport.clone(),
     };
     crate::tools::prompt::assemble(
-        &INSTRUCTIONS,
+        TASK,
         crate::tools::meta::context(meta.for_writing(), subject.database_record.as_ref()),
         super::fresh::context(cards),
     )

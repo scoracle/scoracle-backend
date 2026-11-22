@@ -293,7 +293,7 @@ mod postgres_oracle_tests {
 
     #[tokio::test]
     #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
-    async fn readiness_preserves_pending_retryable_and_terminal_missing_policy() {
+    async fn continuous_readiness_accepts_finished_cards_while_other_work_is_pending() {
         let pool = pool().await;
         clean(&pool).await;
         assert!(super::pillars_settled(&pool, "team", ENTITY_ID, SPORT)
@@ -309,7 +309,7 @@ mod postgres_oracle_tests {
         )
         .await
         .unwrap();
-        assert!(!super::pillars_settled(&pool, "team", ENTITY_ID, SPORT)
+        assert!(super::pillars_settled(&pool, "team", ENTITY_ID, SPORT)
             .await
             .unwrap());
 

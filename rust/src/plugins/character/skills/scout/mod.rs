@@ -4,7 +4,7 @@
 //! Publication transactions and receipts belong to `publish.rs`.
 
 pub mod availability;
-pub mod character_instructions;
+pub const TASK: &str = include_str!("skill.md").trim_ascii();
 pub mod fresh;
 pub mod manifest;
 pub mod parser;
@@ -20,7 +20,7 @@ use crate::harness::queue::work::Item;
 use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use parser::RatingRequestParser;
+use parser::RatingParser;
 use performance::{current_season, RatingExclusions};
 use publish::{
     commit_claimed, persist_stat_summary, prepare, record_ledger, LedgerSubject, Prepared,
@@ -140,8 +140,7 @@ async fn generate_rating(
             availability,
         } => {
             let mut output = no_stats(season, backend.model());
-            output.input_components =
-                serde_json::json!({"provenance":{"availability":availability}}).to_string();
+            output.availability = availability;
             return Ok(output);
         }
         RatingBuild::Ready(assignment) => *assignment,
@@ -388,6 +387,7 @@ impl Skill for RatingHandler {
 /// The un-persisted result of one Scout creation.
 #[derive(Clone, Debug)]
 pub struct RatingProduct {
+    pub(super) availability: availability::Availability,
     pub season: i32,
     pub skipped_no_stats: bool,
     /// The model was called and explicitly chose not to publish prose.
@@ -395,6 +395,7 @@ pub struct RatingProduct {
     pub skipped_unchanged: bool,
     pub body: Option<String>,
     pub headline: Option<String>,
+    pub card_score: Option<f64>,
     pub notability: Option<i32>,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: Option<String>,
@@ -416,11 +417,13 @@ pub fn no_stats(season: i32, configured_model: impl Into<String>) -> RatingOutpu
             skipped_unchanged: false,
             body: None,
             headline: None,
+            card_score: None,
             notability: None,
             notability_components: serde_json::json!({}),
             rating_trajectory: None,
             rating_trajectory_label: None,
             rating_trajectory_components: serde_json::json!({}),
+            availability: Default::default(),
             input_components: "{}".to_string(),
             exclusions: RatingExclusions::default(),
         },
@@ -441,11 +444,13 @@ pub fn unchanged(assignment: Assignment, configured_model: impl Into<String>) ->
             skipped_unchanged: true,
             body: None,
             headline: None,
+            card_score: None,
             notability: None,
             notability_components: serde_json::json!({}),
             rating_trajectory: Some(assignment.rating_trajectory.key),
             rating_trajectory_label: assignment.rating_trajectory.label,
             rating_trajectory_components: assignment.rating_trajectory.components,
+            availability: assignment.parts.availability,
             input_components: assignment.input_components,
             exclusions: assignment.exclusions,
         },
@@ -458,13 +463,11 @@ pub fn unchanged(assignment: Assignment, configured_model: impl Into<String>) ->
 
 /// Articulate the prepared world and attach deterministic product fields.
 pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<RatingOutput> {
-    let directions = assignment.parts.comparison_directions();
-    let bands = assignment.parts.measurement_bands();
     let extracted = studio
         .extract(
             &assignment.built_prompt,
             &assignment.opts,
-            &RatingRequestParser::new(&assignment.built_prompt, &directions, &bands),
+            &RatingParser,
             crate::harness::session::no_rewrite,
         )
         .await?;
@@ -481,11 +484,13 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
                 skipped_unchanged: false,
                 body: None,
                 headline: None,
+                card_score: None,
                 notability: Some(assignment.notability),
                 notability_components: assignment.notability_components,
                 rating_trajectory: Some(assignment.rating_trajectory.key),
                 rating_trajectory_label: assignment.rating_trajectory.label,
                 rating_trajectory_components: assignment.rating_trajectory.components,
+                availability: assignment.parts.availability,
                 input_components: assignment.input_components,
                 exclusions: assignment.exclusions,
             },
@@ -514,11 +519,13 @@ pub async fn create(studio: &Studio<'_>, assignment: Assignment) -> Result<Ratin
             skipped_unchanged: false,
             body: Some(reply.body),
             headline,
+            card_score: assignment.card_score,
             notability: Some(assignment.notability),
             notability_components: assignment.notability_components,
             rating_trajectory: Some(assignment.rating_trajectory.key),
             rating_trajectory_label: assignment.rating_trajectory.label,
             rating_trajectory_components: assignment.rating_trajectory.components,
+            availability: assignment.parts.availability,
             input_components: assignment.input_components,
             exclusions: assignment.exclusions,
         },

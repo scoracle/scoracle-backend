@@ -1,5 +1,5 @@
 //! Scout preparation, instructions and the selected world the model reads.
-use super::character_instructions::INSTRUCTIONS;
+use super::TASK;
 use crate::harness::route::RouteKey;
 pub const MODEL: RouteKey = RouteKey::new("stats-logic", "STATS_LOGIC");
 use serde::Serialize;
@@ -12,7 +12,7 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s92-task-first";
+pub const RATING_PROMPT_VERSION: &str = "s98-stat-direction";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
@@ -47,6 +47,8 @@ pub enum RatingBuild {
 pub struct Assignment {
     pub subject: Subject,
     pub season: i32,
+    #[serde(default)]
+    pub card_score: Option<f64>,
     pub notability: i32,
     pub notability_components: serde_json::Value,
     pub rating_trajectory: RatingTrajectory,
@@ -97,7 +99,7 @@ impl Parts {
         temperature: f64,
     ) -> crate::harness::model::GenerateOptions {
         crate::harness::model::GenerateOptions {
-            system: Some(INSTRUCTIONS.system().to_owned()),
+            system: None,
             temperature: Some(temperature),
             num_predict: RATING_NUM_PREDICT,
             num_ctx,
@@ -117,28 +119,15 @@ impl Parts {
             .collect()
     }
 
-    pub fn measurement_bands(&self) -> std::collections::BTreeMap<String, String> {
-        self.profile
-            .values
-            .iter()
-            .filter_map(|value| Some((value.label.clone(), value.band.clone()?)))
-            .collect()
-    }
-
     pub fn parse(&self, raw: &str) -> anyhow::Result<Option<RatingReply>> {
         use crate::harness::Parser;
-        parser::RatingRequestParser::new(
-            &self.render(),
-            &self.comparison_directions(),
-            &self.measurement_bands(),
-        )
-        .parse(raw)
+        parser::RatingParser.parse(raw)
     }
 
     /// Preserve the completed wire world and provenance in one debounce input.
     pub fn input_components(&self, provenance: serde_json::Value) -> String {
         serde_json::json!({"world": self.render(), "prompt_version": RATING_PROMPT_VERSION,
-            "instructions": INSTRUCTIONS, "output_contract": parser::RATING_OUTPUT_CONTRACT_VERSION, "provenance": provenance})
+            "instructions": TASK, "output_contract": parser::RATING_OUTPUT_CONTRACT_VERSION, "provenance": provenance})
         .to_string()
     }
 
@@ -153,7 +142,7 @@ impl Parts {
             );
         }
         crate::tools::prompt::assemble(
-            &INSTRUCTIONS,
+            TASK,
             crate::tools::meta::context(meta, self.database_record.as_ref()),
             super::fresh::context(self),
         )
@@ -195,7 +184,7 @@ pub(crate) async fn build_rating_request_on(
     voice_num_ctx: i32,
     req: &RatingReq,
     temperature: f64,
-    with_enrichment: bool,
+    _with_enrichment: bool,
 ) -> Result<RatingBuild> {
     let availability = super::availability::Availability::load(
         connection,
@@ -222,25 +211,24 @@ pub(crate) async fn build_rating_request_on(
         });
     };
 
-    let off_facet_stat_labels = performance::drop_off_facet_datapoints(&mut profile);
-    let degenerate_zero_stat_labels = performance::drop_degenerate_zero_datapoints(&mut profile);
-    let display_tier_stat_labels = performance::drop_display_tier_datapoints(&mut profile);
-    if profile.composite_score.is_none() && profile.breakdown.is_empty() {
+    let off_facet_stat_labels = performance::drop_off_facet_datapoints(&mut profile, &req.sport);
+    let prompt_profile = performance::model_prompt_profile(&profile);
+    if prompt_profile.breakdown.is_empty() {
         return Ok(RatingBuild::NoStats {
             season: profile.season,
             availability,
         });
     }
-
+    // Keep the existing notability calculation independent of the writer's evidence.
+    performance::drop_degenerate_zero_datapoints(&mut profile);
+    let display_tier_stat_labels = performance::drop_display_tier_datapoints(&mut profile);
     let base_components = performance::input_components(&profile);
     let supports_cross_season = performance::supports_cross_season_comparison(&profile);
     let (notability, notability_components) = performance::compute_notability(&profile);
     let exclusions = RatingExclusions {
-        budget_truncated_stat_labels: performance::budget_truncated_stat_labels(&profile.breakdown),
         off_facet_stat_labels,
-        degenerate_zero_stat_labels,
         display_tier_stat_labels,
-        thin_sample_omitted_stat_labels: performance::thin_sample_omitted_stat_labels(&profile),
+        ..Default::default()
     };
     let rating_trajectory = performance::load_rating_trajectory(
         connection,
@@ -251,44 +239,8 @@ pub(crate) async fn build_rating_request_on(
     )
     .await?;
 
-    let comparisons = if with_enrichment && supports_cross_season {
-        match performance::load_rating_profile(
-            connection,
-            &req.entity_type,
-            req.entity_id,
-            &req.sport,
-            Some(profile.season - 1),
-        )
-        .await
-        {
-            Ok(Some(mut prior)) => {
-                let _ = performance::drop_off_facet_datapoints(&mut prior);
-                let _ = performance::drop_degenerate_zero_datapoints(&mut prior);
-                let _ = performance::drop_display_tier_datapoints(&mut prior);
-                Some(performance::build_skill_changes(&profile, &prior))
-            }
-            Ok(None) => None,
-            Err(error) => {
-                tracing::warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %req.sport,
-                    %error,
-                    "rating: prior-season profile load failed (continuing without movement lines)"
-                );
-                None
-            }
-        }
-    } else {
-        None
-    };
-    let prompt_profile =
-        performance::model_prompt_profile(&profile, supports_cross_season, comparisons.as_ref());
     let mut components: serde_json::Value = serde_json::from_str(&base_components)?;
-    components["availability"] = serde_json::json!(availability);
-    components["availability_contract"] =
-        serde_json::json!(crate::plugins::classifier::skills::classify::AVAILABILITY_CONTRACT);
-    components["skill_changes"] = serde_json::json!(comparisons);
+    components["card_score"] = serde_json::json!(profile.card_score);
     let sport_name: String =
         sqlx::query_scalar("SELECT display_name FROM public.sports WHERE id = $1")
             .bind(&req.sport)
@@ -323,7 +275,7 @@ pub(crate) async fn build_rating_request_on(
         profile: crate::plugins::character::skills::scout::performance::profile_parts(
             &prompt_profile,
             supports_cross_season,
-            comparisons.as_ref(),
+            None,
         ),
     };
     let built_prompt = parts.render();
@@ -339,6 +291,7 @@ pub(crate) async fn build_rating_request_on(
     Ok(RatingBuild::Ready(Box::new(Assignment {
         subject,
         season: profile.season,
+        card_score: profile.card_score,
         notability,
         notability_components,
         rating_trajectory,

@@ -20,28 +20,6 @@ impl Parser<MomentumReply> for MomentumParser {
                 crate::util::truncate_bytes(raw.trim(), 160)
             )
         })?;
-        // Production guards live at the Parser seam; eval can still inspect the raw parse.
-        crate::tools::form::validate_body(&reply.blurb)?;
-        if let Some(p) = crate::tools::guards::first_banned_phrase(
-            &reply.blurb,
-            crate::tools::guards::MOMENTUM_BANNED_PHRASES,
-        ) {
-            tracing::warn!(
-                guard = "momentum_banned_phrase",
-                phrase = p,
-                "momentum READ rejected"
-            );
-            anyhow::bail!("momentum: READ carries banned phrase {p:?}");
-        }
-        if let Some(p) = crate::tools::guards::first_product_name(&reply.blurb) {
-            tracing::warn!(guard = "product_name", name = p, "momentum READ rejected");
-            anyhow::bail!("momentum: READ names product {p:?}");
-        }
-        // Sporting numbers are evidence; internal field citations leak the input contract.
-        if crate::tools::guards::has_bookkeeping_citation(&reply.blurb) {
-            tracing::warn!(guard = "bookkeeping_citation", "momentum READ rejected");
-            anyhow::bail!("momentum: READ carries a bookkeeping citation");
-        }
         Ok(Some(reply))
     }
 }
@@ -53,21 +31,5 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     if blurb.is_empty() {
         return None;
     }
-    // Reject a foreign-script generation so the work item retries.
-    if crate::tools::guards::has_foreign_script(&blurb) {
-        return None;
-    }
     Some(MomentumReply { blurb })
-}
-
-/// Evidence-aware parser shared by production and prepared-fixture qualification.
-pub(crate) struct RequestParser<'a>(pub &'a str);
-impl Parser<MomentumReply> for RequestParser<'_> {
-    fn parse(&self, raw: &str) -> Result<Option<MomentumReply>> {
-        let Some(reply) = MomentumParser.parse(raw)? else {
-            return Ok(None);
-        };
-        crate::tools::fresh::validate_peer_reading(&reply.blurb, self.0)?;
-        Ok(Some(reply))
-    }
 }

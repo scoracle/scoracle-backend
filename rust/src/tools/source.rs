@@ -16,6 +16,21 @@ pub struct SourceContext {
 // shortcut: ten articles per call while debugging the backlog; revisit after output review.
 pub const CHARACTER_ARTICLE_LIMIT: usize = 10;
 
+pub const ACTIVITY_SCORING_VERSION: &str = "distinct-reports-v1";
+
+/// Coverage activity for a card: ten points per distinct admitted article, up to 100.
+pub fn activity_score(admitted_reports: usize) -> i16 {
+    (admitted_reports.min(10) * 10) as i16
+}
+
+#[cfg(test)]
+#[test]
+fn activity_counts_admitted_reports_and_includes_both_endpoints() {
+    assert_eq!(activity_score(0), 0);
+    assert_eq!(activity_score(2), 20);
+    assert_eq!(activity_score(15), 100);
+}
+
 /// Rank by the character's decision criterion. Stable ties retain incoming order;
 /// missing/invalid scores rank below every supplied score, including zero.
 pub fn top_articles<T: Clone>(

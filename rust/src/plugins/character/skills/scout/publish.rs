@@ -41,9 +41,9 @@ pub(super) async fn insert_stat_summary(
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
             body, headline, notability, notability_components, input_components, input_hash,
             model_version, prompt_version, generated_at,
-            rating_trajectory, rating_trajectory_label, rating_trajectory_components
+            rating_trajectory, rating_trajectory_label, rating_trajectory_components, card_score
         ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9,$10::jsonb,$11::jsonb,$12, $13,$14,NOW(),
-                  $15,$16,$17::jsonb)
+                  $15,$16,$17::jsonb,$18)
         RETURNING id
         "#,
     )
@@ -64,6 +64,7 @@ pub(super) async fn insert_stat_summary(
     .bind(out.rating_trajectory.as_deref())
     .bind(out.rating_trajectory_label.as_deref())
     .bind(&trajectory_components_json)
+    .bind(out.card_score)
     .fetch_one(&mut **tx)
     .await
     .context("persist stat summary")?;
@@ -89,6 +90,7 @@ pub(super) async fn record_ledger(
             .unwrap_or_else(|_| serde_json::json!({
                 "raw_input_components": &out.input_components
             })),
+        "card_score": out.card_score,
         "notability": out.notability,
         "notability_components": &out.notability_components,
         "rating_trajectory": &out.rating_trajectory,
@@ -246,17 +248,15 @@ pub(super) async fn commit_claimed(
         _ => None,
     };
     if let Some(out) = output {
-        let components: serde_json::Value = serde_json::from_str(&out.input_components)?;
-        if let Some(value) = components.pointer("/provenance/availability") {
-            let availability: super::availability::Availability =
-                serde_json::from_value(value.clone())?;
-            let all: Vec<_> = availability
-                .sources
-                .iter()
-                .chain(&availability.held)
-                .chain(&availability.redundant)
-                .cloned()
-                .collect();
+        let availability = &out.availability;
+        let all: Vec<_> = availability
+            .sources
+            .iter()
+            .chain(&availability.held)
+            .chain(&availability.redundant)
+            .cloned()
+            .collect();
+        if !all.is_empty() {
             crate::plugins::classifier::skills::classify::delivery::validate_for_publication(
                 publication.transaction(),
                 super::manifest::MANIFEST.id.as_str(),
@@ -267,7 +267,7 @@ pub(super) async fn commit_claimed(
             )
             .await?;
             availability
-                .settle(publication.transaction(), item, out.body.is_some())
+                .settle(publication.transaction(), item, false)
                 .await?;
         }
     }

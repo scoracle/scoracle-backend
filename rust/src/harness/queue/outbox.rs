@@ -48,7 +48,7 @@ pub(crate) async fn record(
 }
 
 pub(crate) struct Event {
-    id: String,
+    pub(crate) id: String,
     pub(crate) kind: String,
     pub(crate) entity_type: String,
     pub(crate) entity_id: i32,

@@ -1,5 +1,5 @@
 //! Analyst execution, deterministic product fields and queue invalidation.
-pub mod character_instructions;
+pub const TASK: &str = include_str!("skill.md").trim_ascii();
 pub mod fresh;
 pub mod manifest;
 pub mod parser;
@@ -44,6 +44,7 @@ pub(crate) async fn record_momentum_completed(
 
 #[derive(Clone, Debug)]
 pub struct MomentumSummary {
+    pub card_score: Option<f64>,
     pub direction: String,
     pub score: i32,
     pub blurb: String,
@@ -115,32 +116,6 @@ async fn articulate(
     (direction, score): (String, i32),
 ) -> Result<Option<MomentumOutput>> {
     let ctx = &assignment.context;
-    if (ctx.rating.is_none() || ctx.vibe.is_none()) && !fresh::has_comparison(&ctx.snapshot) {
-        return Ok(Some(Generation::uncalled(
-            MomentumSummary {
-                direction,
-                score,
-                blurb: format!(
-                    "{}: {} reading unavailable. Agreement between performance and mood cannot be assessed.",
-                    assignment.entity_name,
-                    if ctx.rating.is_none() && ctx.vibe.is_none() {
-                        "Performance and mood"
-                    } else if ctx.rating.is_none() {
-                        "Performance"
-                    } else {
-                        "Mood"
-                    }
-                ),
-                headline: Some(format!("{}: current momentum", assignment.entity_name)),
-                season: ctx.season,
-                input_components_json: ctx.input_components_json.clone(),
-            },
-            studio.model_name().to_string(),
-            MOMENTUM_PROMPT_VERSION,
-            Vec::new(),
-            Some(ctx.input_hash.clone()),
-        )));
-    }
     let subject = crate::tools::meta::EntityMeta {
         name: assignment.entity_name.clone(),
         entity_type: assignment.entity_type.clone(),
@@ -160,7 +135,7 @@ async fn articulate(
         .extract(
             &prompt,
             &opts,
-            &parser::RequestParser(&prompt),
+            &parser::MomentumParser,
             crate::harness::session::no_rewrite,
         )
         .await?;
@@ -176,6 +151,7 @@ async fn articulate(
     );
     Ok(Some(Generation::called(
         MomentumSummary {
+            card_score: ctx.snapshot.card_score(),
             direction,
             score,
             blurb,

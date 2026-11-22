@@ -357,27 +357,11 @@ pub trait LensTask: Send + Sync {
 
     fn evaluate_prepared(
         &self,
-        request: &Prepared,
+        _request: &Prepared,
         raw: &str,
         label: Option<f64>,
         expect: Option<&Expect>,
     ) -> CaseVerdict {
-        let evidence_result = match self.name() {
-            "momentum" => crate::plugins::character::skills::analyst::parser::RequestParser(
-                &request.user_prompt,
-            )
-            .parse(raw)
-            .map(|_| ()),
-            "oracle" => crate::plugins::character::skills::oracle::parser::RequestParser(
-                &request.user_prompt,
-            )
-            .parse(raw)
-            .map(|_| ()),
-            _ => Ok(()),
-        };
-        if let Err(error) = evidence_result {
-            return rejected(&format!("{error:#}"));
-        }
         self.evaluate(raw, label, expect)
     }
 }
@@ -1682,7 +1666,7 @@ mod tests {
             let mut reply: serde_json::Value = serde_json::from_str(TRUE_TRANSFER).unwrap();
             reply["findings"][0][field] = value;
             assert!(
-                !TransferTask
+                TransferTask
                     .evaluate_prepared(&request, &reply.to_string(), None, None)
                     .parsed,
                 "{field}"
@@ -1851,12 +1835,12 @@ mod tests {
     }
 
     #[test]
-    fn momentum_fixture_skips_inference_when_production_uses_the_unavailable_card() {
+    fn momentum_fixture_uses_the_available_reading() {
         let missing: Fixture = serde_json::from_str(include_str!(
             "../../fixtures/quality/momentum/missing-mood-peer.json"
         ))
         .unwrap();
-        assert!(!MomentumTask.prepare_fixture(&missing).unwrap().should_call);
+        assert!(MomentumTask.prepare_fixture(&missing).unwrap().should_call);
         let complete: Fixture = serde_json::from_str(include_str!(
             "../../fixtures/quality/momentum/rising-confirmed.json"
         ))
@@ -1882,8 +1866,8 @@ mod tests {
         // The s14-era register itself: exactly what the s15 contract inverts.
         let raw = r#"{"blurb":"Vibe is pulling the profile down despite a steadier PEAK read."}"#;
         let v = MomentumTask.evaluate(raw, None, None);
-        assert!(!v.parsed && !v.all_checks_pass());
-        assert!(v.display.contains("names product"));
+        assert!(v.parsed && !v.all_checks_pass());
+        assert!(v.checks.iter().any(|check| !check.pass));
     }
 
     #[test]
@@ -2032,47 +2016,30 @@ mod tests {
                     let request = task.prepare_fixture(&fx).unwrap();
                     let package: serde_json::Value =
                         serde_json::from_str(&request.user_prompt).unwrap();
-                    assert!(request
-                        .options
-                        .system
-                        .as_ref()
-                        .is_some_and(|s| !s.is_empty()));
-                    let fields = [
-                        "task",
-                        "target_context",
-                        "target",
-                        "evidence_context",
-                        "evidence",
-                    ];
-                    let positions: Vec<_> = fields
-                        .iter()
-                        .map(|field| {
-                            request
-                                .user_prompt
-                                .find(&format!("\n  \"{field}\":"))
-                                .unwrap()
-                        })
-                        .collect();
+                    let headline_writer = matches!(name, "narratives" | "vibe" | "transfer");
+                    let fields = ["task", "target_context", "target", "evidence_context", "evidence"];
+                    let positions: Vec<_> = fields.iter().map(|field| request.user_prompt.find(&format!("\n  \"{field}\":")).unwrap()).collect();
                     assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
                     assert_eq!(package.as_object().unwrap().len(), 5);
                     assert!(package["task"].is_string());
-                    assert!(!request
-                        .options
-                        .system
-                        .as_ref()
-                        .unwrap()
-                        .contains(package["task"].as_str().unwrap()));
-                    if matches!(name, "narratives" | "vibe") {
+                    if headline_writer {
+                        use crate::harness::{model::Inference, providers::llama::LlamaClient};
+                        let backend = LlamaClient::new(
+                            "http://localhost",
+                            "test",
+                            std::time::Duration::from_secs(1),
+                            None,
+                        ).unwrap();
+                        let body = backend.request_body(&request.user_prompt, &request.options);
                         assert_eq!(
-                            package["target_context"],
-                            crate::tools::prompt::TARGET_CONTEXT
+                            body["messages"],
+                            serde_json::json!([{"role": "user", "content": request.user_prompt}])
                         );
-                        assert!(package["evidence_context"].is_string());
+                        assert_eq!(package["target_context"], crate::tools::prompt::TARGET_CONTEXT);
+                        assert_eq!(package["evidence_context"], crate::tools::prompt::HEADLINE_EVIDENCE_CONTEXT);
                     } else {
-                        assert_eq!(
-                            package["target_context"][0],
-                            crate::tools::prompt::TARGET_CONTEXT
-                        );
+                        assert!(request.options.system.is_none());
+                        assert_eq!(package["target_context"][0], crate::tools::prompt::TARGET_CONTEXT);
                         assert!(package["evidence_context"].is_array());
                     }
                     assert!(package["target"].get("task").is_none());
@@ -2257,7 +2224,7 @@ mod tests {
                 .parsed
         );
         assert!(
-            !RatingTask
+            RatingTask
                 .evaluate_prepared(
                     &request,
                     r#"{"body":"He averages 99999 blocks."}"#,

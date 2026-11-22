@@ -23,6 +23,5 @@ WITH reports AS (
     SELECT *, least(100, greatest(0, floor(volume + source_breadth + recency + 0.5)::int)) AS score
     FROM components
 )
-SELECT slot, score, article_count, distinct_sources, volume, source_breadth, recency,
-       least(99, greatest(1, score))::smallint AS card_score
+SELECT slot, score, article_count, distinct_sources, volume, source_breadth, recency
 FROM scored ORDER BY slot

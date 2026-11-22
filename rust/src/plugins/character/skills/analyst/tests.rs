@@ -71,6 +71,7 @@ fn assignment() -> Assignment {
         context: MomentumContext::new(
             2026,
             Some(Form {
+                card_score: Some(68.0),
                 body: "Kerr's measured form is gaining ground.".into(),
                 headline: Some("Kerr sharpens the profile".into()),
                 season: Some(2026),
@@ -138,21 +139,20 @@ async fn complete_assignment_creates_validated_product_with_actual_provenance() 
     assert_eq!(calls[0].1.num_ctx, 4096);
     assert_eq!(calls[0].1.temperature, Some(MOMENTUM_TEMPERATURE));
     assert!(calls[0].1.format_schema.is_some());
-    assert!(calls[0]
-        .0
-        .contains("Kerr's measured form is gaining ground."));
+    assert!(!calls[0].0.contains("Kerr's measured form is gaining ground."));
     assert_eq!(
         calls[0].1.system.as_deref(),
-        Some(super::character_instructions::INSTRUCTIONS.system())
+        None
     );
     let package: serde_json::Value = serde_json::from_str(&calls[0].0).unwrap();
     assert!(package["task"].is_string());
     assert_eq!(
         package["evidence"]["comparisons"][0]["measure"],
-        "rating_notability"
+        "performance"
     );
     assert_eq!(out.direction, "rising");
     assert_eq!(out.score, 2);
+    assert_eq!(out.card_score, Some(62.5));
     assert_eq!(out.headline.as_deref(), Some("Vale Kerr: current momentum"));
     assert_eq!(out.season, 2026);
     assert_eq!(out.provenance.model_version, "model-that-answered");
@@ -224,7 +224,7 @@ async fn blank_prose_produces_no_product() {
 }
 
 #[tokio::test]
-async fn missing_peer_is_explicit_without_a_model_call() {
+async fn a_single_current_reading_can_describe_its_own_side() {
     let model =
         Model::new(r#"{"blurb":"The mood reading is calm; measured movement is unavailable."}"#);
     let mut assignment = assignment();
@@ -248,10 +248,9 @@ async fn missing_peer_is_explicit_without_a_model_call() {
     assert_eq!(out.direction, "steady");
     assert_eq!(out.score, 0);
     assert_eq!(out.headline.as_deref(), Some("Vale Kerr: current momentum"));
-    assert!(out.blurb.contains("Performance reading unavailable"));
-    assert!(out.blurb.contains("cannot be assessed"));
-    assert!(!out.was_called());
-    assert!(model.calls.lock().unwrap().is_empty());
+    assert!(out.blurb.contains("mood reading is calm"));
+    assert!(out.was_called());
+    assert_eq!(model.calls.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]

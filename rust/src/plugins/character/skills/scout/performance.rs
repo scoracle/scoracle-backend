@@ -2,12 +2,12 @@
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Deserializer, Serialize};
 use sqlx::{PgPool, Row};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use super::request::RATING_PROMPT_VERSION;
 use crate::util::round1;
 
-/// maxStatFacts bounds the breakdown datapoints fed to the prompt.
+/// Retained for reporting exclusions from historical prepared assignments.
 pub(crate) const MAX_STAT_FACTS: usize = 14;
 
 /// The appearance count below which a cross-season comparison is not computed.
@@ -15,10 +15,6 @@ pub(crate) const MAX_STAT_FACTS: usize = 14;
 /// A sample thinner than this cannot support a direction claim, so the world
 /// states that rather than letting the model infer one from two snapshots.
 pub const MIN_CROSS_SEASON_APPEARANCES: f64 = 10.0;
-
-/// Selection limits for cross-season measurements and held standings.
-pub const MAX_COMPARISON_FACTS: usize = 4;
-pub const MAX_HELD_COMPARISON_FACTS: usize = 2;
 
 /// Whether this sample can support a cross-season comparison at all.
 pub fn supports_cross_season_comparison(p: &RatingProfile) -> bool {
@@ -110,6 +106,7 @@ pub struct RatingProfile {
     pub season: i32,
     pub position: String, // players only ("" for teams)
     pub composite_score: Option<f64>,
+    pub card_score: Option<f64>,
     pub breakdown: Vec<RatingDatapoint>,
     pub scoped_ranks: HashMap<String, f64>,
     pub rate_modes: HashMap<String, Vec<RatingDatapoint>>,
@@ -142,8 +139,7 @@ pub struct RatingExclusions {
     /// Display-tier datapoints — retired from the rating equation (`in_comp=false AND
     /// in_spec=false`) — excluded from the AI context (see `drop_display_tier_datapoints`).
     pub display_tier_stat_labels: Vec<String>,
-    /// Datapoints the thin-sample selection withholds in code instead of ordering the
-    /// model to ignore them (see `THIN_SAMPLE_OMITTED_LABEL`).
+    /// Labels omitted from historical thin-sample assignments.
     pub thin_sample_omitted_stat_labels: Vec<String>,
 }
 
@@ -204,57 +200,6 @@ pub fn pct_band(pct: f64) -> &'static str {
     } else {
         "poor"
     }
-}
-
-/// Return at most `MAX_STAT_FACTS` spanning the full percentile range. Keep both ends and sample
-/// the middle evenly so the prompt does not become a top-N highlight reel.
-pub(super) fn ordered_facts(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
-    let facts = ordered_facts_unbounded(breakdown);
-    if facts.len() <= MAX_STAT_FACTS {
-        return facts;
-    }
-    const ENDS: usize = 5; // the top and bottom five: elite edges and real liabilities
-    let middle_slots = MAX_STAT_FACTS - (ENDS * 2);
-    let mut keep: Vec<usize> = (0..ENDS).collect();
-    // Even stride across the interior, endpoints excluded (they are already taken).
-    let lo = ENDS;
-    let hi = facts.len() - ENDS;
-    if hi > lo && middle_slots > 0 {
-        let span = hi - lo;
-        for i in 0..middle_slots {
-            // +1/(middle_slots+1) spacing keeps the samples off both seams.
-            let idx = lo + ((i + 1) * span) / (middle_slots + 1);
-            if !keep.contains(&idx) {
-                keep.push(idx);
-            }
-        }
-    }
-    keep.extend((facts.len() - ENDS)..facts.len());
-    keep.sort_unstable();
-    keep.dedup();
-    keep.into_iter().map(|i| facts[i].clone()).collect()
-}
-
-fn ordered_facts_unbounded(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
-    let mut facts = breakdown.to_vec();
-    facts.sort_by(|a, b| {
-        b.pct
-            .partial_cmp(&a.pct)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    facts
-}
-
-pub(crate) fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec<String> {
-    let shown: HashSet<String> = ordered_facts(breakdown)
-        .into_iter()
-        .map(|d| d.label)
-        .collect();
-    breakdown
-        .iter()
-        .filter(|d| !shown.contains(&d.label))
-        .map(|d| d.label.clone())
-        .collect()
 }
 
 /// Select at most five elite (percentile ≥ 80) measurements per rate mode.
@@ -339,14 +284,11 @@ pub(crate) fn drop_degenerate_zero_datapoints(p: &mut RatingProfile) -> Vec<Stri
     dropped
 }
 
-/// drop_off_facet_datapoints removes breakdown and rate-mode datapoints from the OTHER side
-/// of the ball than the player's position. An offensive player's defensive stat sheet (and
-/// vice versa) is structural noise, not scoutable evidence: a QB's 0th-percentile Tackling is
-/// a category he does not play. Only NFL breakdowns
-/// carry offense/defense facets (NBA and FOOTBALL emit facet="all"), so this no-ops for every
-/// other sport, for teams, and for facet-less rows by construction. Returns the dropped
-/// breakdown labels for the exclusions ledger — the selection is provable, not silent.
-pub(crate) fn drop_off_facet_datapoints(p: &mut RatingProfile) -> Vec<String> {
+/// Exclude the opposite side of the ball from NFL player profiles.
+pub(crate) fn drop_off_facet_datapoints(p: &mut RatingProfile, sport: &str) -> Vec<String> {
+    if sport != "NFL" || p.entity_type != "player" {
+        return Vec::new();
+    }
     let Some(side) = nfl_position_side(&p.position) else {
         return Vec::new();
     };
@@ -410,82 +352,13 @@ pub fn relative_direction(delta: f64) -> RelativeDirection {
     }
 }
 
-/// Thin samples drop the Discipline datapoint in code rather than handing it to the
-/// model with an order to ignore it. Participation totals are already withheld from the
-/// thin-sample sample line, so this is the last selection decision the old evidence
-/// boundary used to delegate to prose. Returns the omitted labels for the ledger.
-pub const THIN_SAMPLE_OMITTED_LABEL: &str = "Discipline";
-
-pub(crate) fn thin_sample_omitted_stat_labels(p: &RatingProfile) -> Vec<String> {
-    if supports_cross_season_comparison(p) {
-        return Vec::new();
-    }
-    p.breakdown
-        .iter()
-        .filter(|datapoint| datapoint.label == THIN_SAMPLE_OMITTED_LABEL)
-        .map(|datapoint| datapoint.label.clone())
-        .collect()
-}
-
-pub(crate) fn model_prompt_profile(
-    profile: &RatingProfile,
-    supports_cross_season: bool,
-    comparisons: Option<&BTreeMap<String, SkillChange>>,
-) -> RatingProfile {
-    let mut prompt_profile = profile.clone();
-    if !supports_cross_season {
-        prompt_profile.composite_score = None;
-        // The thin-sample evidence boundary omits Discipline from the selection itself
-        // (see THIN_SAMPLE_OMITTED_LABEL); participation totals never reach the prompt.
-        prompt_profile.breakdown = ordered_facts_unbounded(&profile.breakdown)
-            .into_iter()
-            .filter(|datapoint| datapoint.label != THIN_SAMPLE_OMITTED_LABEL)
-            .take(2)
-            .collect();
-    } else if let Some(comparisons) = comparisons.filter(|changes| !changes.is_empty()) {
-        let mut ranked = profile
-            .breakdown
-            .iter()
-            .filter_map(|datapoint| {
-                let current_pct = datapoint.pct?;
-                let change = comparisons.get(&datapoint.label)?;
-                Some((
-                    datapoint.label.as_str(),
-                    current_pct,
-                    current_pct - change.prior_pct,
-                ))
-            })
-            .collect::<Vec<_>>();
-        ranked.sort_by(|a, b| {
-            b.2.abs()
-                .partial_cmp(&a.2.abs())
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.0.cmp(b.0))
-        });
-        let mut selected = ranked
-            .iter()
-            .take(MAX_COMPARISON_FACTS)
-            .map(|fact| fact.0)
-            .collect::<HashSet<_>>();
-        let mut held = ranked
-            .iter()
-            .filter(|fact| fact.2.abs() <= 1.0 && !selected.contains(fact.0))
-            .collect::<Vec<_>>();
-        held.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.0.cmp(b.0))
-        });
-        selected.extend(
-            held.into_iter()
-                .take(MAX_HELD_COMPARISON_FACTS)
-                .map(|fact| fact.0),
-        );
-        prompt_profile
-            .breakdown
-            .retain(|datapoint| selected.contains(datapoint.label.as_str()));
-    }
-    prompt_profile
+/// The rating engine owns the season profile. Preserve its selected measurements
+/// and their order, including measured zeros and middle-of-the-pack percentiles.
+pub(crate) fn model_prompt_profile(profile: &RatingProfile) -> RatingProfile {
+    let mut current = profile.clone();
+    current.breakdown.retain(|d| d.in_comp);
+    current.composite_score = None;
+    current
 }
 
 /// Join measurements by skill before rendering. A missing comparison stays unknown;
@@ -597,11 +470,15 @@ pub struct Profile {
 /// One measured quantity, with everything needed to read it honestly.
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct MeasuredValue {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub facet: String,
     pub label: String,
     pub measure: String,
     /// The raw value. `None` is unmeasured, which is not zero.
     #[serde(default)]
     pub value: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub better_value: Option<String>,
     /// Eligible-cohort percentile; higher is better, already polarity-adjusted.
     #[serde(default)]
     pub percentile: Option<f64>,
@@ -673,9 +550,15 @@ pub fn profile_parts(
         .breakdown
         .iter()
         .map(|datapoint| MeasuredValue {
+            facet: datapoint.facet.clone(),
             label: datapoint.label.clone(),
             measure: datapoint.measure.clone(),
             value: datapoint.value,
+            better_value: match datapoint.sign {
+                1 => Some("higher".into()),
+                -1 => Some("lower".into()),
+                _ => None,
+            },
             percentile: datapoint.pct,
             cohort: datapoint.cohort,
             band: datapoint.pct.map(|pct| pct_band(pct).to_string()),
@@ -806,7 +689,8 @@ pub async fn load_rating_profile(
                           OR sd.key_name IN (SELECT stat_key FROM public.rating_thresholds WHERE sport=$1))
                      AND NULLIF(stats->>sd.key_name,'') IS NOT NULL
                ), '{{}}'::jsonb),
-               {eligibility_select} AS rank_eligible
+               {eligibility_select} AS rank_eligible,
+               (CASE WHEN $4 = 'team' THEN rating_rank ELSE rating_score END)::float8 AS card_score
         FROM public.{table}
         WHERE sport = $1 AND {id_col} = $2 AND ($3::int IS NULL OR season = $3)
         ORDER BY season DESC,
@@ -842,6 +726,7 @@ pub async fn load_rating_profile(
         serde_json::from_str(&scoped_raw).unwrap_or_default();
     let mut rate_modes = parse_rate_modes(&modes_raw);
     let rank_eligible: bool = row.get(9);
+    let card_score = if rank_eligible { row.get(10) } else { None };
     if !rank_eligible {
         composite_score = None;
         scoped_ranks.clear();
@@ -859,6 +744,7 @@ pub async fn load_rating_profile(
         season,
         position,
         composite_score,
+        card_score,
         breakdown,
         scoped_ranks,
         rate_modes,

@@ -1,23 +1,12 @@
 //! Current peer readings and dated computed comparisons, without historical prose.
 
 const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
-    relationship: "evidence contains prepared interpretations about the target, not independent raw reports. Missing readings supply no judgment.",
+    relationship: "Scout measures on-field performance. Influencer measures coverage tone. Comparisons show how each changed between its two reporting days. Current scores show where those readings stand. When there are no comparisons, describe today’s snapshot.",
     fields: &[
-        ("scout.body", "performance interpretation; preserve each measure and sample limit."),
-        ("scout.season", "performance season."),
-        ("scout.generated_at", "reading creation date, not event date."),
-        ("influencer.body", "coverage tone or attributed reactions; preserve speaker and conditions."),
-        ("influencer.generated_at", "reading creation date, not event date."),
-        ("comparisons", "computed changes; each item has its own observation window."),
-        ("comparisons.measure", "rating_notability is statistical distinctiveness; coverage_tone is estimated coverage tone, not skill or population feeling."),
-        ("comparisons.change", "computed difference."),
-        ("comparisons.unit", "difference's unit."),
-        ("comparisons.direction", "computed direction for this measure."),
-        ("comparisons.samples", "observations for this comparison only."),
-        ("comparisons.window_start", "this comparison's start; other comparisons may start elsewhere."),
-        ("comparisons.window_end", "this comparison's end."),
-        ("comparisons.computed_at", "calculation date, not event date."),
-        ("comparisons.limit", "interpretation boundary."),
+        ("scout.score", "Scout rates on-field performance from 0 to 100. Higher is stronger."),
+        ("scout.season", "season covered by the performance reading."),
+        ("influencer.score", "Influencer rates coverage tone. 0 is strongly negative, 50 is balanced, 100 is strongly positive."),
+        ("comparisons", "each change is the newer score minus the older score on the two dates shown, in score points. A zero change means those two readings matched."),
     ],
 };
 
@@ -26,7 +15,10 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 struct Reading<'a> {
-    body: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    body: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    score: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     season: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -35,11 +27,12 @@ struct Reading<'a> {
 
 #[derive(Serialize)]
 pub(super) struct Fresh<'a> {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    comparisons: Vec<Comparison<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     scout: Option<Reading<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     influencer: Option<Reading<'a>>,
-    comparisons: Vec<Comparison<'a>>,
 }
 
 pub(super) fn readings<'a>(
@@ -47,18 +40,25 @@ pub(super) fn readings<'a>(
     influencer: Option<&'a Mood>,
     snapshot: &'a Snapshot,
 ) -> Fresh<'a> {
+    let comparisons = comparisons(snapshot);
+    let include =
+        |measure| comparisons.is_empty() || comparisons.iter().any(|c| c.measure == measure);
     Fresh {
-        comparisons: comparisons(snapshot),
-        scout: scout.map(|r| Reading {
-            body: &r.body,
+        scout: scout.filter(|_| include("performance")).map(|r| Reading {
+            body: r.card_score.is_none().then_some(r.body.as_str()),
+            score: r.card_score,
             season: r.season,
             generated_at: r.generated_at.as_deref(),
         }),
-        influencer: influencer.map(|r| Reading {
-            body: &r.body,
-            season: None,
-            generated_at: r.generated_at.as_deref(),
-        }),
+        influencer: influencer
+            .filter(|_| include("coverage_tone"))
+            .map(|r| Reading {
+                body: r.sentiment.is_none().then_some(r.body.as_str()),
+                score: r.sentiment.map(f64::from),
+                season: None,
+                generated_at: r.generated_at.as_deref(),
+            }),
+        comparisons,
     }
 }
 
@@ -66,33 +66,50 @@ pub(super) fn readings<'a>(
 struct Comparison<'a> {
     measure: &'static str,
     change: f64,
-    unit: &'static str,
     direction: &'static str,
-    samples: i32,
     window_start: &'a str,
     window_end: &'a str,
-    computed_at: Option<&'a str>,
-    limit: &'static str,
 }
 
 fn comparisons(snapshot: &Snapshot) -> Vec<Comparison<'_>> {
     [
-        ("rating_notability", snapshot.rating_slope, snapshot.rating_samples,
-            snapshot.rating_window_start.as_deref(), snapshot.rating_window_end.as_deref()),
-        ("coverage_tone", snapshot.vibe_slope, snapshot.vibe_samples,
-            snapshot.vibe_window_start.as_deref(), snapshot.vibe_window_end.as_deref()),
-    ].into_iter().filter_map(|(measure, change, samples, start, end)| {
+        (
+            "performance",
+            snapshot.rating_slope,
+            snapshot.rating_samples,
+            snapshot.rating_window_start.as_deref(),
+            snapshot.rating_window_end.as_deref(),
+        ),
+        (
+            "coverage_tone",
+            snapshot.vibe_slope,
+            snapshot.vibe_samples,
+            snapshot.vibe_window_start.as_deref(),
+            snapshot.vibe_window_end.as_deref(),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(measure, change, samples, start, end)| {
         let (change, start, end) = (change?, start?, end?);
-        if !change.is_finite() || samples < 2 || start.is_empty() || end.is_empty() || start >= end {
+        if !change.is_finite() || samples < 2 || start.is_empty() || end.is_empty() || start >= end
+        {
             return None;
         }
         Some(Comparison {
-            measure, change, unit: "score points between dated observations",
-            direction: if change > 0.0 { "increased" } else if change < 0.0 { "decreased" } else { "unchanged" },
-            samples, window_start: start, window_end: end, computed_at: snapshot.generated_at.as_deref(),
-            limit: "Descriptive comparison only; distinctiveness is not skill, coverage tone is not population sentiment.",
+            measure,
+            change,
+            direction: if change > 0.0 {
+                "increased"
+            } else if change < 0.0 {
+                "decreased"
+            } else {
+                "unchanged"
+            },
+            window_start: start,
+            window_end: end,
         })
-    }).collect()
+    })
+    .collect()
 }
 
 pub fn has_comparison(snapshot: &Snapshot) -> bool {
@@ -112,7 +129,7 @@ mod tests {
             ..Snapshot::default()
         };
         let value = serde_json::to_value(readings(None, None, &s)).unwrap();
-        assert_eq!(value["comparisons"][0]["measure"], "rating_notability");
+        assert_eq!(value["comparisons"][0]["measure"], "performance");
         assert_eq!(value["comparisons"][0]["change"], 8.0);
         assert_eq!(value["comparisons"][0]["direction"], "increased");
         assert_eq!(value["comparisons"].as_array().unwrap().len(), 1);

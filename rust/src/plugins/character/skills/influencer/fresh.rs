@@ -1,7 +1,5 @@
 //! Load and present the daily emotional headline package.
 
-pub(super) const CONTENT_CONTEXT: &str = "These items were selected for the target from collected news coverage. They were flagged by a decision model as containing emotional charge. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied. reporting_start and reporting_end mark the reporting-day window.";
-
 use super::request::{Assignment, Day, Parts, VIBE_PROMPT_VERSION};
 use crate::tools::{meta::EntityMeta, source::SourceContext};
 use anyhow::Result;

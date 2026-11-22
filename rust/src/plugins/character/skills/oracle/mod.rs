@@ -1,5 +1,5 @@
 //! Oracle execution, completion barrier and SQL-derived crown fields.
-pub mod character_instructions;
+pub const TASK: &str = include_str!("skill.md").trim_ascii();
 pub mod fresh;
 pub mod manifest;
 pub(crate) mod parser;
@@ -8,7 +8,9 @@ pub mod request;
 
 use crate::harness::models::ExecutionCapabilities;
 use crate::harness::plugin::{Skill, SkillManifest, SkillOutcome};
-use crate::harness::queue::work::{self, Item, TaskKey};
+use crate::harness::queue::work::{self, Item};
+#[cfg(test)]
+use crate::harness::queue::work::TaskKey;
 use crate::harness::{Generation, GenerationCall, Studio};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -39,6 +41,7 @@ pub struct SigilSynthesis {
 
 pub type SigilOutput = Generation<SigilSynthesis>;
 
+#[cfg(test)]
 const PILLAR_STAGES: [TaskKey; 5] = [
     crate::plugins::character::skills::journalist::manifest::TASK,
     crate::plugins::character::skills::scout::manifest::TASK,
@@ -55,7 +58,6 @@ pub async fn pillars_settled(
     entity_id: i64,
     sport: &str,
 ) -> Result<bool> {
-    let stages: Vec<&str> = PILLAR_STAGES.iter().map(|stage| stage.as_str()).collect();
     let settled = sqlx::query_scalar(
         r#"
         SELECT NOT EXISTS (
@@ -64,7 +66,7 @@ pub async fn pillars_settled(
              WHERE entity_type = $1
                AND entity_id   = $2
                AND sport       = $3
-               AND stage       = ANY($4)
+               AND stage       = ANY(public.coverage_dependencies('sigil'))
                AND status <> 'failed'
         )
         "#,
@@ -72,15 +74,13 @@ pub async fn pillars_settled(
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
-    .bind(&stages)
     .fetch_one(pool)
     .await
     .with_context(|| format!("pillars_settled {entity_type}/{entity_id}"))?;
     Ok(settled)
 }
 
-/// Existing Oracle barrier policy: pending/running pillars block, while failed pillars count as
-/// settled at every attempt level. A later successful retry offers Oracle again.
+/// Continuous publishing refreshes on each completion. Scheduled editions wait for their pillars.
 pub async fn enqueue_oracle_if_pillars_settled(
     pool: &PgPool,
     entity_type: &str,
@@ -145,7 +145,7 @@ impl crate::harness::queue::outbox::EventReaction for OracleBarrierReaction {
             &event.entity_type,
             i64::from(event.entity_id),
             &event.sport,
-            event.source_input_version.clone(),
+            Some(format!("oracle:{}", event.id)),
         )
         .await?;
         Ok(())
@@ -295,7 +295,7 @@ async fn articulate(
         .extract(
             &prompt,
             &options,
-            &parser::RequestParser(&prompt),
+            &parser::ReadingParser,
             crate::harness::session::no_rewrite,
         )
         .await?;

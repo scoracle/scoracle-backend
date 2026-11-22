@@ -1,5 +1,5 @@
 //! One daily fresh reporting package, with atomic publication.
-pub mod character_instructions;
+pub const TASK: &str = include_str!("skill.md").trim_ascii();
 pub mod fresh;
 pub mod manifest;
 mod parser;
@@ -124,19 +124,6 @@ pub async fn create(
     match output_from_receipt(assignment, &receipt) {
         Ok(output) => Ok((output, receipt)),
         Err(error) => {
-            let candidate = if crate::harness::rejections::observe_content() {
-                receipt["validation_policy"] = json!("observe");
-                Some(output_from_receipt(assignment, &receipt))
-            } else {
-                None
-            };
-            let allowed = candidate.as_ref().is_some_and(Result::is_ok);
-            let error = match &candidate {
-                Some(Err(structural)) => {
-                    error.context(format!("observation decoding failed: {structural:#}"))
-                }
-                _ => error,
-            };
             crate::harness::rejections::record_decision(
                 &generated.model,
                 &world,
@@ -145,16 +132,11 @@ pub async fn create(
                 &generated.raw_response_body,
                 &error,
                 1,
-                if allowed { "observed" } else { "rejected" },
+                "rejected",
             )
             .await?;
-            if let Some(Ok(output)) = candidate {
-                receipt["validation_warning"] = json!(format!("{error:#}"));
-                Ok((output, receipt))
-            } else {
-                receipt["error"] = json!(format!("{error:#}"));
-                Ok((None, receipt))
-            }
+            receipt["error"] = json!(format!("{error:#}"));
+            Ok((None, receipt))
         }
     }
 }
@@ -166,11 +148,7 @@ fn output_from_receipt(assignment: &Assignment, receipt: &Value) -> Result<Optio
         return Ok(None);
     }
     let raw = receipt["raw_response"].as_str().context("saved response")?;
-    let parsed = if receipt["validation_policy"] == "observe" {
-        VibeParser.parse_candidate(raw)?
-    } else {
-        VibeParser.parse(raw)?
-    };
+    let parsed = VibeParser.parse(raw)?;
     let Some(reply) = parsed else {
         return Ok(None);
     };
@@ -297,24 +275,13 @@ pub(crate) async fn execute_with_backend(
         entity_id,
         sport: sport.clone(),
     };
-    let (mut assignment, disposition) = fresh::prepare_assignment(pool, subject, now()).await?;
+    let (assignment, disposition) = fresh::prepare_assignment(pool, subject, now()).await?;
     if assignment.parts.hold_reason().is_some() {
         return hold_daily(pool, item, &assignment, &pending, &disposition).await;
     }
-    let mut input_hash = request::request_hash(backend, &assignment, voice_num_ctx)?;
+    let input_hash = request::request_hash(backend, &assignment, voice_num_ctx)?;
     // A publication rollback must not discard an already validated model response.
-    let mut previous = reusable_attempt(pool, &input_hash, backend.model()).await?;
-    if previous.is_none() && !assignment.parts.memories.is_empty() {
-        let mut parts = assignment.parts.clone();
-        parts.memories.clear();
-        let without_history = Assignment::from_parts(parts)?;
-        let hash = request::request_hash(backend, &without_history, voice_num_ctx)?;
-        previous = reusable_attempt(pool, &hash, backend.model()).await?;
-        if previous.is_some() {
-            assignment = without_history;
-            input_hash = hash;
-        }
-    }
+    let previous = reusable_attempt(pool, &input_hash, backend.model()).await?;
     let (output, attempt_id) = if let Some((id, _, outcome, receipt)) = &previous {
         (
             if outcome == "generated" {
@@ -325,13 +292,7 @@ pub(crate) async fn execute_with_backend(
             *id,
         )
     } else {
-        let (mut output, mut receipt) = create(backend, &assignment, voice_num_ctx).await?;
-        if receipt["context_exceeded"] == true && !assignment.parts.memories.is_empty() {
-            assignment.parts.memories.clear();
-            assignment = Assignment::from_parts(assignment.parts)?;
-            input_hash = request::request_hash(backend, &assignment, voice_num_ctx)?;
-            (output, receipt) = create(backend, &assignment, voice_num_ctx).await?;
-        }
+        let (output, receipt) = create(backend, &assignment, voice_num_ctx).await?;
         if receipt["context_exceeded"] == true {
             return hold_daily(pool, item, &assignment, &pending, &receipt).await;
         }

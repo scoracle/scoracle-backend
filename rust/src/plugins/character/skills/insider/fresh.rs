@@ -1,19 +1,5 @@
 //! Load and bound fresh movement headlines and canonical candidate names.
 
-const GUIDE: crate::tools::prompt::Guide = crate::tools::prompt::Guide {
-    relationship: "evidence contains movement reporting. Source wording establishes whether the target moves, recruits, is a former affiliation, or discusses another entity's move. Do not substitute the target for a report's named actor. An injury absence is not a departure or appointment. Headlines found through a Google search for the target may include unrelated stories, repeated coverage, speculation and clickbait. Search inclusion does not establish relevance or confirm a claim. Some articles match the target but reveal no news. Keep specific news, opinions and reactions. Do not invent the missing details or turn a question or implication into a fact. Look for recurring themes supported by distinct reports. Repeated copies are not independent support. Keep unrelated stories separate; do not force a narrative from thin evidence.",
-    fields: &[
-        ("reports.publisher", "supplying outlet, distinct from any speaker in its text."),
-        ("reports.headline", "supplied title."),
-        ("reports.publisher_excerpt", "supplied passage."),
-        ("reports.report_index", "zero-based citation for this exact report."),
-        ("reports.co_mentions", "names for checking structured findings. These are not evidence of a relationship or role; do not use them to expand the article's names in prose."),
-        ("reports.classifier_world.target_identity_resolved", "upstream identity match, not claim verification."),
-        ("reports.classifier_world.evidence_scope", "available text only; headline supplies no unseen article contents."),
-        ("reports.classifier_world.qualified_claims", "selected claims with their qualifications."),
-    ],
-};
-
 use super::request::Parts;
 use crate::harness::queue::work::Item;
 use crate::plugins::classifier::skills::classify::delivery::{
@@ -339,31 +325,28 @@ mod tests {
 #[derive(Serialize)]
 struct IndexedReport {
     report_index: usize,
-    #[serde(flatten)]
-    report: Report,
+    publisher: String,
+    headline: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    publisher_excerpt: String,
 }
+
 #[derive(Serialize)]
 pub(super) struct Fresh {
     reports: Vec<IndexedReport>,
 }
 
-pub(super) fn context(reports: &[Report]) -> crate::tools::prompt::Context<Fresh> {
-    crate::tools::prompt::Context {
-        guide: GUIDE,
-        data: Fresh {
-            reports: select(reports)
-                .into_iter()
-                .enumerate()
-                .map(|(report_index, mut report)| {
-                    report.published_at = None;
-                    report.classifier_world =
-                        crate::tools::fresh::evidence_world(report.classifier_world.as_ref());
-                    IndexedReport {
-                        report_index,
-                        report,
-                    }
-                })
-                .collect(),
-        },
+pub(super) fn evidence(reports: &[Report]) -> Fresh {
+    Fresh {
+        reports: select(reports)
+            .into_iter()
+            .enumerate()
+            .map(|(report_index, report)| IndexedReport {
+                report_index,
+                publisher: report.publisher,
+                headline: report.headline,
+                publisher_excerpt: report.publisher_excerpt,
+            })
+            .collect(),
     }
 }

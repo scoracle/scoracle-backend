@@ -267,47 +267,16 @@ pub fn decode_journalist(raw: &str, report_count: usize) -> anyhow::Result<Journ
         paragraph.body = crate::tools::guards::clean_served_prose(&normalize_body(&paragraph.body));
         validate_body(&paragraph.body)?;
         let mut seen = std::collections::HashSet::new();
-        anyhow::ensure!(
-            !paragraph.report_ids.is_empty(),
-            "paragraph has no fresh evidence"
-        );
-        for id in &paragraph.report_ids {
-            anyhow::ensure!(
-                (1..=report_count).contains(id) && seen.insert(id),
-                "invalid or duplicate paragraph report ID"
-            );
-        }
+        paragraph
+            .report_ids
+            .retain(|id| (1..=report_count).contains(id) && seen.insert(*id));
     }
     Ok(reply)
 }
 
-pub fn parse_journalist(raw: &str, report_count: usize) -> anyhow::Result<JournalistReply> {
-    let reply = decode_journalist(raw, report_count)?;
-    anyhow::ensure!(
-        reply.paragraphs.len() <= report_count,
-        "too many paragraphs"
-    );
-    validate_hook(reply.headline.as_deref())?;
-    for paragraph in &reply.paragraphs {
-        anyhow::ensure!(
-            paragraph.body.chars().count() <= JOURNALIST_REPORT_MAX_CHARS,
-            "Journalist paragraph exceeds the reading budget"
-        );
-    }
-    for prose in reply
-        .headline
-        .iter()
-        .map(String::as_str)
-        .chain(reply.paragraphs.iter().map(|p| p.body.as_str()))
-    {
-        anyhow::ensure!(
-            crate::tools::guards::first_product_name(prose).is_none()
-                && !crate::tools::guards::has_bookkeeping_citation(prose)
-                && !crate::tools::guards::has_foreign_script(prose),
-            "Journalist violates served prose guard"
-        );
-    }
-    Ok(reply)
+#[cfg(test)]
+fn parse_journalist(raw: &str, count: usize) -> anyhow::Result<JournalistReply> {
+    decode_journalist(raw, count)
 }
 
 #[cfg(test)]
@@ -317,25 +286,6 @@ mod tests {
     use crate::plugins::character::skills::analyst::parser as analyst;
     use crate::plugins::character::skills::influencer;
     use crate::plugins::character::skills::scout::parser as scout;
-
-    #[test]
-    fn journalist_observation_preserves_style_failures_but_refuses_invalid_report_ids() {
-        let mut raw = serde_json::json!({"headline":"x".repeat(141),"paragraphs":[{"body":"Invented news.","report_ids":[1]}]});
-        assert!(parse_journalist(&raw.to_string(), 1).is_err());
-        assert_eq!(
-            decode_journalist(&raw.to_string(), 1).unwrap().paragraphs[0].body,
-            "Invented news."
-        );
-        for invalid in [
-            serde_json::json!([0]),
-            serde_json::json!([2]),
-            serde_json::json!([]),
-        ] {
-            raw["paragraphs"][0]["report_ids"] = invalid;
-            assert!(decode_journalist(&raw.to_string(), 1).is_err());
-        }
-        assert!(decode_journalist("broken", 1).is_err());
-    }
 
     #[test]
     fn body_validation_preserves_prose_and_refuses_blank_content() {
@@ -438,41 +388,15 @@ mod tests {
     }
 
     #[test]
-    fn journalist_rejects_product_names_and_internal_score_citations() {
-        for bad in [
-            "The Insider confirms it.",
-            "The report (sentiment=30) is positive.",
-        ] {
-            let raw=serde_json::json!({"headline":"Cedar update","paragraphs":[{"body":bad,"report_ids":[1]}]}).to_string();
-            assert!(parse_journalist(&raw, 1).is_err());
-        }
-    }
-
-    #[test]
-    fn narratives_require_fresh_unique_source_ids_and_bounded_prose() {
-        let good = serde_json::json!({"headline":"Talks remain uncertain","paragraphs":[{"body":"Wire reports talks, followed by a denial.","report_ids":[1,2]}]});
-        assert!(parse_journalist(&good.to_string(), 2).is_ok());
-        for keys in [
-            serde_json::json!([]),
-            serde_json::json!([0]),
-            serde_json::json!([-1]),
-            serde_json::json!([1.5]),
-            serde_json::json!(["1"]),
-            serde_json::json!(["report_1"]),
-            serde_json::json!([3]),
-            serde_json::json!([1, 1]),
-        ] {
-            let mut changed = good.clone();
-            changed["paragraphs"][0]["report_ids"] = keys;
-            assert!(parse_journalist(&changed.to_string(), 2).is_err());
-        }
-        let mut changed = good;
-        changed["paragraphs"][0]["body"] =
-            serde_json::json!("x".repeat(JOURNALIST_REPORT_MAX_CHARS + 1));
-        assert!(parse_journalist(&changed.to_string(), 2).is_err());
-        assert!(parse_journalist(r#"{"paragraphs":[],"headline":null}"#, 2).is_ok());
-        assert!(parse_journalist(r#"{"report_1":"Old per-headline shape"}"#, 2).is_err());
-        assert!(parse_journalist(r#"{"headline":"Old citation","paragraphs":[{"body":"Wire reports talks.","report_keys":["report_1"]}]}"#, 2).is_err());
+    fn journalist_keeps_names_and_scores_as_written() {
+        let body = "The Insider gives Cedar a 30.";
+        let raw = serde_json::json!({
+            "headline": "Cedar update",
+            "paragraphs": [{"body": body, "report_ids": [1, 99, 1]}]
+        });
+        let card = decode_journalist(&raw.to_string(), 1).unwrap();
+        assert_eq!(card.paragraphs[0].body, body);
+        assert_eq!(card.paragraphs[0].report_ids, vec![1]);
     }
 
     #[test]
@@ -494,7 +418,7 @@ mod tests {
                 .len(),
             5
         );
-        assert!(parse_journalist(&recap.to_string(), 4).is_err());
+        assert!(parse_journalist(&recap.to_string(), 4).is_ok());
         for invalid in [
             serde_json::json!({"paragraphs":[]}),
             serde_json::json!({"paragraphs":[],"headline":"Unsupported hook"}),

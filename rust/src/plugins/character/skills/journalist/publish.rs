@@ -56,14 +56,14 @@ async fn insert_narratives(
             narrative_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
             trajectory, trajectory_components,
             model_version, prompt_version, input_hash, storyline_id,
-            card_score, headline, generated_at
+            card_score, headline, generated_at, scoring_version
         ) VALUES (
             $1,$2,$3,$4,$5::jsonb, $6,$7,$8,$9::jsonb, $10,
             COALESCE(to_timestamp($11::double precision), NOW()), $12, $13,
             to_timestamp($14::double precision), to_timestamp($15::double precision),
             $16, $17::jsonb,
             $18,$19,$20,$21,
-            $22,$23,NOW()
+            $22,$23,NOW(),$24
         )
         RETURNING id"#;
 
@@ -99,6 +99,7 @@ async fn insert_narratives(
             .bind(None::<i64>)
             .bind(output.card_score)
             .bind(output.headline.as_deref())
+            .bind(crate::tools::source::ACTIVITY_SCORING_VERSION)
             .fetch_one(&mut **tx)
             .await
             .context("persist source report")?;

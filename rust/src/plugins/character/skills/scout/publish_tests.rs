@@ -12,12 +12,14 @@ fn rating_product(
 ) -> RatingOutput {
     Generation::uncalled(
         RatingProduct {
+            availability: Default::default(),
             season: 2026,
             skipped_no_stats,
             abstained: false,
             skipped_unchanged,
             body: body.map(str::to_string),
             headline: body.map(|_| "Test Team owns the middle".to_string()),
+            card_score: body.map(|_| 67.7),
             notability: body.map(|_| 74),
             notability_components: serde_json::json!({"spread": 74}),
             rating_trajectory: body.map(|_| "rising".to_string()),
@@ -64,6 +66,7 @@ mod postgres_publication_fencing_tests {
         Option<String>,
         Option<String>,
         Option<String>,
+        Option<f64>,
     );
 
     async fn pool() -> PgPool {
@@ -229,7 +232,7 @@ mod postgres_publication_fencing_tests {
         assert_eq!(counts(&pool).await, (1, 1, 0));
 
         let row: StatRow = sqlx::query_as(
-            "SELECT body, headline, notability, input_hash, model_version, prompt_version \
+            "SELECT body, headline, notability, input_hash, model_version, prompt_version, card_score::float8 \
              FROM stat_summaries WHERE sport = $1",
         )
         .bind(SPORT)
@@ -242,6 +245,7 @@ mod postgres_publication_fencing_tests {
         );
         assert_eq!(row.1.as_deref(), Some("Test Team owns the middle"));
         assert_eq!(row.2, Some(74));
+        assert_eq!(row.6, Some(67.7));
         assert_eq!(row.3.as_deref(), Some("rating-input-hash"));
         assert_eq!(row.4.as_deref(), Some("test-rating-model"));
         assert_eq!(row.5.as_deref(), Some(RATING_PROMPT_VERSION));
@@ -288,7 +292,7 @@ mod postgres_publication_fencing_tests {
         assert_eq!(counts(&pool).await, (1, 1, 0));
 
         let row: StatRow = sqlx::query_as(
-            "SELECT body, headline, notability, input_hash, model_version, prompt_version \
+            "SELECT body, headline, notability, input_hash, model_version, prompt_version, card_score::float8 \
              FROM stat_summaries WHERE sport = $1",
         )
         .bind(SPORT)
@@ -298,6 +302,7 @@ mod postgres_publication_fencing_tests {
         assert_eq!(row.0, None);
         assert_eq!(row.1, None);
         assert_eq!(row.2, None);
+        assert_eq!(row.6, None);
         assert_eq!(row.3, None);
         assert_eq!(row.4.as_deref(), Some("test-rating-model"));
         assert_eq!(row.5.as_deref(), Some(RATING_PROMPT_VERSION));

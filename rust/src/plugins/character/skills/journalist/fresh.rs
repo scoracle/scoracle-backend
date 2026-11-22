@@ -44,22 +44,7 @@ pub(super) struct Report<'a> {
     publisher_excerpt: Option<String>,
 }
 
-impl Report<'_> {
-    pub(super) fn evidence(&self) -> crate::tools::fresh::ReportEvidence<'_> {
-        crate::tools::fresh::ReportEvidence {
-            publisher: self.publisher,
-            text: format!(
-                "{}: {}",
-                self.publisher,
-                self.headline
-                    .as_deref()
-                    .or(self.publisher_excerpt.as_deref())
-                    .unwrap_or_default()
-            ),
-            published_at: None,
-        }
-    }
-}
+
 
 /// Preserve selected order and the declared source scope. Headline-only reports
 /// expose their headline; historical article reports preserve their complete text.
@@ -159,8 +144,9 @@ pub fn prepare(
     let input_hash = crate::util::hash_components(
         &json!({
             "subject": subject, "reports": selected, "version": NARRATIVES_PROMPT_VERSION,
+            "activity_policy": crate::tools::source::ACTIVITY_SCORING_VERSION,
             "fresh_contract": FRESH_VERSION, "world": crate::util::hash_components(&rendered),
-            "instruction": super::character_instructions::INSTRUCTIONS,
+            "instruction": super::TASK,
         })
         .to_string(),
     );

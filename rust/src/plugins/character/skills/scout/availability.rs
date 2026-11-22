@@ -52,18 +52,6 @@ impl Availability {
         }
         result
     }
-    pub fn for_writing(&self) -> serde_json::Value {
-        serde_json::json!(
-            crate::tools::source::top_articles(&self.sources, "availability", |s| s
-                .classifier_world
-                .as_ref())
-            .iter()
-            .map(|s| serde_json::json!({
-                "headline":s.headline,"publisher":s.source,"evidence_scope":"headline"
-            }))
-            .collect::<Vec<_>>()
-        )
-    }
     pub async fn settle(
         &self,
         connection: &mut PgConnection,
@@ -136,65 +124,26 @@ impl Availability {
 mod tests {
     use super::*;
     #[test]
-    fn nine_complete_headlines_are_budgeted_as_model_input_instead_of_receipts() {
-        let sources = (1..=9)
-            .map(|id| SourceContext {
-                classification_id: id,
-                article_id: id,
-                headline: format!("Kai Rowan availability update {id}"),
-                context: format!("Kai Rowan availability update {id}"),
-                source: "Wire".into(),
-                published_at_epoch: Some(100 + id),
-                classifier_world: Some(serde_json::json!({
-                    "target_identity_resolved":true,"gate":{"characters":{"scout":true}},
-                    "url":format!("https://example.invalid/{}", "long-routing-receipt".repeat(60)),
-                })),
-            })
-            .collect::<Vec<_>>();
-        assert!(serde_json::to_vec(&sources).unwrap().len() > 4000);
-        let a = Availability::pack(sources.clone(), 200);
-        assert_eq!(a.sources, sources);
-        assert!(a.held.is_empty());
-        assert_eq!(a.for_writing().as_array().unwrap().len(), 9);
-        let writing = a.for_writing();
-        for field in ["url", "article_id", "published_at"] {
-            assert!(writing[0].get(field).is_none());
-        }
-        assert_eq!(a.sources[0].article_id, sources[0].article_id);
-        assert_eq!(
-            a.sources[0].published_at_epoch,
-            sources[0].published_at_epoch
-        );
-        assert_eq!(a.sources[0].classifier_world, sources[0].classifier_world);
-        assert!(writing[0].get("gate").is_none());
-    }
-
-    #[test]
-    fn writing_uses_the_ten_highest_availability_scores() {
-        let sources = (0..12)
-            .map(|id| SourceContext {
-                classification_id: id,
-                article_id: id,
-                headline: format!("Availability report {id}"),
-                context: format!("Availability report {id}"),
-                source: "Wire".into(),
-                published_at_epoch: Some(100),
-                classifier_world: Some(serde_json::json!({
-                    "spectrum":{"availability":id},
-                    "target_identity_resolved":true,"gate":{"characters":{"scout":true}}
-                })),
-            })
-            .collect();
-        let packet = Availability::pack(sources, 200).for_writing();
-        let headlines: Vec<_> = packet
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v["headline"].as_str().unwrap())
-            .collect();
-        assert_eq!(headlines.len(), 10);
-        assert_eq!(headlines.first(), Some(&"Availability report 11"));
-        assert_eq!(headlines.last(), Some(&"Availability report 2"));
+    fn delivery_headlines_do_not_change_the_stats_card_or_its_fingerprint() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../../fixtures/quality/rating/synthetic-strong.json"
+        )).unwrap();
+        let mut parts: super::super::request::Parts =
+            serde_json::from_value(fixture["parts"].clone()).unwrap();
+        let prompt = parts.render();
+        let components = parts.input_components(serde_json::json!({}));
+        parts.availability.sources.push(SourceContext {
+            classification_id: 1,
+            article_id: 1,
+            headline: "Kai Rowan may return".into(),
+            context: "Kai Rowan may return".into(),
+            source: "Wire".into(),
+            published_at_epoch: Some(100),
+            classifier_world: None,
+        });
+        assert_eq!(parts.render(), prompt);
+        assert_eq!(parts.input_components(serde_json::json!({})), components);
+        assert!(!prompt.contains("availability"));
     }
 
     #[test]
@@ -221,7 +170,7 @@ mod tests {
         assert_eq!(a.sources.len(), 1);
         assert_eq!(a.redundant.len(), 1);
         assert_eq!(a.held.len(), 3);
-        assert_eq!(a.for_writing()[0]["headline"], "Kai Rowan may return");
+        assert_eq!(a.sources[0].headline, "Kai Rowan may return");
     }
 }
 
@@ -286,20 +235,6 @@ async fn availability_routes_freezes_and_settles_without_inventing_a_profile() -
         panic!("headline invented a profile")
     };
     assert_eq!(availability.sources.len(), 1);
-    let fixture: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../../fixtures/quality/rating/synthetic-strong.json"
-    ))?;
-    let mut parts: scout::request::Parts = serde_json::from_value(fixture["parts"].clone())?;
-    parts.availability = availability.clone();
-    let before = parts.input_components(serde_json::json!({"availability":availability}));
-    let measurements = serde_json::to_value(&parts.profile)?;
-    parts.availability.sources[0].published_at_epoch = Some(1);
-    let after = parts.input_components(serde_json::json!({"availability":parts.availability}));
-    assert_ne!(
-        crate::util::hash_components(&before),
-        crate::util::hash_components(&after)
-    );
-    assert_eq!(serde_json::to_value(&parts.profile)?, measurements);
     tx.rollback().await?;
     let mut publication =
         crate::harness::queue::publication::ClaimPublication::begin(&pool, &claim)

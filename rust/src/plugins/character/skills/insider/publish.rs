@@ -46,7 +46,7 @@ fn counterparty<'a>(material: &'a Material, finding: &Finding) -> Result<&'a Mat
     Ok(matches[0])
 }
 
-async fn activity_score(
+async fn rumor_heat(
     connection: &mut PgConnection,
     reply: &Reply,
     sources: &[SourceContext],
@@ -70,11 +70,11 @@ async fn activity_score(
         .bind(serde_json::Value::Array(findings))
         .fetch_one(connection)
         .await
-        .context("calculate Insider source-grounded activity")
+        .context("calculate source-grounded rumor heat")
 }
 
 #[cfg(test)]
-fn reference_activity_score(reply: &Reply, sources: &[SourceContext]) -> i16 {
+fn reference_rumor_heat(reply: &Reply, sources: &[SourceContext]) -> i16 {
     let mut by_counterparty: BTreeMap<&str, Vec<&Finding>> = BTreeMap::new();
     for finding in &reply.findings {
         by_counterparty
@@ -136,8 +136,9 @@ async fn insert_rumors(
     }
     let mut groups: BTreeMap<i32, Vec<&Finding>> = BTreeMap::new();
     for finding in &reply.findings {
-        let other = counterparty(material, finding)?;
-        groups.entry(other.entity_id).or_default().push(finding);
+        if let Ok(other) = counterparty(material, finding) {
+            groups.entry(other.entity_id).or_default().push(finding);
+        }
     }
     let mut ids = Vec::new();
     for (team_id, findings) in groups {
@@ -197,9 +198,10 @@ async fn insert_rumors(
         let heat = if lead.status == Status::Denied {
             0
         } else {
-            activity_score(
+            rumor_heat(
                 &mut **tx,
                 &Reply {
+                    card_score: 0,
                     body: String::new(),
                     findings: selected.iter().map(|f| (*f).clone()).collect(),
                 },
@@ -249,11 +251,6 @@ pub(super) async fn commit(
     material: &Material,
     generation: &Generation<Reply>,
 ) -> Result<SkillOutcome> {
-    // Resolve every named partner before opening a publication transaction. Unknown
-    // or ambiguous co-mentions fail the claim rather than inventing a DB identity.
-    for finding in &generation.product.findings {
-        counterparty(material, finding)?;
-    }
     let Some(mut publication) = ClaimPublication::begin(pool, item).await? else {
         return Ok(SkillOutcome::Superseded);
     };
@@ -268,12 +265,7 @@ pub(super) async fn commit(
         &material.sources,
     )
     .await?;
-    let score = activity_score(
-        publication.transaction(),
-        &generation.product,
-        &material.sources,
-    )
-    .await?;
+    let score = generation.product.card_score;
     let rumor_ids = insert_rumors(
         publication.transaction(),
         material,
@@ -283,18 +275,20 @@ pub(super) async fn commit(
     .await?;
     let score_id = {
         let previous: Option<i16> = sqlx::query_scalar(
-            "SELECT score FROM public.insider_scores WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 ORDER BY generated_at DESC,id DESC LIMIT 1"
+            "SELECT score FROM public.insider_scores WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 AND scoring_version=$4 ORDER BY generated_at DESC,id DESC LIMIT 1"
         ).bind(&item.entity_type).bind(item.entity_id_i32()?).bind(&material.subject.sport)
+            .bind(crate::tools::source::ACTIVITY_SCORING_VERSION)
             .fetch_optional(&mut **publication.transaction()).await?;
         sqlx::query_scalar::<_, i64>(
             "INSERT INTO public.insider_scores \
-             (sport,entity_type,entity_id,score,previous_score,read,headline,model_version,prompt_version,input_hash) \
-             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id"
+             (sport,entity_type,entity_id,score,previous_score,read,headline,model_version,prompt_version,input_hash,scoring_version) \
+             VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id"
         ).bind(&material.subject.sport).bind(&item.entity_type).bind(item.entity_id_i32()?)
             .bind(score).bind(previous).bind(&generation.product.body)
             .bind(format!("{}: transfer picture", material.subject.name))
             .bind(&generation.provenance.model_version).bind(generation.provenance.prompt_version)
             .bind(generation.provenance.input_hash.as_deref())
+            .bind(crate::tools::source::ACTIVITY_SCORING_VERSION)
             .fetch_one(&mut **publication.transaction()).await?
     };
     for (index, source) in material.sources.iter().enumerate() {
@@ -437,12 +431,13 @@ mod tests {
                             findings.rotate_left(1);
                         }
                         let reply = Reply {
+                            card_score: 0,
                             body: String::new(),
                             findings,
                         };
                         assert_eq!(
-                            activity_score(&mut connection, &reply, &sources).await?,
-                            reference_activity_score(&reply, &sources),
+                            rumor_heat(&mut connection, &reply, &sources).await?,
+                            reference_rumor_heat(&reply, &sources),
                             "count={count} mask={mask} stage={stage} order={order}"
                         );
                         cases += 1;
@@ -497,12 +492,13 @@ mod tests {
                     ]);
                     findings.reverse();
                     let reply = Reply {
+                        card_score: 0,
                         body: String::new(),
                         findings,
                     };
                     assert_eq!(
-                        activity_score(&mut connection, &reply, &sources).await?,
-                        reference_activity_score(&reply, &sources)
+                        rumor_heat(&mut connection, &reply, &sources).await?,
+                        reference_rumor_heat(&reply, &sources)
                     );
                     let group = reply
                         .findings
@@ -512,18 +508,20 @@ mod tests {
                     let (lead, selected) = current_run(&group);
                     assert_eq!(lead.status, Status::Reported);
                     let selected_reply = Reply {
+                        card_score: 0,
                         body: String::new(),
                         findings: selected.into_iter().cloned().collect(),
                     };
                     assert_eq!(
-                        activity_score(&mut connection, &selected_reply, &sources).await?,
-                        reference_activity_score(&selected_reply, &sources)
+                        rumor_heat(&mut connection, &selected_reply, &sources).await?,
+                        reference_rumor_heat(&selected_reply, &sources)
                     );
                     cases += 2;
                 }
             }
         }
         let missing_source = Reply {
+            card_score: 0,
             body: String::new(),
             findings: vec![Finding {
                 report_index: sources.len(),
@@ -533,7 +531,7 @@ mod tests {
                 evidence_quote: "Exact quote".into(),
             }],
         };
-        assert!(activity_score(&mut connection, &missing_source, &sources)
+        assert!(rumor_heat(&mut connection, &missing_source, &sources)
             .await
             .is_err());
         eprintln!("{cases} SQL/legacy parity cases verified; missing source rejected");
@@ -615,8 +613,9 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(
-            reference_activity_score(
+            reference_rumor_heat(
                 &Reply {
+                    card_score: 0,
                     body: String::new(),
                     findings: vec![oldest.clone(), intervening.clone(), newest],
                 },
@@ -625,8 +624,9 @@ mod tests {
             48
         );
         assert_eq!(
-            reference_activity_score(
+            reference_rumor_heat(
                 &Reply {
+                    card_score: 0,
                     body: String::new(),
                     findings: vec![oldest, intervening],
                 },

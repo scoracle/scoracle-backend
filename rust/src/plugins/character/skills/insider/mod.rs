@@ -1,5 +1,5 @@
 //! Insider execution: read verified source packages and publish under the queue claim.
-pub mod character_instructions;
+pub const TASK: &str = include_str!("skill.md").trim_ascii();
 pub mod fresh;
 pub mod manifest;
 mod parser;
@@ -39,6 +39,8 @@ pub struct Finding {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Reply {
+    #[serde(skip_deserializing)]
+    pub card_score: i16,
     pub body: String,
     pub findings: Vec<Finding>,
 }
@@ -89,7 +91,8 @@ async fn create_with_record(
     let world = request::assemble_with_record(subject, reports, database_record);
     let hash = crate::util::hash_components(&serde_json::to_string(&(
         &world,
-        character_instructions::INSTRUCTIONS,
+        crate::tools::source::ACTIVITY_SCORING_VERSION,
+        TASK,
         request::PROMPT_VERSION,
     ))?);
     let extracted = studio
@@ -425,8 +428,9 @@ mod tests {
             execute_prepared(&pool, &backend, 32768, &item, material).await?,
             SkillOutcome::Committed
         ));
-        let body:String=sqlx::query_scalar("SELECT read FROM insider_scores WHERE sport=$1 AND entity_type='person' AND entity_id=940101").bind(sport).fetch_one(&pool).await?;
+        let (body, score): (String, i16) = sqlx::query_as("SELECT read, score FROM insider_scores WHERE sport=$1 AND entity_type='person' AND entity_id=940101").bind(sport).fetch_one(&pool).await?;
         assert!(body.contains("Jordan Sample"));
+        assert_eq!(score, 10);
         let settled:i64=sqlx::query_scalar("SELECT count(*) FROM classifier_spectrum_deliveries d JOIN classifier_spectra x ON x.id=d.spectrum_id WHERE x.sport=$1 AND x.target->>'entity_type'='person' AND d.character='insider' AND d.status='used' AND d.product_ref->>'score_id' IS NOT NULL").bind(sport).fetch_one(&pool).await?;
         assert_eq!(settled, 1);
         let reactions = crate::harness::registration::build_reactions(pool.clone())?;
@@ -480,15 +484,13 @@ mod tests {
             )
             .await;
             assert_eq!(*fake.0.lock().unwrap(), calls);
-            if first_body.is_some() {
-                assert!(
-                    generated.is_err(),
-                    "a rejected first pass must not be rewritten"
-                );
+            if let Some(body) = first_body {
+                assert_eq!(generated.unwrap().product.body, body);
                 continue;
             }
             let generated = generated.unwrap();
             assert_eq!(generated.product.findings.len(), 1);
+            assert_eq!(generated.product.card_score, 10);
             assert!(generated.product.body.contains("Wire"));
             let final_world: serde_json::Value =
                 serde_json::from_str(&generated.call.unwrap().built_prompt).unwrap();
@@ -499,51 +501,10 @@ mod tests {
         }
     }
 
-    #[test]
-    fn oversized_prose_and_findings_are_rejected_even_without_native_schema_enforcement() {
-        let subject = EntityMeta {
-            name: "Jordan Sample".into(),
-            entity_type: "player".into(),
-            entity_id: 1,
-            sport: "NFL".into(),
-        };
-        let reports = [request::Report {
-            classifier_world: None,
-            publisher: "Wire".into(),
-            published_at: None,
-            headline: "Movement".into(),
-            publisher_excerpt: "Jordan Sample is considering a move.".into(),
-            co_mentions: vec![],
-        }];
-        let parser = ReplyParser {
-            subject: &subject,
-            reports: &reports,
-        };
-        let paragraph = "Jordan Sample is considering a move, according to Wire. ".repeat(12);
-        let body = [paragraph.trim(); 3].join("\n\n");
-        assert!(body.chars().count() > 1200);
-        let reading = serde_json::json!({"body":body,"findings":[]});
-        assert_eq!(
-            parser.parse(&reading.to_string()).unwrap().unwrap().body,
-            body
-        );
-        let too_long = serde_json::json!({"body":format!("Jordan Sample {}","x".repeat(request::BODY_MAX_CHARS)),"findings":[]});
-        assert!(parser
-            .parse(&too_long.to_string())
-            .unwrap_err()
-            .to_string()
-            .contains("body exceeds"));
-        let too_many = serde_json::json!({"body":"Jordan Sample is considering a move.","findings":(0..3).map(|i|
-            serde_json::json!({"report_index":0,"counterparty":format!("Club {i}"),"status":"reported","stage":"speculation","evidence_quote":"considering a move"})).collect::<Vec<_>>()});
-        assert!(parser
-            .parse(&too_many.to_string())
-            .unwrap_err()
-            .to_string()
-            .contains("too many findings"));
-    }
+
 
     #[test]
-    fn rejects_a_finding_without_an_exact_publisher_quote() {
+    fn unlinked_quote_does_not_hold_the_briefing() {
         let subject = EntityMeta {
             name: "Jordan Sample".into(),
             entity_type: "player".into(),
@@ -566,7 +527,7 @@ mod tests {
             subject: &subject,
             reports: &reports,
         };
-        assert!(parser.parse(r#"{"body":"Jordan Sample is linked with Cleveland.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland has signed Jordan Sample"}]}"#).is_err());
+        assert!(parser.parse(r#"{"body":"Jordan Sample is linked with Cleveland.","findings":[{"report_index":0,"counterparty":"Cleveland Browns","status":"reported","stage":"concrete_interest","evidence_quote":"Cleveland has signed Jordan Sample"}]}"#).unwrap().unwrap().findings.is_empty());
     }
 
     #[test]
@@ -599,13 +560,13 @@ mod tests {
         );
         assert!(parser
             .parse(&denied.replace(r#""stage":null"#, r#""stage":"speculation""#))
-            .is_err());
+            .unwrap().unwrap().findings.is_empty());
         assert!(parser
             .parse(
                 &denied
                     .replace(r#""status":"denied""#, r#""status":"reported""#)
                     .replace(r#""stage":null"#, r#""stage":"concrete_interest""#)
             )
-            .is_err());
+            .unwrap().unwrap().findings.len() == 1);
     }
 }

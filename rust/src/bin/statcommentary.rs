@@ -122,6 +122,9 @@ async fn run_single(pool: &sqlx::PgPool, models: &Models, args: &Args) -> Result
         out.season,
         outcome_label(&out),
     );
+    if let Some(score) = out.card_score {
+        println!("Scout score {score}/100");
+    }
     if let Some(body) = &out.body {
         println!("\n{body}");
     }

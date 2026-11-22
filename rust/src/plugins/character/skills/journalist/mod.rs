@@ -1,6 +1,6 @@
 //! Journalist execution: articulate prepared reports and publish under the queue claim.
 mod activity;
-pub mod character_instructions;
+pub const TASK: &str = include_str!("skill.md").trim_ascii();
 pub mod fresh;
 pub mod manifest;
 mod parser;
@@ -66,9 +66,10 @@ pub async fn create(
         ));
     }
     let activity = activity::load(pool, &assignment.selected, now).await?;
+    let world = request::prompt(assignment);
     let output = studio
         .extract(
-            &request::prompt(assignment),
+            &world,
             &request::generation_options(assignment, num_ctx),
             &EditionParser {
                 assignment,

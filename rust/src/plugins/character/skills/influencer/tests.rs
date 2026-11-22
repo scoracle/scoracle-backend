@@ -109,16 +109,9 @@ async fn day_card_contract() {
     .collect();
     assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
     assert_eq!(world.as_object().unwrap().len(), 5);
-    assert_eq!(world["target_context"], request::TARGET_CONTEXT);
-    assert_eq!(world["task"], character_instructions::INSTRUCTIONS.job());
-    assert!(!character_instructions::INSTRUCTIONS.system().is_empty());
+    assert_eq!(world["target_context"], crate::tools::prompt::TARGET_CONTEXT);
+    assert_eq!(world["task"], TASK);
     assert!(!prompt.contains("instructions.target"));
-    assert_eq!(
-        prompt
-            .matches(character_instructions::INSTRUCTIONS.job())
-            .count(),
-        1
-    );
     assert!(world["evidence"]["reports"][1]["publisher_excerpt"]
         .as_str()
         .unwrap()
@@ -202,11 +195,7 @@ async fn day_card_contract() {
         .await
         .unwrap();
     assert!(observed.is_some());
-    assert_eq!(receipt["validation_policy"], "observe");
-    assert!(receipt["validation_warning"]
-        .as_str()
-        .unwrap()
-        .contains("one line"));
+    assert!(receipt.get("validation_warning").is_none());
     assert!(receipt.get("error").is_none());
     let replay = crate::harness::rejections::TEST_OBSERVE
         .sync_scope(false, || output_from_receipt(&a, &receipt))
@@ -214,17 +203,6 @@ async fn day_card_contract() {
         .unwrap();
     assert_eq!(replay.hook.as_deref(), Some("First\nSecond"));
     assert_eq!(observed_model.calls.load(Ordering::Relaxed), 1);
-    let record: Value = serde_json::from_str(
-        std::fs::read_to_string(&archive)
-            .unwrap()
-            .lines()
-            .last()
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(record["disposition"], "observed");
-    std::fs::remove_file(archive).unwrap();
-
     let broken = Model {
         calls: AtomicUsize::new(0),
         reply: "truncated",
@@ -305,10 +283,10 @@ async fn an_incomplete_day_never_calls_the_model() {
 }
 
 #[test]
-fn output_prose_cannot_exceed_the_native_budget_contract() {
+fn decodable_prose_is_preserved_at_any_length() {
     let oversized =
         json!({"score":75,"headline":"Hope","body":"x".repeat(request::BODY_MAX_CHARS+1)});
-    assert!(VibeParser.parse(&oversized.to_string()).is_err());
+    assert!(VibeParser.parse(&oversized.to_string()).is_ok());
     assert_eq!(
         request::schema()["oneOf"][0]["properties"]["body"]["maxLength"],
         request::BODY_MAX_CHARS

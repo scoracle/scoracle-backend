@@ -1,5 +1,5 @@
 //! One entity/daily packet; production and replay share this entry point.
-use super::character_instructions::INSTRUCTIONS;
+use super::TASK;
 use crate::harness::model::GenerateOptions;
 use crate::harness::route::RouteKey;
 use crate::tools::meta::EntityMeta;
@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const MODEL: RouteKey = RouteKey::new("vibe-logic", "VIBE_LOGIC");
-pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v61-task-first";
-pub use crate::tools::prompt::TARGET_CONTEXT;
+pub const VIBE_PROMPT_VERSION: &str = "vibe-frame-v65-full-profile";
 pub const SCORE_VERSION: &str = "emotional-valence-v1";
 pub const VIBE_TEMPERATURE: f64 = 0.0;
 pub const VIBE_NUM_PREDICT: i32 = 3500;
@@ -62,25 +61,12 @@ impl Parts {
         selected.sources = crate::tools::source::top_articles(&self.sources, "emotion", |s| {
             s.classifier_world.as_ref()
         });
-        #[derive(Serialize)]
-        struct Payload<T, E> {
-            task: &'static str,
-            target_context: &'static str,
-            target: T,
-            evidence_context: &'static str,
-            evidence: E,
-        }
-        serde_json::to_string_pretty(&Payload {
-            target_context: TARGET_CONTEXT,
-            target: crate::tools::meta::writing_target(
-                &self.subject,
-                self.database_record.as_ref(),
-            ),
-            task: INSTRUCTIONS.job(),
-            evidence_context: super::fresh::CONTENT_CONTEXT,
-            evidence: super::fresh::evidence(&selected),
-        })
-        .expect("Influencer payload serializes")
+        crate::tools::prompt::headline_card(
+            TASK,
+            &self.subject,
+            self.database_record.as_ref(),
+            super::fresh::evidence(&selected),
+        )
     }
 }
 
@@ -108,7 +94,7 @@ impl Assignment {
             parts.assemble(),
             VIBE_PROMPT_VERSION,
             SCORE_VERSION,
-            INSTRUCTIONS,
+            TASK,
             SCHEMA_RAW,
         ))?);
         Ok(Self { parts, input_hash })
@@ -117,7 +103,7 @@ impl Assignment {
 
 pub fn generation_options(temperature: f64, num_ctx: i32, num_predict: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(super::character_instructions::system()),
+        system: None,
         temperature: Some(temperature),
         num_predict,
         num_ctx: if num_ctx > 0 {
@@ -151,12 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn production_preserves_compact_system_and_body_score_hook_order() {
+    fn single_message_preserves_body_score_hook_order() {
         let options = generation_options(VIBE_TEMPERATURE, 4096, VIBE_NUM_PREDICT);
-        assert_eq!(
-            options.system.as_deref(),
-            Some(super::super::character_instructions::system().as_str())
-        );
+        assert!(options.system.is_none());
         assert_eq!(options.format_schema, Some(schema()));
         assert_eq!(options.format_schema_raw.as_deref(), Some(SCHEMA_RAW));
         for variant in SCHEMA_RAW.split("\"required\":").skip(1) {

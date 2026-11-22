@@ -1,5 +1,5 @@
 //! Assemble Journalist identity, voice and fresh reporting into one JSON payload.
-use super::character_instructions::INSTRUCTIONS;
+use super::TASK;
 use crate::harness::route::RouteKey;
 pub const MODEL: RouteKey = RouteKey::new("narrative-logic", "NARRATIVE_LOGIC");
 pub use super::fresh::CorpusItem;
@@ -7,7 +7,7 @@ use crate::harness::model::GenerateOptions;
 use crate::tools::meta::EntityMeta;
 use serde::{Deserialize, Serialize};
 
-pub const NARRATIVES_PROMPT_VERSION: &str = "n145-task-first";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n149-full-profile";
 pub const NUM_PREDICT: i32 = 900;
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v18-recap-hook-last";
 pub const LOOKBACK_SECONDS: i64 = 72 * 3600;
@@ -37,7 +37,7 @@ pub struct Parts {
 
 impl Parts {
     pub fn parse(&self, raw: &str) -> anyhow::Result<crate::tools::form::JournalistReply> {
-        super::parser::parse_reports(raw, &super::fresh::select(&self.reports))
+        crate::tools::form::decode_journalist(raw, super::fresh::select(&self.reports).len())
     }
 
     pub fn assemble(&self) -> String {
@@ -52,23 +52,7 @@ pub fn assemble(
     database_record: Option<&crate::tools::meta::DatabaseRecord>,
 ) -> String {
     let reports = super::fresh::select(reports);
-    #[derive(Serialize)]
-    struct Payload<'a, T> {
-        task: &'a str,
-        target_context: &'static str,
-        target: T,
-        evidence_context: &'a str,
-        evidence: Vec<super::fresh::Report<'a>>,
-    }
-    const CONTENT_CONTEXT: &str = "These items were selected for the target from collected news coverage. Target-name searches can also return stories about other people or teams. Each numbered item gives the publisher and the headline or excerpt it supplied.";
-    serde_json::to_string_pretty(&Payload {
-        target_context: crate::tools::prompt::TARGET_CONTEXT,
-        target: crate::tools::meta::writing_target(subject, database_record),
-        task: INSTRUCTIONS.job(),
-        evidence_context: CONTENT_CONTEXT,
-        evidence: super::fresh::reports(&reports),
-    })
-    .expect("Journalist payload serializes")
+    crate::tools::prompt::headline_card(TASK, subject, database_record, super::fresh::reports(&reports))
 }
 
 pub fn prompt(assignment: &Assignment) -> String {
@@ -82,7 +66,7 @@ pub fn prompt(assignment: &Assignment) -> String {
 pub fn generation_options(assignment: &Assignment, num_ctx: i32) -> GenerateOptions {
     let count = super::fresh::select(&assignment.selected).len();
     GenerateOptions {
-        system: Some(super::character_instructions::system()),
+        system: None,
         temperature: Some(0.0),
         num_predict: (count as i32 * 700).clamp(NUM_PREDICT, 3500),
         num_ctx: if num_ctx > 0 {

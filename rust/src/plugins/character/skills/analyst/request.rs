@@ -1,5 +1,5 @@
 //! Finished reading selection, dated study, request projection and provider options.
-use super::character_instructions::INSTRUCTIONS;
+use super::TASK;
 use crate::harness::route::RouteKey;
 pub const MODEL: RouteKey = RouteKey::new("momentum-logic", "MOMENTUM_LOGIC");
 use crate::harness::model::GenerateOptions;
@@ -8,14 +8,15 @@ use crate::tools::meta::EntityMeta;
 use crate::util::{hash_components, round1};
 use anyhow::{Context, Result};
 use serde::Serialize;
-use sqlx::PgPool;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s54-task-first";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s56-card-scores";
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Form {
+    #[serde(default)]
+    pub card_score: Option<f64>,
     pub body: String,
     pub headline: Option<String>,
     pub season: Option<i32>,
@@ -42,6 +43,7 @@ pub struct Snapshot {
     pub vibe_samples: i32,
     pub vibe_window_start: Option<String>,
     pub vibe_window_end: Option<String>,
+    #[serde(rename = "performance_change")]
     pub rating_slope: Option<f64>,
     pub rating_samples: i32,
     pub rating_window_start: Option<String>,
@@ -51,6 +53,10 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
+    pub fn card_score(&self) -> Option<f64> {
+        self.momentum_score.map(|delta| round1(50.0 + delta / 2.0))
+    }
+
     pub fn empty(&self) -> bool {
         self.vibe_slope.is_none() && self.rating_slope.is_none() && self.momentum_score.is_none()
     }
@@ -89,8 +95,7 @@ impl MomentumContext {
     pub fn empty(&self) -> bool {
         self.rating.is_none()
             && self.vibe.is_none()
-            && self.snapshot.rating_slope.is_none()
-            && self.snapshot.vibe_slope.is_none()
+            && !super::fresh::has_comparison(&self.snapshot)
     }
 }
 
@@ -105,7 +110,7 @@ pub fn build_momentum_input_components(
         serde_json::to_value(super::fresh::readings(rating, vibe, mom))
             .expect("Analyst evidence serializes"),
     );
-    components.insert("instructions".into(), serde_json::json!(INSTRUCTIONS));
+    components.insert("instructions".into(), serde_json::json!(TASK));
     components.insert(
         "prompt_version".into(),
         serde_json::json!(MOMENTUM_PROMPT_VERSION),
@@ -174,6 +179,7 @@ pub fn build_momentum_input_components(
             serde_json::json!(mom.vibe_window_end),
         );
     }
+    components.insert("card_score".into(), serde_json::json!(mom.card_score()));
     if let Some(score) = mom.momentum_score {
         components.insert("momentum_score".into(), serde_json::json!(round1(score)));
     }
@@ -203,10 +209,17 @@ impl MomentumContext {
     }
 }
 
-type ScoutReadingRow = (String, Option<String>, Option<i32>, String, Option<String>);
+type ScoutReadingRow = (
+    String,
+    Option<String>,
+    Option<i32>,
+    String,
+    Option<String>,
+    Option<f64>,
+);
 type InfluencerReadingRow = (String, Option<String>, Option<i16>, String, Option<String>);
 async fn load_scout_reading(
-    pool: &PgPool,
+    conn: &mut sqlx::PgConnection,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
@@ -214,9 +227,9 @@ async fn load_scout_reading(
 ) -> Result<Option<Form>> {
     let row: Option<ScoutReadingRow> = sqlx::query_as(
         r#"
-        SELECT body, headline, season, generated_at::date::text, input_hash
+        SELECT body, headline, season, reporting_date::text, input_hash, card_score::float8
           FROM (
-            SELECT body, headline, season, generated_at, input_hash
+            SELECT body, headline, season, reporting_date, input_hash, card_score
               FROM public.stat_summaries
              WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
            AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule)) AND season = $4
@@ -230,29 +243,30 @@ async fn load_scout_reading(
     .bind(entity_id)
     .bind(sport)
     .bind(season)
-    .fetch_optional(pool)
+    .fetch_optional(conn)
     .await
     .with_context(|| format!("load Analyst Scout reading {entity_type}/{entity_id}"))?;
-    Ok(
-        row.map(|(body, headline, season, generated_at, input_hash)| Form {
+    Ok(row.map(
+        |(body, headline, season, generated_at, input_hash, card_score)| Form {
+            card_score,
             body,
             headline,
             season,
             generated_at: Some(generated_at),
             input_hash,
-        }),
-    )
+        },
+    ))
 }
 
 async fn load_influencer_reading(
-    pool: &PgPool,
+    conn: &mut sqlx::PgConnection,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
 ) -> Result<Option<Mood>> {
     let row: Option<InfluencerReadingRow> = sqlx::query_as(
         r#"
-        SELECT prompt, hook, sentiment, generated_at::date::text, input_hash
+        SELECT prompt, hook, sentiment, reporting_date::text, input_hash
           FROM public.vibe_scores
          WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
            AND reporting_date=public.character_reporting_date() AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
@@ -264,7 +278,7 @@ async fn load_influencer_reading(
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
-    .fetch_optional(pool)
+    .fetch_optional(conn)
     .await
     .with_context(|| format!("load Analyst Influencer reading {entity_type}/{entity_id}"))?;
     Ok(row.map(
@@ -285,18 +299,23 @@ pub async fn load_momentum_context(
     sport: &str,
 ) -> Result<MomentumContext> {
     let season = oracle::resolve_season(pool, sport, None).await?;
-    let (rating, vibe, snapshot, database_record) = tokio::try_join!(
-        load_scout_reading(pool, entity_type, entity_id, sport, season),
-        load_influencer_reading(pool, entity_type, entity_id, sport),
-        load_snapshot(pool, entity_type, entity_id, sport, season),
-        crate::tools::meta::load_character_identity(pool, entity_type, entity_id, sport),
-    )?;
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        .execute(&mut *tx)
+        .await?;
+    let rating = load_scout_reading(&mut tx, entity_type, entity_id, sport, season).await?;
+    let vibe = load_influencer_reading(&mut tx, entity_type, entity_id, sport).await?;
+    let snapshot = load_snapshot(&mut tx, entity_type, entity_id, sport, season).await?;
+    let database_record =
+        crate::tools::meta::load_character_identity_on(&mut tx, entity_type, entity_id, sport)
+            .await?;
+    tx.commit().await?;
     let mut context = MomentumContext::new(season, rating, vibe, snapshot);
     context.database_record = database_record;
     context.input_hash = hash_components(&serde_json::to_string(&(
         &context.input_components_json,
         &context.database_record,
-        INSTRUCTIONS,
+        TASK,
     ))?);
     Ok(context)
 }
@@ -304,7 +323,7 @@ pub async fn load_momentum_context(
 /// Preserve the current voice-window reservation; all adapters use these same options.
 pub fn generation_options(voice_num_ctx: i32) -> GenerateOptions {
     GenerateOptions {
-        system: Some(INSTRUCTIONS.system().to_owned()),
+        system: None,
         temperature: Some(MOMENTUM_TEMPERATURE),
         num_predict: MOMENTUM_NUM_PREDICT,
         num_ctx: voice_num_ctx,
@@ -327,7 +346,7 @@ pub struct Parts {
 impl Parts {
     pub fn assemble(&self) -> String {
         crate::tools::prompt::assemble(
-            &INSTRUCTIONS,
+            TASK,
             crate::tools::meta::context(self.subject.for_writing(), self.database_record.as_ref()),
             super::fresh::context(
                 self.scout.as_ref(),
@@ -337,7 +356,8 @@ impl Parts {
         )
     }
     pub fn should_call(&self) -> bool {
-        (self.scout.is_some() && self.influencer.is_some())
+        self.scout.is_some()
+            || self.influencer.is_some()
             || super::fresh::has_comparison(&self.snapshot)
     }
 }
@@ -359,7 +379,7 @@ pub fn assemble(
 }
 
 async fn load_snapshot(
-    pool: &PgPool,
+    conn: &mut sqlx::PgConnection,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
@@ -368,16 +388,12 @@ async fn load_snapshot(
     let value: Option<serde_json::Value> = sqlx::query_scalar(
         "SELECT jsonb_build_object(
             'vibe_slope', vibe_slope, 'vibe_samples', vibe_samples,
-            'vibe_window_start', vibe_window_start, 'vibe_window_end', vibe_window_end,
-            'rating_slope', rating_slope, 'rating_samples', rating_samples,
-            'rating_window_start', rating_window_start, 'rating_window_end', rating_window_end,
-            'momentum_score', momentum_score, 'generated_at', generated_at)
-         FROM public.momentum_scores
-         WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 AND season=$4
-           AND reporting_date=public.character_reporting_date()
-           AND (NOT (SELECT enabled FROM coverage_schedule) OR candidate_edition=(SELECT edition_date FROM coverage_schedule))
-         ORDER BY generated_at DESC, id DESC LIMIT 1")
-        .bind(entity_type).bind(entity_id).bind(sport).bind(season).fetch_optional(pool).await?;
+            'vibe_window_start', (vibe_window_start AT TIME ZONE 'America/Detroit')::date, 'vibe_window_end', (vibe_window_end AT TIME ZONE 'America/Detroit')::date,
+            'performance_change', rating_slope, 'rating_samples', rating_samples,
+            'rating_window_start', (rating_window_start AT TIME ZONE 'America/Detroit')::date, 'rating_window_end', (rating_window_end AT TIME ZONE 'America/Detroit')::date,
+            'momentum_score', momentum_score)
+         FROM public.analyst_card_changes($3, $1, $2) WHERE season=$4")
+        .bind(entity_type).bind(entity_id).bind(sport).bind(season).fetch_optional(conn).await?;
     value
         .map(serde_json::from_value)
         .transpose()
@@ -394,7 +410,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn complete_readings_and_study_without_scores_or_hashes() {
+    fn scored_card_shows_performance_score_without_prose_or_hashes() {
         let subject = EntityMeta {
             name: "Jordan Sample".into(),
             entity_type: "player".into(),
@@ -402,6 +418,7 @@ mod tests {
             sport: "NFL".into(),
         };
         let scout = Form {
+            card_score: Some(67.0),
             body: "Full measured reading. Its qualifier stays here.".into(),
             headline: None,
             season: Some(2026),
@@ -419,7 +436,8 @@ mod tests {
         let world = assemble(&subject, Some(&scout), None, &snapshot);
         let value: serde_json::Value = serde_json::from_str(&world).unwrap();
         assert!(world.starts_with("{\n  \"task\":"));
-        assert_eq!(value["evidence"]["scout"]["body"], scout.body);
+        assert_eq!(value["evidence"]["scout"]["score"], 67.0);
+        assert!(value["evidence"]["scout"].get("body").is_none());
         assert!(value["evidence"].get("trajectory").is_none());
         assert!(value["evidence"].get("influencer").is_none());
         assert!(world.find("hidden").is_none());

@@ -1,27 +1,28 @@
 //! Composition roster for the first-party plugin fleet.
 
-use crate::harness::plugin::{PluginManifest, SkillManifest};
 use crate::harness::route::RouteKey;
+use crate::harness::skill::{PluginManifest, SkillManifest};
 
 /// Concurrent Kev article requests. Four native slots share each request's question prefix.
 pub const ARCHBOX_SLOTS: (&str, usize) = ("decision-d1", 4);
 /// Shared slots for models hosted on the Mac. Slot-group membership must follow routing.
 pub const MAC_SLOTS: (&str, usize) = ("characters-qwen", 4);
 
-/// Domain plugin owners, including retained but inactive Caretaker machinery.
-pub const ALL: [&PluginManifest; 3] = [
-    &crate::plugins::classifier::MANIFEST,
-    &crate::plugins::character::MANIFEST,
-    &crate::plugins::caretaker::MANIFEST,
+/// Domain plugin owners, for Capture and Characters.
+pub const ALL: [&PluginManifest; 2] = [
+    &crate::harness::plugins::capture::MANIFEST,
+    &crate::harness::plugins::characters::MANIFEST,
 ];
 
-/// Current deployable skills. Caretaker remains unavailable through stage configuration.
+/// Current deployable skills. Investigator and Fixture Boxscore remain offline.
 pub fn skills() -> impl Iterator<Item = &'static SkillManifest> {
-    crate::plugins::classifier::MANIFEST
-        .skills
-        .iter()
-        .chain(crate::plugins::character::MANIFEST.skills.iter())
-        .copied()
+    std::iter::once(&crate::harness::plugins::capture::skills::classifier::manifest::MANIFEST)
+        .chain(
+            crate::harness::plugins::characters::MANIFEST
+                .skills
+                .iter()
+                .copied(),
+        )
 }
 
 /// Configured inference routes contributed by the statically linked plugin roster.

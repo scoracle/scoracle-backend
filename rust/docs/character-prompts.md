@@ -6,7 +6,7 @@ Skills own meaning and behavior within their plugin. Shared code owns assembly a
 
 | Change | Owner |
 | --- | --- |
-| Role, voice, requested product, output instructions | Skill `character_instructions.rs` |
+| Role, voice, requested product, output instructions | Skill `SKILL.md` |
 | Which evidence is selected and how it relates to the target | Skill `fresh.rs` |
 | Canonical identity and stored attributes | Shared `tools/meta.rs` |
 | Connecting context providers, schema, generation settings, version | Skill `request.rs` |
@@ -46,7 +46,7 @@ Share a component or definition when its meaning is identical across consumers. 
 
 The shared sports-entity description lives in `tools/prompt.rs::TARGET_CONTEXT`. Journalist, Influencer, Analyst, Oracle, Insider, Scout, Classifier and Investigator all render it before their target identity. Classifier renders an ordered JSON brief inside its native string state: `task → target_context → target → evidence_context → evidence`. Its four scoring questions remain separate native questions. Investigator clarifies that it describes the sought entity, since the candidate Wikipedia page may concern another subject; its page evidence and verbatim-containment checks remain separate.
 
-Classifier’s overall task and all four scoring questions live in `plugins/classifier/skills/classify/character_instructions.rs`; `request.rs` assembles them with target and headline context. Criteria JSON files are historical snapshots, not runtime instruction sources. Response validation uses the same question keys. The v17 criteria and v8 task-first request retain identifying metadata and named-person context. Classifier loads the same structured database record and uses the same recorded-attribute formatter as Journalist. `recorded_attributes` is an object; legacy prose-only records are preserved under `background_note`.
+Classifier’s `SKILL.md` contains the assignment and relationship rules. Its `scripts/questions.rs` defines the four scoring questions and `scripts/request.rs` assembles the request. Criteria JSON files are historical snapshots, not runtime instruction sources. Response validation uses the same question keys. The v17 criteria and v8 task-first request retain identifying metadata and named-person context. Classifier loads the same structured database record and uses the same recorded-attribute formatter as Journalist. `recorded_attributes` is an object; legacy prose-only records are preserved under `background_note`.
 
 The decision model uses the same context ownership convention but retains its native scoring questions and transport. It does not need a prose voice or a character output schema.
 

@@ -55,7 +55,7 @@ pub(super) async fn tick(pool: &PgPool, at: Option<&str>) -> anyhow::Result<Stri
                         .execute(&mut *tx)
                         .await?;
                 }
-                crate::plugins::character::skills::scout::snapshot::freeze(&mut tx).await?;
+                crate::harness::plugins::characters::skills::scout::snapshot::freeze(&mut tx).await?;
             }
             let failures_after: i64 = sqlx::query_scalar(
                 "SELECT count(*) FROM coverage_failures WHERE edition_date=$1::text::date",

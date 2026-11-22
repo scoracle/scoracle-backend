@@ -1,6 +1,6 @@
 # Studio: the architecture contract
 
-**Harness → plugins → skills.** The harness runs durable work. Classifier owns decision-model work; Character owns six output skills; Caretaker organizes existing maintenance machinery and remains inactive. Skills bring tools and instructions; the LLM discovers what the supplied clues support and articulates the answer. Cheap code owns collection; expensive compute owns discovery.
+**Harness → plugins → skills.** The harness runs durable work. Capture owns Classifier, Investigator and Fixture Boxscore. Characters owns the six output skills. Skills bring tools and instructions; the LLM discovers what the supplied clues support and articulates the answer. Cheap code owns collection; expensive compute owns discovery.
 
 Plugins assemble dependencies and declare their skills. Each skill retains its own task, claim policy, resource budget, model routes and tool grants. The registry validates ownership and flattens enabled skills into the existing scheduler. Shared plugin ownership does not combine permissions, serialize character work, or change publication fences. See the [migration plan and inventory](docs/PLAN-plugin-skills-2026-11-15.md).
 
@@ -9,23 +9,25 @@ New generation-ledger rows use `scoracle.character` as `plugin_id` and the uncha
 
 ## Plugin and skill map
 
-Paths below are relative to `src/plugins/`. These are statically linked Rust skills, not dynamically loaded prompt folders. Each skill owns its preparation, instructions, allowed tools, validation and publication; the harness owns claims, retries, shared budgets and transaction fencing.
+Paths below are relative to `src/harness/plugins/`. Each skill package contains `SKILL.md` and its Rust tools in `scripts/`. The empty `capture/skills/graph.rs` reserves a place for future relationship capture. These are statically linked Rust skills, not dynamically loaded prompt folders. Each skill owns its preparation, instructions, allowed tools, validation and publication; the harness owns claims, retries, shared budgets and transaction fencing.
 
 | Plugin | Skill | Durable queue task | Source directory | Output / effect |
 | --- | --- | --- | --- | --- |
-| Classifier | classify | `classifier` | `classifier/skills/classify/` | Headline scores and character delivery obligations |
-| Character | Journalist | `narratives` | `character/skills/journalist/` | News narratives |
-| Character | Influencer | `vibe` | `character/skills/influencer/` | Coverage tone |
-| Character | Scout | `rating` | `character/skills/scout/` | Statistical assessment |
-| Character | Insider | `transfers` | `character/skills/insider/` | Movement reporting and findings |
-| Character | Analyst | `momentum` | `character/skills/analyst/` | Performance and mood trajectory |
-| Character | Oracle | `sigil` | `character/skills/oracle/` | Synthesis of the five character pillars |
-| Caretaker (inactive) | Investigator | `investigate_entity` (unavailable) | `caretaker/skills/investigator/` | Retained entity-maintenance machinery |
-| Caretaker (inactive) | Fixture boxscore | `fixture_boxscore` (unavailable) | `caretaker/skills/fixture_boxscore/` | Retained fixture-data machinery |
+| Capture | Classifier | `classifier` | `capture/skills/skill-classifier/` | Headline scores and character delivery obligations |
+| Characters | Journalist | `narratives` | `characters/skills/skill-journalist/` | News narratives |
+| Characters | Influencer | `vibe` | `characters/skills/skill-influencer/` | Coverage tone |
+| Characters | Scout | `rating` | `characters/skills/skill-scout/` | Statistical assessment |
+| Characters | Insider | `transfers` | `characters/skills/skill-insider/` | Movement reporting and findings |
+| Characters | Analyst | `momentum` | `characters/skills/skill-analyst/` | Performance and mood trajectory |
+| Characters | Oracle | `sigil` | `characters/skills/skill-oracle/` | Synthesis of the five character pillars |
+| Capture | Investigator | `investigate_entity` (unavailable) | `capture/skills/skill-investigator/` | Retained entity-maintenance machinery |
+| Capture | Fixture boxscore | `fixture_boxscore` (unavailable) | `capture/skills/skill-fixture-boxscore/` | Retained fixture-data machinery |
 
-Classifier routes evidence to character work. Rating and Vibe feed Momentum; Oracle waits for its five pillars. The harness claims each skill independently using the existing queue and dependency gates. Plugins introduce ownership, not another queue or a model choosing the next job.
+See the [Classifier request](src/harness/plugins/capture/skills/skill-classifier/references/sample-request.json) and [Journalist prompt](src/harness/plugins/characters/skills/skill-journalist/references/sample-prompt.json).
 
-`COGNITION_STAGES` still accepts queue task names. Unset enables the six Character skills; Classifier is opt-in. The shipped service explicitly enables Classifier plus those six skills. Caretaker tasks are rejected by configuration, and `factsweep` refuses before database access. There is no factsweep cron job.
+Classifier routes evidence to character work. Rating and Vibe feed Momentum; Oracle reads finished cards in continuous mode and waits for its five dependencies in scheduled editions. The harness claims each skill independently using the existing queue and dependency gates. Plugins introduce ownership, not another queue or a model choosing the next job.
+
+`COGNITION_STAGES` still accepts queue task names. Unset enables the six Character skills; Classifier is opt-in. The shipped service explicitly enables Classifier plus those six skills. Investigator and Fixture Boxscore remain outside the worker roster, and `factsweep` refuses before database access. There is no factsweep cron job.
 
 [Compare the old and new flow in Figma](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs). The [baseline comparison](docs/qualification/2026-11-15-plugin-skills/BASELINE-COMPARISON.md) records unchanged fixture outcomes; prompt/parser quality is separate from structural parity.
 
@@ -62,7 +64,7 @@ The [bounded Insider index trial](fixtures/characters/insider-indices-2026-11-01
 
 The subsequent [context and instruction review](fixtures/characters/context-review-2026-11-02/README.md) audits all six request contracts and iterates on Insider in local batches. That Insider trial used complete worked examples and limited finding candidates to literal full-name quote eligibility; the later five-article trial shortened the instructions while retaining that eligibility rule. This removes six unsupported findings in the twelve-case comparison, but recurring meaning errors and parser limitations remain; routine output quality is not established.
 
-The Journalist three-context pilot is not qualified for rollout. Its current [instruction contract](src/plugins/character/skills/journalist/character_instructions.rs) defines source ownership, uncertainty, story selection and output rules. Runtime, hashing and evaluation read the same contract; the historical trials below used longer instructions with worked examples. The [detailed-instruction trials](fixtures/journalist/detailed-instructions-2026-11-01/README.md) retain development, held-out and workload results. The earlier [assembly investigation](fixtures/journalist/assembly-2026-11-01/README.md) traces the removed legacy claim-preparation stage. Parser evidence matches the exact headline or excerpt served to the writer; passing that check still does not prove factual fidelity.
+The Journalist three-context pilot is not qualified for rollout. Its current [instruction contract](src/harness/plugins/characters/skills/skill-journalist/SKILL.md) defines source ownership, uncertainty, story selection and output rules. Runtime, hashing and evaluation read the same contract; the historical trials below used longer instructions with worked examples. The [detailed-instruction trials](fixtures/journalist/detailed-instructions-2026-11-01/README.md) retain development, held-out and workload results. The earlier [assembly investigation](fixtures/journalist/assembly-2026-11-01/README.md) traces the removed legacy claim-preparation stage. Parser evidence matches the exact headline or excerpt served to the writer; passing that check still does not prove factual fidelity.
 
 The [real-data packet-size experiment](fixtures/journalist/packet-size-2026-11-01/README.md) freezes three production-loader packets with database article IDs and tests 1/4/12/40 headlines twice on the unchanged 4B model. All 24 generations complete and all repeats match, but no size is reliably faithful in this sample: short inputs still resolve ambiguity, while larger inputs introduce unsupported relationships and source-link errors. Manual fidelity, canonical-name parser rejections and timing are recorded separately.
 
@@ -105,8 +107,8 @@ The API reads saved products and performs no inference. The reporting routes `/n
 
 | Owner | Responsibility |
 | --- | --- |
-| `src/plugins/{classifier,character,caretaker}/` | Capability ownership and skill assembly. |
-| `src/plugins/<plugin>/skills/<skill>/` | Evidence selection, task, voice, inference, acceptance and publication policy. |
+| `src/harness/plugins/{capture,characters}/` | Capability ownership and skill assembly. |
+| `src/harness/plugins/<plugin>/skills/skill-<name>/` | Evidence selection, task, voice, inference, acceptance and publication policy. |
 | `src/harness/` | Registration, model transports, budgets, queue claims, coverage schedule, diagnostics and atomic publication coordination. |
 | `src/tools/` | Shared identity, source presentation, form decoding and output guards. Network fetch tools remain for structured Investigator and box-score work. |
 | Postgres / SQL | Canonical identities, exact name matching, source revisions, spectra, delivery obligations, daily membership, factual arithmetic and stored products. |
@@ -114,7 +116,7 @@ The API reads saved products and performs no inference. The reporting routes `/n
 
 Share ordinary tool functions when doing so reduces complexity. Plugins assemble clues rather than prewrite conclusions. Preserve dates, uncertainty, unknown values, publisher attribution and complete evidence. Historical prose cannot become measurement evidence. Keep model requests and responses inspectable outside compact character inputs.
 
-`tools/meta.rs` provides canonical identity; `tools/fresh.rs` presents evidence; `plugins/classifier/skills/classify/memories.rs` selects and ranks bounded headline history in Rust; `tools/form.rs` owns structural forms and decoding; `tools/guards.rs` owns served-prose checks. Other DuckDB studies remain available for explicit offline work.
+`tools/meta.rs` provides canonical identity; `tools/fresh.rs` presents evidence; `harness/plugins/capture/skills/skill-classifier/scripts/memories.rs` selects and ranks bounded headline history in Rust; `tools/form.rs` owns structural forms and decoding; `tools/guards.rs` owns served-prose checks. Other DuckDB studies remain available for explicit offline work.
 
 The six Character skills retain their distinct interfaces and share one production Qwen route. `statcommentary` remains an explicit statistics command. Investigator uses structured Wikimedia evidence; `factsweep` remains unavailable pending a qualified discovery gate.
 

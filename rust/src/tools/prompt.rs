@@ -1,4 +1,4 @@
-//! Shared target_context → target → task → evidence_context → evidence assembly.
+//! Shared task → target_context → target → evidence_context → evidence assembly.
 //! Context modules own their data and interpretation rules; adapters own transport/schema.
 use serde::Serialize;
 use serde_json::Value;
@@ -29,20 +29,6 @@ pub(crate) fn headline_card(
         evidence,
     })
     .expect("headline card serializes")
-}
-
-#[derive(Serialize)]
-pub struct Instructions {
-    pub task: &'static str,
-    pub rules: &'static str,
-}
-impl Instructions {
-    pub fn job(&self) -> &str {
-        self.task.trim()
-    }
-    pub fn system(&self) -> &str {
-        self.rules.trim()
-    }
 }
 
 /// A context provider supplies the meaning with its values.
@@ -87,17 +73,6 @@ impl Guide {
         }));
         lines
     }
-
-    fn prose(&self, value: &Value) -> Vec<&str> {
-        std::iter::once(self.relationship)
-            .filter(|text| !text.is_empty())
-            .chain(
-                self.fields
-                    .iter()
-                    .filter_map(|(path, meaning)| supplied(value, path).then_some(*meaning)),
-            )
-            .collect()
-    }
 }
 
 pub fn assemble(
@@ -114,59 +89,21 @@ pub fn assemble(
         evidence: F,
     }
     let mut target_context = vec![TARGET_CONTEXT.to_owned()];
-    target_context.extend(target.guide.lines(&serde_json::to_value(&target.data).expect("target serializes")));
+    target_context.extend(
+        target
+            .guide
+            .lines(&serde_json::to_value(&target.data).expect("target serializes")),
+    );
     serde_json::to_string_pretty(&Payload {
         task,
         target_context,
         target: target.data,
-        evidence_context: new_content.guide.lines(&serde_json::to_value(&new_content.data).expect("content serializes")),
+        evidence_context: new_content
+            .guide
+            .lines(&serde_json::to_value(&new_content.data).expect("content serializes")),
         evidence: new_content.data,
     })
     .expect("character payload serializes")
-}
-
-/// A plain-language rendering for native decision models with a string state.
-/// Quoted field values keep source text from introducing extra section labels.
-pub fn assemble_brief(
-    instructions: &Instructions,
-    target: Context<impl Serialize>,
-    new_content: Context<impl Serialize>,
-) -> String {
-    let target_data = serde_json::to_value(&target.data).expect("target serializes");
-    let content_data = serde_json::to_value(&new_content.data).expect("content serializes");
-    let mut lines = vec!["Instructions".to_owned(), instructions.job().to_owned()];
-    lines.extend(
-        target
-            .guide
-            .prose(&target_data)
-            .into_iter()
-            .map(str::to_owned),
-    );
-    lines.extend(
-        new_content
-            .guide
-            .prose(&content_data)
-            .into_iter()
-            .map(str::to_owned),
-    );
-    lines.push(format!("\nTarget context\n{TARGET_CONTEXT}"));
-    for (heading, data) in [
-        ("Target", target_data),
-        ("Headline to evaluate", content_data),
-    ] {
-        lines.push(format!("\n{heading}"));
-        for (key, value) in data.as_object().expect("brief context is a field map") {
-            let label = key.replace('_', " ");
-            let mut letters = label.chars();
-            let label = format!(
-                "{}{}",
-                letters.next().unwrap().to_uppercase(),
-                letters.as_str()
-            );
-            lines.push(format!("{label}: {value}"));
-        }
-    }
-    lines.join("\n")
 }
 
 // Historical receipts retain the previous envelope; validation reads either layout.
@@ -185,11 +122,6 @@ mod tests {
     use super::*;
     use crate::tools::meta::{self, WritingIdentity};
     use serde_json::json;
-
-    const INSTRUCTIONS: Instructions = Instructions {
-        task: "Summarize supplied reporting. Be measured.",
-        rules: "Return JSON.",
-    };
 
     #[test]
     fn explicit_fields_preserve_presence_and_prose_without_parsing_punctuation() {
@@ -222,11 +154,12 @@ mod tests {
     }
 
     #[test]
-    fn assembly_accepts_prepared_context_shapes_and_orders_target_context_target_task_evidence_context_evidence() {
+    fn assembly_accepts_prepared_context_shapes_and_orders_task_target_context_target_evidence_context_evidence(
+    ) {
         let target = json!({"name":"Cedar","entity_type":"organization","custom_attribute":false});
         let evidence = json!({"reports":[],"count":0});
         let prompt = assemble(
-            INSTRUCTIONS.job(),
+            "Summarize supplied reporting. Be measured.",
             Context {
                 guide: Guide {
                     relationship: "The supplied organization is the target.",
@@ -256,7 +189,7 @@ mod tests {
             .collect();
         assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
         assert_eq!(packet.as_object().unwrap().len(), 5);
-        assert_eq!(packet["task"], INSTRUCTIONS.job());
+        assert_eq!(packet["task"], "Summarize supplied reporting. Be measured.");
         assert_eq!(packet["target"], target);
         assert_eq!(packet["evidence"], evidence);
         assert_eq!(
@@ -306,7 +239,7 @@ mod tests {
                 .then(|| serde_json::from_value(attributes.clone()).unwrap());
             let evidence = json!({"reports":[{"headline":"Another person speaks about Target"}]});
             let packet: Value = serde_json::from_str(&assemble(
-                INSTRUCTIONS.job(),
+                "Summarize supplied reporting. Be measured.",
                 meta::context(
                     WritingIdentity::new("Target", kind, "basketball"),
                     record.as_ref(),

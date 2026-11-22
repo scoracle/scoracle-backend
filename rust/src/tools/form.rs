@@ -309,10 +309,10 @@ fn parse_journalist(raw: &str, count: usize) -> anyhow::Result<JournalistReply> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::harness::plugins::characters::skills::analyst::parser as analyst;
+    use crate::harness::plugins::characters::skills::influencer;
+    use crate::harness::plugins::characters::skills::scout::parser as scout;
     use crate::harness::Parser;
-    use crate::plugins::character::skills::analyst::parser as analyst;
-    use crate::plugins::character::skills::influencer;
-    use crate::plugins::character::skills::scout::parser as scout;
 
     #[test]
     fn hook_follows_the_body_and_is_bounded_in_characters() {

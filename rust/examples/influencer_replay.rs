@@ -3,10 +3,10 @@
 //! cargo run --example influencer_replay -- CASES.json OUTPUT.jsonl [MODEL_URL MODEL]
 //! Recorded evidence needs no database: --recorded INPUT.jsonl OUTPUT.jsonl MODEL_URL MODEL
 use anyhow::{ensure, Context, Result};
-use scoracle_cognition::harness::providers::llama::LlamaClient;
-use scoracle_cognition::plugins::{
-    character::skills::influencer, classifier::skills::classify::delivery,
+use scoracle_cognition::harness::plugins::{
+    capture::skills::classifier::delivery, characters::skills::influencer,
 };
+use scoracle_cognition::harness::providers::llama::LlamaClient;
 use scoracle_cognition::tools::meta::{lookup_entity_name, EntityMeta};
 use serde::Deserialize;
 use serde_json::{json, Value};

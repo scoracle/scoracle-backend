@@ -89,7 +89,7 @@ impl std::fmt::Display for ToolRefusal {
     }
 }
 
-use crate::harness::plugin::SkillManifest;
+use crate::harness::skill::SkillManifest;
 use crate::tools::fetch::{BudgetedFetcher, FetchPolicy, SourceFetch};
 use anyhow::{anyhow, Result};
 use sqlx::PgPool;

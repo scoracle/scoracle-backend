@@ -6,9 +6,11 @@ use anyhow::{Context, Result};
 use scoracle_cognition::harness::model::{
     GenerateOptions, GenerateResult, Inference, ResponseFailure,
 };
+use scoracle_cognition::harness::plugins::characters::skills::journalist::{
+    self, fresh, request as prompt,
+};
 use scoracle_cognition::harness::providers::llama::LlamaClient;
 use scoracle_cognition::harness::Studio;
-use scoracle_cognition::plugins::character::skills::journalist::{self, fresh, request as prompt};
 use scoracle_cognition::tools::meta::EntityMeta;
 use serde::Deserialize;
 use serde_json::json;

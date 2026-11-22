@@ -1,7 +1,7 @@
 //! Operator entry point for the Investigator's non-queue person-metadata sweep.
 
 use anyhow::{anyhow, ensure, Result};
-use scoracle_cognition::plugins::caretaker::skills::investigator::adapter::run_factsweep;
+use scoracle_cognition::harness::plugins::capture::skills::investigator::adapter::run_factsweep;
 
 fn parse_args(mut it: impl Iterator<Item = String>) -> Result<()> {
     let mut sport = String::new();

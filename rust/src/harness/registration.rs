@@ -5,9 +5,9 @@
 //! here leaves `main.rs` as process boot and makes the adapter boundary explicit.
 
 use crate::harness::models::Models;
-use crate::plugins::character::skills::analyst;
-use crate::plugins::character::skills::oracle;
-use crate::plugins::character::skills::scout;
+use crate::harness::plugins::characters::skills::analyst;
+use crate::harness::plugins::characters::skills::oracle;
+use crate::harness::plugins::characters::skills::scout;
 use anyhow::{anyhow, Result};
 use sqlx::PgPool;
 use std::collections::HashSet;
@@ -73,11 +73,10 @@ pub fn build(
     pool: PgPool,
     models: Arc<Models>,
     enabled: &HashSet<String>,
-) -> Result<Vec<crate::harness::plugin::Plugin>> {
+) -> Result<Vec<crate::harness::skill::Plugin>> {
     Ok(vec![
-        crate::plugins::classifier::build(pool.clone(), enabled)?,
-        crate::plugins::character::build(pool, &models, enabled)?,
-        crate::plugins::caretaker::build(),
+        crate::harness::plugins::capture::build(pool.clone(), enabled)?,
+        crate::harness::plugins::characters::build(pool, &models, enabled)?,
     ])
 }
 
@@ -98,7 +97,7 @@ pub fn build_reactions(pool: PgPool) -> Result<crate::harness::queue::outbox::Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::harness::plugin::PluginRegistry;
+    use crate::harness::skill::PluginRegistry;
 
     #[test]
     fn unset_configuration_keeps_classifier_opt_in() {
@@ -147,23 +146,23 @@ mod tests {
     #[test]
     fn composition_registers_consumers_after_their_producers() {
         let position = |stage| {
-            crate::plugins::character::MANIFEST
+            crate::harness::plugins::characters::MANIFEST
                 .skills
                 .iter()
                 .position(|candidate| candidate.task == stage)
                 .unwrap()
         };
         assert!(
-            position(crate::plugins::character::skills::analyst::manifest::TASK)
-                > position(crate::plugins::character::skills::scout::manifest::TASK)
+            position(crate::harness::plugins::characters::skills::analyst::manifest::TASK)
+                > position(crate::harness::plugins::characters::skills::scout::manifest::TASK)
         );
         assert!(
-            position(crate::plugins::character::skills::analyst::manifest::TASK)
-                > position(crate::plugins::character::skills::influencer::manifest::TASK)
+            position(crate::harness::plugins::characters::skills::analyst::manifest::TASK)
+                > position(crate::harness::plugins::characters::skills::influencer::manifest::TASK)
         );
         assert_eq!(
-            position(crate::plugins::character::skills::oracle::manifest::TASK),
-            crate::plugins::character::MANIFEST.skills.len() - 1
+            position(crate::harness::plugins::characters::skills::oracle::manifest::TASK),
+            crate::harness::plugins::characters::MANIFEST.skills.len() - 1
         );
     }
 
@@ -175,17 +174,17 @@ mod tests {
         let complete = build_reactions(pool).unwrap();
         let oracle_only = ["oracle.completion-barrier"];
         for kind in [
-            crate::plugins::character::skills::analyst::MOMENTUM_COMPLETED,
-            crate::plugins::character::skills::scout::RATING_DEBOUNCED,
-            crate::plugins::character::skills::journalist::NARRATIVES_COMPLETED,
-            crate::plugins::character::skills::insider::TRANSFER_PUBLISHED,
+            crate::harness::plugins::characters::skills::analyst::MOMENTUM_COMPLETED,
+            crate::harness::plugins::characters::skills::scout::RATING_DEBOUNCED,
+            crate::harness::plugins::characters::skills::journalist::NARRATIVES_COMPLETED,
+            crate::harness::plugins::characters::skills::insider::TRANSFER_PUBLISHED,
         ] {
             assert_eq!(complete.reaction_names(kind), oracle_only, "{kind}");
         }
         let momentum_then_oracle = ["analyst.enqueue-momentum", "oracle.completion-barrier"];
         for kind in [
-            crate::plugins::character::skills::influencer::VIBE_COMPLETED,
-            crate::plugins::character::skills::scout::RATING_COMPLETED,
+            crate::harness::plugins::characters::skills::influencer::VIBE_COMPLETED,
+            crate::harness::plugins::characters::skills::scout::RATING_COMPLETED,
         ] {
             assert_eq!(
                 complete.reaction_names(kind),
@@ -195,7 +194,7 @@ mod tests {
         }
         assert_eq!(
             complete.reaction_names(
-                crate::plugins::character::skills::scout::TRANSFER_IDENTITY_APPLIED
+                crate::harness::plugins::characters::skills::scout::TRANSFER_IDENTITY_APPLIED
             ),
             ["scout.rate-applied-identity"]
         );
@@ -226,7 +225,7 @@ mod tests {
             let registry =
                 PluginRegistry::new(build(pool.clone(), models.clone(), &enabled).unwrap())
                     .unwrap();
-            assert_eq!(registry.plugins().len(), 3);
+            assert_eq!(registry.plugins().len(), 2);
             assert_eq!(
                 registry
                     .skills()
@@ -235,11 +234,11 @@ mod tests {
                     .collect::<Vec<_>>(),
                 expected
             );
-            assert!(registry.plugins()[2].skills.is_empty());
+            assert!(registry.plugins()[0].skills.is_empty());
             assert!(registry
                 .skills()
                 .iter()
-                .all(|s| s.manifest().plugin_id == crate::plugins::character::ID));
+                .all(|s| s.manifest().plugin_id == crate::harness::plugins::characters::ID));
         }
     }
 }

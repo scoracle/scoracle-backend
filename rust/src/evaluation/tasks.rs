@@ -5,28 +5,30 @@
 
 use crate::harness::model::GenerateOptions;
 use crate::harness::models::Models;
-use crate::harness::route::RouteKey;
-use crate::harness::Parser;
-use crate::plugins::caretaker::skills::investigator::cognition::prompt::{
+use crate::harness::plugins::capture::skills::investigator::cognition::prompt::{
     prose_opts, ProseReadParser, INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
-use crate::plugins::character::skills::analyst::parser::MomentumParser;
-use crate::plugins::character::skills::analyst::request::load_momentum_context;
-use crate::plugins::character::skills::influencer::{request::VIBE_NUM_PREDICT, VibeParser};
-use crate::plugins::character::skills::insider::fresh::preview as preview_insider;
-use crate::plugins::character::skills::insider::request::{
+use crate::harness::plugins::characters::skills::analyst::parser::MomentumParser;
+use crate::harness::plugins::characters::skills::analyst::request::load_momentum_context;
+use crate::harness::plugins::characters::skills::influencer::{
+    request::VIBE_NUM_PREDICT, VibeParser,
+};
+use crate::harness::plugins::characters::skills::insider::fresh::preview as preview_insider;
+use crate::harness::plugins::characters::skills::insider::request::{
     Parts as InsiderParts, PROMPT_VERSION as INSIDER_PROMPT_VERSION,
 };
 #[cfg(test)]
-use crate::plugins::character::skills::journalist::request::CorpusItem;
-use crate::plugins::character::skills::oracle::request::load_pillars;
-use crate::plugins::character::skills::oracle::request::{
+use crate::harness::plugins::characters::skills::journalist::request::CorpusItem;
+use crate::harness::plugins::characters::skills::oracle::request::load_pillars;
+use crate::harness::plugins::characters::skills::oracle::request::{
     generation_options as oracle_generation_options, Subject as OracleSubject,
     ORACLE_PROMPT_VERSION,
 };
-use crate::plugins::character::skills::scout::request::{
+use crate::harness::plugins::characters::skills::scout::request::{
     build_rating_request, RatingBuild, RatingReq,
 };
+use crate::harness::route::RouteKey;
+use crate::harness::Parser;
 use crate::tools::guards::count_sentences;
 use crate::tools::meta::lookup_entity_name;
 use crate::util::truncate;
@@ -447,10 +449,10 @@ impl LensTask for NarrativesTask {
         "narratives"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::character::skills::journalist::manifest::ROUTE
+        crate::harness::plugins::characters::skills::journalist::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::character::skills::journalist::request::NARRATIVES_PROMPT_VERSION
+        crate::harness::plugins::characters::skills::journalist::request::NARRATIVES_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
         // The response schema depends on the prepared report count.
@@ -471,10 +473,10 @@ impl LensTask for NarrativesTask {
             sport: e.sport.to_uppercase(),
         };
         let material =
-            crate::plugins::character::skills::journalist::fresh::load_narratives_material(
+            crate::harness::plugins::characters::skills::journalist::fresh::load_narratives_material(
                 pool,
                 subject,
-                crate::plugins::character::skills::influencer::now(),
+                crate::harness::plugins::characters::skills::influencer::now(),
             )
             .await?;
         let assignment = material.assignment;
@@ -483,7 +485,7 @@ impl LensTask for NarrativesTask {
             return Ok(None);
         }
         Ok(Some(self.assemble(&serde_json::to_value(
-            crate::plugins::character::skills::journalist::request::Parts {
+            crate::harness::plugins::characters::skills::journalist::request::Parts {
                 subject: assignment.subject,
                 reports: assignment.selected,
                 database_record: assignment.database_record,
@@ -504,9 +506,9 @@ impl LensTask for NarrativesTask {
             return rejected("Journalist has no fresh assignment");
         }
         let Some(parts) = request.parts.as_ref().and_then(|parts| {
-            serde_json::from_value::<crate::plugins::character::skills::journalist::request::Parts>(
-                parts.clone(),
-            )
+            serde_json::from_value::<
+                crate::harness::plugins::characters::skills::journalist::request::Parts,
+            >(parts.clone())
             .ok()
         }) else {
             return rejected("Journalist evaluation requires report parts");
@@ -578,29 +580,31 @@ impl LensTask for NarrativesTask {
         }
     }
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::character::skills::journalist::request::Parts =
+        let parts: crate::harness::plugins::characters::skills::journalist::request::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("narratives parts: {e}"))?;
         let subject = parts.subject.clone();
         let reports = parts.reports.clone();
         // Replay the production payload and the report-count-specific schema.
-        let assignment = crate::plugins::character::skills::journalist::request::Assignment {
-            database_record: parts.database_record,
-            subject,
-            selected: reports,
-            dispositions: Vec::new(),
-            input_hash: String::new(),
-        };
+        let assignment =
+            crate::harness::plugins::characters::skills::journalist::request::Assignment {
+                database_record: parts.database_record,
+                subject,
+                selected: reports,
+                dispositions: Vec::new(),
+                input_hash: String::new(),
+            };
         Ok(Prepared {
             parts: Some(stored_parts.clone()),
             should_call: !assignment.selected.is_empty(),
-            user_prompt: crate::plugins::character::skills::journalist::request::prompt(
+            user_prompt: crate::harness::plugins::characters::skills::journalist::request::prompt(
                 &assignment,
             ),
-            options: crate::plugins::character::skills::journalist::request::generation_options(
-                &assignment,
-                0,
-            ),
+            options:
+                crate::harness::plugins::characters::skills::journalist::request::generation_options(
+                    &assignment,
+                    0,
+                ),
         })
     }
     fn stores_parts(&self) -> bool {
@@ -618,14 +622,14 @@ impl LensTask for VibeTask {
         "vibe"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::character::skills::influencer::manifest::ROUTE
+        crate::harness::plugins::characters::skills::influencer::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::character::skills::influencer::request::VIBE_PROMPT_VERSION
+        crate::harness::plugins::characters::skills::influencer::request::VIBE_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
         Ok(
-            crate::plugins::character::skills::influencer::request::generation_options(
+            crate::harness::plugins::characters::skills::influencer::request::generation_options(
                 temperature,
                 0,
                 VIBE_NUM_PREDICT,
@@ -644,16 +648,17 @@ impl LensTask for VibeTask {
             entity_id: e.entity_id,
             sport: e.sport.to_uppercase(),
         };
-        let sources = crate::plugins::classifier::skills::classify::delivery::load_for_character(
-            pool,
-            crate::plugins::character::skills::influencer::manifest::MANIFEST
-                .id
-                .as_str(),
-            &subject.entity_type,
-            subject.entity_id,
-            &subject.sport,
-        )
-        .await?;
+        let sources =
+            crate::harness::plugins::capture::skills::classifier::delivery::load_for_character(
+                pool,
+                crate::harness::plugins::characters::skills::influencer::manifest::MANIFEST
+                    .id
+                    .as_str(),
+                &subject.entity_type,
+                subject.entity_id,
+                &subject.sport,
+            )
+            .await?;
         let Some(_) = sources.iter().rev().find(|source| {
             !source
                 .classifier_world
@@ -663,10 +668,10 @@ impl LensTask for VibeTask {
             return Ok(None);
         };
         let (assignment, _) =
-            crate::plugins::character::skills::influencer::fresh::prepare_assignment(
+            crate::harness::plugins::characters::skills::influencer::fresh::prepare_assignment(
                 pool,
                 subject,
-                crate::plugins::character::skills::influencer::now(),
+                crate::harness::plugins::characters::skills::influencer::now(),
             )
             .await?;
         Ok(Some(
@@ -692,15 +697,15 @@ impl LensTask for VibeTask {
         }
     }
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::character::skills::influencer::request::Parts =
+        let parts: crate::harness::plugins::characters::skills::influencer::request::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("vibe parts: {e}"))?;
         Ok(Prepared {
             parts: Some(stored_parts.clone()),
             should_call: !parts.sources.is_empty() && parts.hold_reason().is_none(),
             user_prompt: parts.assemble(),
-            options: crate::plugins::character::skills::influencer::request::generation_options(
-                crate::plugins::character::skills::influencer::request::VIBE_TEMPERATURE,
+            options: crate::harness::plugins::characters::skills::influencer::request::generation_options(
+                crate::harness::plugins::characters::skills::influencer::request::VIBE_TEMPERATURE,
                 0,
                 VIBE_NUM_PREDICT,
             ),
@@ -724,7 +729,7 @@ impl LensTask for OracleTask {
         "oracle"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::character::skills::oracle::manifest::ROUTE
+        crate::harness::plugins::characters::skills::oracle::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         ORACLE_PROMPT_VERSION
@@ -736,13 +741,13 @@ impl LensTask for OracleTask {
         true
     }
     fn assemble(&self, stored: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::character::skills::oracle::request::Parts =
+        let parts: crate::harness::plugins::characters::skills::oracle::request::Parts =
             serde_json::from_value(stored.clone())?;
         Ok(Prepared {
             user_prompt: parts.assemble(),
             options: self.gen_options(0.0)?,
             should_call: parts.cards.readiness()
-                != crate::plugins::character::skills::oracle::request::Readiness::Empty,
+                != crate::harness::plugins::characters::skills::oracle::request::Readiness::Empty,
             parts: Some(stored.clone()),
         })
     }
@@ -756,12 +761,13 @@ impl LensTask for OracleTask {
         let sport = e.sport.to_uppercase();
         let (_season, cards) = load_pillars(pool, &e.entity_type, e.entity_id, &sport).await?;
         // With no evidence, the stage persists a marker without a model call.
-        if cards.readiness() == crate::plugins::character::skills::oracle::request::Readiness::Empty
+        if cards.readiness()
+            == crate::harness::plugins::characters::skills::oracle::request::Readiness::Empty
         {
             return Ok(None);
         }
         self.assemble(&serde_json::to_value(
-            crate::plugins::character::skills::oracle::request::Parts {
+            crate::harness::plugins::characters::skills::oracle::request::Parts {
                 subject: OracleSubject {
                     entity_id: e.entity_id,
                     entity_type: e.entity_type.clone(),
@@ -782,7 +788,9 @@ impl LensTask for OracleTask {
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let reading =
-            match crate::plugins::character::skills::oracle::parser::ReadingParser.parse(raw) {
+            match crate::harness::plugins::characters::skills::oracle::parser::ReadingParser
+                .parse(raw)
+            {
                 Ok(Some((reading, _headline))) => reading,
                 Ok(None) => return rejected("Oracle returned no reading"),
                 Err(error) => return rejected(&format!("{error:#}")),
@@ -858,7 +866,7 @@ impl LensTask for TransferTask {
         "transfer"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::character::skills::insider::manifest::ROUTE
+        crate::harness::plugins::characters::skills::insider::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         INSIDER_PROMPT_VERSION
@@ -874,11 +882,12 @@ impl LensTask for TransferTask {
         let user_prompt = selected.assemble();
         Ok(Prepared {
             user_prompt,
-            options: crate::plugins::character::skills::insider::request::options_for_reports(
-                0,
-                &selected.subject,
-                &selected.reports,
-            ),
+            options:
+                crate::harness::plugins::characters::skills::insider::request::options_for_reports(
+                    0,
+                    &selected.subject,
+                    &selected.reports,
+                ),
             parts: Some(parts.clone()),
             should_call: !selected.reports.is_empty(),
         })
@@ -927,7 +936,7 @@ impl LensTask for TransferTask {
                 checks.push(PropertyCheck {
                     name: "has_source_linked_move".into(),
                     pass: reply.findings.iter().any(|f| {
-                        f.status == crate::plugins::character::skills::insider::Status::Reported
+                        f.status == crate::harness::plugins::characters::skills::insider::Status::Reported
                             && !reply.findings.iter().any(|later| {
                                 later.counterparty == f.counterparty
                                     && later.report_index < f.report_index
@@ -988,10 +997,10 @@ impl LensTask for RatingTask {
         "rating"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::character::skills::scout::manifest::ROUTE
+        crate::harness::plugins::characters::skills::scout::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::character::skills::scout::request::RATING_PROMPT_VERSION
+        crate::harness::plugins::characters::skills::scout::request::RATING_PROMPT_VERSION
     }
     fn gen_options(&self, _temperature: f64) -> Result<GenerateOptions> {
         // Scout acceptance needs the selected measurements, so callers must carry
@@ -1022,14 +1031,14 @@ impl LensTask for RatingTask {
     }
     /// Rebuild the production request and retain its measurement context for parsing.
     fn assemble(&self, stored_parts: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::character::skills::scout::request::Parts =
+        let parts: crate::harness::plugins::characters::skills::scout::request::Parts =
             serde_json::from_value(stored_parts.clone())
                 .map_err(|e| anyhow::anyhow!("rating parts: {e}"))?;
         Ok(Prepared {
             user_prompt: parts.render(),
             options: parts.generation_options(
                 0,
-                crate::plugins::character::skills::scout::request::RATING_TEMPERATURE,
+                crate::harness::plugins::characters::skills::scout::request::RATING_TEMPERATURE,
             ),
             parts: Some(stored_parts.clone()),
             should_call: parts.has_measured_profile(),
@@ -1051,9 +1060,9 @@ impl LensTask for RatingTask {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Scout evaluation requires parts"))
             .and_then(|p| {
-                serde_json::from_value::<crate::plugins::character::skills::scout::request::Parts>(
-                    p.clone(),
-                )?
+                serde_json::from_value::<
+                    crate::harness::plugins::characters::skills::scout::request::Parts,
+                >(p.clone())?
                 .parse(raw)
             });
         let mut verdict = self.evaluate(raw, label, expect);
@@ -1068,7 +1077,9 @@ impl LensTask for RatingTask {
         verdict
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let parsed = match crate::plugins::character::skills::scout::parser::RatingParser.parse(raw) {
+        let parsed = match crate::harness::plugins::characters::skills::scout::parser::RatingParser
+            .parse(raw)
+        {
             Ok(card) => card,
             Err(error) => return rejected(&error.to_string()),
         };
@@ -1099,7 +1110,7 @@ impl LensTask for RatingTask {
         // `prose_excludes` entries; same list `RatingParser` rejects on in production.
         let banned = crate::tools::guards::first_banned_phrase(
             &reply.body,
-            crate::plugins::character::skills::scout::parser::RATING_BODY_BANS,
+            crate::harness::plugins::characters::skills::scout::parser::RATING_BODY_BANS,
         );
         checks.push(PropertyCheck {
             name: "no_banned_phrases".into(),
@@ -1127,7 +1138,7 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-// Momentum preparation lives in `crate::plugins::character::skills::analyst::request`, reading finished Scout
+// Momentum preparation lives in `crate::harness::plugins::characters::skills::analyst::request`, reading finished Scout
 // and Influencer products plus the dated study. Eval reuses it and the local parser.
 // It USED to carry its own fork ("momentum-eval-v3",
 // a duplicate system prompt, its own parser): a relic from momentum's fixture-first era that
@@ -1140,14 +1151,14 @@ impl LensTask for MomentumTask {
         "momentum"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::character::skills::analyst::manifest::ROUTE
+        crate::harness::plugins::characters::skills::analyst::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
-        crate::plugins::character::skills::analyst::request::MOMENTUM_PROMPT_VERSION
+        crate::harness::plugins::characters::skills::analyst::request::MOMENTUM_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
         let mut options =
-            crate::plugins::character::skills::analyst::request::generation_options(0);
+            crate::harness::plugins::characters::skills::analyst::request::generation_options(0);
         options.temperature = Some(temperature);
         Ok(options)
     }
@@ -1155,7 +1166,7 @@ impl LensTask for MomentumTask {
         true
     }
     fn assemble(&self, stored: &serde_json::Value) -> Result<Prepared> {
-        let parts: crate::plugins::character::skills::analyst::request::Parts =
+        let parts: crate::harness::plugins::characters::skills::analyst::request::Parts =
             serde_json::from_value(stored.clone())?;
         Ok(Prepared {
             user_prompt: parts.assemble(),
@@ -1183,7 +1194,7 @@ impl LensTask for MomentumTask {
             sport: e.sport.clone(),
         };
         self.assemble(&serde_json::to_value(
-            crate::plugins::character::skills::analyst::request::Parts {
+            crate::harness::plugins::characters::skills::analyst::request::Parts {
                 subject,
                 database_record: context.database_record,
                 scout: context.rating,
@@ -1288,7 +1299,7 @@ impl LensTask for InvestigatorTask {
         "investigator"
     }
     fn role(&self) -> RouteKey {
-        crate::plugins::caretaker::skills::investigator::manifest::ROUTE
+        crate::harness::plugins::capture::skills::investigator::manifest::ROUTE
     }
     fn prompt_version(&self) -> &'static str {
         INVESTIGATOR_PROSE_CONTRACT_VERSION
@@ -1784,7 +1795,8 @@ mod tests {
     #[test]
     fn rating_lens_gates_on_its_global_invariants_only() {
         let v = RatingTask.evaluate(
-            &serde_json::json!({"body":RATING_REPLY, "headline": "The recorded performance"}).to_string(),
+            &serde_json::json!({"body":RATING_REPLY, "headline": "The recorded performance"})
+                .to_string(),
             None,
             None,
         );
@@ -1804,7 +1816,11 @@ mod tests {
     fn rating_product_name_ban_is_case_sensitive_and_body_scoped() {
         // Lowercase "peak" is honest English and must not trip the product-name ban.
         let clean = "Still at the peak of his powers: an elite rim protector at the 94th percentile in blocks who anchors the paint without fouling, and the defensive identity is clear.";
-        let v = RatingTask.evaluate(&serde_json::json!({"body":clean, "headline": "The recorded performance"}).to_string(), None, None);
+        let v = RatingTask.evaluate(
+            &serde_json::json!({"body":clean, "headline": "The recorded performance"}).to_string(),
+            None,
+            None,
+        );
         assert!(
             v.checks.iter().all(|c| c.pass),
             "clean body tripped: {:?}",
@@ -1812,7 +1828,11 @@ mod tests {
         );
         // An echoed product name in the body is exactly what the check exists to catch.
         let echo = "His PEAK skill is rim protection and the staff must scheme away from it, forcing the ball to the perimeter.";
-        let v = RatingTask.evaluate(&serde_json::json!({"body":echo, "headline": "The recorded performance"}).to_string(), None, None);
+        let v = RatingTask.evaluate(
+            &serde_json::json!({"body":echo, "headline": "The recorded performance"}).to_string(),
+            None,
+            None,
+        );
         let ban = v
             .checks
             .iter()
@@ -1827,7 +1847,8 @@ mod tests {
     fn momentum_parser_extracts_the_read() {
         let raw = r#"{"blurb":"Recent form is rising while the mood is steady, so the current direction is modestly positive.","headline":"Kerr finds a spark"}"#;
         let parsed =
-            crate::plugins::character::skills::analyst::parser::parse_momentum_reply(raw).unwrap();
+            crate::harness::plugins::characters::skills::analyst::parser::parse_momentum_reply(raw)
+                .unwrap();
         assert!(parsed.blurb.contains("form is rising"));
     }
 
@@ -2014,8 +2035,22 @@ mod tests {
                     let package: serde_json::Value =
                         serde_json::from_str(&request.user_prompt).unwrap();
                     let headline_writer = matches!(name, "narratives" | "vibe" | "transfer");
-                    let fields = ["task", "target_context", "target", "evidence_context", "evidence"];
-                    let positions: Vec<_> = fields.iter().map(|field| request.user_prompt.find(&format!("\n  \"{field}\":")).unwrap()).collect();
+                    let fields = [
+                        "task",
+                        "target_context",
+                        "target",
+                        "evidence_context",
+                        "evidence",
+                    ];
+                    let positions: Vec<_> = fields
+                        .iter()
+                        .map(|field| {
+                            request
+                                .user_prompt
+                                .find(&format!("\n  \"{field}\":"))
+                                .unwrap()
+                        })
+                        .collect();
                     assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
                     assert_eq!(package.as_object().unwrap().len(), 5);
                     assert!(package["task"].is_string());
@@ -2026,17 +2061,27 @@ mod tests {
                             "test",
                             std::time::Duration::from_secs(1),
                             None,
-                        ).unwrap();
+                        )
+                        .unwrap();
                         let body = backend.request_body(&request.user_prompt, &request.options);
                         assert_eq!(
                             body["messages"],
                             serde_json::json!([{"role": "user", "content": request.user_prompt}])
                         );
-                        assert_eq!(package["target_context"], crate::tools::prompt::TARGET_CONTEXT);
-                        assert_eq!(package["evidence_context"], crate::tools::prompt::HEADLINE_EVIDENCE_CONTEXT);
+                        assert_eq!(
+                            package["target_context"],
+                            crate::tools::prompt::TARGET_CONTEXT
+                        );
+                        assert_eq!(
+                            package["evidence_context"],
+                            crate::tools::prompt::HEADLINE_EVIDENCE_CONTEXT
+                        );
                     } else {
                         assert!(request.options.system.is_none());
-                        assert_eq!(package["target_context"][0], crate::tools::prompt::TARGET_CONTEXT);
+                        assert_eq!(
+                            package["target_context"][0],
+                            crate::tools::prompt::TARGET_CONTEXT
+                        );
                         assert!(package["evidence_context"].is_array());
                     }
                     assert!(package["target"].get("task").is_none());
@@ -2235,7 +2280,8 @@ mod tests {
                 .evaluate_prepared(&request, "broken", None, None)
                 .parsed
         );
-        let pass = RatingTask.evaluate_prepared(&request, r#"{"body":null,"headline":null}"#, None, None);
+        let pass =
+            RatingTask.evaluate_prepared(&request, r#"{"body":null,"headline":null}"#, None, None);
         assert!(pass.parsed && !pass.all_checks_pass());
         fx.user_prompt.push(' ');
         assert!(RatingTask.prepare_fixture(&fx).is_err());

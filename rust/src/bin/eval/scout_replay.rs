@@ -1,12 +1,12 @@
 //! Replay captured Scout assignments and record each model response.
 use anyhow::{anyhow, Result};
+use scoracle_cognition::harness::plugins::characters::skills::scout::parser::RatingParser;
+use scoracle_cognition::harness::plugins::characters::skills::scout::request::Parts;
 use scoracle_cognition::harness::{config::Config, route::Router};
 use scoracle_cognition::harness::{
     model::{GenerateOptions, GenerateResult, Inference},
     Parser, Studio,
 };
-use scoracle_cognition::plugins::character::skills::scout::parser::RatingParser;
-use scoracle_cognition::plugins::character::skills::scout::request::Parts;
 use serde_json::{json, Value};
 use std::{path::Path, sync::Mutex};
 
@@ -48,8 +48,9 @@ impl Inference for Recording<'_> {
 
 pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
     let router = Router::from_config(&cfg.route, cfg.model_timeout, 1)?;
-    let backend =
-        router.for_route(scoracle_cognition::plugins::character::skills::scout::manifest::ROUTE);
+    let backend = router.for_route(
+        scoracle_cognition::harness::plugins::characters::skills::scout::manifest::ROUTE,
+    );
     for line in std::fs::read_to_string(path)?
         .lines()
         .filter(|l| !l.trim().is_empty())
@@ -83,7 +84,6 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
             parts.render() == prompt,
             "captured request differs from current plugin assembly"
         );
-
 
         let opts = parts.generation_options(
             serde_json::from_value(a["options"]["num_ctx"].clone())?,
@@ -155,7 +155,6 @@ mod tests {
             "malformed JSON".to_string(),
             json!({"body":"The measured rebounding is strong."}).to_string(),
         ]));
-
 
         let recording = Recording {
             backend: &backend,

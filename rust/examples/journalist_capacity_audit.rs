@@ -2,8 +2,8 @@
 //! SUBJECTS.jsonl SYSTEM.txt NEW_OUTPUT_DIR MODEL_URL MODEL
 use anyhow::{ensure, Result};
 use scoracle_cognition::{
+    harness::plugins::characters::skills::journalist::{fresh, request as prompt},
     harness::{model::Inference, providers::llama::LlamaClient},
-    plugins::character::skills::journalist::{fresh, request as prompt},
     tools::meta::EntityMeta,
 };
 use serde_json::json;

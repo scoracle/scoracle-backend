@@ -264,15 +264,15 @@ mod tests {
     fn shares_one_backend_per_distinct_model() {
         let mut roles = HashMap::new();
         roles.insert(
-            crate::plugins::character::skills::journalist::manifest::ROUTE,
+            crate::harness::plugins::characters::skills::journalist::manifest::ROUTE,
             spec("local-news:latest"),
         );
         roles.insert(
-            crate::plugins::character::skills::scout::manifest::ROUTE,
+            crate::harness::plugins::characters::skills::scout::manifest::ROUTE,
             spec("local-news:latest"),
         ); // same model → shared Arc
         roles.insert(
-            crate::plugins::character::skills::oracle::manifest::ROUTE,
+            crate::harness::plugins::characters::skills::oracle::manifest::ROUTE,
             spec("oracle-model"),
         ); // distinct → its own Arc
         let cfg = RouteConfig {
@@ -283,22 +283,26 @@ mod tests {
         let router = Router::from_config(&cfg, Duration::from_secs(60), 1).unwrap();
 
         assert!(Arc::ptr_eq(
-            &router.for_route(crate::plugins::character::skills::journalist::manifest::ROUTE),
-            &router.for_route(crate::plugins::character::skills::scout::manifest::ROUTE),
+            &router.for_route(
+                crate::harness::plugins::characters::skills::journalist::manifest::ROUTE
+            ),
+            &router.for_route(crate::harness::plugins::characters::skills::scout::manifest::ROUTE),
         ));
         assert!(!Arc::ptr_eq(
-            &router.for_route(crate::plugins::character::skills::journalist::manifest::ROUTE),
-            &router.for_route(crate::plugins::character::skills::oracle::manifest::ROUTE),
+            &router.for_route(
+                crate::harness::plugins::characters::skills::journalist::manifest::ROUTE
+            ),
+            &router.for_route(crate::harness::plugins::characters::skills::oracle::manifest::ROUTE),
         ));
         assert_eq!(
             router
-                .for_route(crate::plugins::character::skills::journalist::manifest::ROUTE)
+                .for_route(crate::harness::plugins::characters::skills::journalist::manifest::ROUTE)
                 .model(),
             "local-news:latest"
         );
         assert_eq!(
             router
-                .for_route(crate::plugins::character::skills::oracle::manifest::ROUTE)
+                .for_route(crate::harness::plugins::characters::skills::oracle::manifest::ROUTE)
                 .model(),
             "oracle-model"
         );
@@ -308,27 +312,27 @@ mod tests {
     fn character_roles_have_stable_config_and_telemetry_identities() {
         // Ledger rows key on as_str and deploys key on env_suffix — lock both spellings.
         assert_eq!(
-            crate::plugins::character::skills::insider::manifest::ROUTE.as_str(),
+            crate::harness::plugins::characters::skills::insider::manifest::ROUTE.as_str(),
             "transfer-logic"
         );
         assert_eq!(
-            crate::plugins::character::skills::influencer::manifest::ROUTE.as_str(),
+            crate::harness::plugins::characters::skills::influencer::manifest::ROUTE.as_str(),
             "vibe-logic"
         );
         assert_eq!(
-            crate::plugins::character::skills::oracle::manifest::ROUTE.as_str(),
+            crate::harness::plugins::characters::skills::oracle::manifest::ROUTE.as_str(),
             "oracle-logic"
         );
         assert_eq!(
-            crate::plugins::character::skills::insider::manifest::ROUTE.env_suffix(),
+            crate::harness::plugins::characters::skills::insider::manifest::ROUTE.env_suffix(),
             "TRANSFER_LOGIC"
         );
         assert_eq!(
-            crate::plugins::character::skills::influencer::manifest::ROUTE.env_suffix(),
+            crate::harness::plugins::characters::skills::influencer::manifest::ROUTE.env_suffix(),
             "VIBE_LOGIC"
         );
         assert_eq!(
-            crate::plugins::character::skills::oracle::manifest::ROUTE.env_suffix(),
+            crate::harness::plugins::characters::skills::oracle::manifest::ROUTE.env_suffix(),
             "ORACLE_LOGIC"
         );
     }
@@ -350,7 +354,7 @@ mod tests {
         )
         .unwrap();
         assert!(router
-            .candidate_for(crate::plugins::character::skills::journalist::manifest::ROUTE)
+            .candidate_for(crate::harness::plugins::characters::skills::journalist::manifest::ROUTE)
             .is_none());
     }
 
@@ -362,7 +366,7 @@ mod tests {
             .collect();
         let mut candidates = HashMap::new();
         candidates.insert(
-            crate::plugins::character::skills::journalist::manifest::ROUTE,
+            crate::harness::plugins::characters::skills::journalist::manifest::ROUTE,
             spec("candidate-news:latest"),
         );
         let router = Router::from_config(
@@ -377,13 +381,15 @@ mod tests {
         .unwrap();
         assert_eq!(
             router
-                .candidate_for(crate::plugins::character::skills::journalist::manifest::ROUTE)
+                .candidate_for(
+                    crate::harness::plugins::characters::skills::journalist::manifest::ROUTE
+                )
                 .unwrap()
                 .model(),
             "candidate-news:latest"
         );
         assert!(router
-            .candidate_for(crate::plugins::character::skills::scout::manifest::ROUTE)
+            .candidate_for(crate::harness::plugins::characters::skills::scout::manifest::ROUTE)
             .is_none()); // only Journalist has one
     }
 

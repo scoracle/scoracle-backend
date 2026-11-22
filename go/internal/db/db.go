@@ -758,7 +758,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// each entity's top narrative in the selected scope, ranked by impact.
 		// Supersedes the raw mention-count and standalone headlines boards.
 		// $1 sport · $2 limit · $3 entity_type · $4 scope
-		"narratives_leaderboard": `WITH req AS (
+		// Inline request filters so the planner does not repeatedly scan history for an estimated single entity.
+		"narratives_leaderboard": `WITH req AS NOT MATERIALIZED (
 			SELECT upper($1::text) AS sport,
 			       COALESCE($2::int, 50) AS lim,
 			       NULLIF(lower($3::text), '') AS entity_type,
@@ -1057,7 +1058,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			           FROM narr) n), '[]'::json)
 		)`,
 		"entity_vibe": entityVibeStatement,
-		"entity_transfers": `WITH req AS (
+		// Inline entity filters before scanning qualified history.
+		"entity_transfers": `WITH req AS NOT MATERIALIZED (
 			SELECT upper($1::text) AS sport,
 			       lower($2::text) AS entity_type,
 			       $3::int AS entity_id,
@@ -1293,7 +1295,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season
 		),
 		summary AS (
-			SELECT ms.direction, ms.score AS heat, ms.headline, ms.blurb AS body, ms.model_version, ms.prompt_version, ms.generated_at
+			SELECT ms.input_components, ms.season, ms.direction, ms.score AS heat, (ms.input_components->>'card_score')::numeric AS card_score, ms.headline, ms.blurb AS body, ms.model_version, ms.prompt_version, ms.generated_at
 			FROM public.qualified_momentum_summaries ms, req
 			WHERE ms.entity_type = req.entity_type AND ms.entity_id = req.entity_id AND ms.sport = req.sport
 			  AND ms.season = COALESCE(req.want_season, req.cur_season)
@@ -1314,8 +1316,21 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'season', COALESCE((SELECT want_season FROM req), (SELECT cur_season FROM req)),
-			'summary', (SELECT row_to_json(s) FROM summary s),
-			'scores', (SELECT row_to_json(c) FROM scores c)
+			'summary', (SELECT to_jsonb(s) - 'input_components' - 'season' FROM summary s),
+			'scores', CASE WHEN (SELECT input_components ? 'card_score' FROM summary)
+				THEN (SELECT json_build_object(
+				    'momentum_score', input_components->'momentum_score',
+				    'vibe_slope', input_components->'momentum_vibe_slope',
+				    'vibe_samples', coalesce(input_components->'momentum_vibe_samples', '0'::jsonb),
+				    'vibe_window_start', input_components->'momentum_vibe_window_start',
+				    'vibe_window_end', input_components->'momentum_vibe_window_end',
+				    'rating_slope', input_components->'momentum_rating_slope',
+				    'rating_samples', coalesce(input_components->'momentum_rating_samples', '0'::jsonb),
+				    'rating_window_start', input_components->'momentum_rating_window_start',
+				    'rating_window_end', input_components->'momentum_rating_window_end',
+				    'season', season, 'generated_at', generated_at
+				) FROM summary WHERE card_score IS NOT NULL)
+				ELSE (SELECT row_to_json(c) FROM scores c) END
 		)`,
 		// Entity meta (two-rail model) — per-entity IDENTITY for the page header: name,
 		// image, physicals, current team/club and position (player_current_identity),
@@ -1516,7 +1531,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- the body IS NOT NULL guard yields zero rows → null commentary, clearing
 				-- stale prose. Season-scoped so a new season's content is independent.
 				SELECT row_to_json(c) FROM (
-					SELECT s.body, s.headline, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at,
+					SELECT s.body, s.headline, s.card_score, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at,
 					       COALESCE(s.rating_trajectory, 'steady') AS rating_trajectory,
 					       s.rating_trajectory_label,
 					       s.rating_trajectory_components

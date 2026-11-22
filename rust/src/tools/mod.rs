@@ -9,3 +9,5 @@ pub mod meta;
 pub mod source;
 
 pub mod prompt;
+
+pub mod report_context;

@@ -347,7 +347,7 @@ async fn only_current_edition_outbox_events_delay_completion() -> Result<()> {
 #[tokio::test]
 #[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
 async fn scout_retries_use_frozen_measurements_even_after_data_ingestion() -> Result<()> {
-    use crate::plugins::character::skills::scout::{request::RatingBuild, snapshot};
+    use crate::harness::plugins::characters::skills::scout::{request::RatingBuild, snapshot};
     let pool = setup().await?;
     sqlx::raw_sql("INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_COVERAGE','Coverage test',2026) ON CONFLICT DO NOTHING;
         INSERT INTO teams(id,sport,name) VALUES(101,'ZZ_COVERAGE','Cedar'),(102,'ZZ_COVERAGE','Maple') ON CONFLICT DO NOTHING;
@@ -546,7 +546,7 @@ async fn fresh_package_uses_local_days_without_a_reporting_week_or_memory_study(
                 .fetch_one(&pool)
                 .await?;
         let (assignment, _) =
-            crate::plugins::character::skills::influencer::fresh::prepare_assignment(
+            crate::harness::plugins::characters::skills::influencer::fresh::prepare_assignment(
                 &pool,
                 crate::tools::meta::EntityMeta {
                     name: "Cedar".into(),
@@ -584,7 +584,7 @@ async fn people_receive_explicit_empty_reporting_outcomes_without_statistical_jo
     let stages: Vec<String>=sqlx::query_scalar("SELECT stage FROM coverage_assignments WHERE entity_type='person' AND entity_id=901 ORDER BY stage").fetch_all(&pool).await?;
     assert_eq!(stages, vec!["narratives", "transfers", "vibe"]);
     assert!(
-        !crate::plugins::character::skills::analyst::enqueue_momentum_if_needed(
+        !crate::harness::plugins::characters::skills::analyst::enqueue_momentum_if_needed(
             &pool,
             "person",
             901,
@@ -593,7 +593,7 @@ async fn people_receive_explicit_empty_reporting_outcomes_without_statistical_jo
         .await?
     );
     assert!(
-        !crate::plugins::character::skills::oracle::enqueue_oracle_if_pillars_settled(
+        !crate::harness::plugins::characters::skills::oracle::enqueue_oracle_if_pillars_settled(
             &pool,
             "person",
             901,

@@ -1,7 +1,7 @@
 //! Application-selected model routes and generation limits. No storage or queue access.
 use crate::harness::model::Inference;
-use crate::harness::plugin::{SkillManifest, ToolGrant};
 use crate::harness::route::{RouteKey, Router};
+use crate::harness::skill::{SkillManifest, ToolGrant};
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -97,13 +97,13 @@ pub(crate) mod tests {
     #[test]
     fn production_capability_scope_refuses_another_skills_route() {
         let capabilities = models()
-            .capabilities(&crate::plugins::character::skills::analyst::manifest::MANIFEST)
+            .capabilities(&crate::harness::plugins::characters::skills::analyst::manifest::MANIFEST)
             .unwrap();
         assert!(capabilities
-            .inference(crate::plugins::character::skills::analyst::manifest::ROUTE)
+            .inference(crate::harness::plugins::characters::skills::analyst::manifest::ROUTE)
             .is_ok());
         let error = capabilities
-            .inference(crate::plugins::character::skills::scout::manifest::ROUTE)
+            .inference(crate::harness::plugins::characters::skills::scout::manifest::ROUTE)
             .err()
             .expect("undeclared route must be absent");
         assert!(error.to_string().contains("was not supplied"));
@@ -112,13 +112,13 @@ pub(crate) mod tests {
     #[test]
     fn insider_receives_only_its_single_route() {
         let capabilities = models()
-            .capabilities(&crate::plugins::character::skills::insider::manifest::MANIFEST)
+            .capabilities(&crate::harness::plugins::characters::skills::insider::manifest::MANIFEST)
             .unwrap();
         assert!(capabilities
-            .inference(crate::plugins::character::skills::insider::manifest::ROUTE)
+            .inference(crate::harness::plugins::characters::skills::insider::manifest::ROUTE)
             .is_ok());
         assert!(capabilities
-            .inference(crate::plugins::character::skills::journalist::manifest::ROUTE)
+            .inference(crate::harness::plugins::characters::skills::journalist::manifest::ROUTE)
             .is_err());
     }
 }

@@ -2,11 +2,11 @@
 //! per-run budget. No network.
 
 use super::*;
-use crate::harness::plugin::SkillManifest;
+use crate::harness::plugins::capture::skills::classifier::manifest::MANIFEST as CLASSIFIER;
+use crate::harness::plugins::capture::skills::fixture_boxscore::manifest::MANIFEST as FIXTURE_BOXSCORE;
+use crate::harness::plugins::capture::skills::investigator::manifest::MANIFEST as INVESTIGATOR;
+use crate::harness::skill::SkillManifest;
 use crate::harness::tools::{ScopedWeb, WebBroker};
-use crate::plugins::caretaker::skills::fixture_boxscore::manifest::MANIFEST as FIXTURE_BOXSCORE;
-use crate::plugins::caretaker::skills::investigator::manifest::MANIFEST as INVESTIGATOR;
-use crate::plugins::classifier::skills::classify::manifest::MANIFEST as CLASSIFIER;
 use crate::tools::fetch::FetchPolicy;
 
 fn scope<'a>(
@@ -124,7 +124,7 @@ async fn headline_character_cannot_fetch_sources() {
     let web = scope(
         &broker,
         &pool,
-        &crate::plugins::character::skills::journalist::manifest::MANIFEST,
+        &crate::harness::plugins::characters::skills::journalist::manifest::MANIFEST,
     );
 
     let error = web

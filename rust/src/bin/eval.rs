@@ -727,10 +727,10 @@ async fn run_capture_assignments(
     cases: &[EvalCase],
     season: Option<i32>,
 ) -> Result<()> {
-    use scoracle_cognition::plugins::character::skills::scout::request::{
+    use scoracle_cognition::harness::plugins::characters::skills::scout::request::{
         build_rating_request, RatingReq,
     };
-    use scoracle_cognition::plugins::character::skills::scout::request::{
+    use scoracle_cognition::harness::plugins::characters::skills::scout::request::{
         RatingBuild, RATING_TEMPERATURE,
     };
     use scoracle_cognition::tools::meta::lookup_entity_name;
@@ -781,7 +781,7 @@ async fn run_capture_assignments(
                         "exclusions":{"budget_truncated_stat_labels":a.exclusions.budget_truncated_stat_labels,"off_facet_stat_labels":a.exclusions.off_facet_stat_labels,"degenerate_zero_stat_labels":a.exclusions.degenerate_zero_stat_labels,"display_tier_stat_labels":a.exclusions.display_tier_stat_labels},
                         "parts": a.parts, "built_prompt":a.built_prompt,
                         "options":{"system":a.opts.system,"temperature":a.opts.temperature,"num_predict":a.opts.num_predict,"num_ctx":a.opts.num_ctx,"json_mode":a.opts.json_mode,"format_schema":a.opts.format_schema,"format_schema_raw":a.opts.format_schema_raw},
-                        "request_body":models.router.for_route(scoracle_cognition::plugins::character::skills::scout::manifest::ROUTE).request_body(&a.built_prompt, &a.opts)
+                        "request_body":models.router.for_route(scoracle_cognition::harness::plugins::characters::skills::scout::manifest::ROUTE).request_body(&a.built_prompt, &a.opts)
                     })
                 }
             };

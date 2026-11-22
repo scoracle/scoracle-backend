@@ -10,7 +10,7 @@ mod generation;
 pub mod ledger;
 pub mod model;
 pub mod models;
-pub mod plugin;
+pub mod plugins;
 pub mod products;
 pub mod providers;
 pub mod queue;
@@ -18,6 +18,7 @@ pub mod registration;
 pub mod rejections;
 pub mod route;
 pub mod session;
+pub mod skill;
 pub mod tools;
 
 pub use generation::{Extracted, Generation, GenerationCall, Parser, Provenance};

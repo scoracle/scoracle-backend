@@ -1,0 +1,12 @@
+#[path = "skill-analyst/scripts/mod.rs"]
+pub mod analyst;
+#[path = "skill-influencer/scripts/mod.rs"]
+pub mod influencer;
+#[path = "skill-insider/scripts/mod.rs"]
+pub mod insider;
+#[path = "skill-journalist/scripts/mod.rs"]
+pub mod journalist;
+#[path = "skill-oracle/scripts/mod.rs"]
+pub mod oracle;
+#[path = "skill-scout/scripts/mod.rs"]
+pub mod scout;

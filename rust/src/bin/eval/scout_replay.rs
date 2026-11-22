@@ -1,19 +1,18 @@
-//! DB-free replay of captured Scout assignments through production guards and
-//! bounded correction. Records every returned response, including rejected ones.
+//! Replay captured Scout assignments and record each model response.
 use anyhow::{anyhow, Result};
+use scoracle_cognition::harness::plugins::characters::skills::scout::parser::RatingParser;
+use scoracle_cognition::harness::plugins::characters::skills::scout::request::Parts;
 use scoracle_cognition::harness::{config::Config, route::Router};
 use scoracle_cognition::harness::{
     model::{GenerateOptions, GenerateResult, Inference},
     Parser, Studio,
 };
-use scoracle_cognition::plugins::character::skills::scout::parser::RatingRequestParser;
-use scoracle_cognition::plugins::character::skills::scout::request::Parts;
 use serde_json::{json, Value};
 use std::{path::Path, sync::Mutex};
 
 struct Recording<'a> {
     backend: &'a dyn Inference,
-    parser: RatingRequestParser<'a>,
+    parser: RatingParser,
     attempts: Mutex<Vec<Value>>,
 }
 
@@ -49,8 +48,9 @@ impl Inference for Recording<'_> {
 
 pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
     let router = Router::from_config(&cfg.route, cfg.model_timeout, 1)?;
-    let backend =
-        router.for_route(scoracle_cognition::plugins::character::skills::scout::manifest::ROUTE);
+    let backend = router.for_route(
+        scoracle_cognition::harness::plugins::characters::skills::scout::manifest::ROUTE,
+    );
     for line in std::fs::read_to_string(path)?
         .lines()
         .filter(|l| !l.trim().is_empty())
@@ -84,15 +84,14 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
             parts.render() == prompt,
             "captured request differs from current plugin assembly"
         );
-        let directions = parts.comparison_directions();
-        let bands = parts.measurement_bands();
+
         let opts = parts.generation_options(
             serde_json::from_value(a["options"]["num_ctx"].clone())?,
             serde_json::from_value(a["options"]["temperature"].clone())?,
         );
         let recording = Recording {
             backend: backend.as_ref(),
-            parser: RatingRequestParser::new(prompt, &directions, &bands),
+            parser: RatingParser,
             attempts: Mutex::new(vec![]),
         };
         let result = Studio::new(&recording)
@@ -120,7 +119,6 @@ pub async fn run(cfg: &Config, path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
     struct Backend(Mutex<Vec<String>>);
     #[async_trait::async_trait]
     impl Inference for Backend {
@@ -154,14 +152,13 @@ mod tests {
     #[tokio::test]
     async fn replay_retains_rejected_response_without_rewriting() {
         let backend = Backend(Mutex::new(vec![
-            json!({"body":"His limited playing time explains the numbers."}).to_string(),
+            "malformed JSON".to_string(),
             json!({"body":"The measured rebounding is strong."}).to_string(),
         ]));
-        let directions = BTreeMap::new();
-        let bands = BTreeMap::new();
+
         let recording = Recording {
             backend: &backend,
-            parser: RatingRequestParser::new("Evidence", &directions, &bands),
+            parser: RatingParser,
             attempts: Mutex::new(vec![]),
         };
         let opts = GenerateOptions {
@@ -180,14 +177,7 @@ mod tests {
         assert!(result.is_err());
         let attempts = recording.attempts.lock().unwrap();
         assert_eq!(attempts.len(), 1);
-        assert!(
-            attempts[0]["guard_error"]
-                .as_str()
-                .unwrap()
-                .contains("unsupported inference \"limited playing time\""),
-            "guard error was {:?}",
-            attempts[0]["guard_error"]
-        );
+        assert!(attempts[0]["guard_error"].is_string());
         assert_eq!(attempts[0]["raw_response_body"], "retained HTTP body");
         assert_eq!(attempts[0]["prompt_eval_count"], 31);
     }

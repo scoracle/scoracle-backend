@@ -7,9 +7,8 @@ python3 rust/examples/plain_context_compare.py OUTPUT.jsonl --base-url http://lo
 import argparse
 import json
 import time
+import urllib.request
 from pathlib import Path
-
-from influencer_tool_compare import chat
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures/influencer/plain-context-3b"
 MODELS = ["alibayram/smollm3:latest", "granite4.2:3b", "ministral-3:3b"]
@@ -18,6 +17,20 @@ SYSTEM = (
     "Keep speakers, dates and qualifications attached to their statements. "
     "If an answer about the target is not established, say so. Give a short answer."
 )
+
+
+def chat(base_url, request):
+    wire = json.dumps(request, separators=(",", ":"))
+    http = urllib.request.Request(
+        base_url + "/api/chat", wire.encode(), {"Content-Type": "application/json"}
+    )
+    started = time.perf_counter()
+    with urllib.request.urlopen(http, timeout=180) as response:
+        raw = response.read().decode()
+    return {
+        "request_body": wire, "raw_response_body": raw,
+        "response": json.loads(raw), "wall_ms": (time.perf_counter() - started) * 1000,
+    }
 
 
 def request(packet, model):

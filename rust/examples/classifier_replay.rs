@@ -2,7 +2,7 @@
 //! CLASSIFIER_URL=http://localhost:8081 cargo run --release --example classifier_replay -- cases.jsonl 4
 use anyhow::{ensure, Context, Result};
 use futures::{stream, StreamExt};
-use scoracle_cognition::plugins::classifier::skills::classify::decision::{self, Decision};
+use scoracle_cognition::harness::plugins::capture::skills::classifier::decision::{self, Decision};
 use serde::Deserialize;
 use serde_json::json;
 use std::{collections::BTreeMap, time::Instant};
@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
                 "{}",
                 json!({"id":case.id,"headline":case.headline,"publisher":case.publisher,"meta":case.meta,"sport":case.sport,"expected":case.expected,
                 "request_version":decision::REQUEST_VERSION,"criteria_version":decision::CRITERIA_VERSION,
-                "request":scoracle_cognition::plugins::classifier::skills::classify::request::request(&case.headline,&case.publisher,&case.sport,&case.meta)?})
+                "request":scoracle_cognition::harness::plugins::capture::skills::classifier::request::request(&case.headline,&case.publisher,&case.sport,&case.meta)?})
             );
         }
         return Ok(());

@@ -199,7 +199,7 @@ mod postgres_tests {
             plugin_id: "scoracle.test.ledger",
             stage: "rating",
             lens: "test-ledger",
-            role: crate::plugins::character::skills::scout::manifest::ROUTE,
+            role: crate::harness::plugins::characters::skills::scout::manifest::ROUTE,
             product_table: "stat_summaries",
             output_contract_version: "test-output-v1",
         };

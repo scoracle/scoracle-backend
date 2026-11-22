@@ -173,7 +173,7 @@ go test ./...
 - `go/internal/config/config.go` - environment resolution.
 - `go/internal/db/db.go` - prepared statements.
 - `rust/src/harness/` - registration, inference, durable execution and publication infrastructure.
-- `rust/src/plugins/` - preparation, validation, product policy and specialized tools.
+- `rust/src/harness/plugins/` - preparation, validation, product policy and specialized tools.
 - `rust/src/tools/` - shared acquisition, identity, memory studies and form mechanics.
 - `rust/src/harness/queue/work.rs`, `rust/src/harness/queue/worker.rs` - durable queue runtime.
 - `sql/` - schema, migrations, functions, views, and snapshots.

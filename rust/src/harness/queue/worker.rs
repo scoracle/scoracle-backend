@@ -18,8 +18,8 @@
 //! grace aborts a stuck in-flight item — always inside systemd's 90s TimeoutStopSec,
 //! so a stop/restart never escalates to SIGKILL.
 
-use crate::harness::plugin::{PluginRegistry, ScheduledOperation};
 use crate::harness::queue::work::{self, retry_backoff, TaskKey, MAX_ATTEMPTS};
+use crate::harness::skill::{PluginRegistry, ScheduledOperation};
 use anyhow::{anyhow, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
 use sqlx::postgres::PgListener;
@@ -340,7 +340,7 @@ impl Worker {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         pool: PgPool,
-        plugins: Vec<crate::harness::plugin::Plugin>,
+        plugins: Vec<crate::harness::skill::Plugin>,
         reactions: crate::harness::queue::outbox::ReactionRegistry,
         safety_net: Duration,
         stale_lease: Duration,
@@ -683,7 +683,7 @@ impl Worker {
         entity_id=item.entity_id, sport=%item.sport, claim_token=?item.claim_token, input_version=?item.input_version))]
     async fn run_one(
         &self,
-        skill: &dyn crate::harness::plugin::Skill,
+        skill: &dyn crate::harness::skill::Skill,
         item: work::Item,
         pulse: &Pulse,
     ) -> &'static str {
@@ -702,7 +702,7 @@ impl Worker {
             "work execution completed");
         pulse.beat(&format!("bookkeep {stage}"));
         match outcome {
-            Ok(crate::harness::plugin::SkillOutcome::Deferred {
+            Ok(crate::harness::skill::SkillOutcome::Deferred {
                 made_progress,
                 note,
                 delay,
@@ -726,12 +726,12 @@ impl Worker {
                     self.fail_claimed(&item, &stage, &note).await;
                 }
             }
-            Ok(crate::harness::plugin::SkillOutcome::Committed) => debug!(
+            Ok(crate::harness::skill::SkillOutcome::Committed) => debug!(
                 %stage,
                 entity = item.entity_id,
                 "skill committed product, follow-up intent, and exact claim"
             ),
-            Ok(crate::harness::plugin::SkillOutcome::Superseded) => debug!(
+            Ok(crate::harness::skill::SkillOutcome::Superseded) => debug!(
                 %stage,
                 entity = item.entity_id,
                 "skill publication skipped: claim was superseded"
@@ -774,9 +774,9 @@ impl Worker {
     /// (the watchdog stays the backstop for hangs outside skills).
     async fn execute_bounded(
         &self,
-        skill: &dyn crate::harness::plugin::Skill,
+        skill: &dyn crate::harness::skill::Skill,
         item: &work::Item,
-    ) -> Result<crate::harness::plugin::SkillOutcome> {
+    ) -> Result<crate::harness::skill::SkillOutcome> {
         if self.handler_timeout.is_zero() {
             return skill.execute(item).await;
         }
@@ -827,8 +827,8 @@ fn note_supervisor_exit(exit: std::result::Result<(), tokio::task::JoinError>) {
 
 #[cfg(test)]
 mod test_support {
-    use crate::harness::plugin::{ResourceProfile, SkillId, SkillManifest};
     use crate::harness::queue::work::{ClaimPolicy, TaskKey};
+    use crate::harness::skill::{ResourceProfile, SkillId, SkillManifest};
 
     pub(super) static TEST_MANIFEST: SkillManifest = SkillManifest {
         plugin_id: "test",
@@ -845,7 +845,7 @@ mod test_support {
 mod tests {
     use super::*;
     use crate::harness::fleet::ARCHBOX_SLOTS;
-    use crate::harness::plugin::{Skill, SkillOutcome};
+    use crate::harness::skill::{Skill, SkillOutcome};
 
     #[test]
     fn stalled_requires_busy_and_age_past_threshold() {
@@ -997,7 +997,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl Skill for PreparedHandler {
-        fn manifest(&self) -> &'static crate::harness::plugin::SkillManifest {
+        fn manifest(&self) -> &'static crate::harness::skill::SkillManifest {
             &TEST_MANIFEST
         }
         async fn execute(&self, item: &work::Item) -> Result<SkillOutcome> {
@@ -1015,7 +1015,7 @@ mod tests {
             sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgresql://localhost/unused")
                 .unwrap(),
-            vec![crate::harness::plugin::tests::test_plugin(Vec::new())],
+            vec![crate::harness::skill::tests::test_plugin(Vec::new())],
             crate::harness::queue::outbox::ReactionRegistry::empty(),
             Duration::from_secs(60),
             Duration::from_secs(60),
@@ -1077,8 +1077,8 @@ mod tests {
 mod postgres_recovery_rehearsal {
     use super::test_support::TEST_MANIFEST;
     use super::*;
-    use crate::harness::plugin::{Skill, SkillOutcome};
     use crate::harness::queue::work::Item;
+    use crate::harness::skill::{Skill, SkillOutcome};
 
     struct Parallel {
         pool: PgPool,
@@ -1088,15 +1088,15 @@ mod postgres_recovery_rehearsal {
     }
     #[async_trait::async_trait]
     impl Skill for Parallel {
-        fn manifest(&self) -> &'static crate::harness::plugin::SkillManifest {
-            const MANIFEST: crate::harness::plugin::SkillManifest =
-                crate::harness::plugin::SkillManifest {
+        fn manifest(&self) -> &'static crate::harness::skill::SkillManifest {
+            const MANIFEST: crate::harness::skill::SkillManifest =
+                crate::harness::skill::SkillManifest {
                     plugin_id: "test",
-                    id: crate::harness::plugin::SkillId::new("test.parallel"),
-                    task: crate::plugins::character::skills::journalist::manifest::TASK,
+                    id: crate::harness::skill::SkillId::new("test.parallel"),
+                    task: crate::harness::plugins::characters::skills::journalist::manifest::TASK,
                     claim_policy: crate::harness::queue::work::ClaimPolicy::FIFO,
                     inference_routes: &[],
-                    resources: crate::harness::plugin::ResourceProfile::grouped(2, ("parallel", 2)),
+                    resources: crate::harness::skill::ResourceProfile::grouped(2, ("parallel", 2)),
                     tools: &[],
                 };
             &MANIFEST
@@ -1128,7 +1128,7 @@ mod postgres_recovery_rehearsal {
             work::enqueue(
                 &pool,
                 &item(
-                    crate::plugins::character::skills::journalist::manifest::TASK,
+                    crate::harness::plugins::characters::skills::journalist::manifest::TASK,
                     "ZZ_PARALLEL",
                     id,
                 ),
@@ -1138,7 +1138,7 @@ mod postgres_recovery_rehearsal {
         }
         let worker = Worker::new(
             pool,
-            vec![crate::harness::plugin::tests::test_plugin(vec![
+            vec![crate::harness::skill::tests::test_plugin(vec![
                 handler.clone()
             ])],
             crate::harness::queue::outbox::ReactionRegistry::empty(),
@@ -1198,14 +1198,14 @@ mod postgres_recovery_rehearsal {
         id: &'static str,
         task: TaskKey,
         shared: bool,
-    ) -> crate::harness::plugin::SkillManifest {
-        crate::harness::plugin::SkillManifest {
+    ) -> crate::harness::skill::SkillManifest {
+        crate::harness::skill::SkillManifest {
             plugin_id: "test",
-            id: crate::harness::plugin::SkillId::new(id),
+            id: crate::harness::skill::SkillId::new(id),
             task,
             claim_policy: crate::harness::queue::work::ClaimPolicy::FIFO,
             inference_routes: &[],
-            resources: crate::harness::plugin::ResourceProfile {
+            resources: crate::harness::skill::ResourceProfile {
                 max_in_flight: 1,
                 slot_group: if shared {
                     Some(("test-shared", 1))
@@ -1218,38 +1218,41 @@ mod postgres_recovery_rehearsal {
         }
     }
 
-    const NARRATIVES_TEST: crate::harness::plugin::SkillManifest = test_manifest(
+    const NARRATIVES_TEST: crate::harness::skill::SkillManifest = test_manifest(
         "test.narratives",
-        crate::plugins::character::skills::journalist::manifest::TASK,
+        crate::harness::plugins::characters::skills::journalist::manifest::TASK,
         false,
     );
-    const RATING_TEST: crate::harness::plugin::SkillManifest = test_manifest(
+    const RATING_TEST: crate::harness::skill::SkillManifest = test_manifest(
         "test.rating",
-        crate::plugins::character::skills::scout::manifest::TASK,
+        crate::harness::plugins::characters::skills::scout::manifest::TASK,
         false,
     );
-    const NARRATIVES_SHARED_TEST: crate::harness::plugin::SkillManifest = test_manifest(
+    const NARRATIVES_SHARED_TEST: crate::harness::skill::SkillManifest = test_manifest(
         "test.narratives",
-        crate::plugins::character::skills::journalist::manifest::TASK,
+        crate::harness::plugins::characters::skills::journalist::manifest::TASK,
         true,
     );
-    const RATING_SHARED_TEST: crate::harness::plugin::SkillManifest = test_manifest(
+    const RATING_SHARED_TEST: crate::harness::skill::SkillManifest = test_manifest(
         "test.rating",
-        crate::plugins::character::skills::scout::manifest::TASK,
+        crate::harness::plugins::characters::skills::scout::manifest::TASK,
         true,
     );
 
     impl Refilling {
-        fn manifest(&self) -> &'static crate::harness::plugin::SkillManifest {
+        fn manifest(&self) -> &'static crate::harness::skill::SkillManifest {
             match (self.stage, self.shared) {
-                (crate::plugins::character::skills::journalist::manifest::TASK, false) => {
-                    &NARRATIVES_TEST
+                (
+                    crate::harness::plugins::characters::skills::journalist::manifest::TASK,
+                    false,
+                ) => &NARRATIVES_TEST,
+                (crate::harness::plugins::characters::skills::scout::manifest::TASK, false) => {
+                    &RATING_TEST
                 }
-                (crate::plugins::character::skills::scout::manifest::TASK, false) => &RATING_TEST,
-                (crate::plugins::character::skills::journalist::manifest::TASK, true) => {
+                (crate::harness::plugins::characters::skills::journalist::manifest::TASK, true) => {
                     &NARRATIVES_SHARED_TEST
                 }
-                (crate::plugins::character::skills::scout::manifest::TASK, true) => {
+                (crate::harness::plugins::characters::skills::scout::manifest::TASK, true) => {
                     &RATING_SHARED_TEST
                 }
                 _ => unreachable!("test double stages"),
@@ -1259,7 +1262,7 @@ mod postgres_recovery_rehearsal {
 
     #[async_trait::async_trait]
     impl Skill for Refilling {
-        fn manifest(&self) -> &'static crate::harness::plugin::SkillManifest {
+        fn manifest(&self) -> &'static crate::harness::skill::SkillManifest {
             Refilling::manifest(self)
         }
         async fn execute(&self, item: &Item) -> Result<SkillOutcome> {
@@ -1272,7 +1275,7 @@ mod postgres_recovery_rehearsal {
             assert!(work::lock_claim(&mut tx, item).await?);
             assert!(work::complete_in_transaction(&mut tx, item).await?);
             // Keep the first stage continuously ready while a later stage waits.
-            if self.stage == crate::plugins::character::skills::journalist::manifest::TASK
+            if self.stage == crate::harness::plugins::characters::skills::journalist::manifest::TASK
                 && count < 20
             {
                 work::enqueue(&mut *tx, item).await?;
@@ -1294,8 +1297,8 @@ mod postgres_recovery_rehearsal {
             let pool = fixture(sport).await;
             let order = Arc::new(StdMutex::new(Vec::new()));
             let handlers: Vec<std::sync::Arc<dyn Skill>> = [
-                crate::plugins::character::skills::journalist::manifest::TASK,
-                crate::plugins::character::skills::scout::manifest::TASK,
+                crate::harness::plugins::characters::skills::journalist::manifest::TASK,
+                crate::harness::plugins::characters::skills::scout::manifest::TASK,
             ]
             .into_iter()
             .map(|stage| {
@@ -1308,8 +1311,8 @@ mod postgres_recovery_rehearsal {
             })
             .collect();
             for stage in [
-                crate::plugins::character::skills::journalist::manifest::TASK,
-                crate::plugins::character::skills::scout::manifest::TASK,
+                crate::harness::plugins::characters::skills::journalist::manifest::TASK,
+                crate::harness::plugins::characters::skills::scout::manifest::TASK,
             ] {
                 work::enqueue(&pool, &item(stage, sport, 9_600_100))
                     .await
@@ -1317,7 +1320,7 @@ mod postgres_recovery_rehearsal {
             }
             let worker = Worker::new(
                 pool.clone(),
-                vec![crate::harness::plugin::tests::test_plugin(handlers)],
+                vec![crate::harness::skill::tests::test_plugin(handlers)],
                 crate::harness::queue::outbox::ReactionRegistry::empty(),
                 Duration::from_secs(60),
                 Duration::from_secs(1800),
@@ -1335,7 +1338,7 @@ mod postgres_recovery_rehearsal {
             assert_eq!(order.len(), 21);
             assert_eq!(
                 order[1],
-                crate::plugins::character::skills::scout::manifest::TASK,
+                crate::harness::plugins::characters::skills::scout::manifest::TASK,
                 "a continuously ready earlier stage monopolized capacity: {order:?}"
             );
         }
@@ -1346,7 +1349,7 @@ mod postgres_recovery_rehearsal {
         ready: tokio::sync::mpsc::UnboundedSender<i64>,
         release: [Arc<Notify>; 2],
     }
-    static PUBLICATION_HELD: crate::harness::plugin::SkillManifest = {
+    static PUBLICATION_HELD: crate::harness::skill::SkillManifest = {
         let mut manifest =
             test_manifest("test.publication-held", TaskKey::new("test_article"), false);
         manifest.resources.max_in_flight = 2;
@@ -1355,7 +1358,7 @@ mod postgres_recovery_rehearsal {
     };
     #[async_trait::async_trait]
     impl Skill for PublicationHeld {
-        fn manifest(&self) -> &'static crate::harness::plugin::SkillManifest {
+        fn manifest(&self) -> &'static crate::harness::skill::SkillManifest {
             &PUBLICATION_HELD
         }
         async fn execute(&self, item: &Item) -> Result<SkillOutcome> {
@@ -1383,7 +1386,7 @@ mod postgres_recovery_rehearsal {
         }
         let worker = Worker::new(
             pool.clone(),
-            vec![crate::harness::plugin::tests::test_plugin(vec![Arc::new(
+            vec![crate::harness::skill::tests::test_plugin(vec![Arc::new(
                 PublicationHeld {
                     pool: pool.clone(),
                     ready,
@@ -1455,7 +1458,7 @@ mod postgres_recovery_rehearsal {
     }
     #[async_trait::async_trait]
     impl Skill for Blocked {
-        fn manifest(&self) -> &'static crate::harness::plugin::SkillManifest {
+        fn manifest(&self) -> &'static crate::harness::skill::SkillManifest {
             &TEST_MANIFEST
         }
         async fn execute(&self, item: &Item) -> Result<SkillOutcome> {
@@ -1478,7 +1481,7 @@ mod postgres_recovery_rehearsal {
         let release = Arc::new(Notify::new());
         let worker = Worker::new(
             pool.clone(),
-            vec![crate::harness::plugin::tests::test_plugin(vec![
+            vec![crate::harness::skill::tests::test_plugin(vec![
                 std::sync::Arc::new(Blocked {
                     pool: pool.clone(),
                     entered: entered.clone(),
@@ -1505,15 +1508,17 @@ mod postgres_recovery_rehearsal {
             entered.notified().await;
             // Arrives after the drain began: startup-only dispatch cannot pass.
             let mut source = item(
-                crate::plugins::character::skills::analyst::manifest::TASK,
+                crate::harness::plugins::characters::skills::analyst::manifest::TASK,
                 sport,
                 9_600_102,
             );
             source.claim_token = Some("00000000-0000-4000-8000-000000000103".into());
             let mut tx = pool.begin().await.unwrap();
-            crate::plugins::character::skills::analyst::record_momentum_completed(&mut tx, &source)
-                .await
-                .unwrap();
+            crate::harness::plugins::characters::skills::analyst::record_momentum_completed(
+                &mut tx, &source,
+            )
+            .await
+            .unwrap();
             tx.commit().await.unwrap();
             tick.notified().await;
             let counts: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM application_outbox WHERE sport=$1), (SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='sigil' AND status='pending'), (SELECT count(*) FROM pipeline_work WHERE sport=$1 AND stage='test_article' AND status='running')")
@@ -1543,20 +1548,20 @@ mod postgres_recovery_rehearsal {
     }
 
     struct Terminal(sqlx::PgPool);
-    static SIGIL_TEST_MANIFEST: crate::harness::plugin::SkillManifest =
-        crate::harness::plugin::SkillManifest {
+    static SIGIL_TEST_MANIFEST: crate::harness::skill::SkillManifest =
+        crate::harness::skill::SkillManifest {
             plugin_id: "test",
-            id: crate::harness::plugin::SkillId::new("test.sigil"),
-            task: crate::plugins::character::skills::oracle::manifest::TASK,
+            id: crate::harness::skill::SkillId::new("test.sigil"),
+            task: crate::harness::plugins::characters::skills::oracle::manifest::TASK,
             claim_policy: crate::harness::queue::work::ClaimPolicy::FIFO,
             inference_routes: &[],
-            resources: crate::harness::plugin::ResourceProfile::unbounded_batch(1),
+            resources: crate::harness::skill::ResourceProfile::unbounded_batch(1),
             tools: &[],
         };
 
     #[async_trait::async_trait]
     impl Skill for Terminal {
-        fn manifest(&self) -> &'static crate::harness::plugin::SkillManifest {
+        fn manifest(&self) -> &'static crate::harness::skill::SkillManifest {
             &SIGIL_TEST_MANIFEST
         }
         async fn execute(&self, item: &Item) -> Result<SkillOutcome> {
@@ -1587,7 +1592,7 @@ mod postgres_recovery_rehearsal {
                 .unwrap();
         }
         let source = Item {
-            stage: crate::plugins::character::skills::analyst::manifest::TASK,
+            stage: crate::harness::plugins::characters::skills::analyst::manifest::TASK,
             entity_type: "team".into(),
             entity_id: 9_600_002,
             sport: sport.into(),
@@ -1596,13 +1601,15 @@ mod postgres_recovery_rehearsal {
             claim_token: Some("00000000-0000-4000-8000-000000000002".into()),
         };
         let mut tx = pool.begin().await.unwrap();
-        crate::plugins::character::skills::analyst::record_momentum_completed(&mut tx, &source)
-            .await
-            .unwrap();
+        crate::harness::plugins::characters::skills::analyst::record_momentum_completed(
+            &mut tx, &source,
+        )
+        .await
+        .unwrap();
         tx.commit().await.unwrap();
         let worker = Worker::new(
             pool.clone(),
-            vec![crate::harness::plugin::tests::test_plugin(vec![
+            vec![crate::harness::skill::tests::test_plugin(vec![
                 std::sync::Arc::new(Terminal(pool.clone())),
             ])],
             crate::harness::registration::build_reactions(pool.clone()).unwrap(),
@@ -1633,14 +1640,14 @@ mod postgres_recovery_rehearsal {
 
     const UNRELATED_TASK: crate::harness::queue::work::TaskKey =
         crate::harness::queue::work::TaskKey::new("test_unrelated_worker");
-    static UNRELATED_MANIFEST: crate::harness::plugin::SkillManifest =
-        crate::harness::plugin::SkillManifest {
+    static UNRELATED_MANIFEST: crate::harness::skill::SkillManifest =
+        crate::harness::skill::SkillManifest {
             plugin_id: "test",
-            id: crate::harness::plugin::SkillId::new("test.unrelated-worker"),
+            id: crate::harness::skill::SkillId::new("test.unrelated-worker"),
             task: UNRELATED_TASK,
             claim_policy: crate::harness::queue::work::ClaimPolicy::FIFO,
             inference_routes: &[],
-            resources: crate::harness::plugin::ResourceProfile::unbounded_batch(1),
+            resources: crate::harness::skill::ResourceProfile::unbounded_batch(1),
             tools: &[],
         };
 
@@ -1648,7 +1655,7 @@ mod postgres_recovery_rehearsal {
 
     #[async_trait::async_trait]
     impl Skill for Unrelated {
-        fn manifest(&self) -> &'static crate::harness::plugin::SkillManifest {
+        fn manifest(&self) -> &'static crate::harness::skill::SkillManifest {
             &UNRELATED_MANIFEST
         }
 
@@ -1671,7 +1678,7 @@ mod postgres_recovery_rehearsal {
             .unwrap();
         let worker = Worker::new(
             pool.clone(),
-            vec![crate::harness::plugin::tests::test_plugin(vec![
+            vec![crate::harness::skill::tests::test_plugin(vec![
                 std::sync::Arc::new(Unrelated(pool.clone())),
             ])],
             crate::harness::queue::outbox::ReactionRegistry::empty(),

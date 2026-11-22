@@ -1,11 +1,11 @@
 //! Read prepared evidence without inference or publication.
 use anyhow::{bail, ensure, Context, Result};
 use scoracle_cognition::{
-    harness::{config::Config, db},
-    plugins::{
-        character::skills::journalist::manifest::MANIFEST,
-        classifier::skills::classify::delivery::load_for_character,
+    harness::plugins::{
+        capture::skills::classifier::delivery::load_for_character,
+        characters::skills::journalist::manifest::MANIFEST,
     },
+    harness::{config::Config, db},
 };
 use serde_json::Value;
 

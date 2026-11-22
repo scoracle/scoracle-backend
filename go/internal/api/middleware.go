@@ -3,12 +3,14 @@ package api
 import (
 	"crypto/subtle"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"golang.org/x/time/rate"
 
 	"github.com/albapepper/scoracle-data/internal/api/respond"
@@ -105,6 +107,7 @@ func RateLimitMiddleware(requestsPerWindow int, window time.Duration, internalKe
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if internalKey != "" &&
 				subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Scoracle-Internal-Key")), []byte(internalKey)) == 1 {
+				log.Printf("internal_auth_accepted request_id=%q method=%q path=%q", middleware.GetReqID(r.Context()), r.Method, r.URL.Path)
 				next.ServeHTTP(w, r)
 				return
 			}

@@ -530,7 +530,7 @@ mod tests {
     #[test]
     fn claim_sensitive_operations_require_a_claimed_item() {
         let item = Item {
-            stage: crate::plugins::character::skills::influencer::manifest::TASK,
+            stage: crate::harness::plugins::characters::skills::influencer::manifest::TASK,
             entity_type: "team".to_string(),
             entity_id: 7,
             sport: "ZZ_TEST".to_string(),
@@ -677,8 +677,8 @@ mod postgres_claim_fencing_tests {
         clean(&first, sport).await;
         for id in 9_100_200..9_100_205 {
             for stage in [
-                crate::plugins::character::skills::scout::manifest::TASK,
-                crate::plugins::character::skills::influencer::manifest::TASK,
+                crate::harness::plugins::characters::skills::scout::manifest::TASK,
+                crate::harness::plugins::characters::skills::influencer::manifest::TASK,
             ] {
                 enqueue(&first, &pending(stage, id, sport, "v1"))
                     .await
@@ -688,12 +688,12 @@ mod postgres_claim_fencing_tests {
         let (a, b) = tokio::join!(
             claim(
                 &first,
-                crate::plugins::character::skills::scout::manifest::TASK,
+                crate::harness::plugins::characters::skills::scout::manifest::TASK,
                 4
             ),
             claim(
                 &second,
-                crate::plugins::character::skills::influencer::manifest::TASK,
+                crate::harness::plugins::characters::skills::influencer::manifest::TASK,
                 4
             )
         );
@@ -701,7 +701,7 @@ mod postgres_claim_fencing_tests {
         assert_eq!(a.len() + b.len(), 4);
         assert!(claim(
             &first,
-            crate::plugins::character::skills::scout::manifest::TASK,
+            crate::harness::plugins::characters::skills::scout::manifest::TASK,
             1
         )
         .await
@@ -712,7 +712,7 @@ mod postgres_claim_fencing_tests {
         }
         assert!(!claim(
             &second,
-            crate::plugins::character::skills::influencer::manifest::TASK,
+            crate::harness::plugins::characters::skills::influencer::manifest::TASK,
             1
         )
         .await
@@ -723,7 +723,9 @@ mod postgres_claim_fencing_tests {
 
     #[tokio::test]
     #[ignore = "requires isolated migrated TEST_DATABASE_URL"]
-    async fn downstream_claims_wait_for_entity_dependencies_and_durable_handoffs() {
+    async fn continuous_claims_gate_momentum_on_its_entity_and_handoff() {
+        use crate::harness::plugins::characters::skills::{analyst, oracle, scout};
+
         let first = pool().await;
         let second = pool().await;
         let sport = "ZZ_SHARED_DEPENDENCIES";
@@ -732,120 +734,54 @@ mod postgres_claim_fencing_tests {
             .bind(sport).execute(&first).await.unwrap();
         let id = 9_100_130;
         for stage in [
-            crate::plugins::character::skills::scout::manifest::TASK,
-            crate::plugins::character::skills::analyst::manifest::TASK,
-            crate::plugins::character::skills::oracle::manifest::TASK,
+            scout::manifest::TASK,
+            analyst::manifest::TASK,
+            oracle::manifest::TASK,
         ] {
             enqueue(&first, &pending(stage, id, sport, "v1"))
                 .await
                 .unwrap();
         }
-        assert!(claim_registered(
-            &second,
-            crate::plugins::character::skills::analyst::manifest::TASK,
-            1
-        )
-        .await
-        .unwrap()
-        .is_empty());
-        assert!(claim_registered(
-            &second,
-            crate::plugins::character::skills::oracle::manifest::TASK,
-            1
-        )
-        .await
-        .unwrap()
-        .is_empty());
-        let rating = one_claim(
-            &first,
-            crate::plugins::character::skills::scout::manifest::TASK,
-        )
-        .await;
-        assert!(claim_registered(
-            &second,
-            crate::plugins::character::skills::analyst::manifest::TASK,
-            1
-        )
-        .await
-        .unwrap()
-        .is_empty());
-        // A different entity can progress while this one waits.
+        assert!(claim_registered(&second, analyst::manifest::TASK, 1)
+            .await
+            .unwrap()
+            .is_empty());
+
+        // Continuous Oracle reads finished cards even while other work is pending.
+        let oracle = one_claim(&second, oracle::manifest::TASK).await;
+        assert_eq!(oracle.entity_id, id);
+        assert!(complete(&second, &oracle).await.unwrap());
+
+        let rating = one_claim(&first, scout::manifest::TASK).await;
         enqueue(
             &first,
-            &pending(
-                crate::plugins::character::skills::oracle::manifest::TASK,
-                id + 1,
-                sport,
-                "v1",
-            ),
+            &pending(analyst::manifest::TASK, id + 1, sport, "v1"),
         )
         .await
         .unwrap();
-        let independent = one_claim(
-            &second,
-            crate::plugins::character::skills::oracle::manifest::TASK,
-        )
-        .await;
+        let independent = one_claim(&second, analyst::manifest::TASK).await;
         assert_eq!(independent.entity_id, id + 1);
         assert!(complete(&second, &independent).await.unwrap());
         let mut tx = first.begin().await.unwrap();
-        crate::plugins::character::skills::scout::record_rating_completed(&mut tx, &rating, true)
+        scout::record_rating_completed(&mut tx, &rating, true)
             .await
             .unwrap();
         assert!(complete_in_transaction(&mut tx, &rating).await.unwrap());
         tx.commit().await.unwrap();
-        assert!(claim_registered(
-            &second,
-            crate::plugins::character::skills::analyst::manifest::TASK,
-            1
-        )
-        .await
-        .unwrap()
-        .is_empty());
+        assert!(claim_registered(&second, analyst::manifest::TASK, 1)
+            .await
+            .unwrap()
+            .is_empty());
+
         // Isolate dispatch acknowledgement from model/context preparation here.
         sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
             .bind(sport)
             .execute(&first)
             .await
             .unwrap();
-        let momentum = one_claim(
-            &second,
-            crate::plugins::character::skills::analyst::manifest::TASK,
-        )
-        .await;
-        assert!(claim_registered(
-            &first,
-            crate::plugins::character::skills::oracle::manifest::TASK,
-            1
-        )
-        .await
-        .unwrap()
-        .is_empty());
-        let mut tx = second.begin().await.unwrap();
-        crate::plugins::character::skills::analyst::record_momentum_completed(&mut tx, &momentum)
-            .await
-            .unwrap();
-        assert!(complete_in_transaction(&mut tx, &momentum).await.unwrap());
-        tx.commit().await.unwrap();
-        assert!(claim_registered(
-            &first,
-            crate::plugins::character::skills::oracle::manifest::TASK,
-            1
-        )
-        .await
-        .unwrap()
-        .is_empty());
-        sqlx::query("DELETE FROM application_outbox WHERE sport = $1")
-            .bind(sport)
-            .execute(&first)
-            .await
-            .unwrap();
-        let oracle = one_claim(
-            &first,
-            crate::plugins::character::skills::oracle::manifest::TASK,
-        )
-        .await;
-        assert!(complete(&first, &oracle).await.unwrap());
+        let momentum = one_claim(&second, analyst::manifest::TASK).await;
+        assert_eq!(momentum.entity_id, id);
+        assert!(complete(&second, &momentum).await.unwrap());
         clean(&first, sport).await;
     }
 
@@ -949,7 +885,7 @@ mod postgres_claim_fencing_tests {
         clean(&pool, sport).await;
 
         let v1 = pending(
-            crate::plugins::caretaker::skills::fixture_boxscore::manifest::TASK,
+            crate::harness::plugins::capture::skills::fixture_boxscore::manifest::TASK,
             9_100_002,
             sport,
             "v1",
@@ -957,12 +893,12 @@ mod postgres_claim_fencing_tests {
         enqueue(&pool, &v1).await.expect("enqueue v1");
         let old = one_claim(
             &pool,
-            crate::plugins::caretaker::skills::fixture_boxscore::manifest::TASK,
+            crate::harness::plugins::capture::skills::fixture_boxscore::manifest::TASK,
         )
         .await;
 
         let v2 = pending(
-            crate::plugins::caretaker::skills::fixture_boxscore::manifest::TASK,
+            crate::harness::plugins::capture::skills::fixture_boxscore::manifest::TASK,
             v1.entity_id,
             sport,
             "v2",
@@ -975,7 +911,7 @@ mod postgres_claim_fencing_tests {
 
         let current = one_claim(
             &pool,
-            crate::plugins::caretaker::skills::fixture_boxscore::manifest::TASK,
+            crate::harness::plugins::capture::skills::fixture_boxscore::manifest::TASK,
         )
         .await;
         assert_eq!(current.input_version.as_deref(), Some("v2"));
@@ -995,18 +931,18 @@ mod claim_order_tests {
     #[test]
     fn the_product_stages_all_drain_teams_first() {
         for manifest in [
-            &crate::plugins::character::skills::journalist::manifest::MANIFEST,
-            &crate::plugins::character::skills::influencer::manifest::MANIFEST,
-            &crate::plugins::character::skills::oracle::manifest::MANIFEST,
-            &crate::plugins::character::skills::scout::manifest::MANIFEST,
-            &crate::plugins::character::skills::analyst::manifest::MANIFEST,
-            &crate::plugins::character::skills::insider::manifest::MANIFEST,
+            &crate::harness::plugins::characters::skills::journalist::manifest::MANIFEST,
+            &crate::harness::plugins::characters::skills::influencer::manifest::MANIFEST,
+            &crate::harness::plugins::characters::skills::oracle::manifest::MANIFEST,
+            &crate::harness::plugins::characters::skills::scout::manifest::MANIFEST,
+            &crate::harness::plugins::characters::skills::analyst::manifest::MANIFEST,
+            &crate::harness::plugins::characters::skills::insider::manifest::MANIFEST,
         ] {
             assert_eq!(manifest.claim_policy.order, ClaimOrder::TeamsFirst);
         }
         // Classifier prioritizes fresh headlines, then feed rank.
         assert_eq!(
-            crate::plugins::classifier::skills::classify::manifest::MANIFEST
+            crate::harness::plugins::capture::skills::classifier::manifest::MANIFEST
                 .claim_policy
                 .order,
             ClaimOrder::FreshArticles

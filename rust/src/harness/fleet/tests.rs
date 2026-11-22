@@ -1,17 +1,17 @@
 //! Production fleet contracts: identifiers, resources, grants and registration.
 
-use crate::plugins::caretaker::skills::fixture_boxscore::manifest::MANIFEST as FIXTURE_BOXSCORE;
-use crate::plugins::caretaker::skills::investigator::manifest::MANIFEST as INVESTIGATOR;
-use crate::plugins::character::skills::analyst::manifest::MANIFEST as ANALYST;
-use crate::plugins::character::skills::influencer::manifest::MANIFEST as INFLUENCER;
-use crate::plugins::character::skills::insider::manifest::MANIFEST as INSIDER;
-use crate::plugins::character::skills::journalist::manifest::MANIFEST as JOURNALIST;
-use crate::plugins::character::skills::oracle::manifest::MANIFEST as ORACLE;
-use crate::plugins::character::skills::scout::manifest::MANIFEST as SCOUT;
-use crate::plugins::classifier::skills::classify::manifest::MANIFEST as CLASSIFIER;
+use crate::harness::plugins::capture::skills::classifier::manifest::MANIFEST as CLASSIFIER;
+use crate::harness::plugins::capture::skills::fixture_boxscore::manifest::MANIFEST as FIXTURE_BOXSCORE;
+use crate::harness::plugins::capture::skills::investigator::manifest::MANIFEST as INVESTIGATOR;
+use crate::harness::plugins::characters::skills::analyst::manifest::MANIFEST as ANALYST;
+use crate::harness::plugins::characters::skills::influencer::manifest::MANIFEST as INFLUENCER;
+use crate::harness::plugins::characters::skills::insider::manifest::MANIFEST as INSIDER;
+use crate::harness::plugins::characters::skills::journalist::manifest::MANIFEST as JOURNALIST;
+use crate::harness::plugins::characters::skills::oracle::manifest::MANIFEST as ORACLE;
+use crate::harness::plugins::characters::skills::scout::manifest::MANIFEST as SCOUT;
 
 use super::*;
-use crate::harness::plugin::{PluginRegistry, Skill, SkillManifest, SkillOutcome, ToolGrant};
+use crate::harness::skill::{PluginRegistry, Skill, SkillManifest, SkillOutcome, ToolGrant};
 use crate::harness::tools::DomainClass;
 
 #[test]
@@ -114,22 +114,21 @@ fn acquisition_web_grants_are_scoped_to_each_plugins_sources() {
 fn full_and_partial_production_fleets_register() {
     let plugins = ALL
         .iter()
-        .map(|manifest| crate::harness::plugin::Plugin {
+        .map(|manifest| crate::harness::skill::Plugin {
             manifest,
-            skills: if manifest.id == crate::plugins::caretaker::MANIFEST.id {
-                vec![]
-            } else {
-                manifest.skills.iter().map(|m| plugin(m)).collect()
-            },
+            skills: super::skills()
+                .filter(|s| s.plugin_id == manifest.id)
+                .map(plugin)
+                .collect(),
         })
         .collect();
     let registry = PluginRegistry::new(plugins).unwrap();
-    assert_eq!(registry.plugins().len(), 3);
+    assert_eq!(registry.plugins().len(), 2);
     assert_eq!(registry.skills().len(), 7);
-    assert!(registry.plugins()[2].skills.is_empty());
+    assert_eq!(registry.plugins()[0].skills.len(), 1);
     for manifest in crate::harness::fleet::skills() {
         let owner = ALL.iter().find(|p| p.id == manifest.plugin_id).unwrap();
-        let partial = PluginRegistry::new(vec![crate::harness::plugin::Plugin {
+        let partial = PluginRegistry::new(vec![crate::harness::skill::Plugin {
             manifest: owner,
             skills: vec![plugin(manifest)],
         }])

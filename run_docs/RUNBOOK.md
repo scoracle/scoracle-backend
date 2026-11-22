@@ -1,16 +1,14 @@
 # Scoracle Backend — Operations Runbook
 
-## Plugin/skill operating contract
+## Running harness skills
 
-The runtime is **Harness → plugins → skills**, with three owners: Classifier, Character and inactive Caretaker. See the [skill map](../harness/README.md#plugin-and-skill-map) for names, queue tasks, source paths and products. Queue tasks are not plugin names.
-
-Each voice is a skill of the Character plugin. The November 15 production rollout enables Journalist (`narratives`), Influencer (`vibe`) and Insider (`transfers`); Scout, Analyst and Oracle remain inactive. `coverage_schedule.required_stages` contains exactly those three active task names. Collection normally sweeps hourly, closes at 22:00 America/Detroit, and drains classification until the midnight Character handoff. RSS is currently paused for Google’s refusal; consult the [deployment record](../harness/docs/plugin-skills-deployment-2026-11-15.md) before resuming. Worker processes can stay running while the database clock gates their skills.
+Workers claim queue tasks by their durable names. Classifier uses the decision endpoint. The six character skills share a text model and each publishes its own product. The [skill map](../harness/README.md#skill-map) pairs the stage names used in service configuration and logs with their packages. Use the deployed coverage schedule and worker environment to determine which tasks a particular host can claim.
 
 The service's supported task list is `classifier,rating,momentum,transfers,narratives,vibe,sigil`. Check any `COGNITION_STAGES` override in `.env.local`: systemd's environment file overrides the service default. An unset variable in a direct binary invocation enables Character only; an empty value enables no handlers. Neither `investigate_entity` nor `fixture_boxscore` is accepted. Remove any previously installed factsweep cron entry when applying this release; updating the example file alone does not edit an installed crontab.
 
 Database reconnection is polled alongside shutdown, safety ticks and watchdog checks. A database outage must not prevent the normal shutdown grace period. Authentication requires `JWT_SECRET`; without it, token issuance is unavailable and protected routes reject access tokens.
 
-Platform direction follows the [governing contract](../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md). Cheap code owns collection; expensive compute owns discovery. This runbook records operations; it does not redefine model reasoning.
+Platform direction follows the [governing contract](https://github.com/scoracle/scoracle-wiki/blob/main/wiki/Architecture/Backend%20Harness%20and%20Skills.md). Cheap code owns collection; expensive compute owns discovery. This runbook records operations; it does not redefine model reasoning.
 
 For the current Studio recovery and bounded cohort canaries, use [Recovery and analytics acceptance](RECOVERY_ANALYTICS_ACCEPTANCE.md). Its live evidence is recorded separately in the wiki; historical deployment/model descriptions below are not a live inventory.
 
@@ -37,9 +35,9 @@ Cloudflare Tunnel exposing `api.scoracle.com`.
 Go RSS collection → PostgreSQL evidence + durable queue
                            ↓
                     Rust harness
-                     ├─ Classifier → classify skill
-                     ├─ Character → six independent output skills
-                     └─ Caretaker → retained code, no enabled work
+                     ├─ Classifier scores and routes evidence
+                     └─ Six character skills write cards
+
                            ↓
                 saved products → Go API → clients
 ```
@@ -55,14 +53,14 @@ Classifier uses the native decision endpoint in `CLASSIFIER_URL`. Production Cha
 | `scoracle-api` | HTTP serving of saved products + maintenance tickers | `scoracle-api.service` (always on) |
 | `pipeline` | the ONLY data ingestion layer: Google News RSS collection (persist + enqueue Classifier work) | `scoracle-coverage.service` (`pipeline -mode monitor`); explicit ingest runs remain available |
 | `vibesynth` | nightly Sigil reconciliation backstop (DB-only; enqueues durable `sigil` work) | cron (`cron-vibesynth.sh`) |
-| `scoracle-cognition` | the Rust daemon: runs Classifier and the six independently scheduled Character skills; Caretaker is inactive | `scoracle-cognition.service` (always on, GPU box) |
+| `scoracle-cognition` | the Rust daemon: runs Classifier and the six independently scheduled Character skills | `scoracle-cognition.service` (always on, GPU box) |
 | `scoracle-memory-study` | Explicit offline analytical helper | Operator/evaluation invocation |
 | `factsweep` | Refuses obsolete maintenance calls | Compatibility command; never scheduled |
 | `statcommentary` | Rust rating batch (single / nightly / backfill, NOT a queue stage) | cron (`cron-rust-statcommentary.sh`) |
 
 `statcommentary -mode nightly` only enqueues durable current-season Rating work. Its `single`
 preview/publication and historical `backfill` modes invoke Scout directly through typed non-queue
-contexts; they do not invent a queue lease. `factsweep` is a retained compatibility command that always refuses before database access. It has no cron job. Investigator and fixture-boxscore machinery live under Caretaker, with zero enabled handlers.
+contexts; they do not invent a queue lease. `factsweep` is a retained compatibility command that always refuses before database access. It has no cron job. Investigator and Fixture Boxscore are offline skill packages.
 
 Go collects RSS candidates; Classifier scores headline relevance and routes evidence. Character skills produce saved outputs. The API reads products without inference.
 
@@ -251,7 +249,7 @@ Go collects team RSS headlines and records source/query provenance plus Classifi
 
 The harness independently schedules Journalist, Influencer, Scout and Insider work. Rating and Vibe feed Analyst; Oracle waits for the five pillars. Each skill prepares evidence, validates output and commits products plus required follow-up events through an exact-claim transaction. Retries and stale-lease recovery remain harness responsibilities.
 
-The API serves stored products without inference. Main tables include `news_summaries`, `vibe_scores`, `stat_summaries`, `insider_scores`, `transfer_rumors`, `momentum_summaries` and `sigil_synthesis`. Caretaker adds no active step to this flow.
+The API serves stored products without inference. Main tables include `news_summaries`, `vibe_scores`, `stat_summaries`, `insider_scores`, `transfer_rumors`, `momentum_summaries` and `sigil_synthesis`.
 
 ---
 

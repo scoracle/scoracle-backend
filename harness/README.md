@@ -1,13 +1,8 @@
-# Studio: the architecture contract
+# Scoracle cognition harness
 
-**One harness runs independently scheduled skills.** The harness runs durable work. Capture owns Classifier, Investigator and Fixture Boxscore. Characters owns the six output skills. Skills bring tools and instructions; the LLM discovers what the supplied clues support and articulates the answer. Cheap code owns collection; expensive compute owns discovery.
+The worker claims a durable task and runs the skill registered for it. The skill prepares the evidence, requests a decision or a piece of writing, checks the result and defines what to publish. The harness supplies model clients, limits concurrency, retries failed work and commits products under the current claim.
 
-A **voice is a Character skill**: Journalist, Influencer, Insider, Scout, Analyst or Oracle. All six belong to `scoracle.character`. Each voice owns its instructions, tools, validation and publication behavior under `skills/skill-<voice>/`. Adding or tuning a voice changes a skill within that plugin.
-
-Plugins assemble dependencies and declare their skills. Each skill retains its own task, claim policy, resource budget, model routes and tool grants. The registry validates ownership and flattens enabled skills into the existing scheduler. Shared plugin ownership does not combine permissions, serialize character work, or change publication fences. See the [migration plan and inventory](docs/PLAN-plugin-skills-2026-11-15.md).
-
-New generation-ledger rows use `scoracle.character` as `plugin_id` and the unchanged `stage` to identify the skill. Historical rows retain their former per-character IDs. Skill IDs preserve those old spellings for source receipts and input compatibility; no historical rows are rewritten.
-
+In code, `PluginManifest` and `plugin_id` identify two registration groups, `scoracle.capture` and `scoracle.character`. Their members live side by side in [skills/](skills/). The queue schedules each enabled skill independently. The stage on a generation receipt identifies the job within its group.
 
 ## Package layout
 
@@ -17,11 +12,11 @@ Unit tests live beside the code they exercise. Integration checks live in `tests
 
 From the repository root, run `cargo test --manifest-path harness/Cargo.toml --all-targets` for the ordinary suite. Use `scripts/check.sh` with an empty disposable PostgreSQL 18 database named `classifier_test_coverage*` for the full CI suite. The worker requires at least three connections in `COGNITION_DB_MAX_CONNS` for its listener, outbox transaction, and event reaction.
 
-## Plugin and skill map
+## Skill map
 
-Paths below are relative to the package root. Each skill package contains `SKILL.md` and its Rust tools in `scripts/`. The empty `skills/graph.rs` reserves a place for future relationship capture. These are statically linked Rust skills, not dynamically loaded prompt folders. Each skill owns its preparation, instructions, allowed tools, validation and publication; the harness owns claims, retries, shared budgets and transaction fencing.
+Each `skill-<name>/` contains `SKILL.md` with YAML metadata and job instructions, plus `scripts/` with its Rust implementation. Include `references/` for examples or supporting documentation and `assets/` for resources the skill uses. [skills/mod.rs](skills/mod.rs) wires the packages into the crate at compile time. The empty [graph.rs](skills/graph.rs) reserves space for future relationship work.
 
-| Plugin | Skill | Durable queue task | Source directory | Output / effect |
+| Registration group | Skill | Durable queue task | Source directory | Output / effect |
 | --- | --- | --- | --- | --- |
 | Capture | Classifier | `classifier` | `skills/skill-classifier/` | Headline scores and character delivery obligations |
 | Characters | Journalist | `narratives` | `skills/skill-journalist/` | News narratives |
@@ -35,14 +30,11 @@ Paths below are relative to the package root. Each skill package contains `SKILL
 
 See the [Classifier request](skills/skill-classifier/references/sample-request.json) and [Journalist prompt](skills/skill-journalist/references/sample-prompt.json).
 
-Classifier routes evidence to character work. Rating and Vibe feed Momentum; Oracle reads finished cards in continuous mode and waits for its five dependencies in scheduled editions. The harness claims each skill independently using the existing queue and dependency gates. Plugins introduce ownership, not another queue or a model choosing the next job.
+Classifier routes evidence to character work. Rating and Vibe feed Momentum; Oracle reads finished cards in continuous mode and waits for its five dependencies in scheduled editions. The harness claims each skill independently using the existing queue and dependency gates.
 
 `COGNITION_STAGES` still accepts queue task names. Unset enables the six Character skills; Classifier is opt-in. The shipped service explicitly enables Classifier plus those six skills. Investigator and Fixture Boxscore remain outside the worker roster, and `factsweep` refuses before database access. There is no factsweep cron job.
 
-[Compare the old and new flow in Figma](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs). The [baseline comparison](docs/qualification/2026-11-15-plugin-skills/BASELINE-COMPARISON.md) records unchanged fixture outcomes; prompt/parser quality is separate from structural parity.
-
-
-The [governing wiki contract](../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) owns this platform boundary. Rust prepares evidence and executes model assignments; Postgres stores evidence, work and products. Models receive prepared input and never call tools, search or retrieve.
+The [wiki contract](https://github.com/scoracle/scoracle-wiki/blob/main/wiki/Architecture/Backend%20Harness%20and%20Skills.md) describes how the harness, skills and models share responsibility. Models receive the evidence prepared for their assignment. Rust calls tools and Postgres stores the resulting work and products.
 
 ## Reporting pipeline
 
@@ -60,9 +52,9 @@ Classifier performs no publisher fetch, article extraction, browser rendering or
 
 ## Character packages and publication
 
-All six characters receive `task` → `target_context` → `target` → `evidence_context` → `evidence` through [shared prompt assembly](src/tools/prompt.rs). Each skill's `character_instructions.rs` owns its role, voice, task and output rules. [Meta](src/tools/meta.rs) and each skill's `fresh.rs` supply their data together with relationship guidance and explicit `(field_path, meaning)` definitions. Skill `request.rs` prepares both components; the assembler has no database-record dependency. It includes definitions only for supplied fields, preserving zero and false while treating missing/null as unknown and empty collections as no items. There is no trailing tone field or separate `context.rs`/`context.txt`. Character `request.rs` modules retain schemas, preparation and transport options. Production and fixture replay share the assembly path; the decision model also supplies context with its rules while retaining its native scoring protocol.
+All six characters receive `task` → `target_context` → `target` → `evidence_context` → `evidence` through [shared prompt assembly](src/tools/prompt.rs). Each skill's `SKILL.md` owns its role, voice, task and output rules. [Meta](src/tools/meta.rs) and each skill's `fresh.rs` supply their data together with relationship guidance and explicit `(field_path, meaning)` definitions. Skill `request.rs` prepares both components; the assembler has no database-record dependency. It includes definitions only for supplied fields, preserving zero and false while treating missing/null as unknown and empty collections as no items. There is no trailing tone field or separate `context.rs`/`context.txt`. Character `request.rs` modules retain schemas, preparation and transport options. Production and fixture replay share the assembly path; the decision model also supplies context with its rules while retaining its native scoring protocol.
 
-During backlog debugging, all article-consuming characters receive at most ten articles ranked by the decision model: `subject` for Journalist, `movement` for Insider, `emotion` for Influencer and `availability` for Scout. The shared Rust cap and SQL selection policy agree; ranked exclusions keep explicit receipts and are never labeled model-used. Ties retain incoming order; absent/invalid scores follow valid scores, including zero. Full selected source wording, publishers and qualifications remain. Article IDs, URLs and publication timestamps stay in internal records and receipts; the writing payload omits them. Dates within source text and dated metadata/measurement windows remain. The [clear-payload trial](fixtures/characters/clear-payload-2026-11-02/README.md) records the readable JSON layout and its controlled comparison. The [direct-instructions trial](fixtures/characters/direct-instructions-2026-11-02/README.md) records the plain Journalist, Insider and Influencer briefs. Journalist writes sourced paragraphs first, then one hook for the recap, using request-local integer IDs for citations. Insider and Influencer also write as many concise paragraphs as the evidence supports; Influencer follows the reading with one overall vibe score and one hook. The [ten-article follow-up](fixtures/characters/insider-influencer-2026-11-02/README.md) records the current limit and the Insider/Influencer review. The [five-article trial](fixtures/characters/top-five-2026-11-02/README.md) records token savings and remaining factual failures. The [shared-prompt refactor](fixtures/characters/shared-prompt-2026-11-02/README.md) records the initial shared-assembler comparison. The [context-component refactor](fixtures/characters/context-components-2026-11-02/README.md) removes voice files and prose parsing while preserving complete requests. [Prompt ownership and tuning](docs/character-prompts.md) explains where to make changes and how new plugins reuse the structure. These are development results, not held-out accuracy findings. Historical context remains deferred. D3 routing does not verify reporting.
+During backlog debugging, all article-consuming characters receive at most ten articles ranked by the decision model: `subject` for Journalist, `movement` for Insider, `emotion` for Influencer and `availability` for Scout. The shared Rust cap and SQL selection policy agree; ranked exclusions keep explicit receipts and are never labeled model-used. Ties retain incoming order; absent/invalid scores follow valid scores, including zero. Full selected source wording, publishers and qualifications remain. Article IDs, URLs and publication timestamps stay in internal records and receipts; the writing payload omits them. Dates within source text and dated metadata/measurement windows remain. The [clear-payload trial](fixtures/characters/clear-payload-2026-11-02/README.md) records the readable JSON layout and its controlled comparison. The [direct-instructions trial](fixtures/characters/direct-instructions-2026-11-02/README.md) records the plain Journalist, Insider and Influencer briefs. Journalist writes sourced paragraphs first, then one hook for the recap, using request-local integer IDs for citations. Insider and Influencer also write as many concise paragraphs as the evidence supports; Influencer follows the reading with one overall vibe score and one hook. The [ten-article follow-up](fixtures/characters/insider-influencer-2026-11-02/README.md) records the current limit and the Insider/Influencer review. The [five-article trial](fixtures/characters/top-five-2026-11-02/README.md) records token savings and remaining factual failures. The [shared-prompt refactor](fixtures/characters/shared-prompt-2026-11-02/README.md) records the initial shared-assembler comparison. The [context-component refactor](fixtures/characters/context-components-2026-11-02/README.md) removes voice files and prose parsing while preserving complete requests. [Prompt ownership and tuning](docs/character-prompts.md) explains where to make changes and how to add or tune a skill. These are development results, not held-out accuracy findings. Historical context remains deferred. D3 routing does not verify reporting.
 
 The [context-guide trial](fixtures/characters/context-guide-2026-11-02/README.md) compares this template with the previous job/target assembly on identical captured evidence. Historical context remains deferred.
 
@@ -124,9 +116,9 @@ The API reads saved products and performs no inference. The reporting routes `/n
 | Postgres / SQL | Canonical identities, exact name matching, source revisions, spectra, delivery obligations, daily membership, factual arithmetic and stored products. |
 | `src/evaluation/`, `examples/`, `fixtures/` | Replays, contract checks and retained evaluation evidence outside production execution. |
 
-Share ordinary tool functions when doing so reduces complexity. Plugins assemble clues rather than prewrite conclusions. Preserve dates, uncertainty, unknown values, publisher attribution and complete evidence. Historical prose cannot become measurement evidence. Keep model requests and responses inspectable outside compact character inputs.
+Share ordinary tool functions when doing so reduces complexity. Skills prepare evidence for the model to interpret. Preserve dates, uncertainty, unknown values, publisher attribution and complete evidence. Historical prose cannot become measurement evidence. Keep model requests and responses inspectable outside compact character inputs.
 
-`tools/meta.rs` provides canonical identity; `tools/fresh.rs` presents evidence; `skills/skill-classifier/scripts/memories.rs` selects and ranks bounded headline history in Rust; `tools/form.rs` owns structural forms and decoding; `tools/guards.rs` owns served-prose checks. Other DuckDB studies remain available for explicit offline work.
+`src/tools/meta.rs` provides canonical identity; `src/tools/fresh.rs` presents evidence; `skills/skill-classifier/scripts/memories.rs` selects and ranks bounded headline history in Rust; `src/tools/form.rs` owns structural forms and decoding; `src/tools/guards.rs` owns served-prose checks. Other DuckDB studies remain available for explicit offline work.
 
 The six Character skills retain their distinct interfaces and share one production Qwen route. `statcommentary` remains an explicit statistics command. Investigator uses structured Wikimedia evidence; `factsweep` remains unavailable pending a qualified discovery gate.
 
@@ -142,9 +134,6 @@ For a read-only model replay: `CLASSIFIER_URL=http://127.0.0.1:18081 cargo run -
 
 Use [development guidance](../run_docs/DEVELOPMENT.md), the [operations runbook](../run_docs/RUNBOOK.md), and `scripts/check.sh` with an empty disposable PostgreSQL 18 database. Database checks exercise publication and recovery; live-model replays separately assess evidence fidelity and writing quality. Historical deployment notes and article benchmarks describe their dated implementations.
 
-The runtime registers Classifier, Character and Caretaker plugin owners. Only Classifier and the six Character skills can be enabled; Caretaker remains inactive. One shared Qwen client and
-four aggregate running character claims replace per-role production routing. Headline-history
-ranking is a bounded Rust sort; DuckDB remains available to offline analytics. Existing
-Investigator/fixture modules live under Caretaker for their retained callers; factsweep still refuses execution.
+The six character skills share one production Qwen route and four aggregate running claims. Classifier uses the native decision endpoint. Headline history is ranked in Rust, and DuckDB remains available for offline studies.
 
 See [recovery validation and remaining release gates](../docs/progress_docs/2026-10-22-production-recovery.md).

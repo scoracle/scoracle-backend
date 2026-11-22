@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-The [governing contract](../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) defines upstream evidence and cognition: tools collect traceable clues; the LLM discovers supported meaning and articulates products. This document owns serving contracts; requests consume prepared products.
+The [governing contract](https://github.com/scoracle/scoracle-wiki/blob/main/wiki/Architecture/Backend%20Harness%20and%20Skills.md) defines upstream evidence and cognition: tools collect traceable clues; the LLM discovers supported meaning and articulates products. This document owns serving contracts; requests consume prepared products.
 
 > Last updated: 2026-08-22 (Drop 3b — the heat contract is COMPLETE: `heat` is the ONE number key on every board row and profile voice card (native scale); the old per-voice key zoo (`score`, board `impact`-as-score, `card_score`) no longer serves. Rank expressions are product-owned: the vibes board ranks by emotional CHARGE (`ABS(sentiment−50)` — a 3-meltdown outranks a 90-euphoria), the momentum boards default to biggest MOVERS (`ABS(slope)`, either direction; `?direction=up|down` filters one side). From drop 3a: `/stories` + `/story/{id}` serve the Journalist's `recap` + packet `routing_tags`. From drop 2: boards carry `headline` and no prose bodies; profile cards carry `{headline, body, heat}`.)
 

@@ -1,31 +1,28 @@
 # Backend Development Rules
 
-## Current implementation: Harness → plugins → skills
+## Working on a harness skill
 
-Classifier owns the `classify` skill. Character is one plugin whose six voice skills are Journalist, Influencer, Insider, Scout, Analyst and Oracle. A voice is a skill, not a separate plugin. Caretaker organizes retained Investigator and fixture-boxscore code with no enabled skills. See the [complete task/source/output map](../harness/README.md#plugin-and-skill-map) and [visual comparison](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs).
+Start with the [skill map](../harness/README.md#skill-map). Edit the package under `harness/skills/skill-<name>/`. Put its instructions in `SKILL.md`, implementation and unit tests in `scripts/`, and cross-module integration checks in `harness/tests/`. The [Journalist package](../harness/skills/skill-journalist/) shows the request, parser and publisher for one job.
 
-Add job-specific preparation, prompts, tools, validation and publication under `plugins/<owner>/skills/<skill>/`. Declare its `SkillManifest` in the owner's roster and bind dependencies in that plugin's `build`. The harness validates ownership and schedules the flattened enabled skills independently; do not add another character plugin or a second scheduler. `Skill::execute` returns `SkillOutcome`; task IDs and exact-claim publication remain unchanged. New Character ledger rows use `scoracle.character` plus the existing stage; source receipts and historical skill IDs retain their old spellings.
-
-Caretaker is organization only. Do not enable its tasks or restore factsweep scheduling as part of this migration. Existing shared metadata readers and database contracts stay shared.
-
+For a new skill, expose its module in `harness/skills/mod.rs`, declare its task and grants in its manifest, and bind its handler in `harness/src/registration/`. Check the deployable roster in `harness/src/fleet.rs` and the worker’s configured stage names. Prompt-only changes to an existing skill start in that skill’s package.
 
 Repo-local implementation guidance for `scoracle-backend`. Start with `README.md`, then use this file when adding endpoints, migrations, SQL contracts, or backend code.
 
-The [governing contract](../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) defines the cognitive boundary: cheap code owns collection; expensive compute owns discovery. Plugins assemble traceable clues through tools; the LLM reasons across them, discovers supported meaning and articulates the answer. Documentation consolidation to about five guides is deferred to a subsequent session. Dated plans and evaluation records are optional evidence, not additional startup doctrine.
+The [governing contract](https://github.com/scoracle/scoracle-wiki/blob/main/wiki/Architecture/Backend%20Harness%20and%20Skills.md) defines the cognitive boundary: cheap code owns collection; expensive compute owns discovery. Skills assemble traceable clues through tools; the LLM reasons across them, discovers supported meaning and articulates the answer. Documentation consolidation to about five guides is deferred to a subsequent session. Dated plans and evaluation records are optional evidence, not additional startup doctrine.
 
 ## Design Rules
 
 1. Postgres owns durable world state, provenance, products, work state, and serving projections.
 2. DuckDB owns the analytical direction: bounded studies of versioned evidence, published through application adapters. Existing SQL analytics stay authoritative until their replacement passes parity and cutover gates. Do not add new computations to Postgres solely because legacy rules put all analytics there.
-3. `harness/src/` owns registration, durable execution, model transports and publication coordination. Plugins own preparation, validation and product policy; `harness/src/tools/` owns shared acquisition, identity, memory and form mechanics.
-4. Plugins select their evidence and bind publication effects through the harness. The harness owns routing, scheduling, claim-fenced transactions, retries and resource limits.
+3. `harness/src/` owns registration, durable execution, model transports and publication coordination. Skills own preparation, validation and product policy; `harness/src/tools/` owns shared acquisition, identity, memory and form mechanics.
+4. Skills select their evidence and bind publication effects through the harness. The harness owns routing, scheduling, claim-fenced transactions, retries and resource limits.
 5. Go handlers stay thin: validate, cache/ETag, prepared statement, passthrough JSON. No acquisition, study, or model call runs inline with serving.
 6. Acquisition preserves source identity and provenance before publication. Retired provider/seed tooling is not an architectural requirement.
 7. Sport boundaries stay explicit: `nba`, `nfl`, and `football` logic should not blur accidentally. Public route shape is defined by `go/internal/api/server.go`.
 
 ## Dependency and migration boundaries
 
-Plugins prepare typed assignments and supply models with clues, relationships, measurements and explicit limits, empowering discovery rather than prescribing the conclusion. Current models receive prepared tool results and do not call tools. The harness binds declared inference and acquisition capabilities. Keep prompt construction, parsing and product assembly testable with injected models. `Generation<T>` carries provenance; errors reach the durable worker, and plugin effects commit through the harness's claim-fenced publication transaction.
+Skills prepare typed assignments and supply models with clues, relationships, measurements and explicit limits, empowering discovery rather than prescribing the conclusion. Current models receive prepared tool results and do not call tools. The harness binds declared inference and acquisition capabilities. Keep prompt construction, parsing and product assembly testable with injected models. `Generation<T>` carries provenance; errors reach the durable worker, and skill effects commit through the harness's claim-fenced publication transaction.
 
 A migration slice preserves the existing material, hash, prompt, and output meaning before adding richer evidence. Then version any intentional analytical or character-contract change and evaluate its value. Preserve missingness, coverage, measurement origin, and snapshot provenance; missing data must not silently become zero.
 
@@ -37,7 +34,7 @@ Update the README and wiki data-flow implementation status with each migrated bo
 
 Workers on multiple hosts compete for individual `pipeline_work` rows in the same PostgreSQL database. No host owns an entire stage pool. `pipeline_work_ready` NOTIFY broadcasts after enqueue commits; each worker maintains LISTEN plus startup and periodic recovery. Notifications are hints, while the durable row is the obligation. Atomic `FOR UPDATE SKIP LOCKED` claims give workers disjoint current jobs; exact claim tokens and captured revisions fence stale publication and acknowledgements. Retries and newer revisions can repeat computation, so this is not an exactly-once inference guarantee.
 
-Classifier publishes exact headline context, delivery assignments and downstream obligations atomically; receiving plugins own their product sufficiency and publication. The Scout's statistics rail remains independent. Claim-time entity checks keep Analyst behind pending/running Scout and Influencer work, and Oracle behind all five pending/running pillars. Undispatched completion outbox events also block these consumers, closing the gap between publication and follow-up enqueue. In the recovery candidate, a failed pillar blocks the dependent; only explicit completed/no-evidence/unchanged resolutions establish readiness. These checks cover known work at claim time; new evidence can arrive during inference and trigger a subsequent revision. They do not impose a global barrier on unrelated articles or entities.
+Classifier publishes exact headline context, delivery assignments and downstream obligations atomically; receiving skills own their product sufficiency and publication. The Scout's statistics rail remains independent. Claim-time entity checks keep Analyst behind pending/running Scout and Influencer work, and Oracle behind all five pending/running pillars. Undispatched completion outbox events also block these consumers, closing the gap between publication and follow-up enqueue. In the recovery candidate, a failed pillar blocks the dependent; only explicit completed/no-evidence/unchanged resolutions establish readiness. These checks cover known work at claim time; new evidence can arrive during inference and trigger a subsequent revision. They do not impose a global barrier on unrelated articles or entities.
 
 Every live consumer must run compatible fenced code and the same readiness policy. Rotate admission across ready stages so continuous upstream inflow cannot monopolize a worker's slots. Poll bounded outbox dispatch independently of drain completion. The recovery candidate enforces four running character claims across hosts in Postgres, in addition to one shared Qwen client semaphore. d1 remains a separate decision client. Lifecycle/carry-forward defaults and production rollout remain subject to the recovery release gates.
 

@@ -1,22 +1,22 @@
 # Character prompt ownership
 
-Classifier owns the classification skill; Character owns the six output skills. Caretaker's Investigator instructions are retained for offline/compatibility use only, with no enabled maintenance work. See the [task/source/output map](../README.md#plugin-and-skill-map) before adding or moving instructions.
+Each writing skill owns its instructions and implementation in `skills/skill-<name>/` relative to the harness root. Classifier owns the native scoring request. Investigator is offline. See the [skill map](../README.md#skill-map).
 
-Skills own meaning and behavior within their plugin. Shared code owns assembly and field-presence rules. Every context provider returns its data together with a guide explaining how that data relates to the target.
+Skills own meaning and behavior within their package. Shared code owns assembly and field-presence rules. Every context provider returns its data together with a guide explaining how that data relates to the target.
 
 | Change | Owner |
 | --- | --- |
 | Role, voice, requested product, output instructions | Skill `SKILL.md` |
 | Which evidence is selected and how it relates to the target | Skill `fresh.rs` |
-| Canonical identity and stored attributes | Shared `tools/meta.rs` |
+| Canonical identity and stored attributes | Shared `src/tools/meta.rs` |
 | Connecting context providers, schema, generation settings, version | Skill `request.rs` |
-| Ordering, conditional definitions, serialization | Shared `tools/prompt.rs` |
+| Ordering, conditional definitions, serialization | Shared `src/tools/prompt.rs` |
 | Output parsing and evidence checks | Skill `parser.rs` and existing schema helpers |
-| Registration, execution, publication | Plugin roster, skill manifest and harness runtime |
+| Registration, execution, publication | Registration group, skill manifest and harness runtime |
 
 Every entity-targeted model receives the same top-level order: `task → target_context → target → evidence_context → evidence`. The task is a short statement of the input and the job at hand. It is specific to the evidence actually supplied: reporting for Journalist, Influencer and Insider; measurements for Scout; dated readings for Analyst; perspective cards for Oracle; one headline for Classifier; a candidate Wikipedia summary for Investigator.
 
-Detailed writing and output rules remain in the system instructions, including the previous longer assignments. Classifier has no separate system channel in its native scoring interface, so its shared `task` contains the short assignment and relationship rules once; each native question contains only its scoring criterion. Its `state` contains the same ordered brief. Investigator keeps verbatim-extraction rules in its system message, with page text kept separate from target metadata.
+Journalist embeds the body of its `SKILL.md` in the `task` field and sends its output schema with the generation request. Classifier embeds its assignment in the native decision request’s `state` and sends four scoring questions. Compare the [Journalist prompt](../skills/skill-journalist/references/sample-prompt.json) and [Classifier request](../skills/skill-classifier/references/sample-request.json).
 
 Journalist and Influencer use readable recorded attributes and numbered publisher headlines or excerpts. The shared assembler preserves field-specific target and evidence descriptions as context arrays. All JSON is indented in the actual model input. Evidence readers accept the current `evidence` field and historical `new_content`/`fresh` layouts; historical trial outputs remain frozen.
 
@@ -44,7 +44,7 @@ Use shared metadata when its identity semantics fit. A skill can supply a differ
 
 Share a component or definition when its meaning is identical across consumers. Target/related-entity roles, publisher/speaker roles, stored affiliation/fresh reporting, event dates and target sample/comparison cohort must remain explicit. Avoid instructions that assume every target is a team or player. Read canonical identity and optional attributes from the payload.
 
-The shared sports-entity description lives in `tools/prompt.rs::TARGET_CONTEXT`. Journalist, Influencer, Analyst, Oracle, Insider, Scout, Classifier and Investigator all render it before their target identity. Classifier renders an ordered JSON brief inside its native string state: `task → target_context → target → evidence_context → evidence`. Its four scoring questions remain separate native questions. Investigator clarifies that it describes the sought entity, since the candidate Wikipedia page may concern another subject; its page evidence and verbatim-containment checks remain separate.
+The shared sports-entity description lives in `src/tools/prompt.rs::TARGET_CONTEXT`. Journalist, Influencer, Analyst, Oracle, Insider, Scout, Classifier and Investigator all render it before their target identity. Classifier renders an ordered JSON brief inside its native string state: `task → target_context → target → evidence_context → evidence`. Its four scoring questions remain separate native questions. Investigator clarifies that it describes the sought entity, since the candidate Wikipedia page may concern another subject; its page evidence and verbatim-containment checks remain separate.
 
 Classifier’s `SKILL.md` contains the assignment and relationship rules. Its `scripts/questions.rs` defines the four scoring questions and `scripts/request.rs` assembles the request. Criteria JSON files are historical snapshots, not runtime instruction sources. Response validation uses the same question keys. The v17 criteria and v8 task-first request retain identifying metadata and named-person context. Classifier loads the same structured database record and uses the same recorded-attribute formatter as Journalist. `recorded_attributes` is an object; legacy prose-only records are preserved under `background_note`.
 
@@ -52,7 +52,7 @@ The decision model uses the same context ownership convention but retains its na
 
 ## Add or tune a skill
 
-Use an existing character as an example. Define its instructions, return `Context<T>` from its evidence provider, and connect the providers through `request.rs` to `tools::prompt::assemble`. Implement its output schema/parser and add its manifest and constructor to the Character plugin, plus its evaluation task registration. No new registry, inheritance layer or template language is required.
+Follow [Journalist](../skills/skill-journalist/) from `SKILL.md` into `scripts/request.rs`, then into the reply checks and publication code. A new character also needs a manifest, a module in `skills/mod.rs`, a handler in `src/registration/characters.rs` and a matching evaluation task when it supports replay.
 
 Keep selection and interpretation in code/text owned by that skill. Keep reusable ranking, identity and presence rules in the existing shared helpers. The temporary ten-article cap applies to all article-consuming characters: Journalist (`subject`), Insider (`movement`), Influencer (`emotion`) and Scout (`availability`). Keep `tools::source::CHARACTER_ARTICLE_LIMIT` and SQL `headline_entity_cap()` aligned. Frozen-source exclusions retain auditable selection receipts; unserved sources must never be acknowledged as model-used. Analyst and Oracle consume structured evidence, and the decision model scores one article per request. Schema, request and parser must all refer to that same selected order.
 

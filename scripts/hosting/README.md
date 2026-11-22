@@ -54,7 +54,7 @@ SCORACLE_SYSTEMD_DIR=$(mktemp -d) scripts/hosting/install.sh
 
 ## Capability owners
 
-Cognition runs Classifier and six Character skills under the harness. Caretaker is inactive; its two task names are not valid service configuration. See the [runtime map](../../harness/README.md#plugin-and-skill-map).
+Cognition runs Classifier and six Character skills under the harness. Investigator and Fixture Boxscore are offline and their task names are unavailable in service configuration. See the [runtime map](../../harness/README.md#skill-map).
 
 The `factsweep` binary remains only to refuse obsolete operator calls explicitly. It must not be scheduled. Remove an existing factsweep entry from installed crontabs when applying this release; the installer does not change crontabs automatically. Keep `JWT_SECRET` configured for mobile authentication.
 

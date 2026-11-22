@@ -1,6 +1,6 @@
 # Active evaluation data
 
-Evaluate model discovery and articulation under the [governing contract](../../../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md). Tools supply traceable clues; the model reasons across them. Review supported relationships, attribution, uncertainty and unsupported additions rather than a preferred paraphrase.
+Evaluate model discovery and articulation under the [governing contract](https://github.com/scoracle/scoracle-wiki/blob/main/wiki/Architecture/Backend%20Harness%20and%20Skills.md). Tools supply traceable clues; the model reasons across them. Review supported relationships, attribution, uncertainty and unsupported additions rather than a preferred paraphrase.
 
 - `contracts/`: identity resolution cases and representative memory packages used by deterministic Rust tests.
 - `scout/`: retained S5 synthetic request/reply evidence, including failures; see [closure status](../docs/scout-closure-2026-09-29.md). These are replay records, not passing quality benchmarks.

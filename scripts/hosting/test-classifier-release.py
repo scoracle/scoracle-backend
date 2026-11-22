@@ -9,14 +9,14 @@ import tempfile
 SOURCE = Path(__file__).resolve().parents[2]
 with tempfile.TemporaryDirectory(prefix="classifier-release-check-") as directory:
     root = Path(directory)
-    for name in ("scripts/hosting", "scripts/systemd", "go", "rust/target/debug", "bins", "units", "mock"):
+    for name in ("scripts/hosting", "scripts/systemd", "go", "harness/target/debug", "bins", "units", "mock"):
         (root / name).mkdir(parents=True)
     for name in ("release.sh", "install.sh", "verify-classifier.sh", "run-classifier-model.sh", "run-d3-classifier.sh"):
         shutil.copy2(SOURCE / "scripts/hosting" / name, root / "scripts/hosting" / name)
     for source in (SOURCE / "scripts/systemd").glob("*"):
         if source.is_file(): shutil.copy2(source, root / "scripts/systemd" / source.name)
     for name in ("scoracle-cognition", "statcommentary", "factsweep"):
-        (root / "rust/target/debug" / name).write_text("fixture binary")
+        (root / "harness/target/debug" / name).write_text("fixture binary")
     commands = {
         "cargo": 'exit "${FAIL_BUILD:-0}"',
         "go": 'while [ "$1" != -o ]; do shift; done; shift; printf binary > "$1"',

@@ -334,4 +334,7 @@
 331_classifier_target_relations
 332_classifier_task_first_receipts
 333_continuous_corpus_visibility
+334_character_card_scores
 334_required_stage_edition_completion
+335_analyst_card_momentum
+336_oracle_finished_cards

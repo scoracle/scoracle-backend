@@ -17,11 +17,11 @@ Harness
 └── Caretaker plugin → retained maintenance skills (inactive)
 ```
 
-As of November 15, 2026, production enables the Classifier skill and three Character voices: **Journalist, Influencer and Insider**. Scout, Analyst and Oracle are implemented but inactive; Caretaker is inactive. The three active voices read headline evidence routed by Classifier and run at the end-of-day handoff. See the [deployment and schedule record](rust/docs/plugin-skills-deployment-2026-11-15.md) for current operation and the RSS pause.
+As of November 15, 2026, production enables the Classifier skill and three Character voices: **Journalist, Influencer and Insider**. Scout, Analyst and Oracle are implemented but inactive; Caretaker is inactive. The three active voices read headline evidence routed by Classifier and run at the end-of-day handoff. See the [deployment and schedule record](harness/docs/plugin-skills-deployment-2026-11-15.md) for current operation and the RSS pause.
 
-Studio and harness name the same runtime in [`rust/src/harness/`](rust/src/harness/). The registry validates plugin ownership and skill contracts, then schedules enabled skills independently. Grouping the six characters does not serialize their work or combine their permissions. Models receive prepared evidence; they do not select skills or call tools.
+Studio and harness name the same runtime in [`harness/src/`](harness/src/). The registry validates plugin ownership and skill contracts, then schedules enabled skills independently. Grouping the six characters does not serialize their work or combine their permissions. Models receive prepared evidence; they do not select skills or call tools.
 
-See the [skill/task/source/output map](rust/README.md#plugin-and-skill-map), [migration plan](rust/docs/PLAN-plugin-skills-2026-11-15.md), and [old/new Figma comparison](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs). Existing queue task names and publication guarantees remain stable. Caretaker holds retained maintenance code with zero enabled handlers; it is not a new maintenance service.
+See the [skill/task/source/output map](harness/README.md#plugin-and-skill-map), [migration plan](harness/docs/PLAN-plugin-skills-2026-11-15.md), and [old/new Figma comparison](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs). Existing queue task names and publication guarantees remain stable. Caretaker holds retained maintenance code with zero enabled handlers; it is not a new maintenance service.
 
 The [governing contract](../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%20Tools,%20and%20LLM%20Contract.md) defines this cognitive boundary. Plugins assemble clues and empower discovery; they do not prewrite a conclusion for the model to paraphrase.
 
@@ -29,7 +29,7 @@ The [governing contract](../scoracle-wiki/wiki/Architecture/Harness,%20Plugins,%
 
 1. Read this README and the shared [product narrative](../scoracle-wiki/PRODUCT_NARRATIVE.md).
 2. Read the [data-flow map](../scoracle-wiki/DATA_FLOW.md) for system boundaries and current task dependencies.
-3. Use [development guidance](run_docs/DEVELOPMENT.md), [Studio and Rust guidance](rust/README.md), [endpoint contracts](run_docs/ENDPOINTS.md), and the [runbook](run_docs/RUNBOOK.md) for implementation and operations.
+3. Use [development guidance](run_docs/DEVELOPMENT.md), [Studio and Rust guidance](harness/README.md), [endpoint contracts](run_docs/ENDPOINTS.md), and the [runbook](run_docs/RUNBOOK.md) for implementation and operations.
 
 The wiki owns shared vocabulary and architecture direction: [Glossary](../scoracle-wiki/wiki/Glossary.md), [Changelog](../scoracle-wiki/wiki/Changelog.md), and [Conventions](../scoracle-wiki/wiki/CONVENTIONS.md). Repository plans and progress records live in [`docs/planning_docs/`](docs/planning_docs/) and [`docs/progress_docs/`](docs/progress_docs/). Shared cross-repository records remain in `../scoracle-wiki/progress_docs/scoracle-backend/`.
 
@@ -49,13 +49,13 @@ These are responsibilities, not a requirement for three services or repositories
 The checked-in implementation follows these boundaries:
 
 - **Classifier:** the d3 Q8_0 rollout uses four native decision questions with v17 shared-relation criteria and v3 identity-aware routing, retaining historical receipts. See [qualification and rollout](docs/progress_docs/2026-10-27-d3-classifier.md).
-- **Harness:** `rust/src/harness/` owns model/generation contracts, plugin manifests and registration, capability binding, routing, scheduling, claim-fenced publication and recovery. `fleet.rs` is the roster; `registration.rs` binds concrete dependencies; `queue/` retains durable work and outbox transport; `providers/` retains model transports.
-- **Plugins and skills.** Capture and Characters own the skill packages under `rust/src/harness/plugins/`. Capture groups Classifier, Fixture Boxscore and Investigator. Characters owns six independently scheduled output skills. The Go collector supplies RSS evidence.
-- **Shared tools:** `rust/src/tools/` owns acquisition, canonical metadata, bounded memory studies, form decoding and source/prose guards. Inference and external acquisition are limited by each skill's manifest grants. `factsweep` explicitly refuses before database access; historical extraction evaluations remain offline.
+- **Harness:** `harness/src/` owns model/generation contracts, plugin manifests and registration, capability binding, routing, scheduling, claim-fenced publication and recovery. `fleet.rs` is the roster; `registration.rs` binds concrete dependencies; `queue/` retains durable work and outbox transport; `providers/` retains model transports.
+- **Plugins and skills.** Capture and Characters own the skill packages under `harness/skills/`. Capture groups Classifier, Fixture Boxscore and Investigator. Characters owns six independently scheduled output skills. The Go collector supplies RSS evidence.
+- **Shared tools:** `harness/src/tools/` owns acquisition, canonical metadata, bounded memory studies, form decoding and source/prose guards. Inference and external acquisition are limited by each skill's manifest grants. `factsweep` explicitly refuses before database access; historical extraction evaluations remain offline.
 - **Analytics:** the API maintains Rating cohort and season-change context with DuckDB on startup and every five minutes. Bounded PostgreSQL snapshots feed private computation; source-checked transactions publish changed results and retain prior results on failure. The snapshot CLI provides frozen-input parity checks and explicit publication. SQL rating, event-score and Momentum formulas remain active until separately migrated with parity evidence. See the [SQL contract and source tree](sql/README.md) and [acceptance operations](run_docs/RECOVERY_ANALYTICS_ACCEPTANCE.md). Reuse the existing engines and tests rather than building a competing implementation.
 - **Momentum maintenance:** Go now commits SQL scores, their concurrent serving-projection refresh, and exact dirty-marker acknowledgement together. Failure preserves retryable work and the prior projection; newer markers survive. This recovery fix is deployed on Archbox in `ebac794`, retaining the existing SQL producer; full-load transaction/lock costs remain under observation.
 - **Durability:** migration 256 and `harness/queue/work.rs` give each running lease a UUID claim token plus its captured input revision. Migrations 257–261 make Influencer, Analyst, Scout, Journalist, and Insider claim-aware publishers with narrow durable follow-up obligations. Insider preserves partial progress while each pair and identity effect is fenced by the exact team lease; transfer products atomically record per-target Oracle barriers and final completion records the team barrier. Oracle uses the same exact-claim boundary without a new outbox obligation because it is terminal. A stale or superseded execution publishes nothing. Diagnostic ledger writes remain explicitly best-effort after commit. All active plugins use the fenced production runtime. A bounded live Rating → Momentum → Sigil canary completed; overnight behavior and live fault-injection acceptance remain; see the [approved plan](../scoracle-wiki/progress_docs/scoracle-backend/2026-09-19_backend-modernization-plan.md).
-- **Character reporting:** daily stored products and retained source receipts use the current skill contracts. Earlier model trials and deployment records are historical; see the [Rust contract](rust/README.md) for current preparation and publication behavior.
+- **Character reporting:** daily stored products and retained source receipts use the current skill contracts. Earlier model trials and deployment records are historical; see the [Rust contract](harness/README.md) for current preparation and publication behavior.
 
 Workers share per-item PostgreSQL claims across hosts, with broadcast wake-ups and fenced publication. The scheduling repair adds independent outbox dispatch, rotating admission, and claim-time Analyst/Oracle dependency checks; see [shared worker scheduling](run_docs/DEVELOPMENT.md#shared-worker-scheduling).
 
@@ -65,7 +65,7 @@ Update this status as each boundary moves. Old pipeline descriptions in Git hist
 
 Skills prepare and scope evidence, call their injected model where needed, validate responses and publish through the harness's exact-claim transaction. Models receive supplied input and never call tools. Insufficient evidence can complete without inference; existing bounded correction, missing-data markers, debounce and partial-progress policies remain plugin-owned.
 
-Classifier delivers attributed headline evidence; characters own product sufficiency and reasoning instructions; the model owns discovery and articulation. SQL owns stored measurements and the completed Journalist, Insider, Analyst and Oracle metric calculations. The [Rust contract](rust/README.md) describes each workflow and the [completed cleanup plan](rust/docs/PLAN-harness-plugin-cleanup-2026-10-05.md) records request preservation and parity evidence.
+Classifier delivers attributed headline evidence; characters own product sufficiency and reasoning instructions; the model owns discovery and articulation. SQL owns stored measurements and the completed Journalist, Insider, Analyst and Oracle metric calculations. The [Rust contract](harness/README.md) describes each workflow and the [completed cleanup plan](harness/docs/PLAN-harness-plugin-cleanup-2026-10-05.md) records request preservation and parity evidence.
 
 Serving stays precomputed:
 
@@ -83,10 +83,10 @@ The leaderboard owns discovery and hierarchy, including roster scope through `en
 |---|---|
 | `go/` | API, acquisition wiring, maintenance, notifications, authentication, and prepared reads. |
 | `sql/` | Durable schema, migrations, current analytics, triggers, and serving projections. |
-| `rust/src/harness/` | Registration, model transports, capability binding, durable execution and publication coordination. |
-| `rust/src/harness/plugins/` | Concrete workflows, preparation, validation, publication effects and specialized tools. |
-| `rust/src/tools/` | Shared acquisition, identity, memory studies, form and source mechanics. |
-| `rust/src/evaluation/` | Offline evaluation and replay using production preparation/contracts. |
+| `harness/src/` | Registration, model transports, capability binding, durable execution and publication coordination. |
+| `harness/skills/` | Concrete workflows, preparation, validation, publication effects and specialized tools. |
+| `harness/src/tools/` | Shared acquisition, identity, memory studies, form and source mechanics. |
+| `harness/src/evaluation/` | Offline evaluation and replay using production preparation/contracts. |
 | `go/internal/analytics/` | Existing analytical interface and Postgres/DuckDB engines. |
 | `scripts/hosting/` | Release, scheduling, backup, and recovery tooling. |
 | `run_docs/` | Development, endpoint, and operational contracts. |
@@ -97,9 +97,9 @@ Current acquisition includes the Go RSS funnel and Rust evidence/identity/fixtur
 
 ```bash
 (cd go && go build -o bin/scoracle-api ./cmd/api)
-(cd rust && cargo test --lib)
-(cd rust && cargo check --all-targets)
-(cd rust && cargo build --bin scoracle-cognition --bin statcommentary --bin factsweep)
+(cd harness && cargo test --lib)
+(cd harness && cargo check --all-targets)
+(cd harness && cargo build --bin scoracle-cognition --bin statcommentary --bin factsweep)
 ```
 
 For the full CI runtime checks, create an **empty disposable PostgreSQL 18 database**
@@ -119,7 +119,7 @@ check on the release candidate before using `scripts/hosting/release.sh`. A mand
 release gate should be agreed separately, including how a clean candidate is matched
 to its validation result.
 
-Studio's plugin ownership, skill preparation and registration tests, the plugin contract and fleet manifest tests, and application lifecycle tests require no service credentials. Model-quality evaluations and live database integration checks are separate gates. See [rust/README.md](rust/README.md).
+Studio's plugin ownership, skill preparation and registration tests, the plugin contract and fleet manifest tests, and application lifecycle tests require no service credentials. Model-quality evaluations and live database integration checks are separate gates. See [harness/README.md](harness/README.md).
 
 Local API startup:
 
@@ -129,7 +129,7 @@ go build -o bin/scoracle-api ./cmd/api
 ./bin/scoracle-api
 ```
 
-`.env.local` is gitignored; there is no committed `.env` template. Supply `DATABASE_PRIVATE_URL` or `DATABASE_URL` (private URL takes precedence). See [`go/internal/config/config.go`](go/internal/config/config.go) and [`rust/src/harness/config.rs`](rust/src/harness/config.rs) for current environment defaults. Production characters share Qwen3.5-4B-Q4_K_M at `MODEL_BASE_URL`, with four aggregate worker slots. `COGNITION_ROUTE_<SUFFIX>` overrides are offline evaluation options only. d1 uses `CLASSIFIER_URL`. Optional mobile auth uses `JWT_SECRET`; unset auth is unavailable.
+`.env.local` is gitignored; there is no committed `.env` template. Supply `DATABASE_PRIVATE_URL` or `DATABASE_URL` (private URL takes precedence). See [`go/internal/config/config.go`](go/internal/config/config.go) and [`harness/src/config.rs`](harness/src/config.rs) for current environment defaults. Production characters share Qwen3.5-4B-Q4_K_M at `MODEL_BASE_URL`, with four aggregate worker slots. `COGNITION_ROUTE_<SUFFIX>` overrides are offline evaluation options only. d1 uses `CLASSIFIER_URL`. Optional mobile auth uses `JWT_SECRET`; unset auth is unavailable.
 
 Use the [runbook](run_docs/RUNBOOK.md) and [release tooling](scripts/hosting/README.md) for deployment and rollback. A source commit or local test run does not establish the deployed version.
 

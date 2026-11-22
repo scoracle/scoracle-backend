@@ -12,7 +12,7 @@ import (
 )
 
 // Trajectory window constants — the Rust Scout's TRAJECTORY_WINDOW_* values
-// (rust/src/junctions/scout/mod.rs:955-957).
+// (harness/skills/skill-scout/scripts/mod.rs:955-957).
 const (
 	WindowPct = 0.10
 	WindowMin = int64(3)
@@ -22,7 +22,7 @@ const (
 // Trajectory is the Scout's recent-form result for one entity and season:
 // where the overall rating z-score is and which way it is moving. It mirrors
 // the RatingTrajectory produced by the Rust Scout
-// (rust/src/junctions/scout/mod.rs load_rating_trajectory) so both engines
+// (harness/skills/skill-scout/scripts/mod.rs load_rating_trajectory) so both engines
 // can be compared field for field.
 type Trajectory struct {
 	// Key is the rising/falling/steady classification (±0.25 slope threshold).
@@ -97,7 +97,7 @@ func trajectoryLabel(key string) string {
 }
 
 // LinearSlope is a Go port of the Rust Scout's linear_slope
-// (rust/src/junctions/scout/mod.rs:908): mean-centered OLS slope over
+// (harness/skills/skill-scout/scripts/mod.rs:908): mean-centered OLS slope over
 // [0..N-1], 0.0 for fewer than two values or a degenerate denominator. The
 // Postgres engine uses it to reproduce the production path; the DuckDB engine
 // uses SQL regr_slope, which is mathematically equivalent but not

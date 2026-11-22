@@ -18,7 +18,7 @@ mkdir -p "$OUT_DIR"
 STAMP=$(date +%Y%m%d-%H%M)
 OUT="$OUT_DIR/${TASK}-${MODEL//[:\/]/_}-${STAMP}.log"
 
-cd "$REPO/rust" || exit 1
+cd "$REPO/harness" || exit 1
 
 # MODEL_TIMEOUT_SECONDS is NOT optional: the default is 60s (config.rs) and two fixtures exceed
 # it, so omitting it reports failures that are the harness timing out rather than the model losing.

@@ -54,7 +54,7 @@ SCORACLE_SYSTEMD_DIR=$(mktemp -d) scripts/hosting/install.sh
 
 ## Capability owners
 
-Cognition runs Classifier and six Character skills under the harness. Caretaker is inactive; its two task names are not valid service configuration. See the [runtime map](../../rust/README.md#plugin-and-skill-map).
+Cognition runs Classifier and six Character skills under the harness. Caretaker is inactive; its two task names are not valid service configuration. See the [runtime map](../../harness/README.md#plugin-and-skill-map).
 
 The `factsweep` binary remains only to refuse obsolete operator calls explicitly. It must not be scheduled. Remove an existing factsweep entry from installed crontabs when applying this release; the installer does not change crontabs automatically. Keep `JWT_SECRET` configured for mobile authentication.
 
@@ -81,11 +81,11 @@ Migration 315 and matching Go/Rust binaries are deployed. Headline extraction
 includes known players and all canonical person roles; reporting APIs accept
 `person`. The browser reader and source worker are removed. Unknown-person
 discovery remains a subsequent session task. See the
-[entity pipeline change](../../rust/docs/headline-entity-pipeline.md).
+[entity pipeline change](../../harness/docs/headline-entity-pipeline.md).
 
 ## Graph retirement
 
-Deployed October 16, 2026: migrations 307–308 and the matching Archbox worker are live. The Mac worker was updated and remains paused. See the [deployment record](../../rust/docs/graph-retirement-deployment-2026-10-16.md) for verification and recovery locations.
+Deployed October 16, 2026: migrations 307–308 and the matching Archbox worker are live. The Mac worker was updated and remains paused. See the [deployment record](../../harness/docs/graph-retirement-deployment-2026-10-16.md) for verification and recovery locations.
 
 Graph inference and relationship maintenance are retired. Unknown entity search
 is deferred to a future Investigator change. Keep the historical evidence tables;
@@ -136,14 +136,14 @@ The release/install simulation is `python3 scripts/hosting/test-classifier-relea
 
 Saved evidence, publication fences, daily schedules, source attribution and
 unknown values remain intact. Historical activation and recovery records live in
-[the October 19 deployment record](../../rust/docs/headline-plumbing-deployment-2026-10-19.md).
+[the October 19 deployment record](../../harness/docs/headline-plumbing-deployment-2026-10-19.md).
 
 ## What's in here
 
 | File | Purpose |
 |---|---|
 | `../systemd/scoracle-cognition.service` | systemd user unit (templated) — long-running Rust cognition daemon |
-| `../systemd/scoracle-cognition.path` | path watcher — auto-restart when a Rust binary is deployed to `rust/bin/` |
+| `../systemd/scoracle-cognition.path` | path watcher — auto-restart when a Rust binary is deployed to `harness/bin/` |
 | `../systemd/scoracle-cognition-restart.service` | oneshot restart helper fired by the cognition path watcher |
 | `../systemd/scoracle-api.service` | systemd user unit (templated) — long-running Go API |
 | `../systemd/scoracle-api.path` | path watcher — auto-restart when `go build` replaces the binary |

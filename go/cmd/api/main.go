@@ -95,7 +95,7 @@ func main() {
 
 	// The API serves precomputed reads from Postgres — it performs no model
 	// calls on serving requests. Every LLM derivation stage is owned by the
-	// Rust Cognition Harness (scoracle-cognition daemon + the rust/bin
+	// Rust Cognition Harness (scoracle-cognition daemon + the harness/bin
 	// statcommentary rating batch), which drains the durable pipeline_work
 	// queue. Go's background workers below are model-free: FCM notification
 	// dispatch, the percentile LISTEN worker (FCM push + durable sigil-convergence

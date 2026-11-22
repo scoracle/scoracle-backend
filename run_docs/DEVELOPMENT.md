@@ -2,7 +2,7 @@
 
 ## Current implementation: Harness → plugins → skills
 
-Classifier owns the `classify` skill. Character is one plugin whose six voice skills are Journalist, Influencer, Insider, Scout, Analyst and Oracle. A voice is a skill, not a separate plugin. Caretaker organizes retained Investigator and fixture-boxscore code with no enabled skills. See the [complete task/source/output map](../rust/README.md#plugin-and-skill-map) and [visual comparison](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs).
+Classifier owns the `classify` skill. Character is one plugin whose six voice skills are Journalist, Influencer, Insider, Scout, Analyst and Oracle. A voice is a skill, not a separate plugin. Caretaker organizes retained Investigator and fixture-boxscore code with no enabled skills. See the [complete task/source/output map](../harness/README.md#plugin-and-skill-map) and [visual comparison](https://www.figma.com/board/Ja3MlbUwEDby5GpRkx9GVs).
 
 Add job-specific preparation, prompts, tools, validation and publication under `plugins/<owner>/skills/<skill>/`. Declare its `SkillManifest` in the owner's roster and bind dependencies in that plugin's `build`. The harness validates ownership and schedules the flattened enabled skills independently; do not add another character plugin or a second scheduler. `Skill::execute` returns `SkillOutcome`; task IDs and exact-claim publication remain unchanged. New Character ledger rows use `scoracle.character` plus the existing stage; source receipts and historical skill IDs retain their old spellings.
 
@@ -17,7 +17,7 @@ The [governing contract](../../scoracle-wiki/wiki/Architecture/Harness,%20Plugin
 
 1. Postgres owns durable world state, provenance, products, work state, and serving projections.
 2. DuckDB owns the analytical direction: bounded studies of versioned evidence, published through application adapters. Existing SQL analytics stay authoritative until their replacement passes parity and cutover gates. Do not add new computations to Postgres solely because legacy rules put all analytics there.
-3. `rust/src/harness/` owns registration, durable execution, model transports and publication coordination. Plugins own preparation, validation and product policy; `rust/src/tools/` owns shared acquisition, identity, memory and form mechanics.
+3. `harness/src/` owns registration, durable execution, model transports and publication coordination. Plugins own preparation, validation and product policy; `harness/src/tools/` owns shared acquisition, identity, memory and form mechanics.
 4. Plugins select their evidence and bind publication effects through the harness. The harness owns routing, scheduling, claim-fenced transactions, retries and resource limits.
 5. Go handlers stay thin: validate, cache/ETag, prepared statement, passthrough JSON. No acquisition, study, or model call runs inline with serving.
 6. Acquisition preserves source identity and provenance before publication. Retired provider/seed tooling is not an architectural requirement.
@@ -172,8 +172,8 @@ go test ./...
 - `go/internal/cache/cache.go` - cache policy defaults.
 - `go/internal/config/config.go` - environment resolution.
 - `go/internal/db/db.go` - prepared statements.
-- `rust/src/harness/` - registration, inference, durable execution and publication infrastructure.
-- `rust/src/harness/plugins/` - preparation, validation, product policy and specialized tools.
-- `rust/src/tools/` - shared acquisition, identity, memory studies and form mechanics.
-- `rust/src/harness/queue/work.rs`, `rust/src/harness/queue/worker.rs` - durable queue runtime.
+- `harness/src/` - registration, inference, durable execution and publication infrastructure.
+- `harness/skills/` - preparation, validation, product policy and specialized tools.
+- `harness/src/tools/` - shared acquisition, identity, memory studies and form mechanics.
+- `harness/src/queue/work.rs`, `harness/src/queue/worker.rs` - durable queue runtime.
 - `sql/` - schema, migrations, functions, views, and snapshots.

@@ -28,7 +28,7 @@ EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
 # aligned with this supported task set; maintenance task names are rejected.
 # Keep DERIVE_WORKER_ENABLED=false so Go never claims these stages.
 Environment=COGNITION_STAGES=classifier,rating,momentum,transfers,narratives,vibe,sigil
-ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
+ExecStart=__SCORACLE_REPO_ROOT__/harness/bin/scoracle-cognition
 Restart=always
 RestartSec=3
 # The daemon handles SIGINT and SIGTERM itself (worker.rs supervisor task, post the

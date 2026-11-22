@@ -2,7 +2,7 @@
 //
 // -mode ingest: fetch articles via Google News RSS, normalize, write
 // news_articles, and enqueue the Editor's read. Every LLM derivation stage
-// lives in the Rust Cognition Harness (rust/src), which drains the durable
+// lives in the Rust Cognition Harness (harness/src), which drains the durable
 // pipeline_work queue. This binary performs no model work.
 //
 // -mode data: the gap-driven stats importer (internal/dataimport,

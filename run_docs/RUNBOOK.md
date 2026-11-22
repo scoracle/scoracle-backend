@@ -2,9 +2,9 @@
 
 ## Plugin/skill operating contract
 
-The runtime is **Harness → plugins → skills**, with three owners: Classifier, Character and inactive Caretaker. See the [skill map](../rust/README.md#plugin-and-skill-map) for names, queue tasks, source paths and products. Queue tasks are not plugin names.
+The runtime is **Harness → plugins → skills**, with three owners: Classifier, Character and inactive Caretaker. See the [skill map](../harness/README.md#plugin-and-skill-map) for names, queue tasks, source paths and products. Queue tasks are not plugin names.
 
-Each voice is a skill of the Character plugin. The November 15 production rollout enables Journalist (`narratives`), Influencer (`vibe`) and Insider (`transfers`); Scout, Analyst and Oracle remain inactive. `coverage_schedule.required_stages` contains exactly those three active task names. Collection normally sweeps hourly, closes at 22:00 America/Detroit, and drains classification until the midnight Character handoff. RSS is currently paused for Google’s refusal; consult the [deployment record](../rust/docs/plugin-skills-deployment-2026-11-15.md) before resuming. Worker processes can stay running while the database clock gates their skills.
+Each voice is a skill of the Character plugin. The November 15 production rollout enables Journalist (`narratives`), Influencer (`vibe`) and Insider (`transfers`); Scout, Analyst and Oracle remain inactive. `coverage_schedule.required_stages` contains exactly those three active task names. Collection normally sweeps hourly, closes at 22:00 America/Detroit, and drains classification until the midnight Character handoff. RSS is currently paused for Google’s refusal; consult the [deployment record](../harness/docs/plugin-skills-deployment-2026-11-15.md) before resuming. Worker processes can stay running while the database clock gates their skills.
 
 The service's supported task list is `classifier,rating,momentum,transfers,narratives,vibe,sigil`. Check any `COGNITION_STAGES` override in `.env.local`: systemd's environment file overrides the service default. An unset variable in a direct binary invocation enables Character only; an empty value enables no handlers. Neither `investigate_entity` nor `fixture_boxscore` is accepted. Remove any previously installed factsweep cron entry when applying this release; updating the example file alone does not edit an installed crontab.
 
@@ -46,7 +46,7 @@ Go RSS collection → PostgreSQL evidence + durable queue
 
 ### 1.1 Model topology
 
-Classifier uses the native decision endpoint in `CLASSIFIER_URL`. Production Character skills share `Qwen3.5-4B-Q4_K_M` at `MODEL_BASE_URL`, with four aggregate running character claims across workers. Production selects this shared route in `rust/src/main.rs`; per-role overrides and candidates are evaluation controls, not production routing switches. Confirm actual host addresses from deployment configuration rather than old machine inventories.
+Classifier uses the native decision endpoint in `CLASSIFIER_URL`. Production Character skills share `Qwen3.5-4B-Q4_K_M` at `MODEL_BASE_URL`, with four aggregate running character claims across workers. Production selects this shared route in `harness/src/main.rs`; per-role overrides and candidates are evaluation controls, not production routing switches. Confirm actual host addresses from deployment configuration rather than old machine inventories.
 
 `release.sh` builds seven binaries from one commit: four Go and three Rust. `factsweep` is retained only as a refusing compatibility command.
 
@@ -322,7 +322,7 @@ Common incidents:
   service health and llama-server reachability; a cold model load can time out, then retry/re-drain.
 - **GPU thrash** → lower the slot budget: drop `COGNITION_BACKEND_CONCURRENCY`'s localhost
   count and the llama-server `--parallel` slot count together (they must match; the slot groups
-  in `rust/src/harness/fleet.rs` size themselves from the same budget). `MODEL_MAX_CONCURRENT`
+  in `harness/src/fleet.rs` size themselves from the same budget). `MODEL_MAX_CONCURRENT`
   is inert here — it is only the fallback cap for a host NOT listed in
   `COGNITION_BACKEND_CONCURRENCY`.
 
@@ -378,8 +378,8 @@ third-party provider credential is needed at all: `API_SPORTS_KEY`, `BALLDONTLIE
 | Cognition | `COGNITION_STAGES`, `COGNITION_BACKEND_CONCURRENCY`, `COGNITION_HANDLER_TIMEOUT_SECONDS`, `COGNITION_ARTICLE_READ_TOP_K`, `DERIVE_WORKER_ENABLED`, and the per-role routes `COGNITION_ROUTE_<ROLE>` (per-role overrides are offline evaluation controls; production uses one shared Character backend) |
 
 `COGNITION_ROUTE_*` keys are built at runtime by `format!("COGNITION_ROUTE_{}", role.env_suffix())`
-(`rust/src/config.rs:265`), so a plain grep for them finds nothing — **do not "clean them up" as
-unused.** `DERIVE_WORKER_ENABLED` is likewise referenced outside `rust/src`.
+(`harness/src/config.rs:265`), so a plain grep for them finds nothing — **do not "clean them up" as
+unused.** `DERIVE_WORKER_ENABLED` is likewise referenced outside `harness/src`.
 
 ### 11.2 Optional: OpenCode tunnel (off unless needed)
 

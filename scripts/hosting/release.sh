@@ -18,7 +18,7 @@
 #
 # Env:
 #   RELEASE_BIN_DIR   where binaries land (default: Go → <repo>/go/bin, Rust →
-#                     <repo>/rust/bin). Setting this redirects BOTH — the
+#                     <repo>/harness/bin). Setting this redirects BOTH — the
 #                     verification/inspection mode (one scratch dir for all 5).
 #   PORT / API_PORT   API port for the post-restart health probe (default: 8000)
 #
@@ -83,7 +83,7 @@ BUILDINFO=github.com/albapepper/scoracle-data/internal/buildinfo
 LDFLAGS="-w -s -X ${BUILDINFO}.Commit=${COMMIT} -X ${BUILDINFO}.BuildTime=${BUILD_TIME}"
 
 # Placement targets. In production each track lives in its own dir
-# (go/bin for Go, rust/bin for Rust — the .path watchers are scope-pinned to
+# (go/bin for Go, harness/bin for Rust — the .path watchers are scope-pinned to
 # each). When RELEASE_BIN_DIR is set (the --build-only verification pattern),
 # BOTH tracks land in the same scratch dir so an inspection run touches zero
 # live binaries + triggers zero path-watcher restarts.
@@ -92,17 +92,17 @@ if [ -n "${RELEASE_BIN_DIR:-}" ]; then
     RUST_BIN_DIR="$RELEASE_BIN_DIR"
 else
     GO_BIN_DIR="$REPO_ROOT/go/bin"
-    RUST_BIN_DIR="$REPO_ROOT/rust/bin"
+    RUST_BIN_DIR="$REPO_ROOT/harness/bin"
 fi
 mkdir -p "$GO_BIN_DIR" "$RUST_BIN_DIR"
 
 # Go cmd subdirectory under go/cmd  ->  output binary name.
 # statcommentary is INTENTIONALLY absent: retired by the Step-3 cutover; the
-# Rust rating batch in rust/bin/statcommentary replaces it (cron-rust-statcommentary.sh).
+# Rust rating batch in harness/bin/statcommentary replaces it (cron-rust-statcommentary.sh).
 GO_CMDS=(api pipeline vibesynth memory-study)
 GO_OUTS=(scoracle-api pipeline vibesynth scoracle-memory-study)
 
-# Rust live binaries (from rust/Cargo.toml). The daemon + the rating batch —
+# Rust live binaries (from harness/Cargo.toml). The daemon + the rating batch —
 # deliberately NOT all bins (the offline parity / eval harnesses would waste a
 # release cycle compiling).
 RUST_BINS=(scoracle-cognition statcommentary factsweep)
@@ -112,13 +112,13 @@ echo "==> building ${#GO_CMDS[@]} Go + ${#RUST_BINS[@]} Rust binaries @ ${COMMIT
 # Stage on the same filesystem as the placement dirs (their shared parent =
 # REPO_ROOT in production; RELEASE_BIN_DIR/.. in verification mode), so every
 # final placement is an atomic rename and the staging writes don't trip the
-# go/bin/ or rust/bin/ path watchers mid-build. Building EVERY binary (Go +
+# go/bin/ or harness/bin/ path watchers mid-build. Building EVERY binary (Go +
 # Rust) before moving ANY is the key invariant: a failed build aborts (set -e)
 # before a single binary is placed, so the cron binaries + the daemon can never
 # end up on a different commit than the API.
 STAGE_PARENT="$(cd "$GO_BIN_DIR/.." >/dev/null && pwd)"
 STAGE="$(mktemp -d "$STAGE_PARENT/.scoracle-release.XXXXXX")"
-# scoracle-api.path watches go/bin/ and scoracle-cognition.path watches rust/bin/;
+# scoracle-api.path watches go/bin/ and scoracle-cognition.path watches harness/bin/;
 # both fire a restart service on any close-write in their dir. We mask both across
 # the placement below (see the placement step) so the renames don't each fire a
 # spurious restart that cancels in-flight work (API-side SQL maintenance/notification
@@ -150,21 +150,21 @@ trap cleanup EXIT
 # --- Build Rust binaries ---------------------------------------------------
 # The daemon + the rating batch only; cargo's incremental cache makes a no-op
 # build ~instant (an unchanged commit is a stat-then-finish). cargo writes to
-# rust/target/debug/<bin>; we stage from there into STAGE so the final move
-# into rust/bin/ is the same atomic-rename discipline the Go bins get.
+# harness/target/debug/<bin>; we stage from there into STAGE so the final move
+# into harness/bin/ is the same atomic-rename discipline the Go bins get.
 echo "    cargo build --bin ${RUST_BINS[*]}"
 # One --bin flag per entry — this line used to hard-code indices 0 and 1, so the
 # third live binary (factsweep, 2026-09-06) built nothing and the cp below failed.
 CARGO_BIN_FLAGS=()
 for bin in "${RUST_BINS[@]}"; do CARGO_BIN_FLAGS+=(--bin "$bin"); done
-cargo build --manifest-path "$REPO_ROOT/rust/Cargo.toml" "${CARGO_BIN_FLAGS[@]}"
+cargo build --manifest-path "$REPO_ROOT/harness/Cargo.toml" "${CARGO_BIN_FLAGS[@]}"
 for bin in "${RUST_BINS[@]}"; do
-    cp "$REPO_ROOT/rust/target/debug/$bin" "$STAGE/$bin"
+    cp "$REPO_ROOT/harness/target/debug/$bin" "$STAGE/$bin"
 done
 
 # Mask the rebuild watchers across placement (full release only). The single
 # explicit restarts after install are authoritative; without this, each rename
-# trips scoracle-api.path → scoracle-api-restart.service AND (within rust/bin/)
+# trips scoracle-api.path → scoracle-api-restart.service AND (within harness/bin/)
 # scoracle-cognition.path → scoracle-cognition-restart.service, flapping both
 # services ~5x in a second and cancelling in-flight work. Ad-hoc `go build` /
 # `cargo build + cp` outside release.sh still auto-restarts (the watchers are

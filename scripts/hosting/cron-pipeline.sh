@@ -13,7 +13,7 @@
 #
 # Google does the news relevancy work, the feeds detect their own events, and
 # every curation stage is drained from the durable pipeline_work queue by the
-# Rust Cognition Harness (scoracle-cognition daemon + the rust/bin/
+# Rust Cognition Harness (scoracle-cognition daemon + the harness/bin/
 # statcommentary rating batch). This binary performs no model work.
 #
 # Cron strips the environment to almost nothing — no shell env, no .env.local.

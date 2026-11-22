@@ -1328,7 +1328,7 @@ identity persists via the refresh token in the device Keychain. Full design:
 - LISTEN/NOTIFY listener (enqueues durable sigil work on percentile events): `go/internal/listener/listener.go`
 - Maintenance tickers (news-scrub auto-vet + enqueue, pipeline-stats snapshot): `go/internal/maintenance/maintenance.go`
 - Cron job wrappers + shared run-recording: `go/cmd/{pipeline,vibesynth}`, `go/internal/jobrun/jobrun.go`
-- Rust cognition handlers (all model inference stages + rating batch): `rust/src/{scrub,transfer,narratives,vibe,sigil,rating}.rs`, `rust/src/main.rs`, `rust/src/bin/statcommentary.rs`
+- Rust cognition handlers (all model inference stages + rating batch): `harness/src/{scrub,transfer,narratives,vibe,sigil,rating}.rs`, `harness/src/main.rs`, `harness/src/bin/statcommentary.rs`
 - Prepared statements: `go/internal/db/db.go`
 - Cache/ETag implementation: `go/internal/cache/cache.go`
 - Swagger docs (generated from handler annotations): `go/docs/`

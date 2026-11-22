@@ -11,4 +11,4 @@ set -a
 [[ -f .env.local ]] && source .env.local
 set +a
 
-exec ./rust/bin/statcommentary "$@"
+exec ./harness/bin/statcommentary "$@"

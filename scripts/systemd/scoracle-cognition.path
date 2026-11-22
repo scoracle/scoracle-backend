@@ -1,19 +1,19 @@
 [Unit]
 Description=Restart scoracle-cognition when its binary is rebuilt
 # The same "I rebuilt but forgot to restart" guard scoracle-api.path provides.
-# systemd watches the rust/bin/ directory via inotify; any IN_CLOSE_WRITE inside it
+# systemd watches the harness/bin/ directory via inotify; any IN_CLOSE_WRITE inside it
 # fires the service restart.
 #
 # DEPLOY CONVENTION (mirrors `go build -o bin/scoracle-api`): cargo writes to
-# rust/target/debug/ — a NOISY directory (every dependency + every offline bin), so
+# harness/target/debug/ — a NOISY directory (every dependency + every offline bin), so
 # we do NOT watch it. Instead the deploy act copies the one daemon binary into the
-# narrow rust/bin/ dir:
+# narrow harness/bin/ dir:
 #
-#     cargo build --manifest-path rust/Cargo.toml
-#     cp rust/target/debug/scoracle-cognition rust/bin/scoracle-cognition
+#     cargo build --manifest-path harness/Cargo.toml
+#     cp harness/target/debug/scoracle-cognition harness/bin/scoracle-cognition
 #
 # Result: within ~1s of the cp, systemctl --user restart scoracle-cognition fires.
-# Watching rust/bin/ (not target/debug/) means an incremental rebuild of an offline
+# Watching harness/bin/ (not target/debug/) means an incremental rebuild of an offline
 # bin never bounces the live daemon — only an explicit deploy does.
 #
 # WHY THE DIRECTORY AND NOT THE FILE? `cp` can replace the file via a new inode, so
@@ -22,7 +22,7 @@ Description=Restart scoracle-cognition when its binary is rebuilt
 
 [Path]
 # __SCORACLE_REPO_ROOT__ is rendered by scripts/hosting/install.sh.
-PathChanged=__SCORACLE_REPO_ROOT__/rust/bin/
+PathChanged=__SCORACLE_REPO_ROOT__/harness/bin/
 # Triggers the oneshot restart helper, NOT the service directly, because a Path unit
 # triggers `systemctl start <Unit>` — a no-op when the service is already running.
 Unit=scoracle-cognition-restart.service

@@ -96,10 +96,10 @@ cat <<EOF
       by the standard release flow (scripts/hosting/release.sh builds both the
       daemon and the rating batch). For a one-time first deploy BEFORE the
       first release, build + place by hand:
-        cargo build --manifest-path rust/Cargo.toml --bin scoracle-cognition --bin statcommentary
-        mkdir -p rust/bin
-        cp rust/target/debug/scoracle-cognition rust/bin/scoracle-cognition
-        cp rust/target/debug/statcommentary  rust/bin/statcommentary
+        cargo build --manifest-path harness/Cargo.toml --bin scoracle-cognition --bin statcommentary
+        mkdir -p harness/bin
+        cp harness/target/debug/scoracle-cognition harness/bin/scoracle-cognition
+        cp harness/target/debug/statcommentary  harness/bin/statcommentary
       systemctl --user enable --now scoracle-cognition.path
       systemctl --user enable --now scoracle-cognition.service
       systemctl --user status scoracle-cognition

@@ -67,10 +67,10 @@ export SCORACLE_MEMORY_STUDY_BIN="$SCRATCH/scoracle-memory-study"
     # go build ./... checks packages but does not emit executable dependencies.
     CGO_ENABLED=1 go build -o "$SCORACLE_MEMORY_STUDY_BIN" ./cmd/memory-study
 )
-cargo fmt --manifest-path rust/Cargo.toml -- --check
-cargo test --manifest-path rust/Cargo.toml --lib --bins
+cargo fmt --manifest-path harness/Cargo.toml -- --check
+cargo test --manifest-path harness/Cargo.toml --all-targets
 # Live model, publisher and private-data replays require explicit operator execution.
-cargo test --manifest-path rust/Cargo.toml --lib --bins -- --ignored --skip local_real_model --skip live_ --test-threads=1
+cargo test --manifest-path harness/Cargo.toml --all-targets -- --ignored --skip local_real_model --skip live_ --test-threads=1
 (
     cd go
     go run ./cmd/validate-stmts -db "$TEST_DATABASE_URL"

@@ -15,10 +15,10 @@ venv/
 # Go
 bin/
 go/bin/
-# ...but rust/src/bin holds Rust SOURCE binary targets (e.g. the parity harness),
-# not build output — that lives in rust/target. Re-include it past the broad bin/ rule.
-!rust/src/bin/
-!rust/src/bin/*.rs
+# ...but harness/src/bin holds Rust SOURCE binary targets (e.g. the parity harness),
+# not build output — that lives in harness/target. Re-include it past the broad bin/ rule.
+!harness/src/bin/
+!harness/src/bin/*.rs
 # stray binaries from `go build ./cmd/api` (etc.) run outside go/bin/
 /go/api
 /go/vibesynth

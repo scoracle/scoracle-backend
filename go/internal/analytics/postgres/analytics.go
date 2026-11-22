@@ -1,6 +1,6 @@
 // Package postgres implements the analytics boundary over the existing
 // canonical Postgres path. Queries and window semantics mirror the Rust
-// Scout's load_rating_trajectory (rust/src/junctions/scout/mod.rs) so the
+// Scout's load_rating_trajectory (harness/skills/skill-scout/scripts/mod.rs) so the
 // DuckDB implementation can be compared against a faithful reproduction of
 // production behavior.
 package postgres

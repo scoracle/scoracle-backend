@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict k0tyEncgDDJc9DVu8fG4uHTd31saFQoIvSnyZ5HNy3QwyyXLZgc3ABNKKn9wcDn
+\restrict KJgrkm8ocgEsyQMdbG9xhgWtTniqufhwctyNvd8FOiURbEHF1CkhPgNvjLK2a15
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1280,6 +1280,58 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
     FROM base b
     JOIN ranks r USING (player_id, league_id)
     LEFT JOIN scoped sc USING (player_id, league_id);
+$$;
+
+
+--
+-- Name: analyst_card_changes(text, text, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.analyst_card_changes(p_sport text, p_type text, p_id integer) RETURNS TABLE(entity_type text, entity_id integer, sport text, season integer, vibe_slope numeric, vibe_samples integer, vibe_window_start timestamp with time zone, vibe_window_end timestamp with time zone, rating_slope numeric, rating_samples integer, rating_window_start timestamp with time zone, rating_window_end timestamp with time zone, momentum_score numeric)
+    LANGUAGE sql STABLE
+    AS $$
+WITH target_sports AS (
+    SELECT id AS sport, current_season FROM public.sports
+    WHERE p_sport IS NULL OR id = upper(p_sport)
+), observations AS (
+    SELECT 'scout' AS source, s.entity_type, s.entity_id, s.sport, s.reporting_date, s.generated_at, s.id,
+           CASE WHEN NULLIF(btrim(s.body), '') IS NOT NULL THEN s.card_score END AS score
+    FROM public.stat_summaries s
+    JOIN target_sports t ON t.sport = s.sport AND t.current_season = s.season
+    WHERE public.coverage_peer_visible(s.candidate_edition)
+    UNION ALL
+    SELECT 'influencer', s.entity_type, s.entity_id, s.sport, s.reporting_date, s.generated_at, s.id,
+           CASE WHEN NULLIF(btrim(s.prompt), '') IS NOT NULL THEN s.sentiment END
+    FROM public.vibe_scores s JOIN target_sports t ON t.sport = s.sport
+    WHERE public.coverage_peer_visible(s.candidate_edition)
+), daily AS (
+    SELECT DISTINCT ON (source, entity_type, entity_id, sport, reporting_date) *
+    FROM observations
+    WHERE (p_type IS NULL OR entity_type = p_type) AND (p_id IS NULL OR entity_id = p_id)
+      AND generated_at <= now()
+      AND reporting_date BETWEEN public.character_reporting_date() - 21 AND public.character_reporting_date()
+    ORDER BY source, entity_type, entity_id, sport, reporting_date, generated_at DESC, id DESC
+), ranked AS (
+    SELECT *, row_number() OVER (
+        PARTITION BY source, entity_type, entity_id, sport ORDER BY reporting_date DESC
+    ) AS recency
+    FROM daily WHERE score IS NOT NULL
+), changes AS (
+    SELECT source, entity_type, entity_id, sport,
+           max(score) FILTER (WHERE recency = 1) - max(score) FILTER (WHERE recency = 2) AS change,
+           min(reporting_date)::timestamp AT TIME ZONE 'America/Detroit' AS window_start,
+           max(reporting_date)::timestamp AT TIME ZONE 'America/Detroit' AS window_end
+    FROM ranked WHERE recency <= 2
+    GROUP BY source, entity_type, entity_id, sport HAVING count(*) = 2
+)
+SELECT c.entity_type, c.entity_id, c.sport, t.current_season,
+       max(change) FILTER (WHERE source = 'influencer'), 2 * count(*) FILTER (WHERE source = 'influencer')::int,
+       max(window_start) FILTER (WHERE source = 'influencer'), max(window_end) FILTER (WHERE source = 'influencer'),
+       max(change) FILTER (WHERE source = 'scout'), 2 * count(*) FILTER (WHERE source = 'scout')::int,
+       max(window_start) FILTER (WHERE source = 'scout'), max(window_end) FILTER (WHERE source = 'scout'),
+       round(avg(change), 3)
+FROM changes c JOIN target_sports t ON t.sport = c.sport
+GROUP BY c.entity_type, c.entity_id, c.sport, t.current_season
 $$;
 
 
@@ -2638,10 +2690,14 @@ END $$;
 --
 
 CREATE FUNCTION public.coverage_dependencies(task text) RETURNS text[]
-    LANGUAGE sql IMMUTABLE
+    LANGUAGE sql STABLE
     AS $$
- SELECT CASE task WHEN 'momentum' THEN ARRAY['rating','vibe']
- WHEN 'sigil' THEN ARRAY['narratives','rating','vibe','momentum','transfers'] ELSE ARRAY[]::text[] END
+    SELECT CASE
+        WHEN task='sigil' AND (SELECT enabled FROM public.coverage_schedule)
+            THEN ARRAY['narratives','rating','vibe','momentum','transfers']
+        WHEN task='momentum' THEN ARRAY['rating','vibe']
+        ELSE ARRAY[]::text[]
+    END
 $$;
 
 
@@ -5599,59 +5655,18 @@ CREATE FUNCTION public.refresh_momentum_scores(p_sport text DEFAULT NULL::text) 
 DECLARE inserted_count integer;
 BEGIN
     IF NOT pg_try_advisory_xact_lock(hashtext('refresh_momentum_scores')) THEN RETURN NULL; END IF;
-    WITH target_sports AS (
-        SELECT id AS sport,current_season FROM sports WHERE p_sport IS NULL OR id=upper(p_sport)
-    ), observations AS (
-        SELECT 'rating' rail,s.entity_type,s.entity_id,s.sport,s.id,s.generated_at,s.reporting_date,
-            s.notability::numeric value FROM (SELECT * FROM stat_summaries WHERE coverage_peer_visible(candidate_edition)) s JOIN target_sports t ON t.sport=s.sport
-        UNION ALL
-        SELECT 'vibe',s.entity_type,s.entity_id,s.sport,s.id,s.generated_at,s.reporting_date,
-            s.sentiment::numeric FROM (SELECT * FROM vibe_scores WHERE coverage_peer_visible(candidate_edition)) s JOIN target_sports t ON t.sport=s.sport
-    ), daily AS (
-        SELECT DISTINCT ON(rail,entity_type,entity_id,sport,reporting_date) * FROM observations
-        WHERE generated_at<=now() AND reporting_date >= (now() AT TIME ZONE 'America/Detroit')::date-21
-        ORDER BY rail,entity_type,entity_id,sport,reporting_date,generated_at DESC,id DESC
-    ), ranked AS (
-        SELECT *,row_number() OVER(PARTITION BY rail,entity_type,entity_id,sport ORDER BY reporting_date DESC) rank
-        FROM daily WHERE value IS NOT NULL
-    ), studied AS (
-        SELECT rail,entity_type,entity_id,sport,
-            (array_agg(value ORDER BY reporting_date DESC))[1]-(array_agg(value ORDER BY reporting_date))[1] slope,
-            count(*)::int samples,min(generated_at) window_start,max(generated_at) window_end
-        FROM ranked WHERE rank<=2 GROUP BY rail,entity_type,entity_id,sport HAVING count(*)=2
-    ), vibe AS (
-        SELECT entity_type,entity_id,sport,slope vibe_slope,samples vibe_samples,
-            window_start vibe_window_start,window_end vibe_window_end FROM studied WHERE rail='vibe'
-    ), rating AS (
-        SELECT s.entity_type,s.entity_id,s.sport,t.current_season season,s.slope rating_slope,s.samples rating_samples,
-            s.window_start rating_window_start,s.window_end rating_window_end
-        FROM studied s JOIN target_sports t ON t.sport=s.sport WHERE rail='rating'
-    ),
-    entity_scores AS (
-        SELECT COALESCE(v.entity_type, r.entity_type) AS entity_type,
-               COALESCE(v.entity_id, r.entity_id) AS entity_id,
-               COALESCE(v.sport, r.sport) AS sport,
-               r.season,
-               v.vibe_slope, COALESCE(v.vibe_samples, 0) AS vibe_samples,
-               v.vibe_window_start, v.vibe_window_end,
-               r.rating_slope, COALESCE(r.rating_samples, 0) AS rating_samples,
-               r.rating_window_start, r.rating_window_end
-        FROM vibe v
-        FULL OUTER JOIN rating r
-          ON r.entity_type = v.entity_type
-         AND r.entity_id = v.entity_id
-         AND r.sport = v.sport
+    WITH entity_scores AS (
+        SELECT * FROM public.analyst_card_changes(p_sport,NULL,NULL)
     ),
     enriched AS (
         SELECT es.sport, es.entity_type, es.entity_id,
-               COALESCE(es.season, ts.current_season) AS season,
+               es.season,
                pci.league_id, pci.team_id, pci.position,
                COALESCE(pci.position_group, public.position_group(es.sport, pci.position)) AS position_group,
                t.conference, t.division,
                es.vibe_slope, es.vibe_samples, es.vibe_window_start, es.vibe_window_end,
-               es.rating_slope, es.rating_samples, es.rating_window_start, es.rating_window_end
+               es.rating_slope, es.rating_samples, es.rating_window_start, es.rating_window_end, es.momentum_score
         FROM entity_scores es
-        JOIN target_sports ts ON ts.sport = es.sport
         LEFT JOIN public.player_current_identity pci
           ON pci.player_id = es.entity_id AND pci.sport = es.sport AND es.entity_type = 'player'
         LEFT JOIN public.teams t
@@ -5661,13 +5676,12 @@ BEGIN
         UNION ALL
 
         SELECT es.sport, es.entity_type, es.entity_id,
-               COALESCE(es.season, ts.current_season) AS season,
+               es.season,
                tm.league_id, tm.id AS team_id, NULL::text AS position, NULL::text AS position_group,
                tm.conference, tm.division,
                es.vibe_slope, es.vibe_samples, es.vibe_window_start, es.vibe_window_end,
-               es.rating_slope, es.rating_samples, es.rating_window_start, es.rating_window_end
+               es.rating_slope, es.rating_samples, es.rating_window_start, es.rating_window_end, es.momentum_score
         FROM entity_scores es
-        JOIN target_sports ts ON ts.sport = es.sport
         JOIN public.teams tm
           ON tm.id = es.entity_id AND tm.sport = es.sport
         WHERE es.entity_type = 'team'
@@ -5675,23 +5689,13 @@ BEGIN
     INSERT INTO public.momentum_scores (
         sport, entity_type, entity_id, season, league_id, team_id, position, position_group,
         conference, division, vibe_slope, vibe_samples, vibe_window_start, vibe_window_end,
-        rating_slope, rating_samples, rating_window_start, rating_window_end, momentum_score
+        rating_slope, rating_samples, rating_window_start, rating_window_end, momentum_score, scoring_version
     )
     SELECT sport, entity_type, entity_id, season, league_id, team_id, position, position_group,
            conference, division,
            round(vibe_slope, 3), vibe_samples, vibe_window_start, vibe_window_end,
            round(rating_slope, 3), rating_samples, rating_window_start, rating_window_end,
-           -- SIGNED: the average of the present slopes, sign preserved. Falls
-           -- are as much a historic datapoint as rises — this number is the
-           -- durable per-snapshot momentum record, so it must not clamp
-           -- downside.
-           round((
-               COALESCE(vibe_slope, 0) + COALESCE(rating_slope, 0)
-           ) / NULLIF(
-               (CASE WHEN vibe_slope IS NULL THEN 0 ELSE 1 END)
-               + (CASE WHEN rating_slope IS NULL THEN 0 ELSE 1 END),
-               0
-           ), 3) AS momentum_score
+           momentum_score, 'card-momentum-v1'
     FROM enriched
     WHERE vibe_slope IS NOT NULL OR rating_slope IS NOT NULL;
 
@@ -9578,9 +9582,10 @@ CREATE TABLE public.insider_scores (
     week_no integer,
     reporting_date date NOT NULL,
     candidate_edition date,
+    scoring_version text,
     CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
-    CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 99)))),
-    CONSTRAINT insider_scores_score_check CHECK (((score >= 1) AND (score <= 99)))
+    CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score >= 0) AND (previous_score <= 100))),
+    CONSTRAINT insider_scores_score_check CHECK (((score >= 0) AND (score <= 100)))
 );
 
 
@@ -9589,6 +9594,13 @@ CREATE TABLE public.insider_scores (
 --
 
 COMMENT ON TABLE public.insider_scores IS 'The Insider''s per-entity 1-99 wire-busyness verdict (tarot deck Phase 4b, mig 187). One row per wrap — an end-of-drain TransferLogic call after the pair loop, debounced on the active-board input_hash. No marker rows: an empty board writes nothing (the Veil comes from the empty board). Served as the Transfers card''s score (latest row, scope-independent); read/previous_score are audit + prompt memory only.';
+
+
+--
+-- Name: COLUMN insider_scores.score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.insider_scores.score IS 'Insider coverage activity: ten points per distinct admitted personnel report, up to 100, for new cards.';
 
 
 --
@@ -9761,6 +9773,7 @@ CREATE TABLE public.momentum_scores (
     week_no integer,
     reporting_date date NOT NULL,
     candidate_edition date,
+    scoring_version text,
     CONSTRAINT momentum_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
 );
 
@@ -10298,7 +10311,8 @@ CREATE TABLE public.news_summaries (
     week_no integer,
     reporting_date date NOT NULL,
     candidate_edition date,
-    CONSTRAINT news_summaries_card_score_check CHECK (((card_score IS NULL) OR ((card_score >= 1) AND (card_score <= 99)))),
+    scoring_version text,
+    CONSTRAINT news_summaries_card_score_check CHECK (((card_score >= 0) AND (card_score <= 100))),
     CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
     CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
     CONSTRAINT news_summaries_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
@@ -10380,7 +10394,7 @@ COMMENT ON COLUMN public.news_summaries.input_hash IS 'SHA-256 (128-bit hex pref
 -- Name: COLUMN news_summaries.card_score; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.news_summaries.card_score IS 'The Journalist''s 1-99 busyness verdict for this generation (n12, tarot deck Phase 4): model-assigned, uniform across the generation''s rows (called-empty marker included). NULL = no-corpus marker (no model call) or a pre-n12 row → the card draws the Veil. Served as the Narratives card''s score (latest non-NULL, scope-independent).';
+COMMENT ON COLUMN public.news_summaries.card_score IS 'Journalist coverage activity: ten points per distinct admitted report, up to 100, for new cards.';
 
 
 --
@@ -11539,6 +11553,8 @@ CREATE TABLE public.stat_summaries (
     week_no integer,
     reporting_date date NOT NULL,
     candidate_edition date,
+    card_score numeric(4,1),
+    CONSTRAINT stat_summaries_card_score_check CHECK (((card_score >= (0)::numeric) AND (card_score <= (100)::numeric))),
     CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
     CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
@@ -11603,6 +11619,13 @@ COMMENT ON COLUMN public.stat_summaries.headline IS 'The Scout''s model-emitted 
 
 
 --
+-- Name: COLUMN stat_summaries.card_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.card_score IS 'Scout performance from the profile used to write this card: team rating_rank or player rating_score.';
+
+
+--
 -- Name: qualified_stat_summaries; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -11629,7 +11652,8 @@ CREATE VIEW public.qualified_stat_summaries AS
     week_season,
     week_no,
     reporting_date,
-    candidate_edition
+    candidate_edition,
+    card_score
    FROM public.stat_summaries p
   WHERE ((((NOT ( SELECT coverage_schedule.enabled
            FROM public.coverage_schedule)) OR (public.published_edition() IS NULL)) AND (candidate_edition IS NULL)) OR ((candidate_edition <= public.published_edition()) AND (EXISTS ( SELECT 1
@@ -13006,7 +13030,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict k0tyEncgDDJc9DVu8fG4uHTd31saFQoIvSnyZ5HNy3QwyyXLZgc3ABNKKn9wcDn
+\unrestrict KJgrkm8ocgEsyQMdbG9xhgWtTniqufhwctyNvd8FOiURbEHF1CkhPgNvjLK2a15
 
 
 \ir reference-data.sql
@@ -13014,7 +13038,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict vv3kEhocqGCyuWk4K1GbaZxbfTLoqeY4Apd1HTmLD5ObL9sgDFXrTbOozHsxwdy
+\restrict lPCq5ZxZ8xDFyN2m3Uy6tjcOO5FZmR4Zpr3QyU7jjfkgfLWccPBgNKhH6fT9X9v
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -16841,4 +16865,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict vv3kEhocqGCyuWk4K1GbaZxbfTLoqeY4Apd1HTmLD5ObL9sgDFXrTbOozHsxwdy
+\unrestrict lPCq5ZxZ8xDFyN2m3Uy6tjcOO5FZmR4Zpr3QyU7jjfkgfLWccPBgNKhH6fT9X9v

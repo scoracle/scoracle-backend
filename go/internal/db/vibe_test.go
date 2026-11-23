@@ -44,7 +44,7 @@ func TestEntityVibeCurrent(t *testing.T) {
             (1,'team',7,'NFL',80,'Older scored card','Old reading.',ARRAY[41],NOW() - INTERVAL '11 days'),
             (2,'team',7,'NFL',NULL,'A supported contrast','The speakers disagree.',ARRAY[42],NOW() - INTERVAL '10 days'),
             (3,'team',7,'NFL',NULL,'Latest supported contrast','They still disagree.',ARRAY[42],NOW() - INTERVAL '10 days'),
-            (4,'team',7,'NFL',90,'Incomplete replacement',NULL,ARRAY[99],NOW()),
+            (4,'team',7,'NFL',90,'Incomplete replacement',NULL,ARRAY[99],NOW() - INTERVAL '1 day'),
             (5,'team',7,'NFL',90,repeat('x',141),'Overlong replacement.',ARRAY[99],NOW()),
             (6,'team',8,'NFL',90,'Other entity','Other reading.',ARRAY[99],NOW());
         UPDATE vibe_scores SET reporting_date=(generated_at AT TIME ZONE 'America/Detroit')::date;
@@ -69,11 +69,36 @@ func TestEntityVibeCurrent(t *testing.T) {
 				URL string `json:"url"`
 			} `json:"sources"`
 		} `json:"current"`
+		Snapshots []struct {
+			Headline  string  `json:"headline"`
+			Body      *string `json:"body"`
+			Sentiment *int    `json:"sentiment"`
+		} `json:"snapshots"`
 	}
 	if err := json.Unmarshal(payload, &result); err != nil {
 		t.Fatal(err)
 	}
 	c := result.Current
+	if c == nil || c.ID != 5 || c.Heat == nil || *c.Heat != 90 || c.Headline != strings.Repeat("x", 141) || c.Body != "Overlong replacement." {
+		t.Fatalf("latest saved card was filtered: %s", payload)
+	}
+	snapshots := result.Snapshots
+	if len(snapshots) != 4 || snapshots[1].Headline != "Incomplete replacement" || snapshots[1].Body != nil ||
+		snapshots[2].Headline != "Latest supported contrast" || snapshots[2].Sentiment != nil {
+		t.Fatalf("incomplete daily cards missing from history: %s", payload)
+	}
+
+	var contrastDate string
+	if err := tx.QueryRow(ctx, "SELECT reporting_date::text FROM pg_temp.vibe_scores WHERE id=3").Scan(&contrastDate); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(ctx, statement, "nfl", "team", 7, contrastDate).Scan(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(payload, &result); err != nil {
+		t.Fatal(err)
+	}
+	c = result.Current
 	if c == nil || c.ID != 3 || c.Heat != nil || c.Headline != "Latest supported contrast" || c.Body != "They still disagree." {
 		t.Fatalf("wrong current product: %s", payload)
 	}

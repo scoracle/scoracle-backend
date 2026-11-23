@@ -149,7 +149,7 @@ async fn exhausted_decisions_are_reported_and_release_the_drain_without_retry_re
 
 #[tokio::test]
 #[ignore = "requires dedicated migrated classifier_test_coverage database; run serially"]
-async fn failed_characters_skip_dependents_finish_other_work_and_reopen_without_publication(
+async fn failed_character_releases_dependents_and_partial_edition_serves_finished_cards(
 ) -> Result<()> {
     let pool = setup().await?;
     work::enqueue(&pool, &item("rating", 101, "stats-v1")).await?;
@@ -173,7 +173,7 @@ async fn failed_characters_skip_dependents_finish_other_work_and_reopen_without_
         work::fail(
             &pool,
             &failing,
-            "unsupported model claim",
+            "model provider unavailable",
             Duration::ZERO,
             work::MAX_ATTEMPTS,
         )
@@ -189,13 +189,19 @@ async fn failed_characters_skip_dependents_finish_other_work_and_reopen_without_
         "characters",
         "healthy work must finish first"
     );
-    assert!(claim(&pool, "momentum").await?.is_empty());
-    assert_eq!(
-        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM coverage_failures WHERE entity_id=101")
-            .fetch_one(&pool)
-            .await?,
-        3
-    );
+    let dependents = claim(&pool, "momentum").await?;
+    assert_eq!(dependents.len(), 1);
+    assert_eq!(dependents[0].entity_id, 101);
+    ClaimPublication::begin(&pool, &dependents[0])
+        .await?
+        .unwrap()
+        .commit_final()
+        .await?;
+    let failures: Vec<String> =
+        sqlx::query_scalar("SELECT stage FROM coverage_failures WHERE entity_id=101")
+            .fetch_all(&pool)
+            .await?;
+    assert_eq!(failures, ["rating"]);
     let restarted = crate::harness::dbtest::pool_with_limit(10).await?;
     ClaimPublication::begin(&restarted, &healthy)
         .await?
@@ -211,13 +217,28 @@ async fn failed_characters_skip_dependents_finish_other_work_and_reopen_without_
         VALUES('team',102,'ZZ_COVERAGE',2026,'Healthy candidate.','fixture','bounded-failures')")
         .execute(&mut **publication_tx.transaction()).await?;
     publication_tx.commit_final().await?;
-    let sigil = claim(&restarted, "sigil").await?.remove(0);
-    ClaimPublication::begin(&restarted, &sigil)
-        .await?
-        .unwrap()
-        .commit_final()
-        .await?;
+    let mut sigils = claim(&restarted, "sigil").await?;
+    sigils.sort_by_key(|item| item.entity_id);
+    assert_eq!(
+        sigils.iter().map(|item| item.entity_id).collect::<Vec<_>>(),
+        [101, 102]
+    );
+    for sigil in &sigils {
+        ClaimPublication::begin(&restarted, sigil)
+            .await?
+            .unwrap()
+            .commit_final()
+            .await?;
+    }
     assert_eq!(tick(&restarted, 0.0).await?, "coverage");
+    assert_eq!(
+        sqlx::query_scalar::<_, String>(
+            "SELECT status FROM coverage_editions ORDER BY edition_date DESC LIMIT 1"
+        )
+        .fetch_one(&pool)
+        .await?,
+        "partial"
+    );
     assert_eq!(
         sqlx::query_as::<_, (String, i64)>(
             "SELECT edition_date::text,revision FROM coverage_publication"
@@ -232,8 +253,8 @@ async fn failed_characters_skip_dependents_finish_other_work_and_reopen_without_
         )
         .fetch_one(&pool)
         .await?,
-        0,
-        "partial candidates stay hidden"
+        1,
+        "finished cards remain visible in a partial edition"
     );
     assert!(
         sqlx::query_scalar::<_, bool>("SELECT coverage_collection_open()")
@@ -499,7 +520,7 @@ async fn daily_output_requires_the_lease_and_cannot_publish_from_two_transaction
     )
     .fetch_one(&pool)
     .await?;
-    assert_eq!(visible, 0, "candidate must remain hidden");
+    assert_eq!(visible, 1, "the saved card is visible before edition close");
     for current in claim(&pool, "sigil").await? {
         ClaimPublication::begin(&pool, &current)
             .await?
@@ -513,7 +534,10 @@ async fn daily_output_requires_the_lease_and_cannot_publish_from_two_transaction
     )
     .fetch_one(&pool)
     .await?;
-    assert_eq!(visible, 1, "only the complete edition becomes visible");
+    assert_eq!(
+        visible, 1,
+        "edition close preserves the single visible card"
+    );
     let revision: i64 = sqlx::query_scalar("SELECT revision FROM coverage_publication")
         .fetch_one(&pool)
         .await?;

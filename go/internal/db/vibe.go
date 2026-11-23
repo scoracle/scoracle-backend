@@ -17,9 +17,7 @@ vibe_cur AS (
 	  AND vs.entity_id = req.entity_id
 	  AND vs.sport = req.sport
       AND (req.reporting_date IS NULL OR vs.reporting_date=req.reporting_date)
-	  AND NULLIF(btrim(vs.hook), '') IS NOT NULL
-	  AND char_length(vs.hook) <= 140
-	  AND NULLIF(btrim(vs.prompt), '') IS NOT NULL
+	  AND (NULLIF(btrim(vs.prompt), '') IS NOT NULL OR NULLIF(btrim(vs.hook), '') IS NOT NULL)
 	ORDER BY vs.reporting_date DESC, vs.generated_at DESC, vs.id DESC
 	LIMIT 1
 ),
@@ -31,9 +29,7 @@ vibe_window AS (
 	  AND vs.entity_id = req.entity_id
 	  AND vs.sport = req.sport
       AND (req.reporting_date IS NULL OR vs.reporting_date=req.reporting_date)
-	  AND vs.sentiment IS NOT NULL
-      AND NULLIF(btrim(vs.hook), '') IS NOT NULL AND char_length(vs.hook) <= 140
-      AND NULLIF(btrim(vs.prompt), '') IS NOT NULL
+	  AND (NULLIF(btrim(vs.prompt), '') IS NOT NULL OR NULLIF(btrim(vs.hook), '') IS NOT NULL)
 	  AND (req.reporting_date IS NOT NULL OR vs.reporting_date >= (NOW() AT TIME ZONE 'America/Detroit')::date-21)
 	ORDER BY vs.reporting_date DESC,vs.generated_at DESC,vs.id DESC
 )

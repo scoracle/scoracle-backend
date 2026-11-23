@@ -435,7 +435,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY vs.entity_type, vs.entity_id, vs.generated_at DESC
 		),
 		latest AS (
-			SELECT * FROM latest_raw WHERE heat IS NOT NULL AND headline IS NOT NULL
+			SELECT * FROM latest_raw WHERE heat IS NOT NULL
 		),
 		ranked AS (
 			SELECT u.*, row_number() OVER (ORDER BY ABS(u.heat - 50) DESC, u.generated_at DESC) AS rank
@@ -533,7 +533,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		latest AS (
 			SELECT lr.* FROM latest_raw lr, req
-			WHERE lr.score IS NOT NULL AND lr.reading IS NOT NULL AND lr.headline IS NOT NULL
+			WHERE lr.score IS NOT NULL AND lr.reading IS NOT NULL
 
 		),
 		ranked AS (
@@ -1192,7 +1192,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM public.qualified_news_summaries ns, req, win
 			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
 			  AND (req.reporting_date IS NULL OR ns.reporting_date=req.reporting_date)
-			  AND ns.headline IS NOT NULL
+			  AND (ns.headline IS NOT NULL OR ns.body IS NOT NULL)
 			GROUP BY ns.generated_at
 		),
 		entries_raw AS (
@@ -1203,31 +1203,31 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM public.qualified_insider_scores s, req, win
 			WHERE s.entity_type = req.entity_type AND s.entity_id = req.entity_id AND s.sport = req.sport
 			  AND (req.reporting_date IS NULL OR s.reporting_date=req.reporting_date)
-			  AND s.headline IS NOT NULL
+			  AND (s.headline IS NOT NULL OR s.read IS NOT NULL)
 			UNION ALL
 			SELECT 'vibe', v.generated_at, v.sentiment::int, v.hook, v.prompt, NULL::json
 			FROM public.qualified_vibe_scores v, req, win
 			WHERE v.entity_type = req.entity_type AND v.entity_id = req.entity_id AND v.sport = req.sport
 			  AND (req.reporting_date IS NULL OR v.reporting_date=req.reporting_date)
-			  AND v.hook IS NOT NULL
+			  AND (v.hook IS NOT NULL OR v.prompt IS NOT NULL)
 			UNION ALL
 			SELECT 'momentum', m.generated_at, m.score::int, m.headline, m.blurb, NULL::json
 			FROM public.qualified_momentum_summaries m, req, win
 			WHERE m.entity_type = req.entity_type AND m.entity_id = req.entity_id AND m.sport = req.sport
 			  AND (req.reporting_date IS NULL OR m.reporting_date=req.reporting_date)
-			  AND m.headline IS NOT NULL
+			  AND (m.headline IS NOT NULL OR m.blurb IS NOT NULL)
 			UNION ALL
 			SELECT 'sigil', g.generated_at, g.score::int, g.headline, g.reading, NULL::json
 			FROM public.qualified_sigil_synthesis g, req, win
 			WHERE g.entity_type = req.entity_type AND g.entity_id = req.entity_id AND g.sport = req.sport
 			  AND (req.reporting_date IS NULL OR g.reporting_date=req.reporting_date)
-			  AND g.headline IS NOT NULL
+			  AND (g.headline IS NOT NULL OR g.reading IS NOT NULL)
 			UNION ALL
 			SELECT 'scouting', st.generated_at, NULL::int, st.headline, st.body, NULL::json
 			FROM public.qualified_stat_summaries st, req, win
 			WHERE st.entity_type = req.entity_type AND st.entity_id = req.entity_id AND st.sport = req.sport
 			  AND (req.reporting_date IS NULL OR st.reporting_date=req.reporting_date)
-			  AND st.headline IS NOT NULL
+			  AND (st.headline IS NOT NULL OR st.body IS NOT NULL)
 		),
         entries AS (SELECT DISTINCT ON(card) * FROM entries_raw ORDER BY card,generated_at DESC)
         SELECT json_build_object(
@@ -1263,7 +1263,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       vs.model_version, vs.prompt_version, vs.generated_at
 			FROM public.qualified_sigil_synthesis vs, req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
-			  AND vs.score IS NOT NULL
+			  AND (vs.score IS NOT NULL OR vs.reading IS NOT NULL)
 			  AND CASE WHEN req.want_season IS NULL
 			           THEN (vs.season = req.cur_season OR vs.season IS NULL)
 			           ELSE vs.season = req.want_season END

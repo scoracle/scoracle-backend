@@ -341,3 +341,5 @@
 337_source_scoped_publication
 339_frozen_source_retries
 340_checkpointed_vibe_receipts
+341_flag_only_character_publication
+342_vibe_output_review

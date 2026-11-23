@@ -21,9 +21,9 @@ UPDATE coverage_schedule SET enabled=true,enrolled_at='2026-01-01Z';
 INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport)
 SELECT '2026-10-21',stage,'team',1,'ZZ_PROGRESS' FROM unnest(ARRAY['narratives','vibe','transfers']) stage;
 DO $$ BEGIN
- IF EXISTS(SELECT 1 FROM qualified_news_summaries WHERE sport='ZZ_PROGRESS') OR
- EXISTS(SELECT 1 FROM qualified_vibe_scores WHERE sport='ZZ_PROGRESS') OR
- EXISTS(SELECT 1 FROM qualified_insider_scores WHERE sport='ZZ_PROGRESS') THEN RAISE EXCEPTION 'pending candidate leaked'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM qualified_news_summaries WHERE sport='ZZ_PROGRESS') OR
+ NOT EXISTS(SELECT 1 FROM qualified_vibe_scores WHERE sport='ZZ_PROGRESS') OR
+ NOT EXISTS(SELECT 1 FROM qualified_insider_scores WHERE sport='ZZ_PROGRESS') THEN RAISE EXCEPTION 'pending assignment hid a saved card'; END IF;
 END $$;
 UPDATE coverage_assignments SET outcome='failed',resolution='blocked' WHERE sport='ZZ_PROGRESS';
 DO $$ BEGIN IF coverage_character_visible('2026-10-21','narratives','team',1,'ZZ_PROGRESS') THEN RAISE EXCEPTION 'failed candidate leaked'; END IF; END $$;
@@ -39,7 +39,7 @@ INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport,
 SELECT '2026-10-22',stage,'team',1,'ZZ_PROGRESS','completed','no_new_evidence' FROM unnest(ARRAY['narratives','vibe','transfers']) stage;
 DO $$ BEGIN IF NOT coverage_character_visible('2026-10-21','narratives','team',1,'ZZ_PROGRESS') THEN RAISE EXCEPTION 'no-news carry lost'; END IF; END $$;
 UPDATE coverage_assignments SET resolution='abstained' WHERE edition_date='2026-10-22' AND sport='ZZ_PROGRESS';
-DO $$ BEGIN IF EXISTS(SELECT 1 FROM qualified_news_summaries WHERE sport='ZZ_PROGRESS') THEN RAISE EXCEPTION 'abstention resurrected previous card'; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM qualified_news_summaries WHERE sport='ZZ_PROGRESS') THEN RAISE EXCEPTION 'abstention suppressed a published card'; END IF; END $$;
 SELECT set_config('scoracle.reporting_date','2026-10-20',true);
 DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM qualified_news_summaries WHERE sport='ZZ_PROGRESS') THEN RAISE EXCEPTION 'dated history lost'; END IF; END $$;
 DELETE FROM news_summaries WHERE sport='ZZ_PROGRESS';

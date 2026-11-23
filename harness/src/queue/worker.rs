@@ -694,8 +694,12 @@ impl Worker {
             item.entity_type, item.entity_id, item.sport
         ));
         let started = Instant::now();
-        let outcome =
-            crate::harness::rejections::with_claim(&item, self.execute_bounded(skill, &item)).await;
+        let outcome = crate::harness::rejections::with_claim(
+            &self.pool,
+            &item,
+            self.execute_bounded(skill, &item),
+        )
+        .await;
         info!(%stage, entity_type=%item.entity_type, entity_id=item.entity_id, sport=%item.sport,
             claim_token=?item.claim_token, input_version=?item.input_version, attempt=item.attempts+1,
             wall_ms=started.elapsed().as_millis() as u64, success=outcome.is_ok(),

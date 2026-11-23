@@ -281,6 +281,8 @@ pub async fn claim_with_policy(
                   WHERE upstream.entity_type = pipeline_work.entity_type
                     AND upstream.entity_id = pipeline_work.entity_id
                     AND upstream.sport = pipeline_work.sport
+                    -- Scheduled Characters already wait for pending upstream assignments in coverage_claimable.
+                    AND (NOT (SELECT enabled FROM coverage_schedule) OR NOT coverage_is_character($1))
                     AND upstream.stage = ANY(CASE WHEN coverage_is_character($1) THEN coverage_dependencies($1) ELSE $3 END)
               )
               -- Publication may have committed before its next-stage offer.

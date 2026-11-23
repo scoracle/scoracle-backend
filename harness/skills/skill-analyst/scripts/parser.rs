@@ -13,6 +13,14 @@ pub struct MomentumReply {
 pub struct MomentumParser;
 
 impl Parser<MomentumReply> for MomentumParser {
+    fn flagged_output(&self, raw: &str) -> Result<Option<MomentumReply>> {
+        let (body, headline) = crate::tools::form::flagged_prose(raw, "blurb");
+        Ok(Some(MomentumReply {
+            blurb: body,
+            headline,
+        }))
+    }
+
     fn parse(&self, raw: &str) -> Result<Option<MomentumReply>> {
         // Keep a bounded raw excerpt so malformed output is diagnosable.
         let reply = parse_momentum_reply(raw).ok_or_else(|| {

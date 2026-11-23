@@ -41,6 +41,11 @@ pub struct RatingReply {
 pub struct RatingParser;
 
 impl Parser<RatingReply> for RatingParser {
+    fn flagged_output(&self, raw: &str) -> Result<Option<RatingReply>> {
+        let (body, headline) = crate::tools::form::flagged_prose(raw, "body");
+        Ok(Some(RatingReply { body, headline }))
+    }
+
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
         let map = crate::tools::form::decode_prose_map(raw, &prose().keys)?;
         let Some(text) = map.get("body") else {

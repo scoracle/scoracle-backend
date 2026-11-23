@@ -90,28 +90,31 @@ pub async fn create(
         receipt["reason"] = json!("no_fresh_evidence");
         return Ok((None, receipt));
     }
-    let (generated, request) = match backend.generate(&world, &options).await {
-        Ok(result) => result,
-        Err(error) => {
-            if let Some(failure) = error.downcast_ref::<crate::harness::model::ResponseFailure>() {
-                crate::harness::rejections::record(
-                    backend.model(),
-                    &world,
-                    &backend.request_body(&world, &options),
-                    None,
-                    &failure.raw_response_body,
-                    &error,
-                    1,
-                )
-                .await?;
-                receipt["raw_response_body"] = json!(failure.raw_response_body);
+    let (generated, request) =
+        match crate::harness::session::generate_character(backend, &world, &options).await {
+            Ok(result) => result,
+            Err(error) => {
+                if let Some(failure) =
+                    error.downcast_ref::<crate::harness::model::ResponseFailure>()
+                {
+                    crate::harness::rejections::record(
+                        backend.model(),
+                        &world,
+                        &backend.request_body(&world, &options),
+                        None,
+                        &failure.raw_response_body,
+                        &error,
+                        1,
+                    )
+                    .await?;
+                    receipt["raw_response_body"] = json!(failure.raw_response_body);
+                }
+                receipt["context_exceeded"] =
+                    json!(error.is::<crate::harness::model::ContextExceeded>());
+                receipt["error"] = json!(format!("{error:#}"));
+                return Ok((None, receipt));
             }
-            receipt["context_exceeded"] =
-                json!(error.is::<crate::harness::model::ContextExceeded>());
-            receipt["error"] = json!(format!("{error:#}"));
-            return Ok((None, receipt));
-        }
-    };
+        };
     receipt["request_body"] = request.clone();
     receipt["raw_response"] = json!(generated.response);
     receipt["raw_response_body"] = json!(generated.raw_response_body);
@@ -122,6 +125,7 @@ pub async fn create(
     match output_from_receipt(assignment, &receipt) {
         Ok(output) => Ok((output, receipt)),
         Err(error) => {
+            let publish = crate::harness::rejections::character_claim();
             crate::harness::rejections::record_decision(
                 &generated.model,
                 &world,
@@ -130,9 +134,13 @@ pub async fn create(
                 &generated.raw_response_body,
                 &error,
                 1,
-                "rejected",
+                if publish { "flagged" } else { "rejected" },
             )
             .await?;
+            if publish {
+                receipt["format_warning"] = json!(format!("{error:#}"));
+                return Ok((output_from_receipt(assignment, &receipt)?, receipt));
+            }
             receipt["error"] = json!(format!("{error:#}"));
             Ok((None, receipt))
         }
@@ -146,7 +154,11 @@ fn output_from_receipt(assignment: &Assignment, receipt: &Value) -> Result<Optio
         return Ok(None);
     }
     let raw = receipt["raw_response"].as_str().context("saved response")?;
-    let parsed = VibeParser.parse(raw)?;
+    let parsed = if receipt.get("format_warning").is_some() {
+        VibeParser.flagged_output(raw)?
+    } else {
+        VibeParser.parse(raw)?
+    };
     let Some(reply) = parsed else {
         return Ok(None);
     };
@@ -160,7 +172,7 @@ fn output_from_receipt(assignment: &Assignment, receipt: &Value) -> Result<Optio
     source_ids.dedup();
     Ok(Some(Generation::called(
         VibeScore {
-            sentiment: Some(reply.score),
+            sentiment: reply.score,
             hook: Some(reply.headline),
             vibe_prompt: Some(reply.body),
             parts: assignment.parts.clone(),

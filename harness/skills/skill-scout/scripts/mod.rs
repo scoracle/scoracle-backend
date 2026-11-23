@@ -321,9 +321,16 @@ impl Skill for RatingHandler {
             Some(season) => season,
             None => current_season(pool, &sport).await?,
         };
-        let name =
-            crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
-                .await?;
+        let frozen = snapshot::load(pool, item, models.voice_num_ctx).await?;
+        let name = match &frozen {
+            Some(RatingBuild::Ready(assignment)) => assignment.parts.subject.name.clone(),
+            // No prompt is built for a frozen no-stats assignment.
+            Some(RatingBuild::NoStats { .. }) => String::new(),
+            None => {
+                crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
+                    .await?
+            }
+        };
         let bypass = rating_work_bypasses_debounce(item.input_version.as_deref());
         let trigger_type = rating_trigger_type(item.input_version.as_deref());
         let req = RatingReq {
@@ -335,7 +342,6 @@ impl Skill for RatingHandler {
             season: Some(season),
         };
 
-        let frozen = snapshot::load(pool, item, models.voice_num_ctx).await?;
         let output = generate_rating(
             pool,
             models,

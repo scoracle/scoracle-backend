@@ -19,7 +19,7 @@ VALUES('team',4,'ZZ_VISIBLE',2026,'Existing legacy surface.','fixture','fixture'
 UPDATE coverage_publication SET edition_date=NULL;
 UPDATE coverage_schedule SET enabled=true,enrolled_at='2026-01-01Z';
 DO $$ BEGIN
- IF (SELECT array_agg(entity_id ORDER BY entity_id) FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE') <> ARRAY[4] THEN RAISE EXCEPTION 'first cutover lost legacy surface or leaked candidate'; END IF;
+ IF (SELECT array_agg(entity_id ORDER BY entity_id) FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE') IS DISTINCT FROM ARRAY[1,2,3,4] THEN RAISE EXCEPTION 'cutover hid a saved card'; END IF;
 END $$;
 
 DO $$ BEGIN
@@ -29,18 +29,18 @@ DO $$ BEGIN
 END $$;
 UPDATE coverage_publication SET edition_date='2026-10-20';
 DO $$ BEGIN
- IF (SELECT array_agg(entity_id ORDER BY entity_id) FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE') <> ARRAY[1] THEN RAISE EXCEPTION 'candidate leaked before publication'; END IF;
+ IF (SELECT array_agg(entity_id ORDER BY entity_id) FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE') IS DISTINCT FROM ARRAY[1,2,3,4] THEN RAISE EXCEPTION 'edition pointer hid a saved card'; END IF;
 END $$;
 INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport,outcome,resolution)
 VALUES('2026-10-22','momentum','team',1,'ZZ_VISIBLE','completed','no_new_evidence');
 UPDATE coverage_editions SET status='complete' WHERE edition_date='2026-10-22';
 UPDATE coverage_publication SET edition_date='2026-10-22',revision=revision+1;
 DO $$ BEGIN
- IF (SELECT array_agg(entity_id ORDER BY entity_id) FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE') <> ARRAY[1,3] THEN RAISE EXCEPTION 'qualified switch or carry failed'; END IF;
+ IF (SELECT array_agg(entity_id ORDER BY entity_id) FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE') IS DISTINCT FROM ARRAY[1,2,3,4] THEN RAISE EXCEPTION 'qualified switch or carry failed'; END IF;
  IF (SELECT reporting_date FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE' AND entity_id=1) <> '2026-10-19'::date THEN RAISE EXCEPTION 'carry relabelled old evidence'; END IF;
 END $$;
 UPDATE coverage_assignments SET resolution='abstained' WHERE sport='ZZ_VISIBLE';
-DO $$ BEGIN IF EXISTS(SELECT 1 FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE' AND entity_id=1) THEN RAISE EXCEPTION 'abstention resurrected stale card'; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE' AND entity_id=1) THEN RAISE EXCEPTION 'abstention removed a saved card'; END IF; END $$;
 SELECT set_config('scoracle.reporting_date','2026-10-19',true);
 DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM qualified_momentum_summaries WHERE sport='ZZ_VISIBLE' AND entity_id=1) THEN RAISE EXCEPTION 'qualified history lost'; END IF; END $$;
 SELECT set_config('scoracle.reporting_date','',true);

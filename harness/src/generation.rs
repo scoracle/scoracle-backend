@@ -14,6 +14,11 @@ use std::ops::{Deref, DerefMut};
 pub trait Parser<T> {
     fn parse(&self, raw: &str) -> Result<Option<T>>;
 
+    /// Recover a returned character answer for display after recording its format error.
+    fn flagged_output(&self, raw: &str) -> Result<Option<T>> {
+        self.parse_candidate(raw)
+    }
+
     /// Opt-in decoding for observation runs; storage and reference checks still apply.
     fn parse_candidate(&self, raw: &str) -> Result<Option<T>> {
         self.parse(raw)

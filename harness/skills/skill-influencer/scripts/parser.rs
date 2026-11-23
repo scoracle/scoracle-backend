@@ -4,12 +4,25 @@ use crate::tools::form::{normalize_body, validate_body};
 use anyhow::{ensure, Result};
 
 pub struct VibeReply {
-    pub score: i32,
+    pub score: Option<i32>,
     pub headline: String,
     pub body: String,
 }
 pub struct VibeParser;
 impl Parser<VibeReply> for VibeParser {
+    fn flagged_output(&self, raw: &str) -> Result<Option<VibeReply>> {
+        let (body, headline) = crate::tools::form::flagged_prose(raw, "body");
+        Ok(Some(VibeReply {
+            body,
+            headline,
+            score: serde_json::from_str::<serde_json::Value>(raw)
+                .ok()
+                .and_then(|v| v["score"].as_i64())
+                .filter(|s| (0..=100).contains(s))
+                .map(|n| n as i32),
+        }))
+    }
+
     fn parse(&self, raw: &str) -> Result<Option<VibeReply>> {
         let value: serde_json::Value = serde_json::from_str(raw)?;
         let map = value
@@ -41,7 +54,7 @@ impl Parser<VibeReply> for VibeParser {
         let body = normalize_body(&crate::util::strip_markdown_emphasis(body));
         validate_body(&body)?;
         Ok(Some(VibeReply {
-            score,
+            score: Some(score),
             headline,
             body,
         }))
@@ -53,6 +66,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn malformed_output_preserves_the_answer_without_inventing_a_score() {
+        let output = VibeParser
+            .flagged_output(r#"{"body":"Crowd cheers","score":101}"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(output.body, "Crowd cheers");
+        assert_eq!(output.score, None);
+        let output = VibeParser
+            .flagged_output("<think>private</think>Partial answer")
+            .unwrap()
+            .unwrap();
+        assert_eq!(output.body, "Partial answer");
+    }
+
+    #[test]
     fn observation_preserves_long_hook_and_valid_zero_but_not_invalid_scores() {
         let mut raw = serde_json::json!({"body":"The crowd is furious.","score":0,"headline":"x".repeat(141)});
         assert!(VibeParser.parse(&raw.to_string()).is_ok());
@@ -62,7 +90,7 @@ mod tests {
                 .unwrap()
                 .unwrap()
                 .score,
-            0
+            Some(0)
         );
         raw["score"] = serde_json::json!(101);
         assert!(VibeParser.parse_candidate(&raw.to_string()).is_err());
@@ -78,7 +106,7 @@ mod tests {
             serde_json::json!({"body":body,"score":75,"headline":"Supporters welcome the news"});
         let reply = VibeParser.parse(&raw.to_string()).unwrap().unwrap();
         assert_eq!(reply.body, body);
-        assert_eq!(reply.score, 75);
+        assert_eq!(reply.score, Some(75));
         assert_eq!(reply.headline, "Supporters welcome the news");
         let mut oversized = raw;
         oversized["body"] = "x".repeat(super::super::request::BODY_MAX_CHARS + 1).into();

@@ -31,6 +31,20 @@ pub struct EditionParser<'a> {
     pub activity: &'a EditionActivity,
 }
 impl Parser<NarrativesProduct> for EditionParser<'_> {
+    fn flagged_output(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
+        let (body, headline) = crate::tools::form::flagged_prose(raw, "body");
+        Ok(Some(self.product(
+            crate::tools::form::JournalistReply {
+                headline: Some(headline),
+                paragraphs: vec![crate::tools::form::JournalistParagraph {
+                    body,
+                    report_ids: Vec::new(),
+                }],
+            },
+            &[],
+        )))
+    }
+
     fn parse(&self, raw: &str) -> Result<Option<NarrativesProduct>> {
         let selected = super::fresh::select(&self.assignment.selected);
         let reply = crate::tools::form::decode_journalist(raw, selected.len())?;

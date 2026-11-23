@@ -8,9 +8,9 @@ INSERT INTO transfer_rumors(team_id,player_id,sport,trigger_type,reporting_date)
 UPDATE transfer_rumors SET candidate_edition='2099-01-02',candidate_entity_type='team',candidate_entity_id=1 WHERE sport='ZZ_FINDING';
 INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport,outcome,resolution) VALUES('2099-01-02','transfers','player',2,'ZZ_FINDING','completed','candidate');
 UPDATE coverage_schedule SET enabled=true,enrolled_at='2099-01-01Z';
-DO $$ BEGIN IF EXISTS(SELECT 1 FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING') THEN RAISE EXCEPTION 'related player completion leaked team claim finding'; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING') THEN RAISE EXCEPTION 'missing team completion hid finding'; END IF; END $$;
 INSERT INTO coverage_assignments(edition_date,stage,entity_type,entity_id,sport,outcome,resolution) VALUES('2099-01-02','transfers','team',1,'ZZ_FINDING','failed','blocked');
-DO $$ BEGIN IF EXISTS(SELECT 1 FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING') THEN RAISE EXCEPTION 'failed team claim leaked finding'; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING') THEN RAISE EXCEPTION 'failed team claim hid finding'; END IF; END $$;
 UPDATE coverage_assignments SET outcome='completed',resolution='candidate' WHERE entity_type='team' AND sport='ZZ_FINDING';
 DO $$ BEGIN IF (SELECT count(*) FROM qualified_transfer_rumors WHERE sport='ZZ_FINDING')<>1 THEN RAISE EXCEPTION 'completed team claim finding hidden'; END IF; END $$;
 ROLLBACK;

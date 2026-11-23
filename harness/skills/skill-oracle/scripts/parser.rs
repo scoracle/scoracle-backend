@@ -5,6 +5,11 @@ use anyhow::Result;
 pub(crate) struct ReadingParser;
 
 impl Parser<(String, String)> for ReadingParser {
+    fn flagged_output(&self, raw: &str) -> Result<Option<(String, String)>> {
+        let (body, headline) = crate::tools::form::flagged_prose(raw, "reading");
+        Ok(Some((body, headline)))
+    }
+
     fn parse(&self, raw: &str) -> Result<Option<(String, String)>> {
         let prose = super::request::prose();
         let map = crate::tools::form::parse_prose_map(raw, &prose.keys)?;

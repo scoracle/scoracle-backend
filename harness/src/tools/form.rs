@@ -65,6 +65,43 @@ pub fn card_schema_raw(body_key: &str, can_abstain: bool) -> String {
     }
 }
 
+/// Only the answer channel belongs on a card, including for a truncated native reply.
+pub(crate) fn answer_text(raw: &str) -> &str {
+    let answer = raw
+        .rsplit_once("</think>")
+        .map_or(raw, |(_, answer)| answer);
+    answer
+        .split_once("<think>")
+        .map_or(answer, |(before, _)| before)
+        .trim()
+}
+
+pub(crate) fn flagged_prose(raw: &str, field: &str) -> (String, String) {
+    let answer = answer_text(raw);
+    let frame: Value = serde_json::from_str(answer).unwrap_or(Value::Null);
+    let paragraphs = frame["paragraphs"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|p| p["body"].as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let body = frame
+        .get(field)
+        .and_then(Value::as_str)
+        .or_else(|| frame.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(if paragraphs.is_empty() {
+            answer
+        } else {
+            &paragraphs
+        });
+    (
+        body.to_owned(),
+        card_hook(frame["headline"].as_str().unwrap_or_default()),
+    )
+}
+
 pub fn card_hook(text: &str) -> String {
     crate::tools::guards::clean_served_prose(text)
         .chars()

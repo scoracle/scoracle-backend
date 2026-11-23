@@ -46,13 +46,30 @@ pub fn verify() -> Result<()> {
     append(&path(), None).context("rejected-output archive must be writable before inference")
 }
 
-pub async fn with_claim<F: Future>(item: &super::queue::work::Item, future: F) -> F::Output {
+tokio::task_local! { static REVIEW_DB: sqlx::PgPool; }
+
+pub(crate) fn character_claim() -> bool {
+    CLAIM
+        .try_with(|c| {
+            matches!(
+                c["stage"].as_str(),
+                Some("narratives" | "rating" | "vibe" | "transfers" | "momentum" | "sigil")
+            )
+        })
+        .unwrap_or(false)
+}
+
+pub async fn with_claim<F: Future>(
+    pool: &sqlx::PgPool,
+    item: &super::queue::work::Item,
+    future: F,
+) -> F::Output {
     CLAIM
         .scope(
             json!({"stage":item.stage.as_str(),"entity_type":item.entity_type,
         "entity_id":item.entity_id,"sport":item.sport,"input_version":item.input_version,
         "claim_token":item.claim_token,"job_attempt":item.attempts+1}),
-            future,
+            REVIEW_DB.scope(pool.clone(), future),
         )
         .await
 }
@@ -135,9 +152,24 @@ pub async fn record_decision(
         "request_hash":crate::util::hash_components(&request.to_string()),
         "built_prompt":prompt,"request":request,"response":response,
         "raw_response_body":raw_response,"error":format!("{error:#}")});
+    let published_flag = character_claim() && disposition == "flagged";
+    if published_flag {
+        let pool = REVIEW_DB.with(Clone::clone);
+        let claim = CLAIM.with(Clone::clone);
+        sqlx::query("INSERT INTO character_output_flags(edition_date,stage,entity_type,entity_id,sport,claim_token,reason,model,answer)
+            SELECT edition_date,$1,$2,$3,$4,$5::uuid,$6,$7,$8 FROM coverage_schedule
+            ON CONFLICT DO NOTHING")
+            .bind(claim["stage"].as_str()).bind(claim["entity_type"].as_str()).bind(claim["entity_id"].as_i64())
+            .bind(claim["sport"].as_str()).bind(claim["claim_token"].as_str()).bind(format!("{error:#}"))
+            .bind(model).bind(response).execute(&pool).await?;
+    }
     let path = path();
     let result = tokio::task::spawn_blocking(move || append(&path, Some(&record))).await?;
     if let Err(error) = &result {
+        if published_flag {
+            tracing::warn!(%error, "database flag retained; secondary archive write failed");
+            return Ok(());
+        }
         tracing::error!(%error, "rejected-output archive failed; refusing another correction");
     }
     result.context("persist rejected model output")

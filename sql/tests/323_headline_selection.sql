@@ -133,7 +133,7 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM qualified_news_summaries WHERE id=card) THEN RAISE EXCEPTION 'uncited hold hid sourced card'; END IF;
  UPDATE news_summaries SET input_news_ids=array_append(input_news_ids,(SELECT article_id FROM policy_sources WHERE i=54)) WHERE id=card;
  PERFORM coverage_resolve_claim('narratives','team',925001,'ZZ_SELECTION',lease);
- IF EXISTS(SELECT 1 FROM qualified_news_summaries WHERE id=card) THEN RAISE EXCEPTION 'card citing held source was qualified'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM qualified_news_summaries WHERE id=card) THEN RAISE EXCEPTION 'held citation suppressed card'; END IF;
 END $$;
 -- A second lease resumes an existing daily card, without consuming unread reports.
 INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport)
@@ -198,9 +198,9 @@ BEGIN
  THEN RAISE EXCEPTION 'Exact Vibe checkpoint was not restored'; END IF;
  UPDATE vibe_scores SET input_news_ids=ARRAY[925108,925109] WHERE id=card;
  PERFORM coverage_resolve_claim('vibe','team',925001,'ZZ_SELECTION',lease);
- IF EXISTS(SELECT 1 FROM qualified_vibe_scores WHERE id=card) THEN RAISE EXCEPTION 'Held citation qualified'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM qualified_vibe_scores WHERE id=card) THEN RAISE EXCEPTION 'Held citation suppressed Vibe'; END IF;
  UPDATE vibe_scores SET input_news_ids=ARRAY[925108,925110] WHERE id=card;
  PERFORM coverage_resolve_claim('vibe','team',925001,'ZZ_SELECTION',lease);
- IF EXISTS(SELECT 1 FROM qualified_vibe_scores WHERE id=card) THEN RAISE EXCEPTION 'Unproven citation qualified'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM qualified_vibe_scores WHERE id=card) THEN RAISE EXCEPTION 'Unproven citation suppressed Vibe'; END IF;
 END $$;
 ROLLBACK;

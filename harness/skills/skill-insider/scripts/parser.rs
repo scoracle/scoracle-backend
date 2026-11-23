@@ -9,6 +9,16 @@ pub(super) struct ReplyParser<'a> {
 }
 
 impl Parser<Reply> for ReplyParser<'_> {
+    fn flagged_output(&self, raw: &str) -> Result<Option<Reply>> {
+        let (body, headline) = crate::tools::form::flagged_prose(raw, "body");
+        Ok(Some(Reply {
+            body,
+            headline,
+            findings: Vec::new(),
+            card_score: crate::tools::source::activity_score(self.reports.len()),
+        }))
+    }
+
     fn parse(&self, raw: &str) -> Result<Option<Reply>> {
         let mut reply: Reply = serde_json::from_str(raw)?;
         reply.headline = crate::tools::form::card_hook(&reply.headline);

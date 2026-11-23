@@ -24,6 +24,64 @@ pub fn structured_correction(error: &anyhow::Error) -> Option<String> {
         .then(|| "the response was truncated. Return the complete requested JSON object from scratch, preserving the supplied evidence and schema.".to_string())
 }
 
+/// A provider may return a usable final answer along with a truncated completion.
+pub(crate) async fn generate_character(
+    backend: &dyn crate::harness::model::Inference,
+    prompt: &str,
+    opts: &GenerateOptions,
+) -> Result<(super::model::GenerateResult, serde_json::Value)> {
+    let started = std::time::Instant::now();
+    match backend.generate(prompt, opts).await {
+        Err(error)
+            if super::rejections::character_claim()
+                && super::model::is_incomplete_output(&error) =>
+        {
+            let Some(failure) = error.downcast_ref::<super::model::ResponseFailure>() else {
+                return Err(error);
+            };
+            let envelope: serde_json::Value = serde_json::from_str(&failure.raw_response_body)?;
+            let Some(answer) = envelope["content"]
+                .as_str()
+                .or_else(|| {
+                    envelope
+                        .pointer("/choices/0/message/content")
+                        .and_then(|v| v.as_str())
+                })
+                .or_else(|| envelope["response"].as_str())
+            else {
+                return Err(error);
+            };
+            let answer = crate::tools::form::answer_text(answer);
+            let request = backend.request_body(prompt, opts);
+            super::rejections::record_decision(
+                backend.model(),
+                prompt,
+                &request,
+                Some(answer),
+                &failure.raw_response_body,
+                &error,
+                1,
+                "flagged",
+            )
+            .await?;
+            Ok((
+                super::model::GenerateResult {
+                    response: answer.into(),
+                    thinking: String::new(),
+                    model: backend.model().into(),
+                    total_duration: started.elapsed(),
+                    prompt_eval_count: envelope["tokens_evaluated"].as_i64().unwrap_or(0) as i32,
+                    eval_count: envelope["tokens_predicted"].as_i64().unwrap_or(0) as i32,
+                    completion_reason: Some("incomplete".into()),
+                    raw_response_body: failure.raw_response_body.clone(),
+                },
+                request,
+            ))
+        }
+        result => result,
+    }
+}
+
 pub(super) async fn extract_with_backend<T, P: Parser<T>>(
     backend: &dyn crate::harness::model::Inference,
     prompt: &str,
@@ -34,7 +92,7 @@ pub(super) async fn extract_with_backend<T, P: Parser<T>>(
     let mut built_prompt = prompt.to_string();
     for attempt in 0..3 {
         let result = async {
-            let (gen, request_body) = match backend.generate(&built_prompt, opts).await {
+            let (gen, request_body) = match generate_character(backend, &built_prompt, opts).await {
                 Ok(result) => result,
                 Err(error) => {
                     if let Some(failure) = error.downcast_ref::<super::model::ResponseFailure>() {
@@ -54,6 +112,11 @@ pub(super) async fn extract_with_backend<T, P: Parser<T>>(
             };
             let value = match parser.parse(&gen.response) {
                 Ok(value) => value,
+                Err(error) if super::rejections::character_claim() => {
+                    super::rejections::record_decision(&gen.model,&built_prompt,&request_body,Some(&gen.response),
+                        &gen.raw_response_body,&error,attempt+1,"flagged").await?;
+                    parser.flagged_output(&gen.response)?
+                }
                 Err(error) => {
                     let candidate = super::rejections::observe_content()
                         .then(|| parser.parse_candidate(&gen.response));
@@ -246,7 +309,7 @@ mod surface_tests {
             "Grounded prose.".into(),
         ]));
         let item = crate::harness::queue::work::Item {
-            stage: crate::harness::queue::work::TaskKey::new("narratives"),
+            stage: crate::harness::queue::work::TaskKey::new("classifier"),
             entity_type: "team".into(),
             entity_id: 7,
             sport: "NBA".into(),
@@ -258,6 +321,9 @@ mod surface_tests {
             .scope(
                 path.clone(),
                 super::super::rejections::with_claim(
+                    &sqlx::postgres::PgPoolOptions::new()
+                        .connect_lazy("postgres:///unused")
+                        .unwrap(),
                     &item,
                     extract_with_backend(
                         &backend,

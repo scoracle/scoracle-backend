@@ -49,6 +49,10 @@ impl Parser<RatingReply> for RatingParser {
     fn parse(&self, raw: &str) -> Result<Option<RatingReply>> {
         let map = crate::tools::form::decode_prose_map(raw, &prose().keys)?;
         let Some(text) = map.get("body") else {
+            anyhow::ensure!(
+                map.get("headline").is_none(),
+                "headline supplied without card body"
+            );
             return Ok(None);
         };
         let body = clean_commentary(text);

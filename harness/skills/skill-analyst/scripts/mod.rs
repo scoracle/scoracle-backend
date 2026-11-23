@@ -276,11 +276,14 @@ impl Skill for MomentumHandler {
         let models = &self.models;
         let entity_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
+        let context =
+            request::load_momentum_context(pool, &item.entity_type, entity_id, &sport).await?;
+        if context.empty() {
+            return Ok(commit_claimed(pool, item, &sport, None).await?.0);
+        }
         let name =
             crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &item.sport)
                 .await?;
-        let context =
-            request::load_momentum_context(pool, &item.entity_type, entity_id, &sport).await?;
         let assignment = Assignment {
             entity_id,
             entity_type: item.entity_type.clone(),

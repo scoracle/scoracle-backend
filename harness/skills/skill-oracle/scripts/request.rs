@@ -503,9 +503,6 @@ pub(super) async fn load_assignment(
     num_ctx: i32,
 ) -> Result<Assignment> {
     let entity_id = item.entity_id_i32()?;
-    let name =
-        crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &item.sport)
-            .await?;
     let sport = item.sport.to_uppercase();
     let (season, cards) = load_pillars(pool, &item.entity_type, entity_id, &sport).await?;
     let (input_components_json, input_hash) = if cards.readiness() == Readiness::Empty {
@@ -525,7 +522,13 @@ pub(super) async fn load_assignment(
             &item.sport,
         )
         .await?,
-        entity_name: name,
+        entity_name: if cards.readiness() == Readiness::Empty {
+            // An empty assignment records a no-material marker without a model call.
+            String::new()
+        } else {
+            crate::tools::meta::lookup_entity_name(pool, &item.entity_type, entity_id, &sport)
+                .await?
+        },
         sport: item.sport.clone(),
     };
     let input_hash = if input_hash.is_empty() {

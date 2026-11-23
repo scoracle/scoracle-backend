@@ -14,6 +14,10 @@ impl Parser<(String, String)> for ReadingParser {
         let prose = super::request::prose();
         let map = crate::tools::form::parse_prose_map(raw, &prose.keys)?;
         let Some(reading) = map.get("reading") else {
+            anyhow::ensure!(
+                map.get("headline").is_none(),
+                "headline supplied without card body"
+            );
             return Ok(None);
         };
         let reading =

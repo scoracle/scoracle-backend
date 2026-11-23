@@ -92,7 +92,10 @@ pub(crate) fn flagged_prose(raw: &str, field: &str) -> (String, String) {
         .or_else(|| frame.as_str())
         .filter(|s| !s.trim().is_empty())
         .unwrap_or(if paragraphs.is_empty() {
-            answer
+            frame["headline"]
+                .as_str()
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or(answer)
         } else {
             &paragraphs
         });

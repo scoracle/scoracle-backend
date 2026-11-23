@@ -1107,6 +1107,16 @@ fn a_declined_body_is_a_pass_and_a_dropped_slot_is_not() {
         .unwrap()
         .is_none());
     assert!(RatingParser.parse(r#"{}"#).is_err());
+    let partial = r#"{"body":null,"headline":"A title"}"#;
+    assert!(RatingParser.parse(partial).is_err());
+    assert_eq!(
+        RatingParser
+            .flagged_output(partial)
+            .unwrap()
+            .unwrap()
+            .headline,
+        "A title"
+    );
     assert!(RatingParser.parse(r#"{"headline": "A title"}"#).is_err());
     assert!(RatingParser
         .parse(r#"{"body":"","headline":"The recorded performance"}"#)

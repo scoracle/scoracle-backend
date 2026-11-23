@@ -201,6 +201,15 @@ mod surface_tests {
             opts: &GenerateOptions,
         ) -> Result<(GenerateResult, serde_json::Value)> {
             let reply = self.0.lock().unwrap().remove(0);
+            if reply == "partial provider reply" {
+                return Err(super::super::model::ResponseFailure {
+                    raw_response_body:
+                        r#"{"content":"<think>private</think>First half","stop_type":"limit"}"#
+                            .into(),
+                    error: super::super::model::IncompleteOutput("length".into()).into(),
+                }
+                .into());
+            }
             if reply == "length" {
                 return Err(crate::harness::model::IncompleteOutput("length".into()).into());
             }
@@ -292,6 +301,62 @@ mod surface_tests {
             );
             std::fs::remove_file(path).unwrap();
         }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires migrated disposable coverage database"]
+    async fn truncated_character_reply_is_returned_with_a_durable_reason() {
+        let pool = sqlx::PgPool::connect(&std::env::var("TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let database: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert!(database.starts_with("classifier_test_coverage"));
+        let token: String = sqlx::query_scalar("SELECT gen_random_uuid()::text")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let item = crate::harness::queue::work::Item {
+            stage: crate::harness::queue::work::TaskKey::new("rating"),
+            entity_type: "team".into(),
+            entity_id: 7,
+            sport: "ZZ_TEST".into(),
+            input_version: Some("fixture".into()),
+            claim_token: Some(token.clone()),
+            attempts: 0,
+        };
+        let backend = Backend(Mutex::new(vec!["partial provider reply".into()]));
+        let path = std::env::temp_dir().join(format!("review-{token}.jsonl"));
+        let output = super::super::rejections::TEST_PATH
+            .scope(
+                path.clone(),
+                super::super::rejections::with_claim(
+                    &pool,
+                    &item,
+                    extract_with_backend(
+                        &backend,
+                        "Evidence",
+                        &GenerateOptions::default(),
+                        &BodyParser,
+                        no_rewrite,
+                    ),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(output.value.as_deref(), Some("First half"));
+        let (answer, reason): (String, String) = sqlx::query_as(
+            "DELETE FROM character_output_flags WHERE claim_token=$1::uuid RETURNING answer,reason",
+        )
+        .bind(token)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(answer, "First half");
+        assert!(reason.contains("length"));
+        std::fs::remove_file(path).unwrap();
     }
 
     #[tokio::test]

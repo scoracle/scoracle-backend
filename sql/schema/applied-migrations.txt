@@ -338,3 +338,4 @@
 334_required_stage_edition_completion
 335_analyst_card_momentum
 336_oracle_finished_cards
+337_source_scoped_publication

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict KJgrkm8ocgEsyQMdbG9xhgWtTniqufhwctyNvd8FOiURbEHF1CkhPgNvjLK2a15
+\restrict 9EIPNQdCRTQ1uifImAezKFvIhbNP33SjzvWc5b5V6dknyMbdifhEkE2HhPkBgmz
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -2802,6 +2802,30 @@ BEGIN
  AND d.character=CASE task WHEN 'narratives' THEN 'journalist' WHEN 'rating' THEN 'scout'
  WHEN 'vibe' THEN 'influencer' WHEN 'transfers' THEN 'insider' END;
  IF pending THEN RAISE EXCEPTION 'Cannot resolve undelivered frozen sources'; END IF;
+ -- Holds belong to their source. Only qualify cards backed by this frozen
+ -- assignment's reviewed receipts, with no held input attached to the card.
+ IF held AND has_product AND task='narratives' THEN
+  SELECT EXISTS (
+   SELECT 1 FROM news_summaries n
+   WHERE n.candidate_edition=a.edition_date AND n.entity_type=subject_type AND n.entity_id=subject_id AND n.sport=league
+    AND (COALESCE(cardinality(n.input_news_ids),0)=0 OR EXISTS (
+     SELECT 1 FROM unnest(n.input_news_ids) article_id
+     WHERE NOT EXISTS (SELECT 1 FROM classifier_spectra x JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id
+      WHERE x.id=ANY(a.spectrum_ids) AND x.article_id=article_id.article_id AND d.character='journalist'
+       AND d.status='used' AND d.product_ref->'news_summary_ids' @> jsonb_build_array(n.id))
+     OR EXISTS (SELECT 1 FROM classifier_spectra x JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id
+      WHERE x.id=ANY(a.spectrum_ids) AND x.article_id=article_id.article_id AND d.character='journalist' AND d.status='held')))
+  ) INTO held;
+ ELSIF held AND has_product AND task='transfers' THEN
+  SELECT EXISTS (
+   SELECT 1 FROM insider_scores i
+   WHERE i.candidate_edition=a.edition_date AND i.entity_type=subject_type AND i.entity_id=subject_id AND i.sport=league
+    AND (NOT EXISTS (SELECT 1 FROM classifier_spectrum_deliveries d WHERE d.spectrum_id=ANY(a.spectrum_ids)
+     AND d.character='insider' AND d.status IN ('used','abstained') AND d.product_ref->'score_id'=to_jsonb(i.id))
+    OR EXISTS (SELECT 1 FROM classifier_spectrum_deliveries d WHERE d.spectrum_id=ANY(a.spectrum_ids)
+     AND d.character='insider' AND d.status='held' AND d.product_ref->'score_id'=to_jsonb(i.id)))
+  ) INTO held;
+ END IF;
  UPDATE coverage_assignments SET outcome=CASE WHEN held THEN 'failed' ELSE 'completed' END,
  resolution=CASE WHEN held THEN 'blocked' WHEN has_product THEN 'candidate'
  WHEN task='rating' AND current_setting('scoracle.assignment_resolution',true)='unchanged' THEN 'unchanged'
@@ -13030,7 +13054,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict KJgrkm8ocgEsyQMdbG9xhgWtTniqufhwctyNvd8FOiURbEHF1CkhPgNvjLK2a15
+\unrestrict 9EIPNQdCRTQ1uifImAezKFvIhbNP33SjzvWc5b5V6dknyMbdifhEkE2HhPkBgmz
 
 
 \ir reference-data.sql
@@ -13038,7 +13062,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict lPCq5ZxZ8xDFyN2m3Uy6tjcOO5FZmR4Zpr3QyU7jjfkgfLWccPBgNKhH6fT9X9v
+\restrict er7thvI3DTVWAQZD3g7UdDdwUmeoKTdpvS71k6QdNaFGFa0CYdlKRzD5w52cDUU
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -16865,4 +16889,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict lPCq5ZxZ8xDFyN2m3Uy6tjcOO5FZmR4Zpr3QyU7jjfkgfLWccPBgNKhH6fT9X9v
+\unrestrict er7thvI3DTVWAQZD3g7UdDdwUmeoKTdpvS71k6QdNaFGFa0CYdlKRzD5w52cDUU

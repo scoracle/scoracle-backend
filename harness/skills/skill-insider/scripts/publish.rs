@@ -274,7 +274,21 @@ pub(super) async fn commit(
         generation,
     )
     .await?;
-    let score_id = {
+    // A checkpoint may have saved the nightly card before the last batch of
+    // frozen sources. Keep reviewing those sources under the new lease.
+    let saved_card: Option<i64> = sqlx::query_scalar(
+        "SELECT i.id FROM public.insider_scores i JOIN public.coverage_schedule s \
+         ON s.enabled AND s.phase='characters' AND i.candidate_edition=s.edition_date \
+         WHERE i.entity_type=$1 AND i.entity_id=$2 AND i.sport=$3 LIMIT 1",
+    )
+    .bind(&item.entity_type)
+    .bind(item.entity_id_i32()?)
+    .bind(&material.subject.sport)
+    .fetch_optional(&mut **publication.transaction())
+    .await?;
+    let score_id = if let Some(id) = saved_card {
+        id
+    } else {
         let previous: Option<i16> = sqlx::query_scalar(
             "SELECT score FROM public.insider_scores WHERE entity_type=$1 AND entity_id=$2 AND sport=$3 AND scoring_version=$4 ORDER BY generated_at DESC,id DESC LIMIT 1"
         ).bind(&item.entity_type).bind(item.entity_id_i32()?).bind(&material.subject.sport)
@@ -310,19 +324,25 @@ pub(super) async fn commit(
             } else {
                 Some("No source-grounded move for this entity")
             },
-            serde_json::json!({"score_id":score_id,"rumor_ids":rumor_ids}),
+            if saved_card.is_some() {
+                serde_json::json!({"existing_score_id":score_id,"rumor_ids":rumor_ids})
+            } else {
+                serde_json::json!({"score_id":score_id,"rumor_ids":rumor_ids})
+            },
         )
         .await?;
     }
-    record_transfer_event(
-        publication.transaction(),
-        item,
-        TRANSFER_PUBLISHED,
-        &item.entity_type,
-        item.entity_id_i32()?,
-        Some(&score_id.to_string()),
-    )
-    .await?;
+    if saved_card.is_none() {
+        record_transfer_event(
+            publication.transaction(),
+            item,
+            TRANSFER_PUBLISHED,
+            &item.entity_type,
+            item.entity_id_i32()?,
+            Some(&score_id.to_string()),
+        )
+        .await?;
+    }
     let remaining = crate::harness::skills::classifier::delivery::undelivered_count(
         publication.transaction(),
         crate::harness::skills::insider::manifest::MANIFEST
@@ -338,7 +358,10 @@ pub(super) async fn commit(
     } else {
         publication.commit_final().await?;
     }
-    let product_ids = std::iter::once(score_id)
+    let product_ids = saved_card
+        .is_none()
+        .then_some(score_id)
+        .into_iter()
         .chain(rumor_ids)
         .collect::<Vec<_>>();
     insert_generation_ledger_best_effort(pool, generation,

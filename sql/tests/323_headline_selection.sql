@@ -113,4 +113,26 @@ DO $$ DECLARE sid bigint; caught boolean; bad integer; BEGIN
         IF NOT caught THEN RAISE EXCEPTION 'v11 skipped headline guard case %',bad; END IF;
     END LOOP;
 END $$;
+-- Finalizing a mixed packet keeps its source holds independent of its card.
+DO $$
+DECLARE lease text; card bigint; accepted bigint;
+BEGIN
+ UPDATE pipeline_work SET status='running',input_version=NULL
+ WHERE stage='narratives' AND entity_type='team' AND entity_id=925001 AND sport='ZZ_SELECTION'
+ RETURNING claim_token::text INTO STRICT lease;
+ PERFORM set_config('scoracle.claim_token',lease,true);
+ SELECT article_id INTO STRICT accepted FROM policy_sources WHERE i=53;
+ INSERT INTO news_summaries(entity_type,entity_id,sport,trigger_type,body,input_news_ids)
+ VALUES('team',925001,'ZZ_SELECTION','classifier','A reported denial',ARRAY[accepted]) RETURNING id INTO card;
+ UPDATE classifier_spectrum_deliveries d SET status='held',reason='unresolved_target_identity'
+ FROM classifier_spectra x WHERE x.id=d.spectrum_id AND x.sport='ZZ_SELECTION'
+  AND d.character='journalist' AND d.status='pending';
+ UPDATE classifier_spectrum_deliveries d SET status='used',reason=NULL,product_ref=jsonb_build_object('news_summary_ids',jsonb_build_array(card))
+ FROM classifier_spectra x WHERE x.id=d.spectrum_id AND x.article_id=accepted AND d.character='journalist';
+ PERFORM coverage_resolve_claim('narratives','team',925001,'ZZ_SELECTION',lease);
+ IF NOT EXISTS(SELECT 1 FROM qualified_news_summaries WHERE id=card) THEN RAISE EXCEPTION 'uncited hold hid sourced card'; END IF;
+ UPDATE news_summaries SET input_news_ids=array_append(input_news_ids,(SELECT article_id FROM policy_sources WHERE i=54)) WHERE id=card;
+ PERFORM coverage_resolve_claim('narratives','team',925001,'ZZ_SELECTION',lease);
+ IF EXISTS(SELECT 1 FROM qualified_news_summaries WHERE id=card) THEN RAISE EXCEPTION 'card citing held source was qualified'; END IF;
+END $$;
 ROLLBACK;

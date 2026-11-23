@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict nGgs76h2T9bQCSRnRNPfOzl5xyrKapSP9q6vyL7xqN9bYZjEgTRJ3WxRlMxavsG
+\restrict 408EKOeggKydG8BguPkvNp0YfDlYgAcKrV3PnhWplYjPD7YJyb67eDueV4EYBGD
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -3091,7 +3091,8 @@ BEGIN
   VALUES(local_day+1,(local_day+1)::timestamp AT TIME ZONE s.timezone,
     (local_day+1)::timestamp AT TIME ZONE s.timezone+interval '1 microsecond',boundary,'draining');
   INSERT INTO coverage_drain_obligations(edition_date,entity_type,entity_id,sport,input_version)
-  SELECT local_day+1,entity_type,entity_id,sport,input_version FROM pipeline_work WHERE stage='classifier';
+  SELECT local_day+1,entity_type,entity_id,sport,input_version FROM pipeline_work
+  WHERE stage='classifier' AND NOT (status='failed' AND attempts>=5);
   UPDATE coverage_schedule SET phase='draining',edition_date=local_day+1,updated_at=at_time;
   RETURN 'draining';
  END IF;
@@ -3100,11 +3101,17 @@ BEGIN
  WHERE edition_date=e.edition_date;
  IF s.phase='draining' THEN
   INSERT INTO coverage_failures(edition_date,kind,stage,entity_type,entity_id,sport,input_version,attempts,error,receipt)
-  SELECT d.edition_date,'decision_exhausted',w.stage,w.entity_type,w.entity_id,w.sport,w.input_version,w.attempts,
-    COALESCE(w.last_error,'decision attempts exhausted'),to_jsonb(w)
-  FROM coverage_drain_obligations d JOIN pipeline_work w USING(entity_type,entity_id,sport)
-  WHERE d.edition_date=e.edition_date AND d.settled_at IS NULL AND w.stage='classifier'
-    AND w.input_version IS NOT DISTINCT FROM d.input_version AND w.status='failed' AND w.attempts>=5
+  SELECT d.edition_date,'decision_exhausted',f.stage,f.entity_type,f.entity_id,f.sport,f.input_version,f.attempts,
+    f.error,to_jsonb(f)
+  FROM coverage_drain_obligations d CROSS JOIN LATERAL (
+    SELECT f.* FROM pipeline_work_failures f WHERE f.stage='classifier'
+    AND (f.entity_type,f.entity_id,f.sport)=(d.entity_type,d.entity_id,d.sport)
+    AND f.input_version IS NOT DISTINCT FROM d.input_version ORDER BY f.failed_at DESC,f.id DESC LIMIT 1
+  ) f
+  WHERE d.edition_date=e.edition_date AND d.settled_at IS NULL AND NOT EXISTS (
+    SELECT 1 FROM pipeline_work w WHERE (w.stage,w.entity_type,w.entity_id,w.sport)=
+    ('classifier',d.entity_type,d.entity_id,d.sport) AND w.input_version IS NOT DISTINCT FROM d.input_version
+    AND NOT (w.status='failed' AND w.attempts>=5))
   ON CONFLICT DO NOTHING;
   UPDATE coverage_drain_obligations d SET settled_at=at_time
   WHERE d.edition_date=e.edition_date AND d.settled_at IS NULL AND EXISTS(
@@ -3120,7 +3127,8 @@ BEGIN
                  ELSE 'coverage:'||e.edition_date END
         FROM public.pipeline_work w CROSS JOIN
             unnest(ARRAY['narratives','vibe','rating','transfers','momentum','sigil']) downstream
-        WHERE public.coverage_is_character(w.stage) AND (w.entity_type IN ('team','player') OR (w.entity_type='person' AND downstream IN ('narratives','vibe','transfers')))
+        WHERE public.coverage_is_character(w.stage) AND NOT (w.status='failed' AND w.attempts>=5)
+          AND (w.entity_type IN ('team','player') OR (w.entity_type='person' AND downstream IN ('narratives','vibe','transfers')))
         ON CONFLICT(stage,entity_type,entity_id,sport) DO NOTHING;
         WITH pending AS MATERIALIZED (
             SELECT x.sport,x.target->>'entity_type' AS entity_type,
@@ -3139,7 +3147,7 @@ BEGIN
           AND d.character=CASE w.stage WHEN 'narratives' THEN 'journalist'
               WHEN 'vibe' THEN 'influencer' WHEN 'rating' THEN 'scout'
               WHEN 'transfers' THEN 'insider' END
-        WHERE public.coverage_is_character(w.stage);
+        WHERE public.coverage_is_character(w.stage) AND NOT (w.status='failed' AND w.attempts>=5);
 
   -- Empty news has an explicit dated outcome, without a queue claim or model call.
   UPDATE coverage_assignments a SET outcome='completed',resolution='no_new_evidence',
@@ -3187,7 +3195,8 @@ BEGIN
  IF EXISTS(SELECT 1 FROM coverage_assignments WHERE edition_date=e.edition_date AND
     stage=ANY(s.required_stages) AND outcome NOT IN ('completed','failed','expired')) OR
  EXISTS(SELECT 1 FROM application_outbox WHERE edition_date=e.edition_date AND source_stage=ANY(s.required_stages) AND attempts<5) THEN RETURN 'characters'; END IF;
- IF EXISTS(SELECT 1 FROM coverage_failures WHERE edition_date=e.edition_date) OR
+ -- A skipped classifier input is recorded; edition health concerns required character work and handoffs.
+ IF EXISTS(SELECT 1 FROM coverage_failures WHERE edition_date=e.edition_date AND kind<>'decision_exhausted') OR
  EXISTS(SELECT 1 FROM coverage_assignments WHERE edition_date=e.edition_date
     AND stage=ANY(s.required_stages) AND outcome<>'completed') THEN
   UPDATE coverage_editions SET status='partial',finished_at=at_time,reason='completed_with_failures'
@@ -5409,6 +5418,23 @@ $$;
 --
 
 COMMENT ON FUNCTION public.reconcile_narrative_persons(p_sport text) IS 'The mig 234 bridge, nightly after promote_narrative_persons (cron-narrative-links.sh): link active graph figures to verified persons on a unique surface match; nominate the rest into the standing Investigator path with their graph evidence carried as candidate_mentions. Acceptance writes the surfaces that make the next night''s link succeed — the loop closes itself.';
+
+
+--
+-- Name: record_exhausted_work(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.record_exhausted_work() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+ IF TG_OP='UPDATE' AND OLD.status='failed' AND OLD.attempts>=5
+    AND OLD.input_version IS NOT DISTINCT FROM NEW.input_version THEN RETURN NULL; END IF;
+ INSERT INTO public.pipeline_work_failures(stage,entity_type,entity_id,sport,input_version,attempts,error,failed_at)
+ VALUES(NEW.stage,NEW.entity_type,NEW.entity_id,NEW.sport,NEW.input_version,NEW.attempts,
+        COALESCE(NEW.last_error,'work attempts exhausted'),NEW.updated_at);
+ RETURN NULL;
+END $$;
 
 
 --
@@ -11038,6 +11064,38 @@ COMMENT ON COLUMN public.pipeline_work.claim_token IS 'Unique active lease ident
 
 
 --
+-- Name: pipeline_work_failures; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pipeline_work_failures (
+    id bigint NOT NULL,
+    stage text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    input_version text,
+    attempts integer NOT NULL,
+    error text NOT NULL,
+    failed_at timestamp with time zone NOT NULL,
+    CONSTRAINT pipeline_work_failures_attempts_check CHECK ((attempts >= 5))
+);
+
+
+--
+-- Name: pipeline_work_failures_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pipeline_work_failures ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.pipeline_work_failures_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: pipeline_work_status; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -12954,7 +13012,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict nGgs76h2T9bQCSRnRNPfOzl5xyrKapSP9q6vyL7xqN9bYZjEgTRJ3WxRlMxavsG
+\unrestrict 408EKOeggKydG8BguPkvNp0YfDlYgAcKrV3PnhWplYjPD7YJyb67eDueV4EYBGD
 
 
 \ir reference-data.sql
@@ -12962,7 +13020,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict OFYKG0FwxJZfc2r7Y8ZKgSVnCN3Vj5MzPqtQrBgtHqqIM95ItDKxTGxWSRyG04e
+\restrict Ui8yIeOkBP96m0qTTLOHbNbMRDIKGlccQaiMBcAlDKWMrf5Faeu6H9RDbuCT9ik
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -13677,6 +13735,14 @@ ALTER TABLE ONLY public.pipeline_stats
 
 ALTER TABLE ONLY public.pipeline_stats
     ADD CONSTRAINT pipeline_stats_sport_snapshot_date_key UNIQUE (sport, snapshot_date);
+
+
+--
+-- Name: pipeline_work_failures pipeline_work_failures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pipeline_work_failures
+    ADD CONSTRAINT pipeline_work_failures_pkey PRIMARY KEY (id);
 
 
 --
@@ -15305,6 +15371,13 @@ CREATE INDEX news_articles_headline_content ON public.news_articles USING btree 
 
 
 --
+-- Name: pipeline_work_failure_subject; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX pipeline_work_failure_subject ON public.pipeline_work_failures USING btree (stage, entity_type, entity_id, sport, failed_at DESC, id DESC);
+
+
+--
 -- Name: player_availability_natural_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -15526,6 +15599,13 @@ CREATE TRIGGER pipeline_work_notify_insert AFTER INSERT ON public.pipeline_work 
 --
 
 CREATE TRIGGER pipeline_work_notify_update AFTER UPDATE ON public.pipeline_work REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.notify_pipeline_work_ready();
+
+
+--
+-- Name: pipeline_work record_exhausted_work; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER record_exhausted_work AFTER INSERT OR UPDATE OF status, attempts, input_version ON public.pipeline_work FOR EACH ROW WHEN (((new.status = 'failed'::text) AND (new.attempts >= 5))) EXECUTE FUNCTION public.record_exhausted_work();
 
 
 --
@@ -16818,4 +16898,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict OFYKG0FwxJZfc2r7Y8ZKgSVnCN3Vj5MzPqtQrBgtHqqIM95ItDKxTGxWSRyG04e
+\unrestrict Ui8yIeOkBP96m0qTTLOHbNbMRDIKGlccQaiMBcAlDKWMrf5Faeu6H9RDbuCT9ik

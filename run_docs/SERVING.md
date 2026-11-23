@@ -90,12 +90,11 @@ worker immediately rather than waiting for a poll.
 | 2 | 10m |
 | 3+ | 30m |
 
-At `MAX_ATTEMPTS = 5` the row is parked at `NOW() + INTERVAL '100 years'` — a **dead letter**,
-invisible unless you query for it:
+On the fifth failed attempt PostgreSQL records the stage, subject, input revision, attempt count, reason and timestamp in `pipeline_work_failures`. The queue parks that revision. A changed input can run with a fresh retry budget, and the failure record survives. New editions skip parked revisions. A classifier failure during the active drain is recorded against that edition and releases its obligation. Missing required character work and exhausted handoffs still mark an edition partial.
 
 ```sql
-SELECT stage, entity_type, entity_id, attempts, last_error
-  FROM pipeline_work WHERE available_at > now() + interval '50 years';
+SELECT stage, sport, entity_type, entity_id, input_version, attempts, error, failed_at
+FROM pipeline_work_failures ORDER BY failed_at DESC;
 ```
 
 **The sharp edge:** an unreachable backend fails in milliseconds, so a dead dependency burns

@@ -31,7 +31,9 @@ with tempfile.TemporaryDirectory(prefix='headline-watchdog-') as directory:
         assert 'OK drain_alive:classifier:' in masked
         run('classifier',0,'OK drain_alive:classifier:',stages=' Classifier ')
         sql("UPDATE pipeline_work SET status='failed',attempts=5 WHERE entity_id=9991041 AND stage='classifier'")
-        run('classifier',1,'ALARM dead_letters')
+        run('classifier',1,'INFO dead_letters: 1 active-stage rows at attempt cap; 0 missing failure records')
+        sql("DELETE FROM pipeline_work_failures WHERE entity_id=9991041 AND stage='classifier'")
+        run('classifier',1,'ALARM dead_letters: 1 active-stage rows at attempt cap; 1 missing failure records')
         run('paused',0,'all checks OK')
         sql("INSERT INTO coverage_editions(edition_date,cutoff_at,drain_deadline,status,finished_at,reason) VALUES('2099-02-01',now(),now()+interval '1 minute','partial',now(),'completed_with_failures')")
         run('paused',1,'ALARM last_character_edition: 2099-02-01 partial')
@@ -39,5 +41,5 @@ with tempfile.TemporaryDirectory(prefix='headline-watchdog-') as directory:
         run('paused',0,'OK last_character_edition: 2099-02-02 complete')
     finally:
         sql("DELETE FROM coverage_editions WHERE edition_date IN ('2099-02-01','2099-02-02')")
-        sql("DELETE FROM pipeline_work WHERE entity_id=9991041; DELETE FROM news_articles WHERE id=9991041; DELETE FROM pipeline_runs WHERE job='watchdog'; DELETE FROM pipeline_stage_progress WHERE stage IN ('classifier','narratives')")
+        sql("DELETE FROM pipeline_work WHERE entity_id=9991041; DELETE FROM news_articles WHERE id=9991041; DELETE FROM pipeline_runs WHERE job='watchdog'; DELETE FROM pipeline_stage_progress WHERE stage IN ('classifier','narratives'); DELETE FROM pipeline_work_failures WHERE entity_id=9991041 AND stage='classifier'")
 print('Paused backlog, isolated stage progress, error receipts and dead letters verified.')

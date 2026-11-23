@@ -343,3 +343,4 @@
 340_checkpointed_vibe_receipts
 341_flag_only_character_publication
 342_vibe_output_review
+343_record_exhausted_work

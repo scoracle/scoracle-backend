@@ -15,7 +15,7 @@ async fn setup() -> Result<PgPool> {
         "requires dedicated classifier_test_coverage database"
     );
     sqlx::raw_sql("UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
-        TRUNCATE coverage_failures,pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations; UPDATE coverage_publication SET edition_date=NULL,revision=revision+1;
+        TRUNCATE coverage_failures,pipeline_work_failures,pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations; UPDATE coverage_publication SET edition_date=NULL,revision=revision+1;
         INSERT INTO sports(id,display_name,current_season) VALUES('ZZ_COVERAGE','Coverage test',2026)
             ON CONFLICT(id) DO UPDATE SET current_season=2026;
         DELETE FROM team_stats WHERE sport='ZZ_COVERAGE';
@@ -30,7 +30,7 @@ async fn finish(pool: &PgPool) -> Result<()> {
         "UPDATE coverage_schedule SET enabled=false,phase='coverage',edition_date=NULL;
         DELETE FROM momentum_summaries WHERE sport='ZZ_COVERAGE';
         DELETE FROM character_daily_publications WHERE sport='ZZ_COVERAGE';
-        TRUNCATE coverage_failures,pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations; UPDATE coverage_publication SET edition_date=NULL,revision=revision+1;",
+        TRUNCATE coverage_failures,pipeline_work_failures,pipeline_work,application_outbox,coverage_assignments,coverage_editions,coverage_drain_obligations; UPDATE coverage_publication SET edition_date=NULL,revision=revision+1;",
     )
     .execute(pool)
     .await?;
@@ -119,8 +119,8 @@ async fn exhausted_decisions_are_reported_and_release_the_drain_without_retry_re
     let (status, published): (String, Option<String>) = sqlx::query_as(
         "SELECT e.status,p.edition_date::text FROM coverage_editions e CROSS JOIN coverage_publication p",
     ).fetch_one(&pool).await?;
-    assert_eq!(status, "partial");
-    assert!(published.is_none());
+    assert_eq!(status, "complete");
+    assert!(published.is_some());
     assert!(
         sqlx::query_scalar::<_, bool>("SELECT coverage_collection_open()")
             .fetch_one(&pool)
@@ -133,6 +133,35 @@ async fn exhausted_decisions_are_reported_and_release_the_drain_without_retry_re
             .await?,
         1
     );
+    // The parked input cannot enter the next drain. A changed input can still run.
+    let next_boundary: String = sqlx::query_scalar(
+        "SELECT (max(edition_date)+1)::text || ' 23:00 America/Detroit' FROM coverage_editions",
+    )
+    .fetch_one(&pool)
+    .await?;
+    let phase: String = sqlx::query_scalar("SELECT coverage_tick($1::text::timestamptz)")
+        .bind(&next_boundary)
+        .fetch_one(&pool)
+        .await?;
+    assert_eq!(phase, "draining");
+    let obligations: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM coverage_drain_obligations JOIN coverage_schedule USING(edition_date)",
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(obligations, 0);
+    let after_midnight: String = sqlx::query_scalar(
+        "SELECT cutoff_at::text FROM coverage_editions JOIN coverage_schedule USING(edition_date)",
+    )
+    .fetch_one(&pool)
+    .await?;
+    for expected in ["characters", "coverage"] {
+        let phase: String = sqlx::query_scalar("SELECT coverage_tick($1::text::timestamptz)")
+            .bind(&after_midnight)
+            .fetch_one(&pool)
+            .await?;
+        assert_eq!(phase, expected);
+    }
     work::enqueue(&pool, &item("classifier", 202, "revision-2")).await?;
     let revised = claim(&pool, "classifier").await?.remove(0);
     assert_eq!(revised.attempts, 0);
@@ -141,6 +170,19 @@ async fn exhausted_decisions_are_reported_and_release_the_drain_without_retry_re
             .fetch_one(&pool)
             .await?,
         "revision-1"
+    );
+    let archived: Vec<(String, i32, String)> = sqlx::query_as(
+        "SELECT input_version,attempts,error FROM pipeline_work_failures WHERE stage='classifier' AND entity_id=202",
+    )
+    .fetch_all(&pool)
+    .await?;
+    assert_eq!(
+        archived,
+        [(
+            "revision-1".into(),
+            5,
+            "decision provider unavailable".into()
+        )]
     );
     restarted.close().await;
     finish(&pool).await?;

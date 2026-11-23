@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 9EIPNQdCRTQ1uifImAezKFvIhbNP33SjzvWc5b5V6dknyMbdifhEkE2HhPkBgmz
+\restrict y9PHYkig3N9lJKyhOU1QFXcPhSszCr8A9UrNKJC7S1mz0e0WJSeqeGmdQhdn067
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -2772,6 +2772,87 @@ CREATE FUNCTION public.coverage_publishable(task text, subject_type text, subjec
 $$;
 
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: coverage_assignments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.coverage_assignments (
+    edition_date date NOT NULL,
+    stage text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id bigint NOT NULL,
+    sport text NOT NULL,
+    input_version text,
+    spectrum_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    deferred_versions text[] DEFAULT '{}'::text[] NOT NULL,
+    outcome text DEFAULT 'pending'::text NOT NULL,
+    finished_at timestamp with time zone,
+    detail text,
+    prepared_input jsonb,
+    resolution text,
+    carried_spectrum_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    CONSTRAINT coverage_assignments_outcome_check CHECK ((outcome = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'expired'::text]))),
+    CONSTRAINT coverage_assignments_resolution_check CHECK ((resolution = ANY (ARRAY['candidate'::text, 'no_new_evidence'::text, 'unchanged'::text, 'abstained'::text, 'blocked'::text]))),
+    CONSTRAINT coverage_assignments_stage_check CHECK ((stage = ANY (ARRAY['narratives'::text, 'vibe'::text, 'rating'::text, 'transfers'::text, 'momentum'::text, 'sigil'::text])))
+);
+
+
+--
+-- Name: coverage_reconcile_sources(public.coverage_assignments, boolean); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_reconcile_sources(a public.coverage_assignments, saved_card boolean) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE voice text; packet jsonb; spill bigint[];
+BEGIN
+ voice := CASE a.stage WHEN 'narratives' THEN 'journalist' WHEN 'vibe' THEN 'influencer'
+                      WHEN 'rating' THEN 'scout' WHEN 'transfers' THEN 'insider' END;
+ IF voice IS NULL OR cardinality(a.spectrum_ids)=0 THEN RETURN; END IF;
+ packet := coalesce(a.prepared_input#>'{Ready,parts,availability}',a.prepared_input#>'{NoStats,availability}');
+ -- Only terminalize sources for an independently verifiable reason. In particular,
+ -- a live, readable source that the worker forgot to acknowledge must still fail.
+ WITH pending AS MATERIALIZED (
+  SELECT d.id AS delivery_id,x.criteria_version,s.id AS source_id,s.article_id,s.sport,s.source,s.discovery_version FROM unnest(a.spectrum_ids) sid
+  JOIN classifier_spectrum_deliveries d ON d.spectrum_id=sid AND d.character=voice AND d.status='pending'
+  JOIN classifier_spectra x ON x.id=sid JOIN classifier_sources s ON s.id=x.source_id
+ ), reasons AS (
+  SELECT p.delivery_id, CASE
+   WHEN p.criteria_version NOT IN ('classification-criteria-v17-shared-relations','classification-criteria-v12-newsworthy',
+       'classification-criteria-v11-targeted','classification-criteria-v10-availability','classification-criteria-v9-headlines')
+    THEN 'unsupported_character_criteria'
+   WHEN p.discovery_version IS NULL THEN 'unknown_source_revision'
+   WHEN p.discovery_version IS DISTINCT FROM classifier_discovery_version(p.article_id,p.sport)
+      OR NOT EXISTS(SELECT 1 FROM classifier_source_heads h WHERE h.article_id=p.article_id AND h.sport=p.sport AND h.source_id=p.source_id)
+    THEN 'obsolete_source_revision'
+   WHEN NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p.source->'identity_candidates') i
+         WHERE i->>'entity_type'=a.entity_type AND i->>'entity_id'=a.entity_id::text)
+    THEN 'unresolved_target_identity' END AS reason FROM pending p
+ )
+ UPDATE classifier_spectrum_deliveries d SET status=CASE WHEN r.reason='obsolete_source_revision' THEN 'redundant' ELSE 'held' END,
+ reason=r.reason,product_ref=jsonb_build_object('edition',a.edition_date,'model_called',false),updated_at=clock_timestamp()
+ FROM reasons r WHERE d.id=r.delivery_id AND r.reason IS NOT NULL AND d.status='pending';
+
+ SELECT array_agg(sid ORDER BY sid) INTO spill FROM unnest(a.spectrum_ids) sid
+ JOIN classifier_spectrum_deliveries d ON d.spectrum_id=sid AND d.character=voice AND d.status='pending'
+ WHERE saved_card OR (a.stage='rating' AND jsonb_typeof(packet->'sources')='array'
+  AND jsonb_typeof(packet->'held')='array' AND jsonb_typeof(packet->'redundant')='array'
+  AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements((packet->'sources')||(packet->'held')||(packet->'redundant')) s
+                 WHERE s->>'classification_id'=sid::text));
+ IF spill IS NOT NULL THEN
+  UPDATE coverage_assignments SET spectrum_ids=ARRAY(SELECT id FROM unnest(spectrum_ids) id WHERE NOT id=ANY(spill)),
+   carried_spectrum_ids=carried_spectrum_ids||spill,
+   deferred_versions=CASE WHEN cardinality(deferred_versions)>0 THEN deferred_versions
+    ELSE ARRAY['carry:'||a.edition_date::text||':'||a.stage] END
+  WHERE (edition_date,stage,entity_type,entity_id,sport)=(a.edition_date,a.stage,a.entity_type,a.entity_id,a.sport);
+ END IF;
+END $$;
+
+
 --
 -- Name: coverage_resolve_claim(text, text, bigint, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -2797,6 +2878,12 @@ BEGIN
  EXECUTE format('SELECT count(*)>0,COALESCE(bool_or(length(btrim(%I))>0),false) FROM public.%I
  WHERE candidate_edition=$1 AND entity_type=$2 AND entity_id=$3 AND sport=$4',body_column,product_table)
  INTO has_record,has_product USING a.edition_date,subject_type,subject_id,league;
+ IF EXISTS(SELECT 1 FROM classifier_spectrum_deliveries d WHERE d.spectrum_id=ANY(a.spectrum_ids)
+    AND d.status='pending' AND d.character=CASE task WHEN 'narratives' THEN 'journalist' WHEN 'rating' THEN 'scout'
+    WHEN 'vibe' THEN 'influencer' WHEN 'transfers' THEN 'insider' END) THEN
+  PERFORM coverage_reconcile_sources(a,false);
+  SELECT * INTO STRICT a FROM coverage_assignments WHERE (edition_date,stage,entity_type,entity_id,sport)=(a.edition_date,task,subject_type,subject_id,league);
+ END IF;
  SELECT COALESCE(bool_or(d.status='held'),false),COALESCE(bool_or(d.status='pending'),false)
  INTO held,pending FROM classifier_spectrum_deliveries d WHERE d.spectrum_id=ANY(a.spectrum_ids)
  AND d.character=CASE task WHEN 'narratives' THEN 'journalist' WHEN 'rating' THEN 'scout'
@@ -2838,6 +2925,30 @@ BEGIN
  ELSE 'validated source dispositions; no expression' END,finished_at=clock_timestamp()
  WHERE edition_date=a.edition_date AND stage=task AND entity_type=subject_type AND entity_id=subject_id AND sport=league;
 END $_$;
+
+
+--
+-- Name: coverage_resume_daily_card(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_resume_daily_card() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE a coverage_assignments;
+BEGIN
+ SELECT a0.* INTO a FROM coverage_assignments a0 JOIN coverage_schedule c USING(edition_date)
+ WHERE c.enabled AND c.phase='characters' AND a0.outcome='pending'
+ AND (a0.stage,a0.entity_type,a0.entity_id,a0.sport)=(NEW.stage,NEW.entity_type,NEW.entity_id,NEW.sport)
+ AND a0.input_version IS NOT DISTINCT FROM NEW.running_input_version FOR UPDATE OF a0;
+ IF NOT FOUND OR cardinality(a.spectrum_ids)=0 THEN RETURN NULL; END IF;
+ IF (a.stage='narratives' AND EXISTS(SELECT 1 FROM news_summaries n WHERE n.candidate_edition=a.edition_date
+     AND (n.entity_type,n.entity_id,n.sport)=(a.entity_type,a.entity_id,a.sport)))
+ OR (a.stage='vibe' AND EXISTS(SELECT 1 FROM vibe_scores v WHERE v.candidate_edition=a.edition_date
+     AND (v.entity_type,v.entity_id,v.sport)=(a.entity_type,a.entity_id,a.sport))) THEN
+  PERFORM coverage_reconcile_sources(a,true);
+ END IF;
+ RETURN NULL;
+END $$;
 
 
 --
@@ -6539,10 +6650,6 @@ END;
 $$;
 
 
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
-
 --
 -- Name: storyline_entities; Type: TABLE; Schema: public; Owner: -
 --
@@ -8410,30 +8517,6 @@ CREATE SEQUENCE public.cognition_ledger_id_seq
 --
 
 ALTER SEQUENCE public.cognition_ledger_id_seq OWNED BY public.cognition_ledger.id;
-
-
---
--- Name: coverage_assignments; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.coverage_assignments (
-    edition_date date NOT NULL,
-    stage text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id bigint NOT NULL,
-    sport text NOT NULL,
-    input_version text,
-    spectrum_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    deferred_versions text[] DEFAULT '{}'::text[] NOT NULL,
-    outcome text DEFAULT 'pending'::text NOT NULL,
-    finished_at timestamp with time zone,
-    detail text,
-    prepared_input jsonb,
-    resolution text,
-    CONSTRAINT coverage_assignments_outcome_check CHECK ((outcome = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'expired'::text]))),
-    CONSTRAINT coverage_assignments_resolution_check CHECK ((resolution = ANY (ARRAY['candidate'::text, 'no_new_evidence'::text, 'unchanged'::text, 'abstained'::text, 'blocked'::text]))),
-    CONSTRAINT coverage_assignments_stage_check CHECK ((stage = ANY (ARRAY['narratives'::text, 'vibe'::text, 'rating'::text, 'transfers'::text, 'momentum'::text, 'sigil'::text])))
-);
 
 
 --
@@ -13054,7 +13137,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 9EIPNQdCRTQ1uifImAezKFvIhbNP33SjzvWc5b5V6dknyMbdifhEkE2HhPkBgmz
+\unrestrict y9PHYkig3N9lJKyhOU1QFXcPhSszCr8A9UrNKJC7S1mz0e0WJSeqeGmdQhdn067
 
 
 \ir reference-data.sql
@@ -13062,7 +13145,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict er7thvI3DTVWAQZD3g7UdDdwUmeoKTdpvS71k6QdNaFGFa0CYdlKRzD5w52cDUU
+\restrict q5S97oX42qOIHAPSwJG0kHw5Li6pvnAog7hsbd4qwsGoz1F91w35jeTK3xbsq2v
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -15607,6 +15690,13 @@ CREATE TRIGGER pipeline_work_notify_update AFTER UPDATE ON public.pipeline_work 
 
 
 --
+-- Name: pipeline_work resume_frozen_daily_card; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER resume_frozen_daily_card AFTER UPDATE OF status ON public.pipeline_work FOR EACH ROW WHEN (((new.status = 'running'::text) AND (old.status <> 'running'::text) AND (new.claim_token IS NOT NULL) AND (new.stage = ANY (ARRAY['narratives'::text, 'vibe'::text])))) EXECUTE FUNCTION public.coverage_resume_daily_card();
+
+
+--
 -- Name: insider_scores stamp_candidate; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -16889,4 +16979,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict er7thvI3DTVWAQZD3g7UdDdwUmeoKTdpvS71k6QdNaFGFa0CYdlKRzD5w52cDUU
+\unrestrict q5S97oX42qOIHAPSwJG0kHw5Li6pvnAog7hsbd4qwsGoz1F91w35jeTK3xbsq2v

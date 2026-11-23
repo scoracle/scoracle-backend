@@ -339,3 +339,4 @@
 335_analyst_card_momentum
 336_oracle_finished_cards
 337_source_scoped_publication
+339_frozen_source_retries

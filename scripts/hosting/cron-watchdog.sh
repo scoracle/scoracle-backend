@@ -45,6 +45,11 @@ UNION ALL SELECT 'coverage_cycle',CASE WHEN NOT enabled THEN 'INFO'
     WHEN last_tick_at>now()-interval '2 minutes' THEN 'OK' ELSE 'ALARM' END,
     CASE WHEN enabled THEN phase||'; last tick '||coalesce(last_tick_at::text,'never') ELSE 'disabled' END
     FROM coverage_schedule
+UNION ALL SELECT 'last_character_edition', CASE WHEN e.status='partial' THEN 'ALARM' ELSE 'OK' END,
+    concat(e.edition_date,' ',e.status,' ',e.reason,'; blocked assignments ',
+        (SELECT count(*) FROM coverage_assignments a WHERE a.edition_date=e.edition_date AND a.outcome IN ('failed','expired')))
+    FROM (SELECT edition_date,status,reason FROM coverage_editions WHERE finished_at IS NOT NULL
+          ORDER BY finished_at DESC,edition_date DESC LIMIT 1) e
 UNION ALL SELECT 'worker_mode','INFO',:'mode'
 UNION ALL SELECT 'queue_depth','INFO',ready||' claimable; retained backlog is expected' FROM queue
 UNION ALL SELECT 'held_deliveries','INFO',count(*)||' held; no automatic policy promotion'

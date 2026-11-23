@@ -33,6 +33,11 @@ with tempfile.TemporaryDirectory(prefix='headline-watchdog-') as directory:
         sql("UPDATE pipeline_work SET status='failed',attempts=5 WHERE entity_id=9991041 AND stage='classifier'")
         run('classifier',1,'ALARM dead_letters')
         run('paused',0,'all checks OK')
+        sql("INSERT INTO coverage_editions(edition_date,cutoff_at,drain_deadline,status,finished_at,reason) VALUES('2099-02-01',now(),now()+interval '1 minute','partial',now(),'completed_with_failures')")
+        run('paused',1,'ALARM last_character_edition: 2099-02-01 partial')
+        sql("INSERT INTO coverage_editions(edition_date,cutoff_at,drain_deadline,status,finished_at) VALUES('2099-02-02',now()+interval '1 day',now()+interval '2 days','complete',now())")
+        run('paused',0,'OK last_character_edition: 2099-02-02 complete')
     finally:
+        sql("DELETE FROM coverage_editions WHERE edition_date IN ('2099-02-01','2099-02-02')")
         sql("DELETE FROM pipeline_work WHERE entity_id=9991041; DELETE FROM news_articles WHERE id=9991041; DELETE FROM pipeline_runs WHERE job='watchdog'; DELETE FROM pipeline_stage_progress WHERE stage IN ('classifier','narratives')")
 print('Paused backlog, isolated stage progress, error receipts and dead letters verified.')

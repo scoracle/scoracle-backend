@@ -135,4 +135,41 @@ BEGIN
  PERFORM coverage_resolve_claim('narratives','team',925001,'ZZ_SELECTION',lease);
  IF EXISTS(SELECT 1 FROM qualified_news_summaries WHERE id=card) THEN RAISE EXCEPTION 'card citing held source was qualified'; END IF;
 END $$;
+-- A second lease resumes an existing daily card, without consuming unread reports.
+INSERT INTO harvester_query_provenance(article_id,entity_type,entity_id,sport)
+SELECT article_id,'team',925001,'ZZ_SELECTION' FROM policy_sources WHERE i IN (8,9);
+UPDATE classifier_sources s SET discovery_version=classifier_discovery_version(s.article_id,s.sport)
+WHERE s.sport='ZZ_SELECTION' AND s.article_id IN (925108,925109);
+INSERT INTO classifier_source_heads(article_id,sport,source_id)
+SELECT article_id,sport,id FROM classifier_sources WHERE sport='ZZ_SELECTION' AND article_id IN (925108,925109)
+ON CONFLICT(article_id,sport) DO UPDATE SET source_id=EXCLUDED.source_id;
+DO $$
+DECLARE sid bigint; stale bigint; lease text; stage_name text; voice text; a coverage_assignments;
+BEGIN
+ SELECT id INTO STRICT sid FROM classifier_spectra WHERE article_id=925108;
+ SELECT id INTO STRICT stale FROM classifier_spectra WHERE article_id=925109;
+ UPDATE classifier_sources SET discovery_version='older' WHERE article_id=925109;
+ FOREACH stage_name IN ARRAY ARRAY['narratives','vibe','rating'] LOOP
+  voice:=CASE stage_name WHEN 'narratives' THEN 'journalist' WHEN 'vibe' THEN 'influencer' ELSE 'scout' END;
+  UPDATE coverage_assignments SET outcome='pending',resolution=NULL,spectrum_ids=ARRAY[sid,stale],
+    prepared_input=CASE WHEN stage_name='rating' THEN '{"NoStats":{"availability":{"sources":[],"held":[],"redundant":[]}}}'::jsonb END
+   WHERE edition_date='2098-01-02' AND stage=stage_name;
+  UPDATE classifier_spectrum_deliveries SET status='pending',reason=NULL,product_ref='{}' WHERE character=voice AND spectrum_id IN (sid,stale);
+  UPDATE pipeline_work SET status='pending',input_version=NULL WHERE sport='ZZ_SELECTION' AND stage=stage_name;
+  UPDATE pipeline_work SET status='running' WHERE sport='ZZ_SELECTION' AND stage=stage_name RETURNING claim_token::text INTO STRICT lease;
+  PERFORM set_config('scoracle.claim_token',lease,true);
+  IF stage_name='vibe' THEN
+   INSERT INTO vibe_scores(entity_type,entity_id,sport,trigger_type,model_version,prompt_version,sentiment,prompt) VALUES('team',925001,'ZZ_SELECTION','manual','fixture','fixture',56,'First daily card');
+   UPDATE pipeline_work SET status='pending' WHERE sport='ZZ_SELECTION' AND stage=stage_name;
+   UPDATE pipeline_work SET status='running' WHERE sport='ZZ_SELECTION' AND stage=stage_name RETURNING claim_token::text INTO STRICT lease;
+   PERFORM set_config('scoracle.claim_token',lease,true);
+  END IF;
+  PERFORM coverage_resolve_claim(stage_name,'team',925001,'ZZ_SELECTION',lease);
+  SELECT * INTO STRICT a FROM coverage_assignments WHERE edition_date='2098-01-02' AND stage=stage_name;
+  IF a.outcome<>'completed' OR a.carried_spectrum_ids<>ARRAY[sid] OR sid=ANY(a.spectrum_ids) OR cardinality(a.deferred_versions)<1
+   OR NOT EXISTS(SELECT 1 FROM classifier_spectrum_deliveries WHERE character=voice AND spectrum_id=sid AND status='pending')
+   OR NOT EXISTS(SELECT 1 FROM classifier_spectrum_deliveries WHERE character=voice AND spectrum_id=stale AND reason='obsolete_source_revision')
+   THEN RAISE EXCEPTION 'checkpoint/receipt mismatch for %: %',stage_name,to_jsonb(a); END IF;
+ END LOOP;
+END $$;
 ROLLBACK;

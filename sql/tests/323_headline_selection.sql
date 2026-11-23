@@ -172,4 +172,35 @@ BEGIN
    THEN RAISE EXCEPTION 'checkpoint/receipt mismatch for %: %',stage_name,to_jsonb(a); END IF;
  END LOOP;
 END $$;
+-- A published attempt identifies the exact second-read source missing from its first checkpoint.
+DO $$
+DECLARE sid bigint; stale bigint; card bigint; lease text; a coverage_assignments;
+BEGIN
+ SELECT id INTO STRICT sid FROM classifier_spectra WHERE article_id=925108;
+ SELECT id INTO STRICT stale FROM classifier_spectra WHERE article_id=925109;
+ UPDATE vibe_scores SET input_news_ids=ARRAY[925108],input_hash='recovery-fixture' WHERE sport='ZZ_SELECTION' RETURNING id INTO STRICT card;
+ INSERT INTO vibe_card_attempts(entity_type,entity_id,sport,input_hash,model_version,receipt,outcome,product_id)
+ SELECT 'team',925001,'ZZ_SELECTION','recovery-fixture','fixture',jsonb_build_object('input_components',jsonb_build_object(
+  'sources',jsonb_build_array(jsonb_build_object('article_id',x.article_id,'classification_id',x.id,
+  'context',x.clean_text,'classifier_world',jsonb_build_object('target_identity_resolved',true))))),'published',card
+ FROM classifier_spectra x WHERE x.id=sid;
+ UPDATE classifier_spectrum_deliveries SET status='held',reason='test unrelated hold' WHERE spectrum_id=stale AND character='influencer';
+ UPDATE coverage_assignments SET outcome='pending',resolution=NULL WHERE edition_date='2098-01-02' AND stage='vibe';
+ UPDATE pipeline_work SET status='pending' WHERE stage='vibe' AND sport='ZZ_SELECTION';
+ UPDATE pipeline_work SET status='running' WHERE stage='vibe' AND sport='ZZ_SELECTION' RETURNING claim_token::text INTO STRICT lease;
+ PERFORM set_config('scoracle.claim_token',lease,true);
+ PERFORM coverage_resolve_claim('vibe','team',925001,'ZZ_SELECTION',lease);
+ SELECT * INTO STRICT a FROM coverage_assignments WHERE edition_date='2098-01-02' AND stage='vibe';
+ IF a.resolution<>'candidate' OR NOT sid=ANY(a.spectrum_ids) OR sid=ANY(a.carried_spectrum_ids)
+  OR NOT EXISTS(SELECT 1 FROM classifier_spectrum_deliveries WHERE spectrum_id=sid AND character='influencer'
+   AND status='used' AND product_ref->'vibe_score_id'=to_jsonb(card))
+  OR NOT EXISTS(SELECT 1 FROM classifier_spectrum_deliveries WHERE spectrum_id=stale AND character='influencer' AND status='held')
+ THEN RAISE EXCEPTION 'Exact Vibe checkpoint was not restored'; END IF;
+ UPDATE vibe_scores SET input_news_ids=ARRAY[925108,925109] WHERE id=card;
+ PERFORM coverage_resolve_claim('vibe','team',925001,'ZZ_SELECTION',lease);
+ IF EXISTS(SELECT 1 FROM qualified_vibe_scores WHERE id=card) THEN RAISE EXCEPTION 'Held citation qualified'; END IF;
+ UPDATE vibe_scores SET input_news_ids=ARRAY[925108,925110] WHERE id=card;
+ PERFORM coverage_resolve_claim('vibe','team',925001,'ZZ_SELECTION',lease);
+ IF EXISTS(SELECT 1 FROM qualified_vibe_scores WHERE id=card) THEN RAISE EXCEPTION 'Unproven citation qualified'; END IF;
+END $$;
 ROLLBACK;

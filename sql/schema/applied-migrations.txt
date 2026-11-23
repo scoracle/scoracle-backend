@@ -340,3 +340,4 @@
 336_oracle_finished_cards
 337_source_scoped_publication
 339_frozen_source_retries
+340_checkpointed_vibe_receipts

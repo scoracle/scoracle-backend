@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict y9PHYkig3N9lJKyhOU1QFXcPhSszCr8A9UrNKJC7S1mz0e0WJSeqeGmdQhdn067
+\restrict wIloXBjmaqkpikI4PkfLmkl0znxitJ3IoY0fCKQiHDphL3Cnp1Mu3JO64aj9UoO
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -2903,6 +2903,20 @@ BEGIN
      OR EXISTS (SELECT 1 FROM classifier_spectra x JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id
       WHERE x.id=ANY(a.spectrum_ids) AND x.article_id=article_id.article_id AND d.character='journalist' AND d.status='held')))
   ) INTO held;
+ ELSIF held AND has_product AND task='vibe' THEN
+  -- An unrelated hold cannot invalidate a card whose entire packet has used
+  -- receipts for this exact card. A held citation or missing proof still blocks it.
+  SELECT EXISTS (
+   SELECT 1 FROM vibe_scores v WHERE v.candidate_edition=a.edition_date
+   AND (v.entity_type,v.entity_id,v.sport)=(subject_type,subject_id,league)
+   AND (coalesce(cardinality(v.input_news_ids),0)=0 OR EXISTS (
+    SELECT 1 FROM unnest(v.input_news_ids) aid
+    WHERE NOT EXISTS (SELECT 1 FROM classifier_spectra x JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id
+     WHERE x.id=ANY(a.spectrum_ids) AND x.article_id=aid AND d.character='influencer' AND d.status='used'
+      AND d.product_ref->'vibe_score_id'=to_jsonb(v.id))
+    OR EXISTS (SELECT 1 FROM classifier_spectra x JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id
+     WHERE x.id=ANY(a.spectrum_ids) AND x.article_id=aid AND d.character='influencer' AND d.status='held')))
+  ) INTO held;
  ELSIF held AND has_product AND task='transfers' THEN
   SELECT EXISTS (
    SELECT 1 FROM insider_scores i
@@ -2928,6 +2942,40 @@ END $_$;
 
 
 --
+-- Name: coverage_restore_vibe_receipts(public.coverage_assignments); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.coverage_restore_vibe_receipts(a public.coverage_assignments) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE restored bigint[];
+BEGIN
+ WITH witnessed AS (
+  SELECT d.id,v.id AS card,p.id AS attempt,p.input_hash
+  FROM vibe_scores v JOIN vibe_card_attempts p ON p.product_id=v.id AND p.outcome='published'
+   AND p.input_hash=v.input_hash AND (p.entity_type,p.entity_id,p.sport)=(v.entity_type,v.entity_id,v.sport)
+  CROSS JOIN LATERAL jsonb_array_elements(p.receipt#>'{input_components,sources}') evidence
+  JOIN classifier_spectra x ON x.id=(evidence->>'classification_id')::bigint AND x.article_id=(evidence->>'article_id')::bigint
+  JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id AND d.character='influencer' AND d.status='pending'
+  WHERE v.candidate_edition=a.edition_date AND (v.entity_type,v.entity_id,v.sport)=(a.entity_type,a.entity_id,a.sport)
+   AND x.id=ANY(a.spectrum_ids||a.carried_spectrum_ids) AND x.article_id=ANY(v.input_news_ids)
+   AND (x.target->>'entity_type',x.target->>'entity_id',x.sport)=(a.entity_type,a.entity_id::text,a.sport)
+   AND evidence#>'{classifier_world,target_identity_resolved}'='true'::jsonb AND evidence->>'context'=x.clean_text
+ ), settled AS (
+  UPDATE classifier_spectrum_deliveries d SET status='used',reason=NULL,updated_at=clock_timestamp(),
+   product_ref=jsonb_build_object('vibe_score_id',w.card,'attempt_id',w.attempt,'input_hash',w.input_hash,'recovered_from_checkpoint',true)
+  FROM witnessed w WHERE d.id=w.id AND d.status='pending' RETURNING d.spectrum_id
+ )
+ SELECT array_agg(spectrum_id ORDER BY spectrum_id) FILTER(WHERE spectrum_id=ANY(a.carried_spectrum_ids)) INTO restored FROM settled;
+ IF restored IS NOT NULL THEN
+  UPDATE coverage_assignments SET spectrum_ids=spectrum_ids||restored,
+   carried_spectrum_ids=ARRAY(SELECT id FROM unnest(carried_spectrum_ids) id WHERE NOT id=ANY(restored))
+  WHERE (edition_date,stage,entity_type,entity_id,sport)=(a.edition_date,a.stage,a.entity_type,a.entity_id,a.sport);
+ END IF;
+END $$;
+
+
+--
 -- Name: coverage_resume_daily_card(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2940,11 +2988,12 @@ BEGIN
  WHERE c.enabled AND c.phase='characters' AND a0.outcome='pending'
  AND (a0.stage,a0.entity_type,a0.entity_id,a0.sport)=(NEW.stage,NEW.entity_type,NEW.entity_id,NEW.sport)
  AND a0.input_version IS NOT DISTINCT FROM NEW.running_input_version FOR UPDATE OF a0;
- IF NOT FOUND OR cardinality(a.spectrum_ids)=0 THEN RETURN NULL; END IF;
+ IF NOT FOUND OR cardinality(a.spectrum_ids||a.carried_spectrum_ids)=0 THEN RETURN NULL; END IF;
  IF (a.stage='narratives' AND EXISTS(SELECT 1 FROM news_summaries n WHERE n.candidate_edition=a.edition_date
      AND (n.entity_type,n.entity_id,n.sport)=(a.entity_type,a.entity_id,a.sport)))
  OR (a.stage='vibe' AND EXISTS(SELECT 1 FROM vibe_scores v WHERE v.candidate_edition=a.edition_date
      AND (v.entity_type,v.entity_id,v.sport)=(a.entity_type,a.entity_id,a.sport))) THEN
+  IF a.stage='vibe' THEN PERFORM coverage_restore_vibe_receipts(a); END IF;
   PERFORM coverage_reconcile_sources(a,true);
  END IF;
  RETURN NULL;
@@ -13137,7 +13186,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict y9PHYkig3N9lJKyhOU1QFXcPhSszCr8A9UrNKJC7S1mz0e0WJSeqeGmdQhdn067
+\unrestrict wIloXBjmaqkpikI4PkfLmkl0znxitJ3IoY0fCKQiHDphL3Cnp1Mu3JO64aj9UoO
 
 
 \ir reference-data.sql
@@ -13145,7 +13194,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict q5S97oX42qOIHAPSwJG0kHw5Li6pvnAog7hsbd4qwsGoz1F91w35jeTK3xbsq2v
+\restrict wOTBkOQvxi4eW1BO4nLO1XTftuzAy7EsuNMKYRPIRBlWF6XdjOhsAVd2aQdms45
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -16979,4 +17028,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict q5S97oX42qOIHAPSwJG0kHw5Li6pvnAog7hsbd4qwsGoz1F91w35jeTK3xbsq2v
+\unrestrict wOTBkOQvxi4eW1BO4nLO1XTftuzAy7EsuNMKYRPIRBlWF6XdjOhsAVd2aQdms45

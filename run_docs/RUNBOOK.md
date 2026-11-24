@@ -243,6 +243,22 @@ the queue retries) · `1` systemic (enumeration/stage failure, or dead-lettered 
 
 ---
 
+### Live watchdog report
+
+From the Hermes host, run this command whenever you need a fresh snapshot.
+
+```sh
+ssh archbox '~/scoracle/scoracle-backend/scripts/hosting/cron-watchdog.sh --report'
+```
+
+Each successful read returns one JSON object. `as_of` is the database snapshot time. `checks` includes current alarms and the latest finished character edition. Hermes can read the report even when a check is in alarm. A command failure means the report could not be read.
+
+- `classifier.queue_now` counts ready, waiting, running and parked jobs. Waiting includes work held by the edition schedule or retry delay. `recent_queue_errors` identifies up to ten outstanding jobs by article, sport and reason.
+- `classifier.activity_24h` counts distinct article/sport pairs classified, per-target admissions and declines, and deliveries created for characters. Model measurement errors count attempts. Exhausted jobs reached the five-attempt limit. The report includes the ten most frequent measurement errors and ten most recent exhausted jobs.
+- `characters_24h` gives published cards, cards tracked by generation, cards linked to a parser flag, and counts by parser reason for each character. Reasons are counted when recorded. A card can have several reasons. `recent_parser_flags` lists the ten latest flags in the window with the affected subject and published card IDs.
+
+The activity window rolls with every read. Repeated reads do not acknowledge flags or create watchdog runs.
+
 ## 7. The pipeline: ingest → queue → derive → reveal
 
 Go collects team RSS headlines and records source/query provenance plus Classifier work atomically. Classifier evaluates known subjects and records scores and delivery obligations. It does not fetch full articles or create unknown entities.

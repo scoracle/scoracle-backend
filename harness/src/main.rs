@@ -13,8 +13,8 @@ use scoracle_cognition::harness::db;
 use scoracle_cognition::harness::models::Models;
 use scoracle_cognition::harness::providers::openai;
 use scoracle_cognition::harness::queue::worker;
-use scoracle_cognition::harness::registration;
 use scoracle_cognition::harness::route::Router;
+use scoracle_cognition::harness::{registration, rejections};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -27,9 +27,14 @@ async fn main() -> Result<()> {
         .init();
 
     let mut cfg = config::Config::from_env()?;
-    scoracle_cognition::harness::rejections::verify()?;
     let configured_stages = std::env::var("COGNITION_STAGES").ok();
     let enabled = registration::enabled_from_config(configured_stages.as_deref())?;
+    if let Err(error) = rejections::verify() {
+        if !enabled.iter().all(|stage| rejections::is_character(stage)) {
+            return Err(error);
+        }
+        warn!(%error, "secondary generation archive unavailable");
+    }
     // Production shares one Qwen backend; role overrides and candidates remain offline eval tools.
     cfg.route = config::RouteConfig::production(&cfg.model_base_url);
     cfg.model_name = config::DEFAULT_MODEL.into();
@@ -55,6 +60,9 @@ async fn main() -> Result<()> {
 
     let pool = db::build_worker_pool(&cfg.database_url, cfg.db_max_conns).await?;
     info!("connected to postgres");
+    if enabled.iter().any(|stage| rejections::is_character(stage)) {
+        rejections::start_flag_delivery(pool.clone());
+    }
 
     // Boot reachability check against EVERY host the route table names, not just the default
     // base. Under the topology split a role can live on another machine, and the most likely

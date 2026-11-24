@@ -518,9 +518,13 @@ async fn daily_output_requires_the_lease_and_cannot_publish_from_two_transaction
     tick(&pool, 0.0).await?;
     tick(&pool, 0.0).await?;
     let insert="INSERT INTO momentum_summaries(entity_type,entity_id,sport,season,blurb,model_version,prompt_version)
-        VALUES('team',101,'ZZ_COVERAGE',2026,'Fresh peer readings.','fixture','daily-fresh')";
+        VALUES('team',101,'ZZ_COVERAGE',2026,$1,'fixture','daily-fresh')";
     assert!(
-        sqlx::query(insert).execute(&pool).await.is_err(),
+        sqlx::query(insert)
+            .bind("unleased")
+            .execute(&pool)
+            .await
+            .is_err(),
         "direct writer has no queue lease"
     );
     for stage in ["narratives", "vibe", "rating", "transfers"] {
@@ -533,14 +537,29 @@ async fn daily_output_requires_the_lease_and_cannot_publish_from_two_transaction
         }
     }
     let current = claim(&pool, "momentum").await?.remove(0);
+    let token = current.claim_token.as_deref().unwrap();
+    let archive = std::env::temp_dir().join(format!("watchdog-{token}.jsonl"));
+    let blurb = crate::harness::rejections::TEST_PATH
+        .scope(
+            archive.clone(),
+            crate::harness::rejections::with_claim(
+                &pool,
+                &current,
+                crate::harness::session::surface_tests::truncated_analyst_blurb(),
+            ),
+        )
+        .await?;
+    assert_eq!(blurb, "First half");
     let mut first = ClaimPublication::begin(&pool, &current).await?.unwrap();
     sqlx::query(insert)
+        .bind(&blurb)
         .execute(&mut **first.transaction())
         .await?;
     first.commit_progress().await?;
     let mut duplicate = ClaimPublication::begin(&pool, &current).await?.unwrap();
     assert!(
         sqlx::query(insert)
+            .bind(&blurb)
             .execute(&mut **duplicate.transaction())
             .await
             .is_err(),
@@ -563,6 +582,61 @@ async fn daily_output_requires_the_lease_and_cannot_publish_from_two_transaction
     .fetch_one(&pool)
     .await?;
     assert_eq!(visible, 1, "the saved card is visible before edition close");
+    // Publication is already visible while both diagnostics are still on disk.
+    crate::harness::rejections::deliver_flags(&pool, &archive).await?;
+    crate::harness::rejections::deliver_flags(&pool, &archive).await?;
+    let mut report_tx = pool.begin().await?;
+    let watchdog = "INSERT INTO pipeline_runs(job,status,finished_at) VALUES ('watchdog','success',clock_timestamp()) RETURNING id";
+    let run: i64 = sqlx::query_scalar(watchdog)
+        .fetch_one(&mut *report_tx)
+        .await?;
+    let collect = "SELECT collect_character_output_report($1)";
+    let report: serde_json::Value = sqlx::query_scalar(collect)
+        .bind(run)
+        .fetch_one(&mut *report_tx)
+        .await?;
+    assert_eq!(report["momentum"]["new_flagged_claims"], 1);
+    assert_eq!(report["momentum"]["flagged_cards_24h"], 1);
+    let reasons = report["momentum"]["reasons"].as_object().unwrap();
+    assert_eq!(reasons.len(), 2);
+    assert!(reasons.keys().any(|reason| reason.contains("length")));
+    assert!(reasons
+        .keys()
+        .any(|reason| reason.contains("expected value")));
+    let linked: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM character_parser_review f
+        JOIN qualified_momentum_summaries card ON card.id=ANY(f.published_card_ids)
+        WHERE f.watchdog_run_id=$1 AND f.claim_token=$2::uuid AND card.blurb=$3",
+    )
+    .bind(run)
+    .bind(token)
+    .bind(&blurb)
+    .fetch_one(&mut *report_tx)
+    .await?;
+    assert_eq!(linked, 2);
+    assert_eq!(
+        sqlx::query_scalar::<_, serde_json::Value>(collect)
+            .bind(run)
+            .fetch_one(&mut *report_tx)
+            .await?,
+        report
+    );
+    let next: i64 = sqlx::query_scalar(watchdog)
+        .fetch_one(&mut *report_tx)
+        .await?;
+    let next_report: serde_json::Value = sqlx::query_scalar(collect)
+        .bind(next)
+        .fetch_one(&mut *report_tx)
+        .await?;
+    assert_eq!(next_report["momentum"]["new_flagged_claims"], 0);
+    assert_eq!(next_report["momentum"]["flagged_cards_24h"], 1);
+    report_tx.rollback().await?;
+    sqlx::query("DELETE FROM character_output_flags WHERE claim_token=$1::uuid")
+        .bind(token)
+        .execute(&pool)
+        .await?;
+    std::fs::remove_dir(archive.with_extension("watchdog-pending"))?;
+    let _ = std::fs::remove_file(archive);
     for current in claim(&pool, "sigil").await? {
         ClaimPublication::begin(&pool, &current)
             .await?

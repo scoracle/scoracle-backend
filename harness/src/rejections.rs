@@ -1,4 +1,11 @@
 //! Append every rejected generation before correction or queue retry can discard it.
+mod pending;
+pub use pending::start as start_flag_delivery;
+#[cfg(test)]
+pub(crate) async fn deliver_flags(pool: &sqlx::PgPool, archive: &Path) -> Result<()> {
+    pending::deliver(pool, &archive.with_extension("watchdog-pending")).await
+}
+
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use std::{fs::OpenOptions, future::Future, io::Write, os::unix::fs::OpenOptionsExt, path::Path};
@@ -48,14 +55,16 @@ pub fn verify() -> Result<()> {
 
 tokio::task_local! { static REVIEW_DB: sqlx::PgPool; }
 
+pub fn is_character(stage: &str) -> bool {
+    matches!(
+        stage,
+        "narratives" | "rating" | "vibe" | "transfers" | "momentum" | "sigil"
+    )
+}
+
 pub(crate) fn character_claim() -> bool {
     CLAIM
-        .try_with(|c| {
-            matches!(
-                c["stage"].as_str(),
-                Some("narratives" | "rating" | "vibe" | "transfers" | "momentum" | "sigil")
-            )
-        })
+        .try_with(|claim| claim["stage"].as_str().is_some_and(is_character))
         .unwrap_or(false)
 }
 
@@ -144,8 +153,14 @@ pub async fn record_decision(
     generation_attempt: usize,
     disposition: &str,
 ) -> Result<()> {
-    let record = json!({"capture_version":1,"recorded_at":crate::util::utc_timestamp(
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64),
+    let elapsed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
+    let utc = crate::util::utc_timestamp(elapsed.as_secs() as i64);
+    let timestamp = format!(
+        "{}.{:06}Z",
+        utc.trim_end_matches('Z'),
+        elapsed.subsec_micros()
+    );
+    let record = json!({"capture_version":1,"recorded_at":timestamp,
         "build_commit":super::buildinfo::COMMIT,"model":model,"disposition":disposition,
         "claim":CLAIM.try_with(Clone::clone).ok(),"generation_attempt":generation_attempt,
         "input_hash":crate::util::hash_components(prompt),
@@ -156,20 +171,45 @@ pub async fn record_decision(
     if published_flag {
         let pool = REVIEW_DB.with(Clone::clone);
         let claim = CLAIM.with(Clone::clone);
-        sqlx::query("INSERT INTO character_output_flags(edition_date,stage,entity_type,entity_id,sport,claim_token,reason,model,answer)
-            SELECT edition_date,$1,$2,$3,$4,$5::uuid,$6,$7,$8 FROM coverage_schedule
-            ON CONFLICT DO NOTHING")
-            .bind(claim["stage"].as_str()).bind(claim["entity_type"].as_str()).bind(claim["entity_id"].as_i64())
-            .bind(claim["sport"].as_str()).bind(claim["claim_token"].as_str()).bind(format!("{error:#}"))
-            .bind(model).bind(response).execute(&pool).await?;
+        let flag = pending::Flag {
+            stage: claim["stage"].as_str().unwrap().to_owned(),
+            entity_type: claim["entity_type"].as_str().unwrap().to_owned(),
+            entity_id: claim["entity_id"].as_i64().unwrap(),
+            sport: claim["sport"].as_str().unwrap().to_owned(),
+            claim_token: claim["claim_token"]
+                .as_str()
+                .context("missing character lease")?
+                .to_owned(),
+            model: model.to_owned(),
+            reason: format!("{error:#}"),
+            answer: response.map(str::to_owned),
+            recorded_at: timestamp,
+        };
+        let flag = std::sync::Arc::new(flag);
+        let queued = flag.clone();
+        let directory = pending::directory();
+        let queued = tokio::task::spawn_blocking(move || queued.queue(&directory)).await;
+        if !matches!(queued, Ok(Ok(()))) {
+            // The database is an independent fallback if local storage is unavailable.
+            if !matches!(
+                tokio::time::timeout(std::time::Duration::from_secs(2), flag.save(&pool)).await,
+                Ok(Ok(()))
+            ) {
+                tracing::error!(stage=%flag.stage,claim=%flag.claim_token,reason=%flag.reason,
+                    "parser flag delivery unavailable; publishing with worker-log diagnostic");
+            }
+        }
+        let archive = path();
+        tokio::task::spawn_blocking(move || {
+            if let Err(error) = append(&archive, Some(&record)) {
+                tracing::warn!(%error,"secondary character archive unavailable");
+            }
+        });
+        return Ok(());
     }
     let path = path();
     let result = tokio::task::spawn_blocking(move || append(&path, Some(&record))).await?;
     if let Err(error) = &result {
-        if published_flag {
-            tracing::warn!(%error, "database flag retained; secondary archive write failed");
-            return Ok(());
-        }
         tracing::error!(%error, "rejected-output archive failed; refusing another correction");
     }
     result.context("persist rejected model output")

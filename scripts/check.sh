@@ -51,6 +51,7 @@ psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/326_progressive_cha
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/327_required_character_stages.sql
 psql "$TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f sql/tests/328_progressive_insider_findings.sql
 
+python3 scripts/hosting/test-classifier-watchdog.py
 python3 scripts/ops/test_headline_budget_recovery.py
 python3 scripts/ops/test_headline_budget_recovery.py --backlog
 

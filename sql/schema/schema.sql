@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 408EKOeggKydG8BguPkvNp0YfDlYgAcKrV3PnhWplYjPD7YJyb67eDueV4EYBGD
+\restrict Z1FdanTBBtOgD4ck79GWC2e4503HRvFrx4P3sh61knGgvs6Q8SgXvTMk9UOY1dq
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -2156,6 +2156,40 @@ $$;
 --
 
 COMMENT ON FUNCTION public.collapse_exact_title_duplicates(p_lookback interval, p_min_title_len integer) IS 'Points byte-identical CROSS-SOURCE articles at one canonical copy, closing the race the per-article novelty gate cannot: two copies scrubbed before either has vetted membership are invisible to each other. Same-source repeats are NEVER collapsed (they are signal about the publication). Titles under p_min_title_len normalized chars are skipped (section headers like "Match Centre" repeat across unrelated articles). Canonical prefers the corpus-visible copy, then the already-read one, then the oldest. Writes duplicate_of only; membership untouched.';
+
+
+--
+-- Name: collect_character_output_report(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.collect_character_output_report(run_id bigint) RETURNS jsonb
+    LANGUAGE plpgsql
+    AS $$
+DECLARE report jsonb; as_of timestamptz;
+BEGIN
+ SELECT finished_at,character_outputs INTO STRICT as_of,report FROM public.pipeline_runs
+ WHERE id=run_id AND job='watchdog' FOR UPDATE;
+ IF report IS NOT NULL THEN RETURN report; END IF;
+ -- Concurrent runs serialize on the flag rows. Late commits remain unread for the next run.
+ UPDATE public.character_output_flags SET watchdog_run_id=run_id
+ WHERE flag_kind='malformed_output' AND watchdog_run_id IS NULL;
+ WITH stages AS (SELECT unnest(ARRAY['narratives','vibe','rating','transfers','momentum','sigil']) AS stage),
+ cards AS (SELECT c.stage,count(*) AS n,count(c.generation_claim_token) AS tracked,
+           count(*) FILTER (WHERE EXISTS (SELECT 1 FROM public.character_output_flags f
+               WHERE f.stage=c.stage AND f.claim_token=c.generation_claim_token AND f.flag_kind='malformed_output')) AS flagged
+           FROM public.character_watchdog_cards c
+           WHERE generated_at>=as_of-interval '24 hours' AND generated_at<=as_of GROUP BY c.stage),
+ flags AS MATERIALIZED (SELECT stage,claim_token,reason FROM public.character_output_flags WHERE watchdog_run_id=run_id),
+ claims AS (SELECT stage,count(DISTINCT claim_token) AS n FROM flags GROUP BY stage),
+ reasons AS (SELECT stage,jsonb_object_agg(reason,n) AS counts FROM
+             (SELECT stage,reason,count(*) AS n FROM flags GROUP BY stage,reason) grouped GROUP BY stage)
+ SELECT jsonb_object_agg(s.stage,jsonb_build_object('published_cards_24h',COALESCE(cards.n,0),
+          'tracked_cards_24h',COALESCE(cards.tracked,0),'flagged_cards_24h',COALESCE(cards.flagged,0),
+          'new_flagged_claims',COALESCE(claims.n,0),'reasons',COALESCE(reasons.counts,'{}'::jsonb)))
+ INTO report FROM stages s LEFT JOIN cards USING(stage) LEFT JOIN claims USING(stage) LEFT JOIN reasons USING(stage);
+ UPDATE public.pipeline_runs SET character_outputs=report WHERE id=run_id;
+ RETURN report;
+END $$;
 
 
 --
@@ -8207,7 +8241,8 @@ CREATE TABLE public.character_output_flags (
     answer text,
     product_table text,
     product_id bigint,
-    recorded_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL
+    recorded_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    watchdog_run_id bigint
 );
 
 
@@ -8223,6 +8258,603 @@ ALTER TABLE public.character_output_flags ALTER COLUMN id ADD GENERATED ALWAYS A
     NO MAXVALUE
     CACHE 1
 );
+
+
+--
+-- Name: insider_scores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.insider_scores (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    score smallint NOT NULL,
+    previous_score smallint,
+    read text,
+    model_version text,
+    prompt_version text NOT NULL,
+    input_hash text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    headline text,
+    week_season integer,
+    week_no integer,
+    reporting_date date NOT NULL,
+    candidate_edition date,
+    scoring_version text,
+    generation_claim_token uuid DEFAULT (NULLIF(current_setting('scoracle.claim_token'::text, true), ''::text))::uuid,
+    CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
+    CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score >= 0) AND (previous_score <= 100))),
+    CONSTRAINT insider_scores_score_check CHECK (((score >= 0) AND (score <= 100)))
+);
+
+
+--
+-- Name: TABLE insider_scores; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.insider_scores IS 'The Insider''s per-entity 1-99 wire-busyness verdict (tarot deck Phase 4b, mig 187). One row per wrap — an end-of-drain TransferLogic call after the pair loop, debounced on the active-board input_hash. No marker rows: an empty board writes nothing (the Veil comes from the empty board). Served as the Transfers card''s score (latest row, scope-independent); read/previous_score are audit + prompt memory only.';
+
+
+--
+-- Name: COLUMN insider_scores.score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.insider_scores.score IS 'Insider coverage activity: ten points per distinct admitted personnel report, up to 100, for new cards.';
+
+
+--
+-- Name: COLUMN insider_scores.read; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.insider_scores.read IS 'The Insider''s 1-2 sentence wire wrap (audit + next wrap''s continuity memory; never served).';
+
+
+--
+-- Name: COLUMN insider_scores.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.insider_scores.input_hash IS 'Debounce key: hash over prompt_version + the sorted active board (counterparty:heat:direction:stage per rumor). Content-keyed, not row-id-keyed.';
+
+
+--
+-- Name: COLUMN insider_scores.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.insider_scores.headline IS 'The Insider''s entity-level card hook for this wire wrap (tweet contract: 140 chars, guards::settle_title). NULL = pre-232/is4 row or a dropped title. A dead wire still has no row at all — the Veil stays the no-board answer.';
+
+
+--
+-- Name: momentum_summaries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.momentum_summaries (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    season integer NOT NULL,
+    trigger_type text DEFAULT 'periodic'::text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    direction text,
+    score smallint,
+    blurb text,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
+    model_version text NOT NULL,
+    prompt_version text NOT NULL,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    headline text,
+    week_season integer,
+    week_no integer,
+    reporting_date date NOT NULL,
+    candidate_edition date,
+    generation_claim_token uuid DEFAULT (NULLIF(current_setting('scoracle.claim_token'::text, true), ''::text))::uuid,
+    CONSTRAINT momentum_summaries_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text])))),
+    CONSTRAINT momentum_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT momentum_summaries_score_check CHECK (((score IS NULL) OR ((score >= '-5'::integer) AND (score <= 5))))
+);
+
+
+--
+-- Name: TABLE momentum_summaries; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.momentum_summaries IS 'Generated Momentum trajectory cards. Numeric trajectory remains in momentum_scores; this table stores the first-class direction/score/blurb product consumed by Sigil.';
+
+
+--
+-- Name: COLUMN momentum_summaries.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.momentum_summaries.headline IS 'The Analyst''s model-emitted card title for this trajectory read (extractive, evidence-traced). NULL = a pre-headline row → momentum board omits until regen.';
+
+
+--
+-- Name: news_summaries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.news_summaries (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    body text,
+    impact smallint,
+    impact_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    model_version text,
+    prompt_version text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    narrative_title text,
+    narrative_updated_at timestamp with time zone,
+    source_count integer DEFAULT 0 NOT NULL,
+    source_names text[] DEFAULT '{}'::text[] NOT NULL,
+    source_latest_at timestamp with time zone,
+    source_oldest_at timestamp with time zone,
+    trajectory text DEFAULT 'developing_story'::text NOT NULL,
+    trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
+    card_score smallint,
+    card_score_prev smallint,
+    storyline_id bigint,
+    headline text,
+    week_season integer,
+    week_no integer,
+    reporting_date date NOT NULL,
+    candidate_edition date,
+    scoring_version text,
+    generation_claim_token uuid DEFAULT (NULLIF(current_setting('scoracle.claim_token'::text, true), ''::text))::uuid,
+    CONSTRAINT news_summaries_card_score_check CHECK (((card_score >= 0) AND (card_score <= 100))),
+    CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
+    CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
+    CONSTRAINT news_summaries_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
+    CONSTRAINT news_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text, 'classifier'::text])))
+);
+
+
+--
+-- Name: TABLE news_summaries; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.news_summaries IS 'Append, ONE ROW PER NARRATIVE per generation. A generation = the rows sharing (entity_type, entity_id, sport, generated_at). narrative_title + body = the write-up; per-narrative impact ranks the leaderboard; NULL narrative_title/body = a no-narratives-this-cycle marker. Written by ml/news_narratives.go.';
+
+
+--
+-- Name: COLUMN news_summaries.body; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.body IS 'The narrative write-up (original prose); NULL = no-narratives marker row.';
+
+
+--
+-- Name: COLUMN news_summaries.impact; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.impact IS 'Per-narrative deterministic impact 0-100 (volume×sources×recency over this narrative''s articles); ranks the news leaderboard.';
+
+
+--
+-- Name: COLUMN news_summaries.narrative_title; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.narrative_title IS 'Storyline headline (e.g. "Cucurella to Real Madrid saga"); NULL = no-narratives marker row.';
+
+
+--
+-- Name: COLUMN news_summaries.narrative_updated_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.narrative_updated_at IS 'Narrative freshness timestamp for the News hub. Usually the newest cited source timestamp; falls back to generated_at.';
+
+
+--
+-- Name: COLUMN news_summaries.source_count; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.source_count IS 'Number of cited source articles behind this narrative row.';
+
+
+--
+-- Name: COLUMN news_summaries.source_names; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.source_names IS 'Distinct source names from the cited articles, preserved for provenance and client display.';
+
+
+--
+-- Name: COLUMN news_summaries.trajectory; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.trajectory IS 'Narrative trajectory marker: developing_story, heating_up, or cooling_off.';
+
+
+--
+-- Name: COLUMN news_summaries.trajectory_components; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.trajectory_components IS 'Transparent inputs behind the trajectory marker, usually impact delta versus the previous matching narrative.';
+
+
+--
+-- Name: COLUMN news_summaries.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.input_hash IS 'SHA-256 (128-bit hex prefix) of the generation''s material inputs (vetted corpus article ids + transfer-heat facts); the Rust harness debounce key. NULL on pre-145 rows and markers written before the gate.';
+
+
+--
+-- Name: COLUMN news_summaries.card_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.card_score IS 'Journalist coverage activity: ten points per distinct admitted report, up to 100, for new cards.';
+
+
+--
+-- Name: COLUMN news_summaries.card_score_prev; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.card_score_prev IS 'The previous generation''s card_score as fed to the n12 prompt''s memory line — the continuity audit (mirrors sigil_synthesis.previous_score). Audit-only, never served.';
+
+
+--
+-- Name: COLUMN news_summaries.storyline_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.storyline_id IS 'The storyline this telling is a chapter of (mig 219, successor to thread_id). Derived deterministically: on the packet rail a chapter''s storyline is the mode of its cited articles'' storylines (fill_news_summaries_storylines() / the Rust persist). NULL for marker rows and legacy-rail chapters whose articles predate the Desk.';
+
+
+--
+-- Name: COLUMN news_summaries.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.headline IS 'The Journalist''s entity-level card hook (tweet contract: 140 chars, guards::settle_title). Generation-level — identical on every row of a generation, marker rows included (a quiet week hooks as a quiet week). NULL = no-corpus marker, a pre-232 row, or a dropped title (a junk title costs the title, never the card).';
+
+
+--
+-- Name: sigil_synthesis; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sigil_synthesis (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    season integer,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    score smallint,
+    previous_score smallint,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
+    model_version text,
+    prompt_version text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    convergence smallint,
+    reading text,
+    omen text,
+    voiced_score smallint,
+    voiced_at timestamp with time zone,
+    voice_model_version text,
+    voice_prompt_version text,
+    headline text,
+    week_season integer,
+    week_no integer,
+    reporting_date date NOT NULL,
+    candidate_edition date,
+    generation_claim_token uuid DEFAULT (NULLIF(current_setting('scoracle.claim_token'::text, true), ''::text))::uuid,
+    CONSTRAINT sigil_synthesis_convergence_check CHECK (((convergence IS NULL) OR ((convergence >= 1) AND (convergence <= 100)))),
+    CONSTRAINT sigil_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT sigil_synthesis_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
+    CONSTRAINT sigil_synthesis_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 100)))),
+    CONSTRAINT sigil_synthesis_score_check CHECK (((score IS NULL) OR ((score >= 1) AND (score <= 100)))),
+    CONSTRAINT sigil_synthesis_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['narrative_change'::text, 'sentiment_break'::text, 'composite_shift'::text, 'lazy_view'::text, 'periodic'::text, 'manual'::text]))),
+    CONSTRAINT sigil_synthesis_voiced_score_check CHECK (((voiced_score IS NULL) OR ((voiced_score >= 1) AND (voiced_score <= 100))))
+);
+
+
+--
+-- Name: TABLE sigil_synthesis; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sigil_synthesis IS 'The Sigil: the crown. The Oracle lens reads the five pillar cards (PEAK, Vibe, Momentum, narratives, transfers) + the entity''s own prior reads and emits one holistic score + reading (mig 173 crown fold — the panel blurb/disagreement/why_now were retired). omen + convergence are computed deterministically in code.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.convergence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.convergence IS 'Phase 5.3 panel output: how strongly the lenses (PEAK/narrative/vibe/momentum/transfer) agree, 1-100. NULL = model did not emit it (pre-s11 row or omitted this run).';
+
+
+--
+-- Name: COLUMN sigil_synthesis.reading; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.reading IS 'Oracle voice of this decided card (2-4 sentences). NULL = marker or pre-merge row. Carried forward verbatim from the prior row when the re-voice rule skips the model.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.omen; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.omen IS 'Computed omen the current reading was drawn under (closed set; code-computed, never model output).';
+
+
+--
+-- Name: COLUMN sigil_synthesis.voiced_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.voiced_score IS 'Sigil score the current reading was drawn under — the re-voice hysteresis baseline (North Star #8).';
+
+
+--
+-- Name: COLUMN sigil_synthesis.voiced_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.voiced_at IS 'When the current reading was actually drawn; older than generated_at on carried-forward rows.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.headline IS 'The Oracle''s model-emitted card title for this crown (extractive, evidence-traced). NULL = marker row or a pre-headline row → boards omit, profiles render reading alone. Carried forward verbatim with reading when the re-voice hysteresis skips the model (those rows are already identifiable by voiced_at < generated_at — no extra flag).';
+
+
+--
+-- Name: stat_summaries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stat_summaries (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    body text,
+    notability smallint,
+    notability_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    model_version text,
+    prompt_version text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    season integer,
+    input_hash text,
+    rating_trajectory text,
+    rating_trajectory_label text,
+    rating_trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    headline text,
+    week_season integer,
+    week_no integer,
+    reporting_date date NOT NULL,
+    candidate_edition date,
+    card_score numeric(4,1),
+    generation_claim_token uuid DEFAULT (NULLIF(current_setting('scoracle.claim_token'::text, true), ''::text))::uuid,
+    CONSTRAINT stat_summaries_card_score_check CHECK (((card_score >= (0)::numeric) AND (card_score <= (100)::numeric))),
+    CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
+    CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
+    CONSTRAINT stat_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['stat_change'::text, 'periodic'::text, 'manual'::text, 'transfer'::text, 'availability'::text])))
+);
+
+
+--
+-- Name: TABLE stat_summaries; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.stat_summaries IS 'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: the local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries.';
+
+
+--
+-- Name: COLUMN stat_summaries.trigger_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.trigger_type IS 'What kicked off this generation. ''stat_change'' = the percentile_changed listener; ''periodic'' = the nightly batch; ''manual'' = operator-run; ''transfer'' = an adjudicated move crossed the concrete threshold; ''availability'' = an injury or suspension was applied (mig 229). The last two are the non-statistical triggers — they run with the skip_unchanged debounce disabled, because the input_hash deliberately does not move for them, and this column is the only record of which one woke the seat.';
+
+
+--
+-- Name: COLUMN stat_summaries.season; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.season IS 'The season the commentary describes; reads are latest-per-(entity,sport,season). Previous seasons are immutable (backfilled once); the nightly cadence regenerates only the current season, and only when input_hash changes.';
+
+
+--
+-- Name: COLUMN stat_summaries.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.input_hash IS 'Hash of input_components (the rating snapshot fed to the local model) — the nightly skip-unless-changed signal.';
+
+
+--
+-- Name: COLUMN stat_summaries.rating_trajectory; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.rating_trajectory IS 'Deterministic recent-form marker for the stats rail z-score values: rising, falling, or steady.';
+
+
+--
+-- Name: COLUMN stat_summaries.rating_trajectory_label; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.rating_trajectory_label IS 'Human label for the rating z-score trajectory, e.g. Composite and PEAK z-scores trending down over recent games.';
+
+
+--
+-- Name: COLUMN stat_summaries.rating_trajectory_components; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.rating_trajectory_components IS 'Transparent PEAK trajectory inputs: recent Composite/PEAK z-score samples, slopes, and sample sizes.';
+
+
+--
+-- Name: COLUMN stat_summaries.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.headline IS 'The Scout''s model-emitted card title for this read (extractive, evidence-traced). NULL = insufficient-stats marker or a pre-headline row → the rating card renders body alone.';
+
+
+--
+-- Name: COLUMN stat_summaries.card_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.card_score IS 'Scout performance from the profile used to write this card: team rating_rank or player rating_score.';
+
+
+--
+-- Name: vibe_scores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vibe_scores (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    model_version text NOT NULL,
+    prompt_version text NOT NULL,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    sentiment smallint,
+    prompt text,
+    input_hash text,
+    hook text,
+    week_season integer,
+    week_no integer,
+    reporting_start timestamp with time zone,
+    reporting_end timestamp with time zone,
+    evidence_cutoff timestamp with time zone,
+    scoring_version text,
+    source_references jsonb,
+    reporting_date date NOT NULL,
+    candidate_edition date,
+    generation_claim_token uuid DEFAULT (NULLIF(current_setting('scoracle.claim_token'::text, true), ''::text))::uuid,
+    CONSTRAINT vibe_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
+    CONSTRAINT vibe_scores_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 0) AND (sentiment <= 100)))),
+    CONSTRAINT vibe_scores_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['milestone'::text, 'manual'::text, 'periodic'::text, 'news_spike'::text])))
+);
+
+
+--
+-- Name: TABLE vibe_scores; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.vibe_scores IS 'The Vibe: the emotional rail end product (was sentiment_scores). sentiment (1-100) + prompt; feeds the Sigil and the Momentum vibe-trajectory. Append-only.';
+
+
+--
+-- Name: COLUMN vibe_scores.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.vibe_scores.input_hash IS 'SHA-256 (128-bit hex prefix) of the generation''s material inputs (latest narrative titles/impacts/trajectories + transfer-heat facts); the Rust harness debounce key. NULL on pre-147 rows.';
+
+
+--
+-- Name: COLUMN vibe_scores.scoring_version; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.vibe_scores.scoring_version IS 'emotional-valence-v1: 0 distressing, 25 troubled, 50 mixed/balanced, 75 hopeful, 100 joyful. Unknown is absence.';
+
+
+--
+-- Name: character_watchdog_cards; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.character_watchdog_cards AS
+ SELECT 'narratives'::text AS stage,
+    news_summaries.entity_type,
+    news_summaries.entity_id,
+    news_summaries.sport,
+    news_summaries.reporting_date,
+    news_summaries.id,
+    news_summaries.generated_at,
+    news_summaries.generation_claim_token
+   FROM public.news_summaries
+  WHERE (NULLIF(btrim(news_summaries.body), ''::text) IS NOT NULL)
+UNION ALL
+ SELECT 'vibe'::text AS stage,
+    vibe_scores.entity_type,
+    vibe_scores.entity_id,
+    vibe_scores.sport,
+    vibe_scores.reporting_date,
+    vibe_scores.id,
+    vibe_scores.generated_at,
+    vibe_scores.generation_claim_token
+   FROM public.vibe_scores
+  WHERE (NULLIF(btrim(vibe_scores.prompt), ''::text) IS NOT NULL)
+UNION ALL
+ SELECT 'rating'::text AS stage,
+    stat_summaries.entity_type,
+    stat_summaries.entity_id,
+    stat_summaries.sport,
+    stat_summaries.reporting_date,
+    stat_summaries.id,
+    stat_summaries.generated_at,
+    stat_summaries.generation_claim_token
+   FROM public.stat_summaries
+  WHERE (NULLIF(btrim(stat_summaries.body), ''::text) IS NOT NULL)
+UNION ALL
+ SELECT 'transfers'::text AS stage,
+    insider_scores.entity_type,
+    insider_scores.entity_id,
+    insider_scores.sport,
+    insider_scores.reporting_date,
+    insider_scores.id,
+    insider_scores.generated_at,
+    insider_scores.generation_claim_token
+   FROM public.insider_scores
+  WHERE (NULLIF(btrim(insider_scores.read), ''::text) IS NOT NULL)
+UNION ALL
+ SELECT 'momentum'::text AS stage,
+    momentum_summaries.entity_type,
+    momentum_summaries.entity_id,
+    momentum_summaries.sport,
+    momentum_summaries.reporting_date,
+    momentum_summaries.id,
+    momentum_summaries.generated_at,
+    momentum_summaries.generation_claim_token
+   FROM public.momentum_summaries
+  WHERE (NULLIF(btrim(momentum_summaries.blurb), ''::text) IS NOT NULL)
+UNION ALL
+ SELECT 'sigil'::text AS stage,
+    sigil_synthesis.entity_type,
+    sigil_synthesis.entity_id,
+    sigil_synthesis.sport,
+    sigil_synthesis.reporting_date,
+    sigil_synthesis.id,
+    sigil_synthesis.generated_at,
+    sigil_synthesis.generation_claim_token
+   FROM public.sigil_synthesis
+  WHERE (NULLIF(btrim(sigil_synthesis.reading), ''::text) IS NOT NULL);
+
+
+--
+-- Name: character_parser_review; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.character_parser_review AS
+ SELECT id AS flag_id,
+    watchdog_run_id,
+    recorded_at,
+    edition_date,
+    stage,
+    sport,
+    entity_type,
+    entity_id,
+    model,
+    claim_token,
+    reason,
+    ARRAY( SELECT c.id
+           FROM public.character_watchdog_cards c
+          WHERE ((c.stage = f.stage) AND (c.sport = f.sport) AND (c.entity_type = f.entity_type) AND (c.entity_id = f.entity_id) AND (c.generation_claim_token = f.claim_token))
+          ORDER BY c.id) AS published_card_ids
+   FROM public.character_output_flags f
+  WHERE (flag_kind = 'malformed_output'::text);
 
 
 --
@@ -9776,69 +10408,6 @@ CREATE TABLE public.headline_fetch_watermarks (
 
 
 --
--- Name: insider_scores; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.insider_scores (
-    id bigint NOT NULL,
-    sport text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    score smallint NOT NULL,
-    previous_score smallint,
-    read text,
-    model_version text,
-    prompt_version text NOT NULL,
-    input_hash text,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    headline text,
-    week_season integer,
-    week_no integer,
-    reporting_date date NOT NULL,
-    candidate_edition date,
-    scoring_version text,
-    CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
-    CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score >= 0) AND (previous_score <= 100))),
-    CONSTRAINT insider_scores_score_check CHECK (((score >= 0) AND (score <= 100)))
-);
-
-
---
--- Name: TABLE insider_scores; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.insider_scores IS 'The Insider''s per-entity 1-99 wire-busyness verdict (tarot deck Phase 4b, mig 187). One row per wrap — an end-of-drain TransferLogic call after the pair loop, debounced on the active-board input_hash. No marker rows: an empty board writes nothing (the Veil comes from the empty board). Served as the Transfers card''s score (latest row, scope-independent); read/previous_score are audit + prompt memory only.';
-
-
---
--- Name: COLUMN insider_scores.score; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insider_scores.score IS 'Insider coverage activity: ten points per distinct admitted personnel report, up to 100, for new cards.';
-
-
---
--- Name: COLUMN insider_scores.read; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insider_scores.read IS 'The Insider''s 1-2 sentence wire wrap (audit + next wrap''s continuity memory; never served).';
-
-
---
--- Name: COLUMN insider_scores.input_hash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insider_scores.input_hash IS 'Debounce key: hash over prompt_version + the sorted active board (counterparty:heat:direction:stage per rumor). Content-keyed, not row-id-keyed.';
-
-
---
--- Name: COLUMN insider_scores.headline; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insider_scores.headline IS 'The Insider''s entity-level card hook for this wire wrap (tweet contract: 140 chars, guards::settle_title). NULL = pre-232/is4 row or a dropped title. A dead wire still has no row at all — the Veil stays the no-board answer.';
-
-
---
 -- Name: insider_scores_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -10084,51 +10653,6 @@ CREATE SEQUENCE public.momentum_scores_id_seq
 --
 
 ALTER SEQUENCE public.momentum_scores_id_seq OWNED BY public.momentum_scores.id;
-
-
---
--- Name: momentum_summaries; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.momentum_summaries (
-    id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    season integer NOT NULL,
-    trigger_type text DEFAULT 'periodic'::text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    direction text,
-    score smallint,
-    blurb text,
-    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_hash text,
-    model_version text NOT NULL,
-    prompt_version text NOT NULL,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    headline text,
-    week_season integer,
-    week_no integer,
-    reporting_date date NOT NULL,
-    candidate_edition date,
-    CONSTRAINT momentum_summaries_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text])))),
-    CONSTRAINT momentum_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT momentum_summaries_score_check CHECK (((score IS NULL) OR ((score >= '-5'::integer) AND (score <= 5))))
-);
-
-
---
--- Name: TABLE momentum_summaries; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.momentum_summaries IS 'Generated Momentum trajectory cards. Numeric trajectory remains in momentum_scores; this table stores the first-class direction/score/blurb product consumed by Sigil.';
-
-
---
--- Name: COLUMN momentum_summaries.headline; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.momentum_summaries.headline IS 'The Analyst''s model-emitted card title for this trajectory read (extractive, evidence-traced). NULL = a pre-headline row → momentum board omits until regen.';
 
 
 --
@@ -10491,148 +11015,6 @@ ALTER SEQUENCE public.news_articles_id_seq OWNED BY public.news_articles.id;
 
 
 --
--- Name: news_summaries; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.news_summaries (
-    id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    body text,
-    impact smallint,
-    impact_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    model_version text,
-    prompt_version text,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    narrative_title text,
-    narrative_updated_at timestamp with time zone,
-    source_count integer DEFAULT 0 NOT NULL,
-    source_names text[] DEFAULT '{}'::text[] NOT NULL,
-    source_latest_at timestamp with time zone,
-    source_oldest_at timestamp with time zone,
-    trajectory text DEFAULT 'developing_story'::text NOT NULL,
-    trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_hash text,
-    card_score smallint,
-    card_score_prev smallint,
-    storyline_id bigint,
-    headline text,
-    week_season integer,
-    week_no integer,
-    reporting_date date NOT NULL,
-    candidate_edition date,
-    scoring_version text,
-    CONSTRAINT news_summaries_card_score_check CHECK (((card_score >= 0) AND (card_score <= 100))),
-    CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
-    CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
-    CONSTRAINT news_summaries_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
-    CONSTRAINT news_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text, 'classifier'::text])))
-);
-
-
---
--- Name: TABLE news_summaries; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.news_summaries IS 'Append, ONE ROW PER NARRATIVE per generation. A generation = the rows sharing (entity_type, entity_id, sport, generated_at). narrative_title + body = the write-up; per-narrative impact ranks the leaderboard; NULL narrative_title/body = a no-narratives-this-cycle marker. Written by ml/news_narratives.go.';
-
-
---
--- Name: COLUMN news_summaries.body; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.body IS 'The narrative write-up (original prose); NULL = no-narratives marker row.';
-
-
---
--- Name: COLUMN news_summaries.impact; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.impact IS 'Per-narrative deterministic impact 0-100 (volume×sources×recency over this narrative''s articles); ranks the news leaderboard.';
-
-
---
--- Name: COLUMN news_summaries.narrative_title; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.narrative_title IS 'Storyline headline (e.g. "Cucurella to Real Madrid saga"); NULL = no-narratives marker row.';
-
-
---
--- Name: COLUMN news_summaries.narrative_updated_at; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.narrative_updated_at IS 'Narrative freshness timestamp for the News hub. Usually the newest cited source timestamp; falls back to generated_at.';
-
-
---
--- Name: COLUMN news_summaries.source_count; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.source_count IS 'Number of cited source articles behind this narrative row.';
-
-
---
--- Name: COLUMN news_summaries.source_names; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.source_names IS 'Distinct source names from the cited articles, preserved for provenance and client display.';
-
-
---
--- Name: COLUMN news_summaries.trajectory; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.trajectory IS 'Narrative trajectory marker: developing_story, heating_up, or cooling_off.';
-
-
---
--- Name: COLUMN news_summaries.trajectory_components; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.trajectory_components IS 'Transparent inputs behind the trajectory marker, usually impact delta versus the previous matching narrative.';
-
-
---
--- Name: COLUMN news_summaries.input_hash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.input_hash IS 'SHA-256 (128-bit hex prefix) of the generation''s material inputs (vetted corpus article ids + transfer-heat facts); the Rust harness debounce key. NULL on pre-145 rows and markers written before the gate.';
-
-
---
--- Name: COLUMN news_summaries.card_score; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.card_score IS 'Journalist coverage activity: ten points per distinct admitted report, up to 100, for new cards.';
-
-
---
--- Name: COLUMN news_summaries.card_score_prev; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.card_score_prev IS 'The previous generation''s card_score as fed to the n12 prompt''s memory line — the continuity audit (mirrors sigil_synthesis.previous_score). Audit-only, never served.';
-
-
---
--- Name: COLUMN news_summaries.storyline_id; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.storyline_id IS 'The storyline this telling is a chapter of (mig 219, successor to thread_id). Derived deterministically: on the packet rail a chapter''s storyline is the mode of its cited articles'' storylines (fill_news_summaries_storylines() / the Rust persist). NULL for marker rows and legacy-rail chapters whose articles predate the Desk.';
-
-
---
--- Name: COLUMN news_summaries.headline; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_summaries.headline IS 'The Journalist''s entity-level card hook (tweet contract: 140 chars, guards::settle_title). Generation-level — identical on every row of a generation, marker rows included (a quiet week hooks as a quiet week). NULL = no-corpus marker, a pre-232 row, or a dropped title (a junk title costs the title, never the card).';
-
-
---
 -- Name: news_summaries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -10910,6 +11292,7 @@ CREATE TABLE public.pipeline_runs (
     skipped integer DEFAULT 0 NOT NULL,
     failed integer DEFAULT 0 NOT NULL,
     error text,
+    character_outputs jsonb,
     CONSTRAINT pipeline_runs_status_check CHECK ((status = ANY (ARRAY['running'::text, 'success'::text, 'partial'::text, 'failed'::text, 'skipped'::text])))
 );
 
@@ -11520,96 +11903,6 @@ CREATE VIEW public.qualified_rating_history AS
 
 
 --
--- Name: sigil_synthesis; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sigil_synthesis (
-    id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    season integer,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    score smallint,
-    previous_score smallint,
-    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_hash text,
-    model_version text,
-    prompt_version text,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    convergence smallint,
-    reading text,
-    omen text,
-    voiced_score smallint,
-    voiced_at timestamp with time zone,
-    voice_model_version text,
-    voice_prompt_version text,
-    headline text,
-    week_season integer,
-    week_no integer,
-    reporting_date date NOT NULL,
-    candidate_edition date,
-    CONSTRAINT sigil_synthesis_convergence_check CHECK (((convergence IS NULL) OR ((convergence >= 1) AND (convergence <= 100)))),
-    CONSTRAINT sigil_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT sigil_synthesis_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
-    CONSTRAINT sigil_synthesis_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 100)))),
-    CONSTRAINT sigil_synthesis_score_check CHECK (((score IS NULL) OR ((score >= 1) AND (score <= 100)))),
-    CONSTRAINT sigil_synthesis_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['narrative_change'::text, 'sentiment_break'::text, 'composite_shift'::text, 'lazy_view'::text, 'periodic'::text, 'manual'::text]))),
-    CONSTRAINT sigil_synthesis_voiced_score_check CHECK (((voiced_score IS NULL) OR ((voiced_score >= 1) AND (voiced_score <= 100))))
-);
-
-
---
--- Name: TABLE sigil_synthesis; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.sigil_synthesis IS 'The Sigil: the crown. The Oracle lens reads the five pillar cards (PEAK, Vibe, Momentum, narratives, transfers) + the entity''s own prior reads and emits one holistic score + reading (mig 173 crown fold — the panel blurb/disagreement/why_now were retired). omen + convergence are computed deterministically in code.';
-
-
---
--- Name: COLUMN sigil_synthesis.convergence; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.convergence IS 'Phase 5.3 panel output: how strongly the lenses (PEAK/narrative/vibe/momentum/transfer) agree, 1-100. NULL = model did not emit it (pre-s11 row or omitted this run).';
-
-
---
--- Name: COLUMN sigil_synthesis.reading; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.reading IS 'Oracle voice of this decided card (2-4 sentences). NULL = marker or pre-merge row. Carried forward verbatim from the prior row when the re-voice rule skips the model.';
-
-
---
--- Name: COLUMN sigil_synthesis.omen; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.omen IS 'Computed omen the current reading was drawn under (closed set; code-computed, never model output).';
-
-
---
--- Name: COLUMN sigil_synthesis.voiced_score; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.voiced_score IS 'Sigil score the current reading was drawn under — the re-voice hysteresis baseline (North Star #8).';
-
-
---
--- Name: COLUMN sigil_synthesis.voiced_at; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.voiced_at IS 'When the current reading was actually drawn; older than generated_at on carried-forward rows.';
-
-
---
--- Name: COLUMN sigil_synthesis.headline; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.headline IS 'The Oracle''s model-emitted card title for this crown (extractive, evidence-traced). NULL = marker row or a pre-headline row → boards omit, profiles render reading alone. Carried forward verbatim with reading when the re-voice hysteresis skips the model (those rows are already identifiable by voiced_at < generated_at — no extra flag).';
-
-
---
 -- Name: qualified_sigil_synthesis; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -11641,106 +11934,6 @@ CREATE VIEW public.qualified_sigil_synthesis AS
     reporting_date,
     candidate_edition
    FROM public.sigil_synthesis;
-
-
---
--- Name: stat_summaries; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stat_summaries (
-    id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    body text,
-    notability smallint,
-    notability_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    model_version text,
-    prompt_version text,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    season integer,
-    input_hash text,
-    rating_trajectory text,
-    rating_trajectory_label text,
-    rating_trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    headline text,
-    week_season integer,
-    week_no integer,
-    reporting_date date NOT NULL,
-    candidate_edition date,
-    card_score numeric(4,1),
-    CONSTRAINT stat_summaries_card_score_check CHECK (((card_score >= (0)::numeric) AND (card_score <= (100)::numeric))),
-    CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
-    CONSTRAINT stat_summaries_rating_trajectory_check CHECK ((rating_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
-    CONSTRAINT stat_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['stat_change'::text, 'periodic'::text, 'manual'::text, 'transfer'::text, 'availability'::text])))
-);
-
-
---
--- Name: TABLE stat_summaries; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.stat_summaries IS 'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: the local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries.';
-
-
---
--- Name: COLUMN stat_summaries.trigger_type; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.trigger_type IS 'What kicked off this generation. ''stat_change'' = the percentile_changed listener; ''periodic'' = the nightly batch; ''manual'' = operator-run; ''transfer'' = an adjudicated move crossed the concrete threshold; ''availability'' = an injury or suspension was applied (mig 229). The last two are the non-statistical triggers — they run with the skip_unchanged debounce disabled, because the input_hash deliberately does not move for them, and this column is the only record of which one woke the seat.';
-
-
---
--- Name: COLUMN stat_summaries.season; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.season IS 'The season the commentary describes; reads are latest-per-(entity,sport,season). Previous seasons are immutable (backfilled once); the nightly cadence regenerates only the current season, and only when input_hash changes.';
-
-
---
--- Name: COLUMN stat_summaries.input_hash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.input_hash IS 'Hash of input_components (the rating snapshot fed to the local model) — the nightly skip-unless-changed signal.';
-
-
---
--- Name: COLUMN stat_summaries.rating_trajectory; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.rating_trajectory IS 'Deterministic recent-form marker for the stats rail z-score values: rising, falling, or steady.';
-
-
---
--- Name: COLUMN stat_summaries.rating_trajectory_label; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.rating_trajectory_label IS 'Human label for the rating z-score trajectory, e.g. Composite and PEAK z-scores trending down over recent games.';
-
-
---
--- Name: COLUMN stat_summaries.rating_trajectory_components; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.rating_trajectory_components IS 'Transparent PEAK trajectory inputs: recent Composite/PEAK z-score samples, slopes, and sample sizes.';
-
-
---
--- Name: COLUMN stat_summaries.headline; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.headline IS 'The Scout''s model-emitted card title for this read (extractive, evidence-traced). NULL = insufficient-stats marker or a pre-headline row → the rating card renders body alone.';
-
-
---
--- Name: COLUMN stat_summaries.card_score; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.stat_summaries.card_score IS 'Scout performance from the profile used to write this card: team rating_rank or player rating_score.';
 
 
 --
@@ -11889,61 +12082,6 @@ CREATE VIEW public.qualified_transfer_rumors AS
     candidate_entity_id,
     candidate_edition
    FROM public.transfer_rumors;
-
-
---
--- Name: vibe_scores; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.vibe_scores (
-    id bigint NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    model_version text NOT NULL,
-    prompt_version text NOT NULL,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    sentiment smallint,
-    prompt text,
-    input_hash text,
-    hook text,
-    week_season integer,
-    week_no integer,
-    reporting_start timestamp with time zone,
-    reporting_end timestamp with time zone,
-    evidence_cutoff timestamp with time zone,
-    scoring_version text,
-    source_references jsonb,
-    reporting_date date NOT NULL,
-    candidate_edition date,
-    CONSTRAINT vibe_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
-    CONSTRAINT vibe_scores_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 0) AND (sentiment <= 100)))),
-    CONSTRAINT vibe_scores_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['milestone'::text, 'manual'::text, 'periodic'::text, 'news_spike'::text])))
-);
-
-
---
--- Name: TABLE vibe_scores; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.vibe_scores IS 'The Vibe: the emotional rail end product (was sentiment_scores). sentiment (1-100) + prompt; feeds the Sigil and the Momentum vibe-trajectory. Append-only.';
-
-
---
--- Name: COLUMN vibe_scores.input_hash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.vibe_scores.input_hash IS 'SHA-256 (128-bit hex prefix) of the generation''s material inputs (latest narrative titles/impacts/trajectories + transfer-heat facts); the Rust harness debounce key. NULL on pre-147 rows.';
-
-
---
--- Name: COLUMN vibe_scores.scoring_version; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.vibe_scores.scoring_version IS 'emotional-valence-v1: 0 distressing, 25 troubled, 50 mixed/balanced, 75 hopeful, 100 joyful. Unknown is absence.';
 
 
 --
@@ -13012,7 +13150,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 408EKOeggKydG8BguPkvNp0YfDlYgAcKrV3PnhWplYjPD7YJyb67eDueV4EYBGD
+\unrestrict Z1FdanTBBtOgD4ck79GWC2e4503HRvFrx4P3sh61knGgvs6Q8SgXvTMk9UOY1dq
 
 
 \ir reference-data.sql
@@ -13020,7 +13158,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict Ui8yIeOkBP96m0qTTLOHbNbMRDIKGlccQaiMBcAlDKWMrf5Faeu6H9RDbuCT9ik
+\restrict xmxpCNfk8bWGIMuYzu9BJZjggpPNQZRwnwg3aecuh9jHimrYP5i4mrCb4lnm4XW
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -14143,6 +14281,20 @@ CREATE UNIQUE INDEX character_output_claim_reason ON public.character_output_fla
 --
 
 CREATE INDEX character_output_flag_date ON public.character_output_flags USING btree (edition_date, stage);
+
+
+--
+-- Name: character_output_watchdog_pending; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX character_output_watchdog_pending ON public.character_output_flags USING btree (id) WHERE ((flag_kind = 'malformed_output'::text) AND (watchdog_run_id IS NULL));
+
+
+--
+-- Name: character_output_watchdog_run; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX character_output_watchdog_run ON public.character_output_flags USING btree (watchdog_run_id) WHERE (watchdog_run_id IS NOT NULL);
 
 
 --
@@ -16898,4 +17050,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Ui8yIeOkBP96m0qTTLOHbNbMRDIKGlccQaiMBcAlDKWMrf5Faeu6H9RDbuCT9ik
+\unrestrict xmxpCNfk8bWGIMuYzu9BJZjggpPNQZRwnwg3aecuh9jHimrYP5i4mrCb4lnm4XW

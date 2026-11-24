@@ -37,6 +37,7 @@ pub(super) async fn persist_to_vibe_scores(
     item: &Item,
     sport: &str,
     out: &VibeOutput,
+    generation_claim: Option<&str>,
 ) -> Result<i64> {
     // Route the moat fields through the shared Provenance envelope — input_hash included
     // since F2 (mig 147); the typed INSERT stays the stage's own (Postgres-as-serializer).
@@ -51,10 +52,10 @@ pub(super) async fn persist_to_vibe_scores(
             trigger_type, trigger_payload,
             sentiment, prompt, hook, input_news_ids,
             model_version, prompt_version, input_hash,
-            reporting_start, reporting_end, evidence_cutoff, scoring_version, source_references
+            reporting_start, reporting_end, evidence_cutoff, scoring_version, generation_claim_token, source_references
         ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8,$9,$10,
             to_timestamp($11::double precision),to_timestamp($12::double precision),
-            to_timestamp($13::double precision),$14,
+            to_timestamp($13::double precision),$14,$15::uuid,
             (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',a.id,'publisher',a.source,'url',a.url,
                 'published_at',a.published_at) ORDER BY a.id),'[]'::jsonb)
              FROM news_articles a WHERE a.id=ANY($7)))
@@ -75,6 +76,7 @@ pub(super) async fn persist_to_vibe_scores(
     .bind(parts.day.end)
     .bind(parts.day.cutoff)
     .bind(super::request::SCORE_VERSION)
+    .bind(generation_claim)
     .fetch_one(&mut **tx)
     .await
     .context("persist vibe")?;

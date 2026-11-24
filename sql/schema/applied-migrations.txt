@@ -344,3 +344,4 @@
 341_flag_only_character_publication
 342_vibe_output_review
 343_record_exhausted_work
+344_character_output_watchdog

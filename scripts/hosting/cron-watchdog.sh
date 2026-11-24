@@ -78,13 +78,17 @@ NALARMS="$(printf '%s' "$ALARMS" | grep -c . || true)"
 
 # The run lands beside the jobs it watches (pipeline_runs_latest).
 STATUS=success
-ERR_SQL=NULL
-if [ "$NALARMS" -gt 0 ]; then
-  STATUS=failed
-  ERR_SQL="'$(echo "$ALARMS" | tr '\n' ';' | sed "s/'/''/g")'"
-fi
-psql "$DB" -X -q -c "INSERT INTO pipeline_runs (job, started_at, finished_at, status, attempted, failed, error)
-      VALUES ('watchdog', now(), now(), '$STATUS', $CHECKS, $NALARMS, $ERR_SQL);"
+if [ "$NALARMS" -gt 0 ]; then STATUS=failed; fi
+CHECKS=$((CHECKS + 1))
+OUTPUT_REPORT="$(psql "$DB" -X -qAt -v ON_ERROR_STOP=1 -v status="$STATUS" -v checks="$CHECKS" -v alarms="$NALARMS" -v detail="$ALARMS" <<'SQL'
+BEGIN;
+INSERT INTO pipeline_runs (job, started_at, finished_at, status, attempted, failed, error)
+VALUES ('watchdog',now(),now(),:'status',:checks,:alarms,NULLIF(:'detail','')) RETURNING id AS run_id \gset
+SELECT public.collect_character_output_report(:run_id);
+COMMIT;
+SQL
+)"
+printf '%s watchdog INFO character_outputs: %s\n' "$STAMP" "$OUTPUT_REPORT"
 
 if [ "$NALARMS" -gt 0 ]; then
   echo "$STAMP watchdog: $NALARMS alarm(s)"

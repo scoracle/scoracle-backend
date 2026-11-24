@@ -302,7 +302,8 @@ pub(crate) async fn execute_with_backend(
             *id,
         )
     } else {
-        let (output, receipt) = create(backend, &assignment, voice_num_ctx).await?;
+        let (output, mut receipt) = create(backend, &assignment, voice_num_ctx).await?;
+        receipt["generation_claim_token"] = json!(item.claim_token);
         if receipt["context_exceeded"] == true {
             return hold_daily(pool, item, &assignment, &pending, &receipt).await;
         }
@@ -324,7 +325,20 @@ pub(crate) async fn execute_with_backend(
     };
     fresh::validate(publication.transaction(), &assignment.parts).await?;
     let product_id = if let Some(output) = &output {
-        Some(persist_to_vibe_scores(publication.transaction(), item, &sport, output).await?)
+        let generation_claim = match &previous {
+            Some((_, _, _, receipt)) => receipt["generation_claim_token"].as_str(),
+            None => item.claim_token.as_deref(),
+        };
+        Some(
+            persist_to_vibe_scores(
+                publication.transaction(),
+                item,
+                &sport,
+                output,
+                generation_claim,
+            )
+            .await?,
+        )
     } else {
         previous.as_ref().and_then(|p| p.1)
     };

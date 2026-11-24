@@ -103,6 +103,8 @@ async fn publication_retry_reuses_generation_and_fences_stale_claims() -> Result
     assert_eq!(count("vibe_scores").await, 1);
     assert_eq!(count("vibe_card_attempts").await, 1);
     assert_eq!(count("application_outbox").await, 1);
+    let original: Option<String> = sqlx::query_scalar("SELECT generation_claim_token::text FROM vibe_scores WHERE sport=$1").bind(sport).fetch_one(&pool).await?;
+    assert_eq!(original, item.claim_token, "retain the original generation on publication retry");
     let saved: (String, String, String, String) = sqlx::query_as("SELECT v.trigger_type,a.outcome,d.status,o.kind FROM vibe_card_attempts a JOIN vibe_scores v ON v.id=a.product_id JOIN classifier_spectra x ON x.sport=v.sport JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id AND d.character='influencer' JOIN application_outbox o ON o.sport=v.sport WHERE v.sport=$1").bind(sport).fetch_one(&pool).await?;
     assert_eq!(
         saved,

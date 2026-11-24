@@ -187,7 +187,7 @@ pub(super) async fn extract_with_backend<T, P: Parser<T>>(
 }
 
 #[cfg(test)]
-mod surface_tests {
+pub(crate) mod surface_tests {
     use super::super::model::GenerateResult;
     use super::*;
     use std::sync::Mutex;
@@ -234,6 +234,19 @@ mod surface_tests {
             serde_json::json!({"prompt":prompt,"num_ctx":opts.num_ctx,"num_predict":opts.num_predict})
         }
     }
+    pub(crate) async fn truncated_analyst_blurb() -> Result<String> {
+        let backend = Backend(Mutex::new(vec!["partial provider reply".into()]));
+        let output = extract_with_backend(
+            &backend,
+            "Evidence",
+            &GenerateOptions::default(),
+            &crate::harness::skills::analyst::parser::MomentumParser,
+            no_rewrite,
+        )
+        .await?;
+        Ok(output.value.unwrap().blurb)
+    }
+
     struct BodyParser;
     impl Parser<String> for BodyParser {
         fn parse(&self, raw: &str) -> Result<Option<String>> {
@@ -347,6 +360,12 @@ mod surface_tests {
             .await
             .unwrap();
         assert_eq!(output.value.as_deref(), Some("First half"));
+        super::super::rejections::deliver_flags(&pool, &path)
+            .await
+            .unwrap();
+        super::super::rejections::deliver_flags(&pool, &path)
+            .await
+            .unwrap();
         let (answer, reason): (String, String) = sqlx::query_as(
             "DELETE FROM character_output_flags WHERE claim_token=$1::uuid RETURNING answer,reason",
         )
@@ -356,7 +375,8 @@ mod surface_tests {
         .unwrap();
         assert_eq!(answer, "First half");
         assert!(reason.contains("length"));
-        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir(path.with_extension("watchdog-pending")).unwrap();
+        let _ = std::fs::remove_file(path);
     }
 
     #[tokio::test]

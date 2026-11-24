@@ -279,7 +279,8 @@ pub fn normalize_body(body: &str) -> String {
 /// One recap: sourced paragraphs first, then a single hook.
 pub fn journalist_schema_raw(report_count: usize) -> String {
     let ids: Vec<_> = (1..=report_count).collect();
-    let paragraphs = serde_json::json!({"type":"array","maxItems":report_count,"items":{
+    let max_paragraphs = if report_count == 0 { 0 } else { 5 };
+    let paragraphs = serde_json::json!({"type":"array","maxItems":max_paragraphs,"items":{
         "type":"object","additionalProperties":false,"required":["body","report_ids"],
         "properties":{"body":{"type":"string","minLength":1,"maxLength":JOURNALIST_REPORT_MAX_CHARS},
             "report_ids":{"type":"array","minItems":1,"maxItems":report_count,"uniqueItems":true,
@@ -408,12 +409,12 @@ mod tests {
         })
         .to_string();
         // Analyst now declares one blurb, so an old scored card is rejected.
-        assert!(analyst::MomentumParser.parse(&card).is_err());
+        assert!(analyst::MomentumParser::Measured.parse(&card).is_err());
         let analyst_reply =
             serde_json::json!({"blurb": paragraphs, "headline": "The recorded performance"})
                 .to_string();
         assert_eq!(
-            analyst::MomentumParser
+            analyst::MomentumParser::Measured
                 .parse(&analyst_reply)
                 .unwrap()
                 .unwrap()
@@ -442,7 +443,7 @@ mod tests {
             "{\"body\":\"unfinished",
             "{\"headline\":\"A read\",\"body\":\"unfinished",
         ] {
-            let refused = analyst::MomentumParser.parse(truncated).is_err()
+            let refused = analyst::MomentumParser::Measured.parse(truncated).is_err()
                 || scout::RatingParser.parse(truncated).is_err()
                 || influencer::VibeParser.parse(truncated).is_err();
             assert!(refused, "a truncated reply was accepted: {truncated}");

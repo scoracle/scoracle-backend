@@ -276,3 +276,31 @@ async fn process_crash_publication_rehearsal() {
     );
     clean(&pool).await;
 }
+
+#[tokio::test]
+#[ignore = "requires isolated migrated TEST_DATABASE_URL"]
+async fn snapshot_estimate_survives_claimed_publication() {
+    let pool = pool().await;
+    clean(&pool).await;
+    let mut assignment = lifecycle_assignment(true);
+    let ctx = assignment.context;
+    assignment.context =
+        MomentumContext::new(ctx.season, ctx.rating, ctx.vibe, Snapshot::default());
+    let model = LifecycleAdapters {
+        response: r#"{"blurb":"Today's form looks promising.","estimated_score":67,"headline":"A promising outlook"}"#.into(),
+        ..Default::default()
+    };
+    let output = create(&pool, &Studio::new(&model), &assignment)
+        .await
+        .unwrap();
+    work::enqueue(&pool, &pending("estimate")).await.unwrap();
+    let claimed = claim_one(&pool).await;
+    let (_, id) = commit_claimed(&pool, &claimed, SPORT, output.as_ref())
+        .await
+        .unwrap();
+    let row: (f64, String, Option<i16>, Option<String>) = sqlx::query_as(
+        "SELECT card_score::float8, card_score_source, score, direction FROM qualified_momentum_summaries WHERE id=$1"
+    ).bind(id.unwrap()).fetch_one(&pool).await.unwrap();
+    assert_eq!(row, (67.0, "estimated".into(), None, None));
+    clean(&pool).await;
+}

@@ -151,7 +151,7 @@ async fn complete_assignment_creates_validated_product_with_actual_provenance() 
     );
     assert_eq!(out.direction, "rising");
     assert_eq!(out.score, 2);
-    assert_eq!(out.card_score, Some(62.5));
+    assert_eq!(out.measured_card_score, Some(62.5));
     assert_eq!(out.headline.as_deref(), Some("Kerr finds a spark"));
     assert_eq!(out.season, 2026);
     assert_eq!(out.provenance.model_version, "model-that-answered");
@@ -173,6 +173,43 @@ async fn complete_assignment_creates_validated_product_with_actual_provenance() 
     );
     assert_eq!(call.eval_count, Some(42));
     assert_eq!(call.wall_ms, Some(123));
+}
+
+#[test]
+fn estimates_require_a_bounded_integer_and_flagged_prose_keeps_only_valid_scores() {
+    let parser = parser::MomentumParser::Estimated;
+    let mut reply =
+        serde_json::json!({"blurb":"The profile is mixed.","headline":"A mixed outlook"});
+    assert!(parser.parse(&reply.to_string()).is_err());
+    for score in [
+        serde_json::json!(-1),
+        serde_json::json!(101),
+        serde_json::json!(0.5),
+        serde_json::Value::Null,
+    ] {
+        reply["estimated_score"] = score;
+        let raw = reply.to_string();
+        assert!(parser.parse(&raw).is_err());
+        assert_eq!(
+            parser
+                .flagged_output(&raw)
+                .unwrap()
+                .unwrap()
+                .estimated_score,
+            None
+        );
+    }
+    for score in [0, 50, 100] {
+        reply["estimated_score"] = score.into();
+        assert_eq!(
+            parser
+                .parse(&reply.to_string())
+                .unwrap()
+                .unwrap()
+                .estimated_score,
+            Some(score)
+        );
+    }
 }
 
 #[tokio::test]
@@ -225,7 +262,7 @@ async fn blank_prose_produces_no_product() {
 #[tokio::test]
 async fn a_single_current_reading_can_describe_its_own_side() {
     let model = Model::new(
-        r#"{"blurb":"The mood reading is calm; measured movement is unavailable.","headline":"Kerr finds a spark"}"#,
+        r#"{"blurb":"The mood reading is calm; measured movement is unavailable.","estimated_score":47,"headline":"Kerr finds a spark"}"#,
     );
     let mut assignment = assignment();
     assignment.context = MomentumContext::new(
@@ -249,6 +286,19 @@ async fn a_single_current_reading_can_describe_its_own_side() {
     assert_eq!(out.score, 0);
     assert_eq!(out.headline.as_deref(), Some("Kerr finds a spark"));
     assert!(out.blurb.contains("mood reading is calm"));
+    assert_eq!(out.measured_card_score, None);
+    assert_eq!(out.estimated_score, Some(47));
+    let calls = model.calls.lock().unwrap();
+    let prompt: serde_json::Value = serde_json::from_str(&calls[0].0).unwrap();
+    assert_eq!(
+        prompt["evidence"]["influencer"]["body"],
+        "The room is calm."
+    );
+    assert_eq!(
+        calls[0].1.format_schema.as_ref().unwrap()["properties"]["estimated_score"]["maximum"],
+        100
+    );
+    drop(calls);
     assert!(out.was_called());
     assert_eq!(model.calls.lock().unwrap().len(), 1);
 }

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Z1FdanTBBtOgD4ck79GWC2e4503HRvFrx4P3sh61knGgvs6Q8SgXvTMk9UOY1dq
+\restrict BEXtiB434xUMRIWy4plAqjyeOEkEgzGDVrIVYtKBt8g3KpZ7VyAWEm7J9wjy3Ee
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -1296,14 +1296,12 @@ WITH target_sports AS (
 ), observations AS (
     SELECT 'scout' AS source, s.entity_type, s.entity_id, s.sport, s.reporting_date, s.generated_at, s.id,
            CASE WHEN NULLIF(btrim(s.body), '') IS NOT NULL THEN s.card_score END AS score
-    FROM public.stat_summaries s
+    FROM public.qualified_stat_summaries s
     JOIN target_sports t ON t.sport = s.sport AND t.current_season = s.season
-    WHERE public.coverage_peer_visible(s.candidate_edition)
     UNION ALL
     SELECT 'influencer', s.entity_type, s.entity_id, s.sport, s.reporting_date, s.generated_at, s.id,
            CASE WHEN NULLIF(btrim(s.prompt), '') IS NOT NULL THEN s.sentiment END
-    FROM public.vibe_scores s JOIN target_sports t ON t.sport = s.sport
-    WHERE public.coverage_peer_visible(s.candidate_edition)
+    FROM public.qualified_vibe_scores s JOIN target_sports t ON t.sport = s.sport
 ), daily AS (
     SELECT DISTINCT ON (source, entity_type, entity_id, sport, reporting_date) *
     FROM observations
@@ -8350,8 +8348,10 @@ CREATE TABLE public.momentum_summaries (
     reporting_date date NOT NULL,
     candidate_edition date,
     generation_claim_token uuid DEFAULT (NULLIF(current_setting('scoracle.claim_token'::text, true), ''::text))::uuid,
+    estimated_score smallint,
     CONSTRAINT momentum_summaries_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text])))),
     CONSTRAINT momentum_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT momentum_summaries_estimated_score_check CHECK (((estimated_score >= 0) AND (estimated_score <= 100))),
     CONSTRAINT momentum_summaries_score_check CHECK (((score IS NULL) OR ((score >= '-5'::integer) AND (score <= 5))))
 );
 
@@ -8368,6 +8368,13 @@ COMMENT ON TABLE public.momentum_summaries IS 'Generated Momentum trajectory car
 --
 
 COMMENT ON COLUMN public.momentum_summaries.headline IS 'The Analyst''s model-emitted card title for this trajectory read (extractive, evidence-traced). NULL = a pre-headline row → momentum board omits until regen.';
+
+
+--
+-- Name: COLUMN momentum_summaries.estimated_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.momentum_summaries.estimated_score IS 'The Analyst’s 0–100 judgment when there is no dated momentum measurement.';
 
 
 --
@@ -11801,8 +11808,14 @@ CREATE VIEW public.qualified_momentum_summaries AS
     week_season,
     week_no,
     reporting_date,
-    candidate_edition
-   FROM public.momentum_summaries;
+    candidate_edition,
+    COALESCE(((input_components ->> 'card_score'::text))::numeric, (estimated_score)::numeric) AS card_score,
+        CASE
+            WHEN ((input_components ->> 'card_score'::text) IS NOT NULL) THEN 'measured'::text
+            WHEN (estimated_score IS NOT NULL) THEN 'estimated'::text
+            ELSE NULL::text
+        END AS card_score_source
+   FROM public.momentum_summaries m;
 
 
 --
@@ -13150,7 +13163,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Z1FdanTBBtOgD4ck79GWC2e4503HRvFrx4P3sh61knGgvs6Q8SgXvTMk9UOY1dq
+\unrestrict BEXtiB434xUMRIWy4plAqjyeOEkEgzGDVrIVYtKBt8g3KpZ7VyAWEm7J9wjy3Ee
 
 
 \ir reference-data.sql
@@ -13158,7 +13171,7 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 -- PostgreSQL database dump
 --
 
-\restrict xmxpCNfk8bWGIMuYzu9BJZjggpPNQZRwnwg3aecuh9jHimrYP5i4mrCb4lnm4XW
+\restrict tcTJX1EQJzpNqElnX2tTp3xXvOqaVhH7khCrauFycdQ72wmJFdAadXagscMzZuk
 
 -- Dumped from database version 18.6 (Homebrew)
 -- Dumped by pg_dump version 18.6 (Homebrew)
@@ -17050,4 +17063,4 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xmxpCNfk8bWGIMuYzu9BJZjggpPNQZRwnwg3aecuh9jHimrYP5i4mrCb4lnm4XW
+\unrestrict tcTJX1EQJzpNqElnX2tTp3xXvOqaVhH7khCrauFycdQ72wmJFdAadXagscMzZuk

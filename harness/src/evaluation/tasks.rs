@@ -1136,7 +1136,10 @@ impl LensTask for MomentumTask {
         crate::harness::skills::analyst::request::MOMENTUM_PROMPT_VERSION
     }
     fn gen_options(&self, temperature: f64) -> Result<GenerateOptions> {
-        let mut options = crate::harness::skills::analyst::request::generation_options(0);
+        let mut options = crate::harness::skills::analyst::request::generation_options(
+            0,
+            MomentumParser::Measured,
+        );
         options.temperature = Some(temperature);
         Ok(options)
     }
@@ -1146,9 +1149,14 @@ impl LensTask for MomentumTask {
     fn assemble(&self, stored: &serde_json::Value) -> Result<Prepared> {
         let parts: crate::harness::skills::analyst::request::Parts =
             serde_json::from_value(stored.clone())?;
+        let mut options = crate::harness::skills::analyst::request::generation_options(
+            0,
+            parts.snapshot.parser(),
+        );
+        options.temperature = Some(0.0);
         Ok(Prepared {
             user_prompt: parts.assemble(),
-            options: self.gen_options(0.0)?,
+            options,
             should_call: parts.should_call(),
             parts: Some(stored.clone()),
         })
@@ -1183,7 +1191,38 @@ impl LensTask for MomentumTask {
         .map(Some)
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let reply = match MomentumParser.parse(raw) {
+        self.reading_verdict(MomentumParser::Measured, raw, expect)
+    }
+    fn evaluate_prepared(
+        &self,
+        request: &Prepared,
+        raw: &str,
+        _label: Option<f64>,
+        expect: Option<&Expect>,
+    ) -> CaseVerdict {
+        let parser = if request
+            .options
+            .format_schema
+            .as_ref()
+            .and_then(|s| s["properties"].get("estimated_score"))
+            .is_some()
+        {
+            MomentumParser::Estimated
+        } else {
+            MomentumParser::Measured
+        };
+        self.reading_verdict(parser, raw, expect)
+    }
+}
+
+impl MomentumTask {
+    fn reading_verdict(
+        &self,
+        parser: MomentumParser,
+        raw: &str,
+        expect: Option<&Expect>,
+    ) -> CaseVerdict {
+        let reply = match parser.parse(raw) {
             Ok(Some(reply)) => reply,
             Ok(None) => return rejected("Analyst returned no reading"),
             Err(error) => return rejected(&format!("{error:#}")),

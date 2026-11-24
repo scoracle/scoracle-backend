@@ -8,7 +8,7 @@ use crate::harness::skill::SkillOutcome;
 use anyhow::{Context, Result};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 
-const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v3-prose";
+const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v4-estimate";
 
 const MOMENTUM_LEDGER: LedgerSpec = LedgerSpec {
     plugin_id: crate::harness::skills::analyst::manifest::MANIFEST.plugin_id,
@@ -26,14 +26,14 @@ async fn persist_momentum_summary(
     out: &MomentumOutput,
 ) -> Result<i64> {
     let trigger_payload = serde_json::json!({});
-    let measured = out.card_score.is_some();
+    let measured = out.measured_card_score.is_some();
     let row = sqlx::query(
         r#"
         INSERT INTO public.momentum_summaries (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
             direction, score, blurb, headline, input_components, input_hash,
-            model_version, prompt_version, generated_at
-        ) VALUES ($1,$2,$3,$4,'periodic',$5::jsonb,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,NOW())
+            model_version, prompt_version, estimated_score, generated_at
+        ) VALUES ($1,$2,$3,$4,'periodic',$5::jsonb,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,$14,NOW())
         RETURNING id
         "#,
     )
@@ -50,6 +50,7 @@ async fn persist_momentum_summary(
     .bind(out.provenance.input_hash.as_deref())
     .bind(&out.provenance.model_version)
     .bind(out.provenance.prompt_version)
+    .bind(out.estimated_score)
     .fetch_one(&mut **tx)
     .await
     .context("persist momentum summary")?;

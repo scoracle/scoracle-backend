@@ -25,6 +25,8 @@ BEGIN
     INSERT INTO public.vibe_scores
         (entity_type,entity_id,sport,trigger_type,model_version,prompt_version,prompt,sentiment,generated_at)
     VALUES ('team',target_id,'NBA','periodic','test','test','Today',38,now());
+    -- Pre-schedule cards remain published after enrollment, even without a publication pointer.
+    UPDATE public.coverage_schedule SET enabled=true,enrolled_at=now();
     SELECT * INTO STRICT changes FROM public.analyst_card_changes('NBA','team',target_id);
     IF (changes.rating_slope, changes.vibe_slope, changes.momentum_score)
         IS DISTINCT FROM ROW(8::numeric,-12::numeric,-2::numeric) THEN

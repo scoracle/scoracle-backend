@@ -38,8 +38,6 @@ func TestEntityVibeCurrent(t *testing.T) {
             input_hash text, scoring_version text, source_references jsonb, reporting_date date,
             reporting_start timestamptz, reporting_end timestamptz, evidence_cutoff timestamptz
         );
-        CREATE TEMP TABLE news_articles (id bigint, source text, url text, published_at timestamptz);
-        INSERT INTO news_articles VALUES (42, 'Wire', 'https://example.com/42', NOW() - INTERVAL '11 days');
         INSERT INTO vibe_scores (id,entity_type,entity_id,sport,sentiment,hook,prompt,input_news_ids,generated_at) VALUES
             (1,'team',7,'NFL',80,'Older scored card','Old reading.',ARRAY[41],NOW() - INTERVAL '11 days'),
             (2,'team',7,'NFL',NULL,'A supported contrast','The speakers disagree.',ARRAY[42],NOW() - INTERVAL '10 days'),
@@ -52,22 +50,19 @@ func TestEntityVibeCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	statement := strings.NewReplacer("public.qualified_vibe_scores", "pg_temp.vibe_scores", "public.news_articles", "pg_temp.news_articles").Replace(entityVibeStatement)
+	statement := strings.ReplaceAll(entityVibeStatement, "public.qualified_vibe_scores", "pg_temp.vibe_scores")
 	var payload []byte
 	if err := tx.QueryRow(ctx, statement, "nfl", "team", 7, nil).Scan(&payload); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {
 		Current *struct {
-			ID          int       `json:"id"`
-			Heat        *int      `json:"heat"`
-			Headline    string    `json:"headline"`
-			Body        string    `json:"body"`
-			GeneratedAt time.Time `json:"generated_at"`
-			Sources     []struct {
-				ID  int    `json:"id"`
-				URL string `json:"url"`
-			} `json:"sources"`
+			ID          int             `json:"id"`
+			Heat        *int            `json:"heat"`
+			Headline    string          `json:"headline"`
+			Body        string          `json:"body"`
+			GeneratedAt time.Time       `json:"generated_at"`
+			Sources     json.RawMessage `json:"sources"`
 		} `json:"current"`
 		Snapshots []struct {
 			Headline  string  `json:"headline"`
@@ -102,8 +97,8 @@ func TestEntityVibeCurrent(t *testing.T) {
 	if c == nil || c.ID != 3 || c.Heat != nil || c.Headline != "Latest supported contrast" || c.Body != "They still disagree." {
 		t.Fatalf("wrong current product: %s", payload)
 	}
-	if c.GeneratedAt.After(time.Now().Add(-9*24*time.Hour)) || len(c.Sources) != 1 || c.Sources[0].ID != 42 || c.Sources[0].URL != "https://example.com/42" {
-		t.Fatalf("lost original date or source binding: %s", payload)
+	if c.GeneratedAt.After(time.Now().Add(-9*24*time.Hour)) || c.Sources != nil {
+		t.Fatalf("unexpected date or public source list: %s", payload)
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO vibe_scores(id,entity_type,entity_id,sport,sentiment,hook,prompt,generated_at,reporting_date,reporting_start,reporting_end) VALUES
         (7,'team',7,'NFL',0,'A difficult day','A coherent zero score.',NOW(),'2026-09-01','2026-09-01','2026-09-02'),

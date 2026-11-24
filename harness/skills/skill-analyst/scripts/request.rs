@@ -9,7 +9,7 @@ use crate::util::{hash_components, round1};
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s58-short-hook";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s59-short-paragraphs";
 
 /// The Scout card supplied to the Analyst. The reading is already a finished interpretation;
 /// the Analyst should synthesize it, not reconstruct it from the Scout's raw measurements.
@@ -76,9 +76,8 @@ pub struct Assignment {
 /// Keep Momentum on the incumbent stats route until a broader fixture set proves a split.
 pub const MOMENTUM_TEMPERATURE: f64 = 0.3;
 
-// A single direction read — two rails and what they are doing to each other — is a handful of
-// sentences on a card. Nothing here scales with story count.
-pub const MOMENTUM_NUM_PREDICT: i32 = 700;
+// Output headroom for the Analyst’s reading, score and hook.
+pub const MOMENTUM_NUM_PREDICT: i32 = 1200;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct MomentumContext {
@@ -321,8 +320,19 @@ pub async fn load_momentum_context(
 }
 
 /// Preserve the current voice-window reservation; all adapters use these same options.
-pub fn generation_options(voice_num_ctx: i32) -> GenerateOptions {
-    let schema = crate::tools::form::card_schema_raw("blurb", false);
+pub fn generation_options(
+    voice_num_ctx: i32,
+    parser: super::parser::MomentumParser,
+) -> GenerateOptions {
+    let schema = match parser {
+        super::parser::MomentumParser::Measured => {
+            crate::tools::form::card_schema_raw("blurb", false)
+        }
+        super::parser::MomentumParser::Estimated => format!(
+            r#"{{"type":"object","additionalProperties":false,"required":["blurb","estimated_score","headline"],"properties":{{"blurb":{{"type":"string","minLength":1}},"estimated_score":{{"type":"integer","minimum":0,"maximum":100}},"headline":{{"type":"string","minLength":1,"maxLength":{}}}}}}}"#,
+            crate::tools::form::HOOK_MAX_CHARS
+        ),
+    };
     GenerateOptions {
         system: None,
         temperature: Some(MOMENTUM_TEMPERATURE),

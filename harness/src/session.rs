@@ -240,7 +240,7 @@ pub(crate) mod surface_tests {
             &backend,
             "Evidence",
             &GenerateOptions::default(),
-            &crate::harness::skills::analyst::parser::MomentumParser,
+            &crate::harness::skills::analyst::parser::MomentumParser::Measured,
             no_rewrite,
         )
         .await?;

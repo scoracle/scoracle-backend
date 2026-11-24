@@ -345,3 +345,4 @@
 342_vibe_output_review
 343_record_exhausted_work
 344_character_output_watchdog
+345_analyst_card_scoring

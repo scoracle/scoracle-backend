@@ -12,13 +12,13 @@ use crate::tools::meta::EntityMeta;
 use crate::util::hash_components;
 use anyhow::Result;
 
-pub const RATING_PROMPT_VERSION: &str = "s100-short-hook";
+pub const RATING_PROMPT_VERSION: &str = "s101-short-paragraphs";
 
 /// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
 
-/// Token cap for the compact scouting card.
-pub const RATING_NUM_PREDICT: i32 = 700;
+/// Output headroom for the scouting card.
+pub const RATING_NUM_PREDICT: i32 = 1200;
 
 /// Subject of a Scout assignment. Durable identifiers and trigger policy stay in the application.
 /// `sport_name` is the curated sport display name (e.g. "Football (Soccer)") so the model is

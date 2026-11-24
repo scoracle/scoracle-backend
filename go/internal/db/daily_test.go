@@ -113,3 +113,61 @@ func TestPersonReportingReadsKeepEntityTypesSeparate(t *testing.T) {
 		}
 	}
 }
+
+func TestAnalystEstimateIsServedWithoutMeasuredChange(t *testing.T) {
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("requires migrated TEST_DATABASE_URL")
+	}
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	if err := registerPreparedStatements(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	// Fresh schema restores leave this projection unpopulated.
+	if _, err := tx.Exec(ctx, "REFRESH MATERIALIZED VIEW public.latest_momentum_scores_per_entity"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO momentum_summaries
+        (entity_type,entity_id,sport,season,trigger_type,blurb,headline,input_components,estimated_score,model_version,prompt_version)
+        SELECT 'team',-345,'NBA',current_season,'periodic','Current reading','An estimate','{"card_score":null}',0,'fixture','fixture' FROM sports WHERE id='NBA'`); err != nil {
+		t.Fatal(err)
+	}
+	for _, route := range []string{"entity_momentum", "entity_headlines"} {
+		var raw []byte
+		if err := tx.QueryRow(ctx, route, "NBA", "team", -345, nil).Scan(&raw); err != nil {
+			t.Fatal(err)
+		}
+		var payload struct {
+			Summary struct {
+				CardScore *float64 `json:"card_score"`
+				Source    string   `json:"card_score_source"`
+				Heat      *int     `json:"heat"`
+			}
+			Scores  json.RawMessage
+			Entries []struct {
+				Card  string
+				Score *float64
+			}
+		}
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if route == "entity_momentum" {
+			if payload.Summary.CardScore == nil || *payload.Summary.CardScore != 0 || payload.Summary.Source != "estimated" || payload.Summary.Heat != nil || string(payload.Scores) != "null" {
+				t.Fatalf("unexpected estimate: %s", raw)
+			}
+		} else if len(payload.Entries) != 1 || payload.Entries[0].Card != "momentum" || payload.Entries[0].Score == nil || *payload.Entries[0].Score != 0 {
+			t.Fatalf("wrong headline score: %s", raw)
+		}
+	}
+}

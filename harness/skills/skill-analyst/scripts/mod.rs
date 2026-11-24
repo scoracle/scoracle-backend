@@ -44,7 +44,8 @@ pub(crate) async fn record_momentum_completed(
 
 #[derive(Clone, Debug)]
 pub struct MomentumSummary {
-    pub card_score: Option<f64>,
+    pub measured_card_score: Option<f64>,
+    pub estimated_score: Option<i16>,
     pub direction: String,
     pub score: i32,
     pub blurb: String,
@@ -130,14 +131,10 @@ async fn articulate(
         snapshot: ctx.snapshot.clone(),
     }
     .assemble();
-    let opts = request::generation_options(assignment.voice_num_ctx);
+    let parser = ctx.snapshot.parser();
+    let opts = request::generation_options(assignment.voice_num_ctx, parser);
     let extracted = studio
-        .extract(
-            &prompt,
-            &opts,
-            &parser::MomentumParser,
-            crate::harness::session::no_rewrite,
-        )
+        .extract(&prompt, &opts, &parser, crate::harness::session::no_rewrite)
         .await?;
     let call = GenerationCall::from(&extracted);
     let model = extracted.model.clone();
@@ -147,7 +144,8 @@ async fn articulate(
     let blurb = reply.blurb;
     Ok(Some(Generation::called(
         MomentumSummary {
-            card_score: ctx.snapshot.card_score(),
+            measured_card_score: ctx.snapshot.card_score(),
+            estimated_score: reply.estimated_score,
             direction,
             score,
             blurb,

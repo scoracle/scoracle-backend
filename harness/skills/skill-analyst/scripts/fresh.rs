@@ -41,11 +41,11 @@ pub(super) fn readings<'a>(
     snapshot: &'a Snapshot,
 ) -> Fresh<'a> {
     let comparisons = comparisons(snapshot);
-    let include =
-        |measure| comparisons.is_empty() || comparisons.iter().any(|c| c.measure == measure);
+    let snapshot_only = comparisons.is_empty();
+    let include = |measure| snapshot_only || comparisons.iter().any(|c| c.measure == measure);
     Fresh {
         scout: scout.filter(|_| include("performance")).map(|r| Reading {
-            body: r.card_score.is_none().then_some(r.body.as_str()),
+            body: (snapshot_only || r.card_score.is_none()).then_some(r.body.as_str()),
             score: r.card_score,
             season: r.season,
             generated_at: r.generated_at.as_deref(),
@@ -53,7 +53,7 @@ pub(super) fn readings<'a>(
         influencer: influencer
             .filter(|_| include("coverage_tone"))
             .map(|r| Reading {
-                body: r.sentiment.is_none().then_some(r.body.as_str()),
+                body: (snapshot_only || r.sentiment.is_none()).then_some(r.body.as_str()),
                 score: r.sentiment.map(f64::from),
                 season: None,
                 generated_at: r.generated_at.as_deref(),

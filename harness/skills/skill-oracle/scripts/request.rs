@@ -10,13 +10,13 @@ use anyhow::{Context, Result};
 
 use sqlx::PgPool;
 
-pub const ORACLE_PROMPT_VERSION: &str = "or46-short-hook";
+pub const ORACLE_PROMPT_VERSION: &str = "or47-short-paragraphs";
 
 /// Production crown temperature. Fixtures pin zero.
 pub const ORACLE_TEMPERATURE: f64 = 0.6;
 
 /// Runtime headroom for the JSON response, not a requested prose length.
-pub const ORACLE_NUM_PREDICT: i32 = 700;
+pub const ORACLE_NUM_PREDICT: i32 = 1200;
 
 pub fn generation_options(temperature: f64, num_ctx: i32) -> GenerateOptions {
     let schema = crate::tools::form::card_schema_raw("reading", false);

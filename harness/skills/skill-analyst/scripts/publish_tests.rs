@@ -140,7 +140,7 @@ fn only_readings_or_measured_rails_are_material() {
 #[test]
 fn momentum_preserves_digits_and_score_wording() {
     let read = |blurb: &str| {
-        MomentumParser.parse(
+        MomentumParser::Measured.parse(
             &serde_json::json!({"blurb":blurb,"headline":"The scores tell the story"}).to_string(),
         )
     };
@@ -178,7 +178,7 @@ fn momentum_preserves_digits_and_score_wording() {
 fn claim_paragraphs_survive_the_production_parser() {
     let body = "The profile is ordinary. Most skills sit near average. The middle is the story.\n\nOne edge stands out. Finishing leads the supplied profile. That is the exception.\n\nAvailability is limited. Two absences are recorded. Depth matters now.\n\nThe rest is unchanged. The supplied comparison shows no movement. Continuity holds.";
     let raw = serde_json::json!({"blurb":body, "headline": "The recorded performance"}).to_string();
-    let parsed = MomentumParser.parse(&raw).unwrap().unwrap();
+    let parsed = MomentumParser::Measured.parse(&raw).unwrap().unwrap();
     assert_eq!(parsed.blurb, body);
 }
 

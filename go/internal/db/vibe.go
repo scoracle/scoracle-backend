@@ -8,7 +8,6 @@ const entityVibeStatement = `WITH req AS NOT MATERIALIZED (
 ),
 vibe_cur AS (
 	SELECT vs.id, vs.sentiment, vs.hook AS headline, vs.prompt AS body,
-	       vs.input_news_ids, vs.source_references,
 	       vs.trigger_type, vs.generated_at,
 	       vs.model_version, vs.prompt_version, vs.input_hash, vs.scoring_version,
            vs.reporting_date, vs.reporting_start, vs.reporting_end, vs.evidence_cutoff
@@ -43,12 +42,7 @@ SELECT json_build_object(
 			SELECT id, sentiment AS heat, sentiment AS score, headline, body,
 			       trigger_type, generated_at, model_version, prompt_version,
                        input_hash, scoring_version AS score_scale, reporting_date AS date,
-                       reporting_start, reporting_end, evidence_cutoff,
-			       COALESCE(source_references::json, (SELECT json_agg(json_build_object(
-			           'id', a.id, 'publisher', a.source, 'url', a.url,
-			           'published_at', a.published_at
-			       ) ORDER BY a.id) FROM public.news_articles a
-			       WHERE a.id = ANY(vibe_cur.input_news_ids)), '[]'::json) AS sources
+                       reporting_start, reporting_end, evidence_cutoff
 			FROM vibe_cur
 		) v
 	),

@@ -63,9 +63,11 @@ async fn sql_metrics_match_legacy_thresholds_and_creation() -> Result<()> {
             };
             snapshot.momentum_score = score;
             a.context = MomentumContext::new(2026, rating, vibe, snapshot);
-            let model = Model::new(
-                r#"{"blurb":"Kerr's measured form and mood retain their separate windows.","headline":"Kerr finds a spark"}"#,
-            );
+            let mut reply = serde_json::json!({"blurb":"Kerr's form and mood retain their separate windows.","headline":"Kerr finds a spark"});
+            if score.is_none() {
+                reply["estimated_score"] = 47.into();
+            }
+            let model = Model::new(&reply.to_string());
             let reference_model = Model::new(&model.response);
             let actual = create(&pool, &Studio::new(&model), &a).await?;
             let expected = create_from_reference(&Studio::new(&reference_model), &a).await?;

@@ -1211,7 +1211,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			  AND (req.reporting_date IS NULL OR v.reporting_date=req.reporting_date)
 			  AND (v.hook IS NOT NULL OR v.prompt IS NOT NULL)
 			UNION ALL
-			SELECT 'momentum', m.generated_at, m.score::int, m.headline, m.blurb, NULL::json
+			SELECT 'momentum', m.generated_at, COALESCE(m.card_score, 50 + 10 * m.score), m.headline, m.blurb, NULL::json
 			FROM public.qualified_momentum_summaries m, req, win
 			WHERE m.entity_type = req.entity_type AND m.entity_id = req.entity_id AND m.sport = req.sport
 			  AND (req.reporting_date IS NULL OR m.reporting_date=req.reporting_date)
@@ -1295,7 +1295,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season
 		),
 		summary AS (
-			SELECT ms.input_components, ms.season, ms.direction, ms.score AS heat, (ms.input_components->>'card_score')::numeric AS card_score, ms.headline, ms.blurb AS body, ms.model_version, ms.prompt_version, ms.generated_at
+			SELECT ms.input_components, ms.season, ms.direction, ms.score AS heat, ms.card_score, ms.card_score_source, ms.headline, ms.blurb AS body, ms.model_version, ms.prompt_version, ms.generated_at
 			FROM public.qualified_momentum_summaries ms, req
 			WHERE ms.entity_type = req.entity_type AND ms.entity_id = req.entity_id AND ms.sport = req.sport
 			  AND ms.season = COALESCE(req.want_season, req.cur_season)
@@ -1329,7 +1329,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				    'rating_window_start', input_components->'momentum_rating_window_start',
 				    'rating_window_end', input_components->'momentum_rating_window_end',
 				    'season', season, 'generated_at', generated_at
-				) FROM summary WHERE card_score IS NOT NULL)
+				) FROM summary WHERE card_score_source = 'measured')
 				ELSE (SELECT row_to_json(c) FROM scores c) END
 		)`,
 		// Entity meta (two-rail model) — per-entity IDENTITY for the page header: name,

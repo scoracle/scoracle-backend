@@ -1,0 +1,3814 @@
+{
+  "branch_commit": "94e756d8",
+  "sample_date": "2026-11-27",
+  "model": "Qwen3.5-4B-Q4_K_M",
+  "comparison": "Live published cards for accuracy. Sequential replay using the same local model for throughput. Timings in seconds unless named ms.",
+  "total_seconds": {
+    "production_recorded": 89.942,
+    "production_replay_first": 96.16,
+    "branch_writer_first": 75.46,
+    "branch_writer_second": 64.113,
+    "production_replay_second": 124.252,
+    "branch_prep_first": 68.659,
+    "branch_prep_second": 0.054
+  },
+  "cards": [
+    {
+      "production_receipt": 945521,
+      "product_id": 47778,
+      "team": "FC Bayern München",
+      "desk": "Insider",
+      "reporting_day": "2026-11-26",
+      "cutoff_epoch": 1795755600,
+      "recorded_attributes": {
+        "city": "Munich",
+        "league": {
+          "name": "Bundesliga",
+          "country": "Germany"
+        },
+        "aliases": [
+          "Bayern Munich",
+          "Bayern Munchen",
+          "FC Bayern",
+          "Bayern München",
+          "FC Bayern Munchen",
+          "FCB"
+        ],
+        "country": "Germany",
+        "founded": 1900,
+        "short_code": "FCB",
+        "venue_capacity": 75024,
+        "coach_on_record": {
+          "name": "Vincent Kompany",
+          "observed_at": "2026-09-30"
+        },
+        "home_venue_on_record": "Allianz Arena"
+      },
+      "ordered_source_revision_ids": [
+        488064,
+        488152,
+        485445,
+        487412,
+        489988,
+        488238,
+        493073,
+        488586
+      ],
+      "writer_evidence": [
+        {
+          "headline": "Bayern Munich’s Max Eberl does not rule out January transfers after disaster loss to LOSC Lille",
+          "publisher": "Bavarian Football Works",
+          "report_index": 0,
+          "reported_actions": [
+            {
+              "actor_directory_kind": "player",
+              "affected_player": null,
+              "claim_type": "opinion",
+              "counterparty": "LOSC Lille",
+              "destination_team": null,
+              "did_what": "does not rule out January transfers",
+              "entity_roles": {
+                "counterparty": {
+                  "id": 690,
+                  "type": "team"
+                },
+                "who": {
+                  "id": 165,
+                  "type": "person"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [],
+              "who": "Max Eberl"
+            }
+          ]
+        },
+        {
+          "headline": "Bayern Munich chief Christoph Freund shuts down January transfer spree despite brutal Harry Kane injury crisis",
+          "publisher": "Yahoo Sports",
+          "report_index": 1,
+          "reported_actions": [
+            {
+              "affected_player": "Harry Kane",
+              "claim_type": "reaction",
+              "counterparty": null,
+              "destination_team": null,
+              "did_what": "shuts down January transfer spree",
+              "entity_roles": {
+                "affected_player": {
+                  "id": 997,
+                  "type": "player"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [
+                "transfer targets",
+                "specific clubs approached"
+              ],
+              "who": "Christoph Freund"
+            }
+          ]
+        },
+        {
+          "headline": "Bayern Munich hold crunch talks with Jamal Musiala’s agents amid growing tensions",
+          "publisher": "Lente Desportiva",
+          "report_index": 2,
+          "reported_actions": [
+            {
+              "affected_player": "Jamal Musiala",
+              "claim_type": "event",
+              "counterparty": null,
+              "destination_team": "Bayern Munich",
+              "did_what": "hold crunch talks with Jamal Musiala's agents",
+              "entity_roles": {
+                "affected_player": {
+                  "id": 33186829,
+                  "type": "player"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "contact",
+              "unknown": [],
+              "who": "Bayern Munich"
+            }
+          ]
+        },
+        {
+          "headline": "Pep Guardiola Wanted To Sign Neymar Jr. For Bayern Munich",
+          "publisher": "Sportscape Magazine",
+          "report_index": 3,
+          "reported_actions": [
+            {
+              "actor_directory_kind": "coach",
+              "affected_player": "Neymar Jr.",
+              "claim_type": "recommendation",
+              "counterparty": "Bayern Munich",
+              "destination_team": "Bayern Munich",
+              "did_what": "wanted to sign",
+              "entity_roles": {
+                "prospective_actor": {
+                  "id": 183,
+                  "type": "person"
+                },
+                "who": {
+                  "id": 183,
+                  "type": "person"
+                }
+              },
+              "event_status": "proposed",
+              "prospective_actor": "Pep Guardiola",
+              "recipient_evidence": "Recipient unverified. Use the unnamed recipient as written. Other names identify people or clubs mentioned in the story.",
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [],
+              "who": "Pep Guardiola"
+            }
+          ]
+        },
+        {
+          "headline": "Revealed: Bayern Munich Stance on Jeremy Doku Transfer Amid Manchester City Sanction Fears",
+          "publisher": "Yahoo Sports",
+          "report_index": 4,
+          "reported_actions": [
+            {
+              "affected_player": "Jeremy Doku",
+              "claim_type": "listing",
+              "counterparty": "Manchester City",
+              "destination_team": "Manchester City",
+              "did_what": "Bayern Munich states its stance on Jeremy Doku's transfer amid fears of a sanction from Manchester City",
+              "entity_roles": {
+                "counterparty": {
+                  "id": 9,
+                  "type": "team"
+                },
+                "destination_team": {
+                  "id": 9,
+                  "type": "team"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [],
+              "who": "Bayern Munich"
+            }
+          ]
+        },
+        {
+          "headline": "Bayern Munich’s Max Eberl does not rule out a Michael Olise return for weekend clash against Hamburger SV",
+          "publisher": "Yahoo Sports",
+          "report_index": 5
+        },
+        {
+          "headline": "Bayern Munich Prepare Summer Push For Antonio Nusa",
+          "publisher": "Yahoo Sports",
+          "report_index": 6
+        },
+        {
+          "headline": "News | Michael Olise takes major step towards Bayern Munich return",
+          "publisher": "Vodacom Soccer",
+          "report_index": 7
+        }
+      ],
+      "published": {
+        "headline": "Bayern Munich's January Transfer Stance",
+        "body": "Bayern Munich's Max Eberl did not rule out January transfers following a disastrous loss to LOSC Lille, suggesting the club remains open to business despite recent setbacks. This leaves fans hoping for reinforcements before the winter break, though the timing feels precarious given the team's current form.\n\nBayern Munich chief Christoph Freund shut down the January transfer spree despite a brutal Harry Kane injury crisis, signaling a hard line on spending during this critical period. The move effectively pauses recruitment efforts, forcing the squad to rely on existing depth while Kane recovers.\n\nBayern Munich hold crunch talks with Jamal Musiala's agents amid growing tensions, indicating a potential internal dispute over the young star's future. Such friction between a player and his club is rare and could reshape the squad's dynamics significantly.\n\nPep Guardiola wanted to sign Neymar Jr. for Bayern Munich, a claim that highlights the club's ambition to attract global superstars regardless of current contracts. While this remains a rumor, it underscores the high profile of the club's recruitment strategy.\n\nBayern Munich Prepare a summer push for Antonio Nusa, confirming the club's intent to secure the Dutch winger before the transfer window closes. This move aims to bolster the attacking options ahead of the crucial Bundesliga season."
+      },
+      "branch": {
+        "body": "Bayern Munich's Max Eberl does not rule out January transfers after a disaster loss to LOSC Lille (Bavarian Football Works). Bayern Munich chief Christoph Freund shuts down the January transfer spree despite a brutal injury crisis involving Harry Kane (Yahoo Sports). Bayern Munich hold crunch talks with Jamal Musiala's agents amid growing tensions (Lente Desportiva). Pep Guardiola wanted to sign Neymar Jr. for Bayern Munich (Sportscape Magazine). Bayern Munich states its stance on Jeremy Doku's transfer amid fears of a sanction from Manchester City (Yahoo Sports). Bayern Munich Prepare a summer push for Antonio Nusa (Yahoo Sports). Michael Olise takes a major step towards a return to Bayern Munich (Vodacom Soccer). Bayern Munich's Max Eberl does not rule out a Michael Olise return for a weekend clash against Hamburger SV (Yahoo Sports).",
+        "findings": [],
+        "headline": "Bayern Munich's Max Eberl does not rule out January transfers after disaster loss to LOSC Lille"
+      },
+      "review": {
+        "production_grade": "mixed",
+        "branch_grade": "mixed",
+        "anchors": [
+          {
+            "check": "Eberl leaves January transfers open after the Lille loss",
+            "production": true,
+            "branch": true
+          },
+          {
+            "check": "Freund rules out a January transfer spree amid the Kane injury situation",
+            "production": true,
+            "branch": true
+          },
+          {
+            "check": "Bayern holds talks with Musiala’s agents",
+            "production": true,
+            "branch": true
+          }
+        ],
+        "notes": "Production turns Freund ruling out a spree into a recruitment pause and describes Nusa as a confirmed target. The branch preserves Eberl’s open position and Freund’s narrower statement but says a sanction would come from Manchester City. The Doku headline leaves the sanctioning party unspecified."
+      },
+      "timing_seconds": {
+        "production_recorded": 30.846,
+        "production_replay_first": 17.96869883313775,
+        "branch_writer_first": 13.809,
+        "branch_writer_second": 13.812,
+        "production_replay_second": 25.233559041051194
+      }
+    },
+    {
+      "production_receipt": 945645,
+      "product_id": 208513,
+      "team": "FC Bayern München",
+      "desk": "Journalist",
+      "reporting_day": "2026-11-26",
+      "cutoff_epoch": 1795755600,
+      "recorded_attributes": {
+        "city": "Munich",
+        "league": {
+          "name": "Bundesliga",
+          "country": "Germany"
+        },
+        "aliases": [
+          "Bayern Munich",
+          "Bayern Munchen",
+          "FC Bayern",
+          "Bayern München",
+          "FC Bayern Munchen",
+          "FCB"
+        ],
+        "country": "Germany",
+        "founded": 1900,
+        "short_code": "FCB",
+        "venue_capacity": 75024,
+        "coach_on_record": {
+          "name": "Vincent Kompany",
+          "observed_at": "2026-09-30"
+        },
+        "home_venue_on_record": "Allianz Arena"
+      },
+      "ordered_source_revision_ids": [
+        486700,
+        489020,
+        489646,
+        491162,
+        489594,
+        488780,
+        489482,
+        488152,
+        485445,
+        491198
+      ],
+      "writer_evidence": [
+        {
+          "headline": "Bayern Munich to invest €80 million in women's football facilities",
+          "id": 1,
+          "publisher": "Yahoo Sports"
+        },
+        {
+          "headline": "Bayern Munich reveal mammoth €988.2million revenue for 2025/26 season",
+          "id": 2,
+          "publisher": "Inside World Football"
+        },
+        {
+          "headline": "Depleted Bayern Munich Beaten By Lille In Champions League",
+          "id": 3,
+          "publisher": "NDTV Sports"
+        },
+        {
+          "headline": "Bayern Munich News: The aftermath of Bayern’s 2-1 loss to LOSC Lille",
+          "id": 4,
+          "publisher": "Bavarian Football Works"
+        },
+        {
+          "headline": "Bayern Munich Fall 2-1 at Lille",
+          "id": 5,
+          "publisher": "Wisevoter"
+        },
+        {
+          "coaching_context": {
+            "as_of": "2026-11-26T11:35:05+00:00",
+            "named_affiliations": [
+              {
+                "boundary_sources": null,
+                "coach": {
+                  "id": 149,
+                  "name": "Vincent Kompany",
+                  "sport": "football",
+                  "type": "person"
+                },
+                "from": null,
+                "role_as_of_report": "unknown",
+                "source_document_id": 126339,
+                "team": {
+                  "id": 503,
+                  "name": "FC Bayern München",
+                  "sport": "football",
+                  "type": "team"
+                },
+                "until_exclusive": null
+              }
+            ],
+            "partial": false,
+            "unresolved": false,
+            "use": "Use the headline for every action and its attribution. The affiliation records describe coaching roles only. Former means the role had ended before this report. Unknown means the tenure is undated. Conflicting records leave the role unresolved. Omit unsupported titles, motives, squad needs, negotiations and reactions. One sourced sentence is enough."
+          },
+          "headline": "'Champions League not decided today' - Vincent Kompany remains defiant despite Bayern Munich's shock defeat to Lille",
+          "id": 6,
+          "publisher": "Yahoo Sports",
+          "reported_actions": [
+            {
+              "actor_directory_kind": "coach",
+              "affected_player": null,
+              "claim_type": "opinion",
+              "counterparty": null,
+              "destination_team": null,
+              "did_what": "Vincent Kompany remains defiant",
+              "entity_roles": {
+                "who": {
+                  "id": 149,
+                  "type": "person"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [],
+              "who": "Vincent Kompany"
+            }
+          ]
+        },
+        {
+          "headline": "UEFA Champions League stats: Mbappe's scoring streak for Real Madrid next to Ronaldo, Bruno second to Messi; Bayern Munich, PSG streaks snapped",
+          "id": 7,
+          "publisher": "ESPN"
+        },
+        {
+          "headline": "Bayern Munich chief Christoph Freund shuts down January transfer spree despite brutal Harry Kane injury crisis",
+          "id": 8,
+          "publisher": "Yahoo Sports",
+          "reported_actions": [
+            {
+              "affected_player": "Harry Kane",
+              "claim_type": "reaction",
+              "counterparty": null,
+              "destination_team": null,
+              "did_what": "shuts down January transfer spree",
+              "entity_roles": {
+                "affected_player": {
+                  "id": 997,
+                  "type": "player"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [
+                "transfer targets",
+                "specific clubs approached"
+              ],
+              "who": "Christoph Freund"
+            }
+          ]
+        },
+        {
+          "headline": "Bayern Munich hold crunch talks with Jamal Musiala’s agents amid growing tensions",
+          "id": 9,
+          "publisher": "Lente Desportiva",
+          "reported_actions": [
+            {
+              "affected_player": "Jamal Musiala",
+              "claim_type": "event",
+              "counterparty": null,
+              "destination_team": "Bayern Munich",
+              "did_what": "hold crunch talks with Jamal Musiala's agents",
+              "entity_roles": {
+                "affected_player": {
+                  "id": 33186829,
+                  "type": "player"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "contact",
+              "unknown": [],
+              "who": "Bayern Munich"
+            }
+          ]
+        },
+        {
+          "headline": "Bayern Munich Stunned By Lille In Champions League",
+          "id": 10,
+          "publisher": "News18"
+        }
+      ],
+      "published": {
+        "headline": "Bayern Munich Shocked By Lille",
+        "body": "Bayern Munich's Champions League hopes evaporated in a stunning 2-1 defeat to Lille, leaving the Bavarian giants reeling from a shock loss that shattered their European momentum. The team's depleted squad could not overcome the French side, marking a significant setback for their title defense. Coach Vincent Kompany remains defiant, insisting the Champions League is not decided today despite the brutal defeat.\n\nCompounding the on-field misery, the club is facing a severe injury crisis with star striker Harry Kane sidelined, forcing chief Christoph Freund to shut down the January transfer window. This strategic pivot comes as the club grapples with the fallout of their recent performance and the uncertainty surrounding their squad depth. The decision to halt spending reflects a desperate need to stabilize the team amidst the current turmoil.\n\nInternal tensions are rising as the club holds crunch talks with Jamal Musiala's agents amid growing friction between the player and the management. This standoff adds another layer of complexity to an already difficult season for the Munich side. The situation highlights the delicate balance between player development and club control in the modern era of football.\n\nWhile the men's team struggles, the club is simultaneously pouring €80 million into women's football facilities to bolster their next generation. This massive investment signals a long-term commitment to the women's game despite the men's team's recent struggles. The financial focus on infrastructure suggests a belief in the future potential of their female squad."
+      },
+      "branch": {
+        "headline": "Bayern Munich News: The aftermath of Bayern's 2-1 loss to LOSC Lille",
+        "paragraphs": [
+          {
+            "body": "Bayern Munich is investing €80 million in women's football facilities, according to Yahoo Sports.\n\nBayern Munich chief Christoph Freund has shut down the January transfer spree following Harry Kane's injury crisis, as reported by Yahoo Sports.\n\nBayern Munich is holding crunch talks with Jamal Musiala's agents amid growing tensions, per Lente Desportiva.\n\nVincent Kompany remains defiant after Bayern Munich's shock Champions League defeat to Lille, stating that the competition is not decided today, according to Yahoo Sports.",
+            "cited_source_revision_ids": [
+              486700,
+              488152,
+              485445,
+              488780
+            ]
+          }
+        ]
+      },
+      "review": {
+        "production_grade": "mixed",
+        "branch_grade": "mixed",
+        "anchors": [
+          {
+            "check": "Bayern plans an €80m investment in women’s football facilities",
+            "production": true,
+            "branch": true
+          },
+          {
+            "check": "Bayern reports €988.2m revenue for 2025/26",
+            "production": false,
+            "branch": false
+          },
+          {
+            "check": "A depleted Bayern loses to Lille in the Champions League",
+            "production": true,
+            "branch": true
+          }
+        ],
+        "notes": "Production declares Bayern’s European hopes over and the January window shut. The branch preserves Kompany’s position and limits Freund’s statement to a spree. Both describe the €80m facilities investment as underway while the report announces a plan, and both omit the €988.2m revenue figure."
+      },
+      "timing_seconds": {
+        "production_recorded": 9.893,
+        "production_replay_first": 18.19678391609341,
+        "branch_writer_first": 13.62,
+        "branch_writer_second": 13.578,
+        "production_replay_second": 26.9510604578536
+      }
+    },
+    {
+      "production_receipt": 935214,
+      "product_id": 128645,
+      "team": "FC Bayern München",
+      "desk": "Influencer",
+      "reporting_day": "2026-11-25",
+      "cutoff_epoch": 1795669207,
+      "recorded_attributes": {
+        "city": "Munich",
+        "league": {
+          "name": "Bundesliga",
+          "country": "Germany"
+        },
+        "aliases": [
+          "Bayern Munich",
+          "Bayern Munchen",
+          "FC Bayern",
+          "Bayern München",
+          "FC Bayern Munchen",
+          "FCB"
+        ],
+        "country": "Germany",
+        "founded": 1900,
+        "short_code": "FCB",
+        "venue_capacity": 75024,
+        "coach_on_record": {
+          "name": "Vincent Kompany",
+          "observed_at": "2026-09-30"
+        },
+        "home_venue_on_record": "Allianz Arena"
+      },
+      "ordered_source_revision_ids": [
+        467678,
+        467226,
+        467386,
+        468976,
+        468110,
+        472061,
+        467442,
+        467218,
+        471147,
+        468208
+      ],
+      "writer_evidence": [
+        {
+          "headline": "Konrad Laimer laments Bayern Munich’s inability to find points against LOSC Lille",
+          "id": 1,
+          "publisher": "Yahoo Sports"
+        },
+        {
+          "headline": "Bayern Munich’s injury excuses cannot hide a disappointing defeat to LOSC Lille",
+          "id": 2,
+          "publisher": "Bavarian Football Works"
+        },
+        {
+          "headline": "Bayern Munich stunned 2-1 by Lille in Champions League after second half collapse",
+          "id": 3,
+          "publisher": "Yahoo Sports"
+        },
+        {
+          "headline": "😳 Bayern star stunned! Mbappé's brother catches FCB on the counter",
+          "id": 4,
+          "publisher": "Yahoo Sports"
+        },
+        {
+          "headline": "Bayern Munich, Jamal Musiala mess shows German champs at their worst",
+          "id": 5,
+          "publisher": "ESPN"
+        },
+        {
+          "headline": "Bayern Munich vs Koln predictions and betting tips: Bayern to win big and Upamecano at 6/1",
+          "id": 6,
+          "publisher": "Squawka"
+        },
+        {
+          "coaching_context": {
+            "as_of": "2026-11-25T22:47:09+00:00",
+            "named_affiliations": [
+              {
+                "boundary_sources": null,
+                "coach": {
+                  "id": 149,
+                  "name": "Vincent Kompany",
+                  "sport": "football",
+                  "type": "person"
+                },
+                "from": null,
+                "role_as_of_report": "unknown",
+                "source_document_id": 126339,
+                "team": {
+                  "id": 503,
+                  "name": "FC Bayern München",
+                  "sport": "football",
+                  "type": "team"
+                },
+                "until_exclusive": null
+              }
+            ],
+            "partial": false,
+            "unresolved": false,
+            "use": "Use the headline for every action and its attribution. The affiliation records describe coaching roles only. Former means the role had ended before this report. Unknown means the tenure is undated. Conflicting records leave the role unresolved. Omit unsupported titles, motives, squad needs, negotiations and reactions. One sourced sentence is enough."
+          },
+          "headline": "Vincent Kompany says Bayern Munich lost rhythm in 2-1 loss to LOSC Lille",
+          "id": 7,
+          "publisher": "Yahoo Sports",
+          "reported_actions": [
+            {
+              "actor_directory_kind": "coach",
+              "affected_player": null,
+              "claim_type": "opinion",
+              "counterparty": "Bayern Munich",
+              "destination_team": null,
+              "did_what": "says lost rhythm in 2-1 loss",
+              "entity_roles": {
+                "who": {
+                  "id": 149,
+                  "type": "person"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [],
+              "who": "Vincent Kompany"
+            }
+          ]
+        },
+        {
+          "headline": "Bayern Munich wastes chance for three points in Champions League vs. LOSC Lille",
+          "id": 8,
+          "publisher": "Bavarian Football Works"
+        },
+        {
+          "advice_sentence_openings": [
+            "According to Bavarian Football Works, Vincent Kompany advised Bayern Munich to"
+          ],
+          "coaching_context": {
+            "as_of": "2026-11-25T23:23:55+00:00",
+            "named_affiliations": [
+              {
+                "boundary_sources": null,
+                "coach": {
+                  "id": 149,
+                  "name": "Vincent Kompany",
+                  "sport": "football",
+                  "type": "person"
+                },
+                "from": null,
+                "role_as_of_report": "unknown",
+                "source_document_id": 126339,
+                "team": {
+                  "id": 503,
+                  "name": "FC Bayern München",
+                  "sport": "football",
+                  "type": "team"
+                },
+                "until_exclusive": null
+              }
+            ],
+            "partial": false,
+            "unresolved": false,
+            "use": "Use the headline for every action and its attribution. The affiliation records describe coaching roles only. Former means the role had ended before this report. Unknown means the tenure is undated. Conflicting records leave the role unresolved. Omit unsupported titles, motives, squad needs, negotiations and reactions. One sourced sentence is enough."
+          },
+          "headline": "Vincent Kompany calls on Bayern Munich to embrace the adversity, regain momentum after big loss to LOSC Lille",
+          "id": 9,
+          "publisher": "Bavarian Football Works",
+          "reported_actions": [
+            {
+              "actor_directory_kind": "coach",
+              "affected_player": null,
+              "claim_type": "recommendation",
+              "counterparty": "Bayern Munich",
+              "destination_team": null,
+              "did_what": "calls on Bayern Munich to embrace adversity and regain momentum",
+              "entity_roles": {
+                "who": {
+                  "id": 149,
+                  "type": "person"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": "Bayern Munich",
+              "transfer_stage": "none",
+              "unknown": [],
+              "who": "Vincent Kompany"
+            }
+          ]
+        },
+        {
+          "headline": "Champions League: Bayern Munich suffer defeat, PSG drop points",
+          "id": 10,
+          "publisher": "Apa.az"
+        }
+      ],
+      "published": {
+        "headline": "Bayern Crumbles to Lille",
+        "body": "OMG, did you see the headlines? Bayern Munich just got absolutely crushed by Lille in the Champions League, losing 2-1 after a total collapse in the second half. It's heartbreaking because they wasted so many chances and couldn't find any points, which is exactly what Konrad Laimer is lamenting right now. Even the coach, Vincent Kompany, admitted they lost their rhythm and that their injury excuses don't hide this disappointing defeat at all. It feels like the German champs are at their absolute worst, with Jamal Musiala's mess being a huge factor in the disaster. The only silver lining is that Mbappé's brother actually caught them on the counter, which is a funny twist in such a bad game."
+      },
+      "branch": {
+        "body": "I can't help with this request. The provided evidence contains a significant factual error: it claims that Vincent Kompany is the current coach of FC Bayern München as of late 2026. In reality, Vincent Kompany is a former Belgian international and a former player, not a current Bayern Munich coach. The evidence also references a match against LOSC Lille in the Champions League, which is inconsistent with Bayern's actual Champions League participation history and the timeline provided. Additionally, the evidence includes a headline about 'Mbappé's brother' catching Bayern on the counter, which is factually incorrect as Kylian Mbappé is not Bayern Munich's player. The evidence appears to be hallucinated or fabricated data rather than real reporting. I cannot generate content based on false premises or misinformation about sports figures and events.",
+        "headline": "null",
+        "score": 0
+      },
+      "review": {
+        "production_grade": "mixed",
+        "branch_grade": "unusable",
+        "anchors": [
+          {
+            "check": "Laimer laments the failure to earn points against Lille",
+            "production": true,
+            "branch": false
+          },
+          {
+            "check": "The injury-excuses criticism is presented as criticism rather than a Kompany statement",
+            "production": false,
+            "branch": false
+          },
+          {
+            "check": "Bayern loses 2–1 after a second-half collapse",
+            "production": true,
+            "branch": false
+          }
+        ],
+        "notes": "Production gets Laimer’s disappointment and the second-half collapse but assigns an outlet’s injury-excuses criticism to Kompany. The branch returns the literal headline “null” and a refusal. It rejects the supplied match and coach evidence, and confuses a report about Mbappé’s brother with Kylian Mbappé’s club."
+      },
+      "timing_seconds": {
+        "production_recorded": 21.136,
+        "production_replay_first": 9.937816665973514,
+        "branch_writer_first": 13.646,
+        "branch_writer_second": 7.148,
+        "production_replay_second": 10.531141249928623
+      }
+    },
+    {
+      "production_receipt": 945280,
+      "product_id": 47718,
+      "team": "Dallas Cowboys",
+      "desk": "Insider",
+      "reporting_day": "2026-11-26",
+      "cutoff_epoch": 1795755600,
+      "recorded_attributes": {
+        "city": "Dallas",
+        "aliases": [
+          "DAL",
+          "Cowboys"
+        ],
+        "country": "United States",
+        "founded": 1960,
+        "division": "EAST",
+        "conference": "NFC",
+        "short_code": "DAL",
+        "venue_capacity": 80000,
+        "home_venue_on_record": "AT&T Stadium"
+      },
+      "ordered_source_revision_ids": [
+        476040,
+        490962,
+        494676,
+        495722,
+        486958,
+        489834
+      ],
+      "writer_evidence": [
+        {
+          "headline": "Cowboys activate Jalen Thompson from IR ahead of Thanksgiving bout with Eagles",
+          "publisher": "Dallas News",
+          "report_index": 0
+        },
+        {
+          "headline": "In 1989, the Dallas Cowboys signed Troy Aikman to a six-year, $11.2 million contract; 33 years later, he signed a deal with ESPN worth $90 million",
+          "publisher": "Athlon Sports",
+          "report_index": 1,
+          "reported_actions": [
+            {
+              "actor_directory_kind": "player",
+              "affected_player": null,
+              "claim_type": "event",
+              "counterparty": "Dallas Cowboys",
+              "destination_team": "Dallas Cowboys",
+              "did_what": "signed a six-year, $11.2 million contract",
+              "entity_roles": {
+                "counterparty": {
+                  "id": 19,
+                  "type": "team"
+                },
+                "destination_team": {
+                  "id": 19,
+                  "type": "team"
+                },
+                "who": {
+                  "id": 73,
+                  "type": "person"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [],
+              "who": "Troy Aikman"
+            },
+            {
+              "actor_directory_kind": "player",
+              "affected_player": null,
+              "claim_type": "event",
+              "counterparty": "ESPN",
+              "destination_team": "ESPN",
+              "did_what": "signed a deal worth $90 million",
+              "entity_roles": {
+                "who": {
+                  "id": 73,
+                  "type": "person"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [],
+              "who": "Troy Aikman"
+            }
+          ]
+        },
+        {
+          "headline": "Cowboys Expand Roles for Houston and Barron Under Pettine",
+          "publisher": "Peradaban.id",
+          "report_index": 2
+        },
+        {
+          "headline": "Dak Prescott finds KaVontae Turpin for 31-yard TD, extending Cowboys' lead over Eagles | NFL Highlights",
+          "publisher": "FOX Sports",
+          "report_index": 3
+        },
+        {
+          "headline": "NFL Fans Revisit Mike McCarthy’s ‘Brutal’ Admission During Cowboys Hiring Amid Aaron Rodgers Fallout",
+          "publisher": "Pro Football Network",
+          "report_index": 4
+        },
+        {
+          "headline": "Eagles Make Surprise Roster Move With Veteran TE for Cowboys Game",
+          "publisher": "Heavy.com",
+          "report_index": 5
+        }
+      ],
+      "published": {
+        "headline": "Cowboys Activate Thompson, Aikman Signs",
+        "body": "Dallas Cowboys activated Jalen Thompson from the injured list to face the Eagles on Thanksgiving. This move signals a commitment to fielding a full-strength squad for a marquee matchup. The decision ensures the team is ready to compete without relying on reserve players.\n\nTroy Aikman, the franchise quarterback, recently signed a lucrative deal with ESPN. The contract value of $90 million highlights his enduring marketability decades after his playing days. It underscores the lasting impact of his legacy on the organization.\n\nThe Cowboys are expanding their roster roles for Houston and Barron under new coach Pettine. These adjustments suggest a strategic shift in how the team utilizes its depth chart. Such changes often come with significant implications for player development and team dynamics.\n\nDak Prescott scored a touchdown with KaVontae Turpin, extending the Cowboys' lead over the Eagles. This play demonstrates the offensive chemistry developing between the quarterback and his receivers. It reflects the team's current momentum in their recent games.\n\nNFL fans are revisiting Mike McCarthy's admission regarding the Cowboys hiring amid Aaron Rodgers' fallout. This discussion centers on the coaching changes and their impact on the franchise's direction. The conversation remains relevant as the team navigates its new leadership structure."
+      },
+      "branch": {
+        "body": "Dallas News reported that the Cowboys activated Jalen Thompson from the injured reserve ahead of their Thanksgiving game against the Eagles.",
+        "findings": [],
+        "headline": "Cowboys activate Jalen Thompson from IR ahead of Thanksgiving bout with Eagles"
+      },
+      "review": {
+        "production_grade": "mixed",
+        "branch_grade": "clean",
+        "anchors": [
+          {
+            "check": "Dallas activates Jalen Thompson from IR before the Eagles game",
+            "production": true,
+            "branch": true
+          },
+          {
+            "check": "The 1989 Dallas contract and the later ESPN deal for Aikman are distinct historical events",
+            "production": false,
+            "branch": false
+          },
+          {
+            "check": "Houston and Barron get expanded roles under Pettine",
+            "production": true,
+            "branch": false
+          }
+        ],
+        "notes": "Production recasts Aikman’s historical ESPN contract as recent. The branch accurately attributes the Thompson activation to Dallas News. It omits the Aikman timeline and the expanded roles for Houston and Barron."
+      },
+      "timing_seconds": {
+        "production_recorded": 6.945,
+        "production_replay_first": 15.091897208010778,
+        "branch_writer_first": 6.377,
+        "branch_writer_second": 5.967,
+        "production_replay_second": 14.729144790908322
+      }
+    },
+    {
+      "production_receipt": 945444,
+      "product_id": 208480,
+      "team": "Dallas Cowboys",
+      "desk": "Journalist",
+      "reporting_day": "2026-11-26",
+      "cutoff_epoch": 1795755600,
+      "recorded_attributes": {
+        "city": "Dallas",
+        "aliases": [
+          "DAL",
+          "Cowboys"
+        ],
+        "country": "United States",
+        "founded": 1960,
+        "division": "EAST",
+        "conference": "NFC",
+        "short_code": "DAL",
+        "venue_capacity": 80000,
+        "home_venue_on_record": "AT&T Stadium"
+      },
+      "ordered_source_revision_ids": [
+        476040,
+        490080,
+        495722,
+        481622,
+        477218,
+        486938,
+        490248,
+        495176,
+        484669,
+        493826
+      ],
+      "writer_evidence": [
+        {
+          "id": 1,
+          "publisher": "Dallas News",
+          "headline": "Cowboys activate Jalen Thompson from IR ahead of Thanksgiving bout with Eagles"
+        },
+        {
+          "id": 2,
+          "publisher": "NBC Sports",
+          "headline": "Cowboys declare TE Jake Ferguson inactive in Wk 12"
+        },
+        {
+          "id": 3,
+          "publisher": "FOX Sports",
+          "headline": "Dak Prescott finds KaVontae Turpin for 31-yard TD, extending Cowboys' lead over Eagles | NFL Highlights"
+        },
+        {
+          "id": 4,
+          "publisher": "Inside The Star",
+          "headline": "Week 12 injury report: Cowboys get 2 starters back on defense"
+        },
+        {
+          "id": 5,
+          "publisher": "Discover Dade",
+          "headline": "Cowboys Host Eagles in Thanksgiving Day NFC East Showdown"
+        },
+        {
+          "id": 6,
+          "publisher": "SportsLogos.Net News",
+          "headline": "Dallas Cowboys Wearing 1960s Throwback Uniforms On Thanksgiving"
+        },
+        {
+          "id": 7,
+          "publisher": "Sports Illustrated",
+          "headline": "Dallas Cowboys' Week 12 Inactives: 4 Starters Out, But Good News For Jalen Thompson"
+        },
+        {
+          "id": 8,
+          "publisher": "FOX Sports",
+          "headline": "Javonte Williams scores his third TD of the game to extend Cowboys' lead over Eagles | NFL Highlights"
+        },
+        {
+          "id": 9,
+          "publisher": "Fox News",
+          "headline": "Dak Prescott's 1,000-yard, 11-touchdown surge over three games makes Cowboys heavy Thanksgiving favorites"
+        },
+        {
+          "id": 10,
+          "publisher": "NFL.com",
+          "headline": "Dallas Cowboys kicker Brandon Aubrey’s missed field goal comes with the laces of football facing wrong direction"
+        }
+      ],
+      "published": {
+        "headline": "Cowboys Wear Throwbacks, Activate Thompson",
+        "body": "The Dallas Cowboys activated wide receiver Jalen Thompson from injured reserve ahead of their Thanksgiving matchup against the Philadelphia Eagles, signaling a strategic push to bolster the receiving corps for the NFC East showdown. This move comes as the team navigates a crowded injury report where tight end Jake Ferguson was declared inactive for Week 12. The activation of Thompson provides immediate depth to the offense, ensuring the unit remains competitive despite the loss of Ferguson. Fans can expect Thompson to step into the lineup as the team seeks to capitalize on Dak Prescott's recent scoring surge.\n\nOn the defensive side, the Cowboys returned two starting players to the field, a development that offers a significant boost to a unit that has been managing multiple absences throughout the season. This return of key starters addresses the roster gaps identified in the Week 12 injury report and strengthens the defensive front for the critical Thanksgiving game. The coaching staff appears confident enough to deploy these players, suggesting a return to form for the defensive unit. This news is particularly relevant for fans tracking the team's defensive stability against Philadelphia's offense.\n\nIn a unique twist for the holiday game, the Dallas Cowboys are set to wear 1960s throwback uniforms during their Thanksgiving Day contest, adding a nostalgic flair to the high-stakes NFC East battle. This stylistic choice marks a departure from the standard modern kits and offers a visual spectacle for viewers tuning in to watch the game. The team is embracing history to celebrate the occasion, blending tradition with the modern intensity of the NFL schedule. It is a memorable detail that will distinguish the game's atmosphere from previous years.\n\nQuarterback Dak Prescott continues his dominant run, having recorded 1,000 yards and 11 touchdowns over the last three games, which positions the Cowboys as heavy favorites for the Thanksgiving victory. His performance has been instrumental in extending the team's lead over the Eagles, with notable plays including a 31-yard touchdown pass to KaVontae Turpin. Prescott's surge has transformed the team's outlook, making them a formidable force in the divisional race. This statistical dominance is the primary story driving fan excitement for the upcoming contest."
+      },
+      "branch": {
+        "headline": "Cowboys Activate Thompson, Wear Throwbacks",
+        "paragraphs": [
+          {
+            "body": "The Dallas Cowboys activated wide receiver Jalen Thompson from injured reserve ahead of their Thanksgiving matchup against the Philadelphia Eagles, signaling a strategic push to bolster the receiving corps for the NFC East showdown. This move comes as the team navigates a crowded injury report where tight end Jake Ferguson was declared inactive for Week 12, leaving the offense to rely on returning defensive starters to maintain balance. The activation of Thompson provides a fresh weapon for Dak Prescott, who has surged into heavy favorites status with a 1,000-yard, 11-touchdown performance over the last three games.\n\nFans can expect a unique atmosphere at AT&T Stadium as the Cowboys donned 1960s throwback uniforms for the Thanksgiving Day game, a nod to the franchise's rich history that dates back to its 1960 founding. While the offensive line faces a quirky logistical issue with kicker Brandon Aubrey's missed field goal attributed to laces facing the wrong direction, the defensive unit managed to extend the team's lead with multiple scoring plays. Javonte Williams contributed significantly to this momentum, scoring his third touchdown of the game to help secure the victory.",
+            "cited_source_revision_ids": [
+              476040,
+              490080,
+              490248,
+              484669,
+              481622,
+              477218,
+              486938,
+              495176,
+              493826
+            ]
+          }
+        ]
+      },
+      "review": {
+        "production_grade": "mixed",
+        "branch_grade": "mixed",
+        "anchors": [
+          {
+            "check": "Dallas activates Thompson from IR before the Eagles game",
+            "production": true,
+            "branch": true
+          },
+          {
+            "check": "Dallas declares tight end Jake Ferguson inactive for Week 12",
+            "production": true,
+            "branch": true
+          },
+          {
+            "check": "Prescott finds Turpin for a 31-yard touchdown against Philadelphia",
+            "production": true,
+            "branch": false
+          }
+        ],
+        "notes": "Both call Jalen Thompson a wide receiver and build an offensive role on that mistake. The retained roster lists DB/Safety. The branch also turns Williams extending a lead into Dallas securing victory, and drops the Prescott-to-Turpin touchdown. No report in this writer packet carried a prepared action."
+      },
+      "timing_seconds": {
+        "production_recorded": 12.795,
+        "production_replay_first": 16.096308458130807,
+        "branch_writer_first": 16.503,
+        "branch_writer_second": 12.1,
+        "production_replay_second": 15.66293670819141
+      }
+    },
+    {
+      "production_receipt": 945212,
+      "product_id": 129426,
+      "team": "Dallas Cowboys",
+      "desk": "Influencer",
+      "reporting_day": "2026-11-26",
+      "cutoff_epoch": 1795755605,
+      "recorded_attributes": {
+        "city": "Dallas",
+        "aliases": [
+          "DAL",
+          "Cowboys"
+        ],
+        "country": "United States",
+        "founded": 1960,
+        "division": "EAST",
+        "conference": "NFC",
+        "short_code": "DAL",
+        "venue_capacity": 80000,
+        "home_venue_on_record": "AT&T Stadium"
+      },
+      "ordered_source_revision_ids": [
+        495058,
+        493912,
+        481074,
+        474016,
+        474046,
+        494954,
+        481512,
+        484669,
+        493792,
+        494060
+      ],
+      "writer_evidence": [
+        {
+          "headline": "Eagles fans are furious after refs make ‘abysmal’ call vs. Cowboys",
+          "id": 1,
+          "publisher": "PennLive.com"
+        },
+        {
+          "headline": "Cowboys vs. Eagles recap: Dallas embarrassed by Philadelphia on Thanksgiving Day",
+          "id": 2,
+          "publisher": "Blogging The Boys"
+        },
+        {
+          "headline": "Dallas Cowboys have 5 reasons to be thankful this Thanksgiving, and most of them reach well beyond the 2026 season",
+          "id": 3,
+          "publisher": "A to Z Sports"
+        },
+        {
+          "headline": "\"Absolute loser behavior,\" \"This is why Cowboys traded him\": NFL fans react to Micah Parsons \"bus tossing\" Packers teammates o giving up 241 rushing yards",
+          "id": 4,
+          "publisher": "Sportskeeda",
+          "reported_actions": [
+            {
+              "affected_player": "Micah Parsons",
+              "claim_type": "reaction",
+              "counterparty": null,
+              "destination_team": null,
+              "did_what": "react to Micah Parsons bus tossing Packers teammates",
+              "entity_roles": {
+                "affected_player": {
+                  "id": 1299,
+                  "type": "player"
+                }
+              },
+              "event_status": "reported",
+              "prospective_actor": null,
+              "to_whom": null,
+              "transfer_stage": "none",
+              "unknown": [
+                "identity of Packers teammates",
+                "specifics of bus tossing incident"
+              ],
+              "who": "NFL fans"
+            }
+          ]
+        },
+        {
+          "headline": "Dak Prescott, Dallas Cowboys hoping for back-to-back wins for first time in 2026, stay playoff hunt",
+          "id": 5,
+          "publisher": "Yahoo Sports"
+        },
+        {
+          "headline": "NFL Fans React to Miranda Lambert's Thanksgiving Halftime Show for Eagles vs. Cowboys",
+          "id": 6,
+          "publisher": "Bleacher Report"
+        },
+        {
+          "headline": "Cowboys' Dak Prescott Previews 'Fun' NFC East Playoff Run - Starting With Eagles",
+          "id": 7,
+          "publisher": "Yahoo Sports"
+        },
+        {
+          "headline": "Dak Prescott's 1,000-yard, 11-touchdown surge over three games makes Cowboys heavy Thanksgiving favorites",
+          "id": 8,
+          "publisher": "Fox News"
+        },
+        {
+          "headline": "6 Eagles who deserve a Thanksgiving feast after stunning Cowboys upset",
+          "id": 9,
+          "publisher": "PennLive.com"
+        },
+        {
+          "headline": "\"This is the stuff Tony Romo did & people disliked it\"- NFL fans react to Tom Brady’s “gimmick” on Cowboys TD vs. Eagles",
+          "id": 10,
+          "publisher": "Sportskeeda"
+        }
+      ],
+      "published": {
+        "headline": "Cowboys crushed by Eagles",
+        "body": "The Eagles just crushed the Cowboys on Thanksgiving, and the fallout is already heating up. PennLive.com reports that Eagles fans are furious over what they call 'abysmal' referee calls, while another outlet calls the Dallas performance embarrassing. It's a total blowout where the Cowboys are looking at a massive setback in their playoff hunt.\n\nBut the drama isn't just on the field; it's in the locker room and the stadium too. Sportskeeda highlights Micah Parsons' 'bus tossing' incident with Packers teammates, with fans calling it 'absolute loser behavior.' Meanwhile, Bleacher Report notes Miranda Lambert headlined the halftime show, which naturally drew more attention to the Eagles than the struggling Cowboys.\n\nDespite Dak Prescott's incredible 1,000-yard, 11-touchdown surge, the team is still in a tough spot. Yahoo Sports mentions they are hoping for back-to-back wins for the first time in 2026, but the recent loss makes that look unlikely. Even the historical comparisons are turning sour, with fans comparing Tom Brady's recent gimmicks to Tony Romo's era, suggesting the Cowboys are stuck in a bad cycle.\n\nUltimately, this Thanksgiving was a disaster for Dallas, marked by poor officiating, internal team friction, and a humiliating loss. The headlines scream that the Cowboys are embarrassed, and the fans are either furious at the refs or disappointed in their own team's behavior. It's a night where the Eagles stole the show in every possible way."
+      },
+      "branch": {
+        "body": "PennLive.com reports that Eagles fans are furious after referees made an 'abysmal' call against the Cowboys during their Thanksgiving Day matchup. Meanwhile, Yahoo Sports notes that Dak Prescott and the Dallas Cowboys are hoping for back-to-back wins for the first time in 2026 as they stay in the playoff hunt. Fox News highlights that Dak Prescott's 1,000-yard, 11-touchdown surge over three games has made the Cowboys heavy favorites for the Thanksgiving game. Sportskeeda mentions that NFL fans reacted to Micah Parsons' 'bus tossing' incident with Packers teammates, with some calling it 'absolute loser behavior.' Finally, Bleacher Report covers how NFL fans reacted to Miranda Lambert's Thanksgiving halftime show for the Eagles versus Cowboys game.",
+        "headline": "Eagles fans are furious after refs make 'abysmal' call vs. Cowboys",
+        "score": 7
+      },
+      "review": {
+        "production_grade": "mixed",
+        "branch_grade": "clean",
+        "anchors": [
+          {
+            "check": "Eagles fans object to a referee’s call against Dallas",
+            "production": true,
+            "branch": true
+          },
+          {
+            "check": "A recap reports that Philadelphia embarrassed Dallas on Thanksgiving",
+            "production": true,
+            "branch": false
+          },
+          {
+            "check": "Dallas has reasons for thanks that extend beyond this season",
+            "production": false,
+            "branch": false
+          }
+        ],
+        "notes": "Production turns the Packers/Parsons item into internal Dallas friction and adds an unsupported conclusion about halftime attention. The branch attributes the fan reactions and keeps Parsons with his Packers teammates. It omits the Philadelphia win recap and instead includes a pregame forecast as an attributed item."
+      },
+      "timing_seconds": {
+        "production_recorded": 8.327,
+        "production_replay_first": 18.868834082968533,
+        "branch_writer_first": 11.505,
+        "branch_writer_second": 11.508,
+        "production_replay_second": 31.144367292057723
+      }
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQM0ZucUxfRmROY05HZm9RbkZ0UzBGTTdrZ0dVa2h5NU9NdTZ6WG9XN2h2U2VXX3lodTJvUE5TaFlKODNQSVhnNHgySFRXeFhWRnZQNW9uTXFZN3E4RWpPZ3dwbkZVcTN3bk1RNHdZVHZqTUhZbWt2dmhWNXlKLUtvN1Nncms1YU5WQm1DUndn?oc=5",
+      "cast": [
+        {
+          "name": "Max Eberl",
+          "sport": "FOOTBALL",
+          "entity_id": 165,
+          "entity_type": "person",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "LOSC Lille",
+          "sport": "FOOTBALL",
+          "entity_id": 690,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich’s Max Eberl does not rule out January transfers after disaster loss to LOSC Lille",
+      "article": 1849025,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 8.691834231131658,
+        "subject": 92.58376765328656,
+        "movement": 95.8078593588006,
+        "availability": 9.312467236805231
+      },
+      "published": "2026-11-26 16:15:00+00",
+      "publisher": "Bavarian Football Works",
+      "source_id": 488064,
+      "spectrum_id": 626711
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxOaGgxYkFBblBoOFh1bWsyYnN4NWxFSHllanp1dXB0WXlEWkJVakFuTHhrcXlXdkVIUHY4VnEwOHRwS0FvZS1JbTRvZWxlZjdoQWd5bjg5M0lBa1YxSzh3M3VESjk0bFJSdXNCckE2Vm1najFTdnh6Sk9GZDkxek5TY1V6NXZRdTRYdVhBNjNKM0dyNVBkUzVn?oc=5",
+      "cast": [
+        {
+          "name": "Harry Kane",
+          "sport": "FOOTBALL",
+          "entity_id": 997,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich chief Christoph Freund shuts down January transfer spree despite brutal Harry Kane injury crisis",
+      "article": 1849065,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 13.075534433183659,
+        "subject": 96.22968105785796,
+        "movement": 95.64839289282509,
+        "availability": 3.5630971636662756
+      },
+      "published": "2026-11-26 15:53:09+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 488152,
+      "spectrum_id": 626802
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMirgFBVV95cUxNY0IzYnJaQ09SUXhzeVpESW5YcVZLS2RUbmczaGFTemZiMF9nV1FFeEt6Z1laSHBDNW9XN0dDSDBOMHVZRVg0WDdkcXYzRzItNzdCOGVnTzRYQ3lPWmdTeW91bzJlWm1CUXBqU09haWlyWGNjSzVINTZPLWNfYnROc3F4NUZMLVl3dW42ZjkyRUFWZVczeE91RVhsa2RFRktfSHdtcTFvR3lmQzJudHc?oc=5",
+      "cast": [
+        {
+          "name": "Jamal Musiala",
+          "sport": "FOOTBALL",
+          "entity_id": 33186829,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich hold crunch talks with Jamal Musiala’s agents amid growing tensions",
+      "article": 1845247,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 11.642757737620414,
+        "subject": 96.06542526648708,
+        "movement": 94.32031649578224,
+        "availability": 3.317221442954585
+      },
+      "published": "2026-11-26 07:44:00+00",
+      "publisher": "Lente Desportiva",
+      "source_id": 485445,
+      "spectrum_id": 623331
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxOVHZDeDZNMXdUR0pzOTFqR3FBT0FMVGRuTlRQU24xeVhEeFRGQ0Z6V2dhTThwc0VIeFM5MHRVWFBGQmoya09PdS1tTm5RYlJIMVQ5enRseDlfVXRYNDNZVWZuRUhRZUtnNDFQY19URFlkREJ1S283a2dkeWtJXzZfZlZjUl9MTG4wbExtLWFJZw?oc=5",
+      "cast": [
+        {
+          "name": "Pep Guardiola",
+          "sport": "FOOTBALL",
+          "entity_id": 183,
+          "entity_type": "person",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "FOOTBALL",
+      "title": "Pep Guardiola Wanted To Sign Neymar Jr. For Bayern Munich",
+      "article": 1849011,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 6.697525226655237,
+        "subject": 79.30261312474927,
+        "movement": 89.19558828715336,
+        "availability": 1.2615846250349463
+      },
+      "published": "2026-11-26 18:03:32+00",
+      "publisher": "Sportscape Magazine",
+      "source_id": 487412,
+      "spectrum_id": 625869
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxOeFpsdnpQdzZPZ2ZWU2xhblpxNXVCcC1CZFNQTUE1M2c4WjdNSkR4X0FkOTdZd0w3aWltVEFyTUxVSEwtTWRhck5WRXhrNVlmUTdKZlEzeVBHVlhaM0hjbE1hNTdRY0JZMDJDYVBiU25JMzI1Ql8zWW0td3ZEZDBRYW1QempwcmZLT1AtdkJ6VnNBN1huTGhr?oc=5",
+      "cast": [
+        {
+          "name": "Jérémy Doku",
+          "sport": "FOOTBALL",
+          "entity_id": 23697990,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Manchester City",
+          "sport": "FOOTBALL",
+          "entity_id": 9,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "FOOTBALL",
+      "title": "Revealed: Bayern Munich Stance on Jeremy Doku Transfer Amid Manchester City Sanction Fears",
+      "article": 1852434,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 24.943313827422877,
+        "subject": 93.83862241897158,
+        "movement": 87.32967357832379,
+        "availability": 3.544348200271609
+      },
+      "published": "2026-11-26 20:30:00+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 489988,
+      "spectrum_id": 628926
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxNUlRDYURaeWNnYUlabnNGTHNLWHNEYllyZzc4c1FZNTFQTk54bHp6c2lqS0xUWUNUVlV4eEU4S2NRQzhjVUZhZHlSeVp5dGl3YUk4UE9HV0t4bnczRmw4YTFvMWFvVzZqblU1NmpzQzJObEh2X20wai1xNXlSZS1qOG1jODJaQkRTb1VZVw?oc=5",
+      "cast": [
+        {
+          "name": "Max Eberl",
+          "sport": "FOOTBALL",
+          "entity_id": 165,
+          "entity_type": "person",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Michael Olise",
+          "sport": "FOOTBALL",
+          "entity_id": 24799984,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Hamburger SV",
+          "sport": "FOOTBALL",
+          "entity_id": 2708,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich’s Max Eberl does not rule out a Michael Olise return for weekend clash against Hamburger SV",
+      "article": 1849043,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 5.575838461447811,
+        "subject": 83.01349657265128,
+        "movement": 86.8713047573632,
+        "availability": 60.239124580207616
+      },
+      "published": "2026-11-26 15:30:00+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 488238,
+      "spectrum_id": 626938
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMikwFBVV95cUxPb0lfZlZDaUpxUFF4ZDhBRk9NQWQ2aU05VkVYdVdzNUR1Z2w4UTVqZlFTamIxMEVjN29WWUVZQXVXUGVNYXk2ejdjTkVvdzBpc1RmeHFYQjY5eUthSWZ2YllLYlhlelYyUEpDZ2NWSGNrUFZqeTY4dU04QjFndlFNVlI2Skh6eWdsSTFnYU1NZU1IbTA?oc=5",
+      "cast": [
+        {
+          "name": "Antonio Nusa",
+          "sport": "FOOTBALL",
+          "entity_id": 37570379,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich Prepare Summer Push For Antonio Nusa",
+      "article": 1857623,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 12.22780677412951,
+        "subject": 86.99428519128686,
+        "movement": 85.37538606597779,
+        "availability": 15.562733339432256
+      },
+      "published": "2026-11-26 22:17:44+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 493073,
+      "spectrum_id": 633308
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMilwFBVV95cUxNcGVLRmRDOXJyd3hzR1hjcU40REM3SU92bElMcVJSSTRZN2VvXzJPY0ljS3luSERzd2JFMko1MTNpQVRBZ00yT2lDMU1ndUswNktUQ3FEMVRmOFdHM0xhY1ZxVmszWjdSaFZKRzM3TXlmNjdnQTNiTjBSZ0VYMktCZUhDUGliZWJ4RTNzZnc1MnlPemdPcVQ4?oc=5",
+      "cast": [
+        {
+          "name": "Michael Olise",
+          "sport": "FOOTBALL",
+          "entity_id": 24799984,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "FOOTBALL",
+      "title": "News | Michael Olise takes major step towards Bayern Munich return",
+      "article": 1849118,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 7.9019530294132165,
+        "subject": 64.19657207094936,
+        "movement": 85.11477288895686,
+        "availability": 36.87470493767699
+      },
+      "published": "2026-11-26 13:02:22+00",
+      "publisher": "Vodacom Soccer",
+      "source_id": 488586,
+      "spectrum_id": 627293
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiqgFBVV95cUxOeGFLcFM1QnYxUzljV2NfTnVIVmJ4MFg5VlFZY29EZG1FUlFTNno1RVhPU2NsMXE2bnRXd1VNdTM2RkcwS2lTaDB2aDlONVBobGY3QXhSdmowWnVMNmxqcDBWTzUxMTRzRWNtcWdkOUxGYUd3RG9IRnB4eC1wNDZBTXJSeVh5ZEJSbTh4SWRKNG16VUNHTjU3aEFfU3hRUkZnQVFiRGJMVW5rUQ?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich to invest €80 million in women's football facilities",
+      "article": 1849017,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 7.1289559202975665,
+        "subject": 99.74740504567636,
+        "movement": 16.687167079072196,
+        "availability": 0.3076720979092987
+      },
+      "published": "2026-11-26 18:51:54+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 486700,
+      "spectrum_id": 624959
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxNVU1qaWlZZTBBRmF1TUlwOGtjaXBWS2lMeGVKeDU0RmhmcnRudVdkb1VRd3NDa3IwaVh6cnVfb3FuQW81NW9hRTZ5dDdSeG05X1I5Z21SbVpiRXZTQUN6dVNtRXJfYXExcVczVTlCVXFBdVV6blpsaUZ6Q2ZmWF8xRUZhY0J6U2M2d2ZtNHRWUWtrLV9KQlo0LUI4ZWo1dmE4QmptYUNkenUtWENZNUdVSV9MekZCRHRZ?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich reveal mammoth €988.2million revenue for 2025/26 season",
+      "article": 1849088,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 17.534589462960327,
+        "subject": 99.4681038010624,
+        "movement": 2.286800859137827,
+        "availability": 0.24817053126772415
+      },
+      "published": "2026-11-26 09:33:37+00",
+      "publisher": "Inside World Football",
+      "source_id": 489020,
+      "spectrum_id": 627812
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxQMlVhamtENm1UMHNBS28yNHZnYjFHX1otWmh2ZlpZT1M0dkRFcnU5TXFTVkR0VzZlSk1iMDVoTi1KUDJ3YmtUeGRtalVsa1d5MjRGX3F4NXZKbGdsUTNLQ1B4LTRnSGxfemdDWTVfVW8xek5WSXN6azBmb1ZzNFFCYkFlcGVvcFJUY1lZWGc0T2dndzdTQnJCbXFXWnlKWGJZcThVY2NyYTJrc1RMTnFvYlNKTQ?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "Depleted Bayern Munich Beaten By Lille In Champions League",
+      "article": 1849080,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 18.069056732908496,
+        "subject": 97.4065371004582,
+        "movement": 3.2774379260868227,
+        "availability": 4.0828719392636925
+      },
+      "published": "2026-11-26 02:46:24+00",
+      "publisher": "NDTV Sports",
+      "source_id": 489646,
+      "spectrum_id": 628486
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMi3wFBVV95cUxQMXhjSVBBV2NyME1VMHlLaGY3M1JrWkpzbUc1V2lGS05ZMUhFd1VOT2RwN3ViWjJMUDl4TTEtUThrd0FOYVZWNDdHQ1BsMG9fcE9rTEFlREZfRXJmR3RhemlzeXRmc2U5MmV2ZWRqN3Z5ZzZrT1V0VnMzMGRYSUMyXzhlMmk2RVF0b0lCRWJmemMtOElDUWRqa24zUVBnMzl1VHB2R044TzJ5MnJvd04yWDAwM2RlcFVja1hzVUFCYlNNWFR2VENmNWo0bl9UU1puUXZsa19aYUEwMkRSOXZv?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "LOSC Lille",
+          "sport": "FOOTBALL",
+          "entity_id": 690,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich News: The aftermath of Bayern’s 2-1 loss to LOSC Lille",
+      "article": 1836637,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 19.280310788191017,
+        "subject": 96.72232021181179,
+        "movement": 2.911813654959576,
+        "availability": 2.1664153811991587
+      },
+      "published": "2026-11-26 05:00:00+00",
+      "publisher": "Bavarian Football Works",
+      "source_id": 491162,
+      "spectrum_id": 630536
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMijAFBVV95cUxOQlE0RlU2Q01jbjdnODZwUjBnVWFPdmVfU3lhZXVua25zWWJ1Qk1DazJta24zOVVrbzh6T1IzWXVsNVdFYkNRTDVSNzd4ejUwU0w4OTNIc1Rmaks0WjNIY0ZVNmliNENOd0hkWEZ6bUJxVDhxQWZBNk52V3FtRTV2ZW5aZzg4SUJMamZLNQ?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich Fall 2-1 at Lille",
+      "article": 1849137,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 5.000942527365495,
+        "subject": 96.4897202116526,
+        "movement": 0.7804943583927506,
+        "availability": 2.784543000014
+      },
+      "published": "2026-11-26 03:57:14+00",
+      "publisher": "Wisevoter",
+      "source_id": 489594,
+      "spectrum_id": 628445
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxNMHFaRzBUNzd6dmhwTlR4aTFCV1JGN3BWMWRLQXVuTGtjbGJXWnNKWVFaOVZRN1MwMllQN1habHlpblRJX2o5cE9EZWk5WkdFRS1WLWRTUWdidDZLQXEyUm4xeHVUUWtmNlBUdndlemNwODh3T2JYSUl5a3pSMThCR09vaDV5Q2xKMXpIT3VmcERnS3Z5?oc=5",
+      "cast": [
+        {
+          "name": "Vincent Kompany",
+          "sport": "FOOTBALL",
+          "entity_id": 149,
+          "entity_type": "person",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "'Champions League not decided today' - Vincent Kompany remains defiant despite Bayern Munich's shock defeat to Lille",
+      "article": 1849044,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 59.210241631136306,
+        "subject": 96.46952444948882,
+        "movement": 24.480650988789943,
+        "availability": 3.847243584648358
+      },
+      "published": "2026-11-26 11:35:05+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 488780,
+      "spectrum_id": 627520
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMirAJBVV95cUxPTTZXVC1IVTloY0dGaXY0WndkMUFaOFJpVG9LY3o3eDFSdE9Oc2tfWTJYeVJFNVNlMlZNREF0Q3g5a2RFcjZnaTQtMmtwN1hoemM5YzNJSVhmSEFIMEtnNGcwUnJPZE5WbDFDaVlOYkZuVnFYMzFENWtYRkJsZlNLUWYydjBydi1WaDR3UEJZMEgwUkItZWpzcTl4VllaN0NGZW9lT0szUWF5alQxSXR1ckptdGlOTlRrYUxNU1Vmdm1YUjJpcTRVcF83SmgzSWwzaGRSU2pubEh4NE1NVjFxV3FMRElhOEhKejFWMEpFSzhvaVc1TVdMUkNoUFEzSmljWUJ0a3Y3di1rTUFIelUzWTRIQVVvYkp5Q2VLUHlmZVZyaEo0M0pDTG9XYUk?oc=5",
+      "cast": [
+        {
+          "name": "Ronaldo",
+          "sport": "FOOTBALL",
+          "entity_id": 515,
+          "entity_type": "person",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Paris Saint Germain",
+          "sport": "FOOTBALL",
+          "entity_id": 591,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Real Madrid",
+          "sport": "FOOTBALL",
+          "entity_id": 3468,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "UEFA Champions League stats: Mbappe's scoring streak for Real Madrid next to Ronaldo, Bruno second to Messi; Bayern Munich, PSG streaks snapped",
+      "article": 1849291,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 16.303068165388538,
+        "subject": 96.29992773951919,
+        "movement": 8.770963426834463,
+        "availability": 8.00471444961352
+      },
+      "published": "2026-11-26 05:30:00+00",
+      "publisher": "ESPN",
+      "source_id": 489482,
+      "spectrum_id": 628322
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMi6gFBVV95cUxQQ0I1OFU0Q2RKWVB1SGZlMWNZNUdSTDF3MnJtNV9kTmI3SHpIejd1QjhjcElVeGMtMm95NFpHYkNrbl9ySnlKMllmYl9fNk9hNDlHVkZsY2xkeGlISEoyaHlhX19uZFU1RFJBX3pKeWJjeGlCM3dQSUNqS0taXzhmdnV1R2V3cTdIOFFJVF9fSDFPMmZELW1DSUxrRF9RQW9iYkNDQjA1V2NlX1QwSlJSb1pkaThDMkV0N2pISlVSNy0zYUozSGcydzlOeHNYY2ZxR2hXUk5hcFpDOERwSkl5OHEzMXNXRnpPVlHSAe8BQVVfeXFMT2xsQnU0R2ppZEUxUDNiSDVFYzZsTGZwS0NXLUprOFNMdVk4dm9kdjNvdFp4SXU4cGNHa3hrWG1tOGo4RDVOU0dTaDFVZ2tXOVdZM2QtSndRUDVuUkV5Tk9saVUtZjJUSXdBZ25ic09aZ2hSSjlrRkpyQXhQMkxqbnFkQnV3OHVOckwzMkMxSjNXY0ZXVEd5TmdKdkhFRE91M1hHVzVscTZhaTA5U2kxTGsybmpKdGVTaUJGOHMtT3lWNk9xRUlHaDFPbU5aVDN2QlNtRkduVVQzNnZJdmJuZ3BWNEZ0UnhmbXUyaXlBRXM?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich Stunned By Lille In Champions League",
+      "article": 1849141,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 69.08318921573779,
+        "subject": 95.55398919400506,
+        "movement": 7.17088076660028,
+        "availability": 4.9668503977407505
+      },
+      "published": "2026-11-26 02:17:00+00",
+      "publisher": "News18",
+      "source_id": 491198,
+      "spectrum_id": 630582
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMilgFBVV95cUxOWGVCNWJSXzZhbFczQy1rNGdCLWxUNUVyQ1VzU1c4dWFwRnpvcWRJV3FOVjhDS1lJdW02RHEwaDRPbm5GdGZyelRNLVJjR1o1dFdHU3NTaTBySmJ1UV9yd0ZpMXJYdGRZWTB3SElwUFBKdWxZcDFDeXhSNnlLSEdEME1nbWMybGw2Sm1weHJUdGVEaWZnZ0E?oc=5",
+      "cast": [
+        {
+          "name": "Konrad Laimer",
+          "sport": "FOOTBALL",
+          "entity_id": 52585,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "LOSC Lille",
+          "sport": "FOOTBALL",
+          "entity_id": 690,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "Konrad Laimer laments Bayern Munich’s inability to find points against LOSC Lille",
+      "article": 1822155,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 83.43427038663975,
+        "subject": 87.05936154479402,
+        "movement": 17.69201862471482,
+        "availability": 21.047820576309505
+      },
+      "published": "2026-11-25 22:33:23+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 467678,
+      "spectrum_id": 599446
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMi6gFBVV95cUxNbHMzVmFpd2tHbVlJZE5yYkZTdklrcHdLWkpwRlhFeThoWjRWOGRFUTVGMmFHM3pET0JnUlpsYlROMFB4VWstczVabmF6bDlQdkhuLXR2UlBYNTdGNUZnaE9CSWhDTWJPRzdfdHkxZUVreHZ1d0s0OHJkTkRzS3hSTzRVS054Rjk4SzN3Z1Fsczg1TXB1X3JEUEpxZkQtaGo1bG5JbUZ6TnFkVzBjTlVOTXJsRk5kOWtpU3c5SUxwUERfX2F6OVhMeERwbXVETVhWTVBLZDJUOHBXWkdadjF4ckNGWU5QbWd6cVE?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "LOSC Lille",
+          "sport": "FOOTBALL",
+          "entity_id": 690,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich’s injury excuses cannot hide a disappointing defeat to LOSC Lille",
+      "article": 1822160,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 72.77081390799184,
+        "subject": 98.41231391705928,
+        "movement": 2.183109172765537,
+        "availability": 27.567020497202826
+      },
+      "published": "2026-11-25 23:02:31+00",
+      "publisher": "Bavarian Football Works",
+      "source_id": 467226,
+      "spectrum_id": 598869
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNMGJYNWhtWG5rTFFlRmxKRFQtY3BhOE40ZENtVnVqbXZPLVRJUTRJYlNQS3UxQzA3dUhmeGF6SW1SVmhXcXJTTVZrbnZnMzQ0dlBFUnYzVm1pQzhob3hXUC1mQVNwU0FmLVdHa3FweW9ZcVRiYS1DNWt3WWlBa1hxOWFaaVYxbklx?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich stunned 2-1 by Lille in Champions League after second half collapse",
+      "article": 1822153,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 67.27080805479146,
+        "subject": 98.66967393317404,
+        "movement": 1.7589914187014974,
+        "availability": 1.6819394238810028
+      },
+      "published": "2026-11-25 22:50:28+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 467386,
+      "spectrum_id": 599078
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxPVDBaZ0xKQmpXUVl3am0xd2hPaVhlLVJ6eDhuaG9wXzZPM3F1SXBIakpwYVRsSU80LXRUakk5YktwLXk2R1JkNlM3emJEVV8zLWQ3N0pocnVYTFJtRmY4TDJXdzBOWXNSSGdwbnFsQzd4cmpTcVc5NHBGc3VhY1YtdkIzSlJCRWZ5?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "😳 Bayern star stunned! Mbappé's brother catches FCB on the counter",
+      "article": 1822149,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 66.38251772202591,
+        "subject": 57.81483936843222,
+        "movement": 26.115202541447342,
+        "availability": 1.9313974014168445
+      },
+      "published": "2026-11-25 21:35:00+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 468976,
+      "spectrum_id": 601085
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxOc2pTa3gybkJGQUFyTE1PXzJCLTQxTEpDMEwyWDh6WUVvc3dJVFE1enQ5Sl9kczlUeWNLMmpYeHN1RGV1N280YTBUdXJDelNBSWJMd3lZV1JIVS1qUzBtanVkUEszTHJMOFMwSXJxV25IdzJXRWVZNGh6bU1WckM0Ym5HTnZmYmlHaS1adDZ4WXVIYnRIT3dDQktTdnNZdw?oc=5",
+      "cast": [
+        {
+          "name": "Jamal Musiala",
+          "sport": "FOOTBALL",
+          "entity_id": 33186829,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich, Jamal Musiala mess shows German champs at their worst",
+      "article": 1822165,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 58.49738169921067,
+        "subject": 62.33647835941354,
+        "movement": 8.894231562190576,
+        "availability": 10.103330392009362
+      },
+      "published": "2026-11-25 22:14:00+00",
+      "publisher": "ESPN",
+      "source_id": 468110,
+      "spectrum_id": 599983
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxNYWljTE91TjdFWVlpTS1COEdBVU9lUXVjZER5bEp6WnV0OTB1ejN1Z3VVdFJHNkhFZFh4cjJJNlVtdHowWmp1WVVOQVVGNzMwN0tPWW8yMjdFSU9OWmJoSlhBd0lPRjQ5MWw0NkxtZldCRWhLU1BjVjJacUxlTzdaVmR5c2ZaeXJoV1ZHckN4dVRUemRNSlZHaXNSZDR3Zw?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Köln",
+          "sport": "FOOTBALL",
+          "entity_id": 3320,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich vs Koln predictions and betting tips: Bayern to win big and Upamecano at 6/1",
+      "article": 1822825,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 58.328217231545146,
+        "subject": 55.44165144384679,
+        "movement": 6.6735722556101065,
+        "availability": 4.503948028564099
+      },
+      "published": "2026-11-25 10:44:59+00",
+      "publisher": "Squawka",
+      "source_id": 472061,
+      "spectrum_id": 605130
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMilAFBVV95cUxQWFdXNm1tcWF5VmtnRUhiWFpoU2E2cjcwS2hGbVd1OWVFdmdwUjRxOWZsems3RWZ3Ymg0MDBOWW1OT182ZnNiNC1MNF9KTER0UkoxQUJ5MDlDdHRGZzFmb0RwaHEwQm1OZlY3RXFQSDJLNnloZ19zWlRuektyZlh4eEk4RHlBYnlyNm15YktSQl9HZ0RF?oc=5",
+      "cast": [
+        {
+          "name": "Vincent Kompany",
+          "sport": "FOOTBALL",
+          "entity_id": 149,
+          "entity_type": "person",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "LOSC Lille",
+          "sport": "FOOTBALL",
+          "entity_id": 690,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "Vincent Kompany says Bayern Munich lost rhythm in 2-1 loss to LOSC Lille",
+      "article": 1822167,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 56.63347620285282,
+        "subject": 96.41441711727782,
+        "movement": 24.418378413976395,
+        "availability": 3.3393664744750335
+      },
+      "published": "2026-11-25 22:47:09+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 467442,
+      "spectrum_id": 599144
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMi6gFBVV95cUxOLTdOT0xpMEVXNFB0S2d1SzMwcHBidDlzQXNtRkJnZmdacVlUSklHemRfQmt1Y01JWnVlb0h5ZGQ2UTZNM285Szg1ek9HcVBoeFNTU1RZMDVtVUlhd3JvMktmMXd0YUJTTGJ3cUhUcGUydThBUDJjQ1Zpa0djR0hCWTBENHJxUlpidzR3ZjBxcldrYU12NDhRQTVPMU84Q0EwN0daZGxkU2g0V0JKQWRNdzh6anJTakN5Z0QyLW05a2xWdUE4NFBYb0xpc1plSkh6d0M0bjNhSGs3dnlWMnpJNld1MzhjSERFbmc?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "LOSC Lille",
+          "sport": "FOOTBALL",
+          "entity_id": 690,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "Bayern Munich wastes chance for three points in Champions League vs. LOSC Lille",
+      "article": 1822169,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 55.88508971993996,
+        "subject": 97.85441055228809,
+        "movement": 2.304941564525315,
+        "availability": 4.695918826212934
+      },
+      "published": "2026-11-25 23:12:34+00",
+      "publisher": "Bavarian Football Works",
+      "source_id": 467218,
+      "spectrum_id": 598858
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMikgJBVV95cUxQSU1fVWVjV1dPcmoyZ1YzdndPdHUwdHRaOXhUOGRJRGRvUHhTRXY0UGFXZjdkR1BVRTN0dHF5V0QyLU5mUEZ0dEJsSm5md0hLUnNsS0tpZXcxcm1xT2pDX2pWcnI3WkdLSzVLdUxnYkctWkVNbDVLdGRKLUc1Tm5qb2ZPU2d1OWZqTm5RbmVpN3h3TnlGbXNsOVlzLUt5Tk41VkdqQi1zaVNYR29ONVFPYTVFaWRmNDVET1QtNl9ZcDg4YzBoaUw5VE9DUEF2OUJVeklLQS1EbXY4MmxTcTRXeV8zSWEzRlVGZWlIbWdrS0tDOFFwQk9sMlYyMTUzRHhFVGFaZzVyQWlIU0NpVWFyUnBn?oc=5",
+      "cast": [
+        {
+          "name": "Vincent Kompany",
+          "sport": "FOOTBALL",
+          "entity_id": 149,
+          "entity_type": "person",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "LOSC Lille",
+          "sport": "FOOTBALL",
+          "entity_id": 690,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "Vincent Kompany calls on Bayern Munich to embrace the adversity, regain momentum after big loss to LOSC Lille",
+      "article": 1826794,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 51.14478128619469,
+        "subject": 92.85100898917416,
+        "movement": 58.39092987275928,
+        "availability": 9.48190482184878
+      },
+      "published": "2026-11-25 23:23:55+00",
+      "publisher": "Bavarian Football Works",
+      "source_id": 471147,
+      "spectrum_id": 603818
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxPWU9RUWV3VjZDS2J3NGJ5LWoxMk1HV1NvaFU4ZGhraHRxV3luUGJIRURjZFhWeVVjYnJReGtURUh3OVkyZHd0bTA5YTZjR1h5WDNwaTBRaGZfcVhiS3ZudXJ5TlNTV09DOGtCZVpsamxBSTNrTFpNYVBDTjJZRWRzVG9tc2RfLVRTOWhoX0hxTHRVZ1R3WGNzYW1B?oc=5",
+      "cast": [
+        {
+          "name": "FC Bayern München",
+          "sport": "FOOTBALL",
+          "entity_id": 503,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Paris Saint Germain",
+          "sport": "FOOTBALL",
+          "entity_id": 591,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "FOOTBALL",
+      "title": "Champions League: Bayern Munich suffer defeat, PSG drop points",
+      "article": 1822235,
+      "edition": "2026-11-26",
+      "spectrum": {
+        "emotion": 49.08064237845182,
+        "subject": 98.38828332552735,
+        "movement": 4.831984163632557,
+        "availability": 2.068306385429166
+      },
+      "published": "2026-11-25 22:09:00+00",
+      "publisher": "Apa.az",
+      "source_id": 468208,
+      "spectrum_id": 600102
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMisgFBVV95cUxOU0dLSmZ4djg4TnNSRmZ0aExfN043eUxjWk9mWUJWRVpxMkE0cDRJWmRaMEIwNnJFZTdOT2hPUDVJQ0U4a09lRVNHWUk1Q1dzejE0ZXgtYWg5MUZuVjd6WE56WWFEMkxON1lNLWNJUm85UFRwangwMGZ4UkRGeDFCTWxVdmFMTUNad0NxWW1lbXN4VjhSYmJlV0hvY1JLaUZ4dGNRM1FiTUZtVmFFc3FFU1pR?oc=5",
+      "cast": [
+        {
+          "name": "Jalen Thompson",
+          "sport": "NFL",
+          "entity_id": 1625,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "NFL",
+      "title": "Cowboys activate Jalen Thompson from IR ahead of Thanksgiving bout with Eagles",
+      "article": 1831112,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 3.4662530248703334,
+        "subject": 97.48046973695804,
+        "movement": 97.30966105129475,
+        "availability": 72.9900484812744
+      },
+      "published": "2026-11-26 02:35:08+00",
+      "publisher": "Dallas News",
+      "source_id": 476040,
+      "spectrum_id": 610641
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMipAFBVV95cUxNYVdsSnBMWktLcEJaeHczSElORVRUNDY0T1J2NHU1bUlXb3NqLW13S1luOVcxT0t0eHVranQ5TklWSC1fd1ZVcVQ3ZGhjcUU1NzNVZW9LSVZmZGZieTI3WkI1UlpMZC1ZZ1NZY1NTUmlSRktIQ1h4ZWc3TnZuZm5oOUJGNFluempFVlBXaVlhSm5LaWdqYldZalJwNHQxRHlXN2hNTQ?oc=5",
+      "cast": [
+        {
+          "name": "Troy Aikman",
+          "sport": "NFL",
+          "entity_id": 73,
+          "entity_type": "person",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "NFL",
+      "title": "In 1989, the Dallas Cowboys signed Troy Aikman to a six-year, $11.2 million contract; 33 years later, he signed a deal with ESPN worth $90 million",
+      "article": 1852027,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 2.2940104230562084,
+        "subject": 62.392214284212,
+        "movement": 87.31559003943343,
+        "availability": 0.5192845229932084
+      },
+      "published": "2026-11-26 17:49:00+00",
+      "publisher": "Athlon Sports",
+      "source_id": 490962,
+      "spectrum_id": 630266
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMib0FVX3lxTFBPYlpnbmhQU0xFSWR3YU5ZeUo1Wkd6Y0NGVk1XaTJ2OVdQNm9vaXBMSHE1VG8yRlhMbThsel9yT1RqU2F0UE0zU3ZCRW9rb2xLck9FRDFWc1EtTXdmTXp4RWhMeF9IMVpudHRReUIwaw?oc=5",
+      "cast": [
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "NFL",
+      "title": "Cowboys Expand Roles for Houston and Barron Under Pettine",
+      "article": 1858804,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 7.307436386564787,
+        "subject": 72.17920428871,
+        "movement": 84.23658597323687,
+        "availability": 1.9768982138918132
+      },
+      "published": "2026-11-27 00:14:35+00",
+      "publisher": "Peradaban.id",
+      "source_id": 494676,
+      "spectrum_id": 635398
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE1hUU5aVWtBbDN0eThnRnU1T2loYnU3TFl6di1GelhRb3JBdHFiVTlxV1o1Vk0yaVh0VTBlSlQzUE81dWdMeEZ1Q09TVy1ZNzJDVE1WaXFiSUlVSmxrbUpaX1Jn?oc=5",
+      "cast": [
+        {
+          "name": "Dak Prescott",
+          "sport": "NFL",
+          "entity_id": 25,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "KaVontae Turpin",
+          "sport": "NFL",
+          "entity_id": 577,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "NFL",
+      "title": "Dak Prescott finds KaVontae Turpin for 31-yard TD, extending Cowboys' lead over Eagles | NFL Highlights",
+      "article": 1859194,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 26.19951306967019,
+        "subject": 96.75691153021279,
+        "movement": 81.1381521078166,
+        "availability": 0.9733134931928228
+      },
+      "published": "2026-11-26 22:59:46+00",
+      "publisher": "FOX Sports",
+      "source_id": 495722,
+      "spectrum_id": 636823
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMioAFBVV95cUxNcUJnOWkycTVsaHVCLVVYQTRka0UxR2FrNmp3WFhYLUluZGRIbGxpeDd2Z2kwWF9iUWJXOXRHT0lxYXhob0RiZGVEZkV5X1luRXl5b1lfSzFYN1FuLXJGMFljNjF3NEFTd0E0UW9FRTU2SXBVSlRvYmJaN1Byb0VTMXFFbkNOVEVRNEdoei1CZDBOOUdQUkU0aWVBMFZ0Nkg2?oc=5",
+      "cast": [
+        {
+          "name": "Aaron Rodgers",
+          "sport": "NFL",
+          "entity_id": 94,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "NFL",
+      "title": "NFL Fans Revisit Mike McCarthy’s ‘Brutal’ Admission During Cowboys Hiring Amid Aaron Rodgers Fallout",
+      "article": 1846412,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 33.52571106020602,
+        "subject": 79.22833437293237,
+        "movement": 81.12158099559505,
+        "availability": 1.111838952332294
+      },
+      "published": "2026-11-26 18:34:29+00",
+      "publisher": "Pro Football Network",
+      "source_id": 486958,
+      "spectrum_id": 625303
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMinAFBVV95cUxQUjM5YmlpdkVSc1UwZkJqdzZIZEMwQUhOZjYtU2V0aWtOa1JhZzg2azNZNkNLMm5FdW9wMjhWSmVTQk81WEZyeWRvek55S0o1V0xiaVJYUzFxQUh2b21adERmWHE4R3NMTW1XU1MweWFYU0pNTDE3UzV6a2NwX2NUbkFObm9HU3A2YUVGMU9QakZmUW5RNkZEVkhiaVM?oc=5",
+      "cast": [
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "transfers",
+      "sport": "NFL",
+      "title": "Eagles Make Surprise Roster Move With Veteran TE for Cowboys Game",
+      "article": 1852268,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 7.947044032332914,
+        "subject": 70.69992852765266,
+        "movement": 80.28624374209572,
+        "availability": 5.815332047663175
+      },
+      "published": "2026-11-26 20:38:57+00",
+      "publisher": "Heavy.com",
+      "source_id": 489834,
+      "spectrum_id": 628726
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMitwFBVV95cUxNdUZEc2pCZ3htTHluYm9BZVJFX2JsVjhsNkJ1amJZcHF4c05DZHNlUHlaZGhUNEhpNW1BazFjdFBJRFJIb280VTgtWWhYSUNkZHQ0VkQzb1hGUV8xaXl3dWctVjQzdDV6SDFoZjQ5VDR3MUFvMzRDQU51bzBMRWdPV3RrcFpzUzlqNlBNYXFXcjJMWjZ1UjhSVUxGMjRSNHpNZ0lQcVJ0N0FYbkpibmJQTUh0TE5OcGc?oc=5",
+      "cast": [
+        {
+          "name": "Jake Ferguson",
+          "sport": "NFL",
+          "entity_id": 853,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "NFL",
+      "title": "Cowboys declare TE Jake Ferguson inactive in Wk 12",
+      "article": 1851973,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 4.910557802836822,
+        "subject": 97.06124575889945,
+        "movement": 79.57201148148677,
+        "availability": 20.3794329050861
+      },
+      "published": "2026-11-26 20:21:11+00",
+      "publisher": "NBC Sports",
+      "source_id": 490080,
+      "spectrum_id": 629044
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxOVmJDR0FtRDRTR0RNSGhLdHkwX2ZTS09NVDMyd0o4SlYwWkxFYmpza1A3S3VrLUhEN0k2Uk95UUlkSHNEMGlEVnp5Tm1lQVFKMTlNQUF2ZXRNdkZmZWY5TVZFdTJDRWdBZkhpN3RYWEdtUGRxcXNRSzREVTJnUmZCclNWNzJaSlZvMGR0WFBMNA?oc=5",
+      "cast": [
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "NFL",
+      "title": "Week 12 injury report: Cowboys get 2 starters back on defense",
+      "article": 1839275,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 5.827509334781824,
+        "subject": 96.49891129752372,
+        "movement": 68.87399922746151,
+        "availability": 81.76963417858467
+      },
+      "published": "2026-11-26 12:00:12+00",
+      "publisher": "Inside The Star",
+      "source_id": 481622,
+      "spectrum_id": 618627
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMinwFBVV95cUxOdTB5aGhwbk5OTkNsQ1NhTUhiY0hqNnBDSkYxakt3WW9LaGYzMDk4SUV1X3A4YUNjMHc2QzdTQTBIV0ltb21najlMOHN2VTY2VEd5MDVIbGlRVW5ZZW5pYWR6WTRSNUEwdTdKSFZrWW1rWHV6ZXljblA1T1dYYm5XcUxOT3EyU3U5RjI3TS1yQmc4cWpKRVc1RmdJNkRYdnc?oc=5",
+      "cast": [
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "NFL",
+      "title": "Cowboys Host Eagles in Thanksgiving Day NFC East Showdown",
+      "article": 1834880,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 4.6682286465762415,
+        "subject": 95.29020755246263,
+        "movement": 1.5683570432358247,
+        "availability": 3.1352671281721145
+      },
+      "published": "2026-11-26 08:13:20+00",
+      "publisher": "Discover Dade",
+      "source_id": 477218,
+      "spectrum_id": 612491
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiswFBVV95cUxPbUV1UE5Va2IzTVpBeTlSV3FPRDRCRHBlcDhjelVDTG51bDNERGFTSDFPUk9pendiMUpCeGllczdlQkhsUmQzOHdlRTdqMU05SHhqN0NwcURqZlduWkt3Q1NCSzVTUE4wRXVObl9aSDUwam5abXBwUng0UnRGbS1tWFBfdFpnRTgwRGR5cHB2RDlXblI1SUhzLTJKdGZhazlKalNGdHpYMFg4VlFBaVMxTkt0cw?oc=5",
+      "cast": [
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "NFL",
+      "title": "Dallas Cowboys Wearing 1960s Throwback Uniforms On Thanksgiving",
+      "article": 1845870,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 10.263317607882932,
+        "subject": 95.13829678631429,
+        "movement": 0.6291338849827931,
+        "availability": 0.3554835790685209
+      },
+      "published": "2026-11-26 18:35:13+00",
+      "publisher": "SportsLogos.Net News",
+      "source_id": 486938,
+      "spectrum_id": 625273
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxPeTc5d3NQOEIwREZXNkJkcUZ3RkJVWkF4TWJRaW93VHl1N1VMcGxCdGxnRF9VcnFjY2g4ZURXTmRld09ZUXB0S2MxemhESjA2Y0I3TkdJZmg0WXNxeTRhSlQwRkdrQS0yRExndWRPc2hyRzktTGZKU1dqcUJ6WjF2WlRQZGNEVklvQnFHU3VQRWl4ZzhYdWxyRzVTLVo4cEprLWFfVVFwTUdBVDdQ?oc=5",
+      "cast": [
+        {
+          "name": "Jalen Thompson",
+          "sport": "NFL",
+          "entity_id": 1625,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "NFL",
+      "title": "Dallas Cowboys' Week 12 Inactives: 4 Starters Out, But Good News For Jalen Thompson",
+      "article": 1851953,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 15.484955961210078,
+        "subject": 94.99110453165697,
+        "movement": 36.17081672203578,
+        "availability": 41.245319008361356
+      },
+      "published": "2026-11-26 20:13:28+00",
+      "publisher": "Sports Illustrated",
+      "source_id": 490248,
+      "spectrum_id": 629258
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE0wYjhHNkRNQjRyaVo2N21pZ0ZLZkZyQUxjVVk0S0ROU2U5Z3Nvblg2dXowZjJYZ0pqS3VvNnphN0dYM0gzeWdKWWZGaVRSalhmTHZUVlZtOWpMcHprajFMU1BB?oc=5",
+      "cast": [
+        {
+          "name": "Javonte Williams",
+          "sport": "NFL",
+          "entity_id": 489,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "NFL",
+      "title": "Javonte Williams scores his third TD of the game to extend Cowboys' lead over Eagles | NFL Highlights",
+      "article": 1859138,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 28.09445435119635,
+        "subject": 94.56333446970002,
+        "movement": 10.702043645863819,
+        "availability": 1.5397752317006692
+      },
+      "published": "2026-11-26 23:38:40+00",
+      "publisher": "FOX Sports",
+      "source_id": 495176,
+      "spectrum_id": 636082
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMi0gFBVV95cUxNUWpveDJ4cVM4VC0tWUtOTnVES1RhUkxaN2xrdkVXbU9yX3VMUnZHSURHT1NnczB1ZVRzX3pfZ29HQmF0bC1qMlN2ZDNnVHZoSHRLRzNwdDlreGgzZmhDMWhVMHdPb3Q5MDlyUzliYmpWY2ZkV3pDZkRLbnNubU9FNTh1c19XLWxjN1NkY014Znh4ZGpQNzh0RmxzNF95a2Utd2JIRC1WMXFMV0plbE9lYTV3UDgtTklwanRzc0h5ZHI1cFNlS3JIQXIxcExHc0trenc?oc=5",
+      "cast": [
+        {
+          "name": "Dak Prescott",
+          "sport": "NFL",
+          "entity_id": 25,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "Dak Prescott's 1,000-yard, 11-touchdown surge over three games makes Cowboys heavy Thanksgiving favorites",
+      "article": 1842807,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 54.8394575112429,
+        "subject": 92.99842683607092,
+        "movement": 20.923731647757453,
+        "availability": 6.605389609019813
+      },
+      "published": "2026-11-26 12:24:21+00",
+      "publisher": "Fox News",
+      "source_id": 484669,
+      "spectrum_id": 622567
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxNckxXV2hvcXRObTVUNGg4M1N2MFJzbVpRVnJTQXFyQVM4Y1ZiUU10Z1FMQ3lHdlg0MmZPazhiRkJFN3J4amViVkR6WXNBWFZjSGNVY2RGcVp3TDV1WW9wNjdQcl9OdHJqM2RMQy1wM19VYmU0UVZPb19xODdnc1NYVVM1cDl6aklGalFybjE2NkQ2LW9YTjFqWjV6dENHRDRQelJ2R01BQWd5bGR2ekJ3N3lHNDkyRlpr?oc=5",
+      "cast": [
+        {
+          "name": "Brandon Aubrey",
+          "sport": "NFL",
+          "entity_id": 7529,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "narratives",
+      "sport": "NFL",
+      "title": "Dallas Cowboys kicker Brandon Aubrey’s missed field goal comes with the laces of football facing wrong direction",
+      "article": 1859087,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 16.37487095250733,
+        "subject": 92.99509148740184,
+        "movement": 4.547739842435181,
+        "availability": 1.8981552597381404
+      },
+      "published": "2026-11-27 01:42:50+00",
+      "publisher": "NFL.com",
+      "source_id": 493826,
+      "spectrum_id": 634334
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMivAFBVV95cUxQSGh3czNNbzJ6QVhQMTB3YWFfMmhoXzhraFNEZ0ljakFDR2JpaFhjeEhSUnNDRmJlY1FJVEJSZnBWQm0wMjZKTWEwX1A3bHhTWnNPS3VoM1d1aV9JWU9ROTNCZ1A0bXRuakJmNzJGSE5VTlphZ0R3SnVnbzg2alVqOHh4WHREYmxYRG1NRzhWX3JxbW9FbVZGTkdaTUZQVmc3SEtIeWhNalhmY0VaYk8tNUpxN1EtM19kSWd5SQ?oc=5",
+      "cast": [
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "Eagles fans are furious after refs make ‘abysmal’ call vs. Cowboys",
+      "article": 1859163,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 81.41125620982152,
+        "subject": 81.82682769042646,
+        "movement": 4.232942358112075,
+        "availability": 1.7793152455039034
+      },
+      "published": "2026-11-26 23:48:00+00",
+      "publisher": "PennLive.com",
+      "source_id": 495058,
+      "spectrum_id": 635940
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMingFBVV95cUxPZ2pMdXBld21oYm00a1lPY0s1eU1xSGxnR0dmZ1lReEtsS25WeVFxQXNjNGcxOVFyczh5cGFHdUVScl9Yd040cWlfa044dWRsWUx6NnFzb2NieGlYdGhCdzA0aGlkQlIwUkMxcXZ6OC1pVkZzcWZQZ2k4S2tBNW9VWndLLUY4LXljSlJMWGNjRlhjZlpSMUZVRDNtVnN5Zw?oc=5",
+      "cast": [
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "Cowboys vs. Eagles recap: Dallas embarrassed by Philadelphia on Thanksgiving Day",
+      "article": 1859158,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 77.35284306801475,
+        "subject": 90.28083568156828,
+        "movement": 1.3028127579379039,
+        "availability": 1.343825207664179
+      },
+      "published": "2026-11-27 01:35:00+00",
+      "publisher": "Blogging The Boys",
+      "source_id": 493912,
+      "spectrum_id": 634440
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMiuAFBVV95cUxPdm0zaGlGNE9ycW91cVJZSDBpZzhlNldxTVVLUTJIc0I1SGczRnkxa1lFWEtzc1lxd29TYTZjSnRlVkQ0TTJoTW1BaHoxRGp4U2RtdkRCUXRZWWVQLWEtOHFWeS1BTDJvWDBQMFlfT2IyU2hkX2l5YmpjSzViZXU1X040RDVuZlRCT3RpbnpwbUFBaEFubnNITG5mVW5MNTA4QzdkeURvNl9FLVlJeS1OdTJXNE5KNVox?oc=5",
+      "cast": [
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "Dallas Cowboys have 5 reasons to be thankful this Thanksgiving, and most of them reach well beyond the 2026 season",
+      "article": 1838609,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 76.04768086807479,
+        "subject": 62.494959786685115,
+        "movement": 1.481558358436228,
+        "availability": 4.158821425625557
+      },
+      "published": "2026-11-26 14:00:00+00",
+      "publisher": "A to Z Sports",
+      "source_id": 481074,
+      "spectrum_id": 617883
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMi8gFBVV95cUxPUTlHdHhvcjBYcGp3Y3hYR3VrX21GTFJSaVNPdER5VVg3clkweWh2UW9VRU1IOVYzcVVxYmFQYkVrcVBpVTVoRmw4OFNTb0hkc0I2dTFpWG1qZFREY1JPZVJBbW5zQUU4N0I1YTd6RXRLQ3Y3dlFscEJLcU5ldThxdlI5M2llYWNENkc1UHA3R195V3MtYTNDR0R1Qnl3ZHpkX1d1NVBFNlRmd2JxMnpsV09nV3NwMDJUSC16alpyQUF1dVZkbmtfbVNaa20yam9BQ2lzcWJoeHFLSXdaTXcwVnlCR3ZDR2FrWkZwS0VCSThTQQ?oc=5",
+      "cast": [
+        {
+          "name": "Micah Parsons",
+          "sport": "NFL",
+          "entity_id": 1299,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Green Bay Packers",
+          "sport": "NFL",
+          "entity_id": 22,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "\"Absolute loser behavior,\" \"This is why Cowboys traded him\": NFL fans react to Micah Parsons \"bus tossing\" Packers teammates o giving up 241 rushing yards",
+      "article": 1831360,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 73.34544568197717,
+        "subject": 55.281391123396205,
+        "movement": 62.906144741570834,
+        "availability": 3.156846422827802
+      },
+      "published": "2026-11-26 07:54:00+00",
+      "publisher": "Sportskeeda",
+      "source_id": 474016,
+      "spectrum_id": 608095
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxQSkF3NDlNU1piYUltVXQzM0NQN1RZYUdURWpYV0FWWHpjZno5b1VXbkhIVk90ZEhGa29oZjMyWmptRElkN2MwMGlxVG5RdlotWHVNaHZZaXU1WmpnREQ1bzVmc0NiaFdOQmtHUm04LVZyWmdMZUM3RzFqSExnLV8ydEY3bUNLNURkNENwcnl3aTg?oc=5",
+      "cast": [
+        {
+          "name": "Dak Prescott",
+          "sport": "NFL",
+          "entity_id": 25,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "Dak Prescott, Dallas Cowboys hoping for back-to-back wins for first time in 2026, stay playoff hunt",
+      "article": 1831655,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 61.83650645803761,
+        "subject": 84.44329359681868,
+        "movement": 19.16796923483751,
+        "availability": 13.137769088682944
+      },
+      "published": "2026-11-26 07:44:00+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 474046,
+      "spectrum_id": 608135
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMivgFBVV95cUxPZEFPNHh5NkJuc3dBazY0RVNxcGxDMkZxTjdfTHUzSXRsQV8zaVQyMldqcE5ZYUtjTGlTc3JIeFNHdF9tYTcxcW1WMWViRkd3dnIxQ1ZPdmJ6eVFVdXdYRHFuU1V2SDdKUDVkcWpBX2hIb3BiZk5vRVV6YjRBX3pla0Roa3dHYlJWdnA4WlFsZ1o4d2hSMWYxbEE5LURoaDIwcksyeDZaTXhkTm83Wkhxb3dwaTR4alNEVFZHR1J3?oc=5",
+      "cast": [
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "NFL Fans React to Miranda Lambert's Thanksgiving Halftime Show for Eagles vs. Cowboys",
+      "article": 1859144,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 57.96867066153396,
+        "subject": 68.9497367615512,
+        "movement": 2.632666239875058,
+        "availability": 3.0682097659524636
+      },
+      "published": "2026-11-26 23:58:15+00",
+      "publisher": "Bleacher Report",
+      "source_id": 494954,
+      "spectrum_id": 635828
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxNZVdiZmo3eWdYdnlZRUtkVThlQ19YZFRYeTlQVlNoc3RYWmNWMk5ramRPTEFqZW5vaWtUZmpteXIzWm9NOHc4R3IwVEJuMmxXZHJfcmZ1N2VmODE4YXhsUzlGOTc2SFJZOUc4S1IyM3ZaY1NRWGV4UEMzc2pWdmluNWdiTGFOUG5DQnVkYXE2Zw?oc=5",
+      "cast": [
+        {
+          "name": "Dak Prescott",
+          "sport": "NFL",
+          "entity_id": 25,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "Cowboys' Dak Prescott Previews 'Fun' NFC East Playoff Run - Starting With Eagles",
+      "article": 1837712,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 55.87465032746104,
+        "subject": 75.55818727686541,
+        "movement": 11.972005762546983,
+        "availability": 16.16139929577896
+      },
+      "published": "2026-11-26 12:43:12+00",
+      "publisher": "Yahoo Sports",
+      "source_id": 481512,
+      "spectrum_id": 618483
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxNMjB5ZzZvdVVHRzBCSGQ1U3JObTFjYXpjVzM1R3UzSU9jMHB5Mmp4NnVCQnB2WGw4T2R6TmVkTUZoQzliSkhGbElWVzFqS3IyZHdCaEk1Y052aENkdUIzeXpVRERGNWEzdnBwTkZxNDVzNV9TRjNHeWVKc2NFSC1UY3ozNUIzc1loZ3lqSnkwMDJsQ3BsdkYwa3FEV2p4VC1tVXJMSmFqbVVDMGc0VUpDaURyR3d5LVdwellYTUlRWWRyTEw1ZVE?oc=5",
+      "cast": [
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "6 Eagles who deserve a Thanksgiving feast after stunning Cowboys upset",
+      "article": 1859129,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 54.81919203340042,
+        "subject": 60.903695715616166,
+        "movement": 9.909258582871203,
+        "availability": 2.076822953776081
+      },
+      "published": "2026-11-27 01:45:00+00",
+      "publisher": "PennLive.com",
+      "source_id": 493792,
+      "spectrum_id": 634285
+    },
+    {
+      "url": "https://news.google.com/rss/articles/CBMizAFBVV95cUxOY2FXbGJES2lPS2hScC1KSWR3NnVPRGdVbkpPV0JJdzlIdGZmdEhEOFdZZk9ERzlPRGRNc2FONkU4VjNMOWhycThfNEFESWdfUlllVmVaQ2ZfUWpzUEltZmg4QUJPdW1UMHd4dVYzZWJQZ0hIaDRqMUFuQk5tc0J2ZkhHRXpPNEMtZG9SNFF0dXYzVFQyV1Qwb1YzZTdwSmo3UEZKRFhPUGlSa1daZ1BHTzJJVTEtZGlTNUY2dEVVQ1Nkb3lSdUo2Z2syVjY?oc=5",
+      "cast": [
+        {
+          "name": "Tony Romo",
+          "sport": "NFL",
+          "entity_id": 99,
+          "entity_type": "person",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Tom Brady",
+          "sport": "NFL",
+          "entity_id": 21225,
+          "entity_type": "player",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Philadelphia Eagles",
+          "sport": "NFL",
+          "entity_id": 18,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        },
+        {
+          "name": "Dallas Cowboys",
+          "sport": "NFL",
+          "entity_id": 19,
+          "entity_type": "team",
+          "identity_method": "unique_name_surface_v2"
+        }
+      ],
+      "desk": "vibe",
+      "sport": "NFL",
+      "title": "\"This is the stuff Tony Romo did & people disliked it\"- NFL fans react to Tom Brady’s “gimmick” on Cowboys TD vs. Eagles",
+      "article": 1858485,
+      "edition": "2026-11-27",
+      "spectrum": {
+        "emotion": 54.205282459906044,
+        "subject": 67.405928419529,
+        "movement": 32.204585311638226,
+        "availability": 2.550583968736876
+      },
+      "published": "2026-11-27 01:22:00+00",
+      "publisher": "Sportskeeda",
+      "source_id": 494060,
+      "spectrum_id": 634636
+    }
+  ],
+  "retained_coaching_edges": [
+    {
+      "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNREJJcG52VTRMY3R5OThyU0l4M1c2cjg0VkFlR19wVkdPYjJWYWZGeHU0VEdlM3hyOE9EYTV0SFVCU25mYmJBWm1BWWtaWnp5bGtUR01EY0VGUEhXcHU5RkpDM0tRWWhCSVQ5cHF0dm5sVl8teDhDWEw5V2N5QWh2N3NvWURQQzZfdXBZNFZR?oc=5",
+      "edge": {
+        "id": 676,
+        "state": "active",
+        "valid_to": null,
+        "predicate": "coach_of",
+        "created_at": "2026-09-30T03:42:05.900446-04:00",
+        "valid_from": null,
+        "object_sport": "FOOTBALL",
+        "subject_sport": "FOOTBALL",
+        "object_entity_id": 503,
+        "subject_entity_id": 149,
+        "object_entity_type": "team",
+        "source_document_id": 126339,
+        "subject_entity_type": "person"
+      },
+      "coach": "Vincent Kompany",
+      "excerpt": null
+    }
+  ],
+  "position_check": {
+    "type": "position",
+    "player": "Jalen Thompson",
+    "position": null,
+    "roster_positions": [
+      "DB",
+      "Safety"
+    ]
+  },
+  "run_details": {
+    "production_replay_first": [
+      {
+        "id": 945521,
+        "wall": 17.96869883313775,
+        "input": 1022,
+        "output": 315,
+        "timings": {
+          "cache_n": 1,
+          "prompt_n": 1021,
+          "prompt_ms": 6038.854,
+          "prompt_per_token_ms": 5.914646425073458,
+          "prompt_per_second": 169.07181395675403,
+          "predicted_n": 315,
+          "predicted_ms": 11911.307,
+          "predicted_per_token_ms": 37.934098726114655,
+          "predicted_per_second": 26.361506759921475
+        }
+      },
+      {
+        "id": 945645,
+        "wall": 18.19678391609341,
+        "input": 1079,
+        "output": 404,
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 1079,
+          "prompt_ms": 3013.521,
+          "prompt_per_token_ms": 2.7928832252085267,
+          "prompt_per_second": 358.05292214655213,
+          "predicted_n": 404,
+          "predicted_ms": 15178.273,
+          "predicted_per_token_ms": 37.66320843672457,
+          "predicted_per_second": 26.55111026135846
+        }
+      },
+      {
+        "id": 935214,
+        "wall": 9.937816665973514,
+        "input": 1178,
+        "output": 184,
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 1178,
+          "prompt_ms": 3259.69,
+          "prompt_per_token_ms": 2.7671392190152804,
+          "prompt_per_second": 361.3840579932447,
+          "predicted_n": 184,
+          "predicted_ms": 6673.534,
+          "predicted_per_token_ms": 36.46739890710382,
+          "predicted_per_second": 27.421752852386756
+        }
+      },
+      {
+        "id": 945280,
+        "wall": 15.091897208010778,
+        "input": 872,
+        "output": 330,
+        "timings": {
+          "cache_n": 1,
+          "prompt_n": 871,
+          "prompt_ms": 2496.121,
+          "prompt_per_token_ms": 2.865810562571757,
+          "prompt_per_second": 348.94141750339827,
+          "predicted_n": 330,
+          "predicted_ms": 12588.938,
+          "predicted_per_token_ms": 38.26424924012158,
+          "predicted_per_second": 26.134055152229678
+        }
+      },
+      {
+        "id": 945444,
+        "wall": 16.096308458130807,
+        "input": 1004,
+        "output": 325,
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 1004,
+          "prompt_ms": 2820.113,
+          "prompt_per_token_ms": 2.8088774900398406,
+          "prompt_per_second": 356.0141029809799,
+          "predicted_n": 325,
+          "predicted_ms": 13225.704,
+          "predicted_per_token_ms": 40.82007407407407,
+          "predicted_per_second": 24.497750743552103
+        }
+      },
+      {
+        "id": 945212,
+        "wall": 18.868834082968533,
+        "input": 1138,
+        "output": 406,
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 1138,
+          "prompt_ms": 3243.278,
+          "prompt_per_token_ms": 2.8499806678383126,
+          "prompt_per_second": 350.8795730739086,
+          "predicted_n": 406,
+          "predicted_ms": 15564.18,
+          "predicted_per_token_ms": 38.43007407407408,
+          "predicted_per_second": 26.021287340547335
+        }
+      }
+    ],
+    "production_replay_second": [
+      {
+        "id": 945521,
+        "wall": 25.233559041051194,
+        "input": 1022,
+        "output": 315,
+        "timings": {
+          "cache_n": 1,
+          "prompt_n": 1021,
+          "prompt_ms": 3845.91,
+          "prompt_per_token_ms": 3.766807051909892,
+          "prompt_per_second": 265.47683123110005,
+          "predicted_n": 315,
+          "predicted_ms": 21047.755,
+          "predicted_per_token_ms": 67.0310668789809,
+          "predicted_per_second": 14.918455673776133
+        }
+      },
+      {
+        "id": 945645,
+        "wall": 26.9510604578536,
+        "input": 1079,
+        "output": 404,
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 1079,
+          "prompt_ms": 4770.242,
+          "prompt_per_token_ms": 4.420984244670992,
+          "prompt_per_second": 226.19397506457744,
+          "predicted_n": 404,
+          "predicted_ms": 21797.15,
+          "predicted_per_token_ms": 54.08722084367246,
+          "predicted_per_second": 18.488655626997108
+        }
+      },
+      {
+        "id": 935214,
+        "wall": 10.531141249928623,
+        "input": 1178,
+        "output": 184,
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 1178,
+          "prompt_ms": 3596.287,
+          "prompt_per_token_ms": 3.0528752122241083,
+          "prompt_per_second": 327.5600640327093,
+          "predicted_n": 184,
+          "predicted_ms": 6926.232,
+          "predicted_per_token_ms": 37.848262295081966,
+          "predicted_per_second": 26.421292269736274
+        }
+      },
+      {
+        "id": 945280,
+        "wall": 14.729144790908322,
+        "input": 872,
+        "output": 330,
+        "timings": {
+          "cache_n": 1,
+          "prompt_n": 871,
+          "prompt_ms": 2611.675,
+          "prompt_per_token_ms": 2.9984787600459244,
+          "prompt_per_second": 333.50244574841815,
+          "predicted_n": 330,
+          "predicted_ms": 12110.038,
+          "predicted_per_token_ms": 36.80862613981763,
+          "predicted_per_second": 27.167544808695066
+        }
+      },
+      {
+        "id": 945444,
+        "wall": 15.66293670819141,
+        "input": 1004,
+        "output": 325,
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 1004,
+          "prompt_ms": 2831.624,
+          "prompt_per_token_ms": 2.8203426294820715,
+          "prompt_per_second": 354.5668492709484,
+          "predicted_n": 325,
+          "predicted_ms": 12826.09,
+          "predicted_per_token_ms": 39.5866975308642,
+          "predicted_per_second": 25.26101095501435
+        }
+      },
+      {
+        "id": 945212,
+        "wall": 31.144367292057723,
+        "input": 1138,
+        "output": 406,
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 1138,
+          "prompt_ms": 4104.934,
+          "prompt_per_token_ms": 3.6071476274165204,
+          "prompt_per_second": 277.2273561523766,
+          "predicted_n": 406,
+          "predicted_ms": 26988.656,
+          "predicted_per_token_ms": 66.63865679012345,
+          "predicted_per_second": 15.006304871202182
+        }
+      }
+    ],
+    "branch_cold": {
+      "source_preparation": [
+        {
+          "id": 488064,
+          "ms": 7543,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 488152,
+          "ms": 6254,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 485445,
+          "ms": 6351,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 487412,
+          "ms": 6279,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489988,
+          "ms": 6383,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 488238,
+          "ms": 11,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 493073,
+          "ms": 4,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 488586,
+          "ms": 3,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 486700,
+          "ms": 2,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489020,
+          "ms": 2,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489646,
+          "ms": 2,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 491162,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489594,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 488780,
+          "ms": 5919,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489482,
+          "ms": 7,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 491198,
+          "ms": 3,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467678,
+          "ms": 3,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467226,
+          "ms": 2,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467386,
+          "ms": 2,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 468976,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 468110,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 472061,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467442,
+          "ms": 6166,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467218,
+          "ms": 6,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 471147,
+          "ms": 6401,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 468208,
+          "ms": 4,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 476040,
+          "ms": 2,
+          "sport": "NFL"
+        },
+        {
+          "id": 490962,
+          "ms": 10691,
+          "sport": "NFL"
+        },
+        {
+          "id": 494676,
+          "ms": 3,
+          "sport": "NFL"
+        },
+        {
+          "id": 495722,
+          "ms": 3,
+          "sport": "NFL"
+        },
+        {
+          "id": 486958,
+          "ms": 4,
+          "sport": "NFL"
+        },
+        {
+          "id": 489834,
+          "ms": 2,
+          "sport": "NFL"
+        },
+        {
+          "id": 490080,
+          "ms": 2,
+          "sport": "NFL"
+        },
+        {
+          "id": 481622,
+          "ms": 2,
+          "sport": "NFL"
+        },
+        {
+          "id": 477218,
+          "ms": 1,
+          "sport": "NFL"
+        },
+        {
+          "id": 486938,
+          "ms": 2,
+          "sport": "NFL"
+        },
+        {
+          "id": 490248,
+          "ms": 2,
+          "sport": "NFL"
+        },
+        {
+          "id": 495176,
+          "ms": 1,
+          "sport": "NFL"
+        },
+        {
+          "id": 484669,
+          "ms": 1,
+          "sport": "NFL"
+        },
+        {
+          "id": 493826,
+          "ms": 1,
+          "sport": "NFL"
+        },
+        {
+          "id": 495058,
+          "ms": 1,
+          "sport": "NFL"
+        },
+        {
+          "id": 493912,
+          "ms": 1,
+          "sport": "NFL"
+        },
+        {
+          "id": 481074,
+          "ms": 1,
+          "sport": "NFL"
+        },
+        {
+          "id": 474016,
+          "ms": 6578,
+          "sport": "NFL"
+        },
+        {
+          "id": 474046,
+          "ms": 3,
+          "sport": "NFL"
+        },
+        {
+          "id": 494954,
+          "ms": 2,
+          "sport": "NFL"
+        },
+        {
+          "id": 481512,
+          "ms": 2,
+          "sport": "NFL"
+        },
+        {
+          "id": 493792,
+          "ms": 1,
+          "sport": "NFL"
+        },
+        {
+          "id": 494060,
+          "ms": 1,
+          "sport": "NFL"
+        }
+      ],
+      "model_calls": [
+        {
+          "stage": "reader",
+          "headline": "Bayern Munich’s Max Eberl does not rule out January transfers after disaster loss to LOSC Lille",
+          "prompt_n": 722,
+          "predicted_n": 127,
+          "cache_n": 1,
+          "prompt_ms": 2719.291,
+          "predicted_ms": 4611.087
+        },
+        {
+          "stage": "reader",
+          "headline": "Bayern Munich chief Christoph Freund shuts down January transfer spree despite brutal Harry Kane injury crisis",
+          "prompt_n": 487,
+          "predicted_n": 131,
+          "cache_n": 207,
+          "prompt_ms": 1424.295,
+          "predicted_ms": 4783.769
+        },
+        {
+          "stage": "reader",
+          "headline": "Bayern Munich hold crunch talks with Jamal Musiala’s agents amid growing tensions",
+          "prompt_n": 494,
+          "predicted_n": 130,
+          "cache_n": 207,
+          "prompt_ms": 1402.632,
+          "predicted_ms": 4906.475
+        },
+        {
+          "stage": "reader",
+          "headline": "Pep Guardiola Wanted To Sign Neymar Jr. For Bayern Munich",
+          "prompt_n": 488,
+          "predicted_n": 130,
+          "cache_n": 207,
+          "prompt_ms": 1410.182,
+          "predicted_ms": 4815.139
+        },
+        {
+          "stage": "reader",
+          "headline": "Revealed: Bayern Munich Stance on Jeremy Doku Transfer Amid Manchester City Sanction Fears",
+          "prompt_n": 488,
+          "predicted_n": 135,
+          "cache_n": 207,
+          "prompt_ms": 1405.981,
+          "predicted_ms": 4930.707
+        },
+        {
+          "stage": "reader",
+          "headline": "'Champions League not decided today' - Vincent Kompany remains defiant despite Bayern Munich's shock defeat to Lille",
+          "prompt_n": 499,
+          "predicted_n": 122,
+          "cache_n": 207,
+          "prompt_ms": 1400.869,
+          "predicted_ms": 4479.572
+        },
+        {
+          "stage": "reader",
+          "headline": "Vincent Kompany says Bayern Munich lost rhythm in 2-1 loss to LOSC Lille",
+          "prompt_n": 514,
+          "predicted_n": 128,
+          "cache_n": 207,
+          "prompt_ms": 1418.454,
+          "predicted_ms": 4716.234
+        },
+        {
+          "stage": "reader",
+          "headline": "Vincent Kompany calls on Bayern Munich to embrace the adversity, regain momentum after big loss to LOSC Lille",
+          "prompt_n": 517,
+          "predicted_n": 134,
+          "cache_n": 207,
+          "prompt_ms": 1444.083,
+          "predicted_ms": 4917.941
+        },
+        {
+          "stage": "reader",
+          "headline": "In 1989, the Dallas Cowboys signed Troy Aikman to a six-year, $11.2 million contract; 33 years later, he signed a deal with ESPN worth $90 million",
+          "prompt_n": 537,
+          "predicted_n": 250,
+          "cache_n": 208,
+          "prompt_ms": 1520.724,
+          "predicted_ms": 9134.033
+        },
+        {
+          "stage": "reader",
+          "headline": "\"Absolute loser behavior,\" \"This is why Cowboys traded him\": NFL fans react to Micah Parsons \"bus tossing\" Packers teammates o giving up 241 rushing yards",
+          "prompt_n": 485,
+          "predicted_n": 138,
+          "cache_n": 229,
+          "prompt_ms": 1410.346,
+          "predicted_ms": 5131.075
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 1934,
+          "predicted_n": 211,
+          "cache_n": 1,
+          "prompt_ms": 5394.544,
+          "predicted_ms": 8352.235
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 1853,
+          "predicted_n": 221,
+          "cache_n": 1,
+          "prompt_ms": 5124.309,
+          "predicted_ms": 8423.955
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 2213,
+          "predicted_n": 190,
+          "cache_n": 0,
+          "prompt_ms": 6338.351,
+          "predicted_ms": 7269.33
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 1237,
+          "predicted_n": 65,
+          "cache_n": 1,
+          "prompt_ms": 3632.122,
+          "predicted_ms": 2693.799
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 1004,
+          "predicted_n": 325,
+          "cache_n": 0,
+          "prompt_ms": 2983.933,
+          "predicted_ms": 13410.211
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 1312,
+          "predicted_n": 198,
+          "cache_n": 1,
+          "prompt_ms": 3830.049,
+          "predicted_ms": 7604.969
+        }
+      ]
+    },
+    "branch_saved": {
+      "source_preparation": [
+        {
+          "id": 488064,
+          "ms": 20,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 488152,
+          "ms": 5,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 485445,
+          "ms": 2,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 487412,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489988,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 488238,
+          "ms": 4,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 493073,
+          "ms": 2,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 488586,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 486700,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489020,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489646,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 491162,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489594,
+          "ms": 0,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 488780,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 489482,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 491198,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467678,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467226,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467386,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 468976,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 468110,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 472061,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467442,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 467218,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 471147,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 468208,
+          "ms": 1,
+          "sport": "FOOTBALL"
+        },
+        {
+          "id": 476040,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 490962,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 494676,
+          "ms": 1,
+          "sport": "NFL"
+        },
+        {
+          "id": 495722,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 486958,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 489834,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 490080,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 481622,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 477218,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 486938,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 490248,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 495176,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 484669,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 493826,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 495058,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 493912,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 481074,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 474016,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 474046,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 494954,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 481512,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 493792,
+          "ms": 0,
+          "sport": "NFL"
+        },
+        {
+          "id": 494060,
+          "ms": 0,
+          "sport": "NFL"
+        }
+      ],
+      "model_calls": [
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 1934,
+          "predicted_n": 211,
+          "cache_n": 1,
+          "prompt_ms": 5662.97,
+          "predicted_ms": 8105.345
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 1853,
+          "predicted_n": 221,
+          "cache_n": 1,
+          "prompt_ms": 5383.521,
+          "predicted_ms": 8138.155
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 4,
+          "predicted_n": 190,
+          "cache_n": 2209,
+          "prompt_ms": 83.61,
+          "predicted_ms": 7016.563
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 1237,
+          "predicted_n": 65,
+          "cache_n": 1,
+          "prompt_ms": 3569.613,
+          "predicted_ms": 2353.075
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 4,
+          "predicted_n": 325,
+          "cache_n": 1000,
+          "prompt_ms": 83.987,
+          "predicted_ms": 11981.465
+        },
+        {
+          "stage": "writer",
+          "headline": null,
+          "prompt_n": 1312,
+          "predicted_n": 198,
+          "cache_n": 1,
+          "prompt_ms": 3844.281,
+          "predicted_ms": 7600.844
+        }
+      ]
+    }
+  }
+}

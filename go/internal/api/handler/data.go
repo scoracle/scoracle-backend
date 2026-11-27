@@ -592,7 +592,7 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 // @Param date query string false "Eastern publication date (YYYY-MM-DD; default latest eligible)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
-// @Router /{sport}/{entityType}/{id}/journalist-headlines [get]
+// @Router /{sport}/{entityType}/{id}/articulator [get]
 func (h *Handler) GetJournalistHeadlines(w http.ResponseWriter, r *http.Request) {
 	h.serveDailyEntityJSON(w, r, "journalist_headlines")
 }

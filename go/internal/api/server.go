@@ -125,7 +125,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/{entityType:player|team}/{id}/articulator/{kind:p1|p2|p3|p4|p5|p6|p7|p8}", h.GetArticulatorSlice)
 			r.Get("/team/{id}/roster", h.GetRoster)
 			r.Get("/{entityType:player|team|person}/{id}/news", h.GetEntityNarratives)
-			r.Get("/{entityType:player|team|person}/{id}/journalist-headlines", h.GetJournalistHeadlines)
+			r.Get("/{entityType:player|team|person}/{id}/articulator", h.GetJournalistHeadlines)
 			r.Get("/{entityType:player|team|person}/{id}/transfers", h.GetEntityTransfers)
 			// Daily stored outputs; clients own longer reporting views.
 			r.Get("/{entityType:player|team|person}/{id}/headlines", h.GetEntityHeadlines)

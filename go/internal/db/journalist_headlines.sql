@@ -25,7 +25,7 @@ WITH eligible AS (
 ), selected AS (
     SELECT * FROM unique_headlines ORDER BY published_at DESC, article_id DESC LIMIT 5
 )
-SELECT json_build_object('page','journalist-headlines','sport',lower($1),'entity_type',$2,
+SELECT json_build_object('page','articulator','sport',lower($1),'entity_type',$2,
     'entity_id',$3,'date',(SELECT day FROM edition),'headlines',coalesce((
         SELECT json_agg(selected ORDER BY published_at DESC,article_id DESC) FROM selected
     ),'[]'::json))

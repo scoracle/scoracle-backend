@@ -38,6 +38,51 @@ paths:
       summary: API root info
       tags:
       - meta
+  /{sport}/{entityType}/{id}/articulator:
+    get:
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        - person
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Eastern publication date (YYYY-MM-DD; default latest eligible)
+        in: query
+        name: date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get classified journalist evidence
+      tags:
+      - data
   /{sport}/{entityType}/{id}/articulator/{kind}:
     get:
       description: Returns a byte-stable compact JSON string composed from precomputed
@@ -147,51 +192,6 @@ paths:
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
       summary: Get the entity daily character outputs
-      tags:
-      - data
-  /{sport}/{entityType}/{id}/journalist-headlines:
-    get:
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: Entity type
-        enum:
-        - player
-        - team
-        - person
-        in: path
-        name: entityType
-        required: true
-        type: string
-      - description: Entity ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Eastern publication date (YYYY-MM-DD; default latest eligible)
-        in: query
-        name: date
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get classified journalist evidence
       tags:
       - data
   /{sport}/{entityType}/{id}/meta:

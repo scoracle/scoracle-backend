@@ -582,6 +582,21 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 	h.serveDailyEntityJSON(w, r, "entity_news")
 }
 
+// GetJournalistHeadlines returns up to five distinct publisher headlines in newest-first order.
+// @Summary Get classified journalist evidence
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team, person)
+// @Param id path int true "Entity ID"
+// @Param date query string false "Eastern publication date (YYYY-MM-DD; default latest eligible)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/journalist-headlines [get]
+func (h *Handler) GetJournalistHeadlines(w http.ResponseWriter, r *http.Request) {
+	h.serveDailyEntityJSON(w, r, "journalist_headlines")
+}
+
 // GetEntityTransfers returns the entity's TRANSFERS product — the vetted rumor
 // heat list (pre-narrative data). For a team: linked players; for a player:
 // interested clubs. The counterparty is the OTHER entity type.

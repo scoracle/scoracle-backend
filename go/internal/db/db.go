@@ -4,6 +4,7 @@ package db
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"time"
 
@@ -17,6 +18,9 @@ import (
 type Pool struct {
 	*pgxpool.Pool
 }
+
+//go:embed journalist_headlines.sql
+var journalistHeadlinesStatement string
 
 const universalEntitiesStatement = `WITH player_rows AS (
 	SELECT
@@ -993,6 +997,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// vetted rumor heat list), and /sigil (crown synthesis). Each card fetches
 		// its own product. $1 sport · $2 entity_type · $3 entity_id · $4 scope ·
 		// $4 is an optional Eastern reporting date.
+		"journalist_headlines": journalistHeadlinesStatement,
 		"entity_news": `WITH req AS (
 			SELECT upper($1::text) AS sport,
 			       lower($2::text) AS entity_type,

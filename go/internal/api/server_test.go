@@ -43,6 +43,8 @@ func TestRouteOwnershipSplit(t *testing.T) {
 		{name: "football week headlines route registered", path: "/api/v1/football/player/1/headlines", wantStatus: http.StatusServiceUnavailable},
 		{name: "headlines leaderboard route retired", path: "/api/v1/nba/leaderboard/headlines", wantStatus: http.StatusNotFound},
 		{name: "person news", path: "/api/v1/nfl/person/1/news", wantStatus: http.StatusServiceUnavailable},
+		{name: "journalist evidence", path: "/api/v1/nba/team/2/journalist-headlines", wantStatus: http.StatusServiceUnavailable},
+		{name: "bad evidence date", path: "/api/v1/nba/team/2/journalist-headlines?date=oops", wantStatus: http.StatusBadRequest},
 		{name: "person vibe", path: "/api/v1/nfl/person/1/vibe", wantStatus: http.StatusServiceUnavailable},
 		{name: "person transfers", path: "/api/v1/nfl/person/1/transfers", wantStatus: http.StatusServiceUnavailable},
 		{name: "person headlines", path: "/api/v1/nfl/person/1/headlines", wantStatus: http.StatusServiceUnavailable},

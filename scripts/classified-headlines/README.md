@@ -62,3 +62,35 @@ source attribution, identity, event status and unsupported claims separately.
 For transfer confirmation, prefer an explicit recorded status or “not confirmed
 in this reading” over a generated yes/no. These fixtures test feasibility and
 failure modes, not prevalence, production retrieval quality or iPhone latency.
+
+## Journalist branch: paired database replay
+
+`paired-inputs.jsonl` freezes the actual `/news` and `/journalist-headlines` SQL
+results from one read-only repeatable-read snapshot for November 26. From
+entities with a published narrative, we took the lowest two distinct IDs per
+sport and kind (NBA, NFL, football; team and player). This gives twelve cases
+without choosing on answer quality. It excludes days lacking a published
+narrative. News selects the Scoracle edition date; evidence selects the
+publisher date. This is a comparison of the two products as delivered today,
+not a reconstruction of database state at midnight.
+
+Run on the two experiment branches:
+
+```sh
+bash scripts/classified-headlines/run.sh --paired scripts/classified-headlines/paired-inputs.jsonl
+```
+
+`paired-results.jsonl` records 36 recap answers, 33 headline answers and one
+empty reading. Inputs contained 39 selected headlines. For Sunderland, the
+source follow-ups identified JournalArta and reproduced its exact headline.
+For Atlanta, the model attributed Heavy.com's Celtics injury headline to
+Atlanta News First. For Boston, it paired a Hardwood Houdini claim with
+Peradaban.id. For Brissett, a one-headline packet about a coach “on facing”
+him became a claim the coach was “excited”; no such quote was available.
+All those responses passed the app guard. Grayson Allen's Nov. 26 recap cited
+a Nov. 25 headline; no eligible Nov. 26 source was returned.
+
+Use the packet as an evidence surface. Before making it the default for exact
+quotes, bind the displayed publisher and wording to a single returned article
+ID rather than letting the model regenerate them. A citation still cannot
+establish facts absent from the cited headline.

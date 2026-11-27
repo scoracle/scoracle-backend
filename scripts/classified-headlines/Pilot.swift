@@ -23,13 +23,13 @@ struct Pilot {
     }
 
     @MainActor
-    static func run(_ name: String, packet: String, questions: [String], skill: ReadingSkill = .news) async throws {
+    static func run(_ name: String, packet: String, questions: [String], skill: ReadingSkill = .news, target: Entity? = nil) async throws {
         let model = SystemLanguageModel.default
         let tokens = try await model.tokenCount(for: packet)
         if !CommandLine.arguments.contains("--session") {
-            let entity = skill == .transfers ? Entity(sport: .football, kind: .player, key: "990003", name: "Alex Sample")
+            let entity = target ?? (skill == .transfers ? Entity(sport: .football, kind: .player, key: "990003", name: "Alex Sample")
                 : name.hasPrefix("chelsea/") ? Entity(sport: .football, kind: .team, key: "49", name: "Chelsea")
-                : Entity(sport: .football, kind: .team, key: "990001", name: "Arsenal")
+                : Entity(sport: .football, kind: .team, key: "990001", name: "Arsenal"))
             var prior: ConversationExchange?
             let workspace = Workspace()
             for question in questions {
@@ -64,6 +64,30 @@ struct Pilot {
     static func main() async throws {
         guard case .available = SystemLanguageModel.default.availability else {
             throw NSError(domain: "Apple Intelligence unavailable", code: 1)
+        }
+        if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--paired" {
+            let text = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
+            for line in text.split(separator: "\n") {
+                let sample = try JSONSerialization.jsonObject(with: Data(line.utf8)) as! Object
+                let evidence = sample["journalist"] as! Object
+                let entity = Entity(sport: Sport(rawValue: evidence["sport"] as! String)!,
+                    kind: Entity.Kind(rawValue: evidence["entity_type"] as! String)!,
+                    key: String(evidence["entity_id"] as! Int), name: sample["name"] as! String)
+                for key in ["narratives", "journalist"] {
+                    let product = sample[key] as! Object
+                    let name = "\(entity.id)/\(key)"
+                    if key == "journalist" {
+                        do { try ReadingSkill.news.checkContent(product) }
+                        catch APIError.emptyReading {
+                            print(try json(["case": name, "result": "emptyReading"]))
+                            continue
+                        }
+                    }
+                    let data = try EntityChatPayload.compact(["target": ["name": entity.name, "id": entity.id], key: product])
+                    try await run(name, packet: data, questions: ["What changed?", "Who reported that?", "What exactly did they say?"], target: entity)
+                }
+            }
+            return
         }
         let dir = "harness/docs/qualification/2026-11-15-headline-pipeline/"
         let news = try load(dir + "journalist-api.json")

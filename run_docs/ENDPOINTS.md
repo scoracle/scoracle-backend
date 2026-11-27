@@ -24,6 +24,7 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis — `{headline, body, heat}` + omen/convergence (was per-entity `/vibes`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/vibe` | The latest complete Influencer reading at any age: `current: {id, headline, body, heat, generated_at, …}`. `heat` is nullable; score-free cards remain readable. `current: null` (200) when no complete card exists. `snapshots[]` retains seven days of scored history and does not select the current card. |
 | `GET /api/v1/{sport}/{entityType}/{id}/news` | scoped model narratives `{headline, body}` with source freshness and trajectory markers |
+| `GET /api/v1/{sport}/{entityType}/{id}/journalist-headlines` | Up to five distinct journalist-qualified publisher headlines, newest first, with `article_id`, `publisher`, and `published_at`. `?date=YYYY-MM-DD` selects an Eastern **publication** day; default is the latest eligible day. Empty `headlines` means no eligible sources for that day. |
 | `GET /api/v1/{sport}/{entityType}/{id}/transfers` | scoped vetted rumor heat, per-pair `headline`s + the Insider's `wire_read`; source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
 | `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · legacy roster compatibility |

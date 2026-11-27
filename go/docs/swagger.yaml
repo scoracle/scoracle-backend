@@ -68,6 +68,14 @@ paths:
         in: query
         name: date
         type: string
+      - description: Classification to read (default news)
+        enum:
+        - news
+        - mood
+        - transfers
+        in: query
+        name: reading
+        type: string
       produces:
       - application/json
       responses:
@@ -80,7 +88,7 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get classified journalist evidence
+      summary: Get classified headlines for an Articulator reading
       tags:
       - data
   /{sport}/{entityType}/{id}/articulator/{kind}:

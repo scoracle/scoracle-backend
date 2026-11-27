@@ -1560,7 +1560,7 @@ const docTemplate = `{
                 "tags": [
                     "data"
                 ],
-                "summary": "Get classified journalist evidence",
+                "summary": "Get classified headlines for an Articulator reading",
                 "parameters": [
                     {
                         "enum": [
@@ -1597,6 +1597,17 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Eastern publication date (YYYY-MM-DD; default latest eligible)",
                         "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "news",
+                            "mood",
+                            "transfers"
+                        ],
+                        "type": "string",
+                        "description": "Classification to read (default news)",
+                        "name": "reading",
                         "in": "query"
                     }
                 ],

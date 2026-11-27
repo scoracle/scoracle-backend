@@ -3,7 +3,8 @@ WITH eligible AS (
     SELECT x.article_id, x.clean_text AS headline, s.source->>'source' AS publisher,
            a.published_at, public.headline_content_key(x.clean_text) AS content_key
     FROM classifier_spectra x
-    JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id AND d.character='journalist'
+    JOIN classifier_spectrum_deliveries d ON d.spectrum_id=x.id AND d.character=
+        CASE $5::text WHEN 'news' THEN 'journalist' WHEN 'mood' THEN 'influencer' WHEN 'transfers' THEN 'insider' END
     JOIN classifier_source_heads h ON (h.sport,h.article_id,h.source_id)=(x.sport,x.article_id,x.source_id)
     JOIN classifier_sources s ON s.id=h.source_id
     JOIN news_articles a ON a.id=x.article_id
@@ -26,6 +27,6 @@ WITH eligible AS (
     SELECT * FROM unique_headlines ORDER BY published_at DESC, article_id DESC LIMIT 5
 )
 SELECT json_build_object('page','articulator','sport',lower($1),'entity_type',$2,
-    'entity_id',$3,'date',(SELECT day FROM edition),'headlines',coalesce((
+    'entity_id',$3,'reading',$5,'date',(SELECT day FROM edition),'headlines',coalesce((
         SELECT json_agg(selected ORDER BY published_at DESC,article_id DESC) FROM selected
     ),'[]'::json))

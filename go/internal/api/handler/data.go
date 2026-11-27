@@ -582,19 +582,29 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 	h.serveDailyEntityJSON(w, r, "entity_news")
 }
 
-// GetJournalistHeadlines returns up to five distinct publisher headlines in newest-first order.
-// @Summary Get classified journalist evidence
+// GetArticulatorHeadlines returns up to five distinct publisher headlines in newest-first order.
+// @Summary Get classified headlines for an Articulator reading
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entityType path string true "Entity type" Enums(player, team, person)
 // @Param id path int true "Entity ID"
 // @Param date query string false "Eastern publication date (YYYY-MM-DD; default latest eligible)"
+// @Param reading query string false "Classification to read (default news)" Enums(news, mood, transfers)
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/articulator [get]
-func (h *Handler) GetJournalistHeadlines(w http.ResponseWriter, r *http.Request) {
-	h.serveDailyEntityJSON(w, r, "journalist_headlines")
+func (h *Handler) GetArticulatorHeadlines(w http.ResponseWriter, r *http.Request) {
+	reading := r.URL.Query().Get("reading")
+	switch reading {
+	case "":
+		reading = "news"
+	case "news", "mood", "transfers":
+	default:
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY_PARAM", "reading must be news, mood or transfers")
+		return
+	}
+	h.serveDailyEntityJSON(w, r, "articulator_headlines", reading)
 }
 
 // GetEntityTransfers returns the entity's TRANSFERS product — the vetted rumor
@@ -1111,7 +1121,7 @@ type cachedPayload struct {
 	etag string
 }
 
-func (h *Handler) serveDailyEntityJSON(w http.ResponseWriter, r *http.Request, stmt string) {
+func (h *Handler) serveDailyEntityJSON(w http.ResponseWriter, r *http.Request, stmt string, extra ...any) {
 	date, ok := optionalReportingDate(w, r)
 	if !ok {
 		return
@@ -1128,7 +1138,8 @@ func (h *Handler) serveDailyEntityJSON(w http.ResponseWriter, r *http.Request, s
 	if !ok {
 		return
 	}
-	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, date)
+	args := append([]any{sport, entityType, id, date}, extra...)
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLNews, false, args...)
 }
 
 func (h *Handler) serveStatementJSON(
